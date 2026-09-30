@@ -169,9 +169,6 @@ describe('the route map', () => {
       'settings/action-center',
       'settings/my-calendar',
       'settings/imports',
-      // An add-on's own page, which its alert's push opens.
-      'a/realestate',
-      `a/realestate/deals/${ID}`,
       // A page the web gains later: the web has it until the phone does.
       'something-new',
     ];
@@ -187,6 +184,41 @@ describe('the route map', () => {
     });
     // Every web-only rule is a whole area of the web.
     for (const rule of ROUTES.filter((r) => r.phone === 'web')) expect(rule.deeper).toBe(true);
+  });
+
+  it('opens an add-on’s page on the web, naming the phone screen it gets later', () => {
+    // A deal, as an alert's push names it: the phone has no deal screen yet, so the web, with the screen it gets.
+    expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}&x=1`)).toEqual({
+      kind: 'web',
+      path: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}&x=1`,
+      businessId: WS,
+      later: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}`,
+    });
+    expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`)).toMatchObject({
+      kind: 'web',
+      later: `/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`,
+    });
+    expect(routeFor(`/app/w/${WS}/a/realestate?view=attention`)).toMatchObject({
+      kind: 'web',
+      later: `/app/w/${WS}/a/realestate?view=attention`,
+    });
+    // What the add-on keeps on the web, an add-on nobody built, and a page it doesn't have: the web, and nothing later.
+    for (const page of [
+      'a/realestate/settings',
+      `a/realestate/deals/${ID}/nothing`,
+      'a/realestate/deals/not-an-id',
+      `a/someday/things/${ID}`,
+      'a',
+    ])
+      expect({ page, target: routeFor(`/app/w/${WS}/${page}`) }).toEqual({
+        page,
+        target: { kind: 'web', path: `/app/w/${WS}/${page}`, businessId: WS },
+      });
+    // What the app does with it: the web, as before.
+    expect(decideLink(`/app/w/${WS}/a/realestate/deals/${ID}`, { businessIds: [WS] })).toEqual({
+      kind: 'web',
+      path: `/app/w/${WS}/a/realestate/deals/${ID}`,
+    });
   });
 
   it('fills a phone path’s parts from what the web path named', () => {

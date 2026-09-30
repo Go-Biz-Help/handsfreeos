@@ -12,7 +12,11 @@
  * - **The desk work the phone leaves to the web** (the plan's web-only areas: workflow editors, the AI teammate's
  *   setup, knowledge, imports, the audit log, business settings, calendar setup, texting, email and payment setup,
  *   members and invitations, and agency pages) opens the web.
+ * - **An add-on's pages** (`/a/<id>/…`, which its alerts open) go by what the add-on declares the phone draws
+ *   (`ui.phone`): its screen once this build has it (./addon-screens.ts), the web until then and for the rest.
  */
+import { BUILT_ADDONS } from '@hfos/core';
+import { ADDON_SCREENS } from './addon-screens';
 
 /** The web app's host: the only one whose links open the app. */
 export const APP_LINK_HOST = 'app.handsfreeos.com';
@@ -38,6 +42,8 @@ export type LinkTarget =
       /** The web path to open in the browser, query included. */
       readonly path: string;
       readonly businessId: string | null;
+      /** An add-on's page the phone will draw: the screen this opens once the build has it. */
+      readonly later?: string;
     }
   /** Not the app's: a customer's page, another site, or nothing it knows. */
   | { readonly kind: 'none' };
@@ -112,8 +118,6 @@ export const ROUTES: readonly Rule[] = [
   { web: 'imports', phone: 'web', deeper: true },
   { web: 'audit', phone: 'web', deeper: true },
   { web: 'members', phone: 'web', deeper: true },
-  // An add-on's own pages, which its alerts open (Real Estate step 5): the phone draws none of them.
-  { web: 'a', phone: 'web', deeper: true },
 ];
 
 const segments = (path: string) => path.split('/').filter(Boolean);
@@ -177,6 +181,65 @@ export function phonePathOf(phone: string, params: Readonly<Record<string, strin
     .join('/');
 }
 
+/** What a web path's parts name when they fit a pattern (`inbox/:conversationId`), query included; null when not. */
+function matchParts(
+  pattern: readonly string[],
+  parts: readonly string[],
+  query: Readonly<Record<string, string>>,
+  deeper = false,
+): Record<string, string> | null {
+  if (deeper ? parts.length < pattern.length : parts.length !== pattern.length) return null;
+  const params: Record<string, string> = { ...query };
+  const matched = pattern.every((p, i) => {
+    const part = parts[i]!;
+    if (p.startsWith(':')) {
+      if (!UUID.test(part)) return false;
+      params[p.slice(1)] = part;
+      return true;
+    }
+    return p === part;
+  });
+  return matched ? params : null;
+}
+
+/** A screen's address: the business, the screen, and the query parameters it reads. */
+function screenHref(
+  businessId: string,
+  screen: string,
+  keys: readonly string[] | undefined,
+  query: Readonly<Record<string, string>>,
+): string {
+  const kept = (keys ?? [])
+    .filter((key) => query[key])
+    .map((key) => `${key}=${encodeURIComponent(query[key]!)}`)
+    .join('&');
+  return `/app/w/${businessId}${screen ? `/${screen}` : ''}${kept ? `?${kept}` : ''}`;
+}
+
+/**
+ * An add-on's page (`a/<id>/…`): the screen for it when the add-on declares the phone draws it (`ui.phone`) and this
+ * build has it, the web naming that screen while the build doesn't, and the web for the rest (its settings, say).
+ */
+function addonTarget(
+  businessId: string,
+  rest: readonly string[],
+  query: Readonly<Record<string, string>>,
+  pathAndQuery: string,
+): LinkTarget {
+  const [addonId, ...page] = rest;
+  const manifest = BUILT_ADDONS.find((m) => m.id === addonId);
+  for (const declared of manifest?.ui?.phone ?? []) {
+    const params = matchParts(segments(declared.path), page, query);
+    if (!params) continue;
+    const route = `a/${addonId}${declared.path ? `/${declared.path}` : ''}`;
+    const href = screenHref(businessId, phonePathOf(route, params), declared.query, query);
+    if (!ADDON_SCREENS.has(route))
+      return { kind: 'web', path: pathAndQuery, businessId, later: href };
+    return { kind: 'screen', href, businessId, later: null, params };
+  }
+  return { kind: 'web', path: pathAndQuery, businessId };
+}
+
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
   const { path, query } = splitQuery(pathAndQuery);
@@ -198,29 +261,14 @@ export function routeFor(pathAndQuery: string): LinkTarget {
     const businessId = parts[2];
     if (!businessId || !UUID.test(businessId)) return { kind: 'none' };
     const rest = parts.slice(3);
+    if (rest[0] === 'a') return addonTarget(businessId, rest.slice(1), query, pathAndQuery);
     for (const rule of ROUTES) {
-      const pattern = segments(rule.web);
-      if (rule.deeper ? rest.length < pattern.length : rest.length !== pattern.length) continue;
-      const params: Record<string, string> = { ...query };
-      const matched = pattern.every((p, i) => {
-        const part = rest[i]!;
-        if (p.startsWith(':')) {
-          if (!UUID.test(part)) return false;
-          params[p.slice(1)] = part;
-          return true;
-        }
-        return p === part;
-      });
-      if (!matched) continue;
+      const params = matchParts(segments(rule.web), rest, query, rule.deeper);
+      if (!params) continue;
       if (rule.phone === 'web') return { kind: 'web', path: pathAndQuery, businessId };
-      const screen = phonePathOf(rule.phone, params);
-      const kept = (rule.query ?? [])
-        .filter((key) => query[key])
-        .map((key) => `${key}=${encodeURIComponent(query[key]!)}`)
-        .join('&');
       return {
         kind: 'screen',
-        href: `/app/w/${businessId}${screen ? `/${screen}` : ''}${kept ? `?${kept}` : ''}`,
+        href: screenHref(businessId, phonePathOf(rule.phone, params), rule.query, query),
         businessId,
         later: rule.later ?? null,
         params,

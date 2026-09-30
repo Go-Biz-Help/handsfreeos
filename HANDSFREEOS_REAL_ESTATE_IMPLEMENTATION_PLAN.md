@@ -67,7 +67,9 @@ Chosen for Chris, open to change:
   as "HandsFreeOS does this".
 - The person who hears critical alerts must be an owner or hold See every deal; anyone else falls back to the
   owners.
-- A phone push about a deal opens its web page, since the phone has no add-on screens yet.
+- A phone push about a deal opens the deal on the phone. Chris (2026-09-30): "we will have phone deal screens, so
+  prepare and code like they will exist." The manifest names the deal pages the phone draws (`ui.phone`), and a push
+  carries the deal as `refs.recordId`. Until the phone has the screens (a later round), the link opens the web.
 
 Carried over, not re-asked:
 

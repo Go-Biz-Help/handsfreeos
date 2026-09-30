@@ -18,6 +18,7 @@ import {
   type Catalog,
   type HumanActor,
 } from '@hfos/core/server';
+import { PushData } from '@hfos/core';
 import { asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -385,9 +386,14 @@ describe('an add-on’s alert', () => {
     expect(
       pushesTo(otherPhone).filter((p) => p.message.title?.includes('lease ends')),
     ).toHaveLength(0);
-    expect(
-      pushesTo(agentPhone).filter((p) => p.message.title?.includes('lease ends')),
-    ).toHaveLength(1);
+    const pushed = pushesTo(agentPhone).filter((p) => p.message.title?.includes('lease ends'));
+    expect(pushed).toHaveLength(1);
+    // It opens the add-on's page, and names the record, so the phone's screen for it can find it.
+    expect(PushData.parse(pushed[0]!.message.data)).toMatchObject({
+      category: 'addon_alert',
+      path: `/app/w/${ws}/a/fxprop/leases`,
+      refs: { alertId, recordId: lease },
+    });
   });
 
   it('waits for the business to open, unless it’s critical', async () => {

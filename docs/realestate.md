@@ -112,7 +112,9 @@ pnpm openapi                                                        # after chan
   houses.
 - Reading contracts and reports; the MLS, e-sign, lender, title, insurance and showing connectors (each needs an
   add-on's own credentials and webhook routes in core first).
-- The client portal, and phone screens for deals (a push opens the web).
+- The client portal, and phone screens for deals. Their links are ready: the manifest's `ui.phone` names the deal
+  pages the phone will draw, and a push, an email link or a Home card opens them there once the phone has them (the
+  web until then).
 - The AI teammate using the add-on, and workflow steps and triggers from it.
 - State rules, a brokerage rule engine beyond the duty editor, retention and legal holds, and exporting a whole
   transaction.

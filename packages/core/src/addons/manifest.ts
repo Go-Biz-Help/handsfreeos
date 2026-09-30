@@ -182,6 +182,17 @@ export interface AddonNavItem {
   readonly permission?: string;
 }
 
+/**
+ * One of the add-on's pages the phone draws too. Its links (an alert's push, an email, a Home card) open that screen
+ * on a phone whose build has it, and the web on one that doesn't yet, so they never change when the screen arrives.
+ */
+export interface AddonPhonePage {
+  /** Relative to the add-on's pages, as the web has it: '' for its first page, `deals/:dealId` with `:name` for an id. */
+  readonly path: string;
+  /** The query parameters the screen reads too (`duty`), kept on its address. */
+  readonly query?: readonly string[];
+}
+
 export interface AddonSettingsDeclaration {
   /** The business's settings, checked on every save. Stored in `app.addon_installations.settings`. */
   readonly workspace?: z.ZodType;
@@ -254,6 +265,8 @@ export interface AddonManifest {
   readonly ui?: {
     readonly nav?: readonly AddonNavItem[];
     readonly slots?: readonly { readonly slot: AddonSlotName; readonly permission?: string }[];
+    /** The pages the phone draws too. Anything else of the add-on's opens the web there. */
+    readonly phone?: readonly AddonPhonePage[];
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
@@ -401,6 +414,24 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     'menu place',
     (m.ui?.nav ?? []).map((n) => n.key),
   );
+  for (const page of m.ui?.phone ?? []) {
+    const parts = page.path.split('/');
+    if (
+      page.path !== '' &&
+      !parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p))
+    )
+      say(`phone page "${page.path}" must be the web page's path, with ":name" for an id`);
+    for (const q of page.query ?? [])
+      if (!/^[a-z][A-Za-z0-9_]{0,39}$/.test(q))
+        say(`phone page "${page.path}" reads "${q}", which isn't a query key`);
+  }
+  const phoneShapes = new Set<string>();
+  for (const page of m.ui?.phone ?? []) {
+    // `deals/:dealId` and `deals/:id` are the same page.
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (phoneShapes.has(shape)) say(`phone page "${page.path}" is declared twice`);
+    phoneShapes.add(shape);
+  }
 
   if (m.catalog.status === 'planned') {
     if ((m.tables ?? []).length || (m.jobs ?? []).length || (m.recordKinds ?? []).length)

@@ -337,7 +337,11 @@ export function addonAlertNotifyJob(catalog: readonly AddonManifest[]): JobHandl
         about: addon,
         body: a.detail?.trim() || dueWords || ADDON_ALERT_SEVERITY[a.severity].label,
         path,
-        refs: { alertId: a.id, ...(a.person_id ? { personId: a.person_id } : {}) },
+        refs: {
+          alertId: a.id,
+          ...(a.person_id ? { personId: a.person_id } : {}),
+          ...(a.custom_record_id ? { recordId: a.custom_record_id } : {}),
+        },
         collapseId: `alert-${a.id}`,
       });
       await rows(

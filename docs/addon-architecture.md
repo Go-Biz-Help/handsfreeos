@@ -95,8 +95,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `addons`) and an email (`addonEmail`) once per thing it says, critical at any hour and the rest while the business
   is open. `info` only goes on Home. A person acknowledges one from its card (`addon_alert.acknowledged` reaches that
   add-on alone). Which severity, when to raise it higher and who the top alerts go to are the add-on's to decide.
-  Phones keep no add-on cards; the push opens the web. Turning the add-on off clears its alerts
-  (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
+  Phones keep no add-on cards yet. The push opens the add-on's screen on a phone that has it and the web until then:
+  an add-on names the pages the phone draws in its manifest (`ui.phone`), and the phone's build lists the screens it
+  has (`apps/mobile/src/links/addon-screens.ts`), so no link changes when a screen arrives. Turning the add-on off
+  clears its alerts (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
 
 ## The lifecycle
 

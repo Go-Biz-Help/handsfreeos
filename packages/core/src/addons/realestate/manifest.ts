@@ -295,6 +295,17 @@ export const realestateAddon = defineAddon({
       { slot: 'lead.panels', permission: 'realestate.use' },
       { slot: 'record.panels', permission: 'realestate.use' },
     ],
+    // The deal pages the phone draws too (Chris, 2026-09-30): an alert's push opens the deal there once the phone
+    // has the screen, the web until then. Deal settings stays on the web.
+    phone: [
+      { path: '', query: ['view'] },
+      { path: 'duties', query: ['scope', 'duty'] },
+      { path: 'deals/:dealId', query: ['duty'] },
+      { path: 'deals/:dealId/dates' },
+      { path: 'deals/:dealId/documents' },
+      { path: 'deals/:dealId/history' },
+      { path: 'deals/:dealId/updates/:draftId' },
+    ],
   },
   ai: {
     directory:

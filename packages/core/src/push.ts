@@ -173,7 +173,10 @@ export const PUSH_CATEGORIES = {
   job_check: { switch: 'jobs', buttons: ['done', 'no_show', 'still_there'] },
   /** Something the business connected stopped working (Automations' "Connection broke"): Open goes to fix it. */
   connection: { switch: 'connections', buttons: ['open'] },
-  /** An add-on's alert (app.addon_alerts): Open goes to the add-on's page on the web, where the work is. */
+  /**
+   * An add-on's alert (app.addon_alerts): Open goes to the add-on's page. The phone opens its own screen for it when
+   * this build has one (the add-on's `ui.phone`), and the web until then.
+   */
   addon_alert: { switch: 'addons', buttons: ['open'] },
 } as const satisfies Record<
   string,
@@ -210,6 +213,8 @@ export const PushRefs = z.object({
   invoiceId: z.uuid().optional(),
   /** An add-on's alert (app.addon_alerts). */
   alertId: z.uuid().optional(),
+  /** The record an add-on's alert is about (a deal): its screen on the phone finds its notifications by it. */
+  recordId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 
