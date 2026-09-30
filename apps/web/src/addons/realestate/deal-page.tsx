@@ -503,8 +503,11 @@ function RisksCard({
   workspaceId: string;
   dealId: string;
 }) {
+  const [all, setAll] = useState(false);
   const reds = risks.reasons.filter((r) => r.level === 'red').length;
   const n = risks.reasons.length;
+  // The first few, reds first (as the health check orders them); the rest a press away.
+  const shown = all ? risks.reasons : risks.reasons.slice(0, 4);
   return (
     <Card className="p-4 md:p-5" data-testid="deal-risks">
       <CardHead
@@ -523,7 +526,7 @@ function RisksCard({
         </p>
       ) : (
         <ul className="space-y-2">
-          {risks.reasons.map((r, i) => (
+          {shown.map((r, i) => (
             <li
               key={`${r.code}-${r.dutyId ?? i}`}
               className={cn(
@@ -560,6 +563,18 @@ function RisksCard({
               ) : null}
             </li>
           ))}
+          {n > shown.length || all ? (
+            <li>
+              <button
+                type="button"
+                className="text-[13px] text-accent-text hover:underline"
+                onClick={() => setAll(!all)}
+                data-testid="risks-more"
+              >
+                {all ? 'Show fewer' : `Show all ${n}`}
+              </button>
+            </li>
+          ) : null}
         </ul>
       )}
     </Card>

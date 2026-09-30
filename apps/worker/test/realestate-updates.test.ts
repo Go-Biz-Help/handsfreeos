@@ -22,7 +22,9 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { realestateBusiness } from '../../../packages/core/test/addons/realestate-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
-import { scriptedAi, unquote } from '../src/ai/scripted';
+import { checkWords } from '@hfos/core/addons/realestate/fair-housing';
+import { clientUpdatePrompt } from '@hfos/core/addons/realestate/prompts';
+import { scriptedAi, scriptedClientUpdate, unquote } from '../src/ai/scripted';
 import { attentionJobs, withAttention } from '../src/attention/index';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
@@ -214,6 +216,28 @@ describe('Client updates', () => {
           where workspace_id = ${ws} and key = ${`draft:${draft!.id}`}`,
     );
     expect(card).toEqual({ cleared: true });
+  });
+
+  it('are written by the local stand-in from the deal’s facts, with nothing the word list flags', () => {
+    const { subject, body } = scriptedClientUpdate(
+      clientUpdatePrompt({
+        business: 'Orchard Realty',
+        agentName: 'Sam Rivera',
+        clientFirstName: 'Priya',
+        clientIs: 'buying',
+        address: '12 Elm St',
+        stage: 'Under contract',
+        milestone: 'under_contract',
+        confirmedDates: [{ what: 'Closing', when: 'Friday, October 30' }],
+        done: ['Earnest money delivered'],
+        next: [{ what: 'Home inspection', due: 'Monday, October 5' }],
+      }),
+    );
+    expect(subject).toBe('An update on 12 Elm St');
+    expect(body).toMatch(/^Hi Priya,/);
+    expect(body).toContain('Home inspection by Monday, October 5');
+    expect(body.trim().split('\n').at(-1)).toBe('Sam');
+    expect(checkWords(`${subject}\n${body}`)).toEqual([]);
   });
 
   it('skip a milestone the business turned off', async () => {

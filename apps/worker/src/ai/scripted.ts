@@ -1100,11 +1100,64 @@ export const AUTOMATION_RULES: readonly ScriptRule[] = [
   },
 ];
 
+// ---- Add-ons' client updates ("Write the client update.", "Check this email for fair housing risk.") ----
+
+interface ScriptedDealFacts {
+  readonly agentName?: string;
+  readonly clientFirstName?: string;
+  readonly address?: string | null;
+  readonly stage?: string;
+  readonly confirmedDates?: readonly { readonly what: string; readonly when: string }[];
+  readonly done?: readonly string[];
+  readonly next?: readonly { readonly what: string; readonly due: string | null }[];
+}
+
+/**
+ * A client update written only from the deal's facts in <deal_facts>: where it stands, what's done, what's next, and
+ * the confirmed dates, signed with the agent's first name. Words that could read as a fair-housing preference never
+ * appear, so a stand-in draft is clean until a person edits it.
+ */
+export function scriptedClientUpdate(message: string): { subject: string; body: string } {
+  let f: ScriptedDealFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'deal_facts') ?? '{}')) as ScriptedDealFacts;
+  } catch {
+    // Unreadable facts: a short, general update.
+  }
+  const home = f.address ?? 'your home';
+  const done = (f.done ?? []).slice(0, 3);
+  const next = (f.next ?? []).slice(0, 3);
+  const dates = (f.confirmedDates ?? []).slice(0, 4);
+  const lines = [
+    `Hi ${f.clientFirstName ?? 'there'},`,
+    '',
+    `A quick update on ${home}. Where things stand: ${(f.stage ?? 'moving along').toLowerCase()}.`,
+    ...(done.length ? ['', `Done so far: ${done.join('; ')}.`] : []),
+    ...(next.length
+      ? ['', `Next: ${next.map((n) => (n.due ? `${n.what} by ${n.due}` : n.what)).join('; ')}.`]
+      : []),
+    ...(dates.length
+      ? ['', `Dates to know: ${dates.map((d) => `${d.what}, ${d.when}`).join('; ')}.`]
+      : []),
+    '',
+    `I'll keep you posted.`,
+    (f.agentName ?? '').split(/\s+/)[0] || 'Your agent',
+  ];
+  return { subject: `An update on ${home}`, body: lines.join('\n') };
+}
+
+export const CLIENT_UPDATE_RULES: readonly ScriptRule[] = [
+  { when: /Write the client update\.$/, json: (message) => scriptedClientUpdate(message) },
+  // The fixed word list reads every draft too; the stand-in's own read finds nothing more.
+  { when: /Check this email for fair housing risk\.$/, json: () => ({ flags: [] }) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
   ...AUTOMATION_RULES,
   ...WORKFLOW_RULES,
   ...BUILDER_RULES,
+  ...CLIENT_UPDATE_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

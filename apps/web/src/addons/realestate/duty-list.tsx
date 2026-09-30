@@ -172,7 +172,9 @@ export function DutyList({
                   className={cn('border-t border-border', !i.enabled && 'text-text-3')}
                   data-testid={`template-${i.key}`}
                 >
-                  <td className="px-5 py-2.5 font-mono text-[12.5px] text-text-3">{i.key}</td>
+                  <td className="whitespace-nowrap px-5 py-2.5 font-mono text-[12.5px] text-text-3">
+                    {i.key}
+                  </td>
                   <td className="px-3 py-2.5">
                     <span className={cn(!i.enabled && 'line-through')}>{i.title}</span>{' '}
                     {i.own ? <Badge variant="gray">Your own</Badge> : null}

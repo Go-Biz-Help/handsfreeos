@@ -197,15 +197,18 @@ export function DealsHome({
           </EmptyState>
         ) : (
           <>
-            <table className="hidden w-full text-[13.5px] md:table" data-testid="deals-table">
+            <table
+              className="hidden w-full table-fixed text-[13.5px] md:table"
+              data-testid="deals-table"
+            >
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase tracking-wide text-text-3">
                   <th className="px-5 py-2.5 font-semibold">Deal</th>
-                  <th className="px-3 py-2.5 font-semibold">Side</th>
-                  <th className="px-3 py-2.5 font-semibold">Stage</th>
-                  <th className="px-3 py-2.5 font-semibold">Next duty</th>
-                  <th className="px-3 py-2.5 font-semibold">Closing</th>
-                  <th className="px-5 py-2.5 font-semibold">Agent</th>
+                  <th className="w-[92px] px-3 py-2.5 font-semibold">Side</th>
+                  <th className="w-[128px] px-3 py-2.5 font-semibold">Stage</th>
+                  <th className="w-[26%] px-3 py-2.5 font-semibold">Next duty</th>
+                  <th className="w-[84px] px-3 py-2.5 font-semibold">Closing</th>
+                  <th className="w-[140px] px-5 py-2.5 font-semibold">Agent</th>
                 </tr>
               </thead>
               <tbody>
@@ -225,7 +228,9 @@ export function DealsHome({
                         <HealthDot health={d.health} className="mt-1.5" />
                         <div className="min-w-0">
                           <div className="truncate font-semibold">{dealTitle(d)}</div>
-                          <div className="truncate text-[12.5px] text-text-2">{dealLine(d)}</div>
+                          <div className="truncate text-[12.5px] text-text-2" title={dealLine(d)}>
+                            {dealLine(d)}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -234,12 +239,21 @@ export function DealsHome({
                     </td>
                     <td className="px-3 py-3">{stageWords(d)}</td>
                     <td className="px-3 py-3">
-                      {d.nextDue
-                        ? `${d.nextDue.title} · ${dueWords(d.nextDue.dueAt, timeZone)}`
-                        : '—'}
+                      {d.nextDue ? (
+                        <>
+                          <div className="truncate" title={d.nextDue.title}>
+                            {d.nextDue.title}
+                          </div>
+                          <div className="text-[12.5px] text-text-2">
+                            {dueWords(d.nextDue.dueAt, timeZone)}
+                          </div>
+                        </>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-3 py-3 tabular-nums">{dayWords(d.closing, timeZone)}</td>
-                    <td className="px-5 py-3">{d.mainAgent?.name ?? '—'}</td>
+                    <td className="truncate px-5 py-3">{d.mainAgent?.name ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -280,7 +280,7 @@ export function ClientUpdate({
               ) : null}
               <p className="mt-2.5 text-[12.5px] text-text-3">
                 Checked with the word list and the AI.{' '}
-                {checks.length > 2 ? `${checks.length} checks so far; ` : ''}
+                {checks.length > 2 ? `${checks.length} checks so far. ` : ''}
                 Every check and your choice are kept for the broker.
               </p>
             </Card>
