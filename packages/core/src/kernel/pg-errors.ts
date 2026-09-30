@@ -470,6 +470,22 @@ const RULES: Record<string, { status: number; message: string }> = {
   addon_week_decided: { status: 409, message: 'That week already has its pick.' },
   addon_not_tied: { status: 409, message: 'Choose one of the add-ons that tied.' },
   addon_already_picked: { status: 409, message: 'That add-on is already coming soon.' },
+  // Real Estate step 3: a signed file is kept.
+  file_locked: {
+    status: 409,
+    message:
+      'This file is signed and kept, so it can’t be deleted or changed. Add the newer version as another file instead.',
+  },
+  file_not_ready: {
+    status: 409,
+    message:
+      'This file hasn’t finished uploading, so it can’t be locked yet. Try again in a minute.',
+  },
+  file_hash_is_ours: { status: 403, message: 'Only HandsFreeOS records a file’s fingerprint.' },
+  file_lock_is_later: {
+    status: 400,
+    message: 'A file is locked after it’s added. Add it first, then lock it.',
+  },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

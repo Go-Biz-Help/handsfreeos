@@ -2697,6 +2697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/file.lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lock a file on a record for good, like a signed contract: nobody can delete or rename it afterwards. Add a newer file to replace it.
+         * @description Risk level 2. Requires records.write. Emits file.locked.
+         */
+        post: operations["command_file_lock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form_response.delete": {
         parameters: {
             query?: never;
@@ -17783,6 +17803,46 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         fileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_file_lock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    /**
+                     * @default signed
+                     * @enum {string}
+                     */
+                    reason?: "signed" | "final" | "record";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        fileId: string;
+                        /** Format: date-time */
+                        lockedAt: string;
                     };
                 };
             };
@@ -34882,6 +34942,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             isImage: boolean;
+                            locked: boolean;
                             mimeType: string | null;
                             name: string;
                             objectPath: string;

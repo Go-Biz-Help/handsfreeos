@@ -178,6 +178,8 @@ export function describeTimeline(
       return 'completed a task';
     case 'file_added':
       return 'uploaded a file';
+    case 'file_locked':
+      return 'locked a file as signed and kept';
     case 'lead_qualified':
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     case 'edit_not_applied':
@@ -294,6 +296,7 @@ export function timelineBody(e: TimelineEntry): string | null {
   switch (e.subtype) {
     case 'task_done':
     case 'file_added':
+    case 'file_locked':
     case 'next_action':
       return e.body;
     case 'lost':

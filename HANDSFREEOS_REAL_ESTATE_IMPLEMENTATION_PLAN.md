@@ -304,13 +304,24 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
   by the Assistant (`recommendAddons` still names only available, free ones).
 - `/admin/businesses/<id>` has "Add-ons in testing" for staff with `platform.addons.manage`.
 
-### Step 3 — Signed files are kept
+### Step 3 — Signed files are kept (built, 2026-09-30)
 
 1. Migration: the lock and fingerprint columns on `app.files` and their guard.
 2. Core: `file.lock`, the `file_locked` refusal on `file.delete`, the lock in `file.list`.
 3. Worker: the SHA-256 of every file that arrives.
 4. Web: "Signed · kept" and no Delete on a locked file.
 5. Tests: nobody deletes or unlocks a locked file; deleting the business still does.
+
+**As built:**
+
+- `20261013002300`: the lock and fingerprint columns and `private.guard_locked_file`, which also refuses a person
+  setting a lock or a fingerprint as a file is added, and any fingerprint but the worker's first.
+- `file.lock` (risk 2, people and the system; `records.write`) writes a `file_locked` timeline line. Files that
+  belong to the business (knowledge, number papers) aren't locked (`file_not_lockable`).
+- The worker fingerprints on `file.attached` and again on `file.locked` if it had to wait
+  (`apps/worker/src/handlers/file-fingerprint.ts`).
+- `file.list` and the phone's synced files say `locked`; the web shows "Signed · kept" and no Remove. The phone
+  has no Remove for record files, so nothing changes there.
 
 ### Step 4 — Records kept to the people on them
 

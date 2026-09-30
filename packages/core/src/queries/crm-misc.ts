@@ -76,6 +76,7 @@ export const fileList = defineQuery({
         mimeType: f.mimeType,
         sizeBytes: f.sizeBytes === null ? null : Number(f.sizeBytes),
         isImage: (f.mimeType ?? '').startsWith('image/'),
+        locked: f.lockedAt !== null,
         uploadedBy: f.createdBy
           ? { id: f.createdBy, fullName: uploaderName || uploaderEmail || 'Former member' }
           : null,

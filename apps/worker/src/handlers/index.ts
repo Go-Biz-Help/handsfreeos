@@ -101,6 +101,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { roadmapHandlers } from '../addons/roadmap';
+import { onFileFingerprint } from './file-fingerprint';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
@@ -122,6 +123,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An agency's reminder to a client business's owners.
     'onboarding.remind_requested': onOnboardingRemindRequested,
     'file.deleted': onFileDeleted,
+    // What a file held when it arrived, and before it was locked as signed (Real Estate, step 3).
+    'file.attached': onFileFingerprint,
+    'file.locked': onFileFingerprint,
     'import.requested': onImportRequested,
     'phone_number.purchase_requested': onPurchaseRequested,
     'phone_number.release_requested': onReleaseRequested,

@@ -145,7 +145,7 @@ import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
-import { fileBeginUpload, fileConfirm, fileDelete } from './file';
+import { fileBeginUpload, fileConfirm, fileDelete, fileLock } from './file';
 import { importCancel, importCreate, importStart } from './import';
 import { invitationAccept } from './invitation.accept';
 import { invitationResend } from './invitation.resend';
@@ -461,6 +461,7 @@ export {
   fileBeginUpload,
   fileConfirm,
   fileDelete,
+  fileLock,
   importCancel,
   importCreate,
   importStart,
@@ -621,6 +622,7 @@ export const commands: readonly CommandDef[] = [
   fileBeginUpload,
   fileConfirm,
   fileDelete,
+  fileLock,
   importCreate,
   importStart,
   importCancel,

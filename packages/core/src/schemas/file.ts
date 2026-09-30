@@ -41,6 +41,21 @@ export const FileConfirmOutput = z.object({
 export const FileDeleteInput = z.object({ workspaceId: uuid, fileId: uuid });
 export const FileDeleteOutput = z.object({ fileId: uuid });
 
+/** Why a file is locked: a signed document, a final version, or something kept as a record. */
+export const FILE_LOCK_REASONS = ['signed', 'final', 'record'] as const;
+export type FileLockReason = (typeof FILE_LOCK_REASONS)[number];
+export const FileLockInput = z.object({
+  workspaceId: uuid,
+  fileId: uuid,
+  reason: z.enum(FILE_LOCK_REASONS).default('signed'),
+});
+export const FileLockOutput = z.object({
+  fileId: uuid,
+  lockedAt: isoDateTime,
+  /** False when it was already locked: a second press. */
+  changed: z.boolean(),
+});
+
 export const FileOut = z.object({
   id: uuid,
   recordType: attachableRecordType,
@@ -51,6 +66,8 @@ export const FileOut = z.object({
   mimeType: z.string().nullable(),
   sizeBytes: z.number().nullable(),
   isImage: z.boolean(),
+  /** Locked (a signed document): it can't be deleted or renamed, only replaced by a newer file. */
+  locked: z.boolean(),
   uploadedBy: UserRef,
   createdAt: isoDateTime,
 });

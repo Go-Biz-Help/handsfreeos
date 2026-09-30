@@ -299,6 +299,8 @@ function describeAction(e: AuditEntry): string {
       return `uploaded ${name(e)}`;
     case 'file.delete':
       return `removed the file ${s(e.before?.name)}`;
+    case 'file.lock':
+      return `locked ${name(e)} as signed and kept`;
     case 'file.remove':
       return `deleted the stored file ${name(e)}`;
     case 'import.start':

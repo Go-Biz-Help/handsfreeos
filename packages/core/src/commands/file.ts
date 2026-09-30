@@ -17,6 +17,8 @@ import {
   FileConfirmOutput,
   FileDeleteInput,
   FileDeleteOutput,
+  FileLockInput,
+  FileLockOutput,
 } from '../schemas/file';
 import { scopeCan } from '../kernel/execute';
 
@@ -216,6 +218,13 @@ export const fileDelete = defineCommand({
     if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
     const ownFile = businessOwn(current.recordType);
     if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
+    // The database refuses it too (private.guard_locked_file); this says so with the file's name.
+    if (current.lockedAt)
+      throw HfosError.rule(
+        'file_locked',
+        409,
+        `${current.name} is signed and kept, so it can’t be deleted. Add the newer version as another file instead.`,
+      );
     await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, current.id));
     await ctx.emit({
       type: 'file.deleted',
@@ -231,5 +240,74 @@ export const fileDelete = defineCommand({
       after: null,
     });
     return { fileId: current.id };
+  },
+});
+
+/**
+ * Lock a file for good: a signed contract, a disclosure, a final version (Real Estate, step 3). From then on nobody
+ * deletes, renames or unlocks it; the database holds it to that (`private.guard_locked_file`), and deleting the whole
+ * business is the only way it goes. An add-on that locks one is named on it, and the lock outlasts the add-on.
+ */
+export const fileLock = defineCommand({
+  name: 'file.lock',
+  description:
+    'Lock a file on a record for good, like a signed contract: nobody can delete or rename it afterwards. Add a newer file to replace it.',
+  risk: 2,
+  input: FileLockInput,
+  output: FileLockOutput,
+  permission: 'records.write',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  emits: ['file.locked'],
+  actors: ['human', 'system'],
+  async handler(ctx, input) {
+    const [current] = await ctx.tx
+      .select()
+      .from(files)
+      .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
+    if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
+    if (businessOwn(current.recordType))
+      throw HfosError.rule(
+        'file_not_lockable',
+        409,
+        `${current.name} belongs to the business, not a customer’s record, so it isn’t locked. Only files on a customer or a record are.`,
+      );
+    if (current.lockedAt)
+      return { fileId: current.id, lockedAt: current.lockedAt.toISOString(), changed: false };
+    if (current.status !== 'ready')
+      throw HfosError.rule(
+        'file_not_ready',
+        409,
+        `${current.name} hasn’t finished uploading, so it can’t be locked yet. Try again in a minute.`,
+      );
+    const lockedAt = new Date();
+    const lockedBy = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+    await ctx.tx
+      .update(files)
+      .set({
+        lockedAt,
+        lockedBy,
+        lockedReason: input.reason,
+        lockedByAddon: ctx.addon?.id ?? null,
+      })
+      .where(eq(files.id, current.id));
+    const eventId = await ctx.emit({
+      type: 'file.locked',
+      entityType: current.recordType,
+      entityId: current.recordId,
+      payload: { fileId: current.id, name: current.name, reason: input.reason },
+      before: { locked: false },
+      after: { name: current.name, locked: true, reason: input.reason },
+    });
+    await logSystemActivity(ctx, {
+      subtype: 'file_locked',
+      personId: current.recordType === 'person' ? current.recordId : null,
+      companyId: current.recordType === 'company' ? current.recordId : null,
+      leadId: current.recordType === 'lead' ? current.recordId : null,
+      customRecordId: current.recordType === 'custom_record' ? current.recordId : null,
+      body: current.name,
+      meta: { fileId: current.id, reason: input.reason },
+      eventId,
+    });
+    return { fileId: current.id, lockedAt: lockedAt.toISOString(), changed: true };
   },
 });

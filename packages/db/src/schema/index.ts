@@ -627,6 +627,15 @@ export const files = app.table('files', {
   createdBy: userRef('created_by'),
   deletedAt: ts('deleted_at'),
   deletedBy: userRef('deleted_by'),
+  /** Locked (a signed document): never deleted, renamed or unlocked (Real Estate, step 3). */
+  lockedAt: ts('locked_at'),
+  lockedBy: userRef('locked_by'),
+  /** signed, final or record. */
+  lockedReason: text('locked_reason'),
+  lockedByAddon: text('locked_by_addon'),
+  /** The stored object's SHA-256, recorded once by the worker when the file arrived. */
+  sha256: text('sha256'),
+  hashedAt: ts('hashed_at'),
   ...timestamps(),
 });
 

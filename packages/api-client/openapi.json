@@ -7185,6 +7185,84 @@
         }
       }
     },
+    "/v1/commands/file.lock": {
+      "post": {
+        "operationId": "command_file_lock",
+        "summary": "Lock a file on a record for good, like a signed contract: nobody can delete or rename it afterwards. Add a newer file to replace it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires records.write. Emits file.locked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "fileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "default": "signed",
+                    "type": "string",
+                    "enum": [
+                      "signed",
+                      "final",
+                      "record"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "fileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "lockedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "lockedAt",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/import.create": {
       "post": {
         "operationId": "command_import_create",
@@ -58812,6 +58890,9 @@
                           "isImage": {
                             "type": "boolean"
                           },
+                          "locked": {
+                            "type": "boolean"
+                          },
                           "uploadedBy": {
                             "anyOf": [
                               {
@@ -58853,6 +58934,7 @@
                           "mimeType",
                           "sizeBytes",
                           "isImage",
+                          "locked",
                           "uploadedBy",
                           "createdAt"
                         ],

@@ -1,5 +1,5 @@
 'use client';
-import { Download, FileText, Image as ImageIcon, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Download, FileText, Image as ImageIcon, Lock, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -107,6 +107,16 @@ export function FileGrid({
                 {f.name}
               </div>
               <div className="truncate text-xs text-text-3">{fileLine(f)}</div>
+              {f.locked ? (
+                <div
+                  className="mt-1 flex items-center gap-1 text-xs font-medium text-success-text"
+                  title={FILE_WORDS.lockedDetail}
+                  data-testid={`file-locked-${f.id}`}
+                >
+                  <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden />
+                  {FILE_WORDS.locked}
+                </div>
+              ) : null}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -123,7 +133,7 @@ export function FileGrid({
                   <Download className="h-4 w-4" strokeWidth={1.5} />
                   {FILE_WORDS.download}
                 </DropdownMenuItem>
-                {canDelete ? (
+                {canDelete && !f.locked ? (
                   <DropdownMenuItem danger onSelect={() => void remove(f)}>
                     <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                     {FILE_WORDS.remove}

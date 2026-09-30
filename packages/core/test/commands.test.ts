@@ -167,6 +167,7 @@ describe('registry', () => {
       'file.begin_upload',
       'file.confirm',
       'file.delete',
+      'file.lock',
       'import.create',
       'import.start',
       'import.cancel',
