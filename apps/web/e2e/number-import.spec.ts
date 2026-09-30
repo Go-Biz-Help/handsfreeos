@@ -8,6 +8,7 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * first look — as if HighLevel's support, or Twilio's, had sent them — so the whole wait plays out here.
  */
 const middle = () => String(200 + Math.floor(Math.random() * 799));
+const WORKER_URL = (process.env.WORKER_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, '');
 
 test('a GoHighLevel number: checked, watched for, and live on arrival, with texting still its own step', async ({
   page,
@@ -118,4 +119,61 @@ test('phone & texting: turned on for its Account SID before any number, and off 
   await card.getByTestId('phone-account-off').click();
   await expect(card.getByTestId('phone-account-status')).toHaveText('Off', { timeout: 30_000 });
   await expect(card.getByTestId('phone-account-sid')).toHaveCount(0);
+});
+
+test('a number moved straight into the business’s own account: kept safe, found there, and set up with one press', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await signUpAndConfirm(page, 'own-numbers');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Septic' });
+  await page.goto(`/app/w/${workspaceId}/settings/texting`);
+
+  const card = page.getByTestId('phone-account-card');
+  await card.getByTestId('phone-account-switch').click();
+  await expect(card.getByTestId('phone-account-sid')).toHaveText(/^AC/, { timeout: 30_000 });
+  await expect(card.getByTestId('phone-account-status')).toHaveText('On', { timeout: 30_000 });
+
+  // HighLevel's support moves a number straight into the account, still pointed at HighLevel, with no transfer
+  // started here: HandsFreeOS has no record of it.
+  const moved = await fetch(`${WORKER_URL}/test/telephony/transfer-in`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ workspaceId }),
+  });
+  expect(moved.ok).toBe(true);
+  const { e164 } = (await moved.json()) as { e164: string };
+  const display = `(${e164.slice(2, 5)}) ${e164.slice(5, 8)}-${e164.slice(8)}`;
+
+  // Turning off would close the account and release it, so the worker looks inside first and keeps it on.
+  await card.getByTestId('phone-account-switch').click();
+  await card.getByTestId('phone-account-off').click();
+  await expect(card.getByTestId('phone-account-error')).toContainText(display, {
+    timeout: 30_000,
+  });
+  await expect(card.getByTestId('phone-account-error')).toContainText('release it for good');
+  await expect(card.getByTestId('phone-account-status')).toHaveText('On');
+
+  await card.getByTestId('own-numbers-look').click();
+  const row = card.getByTestId(`own-number-${e164}`);
+  await expect(row).toHaveAttribute('data-state', 'new', { timeout: 30_000 });
+  await expect(row).toContainText('Used by HighLevel');
+  await page.screenshot({ path: 'test-results/own-numbers-found.png', fullPage: true });
+
+  await row.getByTestId(`own-number-setup-${e164}`).click();
+  // Nothing to send and nothing to wait for: it is live within moments, with texting still its own step.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByTestId('imports-card').locator('[data-setup="live"]')).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 60_000 });
+  await expect(page.getByTestId('imports-card').getByTestId('transfer-request')).toHaveCount(0);
+
+  // One of the business's numbers now, so looking again offers nothing.
+  await page.getByTestId('phone-account-card').getByTestId('own-numbers-look').click();
+  await expect(page.getByTestId('own-numbers-empty')).toHaveText(/already set up here/, {
+    timeout: 30_000,
+  });
+  await page.screenshot({ path: 'test-results/own-numbers-set-up.png', fullPage: true });
 });

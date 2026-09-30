@@ -1,7 +1,7 @@
 /**
  * Bringing a number that already lives in Twilio (20261010000900): the worker's side of the settings screen.
  *
- * Four routes, each one a provider call the API may not make (it refuses to start with any provider key):
+ * Five routes, each one a provider call the API may not make (it refuses to start with any provider key):
  *
  * - `number-host` — who hosts a number today, by the carrier lookup. This is how a GoHighLevel / LeadConnector
  *   number is recognised as sitting in Twilio (HighLevel's account), which means it can move account to account
@@ -11,6 +11,9 @@
  * - `twilio/numbers` — lists a connected account again: each number, who is using it today (HighLevel shows up
  *   by its webhooks), and whether it is already here or on its way to one of this organization's businesses.
  * - `twilio/disconnect` — lets a connected account go and wipes what it was opened with.
+ * - `own-numbers` — the numbers already sitting in the business's **own** subaccount that are not set up here:
+ *   one moved in straight through Twilio's or HighLevel's support, without anybody starting an import first,
+ *   lands with nobody watching for it, and this is how it is found.
  *
  * **Connecting is for the organization's owners and admins**, because listing an account lists every business's
  * numbers in it. Choosing which business a number goes to is then `number_import.start` through the API, which
@@ -33,10 +36,11 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { and, eq } from 'drizzle-orm';
-import { twilioConnections } from '@hfos/db/schema';
+import { numberImports, twilioConnections } from '@hfos/db/schema';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { systemActor, workerMeta } from '../services';
+import { loadAccount } from '../telephony/accounts';
 import { ProviderError, type ExternalTwilioCreds } from '../telephony/provider';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from './common';
 
@@ -47,6 +51,7 @@ const LOOKUPS_PER_MINUTE = 10;
 
 const HostInput = z.strictObject({ workspaceId: z.uuid(), e164: phoneRequired });
 const ConnectionInput = z.strictObject({ workspaceId: z.uuid(), connectionId: z.uuid() });
+const WorkspaceInput = z.strictObject({ workspaceId: z.uuid() });
 
 type ConnectionRow = typeof twilioConnections.$inferSelect;
 
@@ -307,6 +312,87 @@ export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps)
       );
       throw HfosError.rule('twilio_credentials', 409, reason);
     }
+  });
+
+  /**
+   * The numbers in this business's own subaccount that are not set up here yet.
+   *
+   * A transfer finished straight through Twilio's or HighLevel's support, without anybody starting one here,
+   * lands a number nobody is watching for: it sits in the account still pointed at its old owner, and nothing
+   * here ever hears of it. Bringing one in is then `number_import.start` through the API, as for any other
+   * number already in Twilio: its first look finds the number there and sets it up, with the same checks (the
+   * number ceiling, the wallet) and the same record as every other import.
+   *
+   * Only the business's own account, which holds only its own numbers, so `channels.manage` of the business is
+   * enough: nothing here is another business's to see. A business with phone & texting off has no account, and
+   * so nothing in it; looking never makes one.
+   */
+  app.post('/v1/telephony/own-numbers', async (req) => {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(WorkspaceInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
+    const scope = { workspaceId: input.workspaceId };
+    const account = await asWorker(deps.httpDb, scope, (tx) =>
+      loadAccount(tx, input.workspaceId, deps.sealer),
+    );
+    if (!account) return { accountSid: null, numbers: [], alreadyHere: 0, truncated: false };
+
+    const found = await deps.telephony.listOwnedNumbers(account, { limit: MAX_LISTED + 1 });
+    const numbers = found.slice(0, MAX_LISTED);
+    const [held, waiting] = await Promise.all([
+      numbers.length
+        ? asWorker(deps.httpDb, {}, (tx) =>
+            rows<{ e164: string; workspace_id: string }>(
+              tx,
+              sql`select x.e164, h.workspace_id
+                  from jsonb_array_elements_text(${JSON.stringify(numbers.map((n) => n.e164))}::jsonb) as x(e164)
+                  cross join lateral private.number_held_by(x.e164) h`,
+            ),
+          )
+        : [],
+      asWorker(deps.httpDb, scope, (tx) =>
+        tx
+          .select({ id: numberImports.id, e164: numberImports.e164 })
+          .from(numberImports)
+          .where(
+            and(
+              eq(numberImports.workspaceId, input.workspaceId),
+              eq(numberImports.status, 'waiting'),
+            ),
+          ),
+      ),
+    ]);
+    const heldBy = new Map(held.map((h) => [h.e164, h.workspace_id]));
+    const watchedBy = new Map(waiting.map((w) => [w.e164, w.id]));
+    const mine = numbers.filter((n) => heldBy.get(n.e164) === input.workspaceId);
+    return {
+      accountSid: account.sid,
+      truncated: found.length > MAX_LISTED,
+      // Already one of this business's numbers (bought, ported or brought here): nothing to do.
+      alreadyHere: mine.length,
+      numbers: numbers
+        .filter((n) => heldBy.get(n.e164) !== input.workspaceId)
+        .map((n) => {
+          const importId = watchedBy.get(n.e164) ?? null;
+          return {
+            sid: n.sid,
+            e164: n.e164,
+            display: formatPhone(n.e164),
+            friendlyName: n.friendlyName,
+            numberType: numberTypeOf(n.e164),
+            capabilities: n.capabilities,
+            usedBy: numberUsedBy(n, deps.publicUrl),
+            // `elsewhere`: another business here still holds it live, so setting it up would fail. `coming`: an
+            // import is already watching for it, and looking now finishes it. `new`: nothing here knows it.
+            state: heldBy.has(n.e164)
+              ? ('elsewhere' as const)
+              : importId
+                ? ('coming' as const)
+                : ('new' as const),
+            importId,
+          };
+        }),
+    };
   });
 
   /** Lets a connected account go. Numbers already on their way keep coming: they are watched for here. */

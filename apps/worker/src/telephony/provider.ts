@@ -240,6 +240,9 @@ export interface ExternalNumber {
   readonly voiceUrl: string | null;
 }
 
+/** One number in a business's own subaccount, as Twilio lists it. */
+export type SubaccountNumber = Omit<ExternalNumber, 'accountSid' | 'accountName'>;
+
 export interface TelephonyProvider {
   readonly name: 'twilio' | 'fake';
   /** The master account: webhooks it signs verify with its own token. */
@@ -286,6 +289,15 @@ export interface TelephonyProvider {
     limit: number;
   }): Promise<AvailableNumber[]>;
   findOwnedNumber(account: ProviderAccount, e164: string): Promise<OwnedNumber | null>;
+  /**
+   * Every number in a business's own subaccount, up to `limit`, whether HandsFreeOS knows about it or not. A
+   * number moved in without anybody asking here first (a transfer finished straight through Twilio's or
+   * HighLevel's support) is only found this way. Read-only: nothing about any number changes by being listed.
+   */
+  listOwnedNumbers(
+    account: ProviderAccount,
+    opts: { readonly limit: number },
+  ): Promise<SubaccountNumber[]>;
   buyNumber(
     account: ProviderAccount,
     opts: { e164: string; urls: WebhookUrls },

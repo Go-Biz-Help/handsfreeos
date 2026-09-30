@@ -211,7 +211,17 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const transcribed: string[] = [];
   const closedAccounts: string[] = [];
   const transcripts = new Map<string, TranscriptionState>();
-  const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
+  /** Numbers in our own subaccounts. One transferred in keeps pointing where its old owner had it. */
+  const owned = new Map<
+    string,
+    {
+      sid: string;
+      e164: string;
+      accountSid: string;
+      smsUrl?: string | null;
+      voiceUrl?: string | null;
+    }
+  >();
   const regs = new Map<string, { at: number; reject: boolean }>();
   const ports: PortRequest[] = [];
   const portDocuments: { portSid: string; name: string }[] = [];
@@ -306,7 +316,13 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     const from = [...externalNumbers.values()].find((x) => x.e164 === e164);
     if (from) externalNumbers.delete(from.sid);
     const sid = from?.sid ?? already?.sid ?? fakeSid('PN');
-    owned.set(sid, { sid, e164, accountSid: toAccountSid });
+    owned.set(sid, {
+      sid,
+      e164,
+      accountSid: toAccountSid,
+      smsUrl: from?.smsUrl ?? already?.smsUrl ?? null,
+      voiceUrl: from?.voiceUrl ?? already?.voiceUrl ?? null,
+    });
     return sid;
   }
 
@@ -528,8 +544,10 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     async createTwimlApp() {
       return fakeSid('AP');
     },
-    async configureNumber(_account, numberSid) {
+    async configureNumber(_account, numberSid, urls) {
       configured.push(numberSid);
+      const n = owned.get(numberSid);
+      if (n) owned.set(numberSid, { ...n, smsUrl: urls.smsUrl, voiceUrl: urls.voiceUrl });
     },
     async searchNumbers({ numberType, areaCode, contains, city, state, withinMiles, limit }) {
       const areas = areaCode
@@ -554,6 +572,19 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
           capabilities: CAPS,
         };
       });
+    },
+    async listOwnedNumbers(account, { limit }) {
+      return [...owned.values()]
+        .filter((n) => n.accountSid === account.sid)
+        .slice(0, limit)
+        .map((n) => ({
+          sid: n.sid,
+          e164: n.e164,
+          friendlyName: n.e164,
+          capabilities: n.e164.startsWith('+18') ? { ...CAPS, mms: false } : CAPS,
+          smsUrl: n.smsUrl ?? null,
+          voiceUrl: n.voiceUrl ?? null,
+        }));
     },
     async findOwnedNumber(account: ProviderAccount, e164: string) {
       const n = [...owned.values()].find((x) => x.e164 === e164 && x.accountSid === account.sid);
@@ -614,14 +645,20 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         }));
       return out.slice(0, limit);
     },
-    async buyNumber(account, { e164 }) {
+    async buyNumber(account, { e164, urls }) {
       if (e164.endsWith('0000'))
         throw new ProviderError('That number is no longer available.', '21422', true, 400);
       // Search never offers an ending below 1000, so only a test asks for this one.
       if (e164.endsWith('0503'))
         throw new ProviderError('Service Unavailable', '20503', false, 503);
       const sid = fakeSid('PN');
-      owned.set(sid, { sid, e164, accountSid: account.sid });
+      owned.set(sid, {
+        sid,
+        e164,
+        accountSid: account.sid,
+        smsUrl: urls.smsUrl,
+        voiceUrl: urls.voiceUrl,
+      });
       return { sid, capabilities: CAPS };
     },
     async addNumberToService(_account, serviceSid, numberSid) {

@@ -11,10 +11,16 @@
  * the account stays on and the business is told why. Closed, its secrets are wiped: nothing can open it again,
  * and `ensureAccount` makes a fresh subaccount if phone & texting is turned back on.
  *
+ * **It also asks Twilio.** What HandsFreeOS has written down is not everything that can be in the account: a
+ * number moved in straight through Twilio's or HighLevel's support, with no transfer started here, has no row
+ * anywhere, and closing would release it all the same. So the account is listed first, and one that still holds
+ * a number stays on. One that cannot be listed stays on too: an account is never closed without looking.
+ *
  * Provider calls are jobs, never outbox handlers, like every other carrier call here.
  */
 import {
   executeCommand,
+  formatPhone,
   phoneAccountBlockers,
   scheduleJob,
   telephonyAccountChanged,
@@ -31,7 +37,8 @@ import {
   type TenantScope,
   type WorkerServices,
 } from '../services';
-import { ensureAccount } from './accounts';
+import { errorMessage } from '../outbox';
+import { ensureAccount, loadAccount } from './accounts';
 
 export const ACCOUNT_JOBS = {
   open: 'telephony.account_open',
@@ -77,6 +84,29 @@ export const accountOpen: JobHandler = async (ctx) => {
   await tell(ctx, scope, { status: 'active', accountSid: account.sid, problem: null });
 };
 
+/** "(256) 555-0199", "(256) 555-0199 and (713) 555-0101", "(256) 555-0199, (713) 555-0101 and 2 more". */
+function numberList(e164s: readonly string[]): string {
+  const named = e164s.slice(0, 2).map((n) => formatPhone(n));
+  const more = e164s.length - named.length;
+  if (more > 0) return `${named.join(', ')} and ${more} more`;
+  return named.join(' and ');
+}
+
+/**
+ * What is still in the business's Twilio account that closing it would release, asked of Twilio itself: a
+ * sentence saying so, or null when it is empty. Throws when Twilio cannot be asked.
+ */
+async function stillInTwilio(ctx: WorkerServices, scope: TenantScope): Promise<string | null> {
+  const account = await asWorker(ctx.db, scope, (tx) =>
+    loadAccount(tx, scope.workspaceId, ctx.sealer),
+  );
+  if (!account) throw new Error('the Twilio account could not be opened to look inside it');
+  const left = await ctx.telephony.listOwnedNumbers(account, { limit: 10 });
+  if (!left.length) return null;
+  const one = left.length === 1;
+  return `Your Twilio account still has ${numberList(left.map((n) => n.e164))} in it, which ${one ? 'isn’t' : 'aren’t'} set up in HandsFreeOS. Closing the account would release ${one ? 'it' : 'them'} for good. Set ${one ? 'it' : 'them'} up under Numbers already in this account, or ask Twilio to move ${one ? 'it' : 'them'} out first.`;
+}
+
 export const accountClose: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const [row, blockers] = await asWorker(
@@ -97,8 +127,7 @@ export const accountClose: JobHandler = async (ctx) => {
     await tell(ctx, scope, { status: 'closed', accountSid: null, problem: null });
     return;
   }
-  if (blockers.length) {
-    const problem = `Phone & texting was left on. ${blockers.join(' ')}`;
+  const leaveOn = async (problem: string) => {
     await asWorker(ctx.db, scope, (tx) =>
       tx
         .update(telephonyAccounts)
@@ -107,8 +136,24 @@ export const accountClose: JobHandler = async (ctx) => {
     );
     ctx.log.warn({ workspaceId: scope.workspaceId }, 'phone & texting was not turned off: in use');
     await tell(ctx, scope, { status: 'active', accountSid: row.accountSid, problem });
-    return;
+  };
+  if (blockers.length) return leaveOn(`Phone & texting was left on. ${blockers.join(' ')}`);
+
+  // Twilio too, because a number nobody here asked for is in none of the blockers above.
+  let inTwilio: string | null;
+  try {
+    inTwilio = await stillInTwilio(ctx, scope);
+  } catch (e) {
+    ctx.log.warn(
+      { workspaceId: scope.workspaceId, err: errorMessage(e) },
+      'could not look inside the Twilio account before closing it',
+    );
+    return leaveOn(
+      'Phone & texting was left on, because we couldn’t check your Twilio account for numbers just now. Try again in a minute.',
+    );
   }
+  if (inTwilio) return leaveOn(`Phone & texting was left on. ${inTwilio}`);
+
   await ctx.telephony.closeSubaccount(row.accountSid);
   // The account SID stays, as the record of which account this business had; everything that could open it
   // or act in it goes.
