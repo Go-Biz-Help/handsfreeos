@@ -455,6 +455,7 @@ export const platformMe = defineQuery({
         displayName: row.displayName,
         signature: row.signature,
         permissions: [...ROLE_PERMISSIONS[`staff_${row.role}`]],
+        founder: row.founder,
       },
     };
   },

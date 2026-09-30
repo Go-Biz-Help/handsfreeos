@@ -1,5 +1,5 @@
 'use client';
-import { Eye } from 'lucide-react';
+import { Eye, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,58 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 /**
  * Opening a business read-only. The reason box is not a formality: it is what the business reads in its own
  * audit log afterwards, so it is worded as the sentence they will see.
+ *
+ * The founder skips all of it (20261013002100): one click opens the business as its owner, with no reason and
+ * no time limit, until they leave.
  */
 export function ViewAsButton({
+  workspaceId,
+  businessName,
+  ticketId,
+  founder = false,
+}: {
+  workspaceId: string;
+  businessName: string;
+  ticketId?: string;
+  founder?: boolean;
+}) {
+  if (founder) return <OpenAsOwnerButton workspaceId={workspaceId} ticketId={ticketId} />;
+  return <LookButton workspaceId={workspaceId} businessName={businessName} ticketId={ticketId} />;
+}
+
+function OpenAsOwnerButton({ workspaceId, ticketId }: { workspaceId: string; ticketId?: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/platform.view_as.start', {
+          body: { workspaceId, ...(ticketId ? { ticketId } : {}) },
+        }),
+      );
+      router.push(`/app/w/${workspaceId}`);
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button variant="secondary" onClick={start} disabled={busy} data-testid="view-as-open">
+        <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.5} />
+        Open as owner
+      </Button>
+      {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
+    </div>
+  );
+}
+
+function LookButton({
   workspaceId,
   businessName,
   ticketId,

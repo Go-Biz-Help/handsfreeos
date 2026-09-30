@@ -73,8 +73,15 @@ export const getMe = cache(async (): Promise<Me> => {
 export interface WorkspaceShell {
   /** Its name, the person's role and permissions there, and the add-ons running there (0108). */
   readonly current: WorkspaceSummary;
-  /** Set when a HandsFreeOS support person is looking at it (M13); null for its own people. */
-  readonly viewingAs: { readonly businessName: string; readonly expiresAt: string } | null;
+  /**
+   * Set when a HandsFreeOS support person is looking at it (M13), or the founder is working in it as its owner
+   * (`acting`, with no end time); null for its own people.
+   */
+  readonly viewingAs: {
+    readonly businessName: string;
+    readonly expiresAt: string | null;
+    readonly acting: boolean;
+  } | null;
 }
 
 /**
@@ -89,7 +96,8 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
   /**
    * A HandsFreeOS support person looking at this business (M13). They are not a member and never become
    * one: the API serves their look-ups read-only under an open session, and refuses every command. The
-   * banner says so, and the business has the same fact in its own audit log.
+   * banner says so, and the business has the same fact in its own audit log. The founder is the one exception:
+   * their session works as the owner would, and the business is not told (20261013002100).
    */
   const { api } = await apiServer();
   // Not one of ours (including users with no workspaces at all, e.g. after being removed):
@@ -106,6 +114,13 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
   ).session;
   if (!looking || looking.workspaceId !== workspaceId) notFound();
   const w = workspace!.workspace;
+  const viewingAs = {
+    businessName: looking.businessName || w.name,
+    expiresAt: looking.expiresAt,
+    acting: looking.acting,
+  };
+  // The founder working in it as its owner: the API answers as it would an owner, so the shell shows what it says.
+  if (looking.acting) return { current: w, viewingAs };
   return {
     // They see every place the business has, as before (0106), its add-ons' included (0108): the API decides
     // what each look-up may read, and refuses every change, so nothing here widens what they can do.
@@ -119,6 +134,6 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
         ),
       ],
     },
-    viewingAs: { businessName: looking.businessName || w.name, expiresAt: looking.expiresAt },
+    viewingAs,
   };
 });

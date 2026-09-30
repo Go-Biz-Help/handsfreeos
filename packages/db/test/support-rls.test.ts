@@ -235,6 +235,92 @@ describe('asking for help from inside the app', () => {
   });
 });
 
+/**
+ * The founder's own kind of session (20261013002100): it works in the business as its owner, so who may hold
+ * one is asked here. What it does for the founder is in core's support-view-as.test.ts, the one suite that
+ * marks anyone the founder (there can only be one, and the suites share a database).
+ */
+describe('the founder', () => {
+  it('no request makes anyone the founder, an admin included', async () => {
+    expect(
+      await code(() =>
+        as(admin)((tx) =>
+          rows(tx, sql`update platform.staff set founder = true where user_id = ${admin.id}`),
+        ),
+      ),
+    ).toBe('42501');
+    expect(
+      await code(() =>
+        worker()((tx) =>
+          rows(tx, sql`update platform.staff set founder = true where user_id = ${agent.id}`),
+        ),
+      ),
+    ).toBe('42501');
+  });
+
+  it('only the founder opens a session that works in a business', async () => {
+    expect(
+      await code(() =>
+        as(agent)((tx) =>
+          rows(
+            tx,
+            sql`insert into platform.view_as_sessions (staff_user_id, workspace_id, organization_id, acts)
+                values (${agent.id}, ${wsA}, ${orgA}, true)`,
+          ),
+        ),
+      ),
+    ).toBe('42501');
+  });
+
+  it('a look still needs a reason and still ends', async () => {
+    expect(
+      await code(() =>
+        worker()((tx) =>
+          rows(
+            tx,
+            sql`insert into platform.view_as_sessions (staff_user_id, workspace_id, organization_id, reason)
+                values (${agent.id}, ${wsA}, ${orgA}, 'No end date')`,
+          ),
+        ),
+      ),
+    ).toBe('23514');
+    expect(
+      await code(() =>
+        worker()((tx) =>
+          rows(
+            tx,
+            sql`insert into platform.view_as_sessions (staff_user_id, workspace_id, organization_id, expires_at)
+                values (${agent.id}, ${wsA}, ${orgA}, now() + interval '10 minutes')`,
+          ),
+        ),
+      ),
+    ).toBe('23514');
+  });
+
+  it('a session marked as working, held by someone who is not the founder, grants nothing', async () => {
+    // Written past the rules, as a bug or a hand at the console might: the founder check at use still holds.
+    const [session] = await dbs.admin.db.execute<{ id: string }>(
+      sql`insert into platform.view_as_sessions (staff_user_id, workspace_id, organization_id, acts)
+          values (${agent.id}, ${wsA}, ${orgA}, true) returning id`,
+    );
+    try {
+      const [answer] = await as(agent)((tx) =>
+        rows<{ writes: boolean; role: string | null; sees: boolean }>(
+          tx,
+          sql`select private.has_permission(${wsA}, 'records.write') as writes,
+                     private.my_workspace_role(${wsA}) as role,
+                     ${wsA}::uuid in (select private.accessible_workspace_ids()) as sees`,
+        ),
+      );
+      expect(answer).toEqual({ writes: false, role: null, sees: false });
+    } finally {
+      await dbs.admin.db.execute(
+        sql`delete from platform.view_as_sessions where id = ${session!.id}`,
+      );
+    }
+  });
+});
+
 describe('looking at a business', () => {
   it('is found by the API only while it is open and unexpired', async () => {
     const [session] = await worker()((tx) =>

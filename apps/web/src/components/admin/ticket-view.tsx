@@ -43,7 +43,8 @@ export interface TicketViewProps {
   readonly alsoFrom: readonly { id: string; number: number; subject: string; status: string }[];
   readonly staff: readonly { userId: string; fullName: string; displayName: string }[];
   readonly savedReplies: readonly { id: string; title: string; bodyText: string }[];
-  readonly can: { assign: boolean; viewAs: boolean };
+  /** `founder`: opening their business goes straight in as its owner (20261013002100). */
+  readonly can: { assign: boolean; viewAs: boolean; founder: boolean };
   readonly meUserId: string;
 }
 
@@ -386,6 +387,7 @@ export function TicketView(props: TicketViewProps) {
                       workspaceId={business.workspaceId}
                       businessName={business.name}
                       ticketId={ticket.id}
+                      founder={props.can.founder}
                     />
                   ) : null}
                 </div>

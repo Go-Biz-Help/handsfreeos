@@ -34,7 +34,8 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params;
   const me = await getMe();
-  // The business as this person sees it, or a support person looking at it (M13) with the banner that says so.
+  // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
+  // or the founder working in it as its owner.
   const { current, viewingAs } = await getWorkspaceShell(workspaceId);
   return (
     <LiveProvider workspaceId={workspaceId}>
@@ -64,8 +65,10 @@ export default async function WorkspaceLayout({
                     />
                     {viewingAs ? (
                       <ViewAsBanner
+                        workspaceId={workspaceId}
                         businessName={viewingAs.businessName}
                         expiresAt={viewingAs.expiresAt}
+                        acting={viewingAs.acting}
                       />
                     ) : null}
                     <div className="flex min-h-0 flex-1">

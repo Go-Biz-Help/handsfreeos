@@ -254,6 +254,8 @@ export const PlatformMeOutput = z.object({
       displayName: z.string(),
       signature: z.string(),
       permissions: z.array(z.string()),
+      /** The founder opens any business as its owner, in one click, and nobody is told. */
+      founder: z.boolean(),
     })
     .nullable(),
 });
@@ -495,18 +497,23 @@ export const HealthSummaryOutput = z.object({
 
 export const ViewAsStartInput = z.object({
   workspaceId: uuid,
-  reason: z.string().trim().min(3, 'Say why, in a few words.').max(500),
+  /** Why, in a few words: support must say, and the business reads it. The founder needn't. */
+  reason: z.string().trim().max(500).optional(),
   ticketId: uuid.optional(),
-  /** How long it stays open. It ends by itself either way. */
+  /** How long a look stays open. It ends by itself either way; the founder's session doesn't. */
   minutes: z.int().min(5).max(240).default(60),
 });
 export const ViewAsSession = z.object({
   id: uuid,
   workspaceId: uuid,
   businessName: z.string(),
-  reason: z.string(),
+  /** Null on the founder's sessions, which need no reason. */
+  reason: z.string().nullable(),
   startedAt: isoDateTime,
-  expiresAt: isoDateTime,
+  /** Null on the founder's sessions, which last until they leave. */
+  expiresAt: isoDateTime.nullable(),
+  /** The founder working in the business as its owner: they can change things, and the business isn't told. */
+  acting: z.boolean(),
 });
 export const ViewAsStartOutput = z.object({ session: ViewAsSession });
 export const ViewAsEndInput = z.object({ sessionId: uuid.optional() });

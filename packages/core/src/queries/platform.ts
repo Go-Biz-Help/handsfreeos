@@ -454,7 +454,8 @@ export const platformViewAsCurrent = defineQuery({
         and(
           eq(viewAsSessions.staffUserId, me),
           isNull(viewAsSessions.endedAt),
-          dsql`${viewAsSessions.expiresAt} > now()`,
+          // The founder's session has no end date (acts, 20261013002100): it lasts until they leave.
+          dsql`(${viewAsSessions.expiresAt} > now() or ${viewAsSessions.expiresAt} is null)`,
         ),
       )
       .orderBy(desc(viewAsSessions.startedAt))
@@ -467,7 +468,8 @@ export const platformViewAsCurrent = defineQuery({
         businessName: row.businessName ?? '',
         reason: row.v.reason,
         startedAt: row.v.startedAt.toISOString(),
-        expiresAt: row.v.expiresAt.toISOString(),
+        expiresAt: row.v.expiresAt?.toISOString() ?? null,
+        acting: row.v.acts,
       },
     };
   },

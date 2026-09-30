@@ -5807,7 +5807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Open a business read-only to see what the customer sees. Time limited, and written into their own audit log.
+         * Open a business read-only to see what the customer sees. Time limited, and written into their own audit log. The founder opens it as its owner instead: no reason, no time limit, and the business is not told.
          * @description Risk level 3. Requires platform.view_as. Emits platform.view_as_started.
          */
         post: operations["command_platform_view_as_start"];
@@ -24254,7 +24254,7 @@ export interface operations {
                 "application/json": {
                     /** @default 60 */
                     minutes?: number;
-                    reason: string;
+                    reason?: string;
                     /** Format: uuid */
                     ticketId?: string;
                     /** Format: uuid */
@@ -24271,12 +24271,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         session: {
+                            acting: boolean;
                             businessName: string;
-                            /** Format: date-time */
-                            expiresAt: string;
+                            expiresAt: string | null;
                             /** Format: uuid */
                             id: string;
-                            reason: string;
+                            reason: string | null;
                             /** Format: date-time */
                             startedAt: string;
                             /** Format: uuid */
@@ -39496,6 +39496,7 @@ export interface operations {
                     "application/json": {
                         staff: {
                             displayName: string;
+                            founder: boolean;
                             permissions: string[];
                             /** @enum {string} */
                             role: "agent" | "lead" | "admin";
@@ -39623,12 +39624,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         session: {
+                            acting: boolean;
                             businessName: string;
-                            /** Format: date-time */
-                            expiresAt: string;
+                            expiresAt: string | null;
                             /** Format: uuid */
                             id: string;
-                            reason: string;
+                            reason: string | null;
                             /** Format: date-time */
                             startedAt: string;
                             /** Format: uuid */

@@ -39286,7 +39286,7 @@
     "/v1/commands/platform.view_as.start": {
       "post": {
         "operationId": "command_platform_view_as_start",
-        "summary": "Open a business read-only to see what the customer sees. Time limited, and written into their own audit log.",
+        "summary": "Open a business read-only to see what the customer sees. Time limited, and written into their own audit log. The founder opens it as its owner instead: no reason, no time limit, and the business is not told.",
         "tags": [
           "commands"
         ],
@@ -39305,7 +39305,6 @@
                   },
                   "reason": {
                     "type": "string",
-                    "minLength": 3,
                     "maxLength": 500
                   },
                   "ticketId": {
@@ -39321,8 +39320,7 @@
                   }
                 },
                 "required": [
-                  "workspaceId",
-                  "reason"
+                  "workspaceId"
                 ]
               }
             }
@@ -39353,7 +39351,10 @@
                           "type": "string"
                         },
                         "reason": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "startedAt": {
                           "type": "string",
@@ -39361,9 +39362,19 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         "expiresAt": {
-                          "type": "string",
-                          "format": "date-time",
-                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "acting": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -39372,7 +39383,8 @@
                         "businessName",
                         "reason",
                         "startedAt",
-                        "expiresAt"
+                        "expiresAt",
+                        "acting"
                       ],
                       "additionalProperties": false
                     }
@@ -50702,6 +50714,9 @@
                               "items": {
                                 "type": "string"
                               }
+                            },
+                            "founder": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -50709,7 +50724,8 @@
                             "role",
                             "displayName",
                             "signature",
-                            "permissions"
+                            "permissions",
+                            "founder"
                           ],
                           "additionalProperties": false
                         },
@@ -51668,7 +51684,10 @@
                               "type": "string"
                             },
                             "reason": {
-                              "type": "string"
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             },
                             "startedAt": {
                               "type": "string",
@@ -51676,9 +51695,19 @@
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                             },
                             "expiresAt": {
-                              "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "acting": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -51687,7 +51716,8 @@
                             "businessName",
                             "reason",
                             "startedAt",
-                            "expiresAt"
+                            "expiresAt",
+                            "acting"
                           ],
                           "additionalProperties": false
                         },

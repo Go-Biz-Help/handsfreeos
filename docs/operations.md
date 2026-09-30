@@ -9364,6 +9364,33 @@ business's page. It needs a reason, it ends by itself (15 minutes, an hour, or f
 
 The banner across the top says which business it is and how long is left. **Stop looking** ends it at once.
 
+### The founder
+
+One person, the founder, opens any business differently (the owner's decision, 2026-09-30). On the business's
+page, or on a ticket, they see **Open as owner** instead, and one click takes them in:
+
+- **No reason and no time limit.** It stays open until they press **Leave** on the banner, or open another
+  business.
+- **They work as its owner.** They see everything and can change anything an owner could. What they change is
+  saved under their own name, like any owner's change.
+- **The business is not told.** Nothing goes into its audit log about the visit. The platform keeps the session:
+  who, which business, and when.
+- **They never join the business.** They aren't on its team page or in its member count, get none of its
+  notifications, and can't be assigned work there. Nothing about them is stored in the business.
+
+Everyone else who answers support still looks read-only, with a reason and a time limit.
+
+**Marking the founder.** Nobody can be marked from the app, an admin included: the database refuses it from any
+request. It is one statement at the database's own console. Open the hosted project in Supabase, go to **SQL
+Editor**, and run it with the founder's sign-in address (they must already be on the support team):
+
+```sql
+update platform.staff set founder = true
+where user_id = (select id from app.users where email = 'founder@example.com');
+```
+
+There can only be one founder. To hand it over, set the current one to `false` first, in the same way.
+
 ### Chat on handsfreeos.com
 
 The website's chat button is the same widget a business puts on its own site, pointed at us. To turn it on:
