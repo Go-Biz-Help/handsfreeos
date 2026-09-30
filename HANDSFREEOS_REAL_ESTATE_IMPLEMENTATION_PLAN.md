@@ -643,8 +643,23 @@ The duty editor, publishing and applying a version, the alert person, reminder d
 - Critical alerts now go to the deal's team and the business's alert person.
 - Tests: `test/addons/realestate-editor.test.ts`.
 
-**Still to build** with the screens (after the boards are approved): the Duties editor page, the settings page and
-"Apply to this deal".
+**As built (screens, 2026-09-30):**
+
+- Deal settings (`/a/realestate/settings`, a menu place for owners and admins), with four tabs. **Duty list**: every
+  duty with when it's due, its proof and who answers for it in words, filtered by side, the business's own, changed
+  and turned off; a duty's editor (on or off, when it's due, what finishes it, who answers, how much it matters,
+  its reminders, and back to how the list has it); Write a duty; Publish version N (with a note). **Alerts &
+  dates**: the alert person (owners and people who see every deal), closed days, and the four milestone drafts,
+  each saved at once. **Versions**: every version with how many open deals follow it. **Support access**: core's
+  support-access card.
+- "Apply the newest duty list" on a deal's More menu shows what would be cancelled, changed and added before it
+  moves the deal.
+
+**Choices made for Chris** (say the word and they change):
+
+- Reminder days are each duty's own, set in the duty editor; the Alerts & dates tab explains that rather than
+  having one business-wide setting (board 9 showed one box).
+- Federal holidays are always skipped; the tab says so rather than offering a switch.
 
 ### Step 13 — AI (server built, 2026-09-30; screens wait for the boards)
 
