@@ -1,4 +1,5 @@
 'use client';
+import { deskSectionsFor, STAFF_ROLE_WORDS, type DeskSectionKey } from '@hfos/core';
 import {
   Blocks,
   Building2,
@@ -28,42 +29,19 @@ export interface AdminStaff {
   readonly permissions: readonly string[];
 }
 
-const SECTIONS: readonly {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  /** Left out of the menu for anyone without it. */
-  needs?: string;
-}[] = [
-  { href: '/admin/tickets', label: 'Tickets', icon: Inbox },
-  // Ideas, the roadmap and What's new (0102): every support role answers them; leads and admins move them.
-  { href: '/admin/ideas', label: 'Ideas', icon: Lightbulb, needs: 'platform.ideas.moderate' },
-  // Voting on what's next (0109): the weekly pick, and choosing one when a week has no winner.
-  { href: '/admin/add-ons', label: 'Add-on votes', icon: Blocks, needs: 'platform.addons.manage' },
-  {
-    href: '/admin/businesses',
-    label: 'Businesses',
-    icon: Building2,
-    needs: 'platform.businesses.read',
-  },
-  // How Getting started is going, everywhere: its skips and finishes, counted (the plan's §9).
-  {
-    href: '/admin/getting-started',
-    label: 'Getting started',
-    icon: ListChecks,
-    needs: 'platform.businesses.read',
-  },
-  { href: '/admin/health', label: 'Health', icon: HeartPulse, needs: 'platform.health.read' },
-  { href: '/admin/rates', label: 'Rates', icon: Tag, needs: 'platform.rates.manage' },
-  {
-    href: '/admin/founding',
-    label: 'Founding',
-    icon: Ticket,
-    needs: 'platform.founding.manage',
-  },
-  { href: '/admin/replies', label: 'Saved replies', icon: MessageSquareQuote },
-  { href: '/admin/staff', label: 'Support people', icon: Users },
-];
+/** The icon beside each of core's sections. */
+const ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
+  tickets: Inbox,
+  ideas: Lightbulb,
+  'add-ons': Blocks,
+  businesses: Building2,
+  'getting-started': ListChecks,
+  health: HeartPulse,
+  rates: Tag,
+  founding: Ticket,
+  replies: MessageSquareQuote,
+  staff: Users,
+};
 
 function AdminNav({
   permissions,
@@ -75,38 +53,32 @@ function AdminNav({
   const pathname = usePathname();
   return (
     <nav aria-label="Support and admin" className="mt-3 flex flex-col gap-0.5">
-      {SECTIONS.filter((s) => !s.needs || permissions.includes(s.needs)).map(
-        ({ href, label, icon: Icon }) => {
-          const on = pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              aria-current={on ? 'page' : undefined}
-              data-testid={`admin-nav-${href.split('/')[2]}`}
-              className={cn(
-                'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9',
-                on
-                  ? 'bg-accent-soft text-accent-text'
-                  : 'text-text-2 hover:bg-card-2 hover:text-text',
-              )}
-            >
-              <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={on ? 1.75 : 1.5} />
-              {label}
-            </Link>
-          );
-        },
-      )}
+      {deskSectionsFor(permissions).map(({ key, label }) => {
+        const href = `/admin/${key}`;
+        const Icon = ICONS[key];
+        const on = pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={onNavigate}
+            aria-current={on ? 'page' : undefined}
+            data-testid={`admin-nav-${key}`}
+            className={cn(
+              'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9',
+              on
+                ? 'bg-accent-soft text-accent-text'
+                : 'text-text-2 hover:bg-card-2 hover:text-text',
+            )}
+          >
+            <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={on ? 1.75 : 1.5} />
+            {label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
-
-const ROLE_WORD: Record<AdminStaff['role'], string> = {
-  agent: 'Support agent',
-  lead: 'Support lead',
-  admin: 'Support admin',
-};
 
 /**
  * The support desk's own chrome. Deliberately unlike the app a customer sees — a different colour on the
@@ -126,7 +98,7 @@ export function AdminShell({
   const banner = (
     <div className="rounded-menu border border-border bg-card-2 px-2.5 py-2">
       <div className="text-sm font-semibold">HandsFreeOS</div>
-      <div className="text-xs text-text-3">{ROLE_WORD[staff.role]}</div>
+      <div className="text-xs text-text-3">{STAFF_ROLE_WORDS[staff.role]}</div>
     </div>
   );
   return (

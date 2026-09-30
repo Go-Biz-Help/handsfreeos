@@ -238,6 +238,37 @@ describe('the route map', () => {
     });
   });
 
+  it('opens the support desk’s pages on the phone’s Support desk, which belongs to no business', () => {
+    // A new-ticket notification names the web's /admin/tickets/<id>; the phone's desk is /app/admin.
+    expect(routeFor(`/admin/tickets/${ID}`)).toEqual({
+      kind: 'screen',
+      href: `/app/admin/tickets/${ID}`,
+      businessId: null,
+      later: null,
+      params: {},
+    });
+    expect(decideLink(`/admin/tickets/${ID}`, { businessIds: [] })).toEqual({
+      kind: 'screen',
+      href: `/app/admin/tickets/${ID}`,
+      later: null,
+    });
+    expect(routeFor('/admin')).toMatchObject({ kind: 'screen', href: '/app/admin' });
+    expect(routeFor('/app/admin/health')).toMatchObject({ href: '/app/admin/health' });
+    expect(routeFor(`/admin/businesses/${ID}`)).toMatchObject({
+      href: `/app/admin/businesses/${ID}`,
+    });
+    expect(routeFor('/admin/ideas/whats-new')).toMatchObject({
+      href: '/app/admin/ideas/whats-new',
+    });
+    // A desk page the phone hasn't got, or a ticket that isn't an id, opens the web.
+    expect(routeFor('/admin/tickets/not-an-id')).toEqual({
+      kind: 'web',
+      path: '/admin/tickets/not-an-id',
+      businessId: null,
+    });
+    expect(routeFor('/admin/something-new')).toMatchObject({ kind: 'web' });
+  });
+
   it('never handles a customer’s page, or anything else outside /app', () => {
     const customerPages = [
       '/i/abc123',

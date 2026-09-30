@@ -12,6 +12,10 @@
  * - **The desk work the phone leaves to the web** (the plan's web-only areas: workflow editors, the AI teammate's
  *   setup, knowledge, imports, the audit log, business settings, calendar setup, texting, email and payment setup,
  *   members and invitations, and agency pages) opens the web.
+ * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
+ *   notification links to `/admin/tickets/<id>`. Its pages open the phone's Support desk (/app/admin), which asks
+ *   HandsFreeOS whether the person works there. The phones don't claim /admin in app.json, so an email's /admin link
+ *   still opens the browser.
  */
 
 /** The web app's host: the only one whose links open the app. */
@@ -175,11 +179,52 @@ export function phonePathOf(phone: string, params: Readonly<Record<string, strin
     .join('/');
 }
 
+/** The support desk's pages the phone has, under /admin: a section, or one ticket, business or idea. */
+const DESK_PAGES = [
+  'tickets',
+  'tickets/:id',
+  'ideas',
+  'ideas/:id',
+  'ideas/whats-new',
+  'ideas/areas',
+  'add-ons',
+  'businesses',
+  'businesses/:id',
+  'getting-started',
+  'health',
+  'rates',
+  'founding',
+  'replies',
+  'staff',
+];
+
+/** Where one of the support desk's web paths opens: the phone's Support desk, or the web for a page it hasn't got. */
+function deskRoute(
+  rest: readonly string[],
+  pathAndQuery: string,
+  query: Readonly<Record<string, string>>,
+): LinkTarget {
+  const known =
+    rest.length === 0 ||
+    DESK_PAGES.some((page) => {
+      const pattern = segments(page);
+      return (
+        pattern.length === rest.length &&
+        pattern.every((p, i) => (p === ':id' ? UUID.test(rest[i]!) : p === rest[i]))
+      );
+    });
+  if (!known) return { kind: 'web', path: pathAndQuery, businessId: null };
+  const href = `/app/admin${rest.length ? `/${rest.map(encodeURIComponent).join('/')}` : ''}`;
+  return { kind: 'screen', href, businessId: null, later: null, params: query };
+}
+
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
   const { path, query } = splitQuery(pathAndQuery);
   const parts = segments(path);
+  if (parts[0] === 'admin') return deskRoute(parts.slice(1), pathAndQuery, query);
   if (parts[0] !== 'app') return { kind: 'none' };
+  if (parts[1] === 'admin') return deskRoute(parts.slice(2), pathAndQuery, query);
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
   // An email about an idea (`/app/ideas/<id>`) names no business, since the board is every business's: it opens in

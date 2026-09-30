@@ -1,4 +1,5 @@
 'use client';
+import { DESK_WORDS, TICKET_EVENT_WORDS } from '@hfos/core';
 import { ArrowLeft, Eye, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -48,20 +49,6 @@ export interface TicketViewProps {
   readonly meUserId: string;
 }
 
-const KIND_WORD: Record<string, string> = {
-  opened: 'Opened',
-  customer_replied: 'They wrote again',
-  acknowledged: 'We said it arrived',
-  status_changed: 'Status changed',
-  priority_changed: 'Priority changed',
-  assigned: 'Given to someone',
-  snoozed: 'Put down for later',
-  unsnoozed: 'Picked back up',
-  linked_business: 'Linked to a business',
-  merged_in: 'Another ticket folded in',
-  merged_into: 'Folded into another ticket',
-};
-
 export function TicketView(props: TicketViewProps) {
   const { ticket, business } = props;
   const router = useRouter();
@@ -110,13 +97,13 @@ export function TicketView(props: TicketViewProps) {
         href="/admin/tickets"
         className="inline-flex items-center gap-1.5 text-[13px] text-text-3 hover:text-text"
       >
-        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} /> All tickets
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} /> {DESK_WORDS.allTickets}
       </Link>
 
       <div className="mt-2 flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold md:text-2xl" data-testid="ticket-subject">
-            {ticket.subject || '(no subject)'}
+            {ticket.subject || DESK_WORDS.noSubject}
           </h1>
           <p className="mt-1 text-[13px] text-text-3">
             #{ticket.number} · {CHANNEL_WORD[ticket.channel]} ·{' '}
@@ -141,7 +128,7 @@ export function TicketView(props: TicketViewProps) {
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[13px] font-semibold">
                     {m.authorName}
-                    {m.internal ? ' · internal note' : ''}
+                    {m.internal ? DESK_WORDS.internalNoteTag : ''}
                   </span>
                   <span className="flex-none text-xs text-text-3">{whenWords(m.createdAt)}</span>
                 </div>
@@ -156,11 +143,10 @@ export function TicketView(props: TicketViewProps) {
               data-testid="ticket-draft"
             >
               <div className="flex items-center gap-2 text-[13px] font-semibold text-accent-text">
-                <Sparkles className="h-4 w-4" strokeWidth={1.5} />A suggested answer
+                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                {DESK_WORDS.draftTitle}
                 {props.draft.stale ? (
-                  <span className="font-normal text-text-3">
-                    · written before their latest message
-                  </span>
+                  <span className="font-normal text-text-3">· {DESK_WORDS.draftStale}</span>
                 ) : null}
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-2">
@@ -168,13 +154,10 @@ export function TicketView(props: TicketViewProps) {
               </p>
               {props.draft.sources.length ? (
                 <p className="mt-2 text-xs text-text-3">
-                  From: {props.draft.sources.map((s) => s.title).join(' · ')}
+                  {DESK_WORDS.draftFrom(props.draft.sources.map((s) => s.title))}
                 </p>
               ) : (
-                <p className="mt-2 text-xs text-text-3">
-                  It had nothing solid to go on, so read this as questions to ask rather than an
-                  answer.
-                </p>
+                <p className="mt-2 text-xs text-text-3">{DESK_WORDS.draftNothingSolid}</p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
@@ -182,7 +165,7 @@ export function TicketView(props: TicketViewProps) {
                   onClick={() => setBody(props.draft!.bodyText)}
                   data-testid="draft-use"
                 >
-                  Put it in the box
+                  {DESK_WORDS.draftUse}
                 </Button>
                 <Button
                   variant="ghost"
@@ -195,7 +178,7 @@ export function TicketView(props: TicketViewProps) {
                     )
                   }
                 >
-                  No thanks
+                  {DESK_WORDS.draftDismiss}
                 </Button>
               </div>
             </div>
@@ -206,12 +189,8 @@ export function TicketView(props: TicketViewProps) {
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={6}
-              placeholder={
-                internal
-                  ? 'A note for whoever picks this up next. The customer never sees it.'
-                  : 'Write back. Plain words, and say what happens next.'
-              }
-              aria-label={internal ? 'Internal note' : 'Reply'}
+              placeholder={internal ? DESK_WORDS.notePlaceholder : DESK_WORDS.replyPlaceholder}
+              aria-label={internal ? DESK_WORDS.internalNote : 'Reply'}
               data-testid="reply-box"
             />
             {props.savedReplies.length ? (
@@ -235,7 +214,7 @@ export function TicketView(props: TicketViewProps) {
                 data-testid="reply-send"
               >
                 {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {internal ? 'Save the note' : 'Send it'}
+                {internal ? DESK_WORDS.saveNote : DESK_WORDS.sendReply}
               </Button>
               <label className="flex items-center gap-2 text-[13px] text-text-2">
                 <input
@@ -244,7 +223,7 @@ export function TicketView(props: TicketViewProps) {
                   onChange={(e) => setInternal(e.target.checked)}
                   data-testid="reply-internal"
                 />
-                Internal note
+                {DESK_WORDS.internalNote}
               </label>
               <button
                 type="button"
@@ -258,23 +237,20 @@ export function TicketView(props: TicketViewProps) {
                 data-testid="ask-ai"
               >
                 <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                Ask the AI for a draft
+                {DESK_WORDS.askAi}
               </button>
             </div>
             {error ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}
-            <p className="mt-2 text-xs text-text-3">
-              A reply goes out from support@handsfreeos.com, and their answer comes back to this
-              ticket.
-            </p>
+            <p className="mt-2 text-xs text-text-3">{DESK_WORDS.replyGoesOut}</p>
           </form>
         </div>
 
         <aside className="w-full flex-none lg:w-72">
           <div className="rounded-card border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">This ticket</h2>
+            <h2 className="text-sm font-semibold">{DESK_WORDS.thisTicket}</h2>
             <dl className="mt-3 flex flex-col gap-2.5 text-[13px]">
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-text-3">Status</dt>
+                <dt className="text-text-3">{DESK_WORDS.status}</dt>
                 <dd>
                   <select
                     value={ticket.status}
@@ -299,7 +275,7 @@ export function TicketView(props: TicketViewProps) {
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-text-3">Priority</dt>
+                <dt className="text-text-3">{DESK_WORDS.priority}</dt>
                 <dd>
                   <select
                     value={ticket.priority}
@@ -324,7 +300,7 @@ export function TicketView(props: TicketViewProps) {
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-text-3">Who has it</dt>
+                <dt className="text-text-3">{DESK_WORDS.whoHasIt}</dt>
                 <dd>
                   {props.can.assign ? (
                     <select
@@ -341,46 +317,48 @@ export function TicketView(props: TicketViewProps) {
                       }
                       className="h-8 rounded-control border border-border bg-card px-2 text-[13px]"
                     >
-                      <option value="">Nobody</option>
+                      <option value="">{DESK_WORDS.nobody}</option>
                       {props.staff.map((s) => (
                         <option key={s.userId} value={s.userId}>
                           {s.displayName || s.fullName}
-                          {s.userId === props.meUserId ? ' (me)' : ''}
+                          {s.userId === props.meUserId ? ` ${DESK_WORDS.me}` : ''}
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <span>{ticket.assignee?.name ?? 'Nobody'}</span>
+                    <span>{ticket.assignee?.name ?? DESK_WORDS.nobody}</span>
                   )}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-text-3">Came in</dt>
+                <dt className="text-text-3">{DESK_WORDS.cameIn}</dt>
                 <dd>{whenWords(ticket.createdAt)}</dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-text-3">First answered</dt>
-                <dd>{ticket.firstResponseAt ? whenWords(ticket.firstResponseAt) : 'Not yet'}</dd>
+                <dt className="text-text-3">{DESK_WORDS.firstAnswered}</dt>
+                <dd>
+                  {ticket.firstResponseAt ? whenWords(ticket.firstResponseAt) : DESK_WORDS.notYet}
+                </dd>
               </div>
             </dl>
           </div>
 
           <div className="mt-4 rounded-card border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">Their business</h2>
+            <h2 className="text-sm font-semibold">{DESK_WORDS.theirBusiness}</h2>
             {business ? (
               <>
                 <p className="mt-2 text-sm font-medium">{business.name}</p>
                 <p className="text-[13px] text-text-3">
                   {business.organizationName ? `${business.organizationName} · ` : ''}
-                  {business.memberCount} {business.memberCount === 1 ? 'person' : 'people'} · with
-                  us since {new Date(business.createdAt).toLocaleDateString()}
+                  {DESK_WORDS.people(business.memberCount)} ·{' '}
+                  {DESK_WORDS.withUsSince(new Date(business.createdAt).toLocaleDateString())}
                 </p>
                 <div className="mt-3 flex flex-col gap-2">
                   <Link
                     href={`/admin/businesses/${business.workspaceId}`}
                     className="inline-flex h-9 items-center justify-center rounded-control border border-border px-3 text-[13px] font-medium hover:bg-card-2"
                   >
-                    Open their account page
+                    {DESK_WORDS.openAccountPage}
                   </Link>
                   {props.can.viewAs ? (
                     <ViewAsButton
@@ -394,8 +372,7 @@ export function TicketView(props: TicketViewProps) {
               </>
             ) : (
               <p className="mt-2 text-[13px] text-text-3">
-                We do not know which business this is about yet. Their address is not one of our
-                users, or they work in more than one.
+                {DESK_WORDS.businessUnknown}
                 <Eye className="ml-1 inline h-3.5 w-3.5 opacity-0" aria-hidden />
               </p>
             )}
@@ -403,7 +380,7 @@ export function TicketView(props: TicketViewProps) {
 
           {props.alsoFrom.length ? (
             <div className="mt-4 rounded-card border border-border bg-card p-4">
-              <h2 className="text-sm font-semibold">Also from them</h2>
+              <h2 className="text-sm font-semibold">{DESK_WORDS.alsoFromThem}</h2>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {props.alsoFrom.map((t) => (
                   <li key={t.id}>
@@ -420,11 +397,11 @@ export function TicketView(props: TicketViewProps) {
           ) : null}
 
           <div className="mt-4 rounded-card border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">What happened</h2>
+            <h2 className="text-sm font-semibold">{DESK_WORDS.whatHappened}</h2>
             <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-text-3">
               {props.events.map((e) => (
                 <li key={e.id}>
-                  {KIND_WORD[e.kind] ?? e.kind} · {whenWords(e.createdAt)}
+                  {TICKET_EVENT_WORDS[e.kind] ?? e.kind} · {whenWords(e.createdAt)}
                 </li>
               ))}
             </ul>
