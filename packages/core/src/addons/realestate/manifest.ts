@@ -114,14 +114,15 @@ export const realestateAddon = defineAddon({
     {
       key: 'realestate.except',
       label: 'Approve exceptions',
-      description: 'Mark a duty done without its proof, or waive it, with a reason.',
+      description:
+        'Mark a duty done without its proof or waive it, with a reason, and set a deal’s final commission.',
       defaultRoles: ['admin'],
       requires: ['realestate.use'],
     },
     {
       key: 'realestate.manage',
       label: 'Run the deal settings',
-      description: 'The list of duties, alerts, business days, and each deal’s final commission.',
+      description: 'The list of duties, the alerts, business days and the add-on’s other settings.',
       defaultRoles: ['admin'],
       requires: ['realestate.use'],
     },
@@ -132,7 +133,7 @@ export const realestateAddon = defineAddon({
       singular: 'Deal',
       plural: 'Deals',
       nameLabel: 'Deal name',
-      icon: 'briefcase',
+      icon: 'key',
       writePermission: 'realestate.use',
       keptToTeam: { seeAllPermission: 'realestate.all_deals' },
     },
@@ -171,6 +172,7 @@ export const realestateAddon = defineAddon({
     companyOnDeal('lender', 'Lender', 'lender'),
     companyOnDeal('title_company', 'Title or escrow company', 'title'),
     companyOnDeal('brokerage', 'Other side’s brokerage', 'other side'),
+    companyOnDeal('vendor_company', 'Vendor', 'vendor'),
   ],
   // Its own tables, in `addon_realestate` (packages/core/src/addons/realestate/tables.ts mirrors them).
   tables: ['deals', 'deal_roles', 'deal_links', 'deal_history'],

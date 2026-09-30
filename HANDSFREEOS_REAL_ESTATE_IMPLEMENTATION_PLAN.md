@@ -393,20 +393,21 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
 **As built:**
 
 - The manifest (`packages/core/src/addons/realestate/manifest.ts`), still `development`: permissions
-  `realestate.use` (admins and members), `.all_deals`, `.except` and `.manage` (admins); `.manage` also sets the
-  final commission. Kinds `realestate_deal` (kept to its people, seen whole with `.all_deals`) and
+  `realestate.use` (admins and members), `.all_deals`, `.except` (which also sets the final commission) and
+  `.manage` (admins). Kinds `realestate_deal` (icon `key`, kept to its people, seen whole with `.all_deals`) and
   `realestate_property` (shared). Relationship types: deal → property (each deal one property), and client, loan
   officer, other side's agent, title or escrow contact, inspector, vendor and attorney (people), lender, title or
-  escrow company and other side's brokerage (companies), each labelled "Deal (…)" from the other end. One menu
-  place, **Deals**. Events, jobs, settings and panels arrive with the steps that use them.
+  escrow company, other side's brokerage and vendor (companies), each labelled "Deal (…)" from the other end. One
+  menu place, **Deals**. Events, jobs, settings and panels arrive with the steps that use them.
 - `20261013002600`: its four permissions, and its tables in `addon_realestate`, each following its deal's privacy
   (`addon_table_policies` with the record column). `deals` is keyed by the deal's record (and must be one of its
-  deal records); `deal_roles` (agent, coordinator, assistant) only for someone on the deal; `deal_links` a row each
-  way, never across businesses (composite keys); `deal_history` append-only. Mirrored in
+  deal records); `deal_roles` (agent, co-agent, coordinator, assistant) only for someone on the deal; `deal_links`
+  (`same_home`, `sale_and_purchase`) a row each way, never across businesses (composite keys); `deal_history`
+  append-only. Mirrored in
   `packages/core/src/addons/realestate/tables.ts`, held to the live columns by its own test.
 - `20261013002700` (core): `addon_line` timeline lines (`addonTimelineLine`), redacted by the purge and checked by
   `addon_verify`; `app.ai_usage` source `addon` with `addon_id`. The lead page has a panel place, `lead.panels`.
-- Choices made for Chris (labels can change any time): the "Deal (…)" labels, and the three deal roles.
+- Choice made for Chris (labels can change any time): the "Deal (…)" labels.
 
 ### Step 7 — The catalog and the dates
 

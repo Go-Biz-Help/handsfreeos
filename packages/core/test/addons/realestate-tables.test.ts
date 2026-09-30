@@ -195,7 +195,7 @@ describe('Real Estate Agent’s tables', () => {
       await refusal(
         as(owner)(
           sql`insert into addon_realestate.deal_links (workspace_id, deal_record_id, other_record_id, kind)
-              values (${ws}, ${deal}, ${theirs}, 'other_side')`,
+              values (${ws}, ${deal}, ${theirs}, 'same_home')`,
         ),
       ),
       // The pair (this business, their deal) isn't a deal here.

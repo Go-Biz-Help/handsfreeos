@@ -77,7 +77,7 @@ export const dealRoles = addonRealestate.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    role: text('role').notNull().$type<'agent' | 'coordinator' | 'assistant'>(),
+    role: text('role').notNull().$type<'agent' | 'co_agent' | 'coordinator' | 'assistant'>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -90,13 +90,8 @@ export const dealRoles = addonRealestate.table(
   ],
 );
 
-export const DEAL_LINK_KINDS = [
-  'other_side',
-  'waits_on_sale',
-  'sale_for',
-  'backup_of',
-  'backed_up_by',
-] as const;
+/** The two sides of one home, or a client's sale and their next purchase. */
+export const DEAL_LINK_KINDS = ['same_home', 'sale_and_purchase'] as const;
 export type DealLinkKind = (typeof DEAL_LINK_KINDS)[number];
 
 /** Two deals that belong together, a row each way. */

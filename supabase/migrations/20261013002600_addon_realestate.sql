@@ -10,13 +10,13 @@
 --
 --        **deals**: one per deal record. Which side (buyer or listing), its
 --        stage and how it ended, the lead it came from, its commission (in
---        cents and basis points; the final figure is set by owners and admins),
+--        cents and basis points; the final figure is set with Approve
+--        exceptions, owners and admins by default),
 --        and its health as last worked out.
 --        **deal_roles**: what each person on the deal does there (agent,
---        coordinator, assistant); the main agent is the record's own.
+--        co-agent, coordinator, assistant); the main agent is the record's own.
 --        **deal_links**: two deals that belong together, a row each way: both
---        sides of one sale, a purchase that waits on the client's own sale, a
---        backup offer.
+--        sides of the same home, or a client's sale and their next purchase.
 --        **deal_history**: what changed on a deal, append-only.
 -- =============================================================================
 
@@ -27,10 +27,10 @@ select private.register_addon_permissions('realestate', '[
    "description": "Every deal in the business, not only the ones they’re on.", "defaultRoles": ["admin"],
    "requires": ["realestate.use"]},
   {"key": "realestate.except", "label": "Approve exceptions",
-   "description": "Mark a duty done without its proof, or waive it, with a reason.", "defaultRoles": ["admin"],
-   "requires": ["realestate.use"]},
+   "description": "Mark a duty done without its proof or waive it, with a reason, and set a deal’s final commission.",
+   "defaultRoles": ["admin"], "requires": ["realestate.use"]},
   {"key": "realestate.manage", "label": "Run the deal settings",
-   "description": "The list of duties, alerts, business days, and each deal’s final commission.",
+   "description": "The list of duties, the alerts, business days and the add-on’s other settings.",
    "defaultRoles": ["admin"], "requires": ["realestate.use"]}
 ]'::jsonb);
 
@@ -51,7 +51,7 @@ create table addon_realestate.deals (
   -- The Pipeline lead it started from, when it did.
   lead_id uuid references app.leads (id) on delete set null,
   -- Commission: the agreed rate or flat amount, any credit given back, the business's split, what that comes to,
-  -- and the final figure once owners or admins set it.
+  -- and the final figure once someone with Approve exceptions sets it.
   commission_rate_bp integer check (commission_rate_bp between 0 and 10000),
   commission_flat_cents bigint check (commission_flat_cents >= 0),
   commission_credit_cents bigint not null default 0 check (commission_credit_cents >= 0),
@@ -109,7 +109,7 @@ create table addon_realestate.deal_roles (
   workspace_id uuid not null references app.workspaces (id) on delete cascade,
   deal_record_id uuid not null,
   user_id uuid not null references app.users (id) on delete cascade,
-  role text not null check (role in ('agent', 'coordinator', 'assistant')),
+  role text not null check (role in ('agent', 'co_agent', 'coordinator', 'assistant')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (deal_record_id, user_id),
@@ -144,8 +144,8 @@ create table addon_realestate.deal_links (
   workspace_id uuid not null references app.workspaces (id) on delete cascade,
   deal_record_id uuid not null,
   other_record_id uuid not null,
-  -- other_side both ways; waits_on_sale and sale_for; backup_of and backed_up_by.
-  kind text not null check (kind in ('other_side', 'waits_on_sale', 'sale_for', 'backup_of', 'backed_up_by')),
+  -- same_home: the buyer's and the seller's side of one sale; sale_and_purchase: a client's sale and next home.
+  kind text not null check (kind in ('same_home', 'sale_and_purchase')),
   created_by uuid references app.users (id) on delete set null,
   created_at timestamptz not null default now(),
   unique (deal_record_id, other_record_id, kind),
