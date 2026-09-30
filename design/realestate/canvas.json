@@ -1,0 +1,100 @@
+{
+  "artboards": [
+    {
+      "file": "DealsHome.dc.html",
+      "title": "1 · Deals",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "StartDeal.dc.html",
+      "title": "2 · Start a buyer deal from a customer",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DealPage.dc.html",
+      "title": "3 · A deal: health, duties, dates, people, commission",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "KeyDates.dc.html",
+      "title": "4 · Key dates and terms, with a conflict",
+      "x": 4080,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyDrawer.dc.html",
+      "title": "5 · A duty: proof, exception, history",
+      "x": 0,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Documents.dc.html",
+      "title": "6 · Documents: versions and signed files kept",
+      "x": 1360,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ClientUpdate.dc.html",
+      "title": "7 · Client update with a fair-housing flag",
+      "x": 2720,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyEditor.dc.html",
+      "title": "8 · Settings: the duty editor",
+      "x": 4080,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AlertSettings.dc.html",
+      "title": "9 · Settings: alerts, business days, client updates",
+      "x": 0,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Panels.dc.html",
+      "title": "10 · Panels on a customer and a lead",
+      "x": 1360,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "HomeAlerts.dc.html",
+      "title": "11 · Home cards and phone push",
+      "x": 2720,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "SupportAccess.dc.html",
+      "title": "12 · Settings: support access",
+      "x": 4080,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    }
+  ]
+}
