@@ -6337,6 +6337,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.deal.report_wire_change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Someone said a deal’s wiring instructions changed: a critical alert at once, and a hold that ends only when a person checks by phone at a number they found themselves. Nothing relays the new instructions.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.wire_change_reported.
+         */
+        post: operations["command_realestate_deal_report_wire_change"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.restore": {
         parameters: {
             query?: never;
@@ -6491,6 +6511,346 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.deal.unlinked.
          */
         post: operations["command_realestate_deal_unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make one of a deal’s files one of its documents: its kind (purchase contract, amendment, inspection report…), its title, and the document it’s a newer version of.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added.
+         */
+        post: operations["command_realestate_document_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.mark_signed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a deal’s document signed: its file is locked for good (never deleted or renamed), earlier versions are replaced, and it becomes the one that counts of its kind unless another does.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.signed.
+         */
+        post: operations["command_realestate_document_mark_signed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.set_controlling": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which document of its kind counts on a deal (the controlling contract, say), when it isn’t the newest signed one.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.controlling_set.
+         */
+        post: operations["command_realestate_document_set_controlling"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a deal’s document, change its kind while it’s a draft, or say it was sent for signing.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.updated.
+         */
+        post: operations["command_realestate_document_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a deal’s document with the reason (a released contract, a form sent in error). It stays on the deal, signed and locked if it was, and no longer counts.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.voided.
+         */
+        post: operations["command_realestate_document_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you’ve seen that a duty is at risk. The alert stops asking; the duty still needs doing.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged.
+         */
+        post: operations["command_realestate_duty_acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a duty on one deal that its list doesn’t have: its name, who answers for it, how much it matters, what proof finishes it, and when it’s due.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.added.
+         */
+        post: operations["command_realestate_duty_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.add_evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add proof to a duty: one of the deal’s documents or files, a note, the person’s own word (an attestation), an appointment or a message. Answers what’s still missing.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added.
+         */
+        post: operations["command_realestate_duty_add_evidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a duty to someone on its deal to answer for, or to nobody by name (the brokerage). Only someone on the deal can have one.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.assigned.
+         */
+        post: operations["command_realestate_duty_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a duty that no longer applies (a stage the deal skipped, a step that won’t happen), with the reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.duty.cancelled.
+         */
+        post: operations["command_realestate_duty_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a duty done. Refused until it has the proof its rule asks for, saying what’s missing; an owner or admin can mark it done without it, with a reason.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.completed.
+         */
+        post: operations["command_realestate_duty_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.complete_with_exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a duty done without the proof its rule asks for, with the reason. Owners and admins (Approve exceptions) only; kept in its history.
+         * @description Risk level 2. Requires realestate.except. Emits realestate.duty.completed.
+         */
+        post: operations["command_realestate_duty_complete_with_exception"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a finished duty back to work, with why: a done one goes back in progress, a waived or cancelled one to not started.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.reopened.
+         */
+        post: operations["command_realestate_duty_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.set_due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set when a duty is due by hand, with why, or clear it so its rule decides again. A date with no time is due at 11:59 pm where the business is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.due_set.
+         */
+        post: operations["command_realestate_duty_set_due"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where a duty stands: not started, in progress, waiting on someone (who), or blocked (by what, whose it is to clear, what it holds up, when to look again). Its due date never moves for it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed.
+         */
+        post: operations["command_realestate_duty_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Waive a duty that isn’t needed on this deal, with the reason. Owners and admins (Approve exceptions) only.
+         * @description Risk level 2. Requires realestate.except. Emits realestate.duty.waived.
+         */
+        post: operations["command_realestate_duty_waive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.withdraw_evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back proof added to a duty by mistake, with why. It stays in the duty’s history and no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_duty_withdraw_evidence"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11731,6 +12091,66 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_deal_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.document.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s documents, each with its kind, version, status, whether it’s the one that counts and whether its file is locked.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_document_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.duty.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One duty whole: what it is and why, who answers for it, when it’s due and how that was worked out, what finishes it and what’s still missing, its proof, and everything that happened to it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.duty.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duties across the deals the person sees, soonest due first: theirs or everyone’s, open, overdue, drafts or all, on one deal or every one.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26163,6 +26583,44 @@ export interface operations {
             };
         };
     };
+    command_realestate_deal_report_wire_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    from?: string;
+                    /** @enum {string} */
+                    how: "email" | "text" | "phone" | "other";
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_deal_restore: {
         parameters: {
             query?: never;
@@ -26477,6 +26935,708 @@ export interface operations {
                         dealId: string;
                         /** Format: uuid */
                         otherDealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    fileId: string;
+                    /** @enum {string} */
+                    kind: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /**
+                     * @default draft
+                     * @enum {string}
+                     */
+                    status?: "draft" | "sent";
+                    /** Format: uuid */
+                    supersedesId?: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_mark_signed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_set_controlling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** @enum {string} */
+                    kind?: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /** @enum {string} */
+                    status?: "draft" | "sent";
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    accountableUserId?: string;
+                    attestation?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    details?: string;
+                    /** Format: date */
+                    dueDate?: string;
+                    dueTime?: string;
+                    /**
+                     * @default standard
+                     * @enum {string}
+                     */
+                    materiality?: "standard" | "material" | "critical";
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    proof?: "none" | "note" | "file" | "attestation";
+                    title: string;
+                    /**
+                     * @default HEALTH
+                     * @enum {string}
+                     */
+                    tracker?: "LEAD" | "REP" | "FIN" | "SEARCH" | "SHOW" | "CMA" | "OFFER" | "CONTRACT" | "INSPECT" | "REPAIR" | "APPRAISAL" | "TITLE" | "LISTING" | "MARKET" | "VENDOR" | "OPEN" | "CLOSE" | "POSSESS" | "DOC" | "COMPLY" | "HEALTH" | "POST" | "SAFETY" | "MOVE";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_add_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    body?: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    fileId?: string;
+                    /** @enum {string} */
+                    kind: "document" | "file" | "note" | "attestation" | "appointment" | "message";
+                    /** Format: uuid */
+                    messageId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        evidenceId: string;
+                        missing: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    userId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_complete_with_exception: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_set_due: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    clear?: boolean;
+                    /** Format: date */
+                    date?: string;
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason?: string;
+                    time?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    blocker?: {
+                        impact: string;
+                        owner: string;
+                        /** Format: date-time */
+                        reviewAt: string;
+                        what: string;
+                    };
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    status: "not_started" | "in_progress" | "waiting_external" | "blocked";
+                    waitingOn?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_waive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_withdraw_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    evidenceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        evidenceId: string;
+                        missing: string;
                     };
                 };
             };
@@ -42221,6 +43381,7 @@ export interface operations {
                             needsDates: string[];
                             overdue: boolean;
                             pass: number;
+                            proofMissing: string;
                             startedBy: string;
                             /** @enum {string} */
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
@@ -42413,6 +43574,247 @@ export interface operations {
                             stageLabel: string;
                             /** Format: date-time */
                             updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_document_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: {
+                            controlling: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            documentId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            fileName: string;
+                            kind: string;
+                            kindLabel: string;
+                            /** Format: uuid */
+                            lineageId: string;
+                            locked: boolean;
+                            signedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "signed" | "superseded" | "void";
+                            title: string;
+                            version: number;
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_duty_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        can: {
+                            except: boolean;
+                        };
+                        duty: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            accountableRole: string;
+                            acknowledgedAt: string | null;
+                            automation: string;
+                            behavior: string;
+                            blocker: {
+                                impact: string | null;
+                                owner: string;
+                                reviewAt: string | null;
+                                what: string;
+                            } | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            dueDate: string | null;
+                            dueSetByHand: {
+                                /** Format: date-time */
+                                at: string;
+                                reason: string;
+                            } | null;
+                            /** @enum {string} */
+                            dueState: "due" | "none" | "waiting";
+                            dueTime: string | null;
+                            dueTrace: unknown[];
+                            /** Format: uuid */
+                            dutyId: string;
+                            exception: boolean;
+                            finishedAt: string | null;
+                            finishReason: string | null;
+                            key: string;
+                            materiality: string;
+                            needsDates: string[];
+                            overdue: boolean;
+                            pass: number;
+                            performers: string[];
+                            phase: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            startedBy: string;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            tracker: string;
+                            waitingOn: string | null;
+                            warnings: unknown[];
+                        };
+                        evidence: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            addedBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            appointmentId: string | null;
+                            body: string | null;
+                            documentId: string | null;
+                            /** Format: uuid */
+                            evidenceId: string;
+                            fileId: string | null;
+                            kind: string;
+                            label: string;
+                            messageId: string | null;
+                            withdrawnAt: string | null;
+                            withdrawnReason: string | null;
+                        }[];
+                        log: {
+                            actor: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** @enum {string} */
+                            actorType: "person" | "system" | "ai";
+                            after: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** Format: date-time */
+                            at: string;
+                            before: {
+                                [key: string]: unknown;
+                            } | null;
+                            note: string | null;
+                            what: string;
+                        }[];
+                        proof: {
+                            attestations: string[];
+                            missing: string;
+                            needs: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_duty_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId?: string;
+                    /** @default 200 */
+                    limit?: number;
+                    /** @default true */
+                    mine?: boolean;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    status?: "open" | "overdue" | "drafts" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duties: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** @enum {string} */
+                            dueState: "due" | "none" | "waiting";
+                            /** Format: uuid */
+                            dutyId: string;
+                            key: string;
+                            materiality: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
                         }[];
                     };
                 };

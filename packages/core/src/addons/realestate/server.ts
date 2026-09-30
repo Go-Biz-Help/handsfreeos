@@ -7,12 +7,21 @@
 import type { AddonServerModule } from '../server';
 import { realestateAddon } from './manifest';
 import { dealLifeCommands } from './ops/deals';
+import { documentCommands } from './ops/documents';
+import { dutyQueries } from './ops/duty-queries';
+import { dutyCommands } from './ops/duties';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
-  commands: [...dealLifeCommands, ...dealPeopleCommands, ...termCommands],
-  queries: realestateQueries,
+  commands: [
+    ...dealLifeCommands,
+    ...dealPeopleCommands,
+    ...termCommands,
+    ...dutyCommands,
+    ...documentCommands,
+  ],
+  queries: [...realestateQueries, ...dutyQueries],
 };

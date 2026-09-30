@@ -25,6 +25,7 @@ import {
 } from '../catalog';
 import { KEY_DATES, type KeyDateKey } from '../dates/key-dates';
 import { realestateAddon } from '../manifest';
+import { WIRE_CHECK_KEY } from '../own-duties';
 import {
   BUYER_STAGES,
   FIRST_STAGE,
@@ -704,7 +705,11 @@ export const dealEnd = defineAddonCommand(realestateAddon, {
     }
     const outcome = deal.side === 'listing' ? 'ended' : 'lost';
     const w = await openWork(ctx, deal);
-    await w.cancel(() => true, `The ${sideWords(deal.side)} ended: ${input.reason}`);
+    // A wire check stays: a changed wire is settled only by a person's phone check, deal or no deal.
+    await w.cancel(
+      (d) => d.dutyKey !== WIRE_CHECK_KEY,
+      `The ${sideWords(deal.side)} ended: ${input.reason}`,
+    );
     await setStage(ctx, w, { stage: to, outcome, outcomeReason: input.reason });
     await historyLine(ctx, deal, 'ended', {
       before: { stage: deal.stage },

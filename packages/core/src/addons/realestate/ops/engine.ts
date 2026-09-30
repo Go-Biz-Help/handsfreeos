@@ -295,7 +295,12 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         needsDates: [...new Set([...due.missing, ...due.unconfirmed])],
       });
     }
-    if (!made.length) return 0;
+    return (await insertRows(made)).length;
+  }
+
+  /** Writes new duties, logs them, and keeps them in the work's list. */
+  async function insertRows(made: (typeof duties.$inferInsert)[]) {
+    if (!made.length) return [];
     const inserted = await ctx.tx.insert(duties).values(made).returning();
     await log(
       inserted.map((d) => ({
@@ -322,7 +327,72 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         accountableRole: d.accountableRole as DutyRow['accountableRole'],
       });
     counts.created += inserted.length;
-    return inserted.length;
+    return inserted;
+  }
+
+  /**
+   * A duty that no moment on the list creates: one a person writes on the deal, or the check a changed wire needs.
+   * Its due time comes from its rule, or is set by hand.
+   */
+  async function addDuty(
+    def: ResolvedDuty,
+    opts: {
+      readonly startedBy: `manual:${string}`;
+      readonly accountableUserId?: string | null;
+      readonly due?: {
+        readonly at: Date;
+        readonly date: string;
+        readonly time: string;
+        readonly reason: string;
+      };
+    },
+  ): Promise<string> {
+    const mine = existing.filter((d) => d.dutyKey === def.id);
+    const due = dueOf(def, at);
+    const [row] = await insertRows([
+      {
+        workspaceId: deal.workspaceId,
+        dealRecordId: deal.recordId,
+        dutyKey: def.id,
+        pass: Math.max(0, ...mine.map((d) => d.pass)) + 1,
+        title: def.title,
+        tracker: def.tracker,
+        status: 'not_started',
+        materiality: def.materiality,
+        automation: def.automation,
+        accountableRole: def.accountable,
+        accountableUserId:
+          opts.accountableUserId !== undefined
+            ? opts.accountableUserId
+            : personFor(def.accountable, deal, roles),
+        performers: [...(def.performedBy ?? [])],
+        definition: def as unknown as Record<string, unknown>,
+        startedBy: opts.startedBy,
+        startedAt: at,
+        ...(opts.due
+          ? {
+              dueState: 'due',
+              dueAt: opts.due.at,
+              dueDate: opts.due.date,
+              dueTime: opts.due.time,
+              dueTrace: [{ step: 'set_by_hand', date: opts.due.date, time: opts.due.time }],
+              dueOverrideAt: at,
+              dueOverrideReason: opts.due.reason,
+            }
+          : {
+              dueState: due.state,
+              dueAt: due.dueAt ? new Date(due.dueAt) : null,
+              dueDate: due.date,
+              dueTime: due.time,
+              dueTrace: [...due.trace],
+              dueWarnings: [...due.warnings],
+              needsDates: [...new Set([...due.missing, ...due.unconfirmed])],
+            }),
+      },
+    ]);
+    const added = existing.find((d) => d.id === row!.id)!;
+    if (opts.due) added.dueOverrideAt = at;
+    return row!.id;
   }
 
   /** Entering stages, in order: each one's duties, for the time through it this is. */
@@ -497,6 +567,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
 
   return {
     at,
+    timeZone,
+    calendar,
     get deal() {
       return deal;
     },
@@ -517,6 +589,7 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     counts,
     list,
     create,
+    addDuty,
     enterStages,
     happen,
     cancel,

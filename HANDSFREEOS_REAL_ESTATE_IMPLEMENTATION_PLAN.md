@@ -500,10 +500,48 @@ step 12, beside its screen.
 - Taking a fact off cancels only the duties nobody has started.
 - Archiving a deal takes core's archive permission (owners and admins by default).
 
-### Step 9 — Duties and documents
+### Step 9 — Duties and documents (built, 2026-09-30)
 
 Every duty move with the proof rule, exceptions, waiving, due overrides; documents, versions and locking; wire
 changes. Tests follow the specification's acceptance scenarios (§22).
+
+**As built:**
+
+- `proof.ts` (browser-safe): whether a rule's items are met by the proof on a duty and what the deal holds
+  (confirmed dates, the commission, its property and client), and what's missing in words ("a signed Purchase
+  contract and contract accepted confirmed"), the same words the refusal and the duty drawer use.
+- `own-duties.ts`: duties that aren't catalog rows. `W-00` is the wire check (critical, never automatic, finished
+  only with the person's own word that they called at a number they found themselves, and a note); `W-01` onwards
+  are duties a person writes on one deal.
+- Commands (`realestate.use` unless said): `duty.set_status` (not started, in progress, waiting on someone, blocked
+  with what, whose, the impact and when to look again; the due date never moves for it), `duty.add_evidence` (a
+  document or file of the deal's, a note, an attestation, an appointment, a message) and `withdraw_evidence`,
+  `duty.assign` (only to someone on the deal, or the brokerage), `duty.acknowledge`, `duty.complete` (refused with
+  `duty_needs_proof`, saying what's missing), `duty.complete_with_exception` and `duty.waive` (`realestate.except`,
+  with a reason), `duty.cancel`, `duty.reopen`, `duty.set_due` (by hand, with why, or back to its rule),
+  `duty.add`; `document.add` (a file already on the deal, as a new line or the next version), `document.update`,
+  `document.mark_signed` (locks its file through core's `file.lock`, replaces earlier versions, and makes it the
+  one that counts unless another does), `document.set_controlling`, `document.void`; and
+  `deal.report_wire_change`. Queries: `duty.get` (with its proof, what's missing, its evidence and log),
+  `duty.list` (My duties), `document.list`; `deal.get` now says what each duty still lacks.
+- The worker half (`apps/worker/src/addons/realestate/`) hears its own events: a reported wire change raises a
+  critical alert at once (step 5's alerts, acknowledged by a person), and the check being done, waived or cancelled
+  clears it.
+- Core: `@hfos/core/addons/*` exports an add-on's core code to its worker and web halves; the boundary test now
+  checks those imports too, so one add-on still can't reach another's.
+- Tests: `test/addons/realestate-duties.test.ts` (a human-only duty, the evidence rule and its exception, a blocked
+  item, drafts, signed and versioned documents, an amendment's signed source, a changed wire, a duty written on a
+  deal) and `apps/worker/test/realestate-wire.test.ts`.
+
+**Choices made for Chris** (say the word and they change):
+
+- Only a person gives their word on a duty: the Assistant can't attest for them (spec §22, "it never claims to
+  have attended").
+- An owner's exception is recorded as one only when proof was actually missing.
+- A second wire-change report while a check is open joins it rather than starting another. Ending a deal leaves an
+  open wire check open.
+- A duty set by hand on a weekend or holiday keeps its date and shows the warning, as a calendar-day rule does.
+- Proof can't be added to or taken from a finished duty; reopen it first.
 
 ### Step 10 — Health and alerts
 

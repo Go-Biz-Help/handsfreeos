@@ -9,8 +9,10 @@ import { customRecords } from '@hfos/db/schema';
 import { scopeCan } from '../../../kernel/execute';
 import type { Permission } from '../../../permissions';
 import { defineAddonQuery } from '../../server';
+import type { ResolvedDuty } from '../catalog/types';
 import { checkDealDates } from '../dates/conflicts';
 import { realestateAddon } from '../manifest';
+import { gapWords, proofGaps, type EvidenceFact } from '../proof';
 import {
   DealGetInput,
   DealGetOutput,
@@ -26,6 +28,7 @@ import {
   TermHistoryOutput,
 } from '../schemas';
 import {
+  isDoneDuty,
   isOverdue,
   OPEN_DUTY_STATUSES,
   STAGE_LABELS,
@@ -54,6 +57,7 @@ import {
   userNames,
   type Ctx,
 } from './common';
+import { dealProofFactsOf } from './duties';
 import { termEntriesOf } from './engine';
 import { commissionView, propertyOf, teamOf } from './people';
 
@@ -337,6 +341,39 @@ export const dealGet = defineAddonQuery(realestateAddon, {
       ctx,
       dutyRows.map((t) => t.accountableUserId),
     );
+    // What each duty still lacks: its proof, against what's on it and what the deal holds.
+    const evidence = await rows<{
+      duty_id: string;
+      kind: EvidenceFact['kind'];
+      withdrawn: boolean;
+      document_kind: string | null;
+      signed: boolean | null;
+    }>(
+      ctx.tx,
+      sql`select e.duty_id, e.kind, e.withdrawn_at is not null as withdrawn, d.kind as document_kind,
+            d.signed_at is not null and d.status <> 'void' as signed
+          from addon_realestate.duty_evidence e
+          left join addon_realestate.documents d on d.id = e.document_id
+          where e.deal_record_id = ${deal.recordId}`,
+    );
+    const proofFacts = await dealProofFactsOf(ctx, deal);
+    const missingFor = (t: (typeof dutyRows)[number]) => {
+      if (isDoneDuty(t.status as DutyStatus)) return '';
+      const rule = (t.definition as unknown as ResolvedDuty).proof;
+      const gaps = proofGaps(
+        rule,
+        evidence
+          .filter((e) => e.duty_id === t.id)
+          .map((e) => ({
+            kind: e.kind,
+            withdrawn: e.withdrawn,
+            documentKind: e.document_kind,
+            signed: e.signed === true,
+          })),
+        proofFacts,
+      );
+      return gaps.length ? gapWords(rule, gaps) : '';
+    };
     const now = Date.now();
     const can = (p: string) => scopeCan(ctx.scope, p as Permission);
 
@@ -442,6 +479,7 @@ export const dealGet = defineAddonQuery(realestateAddon, {
         dueTime: t.dueTime,
         needsDates: t.needsDates,
         warnings: t.dueWarnings,
+        proofMissing: missingFor(t),
       })),
     };
   },
