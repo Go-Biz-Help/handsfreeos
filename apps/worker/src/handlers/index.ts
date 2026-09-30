@@ -102,6 +102,7 @@ import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { roadmapHandlers } from '../addons/roadmap';
 import { onFileFingerprint } from './file-fingerprint';
+import { onSupportAccessRequested } from './support-access';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
@@ -329,6 +330,8 @@ export const handlers: HandlerMap = {
   // withContactAi appends the AI's look at a customer's tags and details to what happened with them (contact-ai/).
   ...withAddons(withPush(withAttention(withContactAi(ownTeammateAndWorkflows)))),
   ...supportHandlers,
+  // Support asking to see a business's private records (Real Estate step 4).
+  'support_access.requested': [onSupportAccessRequested],
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,
   // Voting on what's next (0109): the team's pick, told to the businesses that voted for it.

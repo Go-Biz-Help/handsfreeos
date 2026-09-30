@@ -1490,3 +1490,31 @@ export function aiSwitchEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * HandsFreeOS support asks to see a business's private records (Real Estate, step 4): to its owners and admins, and
+ * the main person on any private record, who may let support in for 24 hours or say no.
+ */
+export function supportAccessRequestedEmail(input: {
+  business: string;
+  staff: string;
+  note: string;
+  link: string;
+}): EmailContent {
+  const subject = `HandsFreeOS support asks to see ${input.business}’s private deals`;
+  const text = `${input.staff} from HandsFreeOS support is looking at ${input.business} and asks to see the private records you see, like your deals, to help: “${input.note}”\n\nThey’d see them read-only for 24 hours, and you can end it sooner. Nothing is shown until you say yes.\n\nAnswer: ${input.link}`;
+  const html = shell(
+    para(
+      `<strong>${escapeHtml(input.staff)}</strong> from HandsFreeOS support is looking at <strong>${escapeHtml(input.business)}</strong> and asks to see the private records you see, like your deals, to help:`,
+    ) +
+      para(`“${escapeHtml(input.note)}”`) +
+      para(
+        'They’d see them read-only for 24 hours, and you can end it sooner. Nothing is shown until you say yes.',
+      ) +
+      button(input.link, 'Answer') +
+      small(
+        `Sent to the owners and admins of ${escapeHtml(input.business)}, and the main person on each private deal.`,
+      ),
+  );
+  return { subject, text, html };
+}

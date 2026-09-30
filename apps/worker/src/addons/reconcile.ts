@@ -222,9 +222,10 @@ async function seedRecordKinds(tx: Tx, run: Run, m: AddonManifest): Promise<void
     const [row] = await rows<{ id: string }>(
       tx,
       sql`insert into app.custom_record_types (workspace_id, key, singular, plural, name_label, icon, position,
-            addon_id, write_permission)
+            addon_id, write_permission, kept_to_team, see_all_permission)
           values (${run.scope.workspaceId}, ${k.key}, ${k.singular}, ${k.plural}, ${k.nameLabel ?? 'Name'},
-            ${k.icon ?? 'box'}, ${MANAGED_POSITION + i}, ${m.id}, ${k.writePermission})
+            ${k.icon ?? 'box'}, ${MANAGED_POSITION + i}, ${m.id}, ${k.writePermission},
+            ${k.keptToTeam !== undefined}, ${k.keptToTeam?.seeAllPermission ?? null})
           on conflict (workspace_id, addon_id, key) where addon_id is not null
             do update set write_permission = excluded.write_permission
           returning id`,

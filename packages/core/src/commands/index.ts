@@ -101,6 +101,15 @@ import { registrationSubmit, registrationUpdateStatus } from './registration';
 import { brandedDomainCommands } from './branded-domain';
 import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
+import { customRecordTeamCommands } from './custom-record-team';
+import { supportAccessCommands } from './support-access';
+export {
+  supportAccessDecline,
+  supportAccessEnd,
+  supportAccessGrant,
+  supportAccessRequest,
+} from './support-access';
+export { customRecordAssign, customRecordUnassign } from './custom-record-team';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
@@ -893,6 +902,10 @@ export const commands: readonly CommandDef[] = [
   // Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
   ...customFieldCommands,
   ...customRecordCommands,
+  // Who is on a record kept to its people (Real Estate step 4).
+  ...customRecordTeamCommands,
+  // HandsFreeOS support let into private records (Real Estate step 4).
+  ...supportAccessCommands,
   ...relationshipCommands,
   // Ideas, the roadmap and What's new (0102).
   ...ideaCommands,

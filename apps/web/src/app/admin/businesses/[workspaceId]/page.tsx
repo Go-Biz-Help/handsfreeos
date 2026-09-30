@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
+import { SupportAccessAsk } from '@/components/admin/support-access-ask';
 import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
@@ -117,6 +118,10 @@ export default async function BusinessPage({
         phoneModel={detail.phoneModel}
         canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
       />
+
+      {me.staff?.permissions.includes('platform.view_as') ? (
+        <SupportAccessAsk workspaceId={workspaceId} />
+      ) : null}
 
       <AddonTestingBlock
         workspaceId={workspaceId}

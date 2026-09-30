@@ -70,6 +70,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
 - **Records**: an add-on's things are custom records of kinds it manages (`app.custom_record_types.addon_id`), so
   timelines, tasks, files, appointments, relationships, fields and search work on them unchanged. Its own tables,
   when it needs them, live in `addon_<id>`, each with every tenant rule from `private.addon_table_policies()`.
+  A kind can be kept to the people on each record (`keptToTeam`, Real Estate step 4): see docs/relationships.md;
+  a table about such records passes the record column to `addon_table_policies` and follows them.
 
 ## The lifecycle
 

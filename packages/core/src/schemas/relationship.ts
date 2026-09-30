@@ -208,6 +208,12 @@ export const CustomRecordCreateInput = z.object({
   /** Its fields, by field id, checked like record.set_fields. */
   values: z.record(uuid, z.unknown()).optional(),
   /**
+   * Who is on it, for a kind kept to its people (Real Estate step 4): its main person (its maker when not said) and
+   * everyone else on it. Refused for a kind everyone sees.
+   */
+  ownerUserId: uuid.optional(),
+  teamUserIds: z.array(uuid).max(20).optional(),
+  /**
    * Related to another record as it is made ("Add pet" on a customer's page): the relationship type, the record on
    * the other end, and which end the new record takes.
    */
@@ -292,8 +298,28 @@ export const CustomRecordDetail = z.object({
   createdBy: UserRef,
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
+  /** Kept to the people on it (Real Estate step 4): only they, and whoever sees every one of its kind, see it. */
+  keptToTeam: z.boolean(),
+  /** Its main person, when it is kept to its people. */
+  owner: UserRef,
+  /** Everyone else on it. */
+  team: z.array(z.object({ id: uuid, fullName: z.string() })),
 });
 export type CustomRecordDetail = z.infer<typeof CustomRecordDetail>;
+
+/** Putting someone on a record kept to its people, or taking them off (Real Estate step 4). */
+export const CustomRecordAssignInput = z.object({
+  workspaceId: uuid,
+  customRecordId: uuid,
+  userId: uuid,
+  /** Make them its main person; the one they replace stays on it. Owners and admins only. */
+  main: z.boolean().default(false),
+});
+export const CustomRecordUnassignInput = z.object({
+  workspaceId: uuid,
+  customRecordId: uuid,
+  userId: uuid,
+});
 export const CustomRecordGetOutput = z.object({ record: CustomRecordDetail });
 
 // ---- Relationships ----

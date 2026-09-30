@@ -586,6 +586,8 @@ export const tasks = app.table('tasks', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 export const activities = app.table('activities', {
@@ -611,6 +613,8 @@ export const activities = app.table('activities', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 export const files = app.table('files', {
@@ -637,6 +641,8 @@ export const files = app.table('files', {
   sha256: text('sha256'),
   hashedAt: ts('hashed_at'),
   ...timestamps(),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 // ---------- Milestone 3: communication ----------
@@ -3103,6 +3109,12 @@ export const attentionItems = app.table('attention_items', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  /** The private record it's about, if any (Real Estate step 4); a task's comes from the task. */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 // ---------- Milestone 9: money (0044-0050) ----------
@@ -5495,6 +5507,9 @@ export const customRecordTypes = app.table('custom_record_types', {
   /** The permission its records are written with: the add-on's own. Set exactly when addonId is. */
   writePermission: text('write_permission'),
   ...timestamps(),
+  /** Each record is seen only by the people on it and holders of seeAllPermission (Real Estate step 4). */
+  keptToTeam: boolean('kept_to_team').notNull().default(false),
+  seeAllPermission: text('see_all_permission'),
 });
 
 /** One pet, one vehicle, one property: a name, notes and its kind's fields. */
@@ -5518,6 +5533,30 @@ export const customRecords = app.table('custom_records', {
   ),
   /** Its add-on's data was permanently deleted (0108): only the name is left, so what pointed at it reads. */
   purgedAt: ts('purged_at'),
+  /** Its kind keeps each record to the people on it (Real Estate step 4). Copied from the kind; never changes. */
+  keptToTeam: boolean('kept_to_team').notNull().default(false),
+  /** A private record's main person (a deal's main agent). */
+  ownerUserId: userRef('owner_user_id'),
+  /** Everyone else on a private record. */
+  teamUserIds: uuid('team_user_ids').array().notNull().default([]),
+});
+
+/** HandsFreeOS support let into a business's private records for 24 hours (Real Estate step 4). */
+export const recordSupportGrants = app.table('record_support_grants', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** requested, active, declined or ended. */
+  status: text('status').notNull(),
+  requestedBy: userRef('requested_by'),
+  requestNote: text('request_note'),
+  /** Whose view it opens: everything this person sees. */
+  grantedBy: userRef('granted_by'),
+  grantedAt: ts('granted_at'),
+  expiresAt: ts('expires_at'),
+  decidedBy: userRef('decided_by'),
+  endedAt: ts('ended_at'),
+  endedBy: userRef('ended_by'),
+  ...timestamps(),
 });
 
 /** Which two kinds of record relate, what each end is called from the other, and how many on each end. */
@@ -6234,6 +6273,7 @@ export const tables = {
   customFields,
   customRecordTypes,
   customRecords,
+  recordSupportGrants,
   relationshipTypes,
   relationships,
   intakeSources,

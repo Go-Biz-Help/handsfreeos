@@ -112,6 +112,10 @@ Every query names its columns. Columns not listed never leave for a phone, even 
 | `estimates`, `estimate_lines`, `invoices`, `invoice_lines`, `payments`, `refunds` | Owners' and admins' money                                                     | Managers only; `sync_window`: open always, closed for 12 months  | See the money table below                                                                                |
 | `subscriptions`                                                                   | Maintenance plans                                                             | Managers only; all                                               | `public_ref`, `pay_version`, `connection_id`, `external_subscription_id`, `customer_ref`, `method_token` |
 
+Private records (Real Estate step 4) never reach a phone, and neither does anything hanging off one: `business_v1`'s
+tasks, activities, files and attention items, and `me_v1`'s attention items, send only `sealed = false` rows. A
+deal's papers are read on the web, by the people on it. Files also send `locked_at` (a signed file is kept).
+
 ### `agency_v1` — the agencies a person belongs to
 
 | Table (client table)       | What syncs                                  | Filter                              |

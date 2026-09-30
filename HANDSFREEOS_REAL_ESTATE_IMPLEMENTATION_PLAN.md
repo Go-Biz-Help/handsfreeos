@@ -323,7 +323,7 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
 - `file.list` and the phone's synced files say `locked`; the web shows "Signed · kept" and no Remove. The phone
   has no Remove for record files, so nothing changes there.
 
-### Step 4 — Records kept to the people on them
+### Step 4 — Records kept to the people on them (built, 2026-09-30)
 
 1. Migration: the private-kind and owner-and-team columns, `sealed` on what hangs off a record, the visibility
    helpers, every policy and Storage rule, `addon_table_policies` with a record column, and support grants.
@@ -333,6 +333,25 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
 4. The one change to `apps/sync/sync-config.yaml`, run through `sync.yml` on the branch.
 5. Tests in `packages/db/test`: the owner, an admin, the main agent, a teammate, a member not on it, a See-every
    holder, support with and without access, and the founder, across every table that follows the record.
+
+**As built:**
+
+- `20261013002400`. Visibility is `private.custom_record_visible` (the caller), `private.user_sees_record`
+  (someone else, for the worker and support grants) and `private.private_kinds_seen_whole` (the kinds whose
+  see-all permission the caller holds). The record's own policies ask it inline.
+- Home cards use one restrictive policy (`attention_items_sealed`) instead of changing both select arms, so the
+  inbox's parity check (`private.sync_inbox_mismatches`) still compares the members' arm with
+  `member_viewer_ids`. A card about a task takes the task's record.
+- A relationship line about a private record is sealed with it when both ends share the line (a customer and a
+  deal); when each end has its own line (a deal and a property), the shared end gets none.
+- Support: `private.request_support_access`, `grant_support_access`, `decline_support_access`,
+  `end_support_access`; `support_access.request` (platform, `platform.view_as`), `.grant`, `.decline`, `.end`,
+  and `support_access.list`. Owners and admins, and the main person on any private record, are emailed; they
+  answer on **Settings → Support access** (`/settings/support-access`). Staff ask from `/admin/businesses/<id>`.
+- The web's record page shows **On this deal** (the customer's Assigned card, taught private records) for a
+  private kind; the morning email leaves out cards about a record its reader can't see.
+- The phone's streams: `sealed = false` on tasks, activities, files and attention items (both arms), and files add
+  `locked_at`, recorded in the mobile contract; `node scripts/mobile-schema.mjs`.
 
 ### Step 5 — Add-on alerts
 

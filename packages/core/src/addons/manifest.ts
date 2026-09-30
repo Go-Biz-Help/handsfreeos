@@ -131,6 +131,13 @@ export interface AddonRecordKind {
    * 2026-09-28), so the tasks, files and timeline lines about one still say what it was.
    */
   readonly writePermission: string;
+  /**
+   * Each record is kept to the people on it: its owner (its main person) and its team see it, and so does anyone
+   * holding `seeAllPermission` (one of the add-on's own); nobody else in the business knows it's there. What hangs
+   * off one (its timeline, tasks, files, Home cards, relationships, and the add-on's rows about it) follows it.
+   * Fixed once the kind is made (Real Estate, step 4).
+   */
+  readonly keptToTeam?: { readonly seeAllPermission: string };
 }
 
 /** One end of a relationship type an add-on manages: a customer, a company, or one of its record kinds. */
@@ -342,6 +349,10 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     label(`record kind "${k.key}"'s name label`, k.nameLabel);
     if (k.icon !== undefined && !(RECORD_ICONS as readonly string[]).includes(k.icon))
       say(`record kind "${k.key}"'s icon "${k.icon}" isn't one of the record icons`);
+    if (k.keptToTeam && !permissionKeys.has(k.keptToTeam.seeAllPermission))
+      say(
+        `record kind "${k.key}" is seen whole with "${k.keptToTeam.seeAllPermission}", which isn't declared`,
+      );
   }
   unique(
     'record kind',

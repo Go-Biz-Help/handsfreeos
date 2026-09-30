@@ -486,6 +486,43 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 400,
     message: 'A file is locked after it’s added. Add it first, then lock it.',
   },
+  // Real Estate step 4: records kept to the people on them, and support let in.
+  private_kind_is_addons: {
+    status: 403,
+    message: 'Only an add-on’s kinds of records are kept to the people on them.',
+  },
+  private_kind_fixed: {
+    status: 409,
+    message: 'Whether a kind of record is kept to the people on it never changes.',
+  },
+  record_team_not_yours: {
+    status: 403,
+    message:
+      'Only its main person, or an owner or admin, changes who’s on it. Ask them to add or remove people.',
+  },
+  record_team_outsider: {
+    status: 400,
+    message:
+      'Only someone who works in this business can be on it. Invite them first in Settings → Team.',
+  },
+  task_assignee_not_on_record: {
+    status: 409,
+    message:
+      'That person isn’t on this record, so they can’t be given its task. Put them on it first.',
+  },
+  support_access_needs_look: {
+    status: 403,
+    message: 'Open this business from its page in /admin first, then ask from there.',
+  },
+  support_access_not_yours: {
+    status: 403,
+    message:
+      'Only an owner or admin, or the main person on a private record, lets HandsFreeOS support in. Ask one of them.',
+  },
+  support_access_not_waiting: {
+    status: 409,
+    message: 'That request was already answered. Refresh to see where it stands.',
+  },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

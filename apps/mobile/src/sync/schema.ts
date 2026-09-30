@@ -438,6 +438,7 @@ export const syncedTables = {
       mime_type: column.text,
       size_bytes: column.integer,
       status: column.text,
+      locked_at: column.text,
       created_by: column.text,
       created_at: column.text,
       updated_at: column.text,
@@ -1683,6 +1684,8 @@ export interface FilesRow {
   readonly size_bytes: number | null;
   /** app.file_status */
   readonly status: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly locked_at: string | null;
   /** uuid */
   readonly created_by: string | null;
   /** timestamp with time zone: ISO 8601 text here */

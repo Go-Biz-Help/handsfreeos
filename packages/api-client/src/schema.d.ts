@@ -2197,6 +2197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/custom_record.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone on a record kept to its people (a deal): they see it and everything about it. With main, they become its main person (owners and admins only); the one they replace stays on it.
+         * @description Risk level 2. Requires records.write. Emits custom_record.team_changed.
+         */
+        post: operations["command_custom_record_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/custom_record.create": {
         parameters: {
             query?: never;
@@ -2231,6 +2251,26 @@ export interface paths {
          * @description Risk level 1. Requires records.archive. Emits custom_record.restored.
          */
         post: operations["command_custom_record_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a record kept to its people. Its main person can only be taken off by an owner or admin, and the next person on it becomes the main one.
+         * @description Risk level 2. Requires records.write. Emits custom_record.team_changed.
+         */
+        post: operations["command_custom_record_unassign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6837,6 +6877,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/support_access.decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say no to HandsFreeOS support’s request to see this business’s private records.
+         * @description Risk level 1. Requires records.read. Emits support_access.declined.
+         */
+        post: operations["command_support_access_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End HandsFreeOS support’s access to this business’s private records now.
+         * @description Risk level 1. Requires records.read. Emits support_access.ended.
+         */
+        post: operations["command_support_access_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let HandsFreeOS support see the private records you see (your deals), read-only, for 24 hours: answering their request, or unasked.
+         * @description Risk level 3. Requires records.read. Emits support_access.granted.
+         */
+        post: operations["command_support_access_grant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: ask a business to let you see its private records (its deals) from your look at it, for 24 hours. Its owners and admins are emailed.
+         * @description Risk level 2. Requires platform.view_as. Emits support_access.requested.
+         */
+        post: operations["command_support_access_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/support.canned_reply.delete": {
         parameters: {
             query?: never;
@@ -11171,6 +11291,26 @@ export interface paths {
          * @description Requires money.bill.
          */
         post: operations["query_subscription_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support_access.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS support’s requests to see this business’s private records, and the access it has been given, newest first.
+         * @description Requires records.read.
+         */
+        post: operations["query_support_access_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16809,6 +16949,51 @@ export interface operations {
             };
         };
     };
+    command_custom_record_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** @default false */
+                    main?: boolean;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_custom_record_create: {
         parameters: {
             query?: never;
@@ -16821,6 +17006,8 @@ export interface operations {
                 "application/json": {
                     name: string;
                     notes?: string | null;
+                    /** Format: uuid */
+                    ownerUserId?: string;
                     relateTo?: {
                         note?: string | null;
                         /** Format: uuid */
@@ -16830,6 +17017,7 @@ export interface operations {
                         /** @enum {string} */
                         side: "a" | "b";
                     };
+                    teamUserIds?: string[];
                     /** Format: uuid */
                     typeId: string;
                     values?: {
@@ -16883,6 +17071,49 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         customRecordId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_unassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
                     };
                 };
             };
@@ -26446,6 +26677,135 @@ export interface operations {
             };
         };
     };
+    command_support_access_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    requestId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    grantId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_grant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    requestId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        expiresAt: string;
+                        /** Format: uuid */
+                        grantId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        requestId: string;
+                    };
+                };
+            };
+        };
+    };
     command_support_canned_reply_delete: {
         parameters: {
             query?: never;
@@ -34329,8 +34689,19 @@ export interface operations {
                             };
                             /** Format: uuid */
                             id: string;
+                            keptToTeam: boolean;
                             name: string;
                             notes: string | null;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            }[];
                             type: {
                                 archived: boolean;
                                 icon: string;
@@ -40515,6 +40886,58 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_support_access_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canLetIn: boolean;
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            endedAt: string | null;
+                            expired: boolean;
+                            expiresAt: string | null;
+                            grantedAt: string | null;
+                            grantedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            requestNote: string | null;
+                            /** @enum {string} */
+                            status: "requested" | "active" | "declined" | "ended";
                         }[];
                     };
                 };

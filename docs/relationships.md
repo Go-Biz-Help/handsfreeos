@@ -63,6 +63,20 @@ Retiring a field takes its value off every record, as it always has.
 **Both timelines hear about it.** Adding or removing a pair writes a `related` or `unrelated` entry on
 both records, in words that read the same from either side.
 
+**A record can be kept to the people on it** (Real Estate step 4, `20261013002400`). An add-on declares one of
+its kinds `keptToTeam`, naming its own permission that sees every record of the kind. Each record of it then has
+an owner (its main person, its maker unless someone else is named) and a team, and only they, and holders of
+that permission, see it; owners hold every permission, and the founder's session answers as an owner. What hangs
+off it follows it: its timeline lines, tasks, files and their stored objects, Home cards and relationships (a
+pair is seen only when both ends are), and an add-on's own rows about it
+(`private.addon_table_policies(…, p_record_column)`). The first four carry `sealed`, kept by triggers, and every
+policy asks `private.custom_record_visible`. A relationship line about a private record never lands on the other
+end's timeline unless it is sealed with it. Its main person puts people on it and takes them off
+(`custom_record.assign`, `custom_record.unassign`); owners and admins (`records.assign`) do too, and alone choose
+its main person. A task on one goes only to someone on it. Business-made kinds can't be private yet. HandsFreeOS
+support's look sees none, unless someone who may lets them in for 24 hours (`support_access.*`, Settings →
+Support access): then it shows what that person sees, read-only.
+
 **Permissions follow the rest of the CRM.** Making kinds, types and fields needs `fields.manage` (owners
 and admins). Adding records, filling in fields and connecting records needs `records.write`; archiving a
 record needs `records.archive`. Row-level security checks the same thing in the database.

@@ -180,6 +180,8 @@ export function describeTimeline(
       return 'uploaded a file';
     case 'file_locked':
       return 'locked a file as signed and kept';
+    case 'team_changed':
+      return teamChangedWords(e.meta);
     case 'lead_qualified':
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     case 'edit_not_applied':
@@ -364,3 +366,20 @@ export const TIMELINE_WORDS = {
   deleteConfirm: 'Delete this entry from the timeline? This is recorded in the audit log.',
   deleted: 'Deleted.',
 } as const;
+
+/** Who a private record's people changed to (Real Estate step 4): "put Marcus Lee on it · took Sam Ortiz off it". */
+function teamChangedWords(meta: Record<string, unknown>): string {
+  const names = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  const list = (xs: string[]) =>
+    xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+  const main = typeof meta['main'] === 'string' ? meta['main'] : null;
+  const added = names(meta['added']).filter((n) => n !== main);
+  const removed = names(meta['removed']);
+  const parts = [
+    ...(main ? [`made ${main} the main person on it`] : []),
+    ...(added.length ? [`put ${list(added)} on it`] : []),
+    ...(removed.length ? [`took ${list(removed)} off it`] : []),
+  ];
+  return parts.join(' · ') || 'changed who’s on it';
+}

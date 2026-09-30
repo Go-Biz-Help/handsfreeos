@@ -149,6 +149,8 @@ function summaryFor(
   person: Member,
   items: readonly AttentionItemRow[],
   decidable: ReadonlySet<string>,
+  /** The private records (Real Estate step 4) this person is on or sees whole: a sealed card goes only to them. */
+  seesRecords: ReadonlySet<string>,
   now: number,
   links: { business: string; home: string },
   extras: MorningExtras,
@@ -158,6 +160,7 @@ function summaryFor(
     (i) =>
       (everyone || i.assigneeUserId === null || i.assigneeUserId === person.id) &&
       (i.kind !== 'ai_approval' || decidable.has(i.subjectId)) &&
+      (!i.sealed || (i.customRecordId !== null && seesRecords.has(i.customRecordId))) &&
       // Texting turned down is for the owners and admins, who set texting up.
       (i.kind !== 'texting_rejected' || everyone),
   );
@@ -247,6 +250,7 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       people: [] as Member[],
       items: [] as AttentionItemRow[],
       decidable: new Map<string, ReadonlySet<string>>(),
+      seesRecords: new Map<string, ReadonlySet<string>>(),
       extras: {
         jobs: [],
         followUps: [],
@@ -280,6 +284,31 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
             )
           : new Set<string>(),
       );
+    // Cards about a private record reach only the people who see it, whatever their role.
+    const sealedRecords = [
+      ...new Set(
+        items.filter((i) => i.sealed && i.customRecordId).map((i) => i.customRecordId as string),
+      ),
+    ];
+    const seesRecords = new Map<string, ReadonlySet<string>>();
+    for (const p of people)
+      seesRecords.set(
+        p.id,
+        sealedRecords.length
+          ? new Set(
+              (
+                await rows<{ id: string }>(
+                  tx,
+                  sql`select r.id from unnest(array[${sql.join(
+                    sealedRecords.map((r) => sql`${r}::uuid`),
+                    sql`, `,
+                  )}]) as r(id)
+                      where private.user_sees_record(${p.id}::uuid, r.id)`,
+                )
+              ).map((r) => r.id),
+            )
+          : new Set<string>(),
+      );
     const window = dayWindow(now, timeZone);
     const extras: MorningExtras = {
       jobs: await todaysJobs(tx, scope.workspaceId, window),
@@ -287,7 +316,7 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       timeZone,
       endOfTomorrow: localInstant(addDays(window.day, 2), '00:00', timeZone),
     };
-    return { ...nobody, done: false, people, items, decidable, extras };
+    return { ...nobody, done: false, people, items, decidable, seesRecords, extras };
   });
   // The business is gone (its jobs go with it).
   if (!found) return;
@@ -312,6 +341,7 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       person,
       found.items,
       found.decidable?.get(person.id) ?? new Set<string>(),
+      found.seesRecords?.get(person.id) ?? new Set<string>(),
       now,
       links,
       found.extras,

@@ -5,6 +5,7 @@ import { contactAiQueries } from './contact-ai';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
+import { supportAccessList } from './support-access';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
@@ -315,6 +316,8 @@ export const queries: readonly QueryDef[] = [
   ...templateQueries,
   ...reviewQueries,
   ...relationshipQueries,
+  // HandsFreeOS support let into private records (Real Estate step 4).
+  supportAccessList,
   // Ideas, the roadmap and What's new (0102).
   ...ideaQueries,
   // Add-ons (0108).
@@ -392,5 +395,6 @@ export * from './branded-domain';
 export * from './founding';
 export * from './offer';
 export * from './relationship';
+export * from './support-access';
 export * from './onboarding';
 export * from './ideas';
