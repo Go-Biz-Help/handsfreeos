@@ -1384,6 +1384,54 @@ describe('bringing a number that is already in Twilio (20261010000900)', () => {
     expect(seen.every((x) => x.auth === 'ACtheirstest:their-token')).toBe(true);
   });
 
+  it('lists every number in a business’s own subaccount, following Twilio’s pages', async () => {
+    const number = (sid: string, e164: string, smsUrl: string | null) => ({
+      sid,
+      account_sid: 'ACsubtest',
+      phone_number: e164,
+      friendly_name: e164,
+      capabilities: { voice: true, sms: true, mms: false },
+      sms_url: smsUrl,
+      voice_url: null,
+    });
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\/IncomingPhoneNumbers\.json$/,
+        (s) =>
+          s.url.includes('Page=1')
+            ? {
+                json: {
+                  incoming_phone_numbers: [
+                    number(
+                      'PNmovedintest',
+                      '+12565550199',
+                      'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
+                    ),
+                  ],
+                  next_page_uri: null,
+                },
+              }
+            : {
+                json: {
+                  incoming_phone_numbers: [number('PNboughttest', '+18335550101', null)],
+                  next_page_uri:
+                    '/2010-04-01/Accounts/ACsubtest/IncomingPhoneNumbers.json?PageSize=1000&Page=1&PageToken=PAabc',
+                },
+              },
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).listOwnedNumbers(account, { limit: 50 });
+    expect(found.map((n) => [n.sid, n.e164])).toEqual([
+      ['PNboughttest', '+18335550101'],
+      ['PNmovedintest', '+12565550199'],
+    ]);
+    expect(found[1]!.smsUrl).toMatch(/leadconnectorhq/);
+    expect(found[0]!.capabilities).toEqual({ voice: true, sms: true, mms: false });
+    // Read-only, signed in as the subaccount itself.
+    expect(seen.every((x) => x.method === 'GET')).toBe(true);
+    expect(seen.every((x) => x.auth === 'ACsubtest:sub-token')).toBe(true);
+  });
+
   it('points a number at our webhooks and clears the apps and fallbacks its old owner left on it', async () => {
     const seen = mockTwilio([
       [

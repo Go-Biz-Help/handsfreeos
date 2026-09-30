@@ -3,6 +3,7 @@ import { CircleAlert, Copy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
+import { OwnAccountNumbers } from '@/components/settings/number-import';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +18,9 @@ import { useLiveVersion } from '@/lib/realtime/live-provider';
  * On makes the account now, so its Account SID is here to give HighLevel or Twilio when moving a number over,
  * before there is any number. Off closes it for good — Twilio cannot reopen one — so it asks first, and the
  * worker refuses while a number, a transfer, a port, an RCS sender or a texting registration is in it.
+ *
+ * While it is on, the card also finds the numbers sitting in the account that are not set up here: one moved in
+ * straight through Twilio's or HighLevel's support, with no transfer started here, waits there until set up.
  */
 export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
   const [shown, setShown] = useState<PhoneAccountState | null>(null);
@@ -177,6 +181,17 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
             the number, these two, and when you would like it to move. Never release the number to
             move it.
           </span>
+        </div>
+      ) : null}
+
+      {on && shown?.accountSid ? (
+        <div className="mt-5 border-t border-border pt-4">
+          <h3 className="text-[13.5px] font-semibold">Numbers already in this account</h3>
+          <p className="mb-3 mt-1 text-xs text-text-3">
+            A number Twilio or HighLevel moved here without a transfer started in HandsFreeOS waits
+            in this account until you set it up.
+          </p>
+          <OwnAccountNumbers workspaceId={workspaceId} />
         </div>
       ) : null}
     </Card>

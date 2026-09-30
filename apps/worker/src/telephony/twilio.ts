@@ -16,6 +16,7 @@ import {
   type ExternalTwilioCreds,
   type PortOutcome,
   type RegistrationState,
+  type SubaccountNumber,
   type TelephonyProvider,
 } from './provider';
 
@@ -875,6 +876,29 @@ export function createTwilioTelephony(master: {
       });
       const n = res.incoming_phone_numbers[0];
       return n ? { sid: n.sid, capabilities: caps(n.capabilities) } : null;
+    },
+
+    async listOwnedNumbers(account, { limit }) {
+      const out: SubaccountNumber[] = [];
+      let url: string | null =
+        `${API}/Accounts/${account.sid}/IncomingPhoneNumbers.json?PageSize=1000`;
+      while (url && out.length < limit) {
+        const page: {
+          incoming_phone_numbers?: IncomingNumberJson[];
+          next_page_uri?: string | null;
+        } = await call(credsOf(account), 'GET', url);
+        for (const n of page.incoming_phone_numbers ?? [])
+          out.push({
+            sid: n.sid,
+            e164: n.phone_number,
+            friendlyName: n.friendly_name || null,
+            capabilities: caps(n.capabilities),
+            smsUrl: n.sms_url || null,
+            voiceUrl: n.voice_url || null,
+          });
+        url = page.next_page_uri ? `${TWILIO_HOST}${page.next_page_uri}` : null;
+      }
+      return out.slice(0, limit);
     },
 
     async configureNumber(account, numberSid, urls) {

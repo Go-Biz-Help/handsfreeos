@@ -25,9 +25,14 @@
  * registration's poll) don't wait behind them, and no sweep of the suites' businesses floods the outbox mid-run. A
  * browser run is shorter than that; jobs due later (a seeded business's reminders next week) are left for the next
  * `pnpm dev`, and the worker makes its recurring plans again whenever it starts.
+ *
+ * POST /test/telephony/transfer-in { workspaceId, e164? } puts a number in the business's own Twilio subaccount
+ * with the fake carrier, still pointed at HighLevel, as if HighLevel's support had moved it there without anybody
+ * starting a transfer here: what **Find numbers already in this account** finds, and what keeps phone & texting
+ * from being turned off. Phone & texting must be on. Answers with the number and its sid.
  */
 import { randomUUID } from 'node:crypto';
-import { HfosError, scheduleJob } from '@hfos/core/server';
+import { HfosError, phoneRequired, scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -36,6 +41,8 @@ import { registerAttentionTestRoutes } from '../attention/test-routes';
 import { registerMoneyTestRoutes } from '../money/test-routes';
 import { registerPushTestRoutes } from '../push/test-routes';
 import { processJobs, type JobMap, type JobStats } from '../jobs';
+import { loadAccount } from '../telephony/accounts';
+import type { FakeTelephony } from '../telephony/fake';
 import { parseBody, type HttpDeps } from './common';
 
 export interface TestRoutes {
@@ -57,6 +64,7 @@ const RunDue = z.object({
 const SkipStale = z.object({ before: z.iso.datetime({ offset: true }) });
 
 const MakeStaff = z.object({ email: z.email().max(320) });
+const TransferIn = z.object({ workspaceId: z.uuid(), e164: phoneRequired.optional() });
 
 /** What an outbox row skipped by /test/outbox/skip-stale says. */
 export const STALE_SKIP_NOTE = 'skipped: left by another suite before this browser run';
@@ -155,6 +163,30 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
       if (stats.claimed === 0) break;
     }
     return { moved, ran: total };
+  });
+
+  app.post('/test/telephony/transfer-in', async (req) => {
+    const body = parseBody(TransferIn, req.body ?? {});
+    if (deps.telephony.name !== 'fake')
+      throw HfosError.rule('fake_carrier_only', 409, 'Only the fake carrier can move a number in.');
+    const account = await asWorker(deps.db, { workspaceId: body.workspaceId }, (tx) =>
+      loadAccount(tx, body.workspaceId, deps.sealer),
+    );
+    if (!account)
+      throw HfosError.rule(
+        'phone_and_texting_off',
+        409,
+        'Turn phone & texting on for this business first.',
+      );
+    const fake = deps.telephony as FakeTelephony;
+    const e164 =
+      body.e164 ??
+      `+1256${String(200 + Math.floor(Math.random() * 799))}${String(1000 + Math.floor(Math.random() * 8999))}`;
+    fake.addExternalNumber('AChighlevelstandin0001', e164, {
+      smsUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
+      voiceUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/voice',
+    });
+    return { e164, sid: fake.transferIn(e164, account.sid) };
   });
 
   app.post('/test/outbox/skip-stale', async (req) => {

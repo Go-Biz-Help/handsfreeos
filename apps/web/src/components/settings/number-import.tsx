@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
@@ -33,14 +33,18 @@ import type { Ok } from '@/lib/api/types';
 import {
   connectTwilio,
   disconnectTwilio,
+  listOwnNumbers,
   listTwilioNumbers,
   lookupNumberHost,
   phoneAccountState,
   type NumberHost,
+  type OwnAccountListing,
+  type OwnAccountNumber,
   type TwilioAccountListing,
   type TwilioAccountNumber,
 } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
 
 /**
  * Bringing a number that already lives in Twilio (20261010000900) — the business's own Twilio account, or
@@ -887,6 +891,171 @@ function ManualTwilio({ workspaceId }: { workspaceId: string }) {
   );
 }
 
+// ---------- numbers already in the business's own account ----------
+
+/**
+ * The numbers sitting in this business's own HandsFreeOS Twilio account that are not set up here yet.
+ *
+ * A transfer finished straight through Twilio's or HighLevel's support, without anybody starting one here first,
+ * leaves the number in the account with nobody watching for it: still pointed at its old owner, and nowhere in
+ * HandsFreeOS. "Set it up here" starts the same import as any number already in Twilio, and its first look finds
+ * the number there and sets it up within seconds. Looked for on request, not on every visit: it asks Twilio.
+ */
+export function OwnAccountNumbers({ workspaceId }: { workspaceId: string }) {
+  const [listing, setListing] = useState<OwnAccountListing | null>(null);
+  const [looking, setLooking] = useState(false);
+  const version = useLiveVersion(['phone_number', 'number_import']);
+
+  const look = useCallback(
+    async (quietly = false) => {
+      if (!quietly) setLooking(true);
+      try {
+        setListing(await listOwnNumbers(workspaceId));
+      } catch (e) {
+        if (!quietly) toast.error(errorMessage(e));
+      } finally {
+        if (!quietly) setLooking(false);
+      }
+    },
+    [workspaceId],
+  );
+
+  // Once shown, the list follows what happens next: a number that is set up here leaves it.
+  const shown = listing !== null;
+  useEffect(() => {
+    if (shown && version > 0) void look(true);
+  }, [shown, version, look]);
+
+  const movingFromHighLevel = listing?.numbers.some(
+    (n) => n.usedBy === 'highlevel' && n.state !== 'elsewhere',
+  );
+  return (
+    <div data-testid="own-numbers">
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={looking}
+        onClick={() => void look()}
+        data-testid="own-numbers-look"
+      >
+        <Search className="h-3.5 w-3.5" strokeWidth={1.8} />
+        {listing ? 'Look again' : 'Find numbers already in this account'}
+      </Button>
+      {listing && !listing.numbers.length ? (
+        <p className="mt-3 text-[13px] text-text-2" data-testid="own-numbers-empty">
+          {listing.alreadyHere
+            ? 'Every number in this account is already set up here.'
+            : 'There are no numbers in this account yet. When Twilio or HighLevel says yours has moved, look again.'}
+        </p>
+      ) : null}
+      {listing?.numbers.length ? (
+        <>
+          <div className="mt-3 flex flex-col divide-y divide-border rounded-card border border-border">
+            {listing.numbers.map((n) => (
+              <OwnNumberRow
+                key={n.sid}
+                workspaceId={workspaceId}
+                accountSid={listing.accountSid!}
+                number={n}
+                onChanged={() => void look(true)}
+              />
+            ))}
+          </div>
+          {movingFromHighLevel ? (
+            <p className="mt-2 text-xs text-text-3">
+              A number used by HighLevel keeps working there until you set it up here. From then on,
+              its calls and texts come to HandsFreeOS.
+            </p>
+          ) : null}
+          {listing.truncated ? (
+            <p className="mt-2 text-xs text-text-3">
+              Showing the first {listing.numbers.length}. Talk to us to set up more at once.
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function OwnNumberRow({
+  workspaceId,
+  accountSid,
+  number: n,
+  onChanged,
+}: {
+  workspaceId: string;
+  accountSid: string;
+  number: OwnAccountNumber;
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function setUp() {
+    setBusy(true);
+    try {
+      unwrap(
+        n.state === 'coming' && n.importId
+          ? await apiBrowser().POST('/v1/commands/number_import.check_now', {
+              body: { workspaceId, importId: n.importId },
+            })
+          : await apiBrowser().POST('/v1/commands/number_import.start', {
+              body: {
+                workspaceId,
+                e164: n.e164,
+                source: 'twilio',
+                sourceAccountSid: accountSid,
+                sourceNumberSid: n.sid,
+              },
+            }),
+      );
+      toast.success(`Setting up ${n.display}. Its calls and texts come here in a moment.`);
+      onChanged();
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3"
+      data-testid={`own-number-${n.e164}`}
+      data-state={n.state}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[13px]">{n.display}</span>
+          <Badge variant="gray">{n.numberType === 'toll_free' ? 'Toll-free' : 'Local'}</Badge>
+          {USED_BY[n.usedBy]}
+        </div>
+        {n.friendlyName && n.friendlyName !== n.e164 ? (
+          <div className="mt-0.5 text-xs text-text-3">{n.friendlyName}</div>
+        ) : null}
+        {n.state === 'elsewhere' ? (
+          <p className="mt-1 text-xs text-danger-text">
+            Another business on HandsFreeOS still has this number, so it can’t be set up here.
+            Contact support and we’ll sort out which business it belongs to.
+          </p>
+        ) : null}
+      </div>
+      {n.state === 'elsewhere' ? null : (
+        <Button
+          size="sm"
+          onClick={() => void setUp()}
+          loading={busy}
+          data-testid={`own-number-setup-${n.e164}`}
+        >
+          {n.state === 'coming' ? 'Set it up now' : 'Set it up here'}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ---------- numbers on their way ----------
 
 const SETUP: Record<
@@ -1013,6 +1182,9 @@ function ImportRow({
   const [checking, setChecking] = useState(false);
   const setup = SETUP[i.setup];
   const texting = TEXTING[i.texting];
+  // Picked from the business's own account (Settings → Texting & calls → Phone & texting): it is already where
+  // it is going, so there is nothing to ask anybody to send.
+  const alreadyThere = !!i.sourceAccountSid && i.sourceAccountSid === i.destinationAccountSid;
   return (
     <div
       className="rounded-card border border-border bg-card-2 p-4"
@@ -1037,9 +1209,11 @@ function ImportRow({
             {i.setup === 'live'
               ? 'Calls, texts and delivery updates come to HandsFreeOS. Test it: call it and text it from your own phone, and send a text from the inbox.'
               : i.setup === 'waiting_for_transfer'
-                ? `Waiting for ${i.source === 'highlevel' ? 'HighLevel' : 'Twilio'} to send it to your HandsFreeOS Twilio account.${
-                    i.lastCheckedAt ? ` Last looked ${formatDate(i.lastCheckedAt)}.` : ''
-                  }`
+                ? alreadyThere
+                  ? 'It’s already in your HandsFreeOS Twilio account. We’re setting it up.'
+                  : `Waiting for ${i.source === 'highlevel' ? 'HighLevel' : 'Twilio'} to send it to your HandsFreeOS Twilio account.${
+                      i.lastCheckedAt ? ` Last looked ${formatDate(i.lastCheckedAt)}.` : ''
+                    }`
                 : (i.lastError ?? 'It could not be set up.')}
           </span>
         </dd>
@@ -1067,7 +1241,7 @@ function ImportRow({
         </Callout>
       ) : null}
 
-      {i.status === 'waiting' ? (
+      {i.status === 'waiting' && !alreadyThere ? (
         i.destinationAccountSid ? (
           <TransferRequest item={i} businessName={businessName} parentSid={parentSid} />
         ) : (

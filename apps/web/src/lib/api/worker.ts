@@ -277,3 +277,38 @@ export interface PhoneAccountState {
 export function phoneAccountState(workspaceId: string): Promise<PhoneAccountState> {
   return workerPost('/v1/telephony/account', { workspaceId });
 }
+
+/** A number sitting in the business's own Twilio account that is not set up here yet. */
+export interface OwnAccountNumber {
+  readonly sid: string;
+  readonly e164: string;
+  readonly display: string;
+  readonly friendlyName: string | null;
+  readonly numberType: 'local' | 'toll_free';
+  readonly capabilities: { readonly sms: boolean; readonly mms: boolean; readonly voice: boolean };
+  /** Who its webhooks point at today: one moved over from HighLevel still points there. */
+  readonly usedBy: 'highlevel' | 'handsfreeos' | 'other' | 'nothing';
+  /**
+   * `new`: nothing here knows it. `coming`: an import is already watching for it (`importId`), and looking now
+   * finishes it. `elsewhere`: another business on HandsFreeOS still has it, so it can't be set up here.
+   */
+  readonly state: 'new' | 'coming' | 'elsewhere';
+  readonly importId: string | null;
+}
+
+export interface OwnAccountListing {
+  /** The business's own sub-account, or null while phone & texting is off. */
+  readonly accountSid: string | null;
+  readonly numbers: readonly OwnAccountNumber[];
+  /** Numbers in the account that are already this business's. */
+  readonly alreadyHere: number;
+  readonly truncated: boolean;
+}
+
+/**
+ * The numbers in the business's own Twilio account that are not set up here: one moved there straight through
+ * Twilio's or HighLevel's support, without anybody starting a transfer here first.
+ */
+export function listOwnNumbers(workspaceId: string): Promise<OwnAccountListing> {
+  return workerPost('/v1/telephony/own-numbers', { workspaceId });
+}

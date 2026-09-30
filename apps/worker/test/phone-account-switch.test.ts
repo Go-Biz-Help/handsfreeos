@@ -1,6 +1,7 @@
 /**
  * Phone & texting on and off: a business's own Twilio subaccount made on request (so its Account SID is there
  * before any number is), closed on request only when nothing is in it, and made fresh if turned back on.
+ * "Nothing in it" is asked of Twilio too: a number moved in without anybody asking here keeps it on.
  *
  * **Needs the stack up** (`pnpm supabase:start && pnpm db:reset`).
  */
@@ -9,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import {
   createTokenVerifier,
   executeCommand,
+  formatPhone,
   numberImportStart,
   organizationCreate,
   phoneNumberBuy,
@@ -28,13 +30,14 @@ import {
   type TestUser,
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
 import { loadAccount } from '../src/telephony/accounts';
+import { ProviderError } from '../src/telephony/provider';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -284,5 +287,53 @@ describe('phone & texting off', () => {
     expect(s.telephony.closedAccounts).not.toContain(account!.accountSid);
     expect(account?.lastError).toMatch(/left on.*on its way here/);
     expect((await shown(ws)).json()).toMatchObject({ state: 'on', lastError: account!.lastError });
+  });
+
+  it('asks Twilio too: a number moved in with no transfer started here keeps it on, named', async () => {
+    const ws = await business('Switch Stray Number');
+    await turnOn(ws);
+    await drain(ws);
+    const sid = (await accountOf(ws))!.accountSid!;
+    // Moved straight into the account through HighLevel's support: HandsFreeOS has no row for it anywhere.
+    const e164 = `+1256557${String(1000 + Math.floor(Math.random() * 8999))}`;
+    s.telephony.transferIn(e164, sid);
+
+    // Nothing written down is in the way, so the switch itself is allowed…
+    await turnOff(ws);
+    await drain(ws);
+    // …and the worker, looking inside the account, keeps it on rather than release the number.
+    const account = await accountOf(ws);
+    expect(account?.status).toBe('active');
+    expect(s.telephony.closedAccounts).not.toContain(sid);
+    expect(account?.lastError).toContain('left on');
+    expect(account?.lastError).toContain(formatPhone(e164));
+    expect(account?.lastError).toMatch(/release it for good/);
+    expect((await shown(ws)).json()).toMatchObject({ state: 'on', lastError: account!.lastError });
+  });
+
+  it('never closes without looking: when Twilio can’t be asked, it stays on and says to try again', async () => {
+    const ws = await business('Switch Twilio Down');
+    await turnOn(ws);
+    await drain(ws);
+    const sid = (await accountOf(ws))!.accountSid!;
+    const down = vi
+      .spyOn(s.telephony, 'listOwnedNumbers')
+      .mockRejectedValueOnce(new ProviderError('Service Unavailable', '20503', false, 503));
+    try {
+      await turnOff(ws);
+      await drain(ws);
+    } finally {
+      down.mockRestore();
+    }
+    const account = await accountOf(ws);
+    expect(account?.status).toBe('active');
+    expect(s.telephony.closedAccounts).not.toContain(sid);
+    expect(account?.lastError).toMatch(/couldn’t check.*Try again in a minute/);
+
+    // Asked again with Twilio back, and nothing in it: closed.
+    await turnOff(ws);
+    await drain(ws);
+    expect((await accountOf(ws))?.status).toBe('closed');
+    expect(s.telephony.closedAccounts).toContain(sid);
   });
 });
