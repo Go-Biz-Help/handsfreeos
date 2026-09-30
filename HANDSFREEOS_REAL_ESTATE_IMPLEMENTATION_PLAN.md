@@ -699,8 +699,19 @@ The Assistant's tools, client update drafts, the fair-housing check, and sending
 - To look at later: a deal command takes 0.5 to 1.4 seconds on the local stack (opening a listing at Active makes
   45 duties). Fine for now; the engine's many small writes are where to start.
 
+**As built (screens, 2026-09-30):**
+
+- A client update's page (`/a/realestate/deals/<id>/updates/<draft>`): the subject and message to check and edit,
+  the fair-housing flags with why and a safer way to say it (clicking one selects its words), Keep it with a reason,
+  what the AI saw, Save changes (read again), Send once it's clear, and Discard. It looks again every few seconds
+  while the AI is writing or reading.
+- The deal page's Client updates card lists them and drafts one on request. Alerts now open what they're about: a
+  duty's in its drawer (`?duty=<id>`), a draft on its own page.
+
 **Choices made for Chris** (say the word and they change):
 
+- The board's "Use the suggestion" isn't there: the safer wording is advice ("describe the home itself"), not words
+  to swap in. The flag selects its words so the agent can rewrite them, or keep them with a reason.
 - "Clear to close" is the deal reaching the Closing stage, and "inspection done" is the inspection report being
   recorded.
 - A draft for a milestone comes once; asking again makes a new one.

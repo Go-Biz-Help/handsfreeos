@@ -122,7 +122,7 @@ describe('A changed wire', () => {
       needs_ack: true,
       cleared: false,
       custom_record_id: dealId,
-      href: `/a/realestate/deals/${dealId}`,
+      href: `/a/realestate/deals/${dealId}?duty=${dutyId}`,
     });
     await run(agent, 'realestate.duty.add_evidence', {
       dutyId: dutyId!,

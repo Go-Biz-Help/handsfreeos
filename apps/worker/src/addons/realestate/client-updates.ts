@@ -281,7 +281,7 @@ export async function draftReady(ctx: AddonEventContext): Promise<void> {
         200,
       ),
     detail: 'Read it, change anything, and send it when it’s right.',
-    href: `/a/realestate/deals/${dealId}`,
+    href: `/a/realestate/deals/${dealId}/updates/${draftId}`,
     permission: 'realestate.use',
     customRecordId: dealId,
     audienceUserIds: agent ? [agent] : [],

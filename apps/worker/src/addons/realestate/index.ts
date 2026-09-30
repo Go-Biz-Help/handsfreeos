@@ -61,7 +61,7 @@ async function wireChangeReported(ctx: AddonEventContext): Promise<void> {
     title: `Wiring instructions changed on ${name}`.slice(0, 200),
     detail:
       'Hold every payment. Call the title or escrow company at a number you found yourself, not one in the message, before anyone sends money.',
-    href: `/a/realestate/deals/${dealId}`,
+    href: `/a/realestate/deals/${dealId}?duty=${dutyId}`,
     permission: 'realestate.use',
     customRecordId: dealId,
     assigneeUserId: typeof p['ownerUserId'] === 'string' ? p['ownerUserId'] : null,
@@ -143,7 +143,7 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
       severity: say.severity,
       title: say.title.slice(0, 200),
       detail: `${a.dealName}.`,
-      href: `/a/realestate/deals/${a.dealId}`,
+      href: `/a/realestate/deals/${a.dealId}?duty=${a.dutyId}`,
       permission: 'realestate.use',
       customRecordId: a.dealId,
       audienceUserIds: [...new Set(audience.filter((u): u is string => !!u))],
