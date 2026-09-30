@@ -753,6 +753,60 @@ export function calendarReconnectEmail(input: {
   return { subject, text, html };
 }
 
+/**
+ * "Email me a link" in the phone app: the page that does one Getting started step, to open on a computer. Only ever
+ * sent to the person who asked, from their own phone.
+ */
+export function onboardingLinkEmail(input: {
+  /** The step's title, like "Bring in your customers". */
+  step: string;
+  business: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your link: ${input.step}`;
+  const lead = (business: string) =>
+    `Here’s the link you asked for in the HandsFreeOS app, to do this for ${business} on your computer.`;
+  const after = 'You asked for this from the app. If that wasn’t you, ignore it: nothing changes.';
+  const text = `${lead(input.business)}\n\n${input.step}: ${input.link}\n\n${after}`;
+  const html = shell(
+    para(lead(`<strong>${escapeHtml(input.business)}</strong>`)) +
+      button(input.link, input.step) +
+      small(after),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * An agency's reminder to a client business's own owners (`onboarding.remind`): their next Getting started step,
+ * with a button to it.
+ */
+export function onboardingReminderEmail(input: {
+  agency: string;
+  business: string;
+  /** The step's title, like "Bring in your customers". */
+  step: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your next step for ${input.business}: ${input.step}`;
+  const lead = (agency: string, business: string) =>
+    `${agency} asked us to remind you about setting up ${business} in HandsFreeOS. Your next step is ${input.step}.`;
+  const after =
+    'Rather do it later? Press Skip for now on Home; it stays on your Getting started list.';
+  const text = `${lead(input.agency, input.business)}\n\n${input.step}: ${input.link}\n\n${after}`;
+  const html = shell(
+    wordmark +
+      para(
+        lead(
+          `<strong>${escapeHtml(input.agency)}</strong>`,
+          `<strong>${escapeHtml(input.business)}</strong>`,
+        ),
+      ) +
+      button(input.link, input.step) +
+      small(after),
+  );
+  return { subject, text, html };
+}
+
 /** One business in the daily agency digest: what needs a look there, each with where to look. */
 export interface DigestBusiness {
   readonly name: string;
@@ -770,6 +824,8 @@ export interface DigestBusiness {
   /** Agency templates with a newer version than the business has. */
   readonly updates: { readonly names: readonly string[]; readonly link: string } | null;
   readonly suggestions: { readonly count: number; readonly link: string } | null;
+  /** Stuck on Getting started: a step needs a fix, or the owners have been away with must-dos open. */
+  readonly setup: { readonly note: string; readonly link: string } | null;
 }
 
 /** "25 minutes", "5 hours", "3 days". */
@@ -812,6 +868,7 @@ function digestLines(b: DigestBusiness): { text: string; link: string }[] {
       text: `${count(b.suggestions.count, 'knowledge suggestion')} waiting`,
       link: b.suggestions.link,
     });
+  if (b.setup) lines.push({ text: `Stuck on setup: ${b.setup.note}`, link: b.setup.link });
   return lines;
 }
 

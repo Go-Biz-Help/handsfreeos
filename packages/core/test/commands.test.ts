@@ -632,6 +632,14 @@ describe('registry', () => {
       'addon.unvote',
       'addon.mark_news_seen',
       'addon_pick.choose',
+      'onboarding.save_answers',
+      'onboarding.skip',
+      'onboarding.as_you_go',
+      'onboarding.set_view',
+      'onboarding.finish',
+      'onboarding.send_link',
+      'onboarding.set_enabled',
+      'onboarding.remind',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -801,6 +809,9 @@ describe('registry', () => {
       'addon.roadmap',
       'addon.news',
       'addon_pick.overview',
+      'onboarding.status',
+      'onboarding.clients',
+      'platform.onboarding.counts',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

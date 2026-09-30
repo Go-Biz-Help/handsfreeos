@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quick questions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45)}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6)}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.chip:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.input{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.input::placeholder{color:var(--placeholder)}.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-1)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:32px;height:32px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);font:inherit;font-size:13.5px;font-weight:500;color:var(--text-2);white-space:nowrap;cursor:pointer}
+.chip:hover{background:var(--card-2);color:var(--text)}
+.chip.on{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent)}
+.prefix{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:10px;background:var(--card);overflow:hidden}
+.prefix span{padding:0 12px;height:44px;display:flex;align-items:center;background:var(--card-2);color:var(--text-3);font-size:14px;border-right:1px solid var(--border)}
+.prefix input{border:0;height:44px;flex:1;padding:0 12px;font:inherit;font-size:15px;background:transparent;color:var(--text)}
+.prefix input:focus{outline:none}
+.step{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:0}
+.num{width:24px;height:24px;border-radius:999px;background:var(--card);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-3);color:var(--text-2)}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 832px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px 24px; background: radial-gradient(70% 45% at 50% 0%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 75%), var(--bg);">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+
+<div class="card" style="width: 920px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; overflow: hidden; border-radius: 14px;">
+<div style="padding: 32px 36px; display: flex; flex-direction: column; gap: 22px;">
+<div class="stack" style="gap: 6px;">
+<div class="overline">Step 2 of 3</div>
+<h1 style="font-size: 26px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2;">A few quick questions</h1>
+<p class="muted">Your answers put your setup in the right order. You can change any of them later.</p>
+</div>
+
+<div>
+<span class="label">What do you want help with first?</span>
+<div class="row" style="gap: 8px; flex-wrap: wrap;">
+<sc-for list="{{ goals }}" as="g" hint-placeholder-count="4">
+<button class="{{ g.cls }}" onClick="{{ g.pick }}" aria-pressed="{{ g.on }}">{{ g.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div>
+<span class="label">Where are your customers now?</span>
+<div class="row" style="gap: 8px; flex-wrap: wrap;">
+<sc-for list="{{ sources }}" as="s" hint-placeholder-count="5">
+<button class="{{ s.cls }}" onClick="{{ s.pick }}" aria-pressed="{{ s.on }}">{{ s.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div>
+<label class="label" for="site">What’s your website?</label>
+<div class="row" style="gap: 12px;">
+<div class="prefix" style="flex: 1;"><span>https://</span><input id="site" value="lonestarhvac.com" aria-label="Website address"></div>
+<button class="btn btn-ghost" style="height: 44px;">We don’t have one</button>
+</div>
+<div class="hint">Ava, your AI teammate, reads it to learn your services, prices and hours.</div>
+</div>
+
+<div>
+<span class="label">How many people work with you?</span>
+<div class="row" style="gap: 8px; flex-wrap: wrap;">
+<sc-for list="{{ teams }}" as="t" hint-placeholder-count="3">
+<button class="{{ t.cls }}" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}">{{ t.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div class="row" style="justify-content: space-between; margin-top: 4px;">
+<a class="btn btn-ghost" href="WizardNumber.dc.html">Skip these questions</a>
+<a class="btn btn-primary btn-lg" href="WizardNumber.dc.html">Continue<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></a>
+</div>
+</div>
+
+<div style="background: var(--card-2); border-left: 1px solid var(--border); padding: 32px 26px; display: flex; flex-direction: column; gap: 14px;">
+<div class="overline">Your setup, in this order</div>
+<div class="stack">
+<sc-for list="{{ plan }}" as="p" hint-placeholder-count="4">
+<div class="step">
+<span class="num">{{ p.n }}</span>
+<span class="stack" style="gap: 2px; min-width: 0;">
+<span style="font-weight: 500;">{{ p.title }}</span>
+<span class="xs faint">{{ p.detail }}</span>
+</span>
+</div>
+</sc-for>
+</div>
+<div style="height: 1px; background: var(--border);"></div>
+<div class="overline">Then, when you’re ready</div>
+<div class="row" style="gap: 6px; flex-wrap: wrap;">
+<sc-for list="{{ later }}" as="l" hint-placeholder-count="4">
+<span class="badge badge-gray">{{ l }}</span>
+</sc-for>
+</div>
+<p class="xs faint" style="margin-top: auto;">Your business number goes first because phone carriers take a few days to approve texting. You can do everything else while you wait.</p>
+</div>
+</div>
+
+<p class="small faint">Lone Star HVAC &amp; Roofing · Signed in as dale@lonestarhvac.test</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { goal: 'leads', source: 'ghl', team: 'small' };
+  }
+  renderVals() {
+    const st = this.state;
+    const opts = (list, key) => list.map(([id, label]) => ({
+      label,
+      on: st[key] === id,
+      cls: 'chip' + (st[key] === id ? ' on' : ''),
+      pick: () => this.setState({ [key]: id })
+    }));
+    const customers = {
+      sheet: ['Import your spreadsheet', 'Upload a CSV and match the columns'],
+      ghl: ['Move from GoHighLevel', 'Counts what’s there before anything moves'],
+      crm: ['Import from your old CRM', 'Export a CSV there, upload it here'],
+      phone: ['Add your customers', 'One at a time, or a spreadsheet later'],
+      none: ['Add your first customer', 'Or skip it: new leads add themselves']
+    }[st.source];
+    const steps = {
+      number: ['Business number & texting', 'Pick a number, start carrier approval'],
+      ai: ['Teach Ava', 'Scan lonestarhvac.com, choose what waits for your OK'],
+      customers,
+      calendar: ['Calendar & booking page', 'Services, hours and your booking link'],
+      payments: ['Connect payments', 'Stripe or Square, for estimates, invoices and deposits']
+    };
+    const orders = {
+      leads: ['number', 'ai', 'customers', 'calendar'],
+      booked: ['number', 'calendar', 'ai', 'customers'],
+      paid: ['number', 'payments', 'customers', 'calendar', 'ai'],
+      organized: ['number', 'customers', 'calendar', 'ai']
+    };
+    const later = [];
+    if (st.team !== 'solo') later.push('Invite your team');
+    if (st.goal !== 'paid') later.push('Connect payments');
+    later.push('Email & website chat', 'Get the phone app', 'Sign in faster');
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      goals: opts([['leads', 'Answering leads fast'], ['booked', 'Getting booked'], ['paid', 'Getting paid'], ['organized', 'Getting organized']], 'goal'),
+      sources: opts([['sheet', 'A spreadsheet'], ['ghl', 'GoHighLevel'], ['crm', 'Another CRM'], ['phone', 'My phone’s contacts'], ['none', 'Nowhere yet']], 'source'),
+      teams: opts([['solo', 'Just me'], ['small', '2 to 5'], ['big', '6 or more']], 'team'),
+      plan: orders[st.goal].map((k, i) => ({ n: i + 1, title: steps[k][0], detail: steps[k][1] })),
+      later
+    };
+  }
+}
+</script>
+</body>
+</html>

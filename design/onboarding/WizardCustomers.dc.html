@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup: bring in customers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rc:focus-visible,.rs:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-accent{background:var(--accent-soft-2);color:var(--accent-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{width:300px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:28px 18px 20px;display:flex;flex-direction:column;gap:4px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.later{display:flex;align-items:center;gap:10px;padding:6px 10px;color:var(--text-2);font-size:13px}
+.later .icon{color:var(--text-3)}
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;overflow:hidden;padding:36px 56px 24px;display:flex;flex-direction:column;gap:20px;max-width:860px}
+.foot{flex:none;height:72px;display:flex;align-items:center;gap:8px;padding:0 56px;background:var(--card);border-top:1px solid var(--border)}
+.rc{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border:1px solid var(--border-strong);border-radius:12px;background:var(--card);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.rc:hover{background:var(--card-2)}
+.rc.on{border-color:var(--accent);background:var(--card);box-shadow:inset 0 0 0 1px var(--accent),var(--shadow-1)}
+.dot{width:18px;height:18px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;background:var(--card)}
+.rc.on .dot{border:5px solid var(--accent)}
+.tile{width:36px;height:36px;border-radius:10px;background:var(--card-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;flex:none}
+.rc.on .tile{background:var(--accent-soft);color:var(--accent-text)}
+.well{background:var(--card-2);border-radius:10px;padding:12px 14px}
+.callout{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--accent-soft)}
+.callout .icon{color:var(--accent-text);margin-top:2px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 832px; position: relative; overflow: hidden; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Setting up Lone Star HVAC &amp; Roofing</span>
+<a class="btn btn-ghost" href="HomeChecklist.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Step 3 of 3 · The basics</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 20 minutes. Skip anything and come back to it from Home.</p>
+<a class="rs" href="WizardNumber.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Business number &amp; texting</span><span class="rd tnum">(512) 555-0148 · texting in review</span></span></a>
+<a class="rs" href="WizardAI.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Teach Ava</span><span class="rd">Kept 14 things from your website</span></span></a>
+<a class="rs cur" href="WizardCustomers.dc.html" aria-current="step"><span class="rn">3</span><span class="stack"><span class="rt">Bring in your customers</span><span class="rd">Move from GoHighLevel</span></span></a>
+<a class="rs" href="WizardCalendar.dc.html"><span class="rn">4</span><span class="stack"><span class="rt">Calendar &amp; booking page</span><span class="rd">Services, hours and your booking link</span></span></a>
+<div style="height: 1px; background: var(--border); margin: 14px 10px;"></div>
+<div class="overline" style="padding: 0 10px 4px;">Later, from your checklist</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M19 8v6M22 11h-6"></path></svg>Invite your team</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Connect payments</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>Email &amp; website chat</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg>Get the phone app</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle cx="16.5" cy="7.5" r=".5"></circle></svg>Sign in faster</div>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">3 of 4</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Bring in your customers</h1>
+<p class="muted">You said your customers are in GoHighLevel. <a href="Main.dc.html">Change</a></p>
+</div>
+
+<button class="{{ ghlCls }}" onClick="{{ pickGhl }}" aria-pressed="{{ ghlOn }}">
+<span class="dot"></span>
+<span class="stack" style="gap: 12px; flex: 1; min-width: 0;">
+<span class="row" style="gap: 10px;">
+<span style="font-weight: 600; font-size: 15px;">Move from GoHighLevel</span>
+<span class="badge badge-accent">Fits your answer</span>
+</span>
+<span class="small muted">Sign in to GoHighLevel. We count what’s there and show you before anything moves. Nothing in GoHighLevel is changed or cancelled, and you can undo the move.</span>
+<span class="well stack" style="gap: 8px;">
+<span class="row" style="gap: 8px; flex-wrap: wrap;"><span class="xs faint" style="width: 92px;">Comes across</span><span class="badge badge-gray">Contacts</span><span class="badge badge-gray">Conversations</span><span class="badge badge-gray">Opportunities</span><span class="badge badge-gray">Appointments</span><span class="badge badge-gray">Notes and tasks</span></span>
+<span class="row" style="gap: 8px; align-items: flex-start;"><span class="xs faint" style="width: 92px; flex: none;">Stays behind</span><span class="xs muted">Automations (HandsFreeOS has its own), your phone number (keep it in step 1) and Stripe (connect it again later)</span></span>
+</span>
+</span>
+</button>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<button class="{{ csvCls }}" onClick="{{ pickCsv }}" aria-pressed="{{ csvOn }}">
+<span class="dot"></span>
+<span class="stack" style="gap: 3px;"><span style="font-weight: 500;">Import a spreadsheet</span><span class="small muted">A CSV with up to 20,000 rows. You match the columns before anything is added.</span></span>
+</button>
+<button class="{{ manCls }}" onClick="{{ pickMan }}" aria-pressed="{{ manOn }}">
+<span class="dot"></span>
+<span class="stack" style="gap: 3px;"><span style="font-weight: 500;">Add them as you go</span><span class="small muted">New leads from calls, texts and your booking page add themselves.</span></span>
+</button>
+</div>
+
+<div class="callout">
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+<div class="stack" style="gap: 2px;">
+<span style="font-weight: 500;">Counting a big account takes a while</span>
+<span class="small muted">Keep setting up. We’ll email you when the counts are ready to check, and it’ll be on your checklist.</span>
+</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="WizardAI.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<a class="btn btn-ghost" href="WizardCalendar.dc.html">Skip for now</a>
+<a class="btn btn-primary btn-lg" href="WizardCalendar.dc.html">{{ primary }}</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { way: 'ghl' };
+  }
+  renderVals() {
+    const w = this.state.way;
+    const rc = (on) => 'rc' + (on ? ' on' : '');
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      ghlOn: w === 'ghl', csvOn: w === 'csv', manOn: w === 'man',
+      ghlCls: rc(w === 'ghl'), csvCls: rc(w === 'csv'), manCls: rc(w === 'man'),
+      pickGhl: () => this.setState({ way: 'ghl' }),
+      pickCsv: () => this.setState({ way: 'csv' }),
+      pickMan: () => this.setState({ way: 'man' }),
+      primary: { ghl: 'Connect GoHighLevel', csv: 'Choose a spreadsheet', man: 'Continue' }[w]
+    };
+  }
+}
+</script>
+</body>
+</html>

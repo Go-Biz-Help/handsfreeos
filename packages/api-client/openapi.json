@@ -26885,6 +26885,13 @@
                           "offer_lapsing": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "texting_rejected": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -27217,6 +27224,13 @@
                             "offer_lapsing": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "texting_rejected": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -27251,7 +27265,8 @@
                             "ai_corrections",
                             "website_changed",
                             "faq_suggestions",
-                            "offer_lapsing"
+                            "offer_lapsing",
+                            "texting_rejected"
                           ],
                           "additionalProperties": false
                         },
@@ -47159,6 +47174,702 @@
         }
       }
     },
+    "/v1/commands/onboarding.save_answers": {
+      "post": {
+        "operationId": "command_onboarding_save_answers",
+        "summary": "Save the four quick questions after Create business: what the business wants help with first, where its customers are now, its website, and how many people work there. They put the setup steps in order.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.update. Emits onboarding.answers_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "goal": {
+                    "type": "string",
+                    "enum": [
+                      "leads",
+                      "booked",
+                      "paid",
+                      "organized"
+                    ]
+                  },
+                  "customersIn": {
+                    "type": "string",
+                    "enum": [
+                      "sheet",
+                      "ghl",
+                      "crm",
+                      "phone",
+                      "none"
+                    ]
+                  },
+                  "teamSize": {
+                    "type": "string",
+                    "enum": [
+                      "solo",
+                      "small",
+                      "big"
+                    ]
+                  },
+                  "website": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "goal",
+                  "customersIn",
+                  "teamSize"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "answers": {
+                      "type": "object",
+                      "properties": {
+                        "goal": {
+                          "type": "string",
+                          "enum": [
+                            "leads",
+                            "booked",
+                            "paid",
+                            "organized"
+                          ]
+                        },
+                        "customersIn": {
+                          "type": "string",
+                          "enum": [
+                            "sheet",
+                            "ghl",
+                            "crm",
+                            "phone",
+                            "none"
+                          ]
+                        },
+                        "teamSize": {
+                          "type": "string",
+                          "enum": [
+                            "solo",
+                            "small",
+                            "big"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "goal",
+                        "customersIn",
+                        "teamSize"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "website": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "answers",
+                    "website"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.skip": {
+      "post": {
+        "operationId": "command_onboarding_skip",
+        "summary": "Skip a Getting started step for now, or bring a skipped one back. A step for the whole business needs workspace.update; a step on your own list (the phone app, signing in faster, notifications, your calendar) is yours to skip.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.read. Emits onboarding.step_skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "step": {
+                    "type": "string",
+                    "enum": [
+                      "number",
+                      "payments",
+                      "customers",
+                      "calendar",
+                      "ai",
+                      "team",
+                      "email_chat",
+                      "app",
+                      "sign_in",
+                      "notifications",
+                      "my_calendar"
+                    ]
+                  },
+                  "skipped": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "step"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "step": {
+                      "type": "string",
+                      "enum": [
+                        "number",
+                        "payments",
+                        "customers",
+                        "calendar",
+                        "ai",
+                        "team",
+                        "email_chat",
+                        "app",
+                        "sign_in",
+                        "notifications",
+                        "my_calendar"
+                      ]
+                    },
+                    "skipped": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "step",
+                    "skipped",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.as_you_go": {
+      "post": {
+        "operationId": "command_onboarding_as_you_go",
+        "summary": "Answer the customers step with \"Add them as you go\": new leads add themselves, so the step counts as done. False takes the answer back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.update. Emits onboarding.customers_as_you_go.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "asYouGo": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "asYouGo": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "asYouGo",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.set_view": {
+      "post": {
+        "operationId": "command_onboarding_set_view",
+        "summary": "Hide your Getting started guide from Home, or show it again from Get help; or record that you finished or skipped the tour. Your own view only.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits onboarding.view_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  },
+                  "tourDone": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "hidden": {
+                      "type": "boolean"
+                    },
+                    "tourDoneAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "hidden",
+                    "tourDoneAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.finish": {
+      "post": {
+        "operationId": "command_onboarding_finish",
+        "summary": "Finish your Getting started guide for good, once every step on your list is done, waiting on someone else, or skipped. It doesn’t come back after, even if something is disconnected later. Refused while a step is still to do.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits onboarding.finished.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "device": {
+                    "type": "object",
+                    "properties": {
+                      "signIn": {
+                        "type": "boolean"
+                      },
+                      "app": {
+                        "type": "boolean"
+                      },
+                      "notifications": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "finishedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "finishedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.send_link": {
+      "post": {
+        "operationId": "command_onboarding_send_link",
+        "summary": "Email yourself a link to a Getting started step that’s easier on a computer (\"Email me a link\" in the phone app). The same step again within 10 minutes isn’t sent twice.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits onboarding.link_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "step": {
+                    "type": "string",
+                    "enum": [
+                      "number",
+                      "payments",
+                      "customers",
+                      "calendar",
+                      "ai",
+                      "team",
+                      "email_chat",
+                      "app",
+                      "sign_in",
+                      "notifications",
+                      "my_calendar"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "step"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "step": {
+                      "type": "string",
+                      "enum": [
+                        "number",
+                        "payments",
+                        "customers",
+                        "calendar",
+                        "ai",
+                        "team",
+                        "email_chat",
+                        "app",
+                        "sign_in",
+                        "notifications",
+                        "my_calendar"
+                      ]
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "sent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "step",
+                    "email",
+                    "sent"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.set_enabled": {
+      "post": {
+        "operationId": "command_onboarding_set_enabled",
+        "summary": "Turn Getting started off for everyone in this business, or back on (Settings → Workspace). Off, nobody sees the guide on Home, the setup wizard or the tour; each person’s own progress is kept for when it’s turned on again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.update. Emits onboarding.enabled_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "enabled",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/onboarding.remind": {
+      "post": {
+        "operationId": "command_onboarding_remind",
+        "summary": "For an agency: email a client business’s owners a reminder with their next Getting started step. One a day per business, whoever in the agency asks.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires org.templates.manage. Emits onboarding.remind_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "step": {
+                      "type": "string",
+                      "enum": [
+                        "number",
+                        "payments",
+                        "customers",
+                        "calendar",
+                        "ai",
+                        "team",
+                        "email_chat",
+                        "app",
+                        "sign_in",
+                        "notifications",
+                        "my_calendar"
+                      ]
+                    },
+                    "to": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "step",
+                    "to"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -52374,6 +53085,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "gettingStarted": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -52386,7 +53100,8 @@
                           "industry",
                           "role",
                           "permissions",
-                          "addons"
+                          "addons",
+                          "gettingStarted"
                         ],
                         "additionalProperties": false
                       }
@@ -52914,6 +53629,9 @@
                             "type": "string"
                           }
                         },
+                        "gettingStarted": {
+                          "type": "boolean"
+                        },
                         "settings": {
                           "type": "object",
                           "propertyNames": {
@@ -52947,6 +53665,7 @@
                         "role",
                         "permissions",
                         "addons",
+                        "gettingStarted",
                         "settings",
                         "inboxPerPerson",
                         "createdAt",
@@ -65418,7 +66137,8 @@
                                               "ai_corrections",
                                               "website_changed",
                                               "faq_suggestions",
-                                              "offer_lapsing"
+                                              "offer_lapsing",
+                                              "texting_rejected"
                                             ]
                                           },
                                           "chips": {
@@ -79446,7 +80166,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 32,
+                    "maxItems": 33,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -79482,7 +80202,8 @@
                         "ai_corrections",
                         "website_changed",
                         "faq_suggestions",
-                        "offer_lapsing"
+                        "offer_lapsing",
+                        "texting_rejected"
                       ]
                     }
                   },
@@ -79562,7 +80283,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -80119,7 +80841,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -80676,7 +81399,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "title": {
@@ -80976,7 +81700,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -81582,7 +82307,8 @@
                         "ai_corrections",
                         "website_changed",
                         "faq_suggestions",
-                        "offer_lapsing"
+                        "offer_lapsing",
+                        "texting_rejected"
                       ]
                     },
                     "mode": {
@@ -82076,6 +82802,13 @@
                             "offer_lapsing": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "texting_rejected": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -82110,7 +82843,8 @@
                             "ai_corrections",
                             "website_changed",
                             "faq_suggestions",
-                            "offer_lapsing"
+                            "offer_lapsing",
+                            "texting_rejected"
                           ],
                           "additionalProperties": false
                         },
@@ -96164,6 +96898,805 @@
                     "race",
                     "comingSoon",
                     "nextPickAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/onboarding.status": {
+      "post": {
+        "operationId": "query_onboarding_status",
+        "summary": "Where your Getting started guide stands in this business: each step in order, done, waiting on someone else, needing a fix, to do or skipped, with the counts, the next step and whether the guide shows on Home. Owners and admins get the business’s steps; teammates get their own short list. `device` adds what only the browser or the phone knows.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "device": {
+                    "type": "object",
+                    "properties": {
+                      "signIn": {
+                        "type": "boolean"
+                      },
+                      "app": {
+                        "type": "boolean"
+                      },
+                      "notifications": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "audience": {
+                      "type": "string",
+                      "enum": [
+                        "business",
+                        "personal"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "answers": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "goal": {
+                              "type": "string",
+                              "enum": [
+                                "leads",
+                                "booked",
+                                "paid",
+                                "organized"
+                              ]
+                            },
+                            "customersIn": {
+                              "type": "string",
+                              "enum": [
+                                "sheet",
+                                "ghl",
+                                "crm",
+                                "phone",
+                                "none"
+                              ]
+                            },
+                            "teamSize": {
+                              "type": "string",
+                              "enum": [
+                                "solo",
+                                "small",
+                                "big"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "goal",
+                            "customersIn",
+                            "teamSize"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "website": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "payments",
+                              "customers",
+                              "calendar",
+                              "ai",
+                              "team",
+                              "email_chat",
+                              "app",
+                              "sign_in",
+                              "notifications",
+                              "my_calendar"
+                            ]
+                          },
+                          "group": {
+                            "type": "string",
+                            "enum": [
+                              "basics",
+                              "later",
+                              "yours"
+                            ]
+                          },
+                          "mustDo": {
+                            "type": "boolean"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "todo",
+                              "waiting",
+                              "needs_fix",
+                              "done",
+                              "skipped"
+                            ]
+                          },
+                          "since": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "type": "object",
+                            "properties": {
+                              "phase": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "provider": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "partsDone": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "partsTotal": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "group",
+                          "mustDo",
+                          "state",
+                          "since",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "done": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "payments",
+                            "customers",
+                            "calendar",
+                            "ai",
+                            "team",
+                            "email_chat",
+                            "app",
+                            "sign_in",
+                            "notifications",
+                            "my_calendar"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "view": {
+                      "type": "object",
+                      "properties": {
+                        "hidden": {
+                          "type": "boolean"
+                        },
+                        "tourDoneAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "finishedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "show": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "hidden",
+                        "tourDoneAt",
+                        "finishedAt",
+                        "show"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "audience",
+                    "enabled",
+                    "answers",
+                    "website",
+                    "steps",
+                    "done",
+                    "total",
+                    "skipped",
+                    "complete",
+                    "next",
+                    "view"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/onboarding.clients": {
+      "post": {
+        "operationId": "query_onboarding_clients",
+        "summary": "For an agency: each client business and how far it has got setting up (Getting started’s business steps): the count, stuck, setting up or done and why, its steps, its owner and when they last signed in, and whether a reminder went today.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires org.templates.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "organizationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "businesses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "workspaceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "owner": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "email"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lastSignInAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "done": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "total": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "skipped": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "group": {
+                            "type": "string",
+                            "enum": [
+                              "stuck",
+                              "setup",
+                              "done"
+                            ]
+                          },
+                          "badge": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "enum": [
+                                    "number",
+                                    "payments",
+                                    "customers",
+                                    "calendar",
+                                    "ai",
+                                    "team",
+                                    "email_chat",
+                                    "app",
+                                    "sign_in",
+                                    "notifications",
+                                    "my_calendar"
+                                  ]
+                                },
+                                "group": {
+                                  "type": "string",
+                                  "enum": [
+                                    "basics",
+                                    "later",
+                                    "yours"
+                                  ]
+                                },
+                                "mustDo": {
+                                  "type": "boolean"
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "todo",
+                                    "waiting",
+                                    "needs_fix",
+                                    "done",
+                                    "skipped"
+                                  ]
+                                },
+                                "since": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "note": {
+                                  "type": "object",
+                                  "properties": {
+                                    "phase": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "reason": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "provider": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "count": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "partsDone": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "partsTotal": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "group",
+                                "mustDo",
+                                "state",
+                                "since",
+                                "note"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "remindedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "workspaceId",
+                          "name",
+                          "owner",
+                          "lastSignInAt",
+                          "enabled",
+                          "done",
+                          "total",
+                          "skipped",
+                          "group",
+                          "badge",
+                          "note",
+                          "steps",
+                          "remindedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "all": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "stuck": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "setup": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "done": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "all",
+                        "stuck",
+                        "setup",
+                        "done"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "organizationId",
+                    "businesses",
+                    "counts"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/platform.onboarding.counts": {
+      "post": {
+        "operationId": "query_platform_onboarding_counts",
+        "summary": "How Getting started is going across every business: how many answered the quick questions, which steps they skip and bring back, how many finish, and how many add customers as they go. Counts only.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.businesses.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "default": 30,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "since": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "started": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "asYouGo": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "finished": {
+                      "type": "object",
+                      "properties": {
+                        "businesses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "nothingSkipped": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "teammates": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "businesses",
+                        "nothingSkipped",
+                        "teammates"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "hidden": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "turnedOff": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "payments",
+                              "customers",
+                              "calendar",
+                              "ai",
+                              "team",
+                              "email_chat",
+                              "app",
+                              "sign_in",
+                              "notifications",
+                              "my_calendar"
+                            ]
+                          },
+                          "for": {
+                            "type": "string",
+                            "enum": [
+                              "business",
+                              "person"
+                            ]
+                          },
+                          "skipped": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "broughtBack": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "for",
+                          "skipped",
+                          "broughtBack"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "since",
+                    "started",
+                    "asYouGo",
+                    "finished",
+                    "hidden",
+                    "turnedOff",
+                    "steps"
                   ],
                   "additionalProperties": false
                 }

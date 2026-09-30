@@ -11,6 +11,13 @@ import type { WeeklyHours } from '../calendar/config';
 import { uuidArray } from '../calendar/load';
 import { lessonConflictOf } from '../commands/teammate-lesson';
 import { formatPhone } from '../crm/phone';
+import {
+  currentNumber,
+  FAMILY_KINDS,
+  familyFor,
+  latestByKind,
+  loadRegistrations,
+} from '../messaging/store';
 import { CHANNEL_QUIET_GAPS, type ChannelKind } from './detectors/channel-quiet';
 import type { ConnectionProblem, ConnectionSystem } from './detectors/connection';
 import { AI_UNREVIEWED_DAYS } from './detectors/ai-unreviewed';
@@ -531,4 +538,48 @@ export async function loadOffers(
   return new Map(
     list.map((r) => [r.id, { id: r.id, name: r.name, endsOn: r.ends_on, archived: r.archived }]),
   );
+}
+
+export interface TextingRegistrationInfo {
+  readonly registration: AttentionFacts<'texting_rejected'>['registration'];
+  /** The business's current number, as people read it, for the card's title. */
+  readonly number: string | null;
+}
+
+/**
+ * The business's texting registrations the carriers turned down (Getting started's "Texting turned down"), and any
+ * named whatever their status, so their cards can close. Each says whether it's the newest of its kind for the
+ * business's current number, as Settings → Texting & calls reads them. Never the details sent, which hold the EIN.
+ */
+export async function loadTextingRegistrations(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  all: boolean,
+): Promise<Map<string, TextingRegistrationInfo>> {
+  if (!all && ids.length === 0) return new Map();
+  const number = await currentNumber(tx, workspaceId);
+  const regs = await loadRegistrations(tx, workspaceId);
+  const family: readonly string[] = number ? FAMILY_KINDS[familyFor(number.numberType)] : [];
+  const current = new Set(
+    [...latestByKind(regs.filter((r) => family.includes(r.kind))).values()].map((r) => r.id),
+  );
+  const named = new Set(ids);
+  const out = new Map<string, TextingRegistrationInfo>();
+  for (const r of regs) {
+    if (!named.has(r.id) && !(all && r.status === 'rejected')) continue;
+    out.set(r.id, {
+      registration: {
+        id: r.id,
+        status: r.status,
+        rejectionReason: r.rejectionReason?.trim() || null,
+        submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
+        // Nothing changes a turned-down row until it's sent again, so its last change is when it was turned down.
+        rejectedAt: r.updatedAt.toISOString(),
+        current: current.has(r.id),
+      },
+      number: number ? formatPhone(number.e164) : null,
+    });
+  }
+  return out;
 }

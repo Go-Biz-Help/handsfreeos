@@ -157,7 +157,9 @@ function summaryFor(
   const theirs = items.filter(
     (i) =>
       (everyone || i.assigneeUserId === null || i.assigneeUserId === person.id) &&
-      (i.kind !== 'ai_approval' || decidable.has(i.subjectId)),
+      (i.kind !== 'ai_approval' || decidable.has(i.subjectId)) &&
+      // Texting turned down is for the owners and admins, who set texting up.
+      (i.kind !== 'texting_rejected' || everyone),
   );
   const jobs: MorningJob[] = extras.jobs
     .filter((j) => everyone || j.userIds.includes(person.id))

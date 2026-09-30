@@ -1,0 +1,238 @@
+/** Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md): the status query and the commands. */
+import { z } from 'zod';
+import { CLIENT_GROUPS } from '../onboarding/clients';
+import { OnboardingAnswersSchema } from '../onboarding/settings';
+import {
+  BUSINESS_STEPS,
+  CUSTOMER_SOURCES,
+  ONBOARDING_GOALS,
+  PERSONAL_STEPS,
+  STEP_STATES,
+  TEAM_SIZES,
+} from '../onboarding/steps';
+import { isoDateTime, uuid } from './common';
+
+export const onboardingStepKey = z.enum([...BUSINESS_STEPS, ...PERSONAL_STEPS]);
+
+/** What only the device knows: the browser the person's sign-in methods, the phone itself and its notifications. */
+export const OnboardingDeviceFacts = z.object({
+  signIn: z.boolean().optional(),
+  app: z.boolean().optional(),
+  notifications: z.boolean().optional(),
+});
+
+export const OnboardingStatusInput = z.object({
+  workspaceId: uuid,
+  device: OnboardingDeviceFacts.optional(),
+});
+
+export const OnboardingStepOut = z.object({
+  key: onboardingStepKey,
+  group: z.enum(['basics', 'later', 'yours']),
+  mustDo: z.boolean(),
+  state: z.enum(STEP_STATES),
+  since: isoDateTime.nullable(),
+  note: z.object({
+    phase: z.string().optional(),
+    number: z.string().nullable().optional(),
+    reason: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+    provider: z.string().nullable().optional(),
+    count: z.number().int().optional(),
+    partsDone: z.number().int().optional(),
+    partsTotal: z.number().int().optional(),
+  }),
+});
+
+export const OnboardingStatusOutput = z.object({
+  workspaceId: uuid,
+  /** `business` for someone who sets the business up; `personal` for a teammate, who sees only their own list. */
+  audience: z.enum(['business', 'personal']),
+  /** False when an owner or admin turned Getting started off for the whole business: nobody there sees it. */
+  enabled: z.boolean(),
+  answers: OnboardingAnswersSchema.nullable(),
+  website: z.string().nullable(),
+  steps: z.array(OnboardingStepOut),
+  done: z.number().int(),
+  total: z.number().int(),
+  skipped: z.number().int(),
+  complete: z.boolean(),
+  next: onboardingStepKey.nullable(),
+  view: z.object({
+    hidden: z.boolean(),
+    tourDoneAt: isoDateTime.nullable(),
+    finishedAt: isoDateTime.nullable(),
+    /** On for the business, and this person hasn't finished or hidden it: the guide shows on Home. */
+    show: z.boolean(),
+  }),
+});
+
+export const OnboardingSaveAnswersInput = z.object({
+  workspaceId: uuid,
+  goal: z.enum(ONBOARDING_GOALS),
+  customersIn: z.enum(CUSTOMER_SOURCES),
+  teamSize: z.enum(TEAM_SIZES),
+  /** "What's your website?" As typed, with or without https://. Null: "We don't have one". Left out: unchanged. */
+  website: z.string().trim().max(500).nullable().optional(),
+});
+export const OnboardingSaveAnswersOutput = z.object({
+  workspaceId: uuid,
+  answers: OnboardingAnswersSchema,
+  website: z.string().nullable(),
+});
+
+export const OnboardingSkipInput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  /** False brings a skipped step back. */
+  skipped: z.boolean().default(true),
+});
+export const OnboardingSkipOutput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  skipped: z.boolean(),
+  changed: z.boolean(),
+});
+
+export const OnboardingAsYouGoInput = z.object({
+  workspaceId: uuid,
+  asYouGo: z.boolean().default(true),
+});
+export const OnboardingAsYouGoOutput = z.object({
+  workspaceId: uuid,
+  asYouGo: z.boolean(),
+  changed: z.boolean(),
+});
+
+export const OnboardingSetViewInput = z
+  .object({
+    workspaceId: uuid,
+    /** Hide the guide from Home, or show it again from Get help. */
+    hidden: z.boolean().optional(),
+    /** The tour was finished or skipped. */
+    tourDone: z.boolean().optional(),
+  })
+  .refine((v) => v.hidden !== undefined || v.tourDone !== undefined, {
+    error: 'Nothing to change.',
+  });
+export const OnboardingSetViewOutput = z.object({
+  workspaceId: uuid,
+  hidden: z.boolean(),
+  tourDoneAt: isoDateTime.nullable(),
+});
+
+export const OnboardingFinishInput = z.object({
+  workspaceId: uuid,
+  device: OnboardingDeviceFacts.optional(),
+});
+export const OnboardingFinishOutput = z.object({
+  workspaceId: uuid,
+  finishedAt: isoDateTime,
+});
+
+/** "Email me a link" on the phone: the page that does one step on this person's list, sent to their email. */
+export const OnboardingSendLinkInput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+});
+export const OnboardingSendLinkOutput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  /** The address it went to. */
+  email: z.string(),
+  /** False when the same link went a moment ago: that one is still on its way. */
+  sent: z.boolean(),
+});
+
+/** Getting started on or off for the whole business (Settings → Workspace). */
+export const OnboardingSetEnabledInput = z.object({
+  workspaceId: uuid,
+  enabled: z.boolean(),
+});
+export const OnboardingSetEnabledOutput = z.object({
+  workspaceId: uuid,
+  enabled: z.boolean(),
+  changed: z.boolean(),
+});
+
+/** An agency's client businesses and how far each has got setting up (Client businesses → Setup). */
+export const OnboardingClientsInput = z.object({ organizationId: uuid });
+export const OnboardingClient = z.object({
+  workspaceId: uuid,
+  name: z.string(),
+  /**
+   * The business's own owner, the first to join; never the agency's people, who own every business through the
+   * organization. Null when it has none yet.
+   */
+  owner: z.object({ name: z.string(), email: z.string() }).nullable(),
+  /** When any of its own owners last signed in; null when none has. */
+  lastSignInAt: isoDateTime.nullable(),
+  /** Getting started is on for it. */
+  enabled: z.boolean(),
+  done: z.number().int(),
+  total: z.number().int(),
+  skipped: z.number().int(),
+  group: z.enum(CLIENT_GROUPS),
+  badge: z.string(),
+  note: z.string(),
+  /** Its business steps in order; never anyone's own list. */
+  steps: z.array(OnboardingStepOut),
+  /** A reminder went in the last 24 hours. */
+  remindedAt: isoDateTime.nullable(),
+});
+export const OnboardingClientsOutput = z.object({
+  organizationId: uuid,
+  businesses: z.array(OnboardingClient),
+  counts: z.object({
+    all: z.number().int(),
+    stuck: z.number().int(),
+    setup: z.number().int(),
+    done: z.number().int(),
+  }),
+});
+
+/** "Email a reminder": the business's owners get their next step. Once a day at most. */
+export const OnboardingRemindInput = z.object({ organizationId: uuid, workspaceId: uuid });
+export const OnboardingRemindOutput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  /** Who it went to. */
+  to: z.array(z.string()),
+});
+
+/**
+ * The admin side's Getting started page (plan §9): how many businesses start, skip each step and finish, counted
+ * from the onboarding events across every business. Counts only: no business, person or answer.
+ */
+export const OnboardingCountsInput = z.object({
+  /** How far back to count. */
+  days: z.number().int().min(1).max(365).default(30),
+});
+export const OnboardingCountsOutput = z.object({
+  since: isoDateTime,
+  /** Businesses that answered the quick questions. */
+  started: z.number().int(),
+  /** Businesses that answered the customers step with "Add them as you go". */
+  asYouGo: z.number().int(),
+  finished: z.object({
+    /** Businesses whose owner or admin finished the guide. */
+    businesses: z.number().int(),
+    /** Of those, the ones that skipped nothing. */
+    nothingSkipped: z.number().int(),
+    /** Teammates who finished their own list. */
+    teammates: z.number().int(),
+  }),
+  /** People who hid the guide from Home. */
+  hidden: z.number().int(),
+  /** Businesses that turned Getting started off. */
+  turnedOff: z.number().int(),
+  /** Every step, most skipped first. A business step counts businesses; a step on someone's own list, people. */
+  steps: z.array(
+    z.object({
+      key: onboardingStepKey,
+      for: z.enum(['business', 'person']),
+      skipped: z.number().int(),
+      broughtBack: z.number().int(),
+    }),
+  ),
+});

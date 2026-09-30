@@ -21,7 +21,15 @@
  * An organization's time zone is the one most of its businesses use, or America/Chicago (the SQL function).
  */
 import { randomUUID } from 'node:crypto';
-import { addDays, localDateOf, localInstant, scheduleJob, uuidArray } from '@hfos/core/server';
+import {
+  addDays,
+  clientStanding,
+  loadBusinessSetup,
+  localDateOf,
+  localInstant,
+  scheduleJob,
+  uuidArray,
+} from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { agencyDigestEmail, type DigestBusiness } from './emails/templates';
 import type { JobContext, JobHandler, JobMap } from './jobs';
@@ -116,6 +124,9 @@ interface Listed {
   readonly ownManagers: ReadonlySet<string>;
 }
 
+/** Getting started's facts read for the business, not for a person: nobody's own phones or calendar. */
+const NOBODY = '00000000-0000-0000-0000-000000000000';
+
 const wantsDigest = (u: Recipient) =>
   (u.settings as { notifications?: { agencyDigest?: boolean } }).notifications?.agencyDigest !==
   false;
@@ -128,10 +139,14 @@ async function lookAt(
   now: number,
 ): Promise<Listed | null> {
   const since = new Date(now - DAY).toISOString();
-  const [a] = await asWorker(ctx.db, { workspaceId: b.id, organizationId }, (tx) =>
-    rows<Attention>(
-      tx,
-      sql`select
+  const [[a], setup] = await asWorker(
+    ctx.db,
+    { workspaceId: b.id, organizationId },
+    async (tx) =>
+      [
+        await rows<Attention>(
+          tx,
+          sql`select
             (select count(*)::int from app.workflow_runs r
               where r.workspace_id = ${b.id} and r.status = 'failed' and not r.is_test
                 and r.ended_at > ${since}::timestamptz) as failed_runs,
@@ -149,10 +164,28 @@ async function lookAt(
               where s.workspace_id = ${b.id} and s.status = 'pending') as suggestions,
             (select coalesce(array_agg(m.user_id::text), '{}') from app.workspace_memberships m
               where m.workspace_id = ${b.id} and m.role in ('owner', 'admin')) as own_managers`,
-    ),
+        ),
+        // Getting started, stuck: a step needs a fix, or the owners have been away with must-dos open.
+        await loadBusinessSetup(tx, b.id, NOBODY),
+      ] as const,
   );
   if (!a) return null;
-  if (a.failed_runs === 0 && a.approvals === 0 && a.paused.length === 0 && a.behind.length === 0)
+  const stuck =
+    setup &&
+    clientStanding({
+      steps: setup.steps,
+      enabled: setup.enabled,
+      lastSignInAt: setup.lastSignInAt,
+      now: new Date(now),
+    });
+  const setupLine = stuck?.group === 'stuck' ? stuck.note : null;
+  if (
+    a.failed_runs === 0 &&
+    a.approvals === 0 &&
+    a.paused.length === 0 &&
+    a.behind.length === 0 &&
+    !setupLine
+  )
     return null;
   const home = `${ctx.webUrl}/app/w/${b.id}`;
   const oldest = a.oldest_approval ? new Date(a.oldest_approval).getTime() : now;
@@ -180,6 +213,9 @@ async function lookAt(
           : null,
       suggestions:
         a.suggestions > 0 ? { count: a.suggestions, link: `${home}/knowledge/suggestions` } : null,
+      setup: setupLine
+        ? { note: setupLine, link: `${ctx.webUrl}/app/org/${organizationId}/businesses` }
+        : null,
     },
   };
 }

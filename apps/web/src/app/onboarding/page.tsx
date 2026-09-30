@@ -16,7 +16,7 @@ export default async function OnboardingPage() {
       <Brand size={32} className="text-base" />
       <Card className="w-[520px] max-w-full rounded-dialog p-9">
         <div className="text-xs font-medium uppercase tracking-[0.04em] text-text-3">
-          Step 1 of 1
+          Step 1 of 3
         </div>
         <h1 className="mt-1.5 text-[26px] font-semibold leading-tight tracking-[-0.015em]">
           Set up your business

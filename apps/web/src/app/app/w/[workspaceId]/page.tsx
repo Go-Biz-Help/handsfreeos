@@ -6,12 +6,13 @@ import { ActionCenterIntro } from '@/components/home/action-center-intro';
 import { AddonNewsCard } from '@/components/home/addon-news';
 import { AddonSuggestionCard } from '@/components/home/addon-suggestion';
 import type { MemberOption } from '@/components/home/attention-context';
-import { SetupChecklist } from '@/components/home/setup-checklist';
+import { GettingStarted } from '@/components/home/getting-started';
 import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiServer, getMe, unwrap, unwrapPage } from '@/lib/api/server';
+import { loadOnboarding } from '@/lib/onboarding';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
 
@@ -40,7 +41,7 @@ export default async function WorkspaceHomePage({
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then((r) => unwrapPage(r));
-  const [me, got, summary, list, suggested, news] = await Promise.all([
+  const [me, got, summary, list, suggested, news, onboarding] = await Promise.all([
     getMe(),
     workspace,
     api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then((r) => unwrapPage(r)),
@@ -67,6 +68,8 @@ export default async function WorkspaceHomePage({
             .catch(() => null)
         : null,
     ),
+    // Getting started: the person's guide, new business or not (Chris, 2026-09-29). A nicety too.
+    loadOnboarding(api, workspaceId),
   ]);
   const ws = got.workspace;
   const suggestion =
@@ -78,7 +81,15 @@ export default async function WorkspaceHomePage({
     ) : null;
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
-  // The setup checklist is for a brand-new business only: no customers, and nothing needing attention. Someone
+  const guide = onboarding ? (
+    <GettingStarted
+      workspaceId={ws.id}
+      status={onboarding}
+      permissions={ws.permissions}
+      compact={false}
+    />
+  ) : null;
+  // A brand-new business's Home says what it will become: no customers, and nothing needing attention. Someone
   // texting a number nobody has added to Contacts still belongs on the Action Center.
   const brandNew =
     summary.people + summary.companies === 0 &&
@@ -92,7 +103,11 @@ export default async function WorkspaceHomePage({
           title={`Welcome back, ${firstName}`}
           description={`${ws.name} · ${industryLabel(ws.industry)} · ${ws.timezone}`}
           actions={
-            <ButtonLink href={`/app/w/${ws.id}/customers`} variant="primary">
+            // One primary button on a page: while the guide shows, its next step is it.
+            <ButtonLink
+              href={`/app/w/${ws.id}/customers`}
+              variant={onboarding?.view.show ? 'secondary' : 'primary'}
+            >
               <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
               Add person
             </ButtonLink>
@@ -100,13 +115,7 @@ export default async function WorkspaceHomePage({
         />
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <div className="flex flex-col gap-5 lg:col-span-2">
-            <Card className="p-6">
-              <SetupChecklist
-                workspaceId={ws.id}
-                invited={got.counts.members > 1 || got.counts.pendingInvitations > 0}
-                canInvite={canInvite}
-              />
-            </Card>
+            {guide}
             <ActionCenterIntro
               workspaceId={ws.id}
               canImport={can(ws.permissions, 'records.import')}
@@ -221,6 +230,16 @@ export default async function WorkspaceHomePage({
       newLeadHref={`/app/w/${ws.id}/pipeline`}
       highlightItem={typeof linked === 'string' ? linked : null}
       suggestion={suggestion}
+      guide={
+        onboarding ? (
+          <GettingStarted
+            workspaceId={ws.id}
+            status={onboarding}
+            permissions={ws.permissions}
+            compact
+          />
+        ) : null
+      }
     />
   );
 }

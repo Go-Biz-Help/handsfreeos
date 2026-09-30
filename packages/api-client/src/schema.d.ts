@@ -4937,6 +4937,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding.as_you_go": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the customers step with "Add them as you go": new leads add themselves, so the step counts as done. False takes the answer back.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.customers_as_you_go.
+         */
+        post: operations["command_onboarding_as_you_go"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish your Getting started guide for good, once every step on your list is done, waiting on someone else, or skipped. It doesn’t come back after, even if something is disconnected later. Refused while a step is still to do.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.finished.
+         */
+        post: operations["command_onboarding_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For an agency: email a client business’s owners a reminder with their next Getting started step. One a day per business, whoever in the agency asks.
+         * @description Risk level 1. Requires org.templates.manage. Emits onboarding.remind_requested.
+         */
+        post: operations["command_onboarding_remind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.save_answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the four quick questions after Create business: what the business wants help with first, where its customers are now, its website, and how many people work there. They put the setup steps in order.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.answers_saved.
+         */
+        post: operations["command_onboarding_save_answers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.send_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email yourself a link to a Getting started step that’s easier on a computer ("Email me a link" in the phone app). The same step again within 10 minutes isn’t sent twice.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.link_requested.
+         */
+        post: operations["command_onboarding_send_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.set_enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn Getting started off for everyone in this business, or back on (Settings → Workspace). Off, nobody sees the guide on Home, the setup wizard or the tour; each person’s own progress is kept for when it’s turned on again.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.enabled_changed.
+         */
+        post: operations["command_onboarding_set_enabled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.set_view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide your Getting started guide from Home, or show it again from Get help; or record that you finished or skipped the tour. Your own view only.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.view_changed.
+         */
+        post: operations["command_onboarding_set_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a Getting started step for now, or bring a skipped one back. A step for the whole business needs workspace.update; a step on your own list (the phone app, signing in faster, notifications, your calendar) is yours to skip.
+         * @description Risk level 1. Requires workspace.read. Emits onboarding.step_skipped.
+         */
+        post: operations["command_onboarding_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.add_owner": {
         parameters: {
             query?: never;
@@ -10357,6 +10517,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/onboarding.clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For an agency: each client business and how far it has got setting up (Getting started’s business steps): the count, stuck, setting up or done and why, its steps, its owner and when they last signed in, and whether a reminder went today.
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_onboarding_clients"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/onboarding.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where your Getting started guide stands in this business: each step in order, done, waiting on someone else, needing a fix, to do or skipped, with the counts, the next step and whether the guide shows on Home. Owners and admins get the business’s steps; teammates get their own short list. `device` adds what only the browser or the phone knows.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_onboarding_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/payment_connection.list": {
         parameters: {
             query?: never;
@@ -10631,6 +10831,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_platform_me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.onboarding.counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How Getting started is going across every business: how many answered the quick questions, which steps they skip and bring back, how many finish, and how many add customers as they go. Counts only.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_onboarding_counts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13250,6 +13470,11 @@ export interface operations {
                             revenue_moved?: boolean;
                             /** @default true */
                             stale_opportunity?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            texting_rejected?: true;
                             /** @default true */
                             unanswered_lead?: boolean;
                             /** @default true */
@@ -13402,6 +13627,11 @@ export interface operations {
                                 revenue_moved: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                texting_rejected: true;
                                 /** @default true */
                                 unanswered_lead: boolean;
                                 /** @default true */
@@ -22307,6 +22537,299 @@ export interface operations {
             };
         };
     };
+    command_onboarding_as_you_go: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    asYouGo?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asYouGo: boolean;
+                        changed: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    device?: {
+                        app?: boolean;
+                        notifications?: boolean;
+                        signIn?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        finishedAt: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        to: string[];
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_save_answers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                    /** @enum {string} */
+                    goal: "leads" | "booked" | "paid" | "organized";
+                    /** @enum {string} */
+                    teamSize: "solo" | "small" | "big";
+                    website?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @enum {string} */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /** @enum {string} */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @enum {string} */
+                            teamSize: "solo" | "small" | "big";
+                        };
+                        website: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_send_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        email: string;
+                        sent: boolean;
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_set_enabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_set_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hidden?: boolean;
+                    tourDone?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hidden: boolean;
+                        tourDoneAt: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    skipped?: boolean;
+                    /** @enum {string} */
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        skipped: boolean;
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_organization_add_owner: {
         parameters: {
             query?: never;
@@ -29346,6 +29869,7 @@ export interface operations {
                         };
                         workspaces: {
                             addons: string[];
+                            gettingStarted: boolean;
                             /** Format: uuid */
                             id: string;
                             industry: string;
@@ -30675,7 +31199,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -30981,7 +31505,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -31034,7 +31558,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -31101,7 +31625,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -31181,7 +31705,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -31225,7 +31749,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -31285,7 +31809,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -31421,6 +31945,11 @@ export interface operations {
                                 revenue_moved: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                texting_rejected: true;
                                 /** @default true */
                                 unanswered_lead: boolean;
                                 /** @default true */
@@ -37806,6 +38335,159 @@ export interface operations {
             };
         };
     };
+    query_onboarding_clients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businesses: {
+                            badge: string;
+                            done: number;
+                            enabled: boolean;
+                            /** @enum {string} */
+                            group: "stuck" | "setup" | "done";
+                            lastSignInAt: string | null;
+                            name: string;
+                            note: string;
+                            owner: {
+                                email: string;
+                                name: string;
+                            } | null;
+                            remindedAt: string | null;
+                            skipped: number;
+                            steps: {
+                                /** @enum {string} */
+                                group: "basics" | "later" | "yours";
+                                /** @enum {string} */
+                                key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                                mustDo: boolean;
+                                note: {
+                                    count?: number;
+                                    name?: string | null;
+                                    number?: string | null;
+                                    partsDone?: number;
+                                    partsTotal?: number;
+                                    phase?: string;
+                                    provider?: string | null;
+                                    reason?: string | null;
+                                };
+                                since: string | null;
+                                /** @enum {string} */
+                                state: "todo" | "waiting" | "needs_fix" | "done" | "skipped";
+                            }[];
+                            total: number;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
+                        counts: {
+                            all: number;
+                            done: number;
+                            setup: number;
+                            stuck: number;
+                        };
+                        /** Format: uuid */
+                        organizationId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_onboarding_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    device?: {
+                        app?: boolean;
+                        notifications?: boolean;
+                        signIn?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @enum {string} */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /** @enum {string} */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @enum {string} */
+                            teamSize: "solo" | "small" | "big";
+                        } | null;
+                        /** @enum {string} */
+                        audience: "business" | "personal";
+                        complete: boolean;
+                        done: number;
+                        enabled: boolean;
+                        next: ("number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar") | null;
+                        skipped: number;
+                        steps: {
+                            /** @enum {string} */
+                            group: "basics" | "later" | "yours";
+                            /** @enum {string} */
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            mustDo: boolean;
+                            note: {
+                                count?: number;
+                                name?: string | null;
+                                number?: string | null;
+                                partsDone?: number;
+                                partsTotal?: number;
+                                phase?: string;
+                                provider?: string | null;
+                                reason?: string | null;
+                            };
+                            since: string | null;
+                            /** @enum {string} */
+                            state: "todo" | "waiting" | "needs_fix" | "done" | "skipped";
+                        }[];
+                        total: number;
+                        view: {
+                            finishedAt: string | null;
+                            hidden: boolean;
+                            show: boolean;
+                            tourDoneAt: string | null;
+                        };
+                        website: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     query_payment_connection_list: {
         parameters: {
             query?: never;
@@ -38821,6 +39503,53 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_onboarding_counts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 30 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asYouGo: number;
+                        finished: {
+                            businesses: number;
+                            nothingSkipped: number;
+                            teammates: number;
+                        };
+                        hidden: number;
+                        /** Format: date-time */
+                        since: string;
+                        started: number;
+                        steps: {
+                            broughtBack: number;
+                            /** @enum {string} */
+                            for: "business" | "person";
+                            /** @enum {string} */
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            skipped: number;
+                        }[];
+                        turnedOff: number;
                     };
                 };
             };
@@ -41527,6 +42256,7 @@ export interface operations {
                             capabilities: string[];
                             /** Format: date-time */
                             createdAt: string;
+                            gettingStarted: boolean;
                             /** Format: uuid */
                             id: string;
                             inboxPerPerson: boolean;

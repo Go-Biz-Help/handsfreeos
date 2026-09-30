@@ -43,8 +43,11 @@ test('on a phone: the Action Center in light and dark', async ({ page }) => {
     const band = (await header.boundingBox())!;
     expect(band.x).toBeLessThanOrEqual(0.5);
     expect(Math.round(band.width)).toBe(390);
-    const everyone = (await page.getByTestId('scope-everyone').boundingBox())!;
-    expect(everyone.height).toBeGreaterThanOrEqual(34);
+    // The switch takes its phone size once the page is running in the browser (the server can't know the screen),
+    // so wait for it rather than measuring the first paint.
+    await expect
+      .poll(async () => (await page.getByTestId('scope-everyone').boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(34);
 
     // Full-width cards with 44 px buttons.
     const maria = cardOf(page, 'Maria Lopez');

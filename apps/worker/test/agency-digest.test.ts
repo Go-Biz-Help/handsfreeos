@@ -272,6 +272,43 @@ describe('the daily agency digest', () => {
   });
 });
 
+describe('a business stuck on setup', () => {
+  it('is listed with why, for the agency to look at', async () => {
+    const c = await flowWorld('agdigc');
+    try {
+      const stuck = await run(c, workspaceCreate, {
+        organizationId: c.organizationId,
+        name: 'Digest Stuck Electric',
+        timezone: CHI,
+      });
+      // Its own owner, away for six days with the must-dos still open.
+      const riley = await createTestUser('agdig-riley', { fullName: 'Riley Chen' });
+      await rows(
+        admin(),
+        sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+            values (${stuck.workspaceId}, ${riley.id}, 'owner')`,
+      );
+      await rows(
+        admin(),
+        sql`update auth.users set last_sign_in_at = now() - interval '6 days' where id = ${riley.id}`,
+      );
+      await asWorker(c.s.db, {}, (tx) => scheduleDigest(tx, c.organizationId, CHI, Date.now()));
+      await runDigest(c);
+      const toOwner = await mailFor(c.owner.email, `${orgName(c)}: 1 business needs a look today`);
+      expect(toOwner.text).toContain(
+        [
+          'Digest Stuck Electric',
+          `- Stuck on setup: Hasn’t signed in for 6 days: ${WEB}/app/org/${c.organizationId}/businesses`,
+        ].join('\n'),
+      );
+      // The business the owner runs themselves, new and nobody away from it, isn't listed.
+      expect(toOwner.text).not.toContain(`${WEB}/app/w/${c.workspaceId}`);
+    } finally {
+      await c.app.close();
+    }
+  });
+});
+
 describe('the next 8 AM', () => {
   it('is today’s before 8, tomorrow’s from 8 on, and follows daylight saving', () => {
     const at = (iso: string, zone = CHI) =>

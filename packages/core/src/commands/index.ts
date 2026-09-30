@@ -337,6 +337,16 @@ import { ownBusinessCommands } from './own-business';
 import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
+import {
+  onboardingAsYouGo,
+  onboardingFinish,
+  onboardingRemind,
+  onboardingSaveAnswers,
+  onboardingSendLink,
+  onboardingSetEnabled,
+  onboardingSetView,
+  onboardingSkip,
+} from './onboarding';
 import { migrationCommands } from './migration';
 
 import { addonLifecycleCommands } from './addon';
@@ -893,6 +903,15 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Getting started.
+  onboardingSaveAnswers,
+  onboardingSkip,
+  onboardingAsYouGo,
+  onboardingSetView,
+  onboardingFinish,
+  onboardingSendLink,
+  onboardingSetEnabled,
+  onboardingRemind,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -922,6 +941,7 @@ export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './intake-source';
+export * from './onboarding';
 export * from './intake';
 export * from './chat';
 export * from './attention';

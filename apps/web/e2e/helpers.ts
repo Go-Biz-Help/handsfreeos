@@ -80,7 +80,7 @@ export async function signUpAndConfirm(
 
 export async function createBusiness(
   page: Page,
-  opts: { name: string; agencyName?: string },
+  opts: { name: string; agencyName?: string; answerQuestions?: boolean },
 ): Promise<string> {
   await expect(page).toHaveURL(/\/onboarding/);
   await page.getByLabel('Business name').fill(opts.name);
@@ -89,8 +89,14 @@ export async function createBusiness(
     await page.getByLabel('Agency name').fill(opts.agencyName);
   }
   await page.getByRole('button', { name: 'Create business' }).click();
-  await expect(page).toHaveURL(/\/app\/w\/[0-9a-f-]{36}$/);
-  return /\/app\/w\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  // The quick questions and the setup wizard come next (getting-started.spec.ts goes through them); everything
+  // else goes straight to Home, as Finish later would.
+  await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\/questions$/);
+  const id = /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  if (opts.answerQuestions) return id;
+  await page.goto(`/app/w/${id}`);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${id}$`));
+  return id;
 }
 
 export async function signIn(

@@ -51,6 +51,7 @@ import {
   loadGaps,
   loadLessons,
   loadOffers,
+  loadTextingRegistrations,
   loadScans,
   loadTeammates,
   type ChannelInfo,
@@ -58,6 +59,7 @@ import {
   type GapInfo,
   type LessonInfo,
   type OfferInfo,
+  type TextingRegistrationInfo,
   type ScanInfo,
   type TeammateInfo,
 } from './load-health';
@@ -72,6 +74,7 @@ import { automationSettingsOf } from '../automations/settings';
 import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } from './kinds';
 import type { ChannelKind } from './detectors/channel-quiet';
 import type { ConnectionSystem } from './detectors/connection';
+import { textingRejectedWords } from './detectors/texting-rejected';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
 import type { AttentionCandidate, AttentionChip, Detection } from './types';
@@ -112,7 +115,8 @@ export interface AttentionSubjectRef {
     | 'lesson'
     | 'scan'
     | 'suggestion'
-    | 'offer';
+    | 'offer'
+    | 'registration';
   readonly id: string;
 }
 
@@ -278,6 +282,8 @@ interface SubjectSets {
   readonly suggestions: Set<string>;
   // Promotions: the business's offers.
   readonly offers: Set<string>;
+  // Getting started: the business's texting registrations.
+  readonly registrations: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -300,6 +306,7 @@ const emptySets = (): SubjectSets => ({
   scans: new Set(),
   suggestions: new Set(),
   offers: new Set(),
+  registrations: new Set(),
 });
 
 /** A connection's card is stored under its own table's type. */
@@ -331,6 +338,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'scan') s.scans.add(id);
   else if (type === 'suggestion') s.suggestions.add(id);
   else if (type === 'offer') s.offers.add(id);
+  else if (type === 'registration') s.registrations.add(id);
 }
 
 /**
@@ -1304,6 +1312,7 @@ interface Loaded {
   readonly scans: Map<string, ScanInfo>;
   readonly gaps: Map<string, GapInfo>;
   readonly offers: Map<string, OfferInfo>;
+  readonly registrations: Map<string, TextingRegistrationInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1565,6 +1574,14 @@ function resolutionOf(
       // Still running past its old end date: it was extended.
       return o.endsOn && localInstant(o.endsOn, '23:59', ctx.timeZone) > now ? 'done' : 'expired';
     }
+    case 'texting_rejected': {
+      const r = loaded.registrations.get(row.subjectId)?.registration;
+      if (!r) return 'subject_gone';
+      if (r.status === 'approved') return 'approved';
+      if (r.status === 'submitted' || r.status === 'in_review') return 'sent_again';
+      // Still turned down, but no longer the business's: its number changed, or a newer one was made.
+      return 'superseded';
+    }
     case 'faq_suggestions': {
       const g = loaded.gaps.get(row.subjectId);
       if (!g) return 'subject_gone';
@@ -1750,6 +1767,7 @@ export async function reconcile(
     ...scope.scans,
     ...scope.suggestions,
     ...scope.offers,
+    ...scope.registrations,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1850,6 +1868,12 @@ export async function reconcile(
   const scans = await loadScans(tx, workspaceId, [...scope.scans], all, now);
   const gaps = await loadGaps(tx, workspaceId, [...scope.suggestions], all);
   const offers = await loadOffers(tx, workspaceId, [...scope.offers], all);
+  const registrations = await loadTextingRegistrations(
+    tx,
+    workspaceId,
+    [...scope.registrations],
+    all,
+  );
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1873,6 +1897,7 @@ export async function reconcile(
     scans,
     gaps,
     offers,
+    registrations,
   };
 
   // Detect.
@@ -2130,6 +2155,22 @@ export async function reconcile(
         conversationId: null,
       },
     );
+
+  for (const r of registrations.values()) {
+    const words = textingRejectedWords(r.registration.rejectionReason, r.number);
+    run(
+      'texting_rejected',
+      { business, registration: r.registration },
+      r.registration.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'registration',
+        title: words.title,
+        detail: words.detail,
+        conversationId: null,
+      },
+    );
+  }
 
   for (const g of gaps.values())
     run(

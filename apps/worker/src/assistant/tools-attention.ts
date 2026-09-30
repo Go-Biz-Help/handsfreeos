@@ -74,6 +74,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
   offer_lapsing: 'Offer ending',
+  texting_rejected: 'Texting turned down',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -94,6 +95,8 @@ const QUOTED_DETAIL: ReadonlySet<AttentionKind> = new Set([
   'hot_lead',
   'customer_waiting',
   'ai_approval',
+  // The carriers' own reason for turning texting down.
+  'texting_rejected',
 ]);
 
 const CHANNEL_WORD = { sms: 'Texts', email: 'Email', chat: 'Website chat' } as const;
@@ -652,6 +655,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   website_changed: 'Only who reviews the updates. Nothing else changes.',
   faq_suggestions: 'Only who answers the question. Nothing else changes.',
   offer_lapsing: 'Only who looks after the offer. Nothing else changes.',
+  texting_rejected: 'The business’s texting is set up by its owners and admins.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

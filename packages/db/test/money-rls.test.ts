@@ -941,6 +941,7 @@ describe('parity with core', () => {
       'website_changed',
       'faq_suggestions',
       'offer_lapsing',
+      'texting_rejected',
     ]);
     await worker(A)((tx) =>
       tx.execute(

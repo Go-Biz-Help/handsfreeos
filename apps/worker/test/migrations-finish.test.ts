@@ -44,6 +44,7 @@ const meta = () => ({ correlationId: randomUUID(), channel: 'test' as const });
 let owner: TestUser;
 let ownerToken: string;
 let organizationId: string;
+let workspaceId: string;
 let app: FastifyInstance;
 
 beforeAll(async () => {
@@ -56,6 +57,7 @@ beforeAll(async () => {
     meta(),
   );
   organizationId = output.organizationId;
+  workspaceId = output.workspaceId;
   ownerToken = await signInTestUser(owner);
   app = await buildHttpServer({
     ...testServices(),
@@ -97,11 +99,11 @@ const connectionRow = async (id: string): Promise<Row> => {
  * The owner presses Connect; the stand-in sends the browser straight back to the callback with a code; the app
  * finishes it signed in as `token` (null: signed out).
  */
-async function signIn(token: string | null) {
+async function signIn(token: string | null, from: { workspaceId?: string } = {}) {
   const { output } = await executeCommand(
     api(),
     migrationConnect,
-    { organizationId, source: 'gohighlevel', authKind: 'oauth' },
+    { organizationId, ...from, source: 'gohighlevel', authKind: 'oauth' },
     actorOf(owner),
     meta(),
   );
@@ -126,10 +128,17 @@ describe('finishing a sign-in to the old system', () => {
   it('connects when the person who pressed Connect finishes it', async () => {
     const { connectionId, finished } = await signIn(ownerToken);
     expect(finished.status).toBe(302);
-    expect(finished.location).toContain('connected=1');
+    expect(finished.location).toContain(`/app/org/${organizationId}/migrations?connected=1`);
     const row = await connectionRow(connectionId);
     expect(row.status).toBe('active');
     expect(row.token_enc).toBeTruthy();
+  }, 60_000);
+
+  it('goes back to the business’s own Migrations page when it was connected from there', async () => {
+    // A business owner can't open the agency's page, so a sign-in started from their business ends there.
+    const { finished } = await signIn(ownerToken, { workspaceId });
+    expect(finished.status).toBe(302);
+    expect(finished.location).toContain(`/app/w/${workspaceId}/settings/migrations?connected=1`);
   }, 60_000);
 
   it('ends the sign-in when somebody else finishes a link they were sent', async () => {

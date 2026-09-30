@@ -22,8 +22,8 @@ test('an owner finds Add-ons at the foot of the menu with nothing added yet; a m
   const { email } = await signUpAndConfirm(page, 'addons-owner');
   const workspaceId = await createBusiness(page, { name: business });
 
-  // A brand-new business's Home: the setup checklist, and no add-on suggested.
-  await expect(page.getByTestId('setup-checklist')).toBeVisible();
+  // A brand-new business's Home: Getting started, and no add-on suggested.
+  await expect(page.getByTestId('getting-started')).toBeVisible();
   await expect(page.getByTestId('addon-suggestion')).toHaveCount(0);
 
   // Owners manage add-ons: the link is at the foot of the menu, above Get help, and opens a page that reads well
@@ -110,7 +110,8 @@ test('an owner finds Add-ons at the foot of the menu with nothing added yet; a m
   await expect(mem.getByTestId('addons-settings')).toHaveCount(0);
   await mem.goto(`/app/w/${workspaceId}`);
   await expect(
-    mem.getByTestId('action-center').or(mem.getByTestId('setup-checklist')),
+    // A running business's Home shows the Action Center with the member's own guide in it.
+    mem.getByTestId('action-center').or(mem.getByTestId('getting-started')).first(),
   ).toBeVisible();
   await expect(mem.getByTestId('addon-suggestion')).toHaveCount(0);
   await member.context.close();

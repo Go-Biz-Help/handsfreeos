@@ -101,6 +101,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { roadmapHandlers } from '../addons/roadmap';
+import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
 
@@ -116,6 +117,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
   withTeammate({
     'invitation.created': onInvitationCreated,
     'invitation.resend_requested': onInvitationResendRequested,
+    // "Email me a link" in the phone app's Getting started.
+    'onboarding.link_requested': onOnboardingLinkRequested,
+    // An agency's reminder to a client business's owners.
+    'onboarding.remind_requested': onOnboardingRemindRequested,
     'file.deleted': onFileDeleted,
     'import.requested': onImportRequested,
     'phone_number.purchase_requested': onPurchaseRequested,

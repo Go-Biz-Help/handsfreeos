@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { ApiError } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 import { FINISH_PATH, forgetHandoff, keepHandoff, keptHandoff } from '@/lib/auth/sign-in-handoff';
+import { setupReturnFor } from '@/lib/setup-return';
 
 interface FinishPage {
   readonly title: string;
@@ -71,7 +72,8 @@ export function FinishSignIn() {
   const started = useRef(false);
 
   const follow = (out: Outcome) => {
-    if ('next' in out) window.location.replace(out.next);
+    // Back to the setup wizard when the sign-in started there.
+    if ('next' in out) window.location.replace(setupReturnFor(out.next));
     else if ('page' in out) setView({ kind: 'page', page: out.page });
     else setView({ kind: 'choose', places: out.choose.places });
   };
