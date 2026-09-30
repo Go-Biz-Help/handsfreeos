@@ -53120,6 +53120,1857 @@
         }
       }
     },
+    "/v1/commands/realestate.template.set_override": {
+      "post": {
+        "operationId": "command_realestate_template_set_override",
+        "summary": "Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.manage. Emits realestate.template.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dutyKey": {
+                    "type": "string",
+                    "pattern": "^[BSX]-\\d{2}$"
+                  },
+                  "enabled": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "patch": {
+                    "default": {},
+                    "type": "object",
+                    "properties": {
+                      "due": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "none"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "ongoing"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "after_start"
+                                ]
+                              },
+                              "hours": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1440
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "businessDays": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "relative"
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "acceptance",
+                                  "offer_expiration",
+                                  "emd_due",
+                                  "inspection_end",
+                                  "financing_end",
+                                  "appraisal_end",
+                                  "title_objection_end",
+                                  "hoa_review_end",
+                                  "home_sale_end",
+                                  "survey_due",
+                                  "walkthrough",
+                                  "closing",
+                                  "possession",
+                                  "rate_lock_expiry",
+                                  "preapproval_expiry",
+                                  "cd_received",
+                                  "buyer_agreement_expiry",
+                                  "listing_agreement_expiry",
+                                  "listing_launch"
+                                ]
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "businessDays": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "hours": {
+                                "type": "integer",
+                                "minimum": -720,
+                                "maximum": 720
+                              },
+                              "at": {
+                                "type": "string",
+                                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "to"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "every"
+                                ]
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "days"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "earliest",
+                                  "latest"
+                                ]
+                              },
+                              "of": {
+                                "minItems": 2,
+                                "maxItems": 4,
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "none"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "ongoing"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "after_start"
+                                          ]
+                                        },
+                                        "hours": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 1440
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "businessDays": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "relative"
+                                          ]
+                                        },
+                                        "to": {
+                                          "type": "string",
+                                          "enum": [
+                                            "acceptance",
+                                            "offer_expiration",
+                                            "emd_due",
+                                            "inspection_end",
+                                            "financing_end",
+                                            "appraisal_end",
+                                            "title_objection_end",
+                                            "hoa_review_end",
+                                            "home_sale_end",
+                                            "survey_due",
+                                            "walkthrough",
+                                            "closing",
+                                            "possession",
+                                            "rate_lock_expiry",
+                                            "preapproval_expiry",
+                                            "cd_received",
+                                            "buyer_agreement_expiry",
+                                            "listing_agreement_expiry",
+                                            "listing_launch"
+                                          ]
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "businessDays": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "hours": {
+                                          "type": "integer",
+                                          "minimum": -720,
+                                          "maximum": 720
+                                        },
+                                        "at": {
+                                          "type": "string",
+                                          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "to"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "every"
+                                          ]
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 365
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "days"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "of"
+                            ]
+                          }
+                        ]
+                      },
+                      "reminders": {
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 30
+                        }
+                      },
+                      "accountable": {
+                        "type": "string",
+                        "enum": [
+                          "agent",
+                          "coordinator",
+                          "broker"
+                        ]
+                      },
+                      "proof": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "all",
+                                  "any"
+                                ]
+                              },
+                              "items": {
+                                "minItems": 1,
+                                "maxItems": 6,
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "document"
+                                          ]
+                                        },
+                                        "documents": {
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "buyer_agreement",
+                                              "listing_agreement",
+                                              "agency_disclosure",
+                                              "seller_disclosure",
+                                              "preapproval",
+                                              "cma",
+                                              "net_sheet",
+                                              "offer",
+                                              "counter",
+                                              "contract",
+                                              "amendment",
+                                              "addendum",
+                                              "emd_receipt",
+                                              "inspection_report",
+                                              "repair_request",
+                                              "repair_agreement",
+                                              "invoice",
+                                              "photo",
+                                              "permit",
+                                              "appraisal",
+                                              "loan_approval",
+                                              "clear_to_close",
+                                              "rate_lock",
+                                              "insurance_binder",
+                                              "title_commitment",
+                                              "payoff_statement",
+                                              "hoa_docs",
+                                              "survey",
+                                              "closing_disclosure",
+                                              "settlement_statement",
+                                              "walkthrough_checklist",
+                                              "home_warranty",
+                                              "deed",
+                                              "mls_listing",
+                                              "marketing",
+                                              "termination",
+                                              "emd_release",
+                                              "other"
+                                            ]
+                                          }
+                                        },
+                                        "signed": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "documents"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "file"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "note"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "attestation"
+                                          ]
+                                        },
+                                        "words": {
+                                          "type": "string",
+                                          "minLength": 3,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "words"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "appointment"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "message"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "dates"
+                                          ]
+                                        },
+                                        "keys": {
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "acceptance",
+                                              "offer_expiration",
+                                              "emd_due",
+                                              "inspection_end",
+                                              "financing_end",
+                                              "appraisal_end",
+                                              "title_objection_end",
+                                              "hoa_review_end",
+                                              "home_sale_end",
+                                              "survey_due",
+                                              "walkthrough",
+                                              "closing",
+                                              "possession",
+                                              "rate_lock_expiry",
+                                              "preapproval_expiry",
+                                              "cd_received",
+                                              "buyer_agreement_expiry",
+                                              "listing_agreement_expiry",
+                                              "listing_launch"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "keys"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "deal_field"
+                                          ]
+                                        },
+                                        "field": {
+                                          "type": "string",
+                                          "enum": [
+                                            "expected_commission",
+                                            "final_commission",
+                                            "property",
+                                            "client"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "field"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "mode",
+                              "items"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "materiality": {
+                        "type": "string",
+                        "enum": [
+                          "standard",
+                          "material",
+                          "critical"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dutyKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dutyKey": {
+                      "type": "string"
+                    },
+                    "unpublished": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "dutyKey",
+                    "unpublished"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.template.clear_override": {
+      "post": {
+        "operationId": "command_realestate_template_clear_override",
+        "summary": "Put one of the list’s duties back as the catalog has it. A draft until published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.manage. Emits realestate.template.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dutyKey": {
+                    "type": "string",
+                    "pattern": "^[BSX]-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dutyKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dutyKey": {
+                      "type": "string"
+                    },
+                    "unpublished": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "dutyKey",
+                    "unpublished"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.template.save_custom": {
+      "post": {
+        "operationId": "command_realestate_template_save_custom",
+        "summary": "Write one of the business’s own duties, or change one: what brings it (a stage, a date confirmed, a moment), when it’s due, its proof, who answers for it and how much it matters. A draft until published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.manage. Emits realestate.template.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dutyKey": {
+                    "type": "string",
+                    "pattern": "^C-\\d{2,3}$"
+                  },
+                  "duty": {
+                    "type": "object",
+                    "properties": {
+                      "side": {
+                        "type": "string",
+                        "enum": [
+                          "buyer",
+                          "listing",
+                          "both"
+                        ]
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "behavior": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "tracker": {
+                        "type": "string",
+                        "enum": [
+                          "LEAD",
+                          "REP",
+                          "FIN",
+                          "SEARCH",
+                          "SHOW",
+                          "CMA",
+                          "OFFER",
+                          "CONTRACT",
+                          "INSPECT",
+                          "REPAIR",
+                          "APPRAISAL",
+                          "TITLE",
+                          "LISTING",
+                          "MARKET",
+                          "VENDOR",
+                          "OPEN",
+                          "CLOSE",
+                          "POSSESS",
+                          "DOC",
+                          "COMPLY",
+                          "HEALTH",
+                          "POST",
+                          "SAFETY",
+                          "MOVE"
+                        ]
+                      },
+                      "trigger": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "string",
+                                "enum": [
+                                  "stage"
+                                ]
+                              },
+                              "stage": {
+                                "type": "string",
+                                "enum": [
+                                  "lead",
+                                  "onboarding",
+                                  "representation",
+                                  "financing",
+                                  "searching",
+                                  "touring",
+                                  "offer",
+                                  "negotiation",
+                                  "under_contract",
+                                  "inspections",
+                                  "appraisal",
+                                  "financing_title",
+                                  "closing",
+                                  "possession",
+                                  "past_client",
+                                  "seller_lead",
+                                  "consultation",
+                                  "signed",
+                                  "pre_listing",
+                                  "coming_soon",
+                                  "active",
+                                  "showings",
+                                  "offers",
+                                  "inspection",
+                                  "sold",
+                                  "withdrawn",
+                                  "expired",
+                                  "cancelled"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "on",
+                              "stage"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "string",
+                                "enum": [
+                                  "dates"
+                                ]
+                              },
+                              "key": {
+                                "type": "string",
+                                "enum": [
+                                  "acceptance",
+                                  "offer_expiration",
+                                  "emd_due",
+                                  "inspection_end",
+                                  "financing_end",
+                                  "appraisal_end",
+                                  "title_objection_end",
+                                  "hoa_review_end",
+                                  "home_sale_end",
+                                  "survey_due",
+                                  "walkthrough",
+                                  "closing",
+                                  "possession",
+                                  "rate_lock_expiry",
+                                  "preapproval_expiry",
+                                  "cd_received",
+                                  "buyer_agreement_expiry",
+                                  "listing_agreement_expiry",
+                                  "listing_launch"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "on",
+                              "key"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "string",
+                                "enum": [
+                                  "event"
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "offer_received",
+                                  "offer_lost",
+                                  "inspection_report",
+                                  "repair_request",
+                                  "repairs_agreed",
+                                  "low_appraisal",
+                                  "amendment",
+                                  "terminated",
+                                  "closed",
+                                  "deal_ended",
+                                  "deal_failed",
+                                  "listing_ended",
+                                  "search_changed"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "on",
+                              "event"
+                            ]
+                          }
+                        ]
+                      },
+                      "when": {
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "financed",
+                            "first_time_buyer",
+                            "hoa",
+                            "survey",
+                            "well",
+                            "septic",
+                            "solar",
+                            "pool",
+                            "propane",
+                            "private_road",
+                            "specialists_needed",
+                            "multiple_offers",
+                            "open_house",
+                            "backup_offer",
+                            "seller_has_mortgage",
+                            "home_warranty",
+                            "relocation",
+                            "wants_move_help",
+                            "linked_sale"
+                          ]
+                        }
+                      },
+                      "due": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "none"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "ongoing"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "after_start"
+                                ]
+                              },
+                              "hours": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1440
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "businessDays": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "relative"
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "acceptance",
+                                  "offer_expiration",
+                                  "emd_due",
+                                  "inspection_end",
+                                  "financing_end",
+                                  "appraisal_end",
+                                  "title_objection_end",
+                                  "hoa_review_end",
+                                  "home_sale_end",
+                                  "survey_due",
+                                  "walkthrough",
+                                  "closing",
+                                  "possession",
+                                  "rate_lock_expiry",
+                                  "preapproval_expiry",
+                                  "cd_received",
+                                  "buyer_agreement_expiry",
+                                  "listing_agreement_expiry",
+                                  "listing_launch"
+                                ]
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "businessDays": {
+                                "type": "integer",
+                                "minimum": -365,
+                                "maximum": 365
+                              },
+                              "hours": {
+                                "type": "integer",
+                                "minimum": -720,
+                                "maximum": 720
+                              },
+                              "at": {
+                                "type": "string",
+                                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "to"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "every"
+                                ]
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "days"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "earliest",
+                                  "latest"
+                                ]
+                              },
+                              "of": {
+                                "minItems": 2,
+                                "maxItems": 4,
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "none"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "ongoing"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "after_start"
+                                          ]
+                                        },
+                                        "hours": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 1440
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "businessDays": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "relative"
+                                          ]
+                                        },
+                                        "to": {
+                                          "type": "string",
+                                          "enum": [
+                                            "acceptance",
+                                            "offer_expiration",
+                                            "emd_due",
+                                            "inspection_end",
+                                            "financing_end",
+                                            "appraisal_end",
+                                            "title_objection_end",
+                                            "hoa_review_end",
+                                            "home_sale_end",
+                                            "survey_due",
+                                            "walkthrough",
+                                            "closing",
+                                            "possession",
+                                            "rate_lock_expiry",
+                                            "preapproval_expiry",
+                                            "cd_received",
+                                            "buyer_agreement_expiry",
+                                            "listing_agreement_expiry",
+                                            "listing_launch"
+                                          ]
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "businessDays": {
+                                          "type": "integer",
+                                          "minimum": -365,
+                                          "maximum": 365
+                                        },
+                                        "hours": {
+                                          "type": "integer",
+                                          "minimum": -720,
+                                          "maximum": 720
+                                        },
+                                        "at": {
+                                          "type": "string",
+                                          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "to"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "every"
+                                          ]
+                                        },
+                                        "days": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 365
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "days"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "of"
+                            ]
+                          }
+                        ]
+                      },
+                      "proof": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "all",
+                                  "any"
+                                ]
+                              },
+                              "items": {
+                                "minItems": 1,
+                                "maxItems": 6,
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "document"
+                                          ]
+                                        },
+                                        "documents": {
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "buyer_agreement",
+                                              "listing_agreement",
+                                              "agency_disclosure",
+                                              "seller_disclosure",
+                                              "preapproval",
+                                              "cma",
+                                              "net_sheet",
+                                              "offer",
+                                              "counter",
+                                              "contract",
+                                              "amendment",
+                                              "addendum",
+                                              "emd_receipt",
+                                              "inspection_report",
+                                              "repair_request",
+                                              "repair_agreement",
+                                              "invoice",
+                                              "photo",
+                                              "permit",
+                                              "appraisal",
+                                              "loan_approval",
+                                              "clear_to_close",
+                                              "rate_lock",
+                                              "insurance_binder",
+                                              "title_commitment",
+                                              "payoff_statement",
+                                              "hoa_docs",
+                                              "survey",
+                                              "closing_disclosure",
+                                              "settlement_statement",
+                                              "walkthrough_checklist",
+                                              "home_warranty",
+                                              "deed",
+                                              "mls_listing",
+                                              "marketing",
+                                              "termination",
+                                              "emd_release",
+                                              "other"
+                                            ]
+                                          }
+                                        },
+                                        "signed": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "documents"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "file"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "note"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "attestation"
+                                          ]
+                                        },
+                                        "words": {
+                                          "type": "string",
+                                          "minLength": 3,
+                                          "maxLength": 200
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "words"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "appointment"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "message"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "dates"
+                                          ]
+                                        },
+                                        "keys": {
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "acceptance",
+                                              "offer_expiration",
+                                              "emd_due",
+                                              "inspection_end",
+                                              "financing_end",
+                                              "appraisal_end",
+                                              "title_objection_end",
+                                              "hoa_review_end",
+                                              "home_sale_end",
+                                              "survey_due",
+                                              "walkthrough",
+                                              "closing",
+                                              "possession",
+                                              "rate_lock_expiry",
+                                              "preapproval_expiry",
+                                              "cd_received",
+                                              "buyer_agreement_expiry",
+                                              "listing_agreement_expiry",
+                                              "listing_launch"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "keys"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "deal_field"
+                                          ]
+                                        },
+                                        "field": {
+                                          "type": "string",
+                                          "enum": [
+                                            "expected_commission",
+                                            "final_commission",
+                                            "property",
+                                            "client"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "field"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "mode",
+                              "items"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "accountable": {
+                        "type": "string",
+                        "enum": [
+                          "agent",
+                          "coordinator",
+                          "broker"
+                        ]
+                      },
+                      "performedBy": {
+                        "default": [],
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "client",
+                            "lender",
+                            "title",
+                            "inspector",
+                            "appraiser",
+                            "vendor",
+                            "other_agent",
+                            "attorney",
+                            "hoa",
+                            "insurer"
+                          ]
+                        }
+                      },
+                      "automation": {
+                        "type": "string",
+                        "enum": [
+                          "A0",
+                          "A1",
+                          "A2",
+                          "A3",
+                          "A4",
+                          "AX"
+                        ]
+                      },
+                      "materiality": {
+                        "type": "string",
+                        "enum": [
+                          "standard",
+                          "material",
+                          "critical"
+                        ]
+                      },
+                      "reminders": {
+                        "default": [
+                          3,
+                          1
+                        ],
+                        "maxItems": 4,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 30
+                        }
+                      }
+                    },
+                    "required": [
+                      "side",
+                      "title",
+                      "tracker",
+                      "trigger",
+                      "due",
+                      "proof",
+                      "accountable",
+                      "automation",
+                      "materiality"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "duty"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dutyKey": {
+                      "type": "string"
+                    },
+                    "unpublished": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "dutyKey",
+                    "unpublished"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.template.archive_custom": {
+      "post": {
+        "operationId": "command_realestate_template_archive_custom",
+        "summary": "Take one of the business’s own duties off the list. Deals that have it keep it; new ones won’t once published.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.manage. Emits realestate.template.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dutyKey": {
+                    "type": "string",
+                    "pattern": "^C-\\d{2,3}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dutyKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dutyKey": {
+                      "type": "string"
+                    },
+                    "unpublished": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "dutyKey",
+                    "unpublished"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.template.publish": {
+      "post": {
+        "operationId": "command_realestate_template_publish",
+        "summary": "Publish the duty list as it’s drafted now: a new version that every new deal takes. Open deals keep theirs until someone applies it to them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires realestate.manage. Emits realestate.template.published.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templateSetId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "duties": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "templateSetId",
+                    "version",
+                    "duties"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.deal.apply_template_version": {
+      "post": {
+        "operationId": "command_realestate_deal_apply_template_version",
+        "summary": "Move an open deal to a version of the duty list (the newest unless said): duties it turns off are cancelled, changed ones take its timing and proof, and ones it adds for what already happened are created. Owners and admins.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires realestate.manage. Emits realestate.deal.template_applied.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateSetId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "changes": {
+                      "type": "object",
+                      "properties": {
+                        "cancel": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "dutyId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "dutyId",
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "redefine": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "dutyId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "changes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "dutyId",
+                              "title",
+                              "changes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "add": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "cancel",
+                        "redefine",
+                        "add"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "version",
+                    "changes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -106493,6 +108344,434 @@
                     "health",
                     "reasons",
                     "openWork"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/realestate.template.list": {
+      "post": {
+        "operationId": "query_realestate_template_list",
+        "summary": "The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "side": {
+                            "type": "string"
+                          },
+                          "phase": {
+                            "type": "string"
+                          },
+                          "tracker": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "own": {
+                            "type": "boolean"
+                          },
+                          "changed": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "definition": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "title",
+                          "side",
+                          "phase",
+                          "tracker",
+                          "enabled",
+                          "own",
+                          "changed",
+                          "definition"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "published": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "templateSetId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "publishedAt": {
+                              "type": "string"
+                            },
+                            "publishedBy": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "userId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "userId",
+                                    "name"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "note": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "templateSetId",
+                            "version",
+                            "publishedAt",
+                            "publishedBy",
+                            "note"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "unpublished": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "published",
+                    "unpublished"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/realestate.template.versions": {
+      "post": {
+        "operationId": "query_realestate_template_versions",
+        "summary": "Every published version of the duty list, newest first, with how many open deals follow each.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "templateSetId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "publishedAt": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "openDeals": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "templateSetId",
+                          "version",
+                          "publishedAt",
+                          "note",
+                          "openDeals"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "versions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/realestate.template.diff": {
+      "post": {
+        "operationId": "query_realestate_template_diff",
+        "summary": "What moving an open deal to a version of the duty list (the newest unless said) would change: duties turned off, duties changed, and duties it would gain.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateSetId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "fromVersion": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "toVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "templateSetId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changes": {
+                      "type": "object",
+                      "properties": {
+                        "cancel": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "dutyId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "dutyId",
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "redefine": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "dutyId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "changes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "dutyId",
+                              "title",
+                              "changes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "add": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "title"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "cancel",
+                        "redefine",
+                        "add"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "fromVersion",
+                    "toVersion",
+                    "templateSetId",
+                    "changes"
                   ],
                   "additionalProperties": false
                 }

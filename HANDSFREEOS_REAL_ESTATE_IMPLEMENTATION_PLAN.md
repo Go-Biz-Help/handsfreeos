@@ -576,8 +576,8 @@ Health with its reasons, the sweep, the ladder, working hours, and turning off a
 
 - "A late reply" isn't a reason yet: HandsFreeOS doesn't know which messages a deal is waiting on. It comes with
   the client updates (step 13).
-- Critical alerts go to everyone who sees the deal (its team, owners, admins and anyone who sees every deal) until
-  the business picks its alert person in the settings (step 12).
+- Critical alerts go to the deal's team and the business's alert person (its owners until it picks someone, step
+  12). A changed wire's alert goes to everyone who sees the deal.
 - An alert acknowledged on Home stops climbing; it still goes when the duty is done.
 
 ### Step 11 — Screens
@@ -585,9 +585,34 @@ Health with its reasons, the sweep, the ladder, working hours, and turning off a
 Deals, a deal, a duty, My duties, and the panels, from the approved boards; a browser test from a staff grant to a
 refused and then accepted proof.
 
-### Step 12 — Settings
+### Step 12 — Settings (server built, 2026-09-30; screens wait for the boards)
 
 The duty editor, publishing and applying a version, the alert person, reminder days and closed days.
+
+**As built (server):**
+
+- The add-on's settings (`settings.ts`, saved through core's `addon.save_settings` with `realestate.manage`): the
+  alert person (owners or people who see every deal; none picked means the owners), the business's closed days,
+  and which milestones get a drafted client update (step 13). Closed days count as days off in every business-day
+  rule and warning.
+- `editor.ts` (browser-safe): the rules as schemas (due rules, proof, what brings a duty), what a business may
+  change about a catalog row, its own duties, the list a version keeps, and how two versions of a duty differ in
+  words.
+- Commands (`realestate.manage`): `template.set_override` and `clear_override` (on or off, timing, reminders, who
+  answers, proof, how much it matters), `template.save_custom` and `archive_custom` (the business's own, `C-01`
+  onwards, held to the catalog's checks), `template.publish` (a new version from the drafts; refused when nothing
+  changed), and `deal.apply_template_version` (moves an open deal to a version: duties turned off are cancelled,
+  changed ones take the new timing and proof, and ones it adds for what already happened are created). Queries:
+  `template.list` (the drafts, what each changes, the published version and whether drafts differ),
+  `template.versions` (with how many open deals follow each) and `template.diff` (the preview of applying one).
+- New deals take the newest published version; open deals keep theirs.
+- Reminder days: each duty's own (its tracker's, or the editor's) decide its early cards on the ladder; once due,
+  every duty climbs the same. Duties written on a deal remind at 7, 3 and 1 days.
+- Critical alerts now go to the deal's team and the business's alert person.
+- Tests: `test/addons/realestate-editor.test.ts`.
+
+**Still to build** with the screens (after the boards are approved): the Duties editor page, the settings page and
+"Apply to this deal".
 
 ### Step 13 — AI
 

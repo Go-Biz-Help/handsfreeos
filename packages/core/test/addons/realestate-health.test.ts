@@ -228,7 +228,7 @@ describe('The ladder', () => {
     });
     expect(ladderAlert('critical', x)).toMatchObject({
       severity: 'critical',
-      audience: 'everyone',
+      audience: 'escalated',
     });
     expect(ladderAlert('days', x).title).toBe('“Attend inspection” is due Fri, Oct 9');
   });
@@ -237,5 +237,27 @@ describe('The ladder', () => {
     const x = d('2026-10-10T04:59:00Z', '2026-10-09');
     expect(rungSince('days', x)).toBe(Date.parse('2026-10-07T04:59:00Z'));
     expect(rungSince('overdue', x)).toBe(Date.parse('2026-10-10T04:59:00Z'));
+  });
+});
+
+describe('Reminder days', () => {
+  const d = (dueAt: string, dueDate: string) => ({
+    id: 'd1',
+    key: 'B-20',
+    title: 'Attend inspection',
+    status: 'not_started' as const,
+    materiality: 'standard' as const,
+    dueAt,
+    dueDate,
+  });
+  it('decide the early cards, and every duty climbs the same once due', () => {
+    const fiveOut = d('2026-10-13T04:59:00Z', '2026-10-12');
+    const twoOut = d('2026-10-10T04:59:00Z', '2026-10-09');
+    expect(rungOf(fiveOut, NOW, TODAY, undefined, [3, 1])).toBeNull();
+    expect(rungOf(twoOut, NOW, TODAY, undefined, [3, 1])).toBe('days');
+    // Only a week's reminder: its card stays up as the day comes.
+    expect(rungOf(twoOut, NOW, TODAY, undefined, [7])).toBe('week');
+    expect(rungOf(twoOut, NOW, TODAY, undefined, [])).toBeNull();
+    expect(rungOf(d('2026-10-06T04:59:00Z', '2026-10-05'), NOW, TODAY, undefined, [])).toBe('late');
   });
 });

@@ -186,13 +186,10 @@ describe('The sweep', () => {
     const lateAlert = await alertOf(late);
     expect(lateAlert).toMatchObject({ severity: 'at_risk', needs_ack: true });
     expect(lateAlert!.audience_user_ids).toContain(agent.id);
-    // Critical is told at once, at any hour, to everyone who sees the deal.
-    expect(await alertOf(critical)).toMatchObject({
-      severity: 'critical',
-      needs_ack: true,
-      notified: true,
-      audience_user_ids: [],
-    });
+    // Critical is told at once, at any hour, to the deal's team and the alert person (its owners by default).
+    const top = await alertOf(critical);
+    expect(top).toMatchObject({ severity: 'critical', needs_ack: true, notified: true });
+    expect([...top!.audience_user_ids].sort()).toEqual([agent.id, owner.id].sort());
     const [d] = await rows<{ health: string }>(
       admin(),
       sql`select health from addon_realestate.deals where record_id = ${deal}`,

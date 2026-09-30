@@ -6137,6 +6137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.deal.apply_template_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an open deal to a version of the duty list (the newest unless said): duties it turns off are cancelled, changed ones take its timing and proof, and ones it adds for what already happened are created. Owners and admins.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.deal.template_applied.
+         */
+        post: operations["command_realestate_deal_apply_template_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.archive": {
         parameters: {
             query?: never;
@@ -6891,6 +6911,106 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.party.removed.
          */
         post: operations["command_realestate_party_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.archive_custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one of the business’s own duties off the list. Deals that have it keep it; new ones won’t once published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_archive_custom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.clear_override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one of the list’s duties back as the catalog has it. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_clear_override"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish the duty list as it’s drafted now: a new version that every new deal takes. Open deals keep theirs until someone applies it to them.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.template.published.
+         */
+        post: operations["command_realestate_template_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.save_custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write one of the business’s own duties, or change one: what brings it (a stage, a date confirmed, a moment), when it’s due, its proof, who answers for it and how much it matters. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_save_custom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.set_override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_set_override"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12191,6 +12311,66 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What moving an open deal to a version of the duty list (the newest unless said) would change: duties turned off, duties changed, and duties it would gain.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_diff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every published version of the duty list, newest first, with how many open deals follow each.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_versions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26216,6 +26396,58 @@ export interface operations {
             };
         };
     };
+    command_realestate_deal_apply_template_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    templateSetId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: {
+                            add: {
+                                key: string;
+                                title: string;
+                            }[];
+                            cancel: {
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                            redefine: {
+                                changes: string[];
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_deal_archive: {
         parameters: {
             query?: never;
@@ -27734,6 +27966,394 @@ export interface operations {
                         dealId: string;
                         /** Format: uuid */
                         relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_archive_custom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_clear_override: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duties: number;
+                        /** Format: uuid */
+                        templateSetId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_save_custom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    duty: {
+                        /** @enum {string} */
+                        accountable: "agent" | "coordinator" | "broker";
+                        /** @enum {string} */
+                        automation: "A0" | "A1" | "A2" | "A3" | "A4" | "AX";
+                        /** @default  */
+                        behavior?: string;
+                        due: {
+                            /** @enum {string} */
+                            kind: "none";
+                        } | {
+                            /** @enum {string} */
+                            kind: "ongoing";
+                        } | {
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "after_start";
+                        } | {
+                            at?: string;
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "relative";
+                            /** @enum {string} */
+                            to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                        } | {
+                            days: number;
+                            /** @enum {string} */
+                            kind: "every";
+                        } | {
+                            /** @enum {string} */
+                            kind: "earliest" | "latest";
+                            of: ({
+                                /** @enum {string} */
+                                kind: "none";
+                            } | {
+                                /** @enum {string} */
+                                kind: "ongoing";
+                            } | {
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "after_start";
+                            } | {
+                                at?: string;
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "relative";
+                                /** @enum {string} */
+                                to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            } | {
+                                days: number;
+                                /** @enum {string} */
+                                kind: "every";
+                            })[];
+                        };
+                        /** @enum {string} */
+                        materiality: "standard" | "material" | "critical";
+                        /** @default [] */
+                        performedBy?: ("client" | "lender" | "title" | "inspector" | "appraiser" | "vendor" | "other_agent" | "attorney" | "hoa" | "insurer")[];
+                        proof: {
+                            items: ({
+                                documents: ("buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other")[];
+                                /** @enum {string} */
+                                kind: "document";
+                                signed?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                            } | {
+                                /** @enum {string} */
+                                kind: "note";
+                            } | {
+                                /** @enum {string} */
+                                kind: "attestation";
+                                words: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "appointment";
+                            } | {
+                                /** @enum {string} */
+                                kind: "message";
+                            } | {
+                                keys: ("acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch")[];
+                                /** @enum {string} */
+                                kind: "dates";
+                            } | {
+                                /** @enum {string} */
+                                field: "expected_commission" | "final_commission" | "property" | "client";
+                                /** @enum {string} */
+                                kind: "deal_field";
+                            })[];
+                            /** @enum {string} */
+                            mode: "all" | "any";
+                        } | null;
+                        /**
+                         * @default [
+                         *       3,
+                         *       1
+                         *     ]
+                         */
+                        reminders?: number[];
+                        /** @enum {string} */
+                        side: "buyer" | "listing" | "both";
+                        title: string;
+                        /** @enum {string} */
+                        tracker: "LEAD" | "REP" | "FIN" | "SEARCH" | "SHOW" | "CMA" | "OFFER" | "CONTRACT" | "INSPECT" | "REPAIR" | "APPRAISAL" | "TITLE" | "LISTING" | "MARKET" | "VENDOR" | "OPEN" | "CLOSE" | "POSSESS" | "DOC" | "COMPLY" | "HEALTH" | "POST" | "SAFETY" | "MOVE";
+                        trigger: {
+                            /** @enum {string} */
+                            on: "stage";
+                            /** @enum {string} */
+                            stage: "lead" | "onboarding" | "representation" | "financing" | "searching" | "touring" | "offer" | "negotiation" | "under_contract" | "inspections" | "appraisal" | "financing_title" | "closing" | "possession" | "past_client" | "seller_lead" | "consultation" | "signed" | "pre_listing" | "coming_soon" | "active" | "showings" | "offers" | "inspection" | "sold" | "withdrawn" | "expired" | "cancelled";
+                        } | {
+                            /** @enum {string} */
+                            key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            /** @enum {string} */
+                            on: "dates";
+                        } | {
+                            /** @enum {string} */
+                            event: "offer_received" | "offer_lost" | "inspection_report" | "repair_request" | "repairs_agreed" | "low_appraisal" | "amendment" | "terminated" | "closed" | "deal_ended" | "deal_failed" | "listing_ended" | "search_changed";
+                            /** @enum {string} */
+                            on: "event";
+                        };
+                        when?: ("financed" | "first_time_buyer" | "hoa" | "survey" | "well" | "septic" | "solar" | "pool" | "propane" | "private_road" | "specialists_needed" | "multiple_offers" | "open_house" | "backup_offer" | "seller_has_mortgage" | "home_warranty" | "relocation" | "wants_move_help" | "linked_sale")[];
+                    };
+                    dutyKey?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_set_override: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** @default true */
+                    enabled?: boolean;
+                    /** @default {} */
+                    patch?: {
+                        /** @enum {string} */
+                        accountable?: "agent" | "coordinator" | "broker";
+                        due?: {
+                            /** @enum {string} */
+                            kind: "none";
+                        } | {
+                            /** @enum {string} */
+                            kind: "ongoing";
+                        } | {
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "after_start";
+                        } | {
+                            at?: string;
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "relative";
+                            /** @enum {string} */
+                            to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                        } | {
+                            days: number;
+                            /** @enum {string} */
+                            kind: "every";
+                        } | {
+                            /** @enum {string} */
+                            kind: "earliest" | "latest";
+                            of: ({
+                                /** @enum {string} */
+                                kind: "none";
+                            } | {
+                                /** @enum {string} */
+                                kind: "ongoing";
+                            } | {
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "after_start";
+                            } | {
+                                at?: string;
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "relative";
+                                /** @enum {string} */
+                                to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            } | {
+                                days: number;
+                                /** @enum {string} */
+                                kind: "every";
+                            })[];
+                        };
+                        /** @enum {string} */
+                        materiality?: "standard" | "material" | "critical";
+                        proof?: {
+                            items: ({
+                                documents: ("buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other")[];
+                                /** @enum {string} */
+                                kind: "document";
+                                signed?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                            } | {
+                                /** @enum {string} */
+                                kind: "note";
+                            } | {
+                                /** @enum {string} */
+                                kind: "attestation";
+                                words: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "appointment";
+                            } | {
+                                /** @enum {string} */
+                                kind: "message";
+                            } | {
+                                keys: ("acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch")[];
+                                /** @enum {string} */
+                                kind: "dates";
+                            } | {
+                                /** @enum {string} */
+                                field: "expected_commission" | "final_commission" | "property" | "client";
+                                /** @enum {string} */
+                                kind: "deal_field";
+                            })[];
+                            /** @enum {string} */
+                            mode: "all" | "any";
+                        } | null;
+                        reminders?: number[];
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
                     };
                 };
             };
@@ -43938,6 +44558,151 @@ export interface operations {
                         openDeals: number;
                         overdueDuties: number;
                         version: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_diff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    templateSetId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: {
+                            add: {
+                                key: string;
+                                title: string;
+                            }[];
+                            cancel: {
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                            redefine: {
+                                changes: string[];
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                        fromVersion: number | null;
+                        /** Format: uuid */
+                        templateSetId: string;
+                        toVersion: number;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            changed: string[];
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                            enabled: boolean;
+                            key: string;
+                            own: boolean;
+                            phase: string;
+                            side: string;
+                            title: string;
+                            tracker: string;
+                        }[];
+                        published: {
+                            note: string | null;
+                            publishedAt: string;
+                            publishedBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            templateSetId: string;
+                            version: number;
+                        } | null;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        versions: {
+                            note: string | null;
+                            openDeals: number;
+                            publishedAt: string;
+                            /** Format: uuid */
+                            templateSetId: string;
+                            version: number;
+                        }[];
                     };
                 };
             };

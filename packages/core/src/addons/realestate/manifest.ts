@@ -15,6 +15,7 @@
  * it moves to `beta` (step 14).
  */
 import { defineAddon, type AddonRelationshipType } from '../manifest';
+import { RealestateSettingsSchema } from './settings';
 
 /** Someone from outside the business with a part in a deal: the person's role, and the deal as they see it. */
 const personOnDeal = (key: string, role: string, short: string): AddonRelationshipType => ({
@@ -232,6 +233,9 @@ export const realestateAddon = defineAddon({
       'realestate.document.signed',
       'realestate.document.controlling_set',
       'realestate.document.voided',
+      'realestate.template.changed',
+      'realestate.template.published',
+      'realestate.deal.template_applied',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -243,6 +247,8 @@ export const realestateAddon = defineAddon({
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
   jobs: ['realestate.sweep'],
+  // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
+  settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
   // Its place in the side menu, shown only while it runs and to people who may open it.

@@ -120,9 +120,10 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
     // Someone said they've seen it: it stops climbing.
     if (was?.acknowledged && SEVERITY_RANK[say.severity] > SEVERITY_RANK[was.severity]) continue;
     const answering = a.accountableUserId ?? a.mainAgentUserId;
+    // Critical: the deal's team and the business's alert person (its owners, unless it picked someone).
     const audience =
-      say.audience === 'everyone'
-        ? []
+      say.audience === 'escalated'
+        ? [answering, a.mainAgentUserId, ...a.coordinatorUserIds, ...output.alertPersonUserIds]
         : say.audience === 'team'
           ? [answering, a.mainAgentUserId, ...a.coordinatorUserIds]
           : [answering];

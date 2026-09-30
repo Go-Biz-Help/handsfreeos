@@ -103,7 +103,7 @@ export async function termEntriesOf(
 }
 
 /** What has happened on a deal, from its history: stages entered, the last restart, and events since. */
-interface Past {
+export interface Past {
   /** How many times each stage was entered (opening, a move, a jump through it). */
   readonly entered: ReadonlyMap<DealStage, number>;
   /** When the deal last went back to looking (an offer lost, a contract terminated). */
@@ -111,7 +111,7 @@ interface Past {
   readonly eventsSinceRestart: ReadonlySet<DealEvent>;
 }
 
-async function pastOf(ctx: CommandContext, dealId: string): Promise<Past> {
+export async function pastOf(ctx: Pick<CommandContext, 'tx'>, dealId: string): Promise<Past> {
   const lines = await ctx.tx
     .select({ at: dealHistory.at, what: dealHistory.what, after: dealHistory.after })
     .from(dealHistory)
@@ -287,6 +287,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
        * had cancelled), whatever time through the stage it is.
        */
       readonly forFacts?: ReadonlySet<DealFact>;
+      /** Only duties the deal has never had (or had cancelled): a newer duty list applied to it. */
+      readonly onlyNew?: boolean;
     } = {},
   ): Promise<number> {
     const defs = (
@@ -306,11 +308,12 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     for (const def of defs) {
       const mine = existing.filter((d) => d.dutyKey === def.id);
       if (mine.some((d) => !isDoneDuty(d.status))) continue;
-      if (opts.forFacts && mine.some((d) => d.status !== 'cancelled')) continue;
+      if ((opts.forFacts || opts.onlyNew) && mine.some((d) => d.status !== 'cancelled')) continue;
       // A date's duties come once per contract: one finished or cancelled stays so until the next contract.
       if (
         trigger.on === 'dates' &&
         !opts.forFacts &&
+        !opts.onlyNew &&
         mine.some((d) => !past.restartAt || d.startedAt >= past.restartAt)
       )
         continue;
@@ -489,6 +492,53 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     );
     counts.cancelled += hit.length;
     return hit.length;
+  }
+
+  /**
+   * Gives an unfinished duty its item's definition from a newer duty list: its name, tracker, how much it matters,
+   * who answers for it, its proof and timing. Its due time follows at `settle()`.
+   */
+  async function redefine(dutyId: string, def: ResolvedDuty, changes: readonly string[]) {
+    const d = existing.find((x) => x.id === dutyId);
+    if (!d || isDoneDuty(d.status)) return;
+    const accountableUserId =
+      def.accountable === d.accountableRole
+        ? d.accountableUserId
+        : personFor(def.accountable, deal, roles);
+    await ctx.tx
+      .update(duties)
+      .set({
+        definition: def as unknown as Record<string, unknown>,
+        title: def.title,
+        tracker: def.tracker,
+        materiality: def.materiality,
+        automation: def.automation,
+        accountableRole: def.accountable,
+        accountableUserId,
+        performers: [...(def.performedBy ?? [])],
+        updatedAt: at,
+      })
+      .where(eq(duties.id, d.id));
+    await log([
+      {
+        dutyId: d.id,
+        what: 'redefined',
+        before: { title: d.title, materiality: d.materiality, accountableRole: d.accountableRole },
+        after: {
+          title: def.title,
+          materiality: def.materiality,
+          accountableRole: def.accountable,
+          changes,
+        },
+      },
+    ]);
+    Object.assign(d, {
+      definition: def,
+      title: def.title,
+      materiality: def.materiality,
+      accountableRole: def.accountable,
+      accountableUserId,
+    });
   }
 
   /**
@@ -687,6 +737,7 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     list,
     create,
     addDuty,
+    redefine,
     enterStages,
     happen,
     cancel,

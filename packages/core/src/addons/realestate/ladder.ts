@@ -6,8 +6,9 @@
  * - **Seven days out:** a Home card. **Three days and one day out:** a push too, and an email for material work.
  * - **Overdue:** at risk, to the person answering for it. **A business day late:** at risk and asking to be
  *   acknowledged, to them, the main agent and the coordinator.
- * - **Critical:** a critical duty once it's overdue, or a material one two business days late: to everyone who sees
- *   the deal, at any hour. Everything else waits for the business's working hours.
+ * - **Critical:** a critical duty once it's overdue, or a material one two business days late: to the deal's team
+ *   and the business's alert person (its owners unless it picked someone), at any hour. Everything else waits for
+ *   the business's working hours.
  */
 import { fmtDateShort } from '../../calendar/when';
 import type { Materiality } from './catalog/types';
@@ -30,20 +31,36 @@ export interface LadderDuty {
   readonly dueDate: string | null;
 }
 
-/** Where a duty stands on the ladder now, or null when it has nothing to say (not due soon, or not open). */
+/** The early rungs, most urgent first, and how far ahead each starts. */
+const EARLY: readonly { readonly rung: Rung; readonly days: number; readonly from: number }[] = [
+  { rung: 'day', days: 1, from: 0 },
+  { rung: 'days', days: 3, from: 1 },
+  { rung: 'week', days: 7, from: 3 },
+];
+
+/**
+ * Where a duty stands on the ladder now, or null when it has nothing to say (not due soon, or not open). Its
+ * reminder days (its tracker's, or the business's own in the duty editor) decide which early cards it gets: a
+ * reminder of 3 is the "days out" push, 1 the "a day out" one, and 4 to 7 the week-out card; without one, the most
+ * urgent it has stays up. Once due, every duty climbs the same.
+ */
 export function rungOf(
   d: LadderDuty,
   now: number,
   today: string,
   calendar?: BusinessCalendar,
+  reminders: readonly number[] = [7, 3, 1],
 ): Rung | null {
   if (!isOpenDuty(d.status) || !d.dueAt || d.key === WIRE_CHECK_KEY) return null;
   const due = Date.parse(d.dueAt);
   const ahead = due - now;
-  if (ahead > 7 * DAY) return null;
-  if (ahead > 3 * DAY) return 'week';
-  if (ahead > DAY) return 'days';
-  if (ahead > 0) return 'day';
+  if (ahead > 0) {
+    for (const e of EARLY)
+      if (ahead <= e.days * DAY && reminders.some((r) => r > e.from && r <= e.days)) return e.rung;
+    // A reminder further out than a week still shows the week's card.
+    if (ahead <= 7 * DAY && reminders.some((r) => r > 7)) return 'week';
+    return null;
+  }
   if (d.materiality === 'critical') return 'critical';
   const late = d.dueDate ? businessDaysBetween(d.dueDate, today, calendar) : 0;
   if (d.materiality === 'material' && late >= 2) return 'critical';
@@ -80,9 +97,9 @@ export interface LadderAlert {
   /** Push (and email when `email`) as well as Home. */
   readonly notify: boolean;
   readonly email: boolean;
-  /** Who it's for: the person answering for it, or them with the main agent and coordinator; empty is everyone
-   *  who sees the deal. */
-  readonly audience: 'accountable' | 'team' | 'everyone';
+  /** Who it's for: the person answering for it; them with the main agent and coordinator; or those and the
+   *  business's alert person. */
+  readonly audience: 'accountable' | 'team' | 'escalated';
 }
 
 /** What a duty's alert says on its rung. */
@@ -134,7 +151,7 @@ export function ladderAlert(rung: Rung, d: LadderDuty): LadderAlert {
         needsAck: true,
         notify: true,
         email: true,
-        audience: 'everyone',
+        audience: 'escalated',
       };
   }
 }

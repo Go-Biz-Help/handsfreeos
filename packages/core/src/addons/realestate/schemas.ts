@@ -782,6 +782,8 @@ export const DealRisksOutput = z.object({
 export const SweepInput = z.object({ workspaceId: uuid });
 export const SweepOutput = z.object({
   deals: z.number().int(),
+  /** Who hears about critical alerts besides the deal's team: the business's alert person, else its owners. */
+  alertPersonUserIds: z.array(uuid),
   /** Each open duty on the ladder now, for the worker to raise its alert. */
   alerts: z.array(
     z.object({

@@ -185,6 +185,7 @@ export const sweep = defineAddonCommand(realestateAddon, {
           now,
           today,
           w.calendar,
+          d.definition.reminders ?? [7, 3, 1],
         );
         if (!rung || !dueAt) continue;
         alerts.push({
@@ -204,9 +205,35 @@ export const sweep = defineAddonCommand(realestateAddon, {
         });
       }
     }
-    return { deals: ids.length, alerts };
+    return { deals: ids.length, alertPersonUserIds: await alertPeopleOf(ctx), alerts };
   },
 });
+
+/**
+ * The people told of critical alerts besides a deal's own team: those the business picked (Settings → Real Estate),
+ * while they still see every deal, else its owners.
+ */
+export async function alertPeopleOf(ctx: Ctx): Promise<string[]> {
+  const [i] = await rows<{ picked: string[] | null }>(
+    ctx.tx,
+    sql`select array(select jsonb_array_elements_text(settings -> 'alertPersonUserIds')) as picked
+        from app.addon_installations
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = 'realestate'`,
+  );
+  const picked = (i?.picked ?? []).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  const people = await rows<{ user_id: string }>(
+    ctx.tx,
+    picked.length
+      ? sql`select wa.user_id from app.workspace_access wa
+            where wa.workspace_id = ${ctx.scope.workspaceId!} and 'realestate.all_deals' = any (wa.permissions)
+              and wa.user_id = any (${`{${picked.join(',')}}`}::uuid[])
+            order by wa.user_id`
+      : sql`select wa.user_id from app.workspace_access wa
+            where wa.workspace_id = ${ctx.scope.workspaceId!} and wa.role = 'owner'
+            order by wa.user_id`,
+  );
+  return people.map((p) => p.user_id);
+}
 
 export const healthCommands = [sweep];
 export const healthQueries = [dealRisks];

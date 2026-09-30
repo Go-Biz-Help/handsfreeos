@@ -88,6 +88,6 @@ export function ownDuty(input: {
     accountable: input.accountable,
     automation: 'A0',
     materiality: input.materiality,
-    reminders: [],
+    reminders: [7, 3, 1],
   };
 }

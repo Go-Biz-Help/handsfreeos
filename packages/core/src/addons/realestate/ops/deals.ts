@@ -148,20 +148,29 @@ export async function applyFacts(
       `No longer applies: ${removed.map((f) => `“${DEAL_FACTS[f]}”`).join(', ')} ${removed.length > 1 ? 'were' : 'was'} taken off.`,
     );
   // Only a deal still being worked gets new duties.
-  if (added.length && !deal.outcome) {
-    const forFacts = new Set<DealFact>(added);
-    const here = indexIn(deal.side, deal.stage);
-    for (const [stage, times] of w.past.entered) {
-      const at = indexIn(deal.side, stage);
-      if (at < 0 || at > here) continue;
-      await w.create({ on: 'stage', stage }, { round: times > 1 ? 'later' : 'first', forFacts });
-    }
-    for (const key of Object.keys(w.keyDates) as KeyDateKey[])
-      if (w.keyDates[key]?.confirmed) await w.create({ on: 'dates', key }, { forFacts });
-    for (const event of w.past.eventsSinceRestart)
-      await w.create({ on: 'event', event }, { forFacts });
-  }
+  if (added.length && !deal.outcome) await replayMoments(w, { forFacts: new Set<DealFact>(added) });
   return { added, removed };
+}
+
+/**
+ * Creates, for every moment the deal has already had (the stages it entered up to where it is, its confirmed dates,
+ * its moments since it last went back to looking), the duties it's missing: those a new fact calls for, or those a
+ * newer duty list has.
+ */
+export async function replayMoments(
+  w: Work,
+  opts: { readonly forFacts?: ReadonlySet<DealFact>; readonly onlyNew?: boolean },
+): Promise<void> {
+  const deal = w.deal;
+  const here = indexIn(deal.side, deal.stage);
+  for (const [stage, times] of w.past.entered) {
+    const at = indexIn(deal.side, stage);
+    if (at < 0 || at > here) continue;
+    await w.create({ on: 'stage', stage }, { round: times > 1 ? 'later' : 'first', ...opts });
+  }
+  for (const key of Object.keys(w.keyDates) as KeyDateKey[])
+    if (w.keyDates[key]?.confirmed) await w.create({ on: 'dates', key }, opts);
+  for (const event of w.past.eventsSinceRestart) await w.create({ on: 'event', event }, opts);
 }
 
 /**

@@ -10,6 +10,7 @@ import { dealLifeCommands } from './ops/deals';
 import { documentCommands } from './ops/documents';
 import { dutyQueries } from './ops/duty-queries';
 import { dutyCommands } from './ops/duties';
+import { editorCommands, editorQueries } from './ops/editor';
 import { healthCommands, healthQueries } from './ops/health';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
@@ -24,6 +25,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...dutyCommands,
     ...documentCommands,
     ...healthCommands,
+    ...editorCommands,
   ],
-  queries: [...realestateQueries, ...dutyQueries, ...healthQueries],
+  queries: [...realestateQueries, ...dutyQueries, ...healthQueries, ...editorQueries],
 };
