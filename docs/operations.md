@@ -5205,13 +5205,16 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 
 If it goes wrong:
 
-- **"Receiving mail at your own domain isn't open to every business yet"** means step 1 wasn't done for this
-  business.
-- **"That domain is HandsFreeOS's own"** when adding the domain means the same thing.
+- **"That domain is HandsFreeOS's own"** when adding the domain means step 1 wasn't done for this business.
 - **Nothing arrives in My mail.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
-  **Activity**. If the mail is there with a 200 answer, open the worker's logs (`fly logs --app
-handsfreeos-worker`). Check **Settings → Email** shows **Receiving**, and that the address is spelled as you
-  wrote to it.
+  **Activity**.
+  - If every message shows **Retry**, the stream has no webhook. Its **Settings → Webhook** is empty: paste the
+    address from "Postmark Part K" step 5 and save. Send one new test first. Once it lands, click **Retry** on
+    the older messages. This is what happened on 2026-09-29: the webhook was never set on Support or Production.
+  - If the mail is there with a 200 answer, open the worker's logs (`fly logs --app handsfreeos-worker`). Check
+    **Settings → Email** shows **Receiving**, and that the address is spelled as you wrote to it.
+  - If it shows a 403, the password in the webhook doesn't match the worker's `POSTMARK_WEBHOOK_PASSWORD`, and
+    Postmark has stopped retrying. Fix the webhook, then click **Retry** on each message.
 - **Chris leaves one day.** New mail to his address goes to the team's Inbox, and an owner decides in
   **Settings → Email** whether the address and its mail go to the team or to someone else, or are removed.
 

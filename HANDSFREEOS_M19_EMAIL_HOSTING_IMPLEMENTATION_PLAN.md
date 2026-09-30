@@ -282,7 +282,7 @@ Settings → Email and the Inbox on the web, the phone's boxes, push for someone
   `email.filed`). It uses the customer-message switch and category, whose Reply and Call work on
   it and which every app build knows. Other mail and Spam push nobody.
 
-### Step 5 — HandsFreeOS's own business
+### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
 Set `is_platform` on the HandsFreeOS business, add `handsfreeos.com`, add `chris@` as Chris's
 mailbox, then send and receive from outside. `docs/operations.md` gets a short section on it.
@@ -298,6 +298,14 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
   outside.
 - Before them, Steps 1–3's migrations go on the hosted database and Steps 1–4 reach `main`
   together, once CI and `sync.yml` are green on the branch.
+
+**As done (2026-09-30):**
+
+- `chris@handsfreeos.com` receives in **Inbox → My mail**. The domain was verified and receiving by
+  00:24 UTC on 2026-09-30.
+- The first test emails didn't arrive. Postmark held them, marked **Retry**, because neither the
+  support server's nor the production server's inbound stream had a webhook. Setting it, with a new
+  webhook password, fixed it. "Postmark Part M" now covers this under "If it goes wrong".
 
 ### Step 6 — Every business (built, 2026-09-30)
 
