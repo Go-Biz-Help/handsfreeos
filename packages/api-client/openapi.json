@@ -106070,6 +106070,20 @@
                               "null"
                             ]
                           },
+                          "headline": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          },
+                          "datesToConfirm": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -106092,6 +106106,9 @@
                           "overdueDuties",
                           "nextDue",
                           "closing",
+                          "headline",
+                          "mine",
+                          "datesToConfirm",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -106330,6 +106347,20 @@
                               "null"
                             ]
                           },
+                          "headline": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          },
+                          "datesToConfirm": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -106352,6 +106383,9 @@
                           "overdueDuties",
                           "nextDue",
                           "closing",
+                          "headline",
+                          "mine",
+                          "datesToConfirm",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -106360,6 +106394,93 @@
                   },
                   "required": [
                     "deals"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/realestate.property.search": {
+      "post": {
+        "operationId": "query_realestate_property_search",
+        "summary": "Properties already here whose address matches, with how many deals each has: to start a deal on a home the business knows.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "q": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "limit": {
+                    "default": 8,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "q"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "properties": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "propertyId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "address": {
+                            "type": "string"
+                          },
+                          "deals": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "propertyId",
+                          "address",
+                          "deals"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "properties"
                   ],
                   "additionalProperties": false
                 }
@@ -107110,8 +107231,23 @@
                             "type": "array",
                             "items": {}
                           },
+                          "proof": {
+                            "type": "string"
+                          },
                           "proofMissing": {
                             "type": "string"
+                          },
+                          "waitingOn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "blocked": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -107133,7 +107269,10 @@
                           "dueTime",
                           "needsDates",
                           "warnings",
-                          "proofMissing"
+                          "proof",
+                          "proofMissing",
+                          "waitingOn",
+                          "blocked"
                         ],
                         "additionalProperties": false
                       }
@@ -107779,6 +107918,9 @@
                           "type": "array",
                           "items": {}
                         },
+                        "dueRule": {
+                          "type": "string"
+                        },
                         "warnings": {
                           "type": "array",
                           "items": {}
@@ -107921,6 +108063,7 @@
                         "dueDate",
                         "dueTime",
                         "dueTrace",
+                        "dueRule",
                         "warnings",
                         "needsDates",
                         "dueSetByHand",

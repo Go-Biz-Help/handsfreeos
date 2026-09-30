@@ -268,9 +268,32 @@ export const realestateAddon = defineAddon({
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
-  // Its place in the side menu, shown only while it runs and to people who may open it.
+  // Its places in the side menu, shown only while it runs and to people who may open them, and its panels on core's
+  // pages: a customer's, a company's and a lead's deals, and a property's (Start a deal from any of them).
   ui: {
-    nav: [{ key: 'deals', label: 'Deals', icon: 'house', path: '' }],
+    nav: [
+      { key: 'deals', label: 'Deals', icon: 'house', path: '', permission: 'realestate.use' },
+      {
+        key: 'duties',
+        label: 'My duties',
+        icon: 'list-checks',
+        path: 'duties',
+        permission: 'realestate.use',
+      },
+      {
+        key: 'settings',
+        label: 'Deal settings',
+        icon: 'settings',
+        path: 'settings',
+        permission: 'realestate.manage',
+      },
+    ],
+    slots: [
+      { slot: 'person.panels', permission: 'realestate.use' },
+      { slot: 'company.panels', permission: 'realestate.use' },
+      { slot: 'lead.panels', permission: 'realestate.use' },
+      { slot: 'record.panels', permission: 'realestate.use' },
+    ],
   },
   ai: {
     directory:

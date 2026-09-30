@@ -12,6 +12,7 @@ import type { ProofRule, ResolvedDuty } from '../catalog/types';
 import { DOCUMENT_KINDS, type DocumentKind } from '../catalog/types';
 import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps, proofItemWords } from '../proof';
+import { dueRuleWords } from '../rule-words';
 import {
   DocumentListInput,
   DocumentListOutput,
@@ -113,6 +114,7 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
         dueDate: duty.dueDate,
         dueTime: duty.dueTime,
         dueTrace: duty.dueTrace,
+        dueRule: dueRuleWords(def.due),
         warnings: duty.dueWarnings,
         needsDates: duty.needsDates,
         dueSetByHand: duty.dueOverrideAt

@@ -580,10 +580,42 @@ Health with its reasons, the sweep, the ladder, working hours, and turning off a
   12). A changed wire's alert goes to everyone who sees the deal.
 - An alert acknowledged on Home stops climbing; it still goes when the duty is done.
 
-### Step 11 — Screens
+### Step 11 — Screens (built, 2026-09-30)
 
 Deals, a deal, a duty, My duties, and the panels, from the approved boards; a browser test from a staff grant to a
 refused and then accepted proof.
+
+**As built:**
+
+- Chris approved the boards on 2026-09-30 ("build it").
+- Pages under `/app/w/<business>/a/realestate/`, each through the gate: Deals (`page.tsx`: health counts, My deals,
+  All deals, Needs attention, Closed, Archived, a search, Start a buyer deal and Start a listing), a deal
+  (`deals/<id>`: its stages, the next move or Close, what could stop the closing, duties grouped by what brought
+  them, key dates, people, commission, client updates; a duty opens in the drawer at `?duty=<id>`, where every
+  alert about the deal lands), Key dates (`deals/<id>/dates`: every value with its source and history, confirm,
+  change, and a conflict settled only by a person with a reason), Documents (`deals/<id>/documents`: versions, the
+  one that counts, Mark signed, and files on the deal not filed yet), History (`deals/<id>/history`) and My duties
+  (`duties`: overdue, today, this week, later, waiting, blocked, and waiting for a date; Everyone's for people who
+  see every deal).
+- The duty drawer: what finishes it and what's missing, a note, someone's word, a file or a document as proof, taking
+  proof back, waiting on and blocked, marking done (refused without its proof), done with a reason or waived for
+  owners and admins, moving the due date with a reason, handing it over, acknowledging, cancelling, reopening, and
+  its history.
+- Panels (`<AddonSlot>`): a customer's, a company's, a lead's and a property's deals with Start a buyer deal and
+  Start a listing filled in from the page; on a deal's plain record page, the way to its page. Closing a deal from a
+  lead asks "Mark the lead won on the Pipeline too".
+- Menu places: Deals, My duties, and Deal settings (owners and admins). The Add-ons page's sheet points to Deal
+  settings.
+- Core, browser-safe, for the phone and the Assistant later: `rule-words.ts` (a due rule, proof, what brings a duty,
+  reminders, "due Fri", "2 days overdue", how a due date was worked out) and `history-words.ts` (a deal's and a
+  duty's history in sentences). `realestate.property.search` finds a property already here by its address; the deal
+  list says each deal's first problem, its dates to confirm and whether the person is on it; a deal's duties say
+  what finishes them and who they wait on; a duty says its due rule in words.
+
+**Choices made for Chris** (say the word and they change):
+
+- A customer's panel shows only the deals the person sees. The board's "1 more deal you're not on" line is left out:
+  counting deals a person can't see needs a database change, and it tells them something about a private deal.
 
 ### Step 12 — Settings (server built, 2026-09-30; screens wait for the boards)
 

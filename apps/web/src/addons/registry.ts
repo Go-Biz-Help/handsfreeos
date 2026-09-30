@@ -20,7 +20,11 @@
  */
 import type { AddonSlotName } from '@hfos/core';
 import type { ComponentType } from 'react';
-import { House as realestateAddonIcon } from 'lucide-react';
+import {
+  House as realestateAddonIcon,
+  ListChecks as realestateDutiesIcon,
+  Settings2 as realestateSettingsIcon,
+} from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -89,7 +93,17 @@ export interface AddonUi {
   readonly settings?: SettingsLoader;
 }
 
-/** Every add-on's UI, by add-on id. None yet: the first add-on adds the first line. */
+/** Every add-on's UI, by add-on id. */
 export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
-  realestate: { icon: realestateAddonIcon },
+  realestate: {
+    icon: realestateAddonIcon,
+    navIcons: { duties: realestateDutiesIcon, settings: realestateSettingsIcon },
+    slots: {
+      'person.panels': () => import('./realestate/person-panel'),
+      'company.panels': () => import('./realestate/company-panel'),
+      'lead.panels': () => import('./realestate/lead-panel'),
+      'record.panels': () => import('./realestate/record-panel'),
+    },
+    settings: () => import('./realestate/settings-link'),
+  },
 };

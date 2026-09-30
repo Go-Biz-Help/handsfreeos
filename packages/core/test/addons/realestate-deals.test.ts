@@ -709,4 +709,57 @@ describe('Archiving and the lists', () => {
     const overview = await ask(agent, 'realestate.overview', {});
     expect(overview.myOpenDeals).toBeGreaterThan(0);
   });
+
+  it('say at a glance what’s wrong, what waits to be confirmed, and whose each deal is', async () => {
+    const deal = await open(agent, {
+      side: 'buyer',
+      name: 'Glance purchase',
+      stage: 'under_contract',
+    });
+    await run(agent, 'realestate.term.enter', {
+      dealId: deal,
+      key: 'closing',
+      date: '2027-01-20',
+      source: 'contract',
+      confirm: false,
+    });
+    const row = (await ask(owner, 'realestate.deal.list', {})).deals.find(
+      (d: Any) => d.dealId === deal,
+    );
+    expect(row).toMatchObject({ datesToConfirm: 1, mine: false });
+    expect(row.headline).toMatch(/\S/);
+    const mine = (await ask(agent, 'realestate.deal.list', {})).deals.find(
+      (d: Any) => d.dealId === deal,
+    );
+    expect(mine.mine).toBe(true);
+    // Each duty says what finishes it, and who it waits on.
+    const got = await ask(agent, 'realestate.deal.get', { dealId: deal });
+    expect(got.duties.every((d: Any) => typeof d.proof === 'string')).toBe(true);
+    const waiting = got.duties.find((d: Any) => d.status === 'not_started');
+    await run(agent, 'realestate.duty.set_status', {
+      dutyId: waiting.dutyId,
+      status: 'waiting_external',
+      waitingOn: 'Summit Lending',
+    });
+    const again = await ask(agent, 'realestate.deal.get', { dealId: deal });
+    expect(again.duties.find((d: Any) => d.dutyId === waiting.dutyId)).toMatchObject({
+      waitingOn: 'Summit Lending',
+      blocked: null,
+    });
+  });
+
+  it('find a property already here by its address', async () => {
+    await open(agent, {
+      side: 'listing',
+      name: 'Maple listing',
+      newPropertyAddress: '77 Maple Ct',
+    });
+    const found = await ask(agent, 'realestate.property.search', { q: 'maple' });
+    expect(found.properties).toEqual([
+      expect.objectContaining({ address: '77 Maple Ct', deals: 1 }),
+    ]);
+    expect(
+      (await ask(agent, 'realestate.property.search', { q: 'no such street' })).properties,
+    ).toEqual([]);
+  });
 });

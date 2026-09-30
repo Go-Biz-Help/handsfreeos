@@ -291,6 +291,12 @@ const DealRow = z.object({
   overdueDuties: z.number().int(),
   nextDue: z.object({ dutyId: uuid, title: z.string(), dueAt: isoDateTime }).nullable(),
   closing: z.string().nullable(),
+  /** The first thing wrong, in a sentence: its top health reason. */
+  headline: z.string().nullable(),
+  /** They're its main agent or on its team. */
+  mine: z.boolean(),
+  /** Dates and terms typed in that nobody has confirmed yet. */
+  datesToConfirm: z.number().int(),
   updatedAt: isoDateTime,
 });
 export const DealListOutput = z.object({ deals: z.array(DealRow) });
@@ -315,8 +321,14 @@ const Duty = z.object({
   dueTime: z.string().nullable(),
   needsDates: z.array(z.string()),
   warnings: z.array(z.unknown()),
+  /** What finishes it, in words; empty when saying it's done is enough. */
+  proof: z.string(),
   /** What's still missing before it can be marked done, in words; empty when nothing is (or it's finished). */
   proofMissing: z.string(),
+  /** Waiting on someone: who. */
+  waitingOn: z.string().nullable(),
+  /** Blocked: by what. */
+  blocked: z.string().nullable(),
 });
 const Term = z.object({
   key: z.string(),
@@ -461,6 +473,16 @@ export const DealsForInput = z
     path: ['personId'],
   });
 export const DealsForOutput = DealListOutput;
+
+/** Properties already here, by address: to start a deal on a home the business knows. */
+export const PropertySearchInput = z.object({
+  workspaceId: uuid,
+  q: z.string().trim().min(1).max(100),
+  limit: z.number().int().min(1).max(20).default(8),
+});
+export const PropertySearchOutput = z.object({
+  properties: z.array(z.object({ propertyId: uuid, address: z.string(), deals: z.number().int() })),
+});
 
 export const OverviewInput = z.object({ workspaceId: uuid });
 export const OverviewOutput = z.object({
@@ -611,6 +633,8 @@ export const DutyGetOutput = z.object({
     dueDate: z.string().nullable(),
     dueTime: z.string().nullable(),
     dueTrace: z.array(z.unknown()),
+    /** Its due rule in words: "5 business days before closing". */
+    dueRule: z.string(),
     warnings: z.array(z.unknown()),
     needsDates: z.array(z.string()),
     dueSetByHand: z.object({ at: isoDateTime, reason: z.string() }).nullable(),

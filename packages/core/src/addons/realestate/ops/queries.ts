@@ -13,6 +13,7 @@ import type { ResolvedDuty } from '../catalog/types';
 import { checkDealDates } from '../dates/conflicts';
 import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps, type EvidenceFact } from '../proof';
+import { proofRuleWords } from '../rule-words';
 import {
   DealGetInput,
   DealGetOutput,
@@ -24,6 +25,8 @@ import {
   DealsForOutput,
   OverviewInput,
   OverviewOutput,
+  PropertySearchInput,
+  PropertySearchOutput,
   TermHistoryInput,
   TermHistoryOutput,
 } from '../schemas';
@@ -50,6 +53,7 @@ import { PARTY_ROLES, type PartyRole } from '../words';
 import {
   businessCalendarOf,
   inWorkspace,
+  kindIds,
   loadDeal,
   mayChangeTeam,
   timeZoneOf,
@@ -84,8 +88,18 @@ interface Row extends Record<string, unknown> {
   next_title: string | null;
   next_due_at: string | null;
   closing: string | null;
+  headline: string | null;
+  mine: boolean;
+  dates_to_confirm: number;
   updated_at: string;
 }
+
+const me = (ctx: Ctx) => (ctx.actor.type === 'human' ? ctx.actor.userId : null);
+/** The deals someone is on: its main agent or on its team. */
+const onDealSql = (userId: string | null) =>
+  userId
+    ? sql`(r.owner_user_id = ${userId}::uuid or ${userId}::uuid = any(r.team_user_ids))`
+    : sql`false`;
 
 /** Deals as a list shows them, newest change first, the open ones before the rest. */
 async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
@@ -98,6 +112,9 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           coalesce(dt.open, 0) as open_duties, coalesce(dt.overdue, 0) as overdue_duties,
           nx.id as next_id, nx.title as next_title, nx.due_at as next_due_at,
           cl.value_date::text as closing,
+          d.health_reasons -> 0 ->> 'words' as headline,
+          ${onDealSql(me(ctx))} as mine,
+          coalesce(uc.n, 0) as dates_to_confirm,
           greatest(d.updated_at, r.updated_at) as updated_at
         from addon_realestate.deals d
         join app.custom_records r on r.id = d.record_id
@@ -132,6 +149,11 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           where e.deal_record_id = d.record_id and e.key = 'closing'
             and e.superseded_at is null and e.rejected_at is null
           order by e.entered_at desc limit 1) cl on true
+        left join lateral (
+          select count(distinct e.key)::int as n
+          from addon_realestate.term_entries e
+          where e.deal_record_id = d.record_id and e.confirmed_at is null
+            and e.superseded_at is null and e.rejected_at is null) uc on true
         where d.workspace_id = ${ctx.scope.workspaceId!} and ${filter}
         order by (r.archived_at is null and d.outcome is null) desc, greatest(d.updated_at, r.updated_at) desc
         limit ${limit}`,
@@ -159,16 +181,12 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
         ? { dutyId: r.next_id, title: r.next_title ?? '', dueAt: isoOf(r.next_due_at) }
         : null,
     closing: r.closing,
+    headline: r.headline,
+    mine: r.mine,
+    datesToConfirm: r.dates_to_confirm,
     updatedAt: isoOf(r.updated_at),
   }));
 }
-
-const me = (ctx: Ctx) => (ctx.actor.type === 'human' ? ctx.actor.userId : null);
-/** The deals someone is on: its main agent or on its team. */
-const onDealSql = (userId: string | null) =>
-  userId
-    ? sql`(r.owner_user_id = ${userId}::uuid or ${userId}::uuid = any(r.team_user_ids))`
-    : sql`false`;
 
 export const overview = defineAddonQuery(realestateAddon, {
   name: 'realestate.overview',
@@ -269,6 +287,34 @@ export const dealsFor = defineAddonQuery(realestateAddon, {
           ? sql`d.lead_id = ${input.leadId}`
           : sql`prop.id = ${input.propertyId!}`;
     return { deals: await dealRows(ctx, filter, 50) };
+  },
+});
+
+export const propertySearch = defineAddonQuery(realestateAddon, {
+  name: 'realestate.property.search',
+  description:
+    'Properties already here whose address matches, with how many deals each has: to start a deal on a home the business knows.',
+  input: PropertySearchInput,
+  output: PropertySearchOutput,
+  permission: 'realestate.use',
+  scope: inWorkspace,
+  handler: async (ctx, input) => {
+    const kinds = await kindIds(ctx);
+    const like = `%${input.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const list = await rows<{ id: string; name: string; deals: number }>(
+      ctx.tx,
+      sql`select r.id, r.name,
+            (select count(*)::int from app.relationships rel
+              join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_property_of'
+              where rel.b_custom_record_id = r.id) as deals
+          from app.custom_records r
+          where r.workspace_id = ${ctx.scope.workspaceId!} and r.type_id = ${kinds.property}
+            and r.archived_at is null and r.name ilike ${like}
+          order by r.name limit ${input.limit}`,
+    );
+    return {
+      properties: list.map((p) => ({ propertyId: p.id, address: p.name, deals: p.deals })),
+    };
   },
 });
 
@@ -490,7 +536,12 @@ export const dealGet = defineAddonQuery(realestateAddon, {
         dueTime: t.dueTime,
         needsDates: t.needsDates,
         warnings: t.dueWarnings,
+        proof: (t.definition as unknown as ResolvedDuty).proof
+          ? proofRuleWords((t.definition as unknown as ResolvedDuty).proof)
+          : '',
         proofMissing: missingFor(t),
+        waitingOn: t.waitingOn,
+        blocked: t.status === 'blocked' ? (t.blocker ?? '') : null,
       })),
     };
   },
@@ -598,6 +649,7 @@ export const realestateQueries = [
   overview,
   dealList,
   dealsFor,
+  propertySearch,
   dealGet,
   dealHistoryQuery,
   termHistory,

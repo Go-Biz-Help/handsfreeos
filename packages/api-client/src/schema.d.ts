@@ -12417,6 +12417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.property.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Properties already here whose address matches, with how many deals each has: to start a deal on a home the business knows.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_property_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.status_email.get": {
         parameters: {
             query?: never;
@@ -44225,8 +44245,10 @@ export interface operations {
                                 personId: string;
                             } | null;
                             closing: string | null;
+                            datesToConfirm: number;
                             /** Format: uuid */
                             dealId: string;
+                            headline: string | null;
                             /** @enum {string} */
                             health: "green" | "yellow" | "red";
                             mainAgent: {
@@ -44234,6 +44256,7 @@ export interface operations {
                                 /** Format: uuid */
                                 userId: string;
                             } | null;
+                            mine: boolean;
                             name: string;
                             nextDue: {
                                 /** Format: date-time */
@@ -44344,6 +44367,7 @@ export interface operations {
                             } | null;
                             accountableRole: string;
                             automation: string;
+                            blocked: string | null;
                             dueAt: string | null;
                             dueDate: string | null;
                             /** @enum {string} */
@@ -44356,12 +44380,14 @@ export interface operations {
                             needsDates: string[];
                             overdue: boolean;
                             pass: number;
+                            proof: string;
                             proofMissing: string;
                             startedBy: string;
                             /** @enum {string} */
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
                             title: string;
                             tracker: string;
+                            waitingOn: string | null;
                             warnings: unknown[];
                         }[];
                         links: {
@@ -44518,8 +44544,10 @@ export interface operations {
                                 personId: string;
                             } | null;
                             closing: string | null;
+                            datesToConfirm: number;
                             /** Format: uuid */
                             dealId: string;
+                            headline: string | null;
                             /** @enum {string} */
                             health: "green" | "yellow" | "red";
                             mainAgent: {
@@ -44527,6 +44555,7 @@ export interface operations {
                                 /** Format: uuid */
                                 userId: string;
                             } | null;
+                            mine: boolean;
                             name: string;
                             nextDue: {
                                 /** Format: date-time */
@@ -44724,6 +44753,7 @@ export interface operations {
                             dealName: string;
                             dueAt: string | null;
                             dueDate: string | null;
+                            dueRule: string;
                             dueSetByHand: {
                                 /** Format: date-time */
                                 at: string;
@@ -44893,6 +44923,43 @@ export interface operations {
                         openDeals: number;
                         overdueDuties: number;
                         version: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_property_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 8 */
+                    limit?: number;
+                    q: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        properties: {
+                            address: string;
+                            deals: number;
+                            /** Format: uuid */
+                            propertyId: string;
+                        }[];
                     };
                 };
             };
