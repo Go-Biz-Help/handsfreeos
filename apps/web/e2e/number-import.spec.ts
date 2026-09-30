@@ -119,3 +119,41 @@ test('phone & texting: turned on for its Account SID before any number, and off 
   await expect(card.getByTestId('phone-account-status')).toHaveText('Off', { timeout: 30_000 });
   await expect(card.getByTestId('phone-account-sid')).toHaveCount(0);
 });
+
+test('a number moved straight into the business’s own account: found there, and set up with one press', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await signUpAndConfirm(page, 'own-numbers');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Septic' });
+  await page.goto(`/app/w/${workspaceId}/settings/texting`);
+
+  const card = page.getByTestId('phone-account-card');
+  await card.getByTestId('phone-account-switch').click();
+  await expect(card.getByTestId('phone-account-sid')).toHaveText(/^AC/, { timeout: 30_000 });
+
+  // The local fake puts one number in the account the first time it is listed, still pointed at HighLevel, as if
+  // HighLevel's support had moved it there without anybody starting a transfer here.
+  await card.getByTestId('own-numbers-look').click();
+  const row = card.locator('[data-testid^="own-number-+"]').first();
+  await expect(row).toHaveAttribute('data-state', 'new', { timeout: 30_000 });
+  await expect(row).toContainText('Used by HighLevel');
+  await page.screenshot({ path: 'test-results/own-numbers-found.png', fullPage: true });
+
+  await row.locator('[data-testid^="own-number-setup-"]').click();
+  // Nothing to send and nothing to wait for: it is live within moments, with texting still its own step.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByTestId('imports-card').locator('[data-setup="live"]')).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 60_000 });
+  await expect(page.getByTestId('imports-card').getByTestId('transfer-request')).toHaveCount(0);
+
+  // One of the business's numbers now, so looking again offers nothing.
+  await page.getByTestId('phone-account-card').getByTestId('own-numbers-look').click();
+  await expect(page.getByTestId('own-numbers-empty')).toHaveText(/already set up here/, {
+    timeout: 30_000,
+  });
+  await page.screenshot({ path: 'test-results/own-numbers-set-up.png', fullPage: true });
+});

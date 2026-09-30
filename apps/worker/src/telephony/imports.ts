@@ -92,16 +92,17 @@ const TROUBLE = {
 } as const;
 
 /**
- * Who hosts the number, once. For a number picked from a connected Twilio account the answer is already known
- * — it is sitting in a Twilio account — so nothing is spent asking. A lookup that fails is simply asked again
- * next time: it is information for the business, never a reason to stop watching.
+ * Who hosts the number, once. For a number picked from a listing of a Twilio account — a connected one, or the
+ * business's own — the answer is already known: it is sitting in a Twilio account, so nothing is spent asking.
+ * A lookup that fails is simply asked again next time: it is information for the business, never a reason to
+ * stop watching.
  */
 async function carrierOf(
   services: WorkerServices,
   row: ImportRow,
 ): Promise<{ name: string | null; hostedInTwilio: boolean } | null> {
   if (row.lookedUpAt) return null;
-  if (row.connectionId) return { name: 'Twilio', hostedInTwilio: true };
+  if (row.connectionId || row.sourceNumberSid) return { name: 'Twilio', hostedInTwilio: true };
   try {
     const found = await services.telephony.lookupNumber(row.e164);
     return { name: found.carrierName, hostedInTwilio: carrierIsTwilio(found.carrierName) };

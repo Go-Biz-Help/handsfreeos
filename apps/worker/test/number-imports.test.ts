@@ -7,7 +7,9 @@
  *   - the business's own Twilio account: connected by an owner, listed with who is using each number today, a
  *     number assigned to another of the organization's businesses and finished there;
  *   - what may not happen: a member starting one, a person writing what arrived, a workspace admin who is not
- *     the organization's listing its whole Twilio account, the secret ever being readable.
+ *     the organization's listing its whole Twilio account, the secret ever being readable;
+ *   - a number moved straight into the business's own subaccount, with no import started here: found by
+ *     listing that account, and set up with one press.
  *
  * **Needs the stack up** (`pnpm supabase:start && pnpm db:reset`). The fake's lookup says Twilio for every number
  * except one ending 0009 (another carrier) and 0008 (the lookup is down).
@@ -45,6 +47,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
+import { ensureAccount } from '../src/telephony/accounts';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
@@ -83,6 +86,12 @@ let organizationId: string;
 let workspaceId: string;
 /** A second business in the same organization: a number from one Twilio account can go to either. */
 let secondId: string;
+/**
+ * A business in another of the owner's organizations, with phone & texting on and nothing else: numbers turn up
+ * in its own account unasked.
+ */
+let thirdId: string;
+let thirdOrgId: string;
 let s: TestServices;
 let app: FastifyInstance;
 
@@ -91,7 +100,7 @@ async function reserve(): Promise<void> {
     await rows(
       admin(),
       sql`update ${sql.raw(`app.${table}`)} set locked_at = now(), locked_by = ${WORKER_ID}
-          where status = 'pending' and workspace_id in (${workspaceId}, ${secondId})`,
+          where status = 'pending' and workspace_id in (${workspaceId}, ${secondId}, ${thirdId})`,
     );
 }
 
@@ -110,9 +119,9 @@ async function drain(timeoutMs = 10_000) {
       const errors = await rows(
         admin(),
         sql`select 'outbox' as source, event_type as what, last_error from app.outbox
-              where workspace_id in (${workspaceId}, ${secondId}) and last_error is not null
+              where workspace_id in (${workspaceId}, ${secondId}, ${thirdId}) and last_error is not null
             union all select 'job', kind, last_error from app.scheduled_jobs
-              where workspace_id in (${workspaceId}, ${secondId}) and last_error is not null`,
+              where workspace_id in (${workspaceId}, ${secondId}, ${thirdId}) and last_error is not null`,
       );
       throw new Error(`worker work failed: ${JSON.stringify(errors)}`);
     }
@@ -184,6 +193,14 @@ beforeAll(async () => {
     meta(),
   );
   secondId = second.output.workspaceId;
+  const third = await executeCommand(
+    api(),
+    organizationCreate,
+    { businessName: 'Imports Test Drains' },
+    actor(owner),
+    meta(),
+  );
+  ({ organizationId: thirdOrgId, workspaceId: thirdId } = third.output);
   await rows(
     admin(),
     sql`insert into app.workspace_memberships (workspace_id, user_id, role)
@@ -558,5 +575,121 @@ describe('a port and a transfer of one number', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ rule: 'number_import_open' } satisfies Partial<HfosError>);
+  });
+});
+
+describe('a number moved into the business’s own account without anybody asking here', () => {
+  type Listing = {
+    accountSid: string | null;
+    alreadyHere: number;
+    truncated: boolean;
+    numbers: {
+      sid: string;
+      e164: string;
+      usedBy: string;
+      state: 'new' | 'coming' | 'elsewhere';
+      importId: string | null;
+    }[];
+  };
+  const look = async (ws: string, who: TestUser = owner) => {
+    const res = await post(who, '/v1/telephony/own-numbers', { workspaceId: ws });
+    expect(res.statusCode).toBe(200);
+    return res.json() as Listing;
+  };
+  let accountSid: string;
+
+  beforeAll(async () => {
+    accountSid = (await ensureAccount(s, { workspaceId: thirdId, organizationId: thirdOrgId })).sid;
+  });
+
+  it('is found in the account, and set up here with one press: nothing to send, no lookup spent', async () => {
+    const e164 = aNumber('6601');
+    // HighLevel's support moved it straight into the subaccount. It arrives still pointed at HighLevel, and
+    // nothing here is watching for it.
+    s.telephony.addExternalNumber('AChighleveltest0001', e164, {
+      smsUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
+      voiceUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/voice',
+    });
+    const sid = s.telephony.transferIn(e164, accountSid);
+    expect(await numberIn(thirdId, e164)).toBeUndefined();
+
+    const before = await look(thirdId);
+    expect(before.accountSid).toBe(accountSid);
+    expect(before.numbers.find((n) => n.e164 === e164)).toMatchObject({
+      sid,
+      state: 'new',
+      importId: null,
+      usedBy: 'highlevel',
+    });
+
+    const { importId } = await start({
+      e164,
+      source: 'twilio',
+      ws: thirdId,
+      sourceAccountSid: accountSid,
+      sourceNumberSid: sid,
+    });
+    // Asked for, not set up yet: on its way, and "look now" is what finishes it.
+    expect((await look(thirdId)).numbers.find((n) => n.e164 === e164)).toMatchObject({
+      state: 'coming',
+      importId,
+    });
+
+    await drain();
+    const done = await importRow(importId);
+    expect(done.status).toBe('complete');
+    expect(done.providerSid).toBe(sid);
+    const landed = await numberIn(thirdId, e164);
+    expect(landed?.status).toBe('active');
+    expect(landed?.providerSid).toBe(sid);
+    // Pointed at us, off HighLevel, and on the messaging service, like any number that lands.
+    expect(s.telephony.configured).toContain(sid);
+    expect(s.telephony.serviced.map((x) => x.numberSid)).toContain(sid);
+    // It was sitting in Twilio already: nothing is spent asking the carrier lookup who hosts it.
+    expect(s.telephony.lookups).not.toContain(e164);
+
+    // One of the business's numbers now: counted, not offered again.
+    const after = await look(thirdId);
+    expect(after.numbers.some((n) => n.e164 === e164)).toBe(false);
+    expect(after.alreadyHere).toBe(before.alreadyHere + 1);
+  });
+
+  it('says so, and offers nothing, when another business here still holds the number', async () => {
+    const e164 = aNumber('6602');
+    const other = await createTestUser('imports-own-other');
+    const theirs = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Somebody Else Again' },
+      actor(other),
+      meta(),
+    );
+    await rows(
+      admin(),
+      sql`insert into app.phone_numbers (workspace_id, e164, number_type, status)
+          values (${theirs.output.workspaceId}, ${e164}, 'local', 'active')`,
+    );
+    s.telephony.transferIn(e164, accountSid);
+    expect((await look(thirdId)).numbers.find((n) => n.e164 === e164)).toMatchObject({
+      state: 'elsewhere',
+      importId: null,
+    });
+  });
+
+  it('is for the people who manage the business’s numbers, and finds nothing where phone & texting is off', async () => {
+    const asMember = await post(member, '/v1/telephony/own-numbers', { workspaceId });
+    expect(asMember.statusCode).toBe(403);
+
+    const off = await executeCommand(
+      api(),
+      workspaceCreate,
+      { organizationId: thirdOrgId, name: 'Imports Test Drains — East' },
+      actor(owner),
+      meta(),
+    );
+    const none = await look(off.output.workspaceId);
+    expect(none).toEqual({ accountSid: null, numbers: [], alreadyHere: 0, truncated: false });
+    // Looking never makes an account.
+    expect(await subaccountOf(off.output.workspaceId)).toBeUndefined();
   });
 });
