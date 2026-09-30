@@ -25,6 +25,13 @@ describe('Real Estate Agent', () => {
     expect(addonModuleIssues(core, [realestateAddonServer])).toEqual([]);
   });
 
+  it('declares every event its commands emit, and only those', () => {
+    const emitted = (realestateAddonServer.commands ?? [])
+      .flatMap((c) => c.emits)
+      .filter((e) => e.startsWith('realestate.'));
+    expect([...new Set(emitted)].sort()).toEqual([...(realestateAddon.events?.emits ?? [])].sort());
+  });
+
   it('offers the AI only what it may use', () => {
     expect(addonAiIssues([realestateAddonServer])).toEqual([]);
   });

@@ -9,7 +9,7 @@
  * - **Unconfirmed dates** still give a due time, marked `unconfirmed`, so a draft duty can show when it would be due;
  *   a missing one gives none (`waiting`).
  */
-import { addDays, localDateOf, localInstant } from '../../../calendar/engine/zoned';
+import { addDays, localDateOf, localInstant, zonedParts } from '../../../calendar/engine/zoned';
 import {
   addBusinessDays,
   dayOff,
@@ -121,6 +121,12 @@ const NONE: Omit<DueResult, 'trace'> = {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
+/** The wall clock where the business is, as 'HH:MM'. */
+function clockAt(at: number, timeZone: string): string {
+  const p = zonedParts(at, timeZone);
+  return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+}
+
 interface Point {
   readonly at: number;
   readonly date: string;
@@ -210,13 +216,7 @@ export function resolveDue(rule: DueRule, ctx: DueContext): DueResult {
           to: iso(at),
           skipped: [],
         });
-        const clock = new Intl.DateTimeFormat('en-GB', {
-          timeZone: ctx.timeZone,
-          hour: '2-digit',
-          minute: '2-digit',
-          hourCycle: 'h23',
-        }).format(at);
-        return due({ at, date, time: clock }, trace);
+        return due({ at, date, time: clockAt(at, ctx.timeZone) }, trace);
       }
       const started = localDateOf(ctx.startedAt, ctx.timeZone);
       const moved = shift(started, rule, ctx);
@@ -252,13 +252,7 @@ export function resolveDue(rule: DueRule, ctx: DueContext): DueResult {
           skipped: [],
         });
         const date = localDateOf(at, ctx.timeZone);
-        const time = new Intl.DateTimeFormat('en-GB', {
-          timeZone: ctx.timeZone,
-          hour: '2-digit',
-          minute: '2-digit',
-          hourCycle: 'h23',
-        }).format(at);
-        return due({ at, date, time }, trace, { unconfirmed });
+        return due({ at, date, time: clockAt(at, ctx.timeZone) }, trace, { unconfirmed });
       }
       const moved = shift(anchor.date, rule, ctx);
       if (moved.step) trace.push(moved.step);

@@ -5,6 +5,7 @@
  * changes a date: conflicts are never resolved silently. Browser-safe and pure.
  */
 import { daysBetween } from '../../../calendar/engine/zoned';
+import { fmtDateShort } from '../../../calendar/when';
 import { addBusinessDays, dayOff, NO_CLOSED_DAYS, type BusinessCalendar } from './business-days';
 import { KEY_DATES, type KeyDateKey, type KeyDates } from './key-dates';
 
@@ -51,15 +52,7 @@ const CONTINGENCIES = [
 ] as const satisfies readonly KeyDateKey[];
 
 /** "Tue, Oct 6". */
-function day(date: string): string {
-  const d = new Date(`${date}T12:00:00Z`);
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(d);
-}
+const day = fmtDateShort;
 
 const label = (k: KeyDateKey) => KEY_DATES[k].label;
 

@@ -449,10 +449,56 @@ pure and tested.
 - The Closing Disclosure check counts business days the same way as everything else (Monday to Friday, less
   holidays), which is a day or so stricter than the federal rule that counts Saturdays.
 
-### Step 8 — Deals, terms and the duty list
+### Step 8 — Deals, terms and the duty list (built, 2026-09-30)
 
 Terms, template versions, duties, their links, proof, log and documents tables; opening and moving deals,
-entering and confirming terms, creating duties, commission, the editor's commands, and the queries.
+entering and confirming terms, creating duties, commission, and the queries. The editor's commands moved to
+step 12, beside its screen.
+
+**As built:**
+
+- `20261013002800`: `deals` gains its facts, its duty list's version and the catalog's version. New tables, each
+  following its deal's privacy: `term_entries` (append-only apart from being confirmed, replaced or set aside,
+  once each), `template_sets` and `template_items` (a published list, never changed), `template_overrides` and
+  `custom_templates` (the editor's drafts, `realestate.manage`), `duties` (with its due time, the trace behind it,
+  the dates it still needs, and whoever answers for it, who must be on the deal), `duty_links`, `documents` (a
+  deal's own file, with its lineage and status), `duty_evidence` and `duty_log` (append-only). Mirrored in
+  `tables.ts`.
+- Browser-safe: `terms.ts` (the key dates plus price, list price, earnest money, loan amount, seller credit, loan
+  type and who holds the earnest money; a term as it stands, its conflicts, the key dates it gives), `commission.ts`
+  (gross from a rate of the price or a flat amount, less the credit, and the agent's share), `schemas.ts` and
+  `words.ts`.
+- The duty engine (`ops/engine.ts`): a stage entered or passed, a key date confirmed, or a named moment creates the
+  duties of the deal's list for it whose facts hold. One is made again only when every earlier one is finished; a
+  date's duties once per contract. A duty resting on a contract date is a draft until those dates are confirmed.
+  Every change re-works the due times of open duties (unless set by hand), turns ready drafts active and
+  re-works the expected commission; each is a line in `duty_log`.
+- Commands (`realestate.use` unless said): `deal.open` (from a lead or a customer, a property found or new, its main
+  agent someone else only for owners and admins), `deal.move_stage` (forward only; past Closing only once closed),
+  `deal.record_event` (an offer in, the inspection report, a repair request, repairs agreed, a low appraisal, an
+  amendment, a changed search), `deal.record_offer_lost` and `deal.terminate` (back to Touring, Searching or
+  Active; the offer's or contract's terms and unfinished duties set aside, kept in history), `deal.close` (from
+  Closing; "Mark the lead won too"), `deal.end` and `deal.reopen`, `deal.set_facts`, `deal.add_person`,
+  `remove_person` and `set_role` (duties follow the coordinator and main agent), `deal.set_property`,
+  `deal.link` and `unlink`, `party.add` and `remove`, `deal.set_commission`, `deal.set_final_commission`
+  (`realestate.except`), `deal.archive` and `restore` (owners and admins), and `term.enter`, `confirm`, `reject`
+  and `resolve_conflict`. Queries: `realestate.overview`, `deal.list`, `deal.get` (with the checks across its
+  dates), `deal.history`, `term.history` and `deal.for` (a customer's, company's, lead's or property's deals).
+- Tests: `test/addons/realestate-deals.test.ts` (21 cases on the database: privacy, stage jumps, drafts,
+  conflicts, amendments, termination, a lost offer's later round, facts, the team, links, closing, ending,
+  archiving).
+
+**Choices made for Chris** (say the word and they change):
+
+- Entering a date saves it confirmed, since a person typed it; "leave it for someone to check" saves it
+  unconfirmed. A date that disagrees with one already there is kept beside it until someone chooses.
+- A lost offer or a terminated contract sets the old terms aside (they stay in history), so the next contract's
+  dates start fresh and bring their own duties.
+- Closing needs the deal at the Closing stage first. After it closes, a buyer deal is at Possession and a listing
+  at Sold.
+- A buyer deal under contract ends only by terminating the contract first; a listing under contract the same.
+- Taking a fact off cancels only the duties nobody has started.
+- Archiving a deal takes core's archive permission (owners and admins by default).
 
 ### Step 9 — Duties and documents
 

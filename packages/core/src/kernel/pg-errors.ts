@@ -533,6 +533,33 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 409,
     message: 'That request was already answered. Refresh to see where it stands.',
   },
+  // Real Estate steps 6 and 8: what its own tables hold every writer to.
+  realestate_not_a_deal: {
+    status: 400,
+    message: 'That record isn’t a deal. Pick one of the business’s deals.',
+  },
+  realestate_role_not_on_deal: {
+    status: 409,
+    message: 'Only someone on the deal has a part in it. Put them on the deal first.',
+  },
+  realestate_duty_person_not_on_deal: {
+    status: 409,
+    message: 'Only someone on the deal can answer for its duties. Put them on the deal first.',
+  },
+  realestate_document_not_on_deal: {
+    status: 400,
+    message: 'A deal’s document is one of that deal’s own files. Add the file to the deal first.',
+  },
+  realestate_term_fixed: {
+    status: 409,
+    message:
+      'What was entered stays as it was. Enter a correction instead, and it replaces the old value.',
+  },
+  realestate_term_settled: {
+    status: 409,
+    message:
+      'That entry was already confirmed, replaced or set aside. Refresh to see the dates as they are now.',
+  },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */
