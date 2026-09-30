@@ -6,12 +6,12 @@ import {
   emailSenderRules,
   mailboxConnections,
   users,
-  workspaces,
 } from '@hfos/db/schema';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
-import { INBOUND_MX_HOST } from '../schemas/email';
+import { ownershipHost } from '../schemas/branded-domain';
+import { HANDSFREEOS_DOMAIN, INBOUND_MX_HOST } from '../schemas/email';
 import {
   EmailSenderRuleListInput,
   EmailSenderRuleListOutput,
@@ -58,10 +58,6 @@ export const emailSetupStatus = defineQuery({
       .leftJoin(users, eq(users.id, emailAddresses.ownerUserId))
       .where(eq(emailAddresses.workspaceId, workspaceId))
       .orderBy(desc(emailAddresses.isDefault), asc(emailAddresses.createdAt));
-    const [ws] = await ctx.tx
-      .select({ isPlatform: workspaces.isPlatform })
-      .from(workspaces)
-      .where(eq(workspaces.id, workspaceId));
     const domains = await ctx.tx
       .select()
       .from(emailDomains)
@@ -104,9 +100,8 @@ export const emailSetupStatus = defineQuery({
     );
     return {
       sharedDomain: SHARED_MAIL_DOMAIN,
-      // Every business can once each domain has a Postmark server of its own (M19 step 6); until then,
-      // HandsFreeOS's own, through the support desk's.
-      receivingOpen: ws?.isPlatform ?? false,
+      // Every business can, each receiving domain with a Postmark server of its own (M19 step 6).
+      receivingOpen: true,
       inboundMxHost: INBOUND_MX_HOST,
       addresses: addresses.map(({ a, domain, domainStatus, ownerName, ownerEmail, ownerHere }) => ({
         id: a.id,
@@ -137,6 +132,10 @@ export const emailSetupStatus = defineQuery({
         receiving: d.receiving,
         mxVerifiedAt: iso(d.mxVerifiedAt),
         mxCheckedAt: iso(d.mxCheckedAt),
+        receivingError: d.receivingError,
+        ownershipHost: d.domain === HANDSFREEOS_DOMAIN ? null : ownershipHost(d.domain),
+        ownershipToken: d.ownershipToken,
+        ownershipProvedAt: iso(d.ownershipProvedAt),
       })),
       mailboxes: mailboxes.map((m) => ({
         id: m.id,

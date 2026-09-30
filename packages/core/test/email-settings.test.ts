@@ -213,13 +213,18 @@ describe('email settings', () => {
     await expectHfos(
       () => run(emailDomainAdd, { workspaceId: wsId, domain: DOMAIN }, owner),
       'rule_violation',
-      'email_domain_taken',
+      'email_domain_here',
     );
-    // Set up in someone else's workspace: refused, without saying whose.
-    await run(
+    // Working in someone else's workspace: refused, without saying whose.
+    const theirs = await run(
       emailDomainAdd,
       { workspaceId: outsiderWsId, domain: `elsewhere-${u}.com` },
       outsider,
+    );
+    await rows(
+      admin(),
+      sql`update app.email_domains set status = 'verified', ownership_proved_at = now()
+          where id = ${theirs.emailDomainId}`,
     );
     const taken = await expectHfos(
       () => run(emailDomainAdd, { workspaceId: wsId, domain: `elsewhere-${u}.com` }, owner),
@@ -228,6 +233,8 @@ describe('email settings', () => {
     );
     expect(taken.status).toBe(409);
     expect(taken.message).not.toMatch(/Someone Else/);
+    // A claim still waiting squats nothing (M19): another business can set the same name up.
+    await run(emailDomainAdd, { workspaceId: outsiderWsId, domain: DOMAIN }, outsider);
     await expectHfos(
       () => run(emailDomainAdd, { workspaceId: wsId, domain: `member-${u}.com` }, member),
       'forbidden',
@@ -286,12 +293,23 @@ describe('email settings', () => {
     const halfway = await verifiedAt();
     expect(halfway.dkim).not.toBeNull();
     expect(halfway.rp).toBeNull();
+    // Both records, but not yet the token that says this business set the name up (M19).
     expect(
       await sys(emailDomainRecord, {
         workspaceId: wsId,
         emailDomainId: domainId,
         dkimVerified: true,
         returnPathVerified: true,
+        ownershipFound: false,
+      }),
+    ).toMatchObject({ status: 'pending', changed: true });
+    expect(
+      await sys(emailDomainRecord, {
+        workspaceId: wsId,
+        emailDomainId: domainId,
+        dkimVerified: true,
+        returnPathVerified: true,
+        ownershipFound: true,
       }),
     ).toMatchObject({ status: 'verified', changed: true });
     expect(
@@ -330,14 +348,18 @@ describe('email settings', () => {
       'email_domain.checked',
       'email_domain.checked',
       'email_domain.checked',
+      'email_domain.checked',
     ]);
     expect(evs[1]!.payload).toEqual({ domain: DOMAIN, providerDomainId: null });
     expect(evs.slice(2).map((e) => e.payload)).toEqual([
       { status: 'pending', changed: false, from: 'pending' },
       { status: 'failed', changed: true, from: 'pending' },
-      { status: 'verified', changed: true, from: 'failed' },
+      { status: 'pending', changed: true, from: 'failed' },
+      { status: 'verified', changed: true, from: 'pending' },
       { status: 'verified', changed: false, from: 'verified' },
     ]);
+    expect(d.ownershipProvedAt).not.toBeNull();
+    expect(d.ownershipHost).toBe(`_hfos-verify.${DOMAIN}`);
   });
 
   it('adds addresses on the shared subdomain and on a verified domain; the default moves in one step', async () => {
@@ -663,7 +685,11 @@ describe('email settings', () => {
     const removed = (await eventsFor(domainId)).find(
       (e) => e.event_type === 'email_domain.removed',
     );
-    expect(removed?.payload).toEqual({ domain: DOMAIN, providerDomainId: '4410123' });
+    expect(removed?.payload).toEqual({
+      domain: DOMAIN,
+      providerDomainId: '4410123',
+      inboundServerId: null,
+    });
     await expectHfos(
       () => run(emailDomainVerify, { workspaceId: wsId, emailDomainId: domainId }, owner),
       'not_found',

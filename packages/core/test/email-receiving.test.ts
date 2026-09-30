@@ -8,15 +8,24 @@ import { closeTestDbs, createTestUser, testDbs, uniq, type TestUser } from '@hfo
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { HfosError } from '../src/errors';
-import { executeCommand } from '../src/kernel/execute';
-import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
+import { executeCommand, executeQuery } from '../src/kernel/execute';
+import type {
+  CommandDef,
+  HumanActor,
+  QueryDef,
+  RequestMeta,
+  SystemActor,
+} from '../src/kernel/types';
 import {
   emailAddressCreate,
   emailDomainAdd,
   emailDomainReceive,
+  emailDomainRecord,
+  emailDomainRecordInbound,
   emailDomainRecordReceiving,
   emailDomainRemove,
   emailDomainStopReceiving,
+  emailSetupStatus,
   organizationCreate,
   ownBusinessSet,
 } from '../src/server';
@@ -35,6 +44,11 @@ const run = <I extends z.ZodType, O extends z.ZodType>(
   input: unknown,
   u: TestUser,
 ) => executeCommand(db(), cmd, input, human(u), meta()).then((r) => r.output);
+const ask = <I extends z.ZodType, O extends z.ZodType>(
+  q: QueryDef<I, O>,
+  input: unknown,
+  u: TestUser,
+) => executeQuery(db(), q, input, human(u), meta());
 const sys = <I extends z.ZodType, O extends z.ZodType>(
   cmd: CommandDef<I, O>,
   input: unknown,
@@ -98,7 +112,7 @@ async function verifiedDomain(
   );
   await rows(
     admin(),
-    sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now()
+    sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now(), ownership_proved_at = now()
         where id = ${emailDomainId}`,
   );
   return emailDomainId;
@@ -144,6 +158,18 @@ beforeAll(async () => {
   );
 });
 afterAll(closeTestDbs);
+
+/** A business of its own, for tests that add domains (a business holds up to 3). */
+async function freshBusiness(name: string) {
+  const { output } = await executeCommand(
+    db(),
+    organizationCreate,
+    { businessName: name },
+    human(owner),
+    meta(),
+  );
+  return { workspaceId: output.workspaceId, organizationId: output.organizationId };
+}
 
 describe('marking HandsFreeOS’s own business', () => {
   it('is a staff admin’s, once; a support agent and the business itself can’t', async () => {
@@ -241,7 +267,7 @@ describe('handsfreeos.com', () => {
 });
 
 describe('receiving at a business’s own domain', () => {
-  it('waits for a verified domain, and for now only HandsFreeOS’s own business can turn it on', async () => {
+  it('waits for a verified domain, and is open to every business, one at a time per name', async () => {
     const pending = await run(
       emailDomainAdd,
       { workspaceId: ours.workspaceId, domain: `${token()}.example.com` },
@@ -252,16 +278,28 @@ describe('receiving at a business’s own domain', () => {
       'rule_violation',
       'email_domain_unverified',
     );
-    const elsewhere = await verifiedDomain(theirs, `${token()}.example.com`);
+    // Any business, not only HandsFreeOS's own (M19 step 6).
+    const name = `${token()}.example.com`;
+    const elsewhere = await verifiedDomain(theirs, name);
+    expect(
+      await run(
+        emailDomainReceive,
+        { workspaceId: theirs.workspaceId, emailDomainId: elsewhere },
+        owner,
+      ),
+    ).toMatchObject({ receiving: 'pending', changed: true });
+    // The name moves to another business, which proves it while the first still receives its mail: it waits.
+    await rows(
+      admin(),
+      sql`update app.email_domains set status = 'failed' where id = ${elsewhere}`,
+    );
+    const next = await freshBusiness('Lone Star Moving');
+    const moving = await verifiedDomain(next, name);
     await expectHfos(
       () =>
-        run(
-          emailDomainReceive,
-          { workspaceId: theirs.workspaceId, emailDomainId: elsewhere },
-          owner,
-        ),
+        run(emailDomainReceive, { workspaceId: next.workspaceId, emailDomainId: moving }, owner),
       'rule_violation',
-      'email_receiving_not_yet',
+      'email_domain_receiving_elsewhere',
     );
     await expectHfos(
       () =>
@@ -335,5 +373,92 @@ describe('receiving at a business’s own domain', () => {
         payload: { domain: expect.any(String), inboundServerId: null },
       },
     ]);
+  });
+});
+
+describe('a domain several businesses claim (M19 step 6)', () => {
+  it('is verified for the business whose token is published, and waits while another has it working', async () => {
+    const [ours, theirs] = await Promise.all([
+      freshBusiness('Claims One'),
+      freshBusiness('Claims Two'),
+    ]);
+    const name = `${token()}.example.com`;
+    const mine = await run(emailDomainAdd, { workspaceId: ours.workspaceId, domain: name }, owner);
+    // A claim still waiting squats nothing: the other business sets the same name up.
+    const other = await run(
+      emailDomainAdd,
+      { workspaceId: theirs.workspaceId, domain: name },
+      owner,
+    );
+    const records = { dkimVerified: true, returnPathVerified: true };
+    // Records Postmark shares between the two claims, but not this business's token: not verified.
+    expect(
+      await sys(
+        emailDomainRecord,
+        { workspaceId: ours.workspaceId, ...mine, ...records, ownershipFound: false },
+        ours,
+      ),
+    ).toMatchObject({ status: 'pending' });
+    expect(
+      await sys(
+        emailDomainRecord,
+        { workspaceId: theirs.workspaceId, ...other, ...records, ownershipFound: true },
+        theirs,
+      ),
+    ).toMatchObject({ status: 'verified' });
+    // Proved here too now, but the other business has it working: this one waits, and says so.
+    expect(
+      await sys(
+        emailDomainRecord,
+        { workspaceId: ours.workspaceId, ...mine, ...records, ownershipFound: true },
+        ours,
+      ),
+    ).toMatchObject({ status: 'pending' });
+    const [waiting] = await rows<{ last_error: string; proved: boolean }>(
+      admin(),
+      sql`select last_error, ownership_proved_at is not null as proved
+          from app.email_domains where id = ${mine.emailDomainId}`,
+    );
+    expect(waiting).toEqual({
+      last_error: `Another HandsFreeOS business still has ${name} working. This one waits until they remove it there; we keep checking.`,
+      proved: true,
+    });
+    // While it's working elsewhere, nobody adds it again.
+    await expectHfos(
+      () => run(emailDomainAdd, { workspaceId: ours.workspaceId, domain: name }, owner),
+      'rule_violation',
+      'email_domain_taken',
+    );
+  });
+
+  it('keeps the server that receives a domain’s mail, and why Postmark refused one', async () => {
+    const ours = await freshBusiness('Inbound Servers');
+    const id = await verifiedDomain(ours, `${token()}.example.com`);
+    const ref = { workspaceId: ours.workspaceId, emailDomainId: id };
+    await run(emailDomainReceive, ref, owner);
+    expect(await sys(emailDomainRecordInbound, { ...ref, serverId: '5550123' }, ours)).toEqual({
+      emailDomainId: id,
+      receiving: 'pending',
+    });
+    const refusal = 'HandsFreeOS can’t take on another domain’s mail right now.';
+    expect(
+      await sys(emailDomainRecordInbound, { ...ref, serverId: null, error: refusal }, ours),
+    ).toEqual({ emailDomainId: id, receiving: 'off' });
+    const shown = (
+      await ask(emailSetupStatus, { workspaceId: ours.workspaceId }, owner)
+    ).domains.find((d) => d.id === id)!;
+    expect(shown).toMatchObject({ receiving: 'off', receivingError: refusal });
+    // Asking again; the server the worker then records clears it. Only the worker records servers.
+    expect(await run(emailDomainReceive, ref, owner)).toMatchObject({ receiving: 'pending' });
+    await sys(emailDomainRecordInbound, { ...ref, serverId: '5550123' }, ours);
+    expect(
+      (await ask(emailSetupStatus, { workspaceId: ours.workspaceId }, owner)).domains.find(
+        (d) => d.id === id,
+      ),
+    ).toMatchObject({ receiving: 'pending', receivingError: null });
+    await expectHfos(
+      () => run(emailDomainRecordInbound, { ...ref, serverId: '1' }, owner),
+      'forbidden',
+    );
   });
 });

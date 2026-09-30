@@ -10,6 +10,7 @@ import {
   emailAddressUpdate,
   emailDomainAdd,
   emailDomainReceive,
+  emailDomainStopReceiving,
   executeCommand,
   messageSend,
   organizationCreate,
@@ -146,7 +147,7 @@ async function domainWith(
   await drain();
   await rows(
     admin(),
-    sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now(),
+    sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now(), ownership_proved_at = now(),
           receiving = ${receiving}::app.email_receiving_status
         where id = ${emailDomainId}`,
   );
@@ -181,7 +182,7 @@ beforeAll(async () => {
   );
   workspaceId = output.workspaceId;
   organizationId = output.organizationId;
-  // Until every business can (M19 step 6), only HandsFreeOS's own turns receiving on.
+  // HandsFreeOS's own business, for the handsfreeos.com cases; every other business receives the same way.
   await rows(admin(), sql`update app.workspaces set is_platform = true where id = ${workspaceId}`);
   mike = `mike-${token()}@example.com`;
   mikeId = (
@@ -364,17 +365,101 @@ describe('turning receiving on', () => {
   });
 });
 
-describe('removing handsfreeos.com from a business', () => {
-  it('leaves it at the mail service, where HandsFreeOS’s own mail still sends as it', async () => {
-    const removed: string[] = [];
-    const ctx = (domain: string) =>
-      ({
-        event: { payload: { domain, providerDomainId: `pm-${domain}` } },
-        email: { domains: { remove: async (id: string) => void removed.push(id) } },
-      }) as unknown as Parameters<typeof onEmailDomainRemoved>[0];
+describe('removing a domain from a business', () => {
+  const removed: string[] = [];
+  const closed: string[] = [];
+  const ctx = (domain: string, inboundServerId: string | null = null) =>
+    ({
+      tx: admin(),
+      event: { payload: { domain, providerDomainId: `pm-${domain}`, inboundServerId } },
+      email: {
+        domains: {
+          remove: async (id: string) => void removed.push(id),
+          closeInbound: async (id: string) => void closed.push(id),
+        },
+      },
+    }) as unknown as Parameters<typeof onEmailDomainRemoved>[0];
+
+  it('leaves handsfreeos.com at the mail service, where HandsFreeOS’s own mail still sends as it', async () => {
+    removed.length = 0;
     await onEmailDomainRemoved(ctx('handsfreeos.com'));
-    await onEmailDomainRemoved(ctx('lonestarhvac.com'));
-    expect(removed).toEqual(['pm-lonestarhvac.com']);
+    await onEmailDomainRemoved(ctx(`gone-${token()}.example.com`));
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toMatch(/^pm-gone-/);
+  });
+
+  it('stops its server receiving, but leaves a name another business still claims (M19)', async () => {
+    removed.length = 0;
+    closed.length = 0;
+    const domain = `claimed-${token()}.example.com`;
+    // Another claim on the same name is still there: Postmark's one domain for it is that claim's too.
+    await rows(
+      admin(),
+      sql`insert into app.email_domains (workspace_id, domain) values (${workspaceId}, ${domain})`,
+    );
+    await onEmailDomainRemoved(ctx(domain, 'server-1'));
+    expect(closed).toEqual(['server-1']);
+    expect(removed).toEqual([]);
+  });
+});
+
+describe('a receiving domain’s own Postmark server (M19 step 6)', () => {
+  const serverOf = async (id: string) =>
+    (
+      await rows<{ server: string | null; receiving: string; error: string | null }>(
+        admin(),
+        sql`select inbound_server_id as server, receiving::text as receiving, receiving_error as error
+            from app.email_domains where id = ${id}`,
+      )
+    )[0]!;
+  const receive = (emailDomainId: string) =>
+    executeCommand(api(), emailDomainReceive, { workspaceId, emailDomainId }, actor(owner), meta());
+  afterEach(async () => {
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set status = 'cancelled'
+          where kind = ${EMAIL_RECEIVING_CHECK_JOB} and status = 'pending' and workspace_id = ${workspaceId}`,
+    );
+  });
+
+  it('is made when the business asks to receive, and stops when it stops', async () => {
+    const domain = `server-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    await receive(domainId);
+    await drain();
+    expect(await serverOf(domainId)).toEqual({
+      server: `local-inbound-${domain}`,
+      receiving: 'on',
+      error: null,
+    });
+    await executeCommand(
+      api(),
+      emailDomainStopReceiving,
+      { workspaceId, emailDomainId: domainId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'off', error: null });
+  });
+
+  it('says why when Postmark won’t receive the domain, and receiving goes back off', async () => {
+    const full = await domainWith(`full-${token()}.example.com`, 'off', 'office');
+    await receive(full.domainId);
+    await drain();
+    expect(await serverOf(full.domainId)).toMatchObject({
+      server: null,
+      receiving: 'off',
+      error: expect.stringContaining('can’t take on another domain’s mail right now'),
+    });
+    const taken = await domainWith(`elsewhere-${token()}.example.com`, 'off', 'sales');
+    await receive(taken.domainId);
+    await drain();
+    expect(await serverOf(taken.domainId)).toMatchObject({
+      server: null,
+      receiving: 'off',
+      error: expect.stringContaining('another Postmark account'),
+    });
   });
 });
 

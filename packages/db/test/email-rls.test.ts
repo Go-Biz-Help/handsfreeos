@@ -156,7 +156,7 @@ describe('a workspace domain', () => {
     )((tx) =>
       rows(
         tx,
-        sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now()
+        sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now(), ownership_proved_at = now()
             where id = ${d!.id}`,
       ),
     );

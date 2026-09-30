@@ -1,4 +1,5 @@
 import { eq, type SQL } from 'drizzle-orm';
+import { HANDSFREEOS_DOMAIN } from '@hfos/core';
 import {
   carrierHasDetails,
   conversationReopen,
@@ -34,6 +35,7 @@ import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
 import {
   EMAIL_RECEIVING_CHECK_JOB,
   domainRecordInput,
+  ownershipFound,
   lapsedMessage,
   receivingCheckKey,
   sharedAddress,
@@ -296,7 +298,11 @@ export async function checkEmailDomain(
   );
   if (!d?.providerDomainId) return;
   const state = await services.email.domains.verify(d.providerDomainId);
-  const passes = state.dkimVerified && state.returnPathVerified;
+  // A claim is verified once its token was found too (M19): a waiting one is looked at again every day.
+  const found = await ownershipFound(services.email.domains, d);
+  const proved = !!d.ownershipProvedAt || found === true || d.domain === HANDSFREEOS_DOMAIN;
+  const records = state.dkimVerified && state.returnPathVerified;
+  const passes = records && proved;
   if (passes === (d.status === 'verified')) return;
   await executeCommand(
     services.db,
@@ -305,7 +311,8 @@ export async function checkEmailDomain(
       workspaceId: scope.workspaceId,
       emailDomainId: d.id,
       ...domainRecordInput(state),
-      ...(passes ? {} : { error: lapsedMessage(state, shared) }),
+      ...(found === undefined ? {} : { ownershipFound: found }),
+      ...(records ? {} : { error: lapsedMessage(state, shared) }),
     },
     systemActor(scope),
     workerMeta(),

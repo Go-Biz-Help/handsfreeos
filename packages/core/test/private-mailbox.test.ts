@@ -148,8 +148,8 @@ beforeAll(async () => {
   domain = `${token()}.example.com`;
   const [d] = await rows<{ id: string }>(
     admin$(),
-    sql`insert into app.email_domains (workspace_id, domain, status, receiving)
-        values (${wsId}, ${domain}, 'verified', 'on') returning id`,
+    sql`insert into app.email_domains (workspace_id, domain, status, receiving, ownership_proved_at)
+        values (${wsId}, ${domain}, 'verified', 'on', now()) returning id`,
   );
   domainId = d!.id;
   chrisAddress = (

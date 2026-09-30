@@ -18,7 +18,7 @@
 import { eq } from 'drizzle-orm';
 import { scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { emailDomains, paymentConnections, telephonyAccounts, workspaces } from '@hfos/db/schema';
+import { paymentConnections, telephonyAccounts, workspaces } from '@hfos/db/schema';
 import type { EventHandler } from '../handlers/types';
 import { assertInWorkspace } from '../handlers/file-removed';
 import { forgetPublicOrigin } from '../hosting/origin';
@@ -90,10 +90,22 @@ export const deleteWorkspaceJob: JobHandler = async (ctx) => {
       })
       .from(paymentConnections)
       .where(eq(paymentConnections.workspaceId, workspaceId));
-    const mailDomains = await tx
-      .select({ providerDomainId: emailDomains.providerDomainId })
-      .from(emailDomains)
-      .where(eq(emailDomains.workspaceId, workspaceId));
+    // Only the names nobody else has a claim on, as with branded domains below: Postmark keeps one domain per
+    // name, and another business may be using it (M19). Each receiving domain's server stops either way, unless
+    // another business receives the name now.
+    const mailDomains = await rows<{
+      provider_domain_id: string | null;
+      inbound_server_id: string | null;
+      claimed: boolean;
+      received_elsewhere: boolean;
+    }>(
+      tx,
+      sql`select d.provider_domain_id, d.inbound_server_id,
+            private.email_domain_claimed(d.domain, ${workspaceId}) as claimed,
+            (select h.receiving from private.email_domain_held_elsewhere(d.domain, d.id) h) as received_elsewhere
+          from app.email_domains d
+          where d.workspace_id = ${workspaceId}`,
+    );
     // Only the names nobody else has a claim on: another business may be working on the same one.
     const branded = await rows<{ domain: string }>(
       tx,
@@ -131,12 +143,21 @@ export const deleteWorkspaceJob: JobHandler = async (ctx) => {
   // 3. Everything else outside, best effort.
   for (const c of found.payments) await tellProviderDisconnected(ctx, c);
   for (const d of found.mailDomains) {
-    if (!d.providerDomainId) continue;
+    if (d.inbound_server_id && !d.received_elsewhere)
+      try {
+        await ctx.email.domains.closeInbound(d.inbound_server_id);
+      } catch (e) {
+        ctx.log.warn(
+          { workspaceId, inboundServerId: d.inbound_server_id, err: errorMessage(e) },
+          'a deleted business’s receiving domain was not taken off the provider',
+        );
+      }
+    if (!d.provider_domain_id || d.claimed) continue;
     try {
-      await ctx.email.domains.remove(d.providerDomainId);
+      await ctx.email.domains.remove(d.provider_domain_id);
     } catch (e) {
       ctx.log.warn(
-        { workspaceId, providerDomainId: d.providerDomainId, err: errorMessage(e) },
+        { workspaceId, providerDomainId: d.provider_domain_id, err: errorMessage(e) },
         'a deleted business’s sending domain was not taken off the provider',
       );
     }

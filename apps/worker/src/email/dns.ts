@@ -60,6 +60,17 @@ export async function cnameInDns(
   return found.some((t) => hostName(t) === hostName(target));
 }
 
+/** Whether a TXT record at the host is exactly the token: true, false, or null when DNS did not answer. */
+export async function tokenInDns(
+  lookup: DnsLookup,
+  host: string,
+  token: string,
+): Promise<boolean | null> {
+  const found = await lookUp(() => lookup.txt(host));
+  if (found === null) return null;
+  return found.some((chunks) => chunks.join('').trim() === token);
+}
+
 /** Whether one of the domain's MX records names the host: true, false, or null when DNS did not answer. */
 export async function mxInDns(
   lookup: DnsLookup,

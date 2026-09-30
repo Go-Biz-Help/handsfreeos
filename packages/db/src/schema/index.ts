@@ -1380,7 +1380,8 @@ export const scheduledJobs = app.table('scheduled_jobs', {
 export const emailDomains = app.table('email_domains', {
   id: id(),
   workspaceId: workspaceRef(),
-  domain: text('domain').notNull().unique(),
+  /** One verified claim per name, and one receiving (M19): partial unique indexes in the migration. */
+  domain: text('domain').notNull(),
   providerDomainId: text('provider_domain_id'),
   dkimHost: text('dkim_host'),
   dkimValue: text('dkim_value'),
@@ -1397,6 +1398,13 @@ export const emailDomains = app.table('email_domains', {
   mxCheckedAt: ts('mx_checked_at'),
   /** The Postmark server that receives it; null for handsfreeos.com, which the support server receives. */
   inboundServerId: text('inbound_server_id'),
+  /** Why Postmark wouldn't receive its mail, the last time it was asked (M19). */
+  receivingError: text('receiving_error'),
+  /** Published at _hfos-verify.<domain>: which business set the name up, and when the worker found it (M19). */
+  ownershipToken: text('ownership_token')
+    .notNull()
+    .default(sql`encode(extensions.gen_random_bytes(16), 'hex')`),
+  ownershipProvedAt: ts('ownership_proved_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });

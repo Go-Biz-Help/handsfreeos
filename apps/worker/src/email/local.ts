@@ -6,7 +6,13 @@
 import { randomUUID } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import type { Logger } from 'pino';
-import type { DomainState, EmailDomains, EmailTransport } from './transport';
+import {
+  EmailError,
+  INBOUND_REFUSALS,
+  type DomainState,
+  type EmailDomains,
+  type EmailTransport,
+} from './transport';
 
 /** Not a secret: local and test webhooks use it, and the browser tests post with it. */
 export const LOCAL_WEBHOOK_PASSWORD = 'local-postmark-webhook-password';
@@ -32,6 +38,8 @@ export function createLocalEmail(opts: {
   const smtp = nodemailer.createTransport(opts.smtpUrl);
   const domains = new Map<string, { name: string; verified: boolean; checks: number }>();
   const mxChecks = new Map<string, number>();
+  /** The receiving domains' stand-in servers. */
+  const inbound = new Set<string>();
   const report = (payload: Record<string, unknown>) => {
     if (!opts.eventsUrl) return;
     const url = opts.eventsUrl;
@@ -131,6 +139,27 @@ export function createLocalEmail(opts: {
         mxChecks.set(domain, checks);
         // nomx-… never points here, and a lapsed-… domain does the first time, then stops (the daily check's case).
         return !(/^nomx-/.test(domain) || (/^lapsed-/.test(domain) && checks > 1));
+      },
+      // The token is always there, except on a squat-… domain, whose TXT record isn't this business's (M19).
+      async owns(domain) {
+        return !/^squat-/.test(domain);
+      },
+      // A server for every domain, except elsewhere-… (another account receives it) and full-… (no room left).
+      async openInbound(domain) {
+        if (/^elsewhere-/.test(domain))
+          throw new EmailError(
+            'The specified inbound domain is already registered or in use on another server.',
+            INBOUND_REFUSALS.elsewhere,
+            true,
+            422,
+          );
+        if (/^full-/.test(domain))
+          throw new EmailError('Entitlement limit reached.', INBOUND_REFUSALS.full, true, 422);
+        inbound.add(`local-inbound-${domain}`);
+        return `local-inbound-${domain}`;
+      },
+      async closeInbound(serverId) {
+        inbound.delete(serverId);
       },
     },
   };

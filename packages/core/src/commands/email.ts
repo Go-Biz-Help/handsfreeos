@@ -28,6 +28,8 @@ import {
   EmailClaimUnmatchedOutput,
   EmailDomainAddInput,
   EmailDomainReceivingOutput,
+  EmailDomainRecordInboundInput,
+  EmailDomainRecordInboundOutput,
   EmailDomainRecordInput,
   EmailDomainRecordOutput,
   EmailDomainRecordReceivingInput,
@@ -80,6 +82,22 @@ const unverified = (domain: string) =>
     409,
     `${domain} isn’t verified yet. Add its DNS records, then click Check now under Use your own domain in Settings → Email.`,
   );
+/** A claim that proved itself while another business still has the name working (M19). */
+const STILL_IN_USE = (domain: string) =>
+  `Another HandsFreeOS business still has ${domain} working. This one waits until they remove it there; we keep checking.`;
+/** Whether another business has the name verified, or receives its mail (M19). Never says which. */
+async function heldElsewhere(
+  ctx: CommandContext,
+  domain: string,
+  except: string | null,
+): Promise<{ verified: boolean; receiving: boolean }> {
+  const [r] = await rows<{ verified: boolean; receiving: boolean }>(
+    ctx.tx,
+    sql`select verified, receiving
+        from private.email_domain_held_elsewhere(${domain}, ${except ?? '00000000-0000-0000-0000-000000000000'}::uuid)`,
+  );
+  return { verified: !!r?.verified, receiving: !!r?.receiving };
+}
 const addressTaken = (address: string) =>
   HfosError.rule('email_address_taken', 409, `${address} is already taken. Pick another name.`);
 
@@ -253,27 +271,34 @@ export const emailDomainAdd = defineCommand({
         400,
         `${domain} is a public email service, so it can’t send for your business. Use a domain your business owns, like lonestarhvac.com.`,
       );
-    const [held] = await ctx.tx
+    const [mine] = await ctx.tx
       .select({ n: count() })
       .from(emailDomains)
       .where(eq(emailDomains.workspaceId, workspaceId));
-    if ((held?.n ?? 0) >= MAX_EMAIL_DOMAINS)
+    if ((mine?.n ?? 0) >= MAX_EMAIL_DOMAINS)
       throw HfosError.rule(
         'email_domain_limit',
         409,
         `A business can have up to ${MAX_EMAIL_DOMAINS} domains. Remove one under Use your own domain in Settings → Email to add another.`,
       );
-    const [row] = await ctx.tx
-      .insert(emailDomains)
-      .values({ workspaceId, domain, createdBy: userIdOf(ctx.actor) })
-      .onConflictDoNothing({ target: emailDomains.domain })
-      .returning({ id: emailDomains.id });
-    // A domain lives in one workspace; which one holds it is not ours to say.
-    if (!row)
+    // A claim still waiting elsewhere squats nothing (M19): only a name another business has working is refused,
+    // and which business that is is not ours to say.
+    if ((await heldElsewhere(ctx, domain, null)).verified)
       throw HfosError.rule(
         'email_domain_taken',
         409,
-        `${domain} is already set up in HandsFreeOS. If it isn’t listed under Use your own domain here, it’s in another business: remove it there first, or ask HandsFreeOS support through Get help.`,
+        `${domain} is already working in another HandsFreeOS business. Remove it there first, or ask HandsFreeOS support through Get help.`,
+      );
+    const [row] = await ctx.tx
+      .insert(emailDomains)
+      .values({ workspaceId, domain, createdBy: userIdOf(ctx.actor) })
+      .onConflictDoNothing({ target: [emailDomains.workspaceId, emailDomains.domain] })
+      .returning({ id: emailDomains.id });
+    if (!row)
+      throw HfosError.rule(
+        'email_domain_here',
+        409,
+        `${domain} is already under Use your own domain in Settings → Email.`,
       );
     await ctx.emit({
       type: 'email_domain.added',
@@ -341,7 +366,11 @@ export const emailDomainRemove = defineCommand({
       type: 'email_domain.removed',
       entityType: 'email_domain',
       entityId: d.id,
-      payload: { domain: d.domain, providerDomainId: d.providerDomainId },
+      payload: {
+        domain: d.domain,
+        providerDomainId: d.providerDomainId,
+        inboundServerId: d.inboundServerId,
+      },
       before: { domain: d.domain, status: d.status, addresses: onIt.map((a) => a.address) },
     });
     return { emailDomainId: d.id };
@@ -366,8 +395,17 @@ export const emailDomainRecord = defineCommand({
     const wasVerified = d.status === 'verified';
     const dkim = input.dkimVerified ?? wasVerified;
     const returnPath = input.returnPathVerified ?? wasVerified;
+    // The token says this business set the name up (M19); found once, it stays found. handsfreeos.com needs none:
+    // only HandsFreeOS's own business can hold it.
+    const proved =
+      !!d.ownershipProvedAt || input.ownershipFound === true || d.domain === HANDSFREEOS_DOMAIN;
+    // Another business has the name working: this claim waits rather than taking it (the index would refuse).
+    const waiting =
+      dkim && returnPath && proved && !wasVerified
+        ? (await heldElsewhere(ctx, d.domain, d.id)).verified
+        : false;
     const status =
-      dkim && returnPath
+      dkim && returnPath && proved && !waiting
         ? ('verified' as const)
         : input.error
           ? ('failed' as const)
@@ -375,8 +413,9 @@ export const emailDomainRecord = defineCommand({
     const patch: Partial<typeof emailDomains.$inferInsert> = {
       status,
       lastCheckedAt: now,
-      lastError: input.error ?? null,
+      lastError: input.error ?? (waiting ? STILL_IN_USE(d.domain) : null),
     };
+    if (proved && !d.ownershipProvedAt) patch.ownershipProvedAt = now;
     if (input.providerDomainId !== undefined) patch.providerDomainId = input.providerDomainId;
     if (input.dkimHost !== undefined) patch.dkimHost = input.dkimHost;
     if (input.dkimValue !== undefined) patch.dkimValue = input.dkimValue;
@@ -417,16 +456,18 @@ export const emailDomainReceive = defineCommand({
   async handler(ctx, input) {
     const d = await loadDomain(ctx, input.emailDomainId);
     if (d.status !== 'verified') throw unverified(d.domain);
-    // Each domain needs its own Postmark server, and creating them comes later (M19 step 6). Until then only
-    // handsfreeos.com receives, through the support desk's server.
-    if (!(await isOwnBusiness(ctx)))
-      throw HfosError.rule(
-        'email_receiving_not_yet',
-        409,
-        `Receiving mail at your own domain isn’t open to every business yet. Until it is, mail to ${d.domain} keeps arriving where it does now, and replies to what you send still come back to your Inbox.`,
-      );
     if (d.receiving === 'pending' || d.receiving === 'on')
       return { emailDomainId: d.id, receiving: d.receiving, changed: false };
+    // One business at a time receives a name's mail (M19): a domain moving between two businesses stops at the
+    // first before the second starts.
+    if ((await heldElsewhere(ctx, d.domain, d.id)).receiving)
+      throw HfosError.rule(
+        'email_domain_receiving_elsewhere',
+        409,
+        `Another HandsFreeOS business still receives mail at ${d.domain}. Click Stop receiving here in its Settings → Email first. If that business isn’t yours, ask HandsFreeOS support through Get help.`,
+      );
+    // Each domain gets a Postmark server of its own (the worker, on the event below); a refusal comes back as
+    // receivingError, which the next server it records clears.
     await ctx.tx
       .update(emailDomains)
       .set({ receiving: 'pending' })
@@ -512,6 +553,44 @@ export const emailDomainRecordReceiving = defineCommand({
         after: { domain: d.domain, receiving },
       });
     return { emailDomainId: d.id, receiving, changed };
+  },
+});
+
+/**
+ * Worker (M19): the Postmark server that receives a domain's mail now, or none any more (receiving stopped), or why
+ * Postmark wouldn't receive it: then receiving goes back off, and Settings → Email says why.
+ */
+export const emailDomainRecordInbound = defineCommand({
+  name: 'email_domain.record_inbound',
+  description:
+    'Worker: the Postmark server that receives a domain’s mail, or why Postmark would not receive it.',
+  risk: 1,
+  input: EmailDomainRecordInboundInput,
+  output: EmailDomainRecordInboundOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.inbound_recorded'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    const receiving = input.error ? ('off' as const) : d.receiving;
+    await ctx.tx
+      .update(emailDomains)
+      .set({ inboundServerId: input.serverId, receivingError: input.error ?? null, receiving })
+      .where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.inbound_recorded',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { serverId: input.serverId, refused: !!input.error },
+      before: { receiving: d.receiving },
+      after: {
+        domain: d.domain,
+        receiving,
+        ...(input.error ? { error: input.error } : {}),
+      },
+    });
+    return { emailDomainId: d.id, receiving };
   },
 });
 

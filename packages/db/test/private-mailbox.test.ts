@@ -60,7 +60,7 @@ beforeAll(async () => {
   await worker()((tx) =>
     rows(
       tx,
-      sql`update app.email_domains set status = 'verified', receiving = 'on' where id = ${d!.id}`,
+      sql`update app.email_domains set status = 'verified', receiving = 'on', ownership_proved_at = now() where id = ${d!.id}`,
     ),
   );
   const [c] = await as(owner)((tx) =>

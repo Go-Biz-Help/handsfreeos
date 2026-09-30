@@ -2,13 +2,14 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { HANDSFREEOS_DOMAIN } from '@hfos/core';
 import {
   emailDomainRecord,
+  emailDomainRecordInbound,
   emailReceive,
   emailSuppressionRecord,
   executeCommand,
   messageUpdateStatus,
   scheduleJob,
 } from '@hfos/core/server';
-import type { Tx } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   conversations,
   emailAddresses,
@@ -22,10 +23,13 @@ import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
 import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
 import { sendThroughMailbox } from '../mailbox/send';
 import {
+  INBOUND_REFUSALS,
   isPermanentEmailError,
   mailbox,
   type DomainState,
   type EmailAttachment,
+  type EmailDomains,
+  type EmailError,
 } from '../email/transport';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
 import { managers } from './telephony';
@@ -205,20 +209,34 @@ export async function sharedAddress(tx: Tx, workspaceId: string): Promise<string
   return a?.address ?? null;
 }
 
+/**
+ * Whether the claim's token is published (M19), looked up until it has been found once. handsfreeos.com needs none:
+ * only HandsFreeOS's own business can hold it. Undefined when nobody looked.
+ */
+export async function ownershipFound(
+  domains: EmailDomains,
+  d: { domain: string; ownershipToken: string; ownershipProvedAt: Date | null },
+): Promise<boolean | null | undefined> {
+  if (d.ownershipProvedAt || d.domain === HANDSFREEOS_DOMAIN) return undefined;
+  return domains.owns(d.domain, d.ownershipToken);
+}
+
 async function recordDomain(
   ctx: HandlerContext,
   scope: TenantScope,
-  emailDomainId: string,
+  d: { id: string; domain: string; ownershipToken: string; ownershipProvedAt: Date | null },
   state: DomainState | null,
   error?: string,
 ) {
+  const found = state ? await ownershipFound(ctx.email.domains, d) : undefined;
   await executeCommand(
     ctx.db,
     emailDomainRecord,
     {
       workspaceId: scope.workspaceId,
-      emailDomainId,
+      emailDomainId: d.id,
       ...(state ? domainRecordInput(state) : {}),
+      ...(found === undefined ? {} : { ownershipFound: found }),
       ...(error ? { error } : {}),
     },
     systemActor(scope),
@@ -235,10 +253,10 @@ export const onEmailDomainAdded: EventHandler = async (ctx) => {
   const d = await loadDomain(ctx);
   if (!d || d.providerDomainId) return;
   try {
-    await recordDomain(ctx, scope, d.id, await ctx.email.domains.create(d.domain));
+    await recordDomain(ctx, scope, d, await ctx.email.domains.create(d.domain));
   } catch (e) {
     if (!isPermanentEmailError(e)) throw e;
-    await recordDomain(ctx, scope, d.id, null, e.message);
+    await recordDomain(ctx, scope, d, null, e.message);
   }
 };
 
@@ -249,10 +267,10 @@ export const onEmailDomainVerifyRequested: EventHandler = async (ctx) => {
   if (!d) return;
   try {
     const id = d.providerDomainId ?? (await ctx.email.domains.create(d.domain)).providerDomainId;
-    await recordDomain(ctx, scope, d.id, await ctx.email.domains.verify(id));
+    await recordDomain(ctx, scope, d, await ctx.email.domains.verify(id));
   } catch (e) {
     if (!isPermanentEmailError(e)) throw e;
-    await recordDomain(ctx, scope, d.id, null, e.message);
+    await recordDomain(ctx, scope, d, null, e.message);
   }
 };
 
@@ -299,11 +317,71 @@ export const EMAIL_RECEIVING_CHECK_JOB = 'email_domain.receiving_check';
 export const receivingCheckKey = (emailDomainId: string) =>
   `email-receiving-check:${emailDomainId}`;
 
-/** A business asked to receive its mail at one of its domains (M19): look for its MX now. */
+/** What a business is told when Postmark won't receive its domain's mail (M19). */
+export function inboundRefusal(domain: string, e: EmailError): string {
+  if (e.code === INBOUND_REFUSALS.elsewhere)
+    return `${domain} is already set up to receive mail in another Postmark account, so it can’t receive here too. If you use Postmark yourself, remove ${domain} from your server’s inbound settings there, then click Receive mail here again. Otherwise, ask HandsFreeOS support through Get help.`;
+  if (e.code === INBOUND_REFUSALS.full)
+    return `HandsFreeOS can’t take on another domain’s mail right now. Ask HandsFreeOS support through Get help, and click Receive mail here again once they say it’s ready.`;
+  return `Postmark, which HandsFreeOS uses for email, wouldn’t set up ${domain} to receive mail. Try again in a minute, or ask HandsFreeOS support through Get help.`;
+}
+
+async function recordInbound(
+  ctx: HandlerContext,
+  scope: TenantScope,
+  emailDomainId: string,
+  serverId: string | null,
+  error?: string,
+) {
+  await executeCommand(
+    ctx.db,
+    emailDomainRecordInbound,
+    { workspaceId: scope.workspaceId, emailDomainId, serverId, ...(error ? { error } : {}) },
+    systemActor(scope),
+    metaOf(ctx),
+  );
+}
+
+/** Whether another business receives this name's mail now (M19), whose server that would be. Never says which. */
+async function receivedElsewhere(tx: Tx, domain: string): Promise<boolean> {
+  const [r] = await rows<{ receiving: boolean }>(
+    tx,
+    sql`select receiving from private.email_domain_held_elsewhere(${domain}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+  );
+  return !!r?.receiving;
+}
+
+/**
+ * A business asked to receive its mail at one of its domains (M19): give the domain a Postmark server of its own,
+ * posting to our webhook, then look for its MX. handsfreeos.com has the support desk's. A refusal turns receiving
+ * back off, and Settings → Email says why.
+ */
 export const onEmailDomainReceivingRequested: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const emailDomainId = ctx.event.entityId;
   if (!emailDomainId) return;
+  const d = await loadDomain(ctx);
+  // Removed, or turned off, while this waited.
+  if (!d || d.receiving === 'off') return;
+  if (d.domain !== HANDSFREEOS_DOMAIN && !d.inboundServerId)
+    try {
+      await recordInbound(ctx, scope, d.id, await ctx.email.domains.openInbound(d.domain));
+    } catch (e) {
+      if (!isPermanentEmailError(e)) throw e;
+      // No room left is ours to fix (the Postmark plan): loud, so somebody sees it.
+      if (e.code === INBOUND_REFUSALS.full)
+        ctx.log.error(
+          { workspaceId: scope.workspaceId, domain: d.domain },
+          'Postmark has no room for another receiving domain: move the account to the Platform plan',
+        );
+      else
+        ctx.log.warn(
+          { workspaceId: scope.workspaceId, domain: d.domain, code: e.code, err: e.message },
+          'Postmark would not receive a business’s domain',
+        );
+      await recordInbound(ctx, scope, d.id, null, inboundRefusal(d.domain, e));
+      return;
+    }
   await scheduleJob(
     ctx.tx,
     {
@@ -320,12 +398,43 @@ export const onEmailDomainReceivingRequested: EventHandler = async (ctx) => {
 };
 
 /**
- * The workspace removed its domain: remove it at the mail service too. Never handsfreeos.com (M19): HandsFreeOS's
- * own mail (no-reply@, alerts@, the support desk) sends as it, whichever business had it in its settings.
+ * A business stopped receiving at one of its domains (M19): its Postmark server stops too. Not when the business
+ * turned it on again meanwhile (the same server serves it), nor when another business has started receiving the
+ * name since (the server, found by its name, is theirs now).
+ */
+export const onEmailDomainReceivingStopped: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const p = ctx.event.payload as { domain?: string; inboundServerId?: string | null };
+  if (!p.inboundServerId || !p.domain) return;
+  const d = await loadDomain(ctx);
+  if (d && d.receiving !== 'off') return;
+  if (!(await receivedElsewhere(ctx.tx, p.domain)))
+    await ctx.email.domains.closeInbound(p.inboundServerId);
+  if (d?.inboundServerId === p.inboundServerId) await recordInbound(ctx, scope, d.id, null);
+};
+
+/**
+ * The workspace removed its domain: remove it at the mail service too, and stop its server receiving (M19). Never
+ * handsfreeos.com: HandsFreeOS's own mail (no-reply@, alerts@, the support desk) sends as it, whichever business had
+ * it in its settings. Nor a name another business still has a claim on: Postmark keeps one domain per name, and a
+ * claim given up must not take another business's working domain down.
  */
 export const onEmailDomainRemoved: EventHandler = async (ctx) => {
-  const p = ctx.event.payload as { domain?: string; providerDomainId?: string | null };
+  const p = ctx.event.payload as {
+    domain?: string;
+    providerDomainId?: string | null;
+    inboundServerId?: string | null;
+  };
+  if (p.inboundServerId && p.domain && !(await receivedElsewhere(ctx.tx, p.domain)))
+    await ctx.email.domains.closeInbound(p.inboundServerId);
   if (p.domain === HANDSFREEOS_DOMAIN) return;
+  if (p.domain) {
+    const [c] = await rows<{ claimed: boolean }>(
+      ctx.tx,
+      sql`select private.email_domain_claimed(${p.domain}) as claimed`,
+    );
+    if (c?.claimed) return;
+  }
   if (p.providerDomainId) await ctx.email.domains.remove(p.providerDomainId);
 };
 

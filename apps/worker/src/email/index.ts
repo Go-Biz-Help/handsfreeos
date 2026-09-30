@@ -19,6 +19,17 @@ export interface EmailServices {
   readonly bulkReady: boolean;
 }
 
+/**
+ * Where each receiving domain's Postmark server posts its mail (M19): the same inbound webhook as every other, with
+ * the basic auth Postmark sends (it signs nothing).
+ */
+function inboundHookUrl(env: WorkerEnv): string {
+  const url = new URL(`${env.publicUrl}/webhooks/postmark/inbound`);
+  url.username = env.postmarkWebhookUser;
+  url.password = env.postmarkWebhookPassword;
+  return url.toString();
+}
+
 export function createEmail(env: WorkerEnv, log: Logger): EmailServices {
   const base = {
     mailDomain: env.mailDomain,
@@ -34,6 +45,7 @@ export function createEmail(env: WorkerEnv, log: Logger): EmailServices {
         accountToken: env.postmarkAccountToken,
         stream: env.postmarkMessageStream,
         broadcastStream: env.postmarkBroadcastStream,
+        inboundHookUrl: inboundHookUrl(env),
       }),
     };
   return {
