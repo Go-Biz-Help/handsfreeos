@@ -231,7 +231,7 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
 
   await page.getByTestId('domain-input').fill(domain);
   await page.getByRole('button', { name: 'Add domain' }).click();
-  await expect(page.getByText('Domain added. Now add the two records.')).toBeVisible();
+  await expect(page.getByText('Domain added. Now add the records it shows.')).toBeVisible();
   await expect(page.getByTestId('domain-name')).toHaveText(domain);
   await expect(page.getByText('Waiting for DNS')).toBeVisible();
   // The worker asks the mail service for the records; they show a moment later.
@@ -241,6 +241,8 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
   }).toPass({ timeout: 20_000 });
   await expect(page.getByTestId('dns-TXT')).toContainText('pm._domainkey');
   await expect(page.getByTestId('dns-CNAME')).toContainText('pm-bounces');
+  // And the one that says this business set the domain up (M19).
+  await expect(page.getByTestId('dns-TXT-ownership')).toContainText('_hfos-verify');
 
   // The (local) mail service finds both records.
   await page.getByTestId('domain-check').click();

@@ -33919,17 +33919,21 @@ export interface operations {
                             id: string;
                             lastCheckedAt: string | null;
                             lastError: string | null;
-                            mxCheckedAt?: string | null;
-                            mxVerifiedAt?: string | null;
+                            mxCheckedAt: string | null;
+                            mxVerifiedAt: string | null;
+                            ownershipHost: string | null;
+                            ownershipProvedAt: string | null;
+                            ownershipToken: string;
                             /** @enum {string} */
-                            receiving?: "off" | "pending" | "on" | "lapsed";
+                            receiving: "off" | "pending" | "on" | "lapsed";
+                            receivingError: string | null;
                             returnPathHost: string | null;
                             returnPathValue: string | null;
                             returnPathVerifiedAt: string | null;
                             /** @enum {string} */
                             status: "pending" | "verified" | "failed";
                         }[];
-                        inboundMxHost?: string;
+                        inboundMxHost: string;
                         mailboxes: {
                             accountEmail: string | null;
                             connectedAt: string | null;
@@ -33946,7 +33950,7 @@ export interface operations {
                             userId: string | null;
                             userName: string | null;
                         }[];
-                        receivingOpen?: boolean;
+                        receivingOpen: boolean;
                         sharedDomain: string;
                     };
                 };

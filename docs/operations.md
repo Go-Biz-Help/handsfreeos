@@ -9,7 +9,7 @@ Some sections are split into named parts. The rest of this guide refers to them 
 - Fly Part 1 to Fly Part 10: "Hosting: the API and the worker on Fly.io".
 - Sync Part 1 to Sync Part 9: "Sync service: PowerSync on Fly".
 - Twilio Step 1 to Twilio Step 4: "The phone carrier: Twilio".
-- Postmark Part A to Postmark Part M: "Email: Postmark".
+- Postmark Part A to Postmark Part N: "Email: Postmark".
 - Stage 0 to Stage 9 (the go-live checklist) and Check 1 to Check 9 (the end-to-end check): "Going live, and when something goes wrong".
 
 A plain "step 5" means step 5 of the list you are reading, or of the part named next to it.
@@ -5214,6 +5214,73 @@ handsfreeos-worker`). Check **Settings → Email** shows **Receiving**, and that
   wrote to it.
 - **Chris leaves one day.** New mail to his address goes to the team's Inbox, and an owner decides in
   **Settings → Email** whether the address and its mail go to the team or to someone else, or are removed.
+
+### Postmark Part N: Every business's own mail
+
+Any business can receive its mail in HandsFreeOS at its own domain (M19). It clicks **Receive mail here** in
+**Settings → Email**, and the worker gives that domain a Postmark server of its own, named `Inbound · <domain>`.
+Each server receives only that domain and posts to the same webhook as every other
+(`WORKER_PUBLIC_URL/webhooks/postmark/inbound`, with the webhook password). The business then points its
+domain's MX record at `inbound.postmarkapp.com`, and the worker finds it within 15 minutes. You set up nothing per
+business.
+
+Before the first business turns it on:
+
+1. **Room for the servers.** Each receiving domain is one Postmark server. The Pro plan stops at 10 servers, and
+   Production, HandsFreeOS Support and the one Postmark made at sign-up already use three. Move the account to
+   the **Platform** plan, which has no limit, before the seventh business turns receiving on.
+   - When there's no room, the business sees "HandsFreeOS can't take on another domain's mail right now".
+   - The worker logs an error: "Postmark has no room for another receiving domain: move the account to the
+     Platform plan". Once you've upgraded, the business clicks **Receive mail here** again.
+2. **Letting servers go (optional).** Postmark removes a server through the API only if the account allows it.
+   Ask Postmark support to "allow deleting servers via the API".
+   - Without it, a domain that stops receiving keeps its server, unhooked: it has no inbound domain and no webhook,
+     so it receives nothing.
+   - The same domain turned on again reuses it. Unhooked servers still count toward the Pro plan's 10.
+3. **Nothing else.** The worker already has `POSTMARK_ACCOUNT_TOKEN`, `WORKER_PUBLIC_URL` and the webhook
+   password.
+
+What a business does, and what it sees:
+
+- **Its domain is verified with three records**, not two: DKIM, Return-Path, and a TXT record at
+  `_hfos-verify.<domain>` that says this business set the domain up.
+  - The third record matters because Postmark keeps one domain per name for the whole account. Two businesses
+    claiming the same name would share its DKIM key, so a DKIM record already in DNS says only that _somebody_ set
+    the name up.
+  - A claim still waiting squats nothing: another business can add the same name. Only one business at a time has
+    it working, and only one receives its mail.
+  - `handsfreeos.com` needs no third record, since only HandsFreeOS's own business may hold it.
+  - Domains already verified before this change keep working as they were.
+- **Receive mail here** shows once the domain is verified. It shows the MX record, the warning that all its mail
+  moves here, and **Stop receiving here**.
+- **Mail to an address the business hasn't added** goes to its default address, in the team's Inbox. Nothing is
+  lost to a typo.
+
+**Moving a business back to Google or Outlook:**
+
+1. At its DNS provider, point the MX records back at the old host.
+2. In **Settings → Email**, click **Stop receiving here**. Its server stops, and mail that still arrives is no
+   longer filed.
+
+Its mail already in HandsFreeOS stays. What it sends from then on carries a `mail.handsfreeos.com` Reply-To again,
+so customers' replies still reach its Inbox.
+
+If it goes wrong:
+
+- **"… is already set up to receive mail in another Postmark account"** (Postmark's code 602). Another Postmark
+  server, maybe the business's own account, holds the domain as its inbound domain. The business removes it
+  there, then clicks **Receive mail here** again.
+- **"Another HandsFreeOS business still receives mail at …".** The domain is moving between two businesses. The
+  first clicks **Stop receiving here**, then the second turns it on.
+- **"Another HandsFreeOS business still has … working. This one waits…".** Two businesses claimed the same name
+  and the other verified it first. It stays waiting, checked daily, until the other removes it.
+- **Stuck on "Waiting for the MX record".** Check the domain's MX with `dig MX <domain>`. It should name
+  `inbound.postmarkapp.com` and nothing else.
+- **Mail doesn't arrive.**
+  1. In Postmark, open the domain's `Inbound · <domain>` server → the inbound stream → **Activity**.
+  2. If the mail isn't there, the MX isn't pointing at Postmark yet.
+  3. If it's there with an error, check the webhook address on that server's inbound stream. It should be
+     `https://postmark:<webhook password>@hooks.handsfreeos.com/webhooks/postmark/inbound`.
 
 ### Where to look in Postmark
 

@@ -67,7 +67,28 @@ export interface EmailDomains {
    * didn't answer, which says nothing either way.
    */
   receives(domain: string): Promise<boolean | null>;
+  /**
+   * Whether the claim's token is published at the domain's ownership host (`_hfos-verify.<domain>`, M19): the
+   * business that set the name up is this one. Null when DNS didn't answer.
+   */
+  owns(domain: string, token: string): Promise<boolean | null>;
+  /**
+   * A server of the service's own that receives the domain's mail and posts it to our inbound webhook (M19), made
+   * or found again (a retry, or a domain that received before). Returns its id. Refusals are permanent
+   * `EmailError`s: see `INBOUND_REFUSALS`.
+   */
+  openInbound(domain: string): Promise<string>;
+  /** The domain's server stops receiving: removed, or unhooked where the service won't let us remove it. */
+  closeInbound(serverId: string): Promise<void>;
 }
+
+/** Why the service wouldn't receive a domain's mail (Postmark's codes; the local stand-in uses the same). */
+export const INBOUND_REFUSALS = {
+  /** Another server, in any account, already receives the domain. */
+  elsewhere: '602',
+  /** The account's plan has no room for another server. */
+  full: '614',
+} as const;
 
 /** A refusal. Permanent ones (a bad address, a stopped recipient) are recorded on the message; the rest retry. */
 export class EmailError extends Error {

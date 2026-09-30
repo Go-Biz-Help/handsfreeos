@@ -221,6 +221,7 @@ describe('registry', () => {
       'email_domain.receive',
       'email_domain.stop_receiving',
       'email_domain.record_receiving',
+      'email_domain.record_inbound',
       'email_address.create',
       'email_address.reassign',
       'email_address.update',

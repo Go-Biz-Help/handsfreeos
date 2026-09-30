@@ -1,8 +1,8 @@
 /**
  * Postmark over plain HTTPS: sending with the server token, workspace domains with the account token.
  */
-import { INBOUND_MX_HOST } from '@hfos/core';
-import { cnameInDns, dkimInDns, mxInDns, systemDns, type DnsLookup } from './dns';
+import { INBOUND_MX_HOST, ownershipHost } from '@hfos/core';
+import { cnameInDns, dkimInDns, mxInDns, systemDns, tokenInDns, type DnsLookup } from './dns';
 import {
   EmailError,
   mailbox,
@@ -103,6 +103,11 @@ export function createPostmark(opts: {
   broadcastStream?: string | null;
   /** DNS lookups for the domain checks (the system resolver unless a test passes its own). */
   dns?: DnsLookup;
+  /**
+   * Where each receiving domain's server posts its mail (M19): our inbound webhook, with the basic auth Postmark
+   * sends. Null leaves receiving at a business's own domain unavailable.
+   */
+  inboundHookUrl?: string | null;
 }): { transport: EmailTransport; domains: EmailDomains } {
   const server: Token = { header: 'X-Postmark-Server-Token', value: opts.serverToken };
   const account = (): Token => {
@@ -196,6 +201,74 @@ export function createPostmark(opts: {
         }
       },
       receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
+      owns: (domain, token) => tokenInDns(dns, ownershipHost(domain), token),
+      async openInbound(domain) {
+        if (!opts.inboundHookUrl)
+          throw new EmailError('WORKER_PUBLIC_URL is not set', 'no_inbound_hook', false);
+        // Only receiving: no sending, no raw copies, and the spam filter refusing only the worst (our own
+        // folders sort the rest, from the score it adds).
+        const settings = {
+          InboundDomain: domain,
+          InboundHookUrl: opts.inboundHookUrl,
+          InboundSpamThreshold: INBOUND_SPAM_THRESHOLD,
+          RawEmailEnabled: false,
+          SmtpApiActivated: false,
+        };
+        const name = inboundServerName(domain);
+        try {
+          const made = await call<PostmarkServer>(account(), 'POST', '/servers', {
+            Name: name,
+            Color: 'Green',
+            DeliveryType: 'Live',
+            ...settings,
+          });
+          return String(made.ID);
+        } catch (e) {
+          // 603: a server by this name already (a retry, or a domain that received before and was unhooked).
+          if (!(e instanceof EmailError && e.code === '603')) throw e;
+        }
+        const list = await call<{ Servers: PostmarkServer[] }>(
+          account(),
+          'GET',
+          `/servers?count=100&offset=0&name=${encodeURIComponent(name)}`,
+        );
+        const found = list.Servers.find((s) => s.Name === name);
+        if (!found)
+          throw new EmailError(`No Postmark server named ${name}`, 'no_inbound_server', false);
+        await call(account(), 'PUT', `/servers/${found.ID}`, settings);
+        return String(found.ID);
+      },
+      async closeInbound(serverId) {
+        try {
+          await call(account(), 'DELETE', `/servers/${serverId}`);
+          return;
+        } catch (e) {
+          // Gone already is what we were asking for.
+          if (e instanceof EmailError && e.httpStatus === 404) return;
+          // 604 and 605: this account may not remove servers through the API. Unhooked, it receives nothing, and
+          // the same domain turned on again finds it by its name.
+          if (!(e instanceof EmailError && (e.code === '604' || e.code === '605'))) throw e;
+        }
+        await call(account(), 'PUT', `/servers/${serverId}`, {
+          InboundDomain: '',
+          InboundHookUrl: '',
+        });
+      },
     },
   };
 }
+
+interface PostmarkServer {
+  ID: number;
+  Name: string;
+  InboundDomain?: string;
+}
+
+/**
+ * Postmark blocks inbound mail scoring above this before it reaches us (0 to 30). High, so it refuses only the
+ * worst: from 5 up, mail is kept in Spam (`SPAM_SCORE` in core), where a person can still find it.
+ */
+const INBOUND_SPAM_THRESHOLD = 15;
+
+/** Each receiving domain's server, named after it so it is found again. */
+export const inboundServerName = (domain: string): string => `Inbound · ${domain}`;

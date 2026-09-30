@@ -77,7 +77,7 @@ async function verifiedDomain(): Promise<{ id: string; domain: string }> {
   await worker()((tx) =>
     rows(
       tx,
-      sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now()
+      sql`update app.email_domains set status = 'verified', dkim_verified_at = now(), return_path_verified_at = now(), ownership_proved_at = now()
           where id = ${d!.id}`,
     ),
   );
@@ -228,8 +228,8 @@ describe('handsfreeos.com', () => {
       await rows(tx, sql`update app.workspaces set is_platform = true where id = ${wsB}`);
       const [d] = await rows<{ id: string }>(
         tx,
-        sql`insert into app.email_domains (workspace_id, domain, status)
-            values (${wsB}, 'handsfreeos.com', 'verified') returning id`,
+        sql`insert into app.email_domains (workspace_id, domain, status, ownership_proved_at)
+            values (${wsB}, 'handsfreeos.com', 'verified', now()) returning id`,
       );
       expect(d).toBeDefined();
       // Its names are the business's, except the ones the support desk and HandsFreeOS's own mail use.
@@ -246,8 +246,8 @@ describe('handsfreeos.com', () => {
         await rows(tx, sql`update app.workspaces set is_platform = true where id = ${wsB}`);
         const [d] = await rows<{ id: string }>(
           tx,
-          sql`insert into app.email_domains (workspace_id, domain, status)
-              values (${wsB}, 'handsfreeos.com', 'verified') returning id`,
+          sql`insert into app.email_domains (workspace_id, domain, status, ownership_proved_at)
+              values (${wsB}, 'handsfreeos.com', 'verified', now()) returning id`,
         );
         const kept = await expectPgError(() =>
           tx.transaction((inner) =>
@@ -294,5 +294,82 @@ describe('handsfreeos.com', () => {
       sql`select is_platform from app.workspaces where id = ${wsA}`,
     );
     expect(w!.is_platform).toBe(false);
+  });
+});
+
+describe('a domain several businesses claim (M19 step 6)', () => {
+  const claim = (u: TestUser, ws: string, domain: string, extra = sql``) =>
+    as(u)((tx) =>
+      rows<{ id: string; token: string; proved: boolean; receiving: string }>(
+        tx,
+        sql`insert into app.email_domains (workspace_id, domain, created_by ${extra})
+            values (${ws}, ${domain}, ${u.id}${extra.queryChunks.length ? sql`, now(), 'on'` : sql``})
+            returning id, ownership_token as token, ownership_proved_at is not null as proved,
+              receiving::text as receiving`,
+      ),
+    );
+
+  it('gets a token the business can’t choose, and nothing proved or received, whatever it inserts', async () => {
+    const domain = `${token()}.example.com`;
+    const [d] = await claim(owner, wsA, domain, sql`, ownership_proved_at, receiving`);
+    expect(d).toMatchObject({ proved: false, receiving: 'off' });
+    expect(d!.token).toMatch(/^[0-9a-f]{32}$/);
+    // Nor can it write the token, its proof or a refusal afterwards.
+    for (const set of [
+      sql`ownership_token = 'mine'`,
+      sql`ownership_proved_at = now()`,
+      sql`receiving_error = 'x'`,
+    ]) {
+      const refused = await expectPgError(() =>
+        as(owner)((tx) => rows(tx, sql`update app.email_domains set ${set} where id = ${d!.id}`)),
+      );
+      expect(refused.code).toBe('42501');
+    }
+  });
+
+  it('is pending in as many businesses as like, working in one, and received by one', async () => {
+    const domain = `${token()}.example.com`;
+    const [a] = await claim(owner, wsA, domain);
+    const [b] = await claim(outsider, wsB, domain);
+    // Nobody but the worker verifies, and only once the token was found.
+    const unproved = await expectPgError(() =>
+      dbs.admin.db.execute(
+        sql`update app.email_domains set status = 'verified' where id = ${a!.id}`,
+      ),
+    );
+    expect(unproved.code).toBe('23514');
+    const verify = (id: string) =>
+      dbs.admin.db.execute(
+        sql`update app.email_domains set status = 'verified', ownership_proved_at = now() where id = ${id}`,
+      );
+    await verify(a!.id);
+    expect((await expectPgError(() => verify(b!.id))).code).toBe('23505');
+    // What the other business may ask: whether the name is working or received elsewhere, not where.
+    const held = () =>
+      as(outsider)((tx) =>
+        rows<{ verified: boolean; receiving: boolean }>(
+          tx,
+          sql`select * from private.email_domain_held_elsewhere(${domain}, ${b!.id}::uuid)`,
+        ),
+      );
+    expect(await held()).toEqual([{ verified: true, receiving: false }]);
+    await dbs.admin.db.execute(
+      sql`update app.email_domains set receiving = 'on' where id = ${a!.id}`,
+    );
+    expect(await held()).toEqual([{ verified: true, receiving: true }]);
+    // One business receives a name at a time, whoever has verified it since.
+    await dbs.admin.db.execute(
+      sql`update app.email_domains set status = 'failed' where id = ${a!.id}`,
+    );
+    await verify(b!.id);
+    const twice = await expectPgError(() =>
+      dbs.admin.db.execute(
+        sql`update app.email_domains set receiving = 'pending' where id = ${b!.id}`,
+      ),
+    );
+    expect(twice.code).toBe('23505');
+    // The same business can't claim a name twice.
+    expect((await expectPgError(() => claim(owner, wsA, domain))).code).toBe('23505');
+    await dbs.admin.db.execute(sql`delete from app.email_domains where domain = ${domain}`);
   });
 });

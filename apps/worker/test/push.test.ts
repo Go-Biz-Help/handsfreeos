@@ -666,8 +666,8 @@ describe('the moments, on a business with phones', () => {
     const domain = `own-${randomUUID().slice(0, 8)}.example.com`;
     const [d] = await rows<{ id: string }>(
       admin(),
-      sql`insert into app.email_domains (workspace_id, domain, status, receiving, created_by)
-          values (${w.workspaceId}, ${domain}, 'verified', 'on', ${w.owner.id}) returning id`,
+      sql`insert into app.email_domains (workspace_id, domain, status, receiving, created_by, ownership_proved_at)
+          values (${w.workspaceId}, ${domain}, 'verified', 'on', ${w.owner.id}, now()) returning id`,
     );
     const [mine] = await rows<{ id: string }>(
       admin(),

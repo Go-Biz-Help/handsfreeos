@@ -299,7 +299,7 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
 - Before them, Steps 1–3's migrations go on the hosted database and Steps 1–4 reach `main`
   together, once CI and `sync.yml` are green on the branch.
 
-### Step 6 — Every business
+### Step 6 — Every business (built, 2026-09-30)
 
 1. Chris moves Postmark to the Platform plan, which has no limit on servers (Pro stops at 10).
 2. Email domains are held only once proved, as branded domains are (`20261012050100`).
@@ -307,6 +307,27 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
    webhook address.
 4. `docs/operations.md`: turning it on, the MX change, moving back to another host, and trouble.
 5. Offer it: a business turns it on in Settings → Email.
+
+**As built (2026-09-30):**
+
+- **Open to every business.** `email_domain.receive` no longer asks whether the business is HandsFreeOS's own.
+  The Postmark plan is the limit: Pro's 10 servers leave room for seven receiving domains. Past that, the
+  business is told to ask support, and the worker logs an error.
+- **A server per receiving domain.** The worker makes it when a business asks to receive
+  (`openInbound`), named `Inbound · <domain>` so a retry or a domain turned on again finds it.
+  - It only receives. It posts to the one webhook, and the spam threshold is 15, so Postmark refuses only the
+    worst.
+  - A refusal (602: another account receives the domain; 614: no room) turns receiving back off, and Settings →
+    Email says why (`receiving_error`).
+  - Stopping or removing closes the server: it's removed, or unhooked where Postmark won't let the API remove it.
+  - handsfreeos.com keeps the support desk's server.
+- **Proved by the business that claims it.** Every claim has a token for a TXT record at `_hfos-verify.<domain>`,
+  as branded domains do.
+  - A domain is verified only once its token was found.
+  - The unique index covers verified claims only, a pending claim squats nothing, and one business at a time
+    receives a name.
+  - Postmark keeps one domain per name, so giving a name back to Postmark waits until no business claims it.
+  - Domains verified before this change are recorded as proved.
 
 ## Not in this milestone
 

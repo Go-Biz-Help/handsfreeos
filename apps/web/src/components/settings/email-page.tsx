@@ -1,5 +1,5 @@
 'use client';
-import { firstName, INBOUND_MX_HOST, MAX_EMAIL_DOMAINS } from '@hfos/core';
+import { firstName, MAX_EMAIL_DOMAINS } from '@hfos/core';
 import { AtSign, CircleAlert, Globe, Lock, Plus, RotateCw, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -402,6 +402,7 @@ function RecordBox({
   value,
   verified,
   domain,
+  testId,
 }: {
   type: 'TXT' | 'CNAME' | 'MX';
   purpose: string;
@@ -409,9 +410,14 @@ function RecordBox({
   value: string;
   verified: boolean;
   domain: string;
+  /** Beside `dns-${type}`, for a second record of the same type. */
+  testId?: string;
 }) {
   return (
-    <div className="rounded-menu border border-border px-3.5 py-3" data-testid={`dns-${type}`}>
+    <div
+      className="rounded-menu border border-border px-3.5 py-3"
+      data-testid={testId ?? `dns-${type}`}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Badge variant="gray" className="font-mono text-[11.5px]">
@@ -449,7 +455,7 @@ function DomainAddForm({ workspaceId, onChanged }: { workspaceId: string; onChan
           body: { workspaceId, domain: input },
         }),
       );
-      toast.success('Domain added. Now add the two records.');
+      toast.success('Domain added. Now add the records it shows.');
       setInput('');
       onChanged();
     } catch (e) {
@@ -481,7 +487,7 @@ function DomainAddForm({ workspaceId, onChanged }: { workspaceId: string; onChan
         </p>
       ) : (
         <Hint>
-          Next you add two records where your domain is managed, such as GoDaddy, Cloudflare or
+          Next you add three records where your domain is managed, such as GoDaddy, Cloudflare or
           Namecheap.
         </Hint>
       )}
@@ -515,7 +521,7 @@ function AddAnotherDomain({
   return (
     <Section
       title="Another domain"
-      description="Send, and receive, at more than one domain: each needs its own two records."
+      description="Send, and receive, at more than one domain: each needs its own records."
     >
       <DomainAddForm
         workspaceId={workspaceId}
@@ -565,11 +571,16 @@ function OwnDomain({
       waiting.current = null;
       setJustChecked(true);
       if (domain.status === 'verified') toast.success(`${domain.domain} is verified`);
+      else if (domain.lastError) toast(domain.lastError);
+      else if (domain.dkimVerifiedAt && domain.returnPathVerifiedAt)
+        toast(
+          'Both mail records found. The record that says the domain is yours isn’t showing yet.',
+        );
       else if (domain.dkimVerifiedAt && !domain.returnPathVerifiedAt)
         toast('DKIM found. The Return-Path record isn’t showing yet.');
       else if (!domain.dkimVerifiedAt && domain.returnPathVerifiedAt)
         toast('Return-Path found. The DKIM record isn’t showing yet.');
-      else toast('Neither record is showing yet. DNS changes can take a few hours.');
+      else toast('Neither mail record is showing yet. DNS changes can take a few hours.');
     }
   }, [domain]);
 
@@ -679,15 +690,19 @@ function OwnDomain({
                   : `Added ${dayWord(domain.createdAt)}${domain.lastCheckedAt ? ` · last checked ${clockOf(domain.lastCheckedAt)}` : ''}`}
             </span>
           </div>
-          {status === 'failed' && domain.lastError ? (
-            <Callout tone="danger" icon={CircleAlert} className="mt-3">
+          {status !== 'verified' && domain.lastError ? (
+            <Callout
+              tone={status === 'failed' ? 'danger' : 'warning'}
+              icon={CircleAlert}
+              className="mt-3"
+            >
               {domain.lastError}
             </Callout>
           ) : null}
           {status !== 'verified' ? (
             <p className="mt-2.5 text-[13px] text-text-2">
               {hasRecords
-                ? 'Add these two records at your DNS provider. Changes can take a few hours to show up. We check once a day and email you when it works.'
+                ? `Add ${domain.ownershipHost ? 'these three records' : 'these two records'} at your DNS provider. Changes can take a few hours to show up. We check once a day and email you when it works.`
                 : 'Getting your records ready. They show here in a moment.'}
             </p>
           ) : null}
@@ -709,6 +724,18 @@ function OwnDomain({
                 verified={!!domain.returnPathVerifiedAt}
                 domain={domain.domain}
               />
+              {/* Which business set the name up (M19): the mail records alone say only that somebody did. */}
+              {domain.ownershipHost ? (
+                <RecordBox
+                  type="TXT"
+                  purpose="Says the domain is this business’s"
+                  host={domain.ownershipHost}
+                  value={domain.ownershipToken}
+                  verified={!!domain.ownershipProvedAt}
+                  domain={domain.domain}
+                  testId="dns-TXT-ownership"
+                />
+              ) : null}
             </div>
           ) : null}
           {status === 'verified' ? (
@@ -775,7 +802,7 @@ function OwnDomain({
               )}
             </div>
           ) : null}
-          {status === 'verified' && (receivingOpen || (domain.receiving ?? 'off') !== 'off') ? (
+          {status === 'verified' && (receivingOpen || domain.receiving !== 'off') ? (
             <Receiving
               workspaceId={workspaceId}
               domain={domain}
@@ -827,7 +854,7 @@ function Receiving({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<'start' | 'stop' | null>(null);
-  const receiving = domain.receiving ?? 'off';
+  const receiving = domain.receiving;
   async function start() {
     setBusy('start');
     const ok = await run(
@@ -888,6 +915,11 @@ function Receiving({
           <Badge variant="danger">Not receiving</Badge>
         ) : null}
       </div>
+      {receiving === 'off' && domain.receivingError ? (
+        <Callout tone="danger" icon={CircleAlert} className="mt-2" data-testid="receiving-error">
+          {domain.receivingError}
+        </Callout>
+      ) : null}
       {receiving === 'off' ? (
         <>
           <p className="mt-1.5 text-[13px] text-text-2">
@@ -1444,8 +1476,8 @@ export function EmailPage({
             displayName={displayName}
             hasDomainDefault={status.addresses.some((a) => a.isDefault && a.domain)}
             people={people}
-            receivingOpen={status.receivingOpen ?? false}
-            inboundMxHost={status.inboundMxHost ?? INBOUND_MX_HOST}
+            receivingOpen={status.receivingOpen}
+            inboundMxHost={status.inboundMxHost}
             onChanged={refresh}
           />
         ))}

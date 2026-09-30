@@ -131,6 +131,11 @@ export const EmailDomainRecordInput = z.object({
   returnPathValue: dnsHost,
   dkimVerified: z.boolean().optional(),
   returnPathVerified: z.boolean().optional(),
+  /**
+   * Whether the claim's token was at `_hfos-verify.<domain>` (M19). Null or absent when nobody looked (it was found
+   * before) or DNS didn't answer. Until it has been found, the domain is not verified.
+   */
+  ownershipFound: z.boolean().nullable().optional(),
   error: z.string().trim().min(1).max(2000).nullable().optional(),
 });
 export const EmailDomainRecordOutput = z.object({
@@ -144,6 +149,20 @@ export const EmailDomainReceivingOutput = z.object({
   emailDomainId: uuid,
   receiving: emailReceivingStatus,
   changed: z.boolean(),
+});
+/**
+ * Worker-only (M19): the Postmark server that now receives the domain's mail, or none any more, or why Postmark
+ * wouldn't receive it (receiving goes back off, and Settings → Email says why).
+ */
+export const EmailDomainRecordInboundInput = z.object({
+  workspaceId: uuid,
+  emailDomainId: uuid,
+  serverId: z.string().trim().min(1).max(64).nullable(),
+  error: z.string().trim().min(1).max(2000).optional(),
+});
+export const EmailDomainRecordInboundOutput = z.object({
+  emailDomainId: uuid,
+  receiving: emailReceivingStatus,
 });
 /** Worker-only: whether the domain's MX points at Postmark. Null when DNS didn't answer, which changes nothing. */
 export const EmailDomainRecordReceivingInput = z.object({
@@ -285,9 +304,18 @@ export const EmailDomainOut = z.object({
   lastError: z.string().nullable(),
   createdAt: isoDateTime,
   /** Whether its mail arrives here (M19), and when the worker last found and looked for its MX. */
-  receiving: emailReceivingStatus.optional(),
-  mxVerifiedAt: isoDateTime.nullable().optional(),
-  mxCheckedAt: isoDateTime.nullable().optional(),
+  receiving: emailReceivingStatus,
+  mxVerifiedAt: isoDateTime.nullable(),
+  mxCheckedAt: isoDateTime.nullable(),
+  /** Why Postmark wouldn't receive its mail the last time it was asked (M19). */
+  receivingError: z.string().nullable(),
+  /**
+   * The TXT record that says this business set the domain up (M19): its host and value, and when it was found.
+   * Null host for handsfreeos.com, which only HandsFreeOS's own business can hold, so it proves nothing.
+   */
+  ownershipHost: z.string().nullable(),
+  ownershipToken: z.string(),
+  ownershipProvedAt: isoDateTime.nullable(),
 });
 export const MailboxOut = z.object({
   id: uuid,
@@ -305,10 +333,10 @@ export const MailboxOut = z.object({
 export const EmailSetupStatusInput = z.object({ workspaceId: uuid });
 export const EmailSetupStatusOutput = z.object({
   sharedDomain: z.string(),
-  /** Whether this business can turn receiving on yet (M19: HandsFreeOS's own until every business can). */
-  receivingOpen: z.boolean().optional(),
+  /** Whether this business can turn receiving on (M19): every business can since step 6. */
+  receivingOpen: z.boolean(),
   /** Where a domain's MX points for its mail to arrive here. */
-  inboundMxHost: z.string().optional(),
+  inboundMxHost: z.string(),
   addresses: z.array(EmailAddressOut),
   domains: z.array(EmailDomainOut),
   mailboxes: z.array(MailboxOut),
