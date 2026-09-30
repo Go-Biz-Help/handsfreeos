@@ -67,7 +67,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         permissions: string[] | null;
       }>(
         tx,
-        sql`select private.effective_workspace_role(${ref.workspaceId})::text as role,
+        sql`select private.my_workspace_role(${ref.workspaceId})::text as role,
                    private.workspace_organization(${ref.workspaceId}) as org,
                    (select session_id from private.my_view_as(${ref.workspaceId})) as view_as,
                    private.my_permissions(${ref.workspaceId}) as permissions`,
@@ -81,7 +81,8 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         workspacePermissions: row.role ? (row.permissions ?? []) : [],
         orgRole: null,
         // A support person looking at a business they have no standing in (M13). Their reads are the ones
-        // the rules already allow a reader; every command is refused outright below.
+        // the rules already allow a reader; every command is refused outright below. The founder working in
+        // one (20261013002100) is not this: my_workspace_role gives them the owner's there while it is open.
         viewAs: !row.role && row.view_as ? { sessionId: row.view_as } : null,
       };
     }

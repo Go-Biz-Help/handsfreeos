@@ -4,6 +4,7 @@
  * Adding staff works the way adding someone to a business works — an invitation with a single-use link,
  * minted and sent by the worker, accepted only by the person it was addressed to. Looking at a business is
  * deliberately noisy: it needs a reason, it ends by itself, and the business finds it in its own audit log.
+ * The founder alone opens a business quietly, as its owner, until they leave (the owner's decision, 2026-09-30).
  */
 import { createHash } from 'node:crypto';
 import { and, desc, eq, isNull } from 'drizzle-orm';
@@ -317,7 +318,7 @@ export const supportStaffSaveProfile = defineCommand({
 export const platformViewAsStart = defineCommand({
   name: 'platform.view_as.start',
   description:
-    'Open a business read-only to see what the customer sees. Time limited, and written into their own audit log.',
+    'Open a business read-only to see what the customer sees. Time limited, and written into their own audit log. The founder opens it as its owner instead: no reason, no time limit, and the business is not told.',
   risk: 3,
   input: ViewAsStartInput,
   output: ViewAsStartOutput,
@@ -338,12 +339,25 @@ export const platformViewAsStart = defineCommand({
       throw HfosError.notFound(
         'That business isn’t there anymore. It may have been deleted. Refresh Businesses and pick it again.',
       );
+    /**
+     * The founder works in the business as its owner (20261013002100): no reason, no time limit, and nothing in
+     * the business's log. They never become a member, so they are on none of its lists. Everyone else looks,
+     * read-only, for a while, and says why. The database refuses a working session to anyone but the founder.
+     */
+    const [mine] = await ctx.tx
+      .select({ founder: staff.founder })
+      .from(staff)
+      .where(and(eq(staff.userId, me), eq(staff.status, 'active')));
+    const acting = mine?.founder === true;
+    const reason = input.reason ? input.reason : null;
+    if (!acting && (reason?.length ?? 0) < 3)
+      throw HfosError.validation([{ path: 'reason', message: 'Say why, in a few words.' }]);
     // One at a time: a look that was left open is closed by opening the next one.
     await ctx.tx
       .update(viewAsSessions)
       .set({ endedAt: new Date() })
       .where(and(eq(viewAsSessions.staffUserId, me), isNull(viewAsSessions.endedAt)));
-    const expiresAt = new Date(Date.now() + input.minutes * 60_000);
+    const expiresAt = acting ? null : new Date(Date.now() + input.minutes * 60_000);
     const [session] = await ctx.tx
       .insert(viewAsSessions)
       .values({
@@ -351,8 +365,9 @@ export const platformViewAsStart = defineCommand({
         workspaceId: ws.id,
         organizationId: ws.organizationId,
         ticketId: input.ticketId ?? null,
-        reason: input.reason,
+        reason,
         expiresAt,
+        acts: acting,
       })
       .returning({ id: viewAsSessions.id, startedAt: viewAsSessions.startedAt });
     await ctx.emit({
@@ -362,9 +377,10 @@ export const platformViewAsStart = defineCommand({
       payload: {
         workspaceId: ws.id,
         organizationId: ws.organizationId,
-        reason: input.reason,
-        expiresAt: expiresAt.toISOString(),
+        reason,
+        expiresAt: expiresAt?.toISOString() ?? null,
         ticketId: input.ticketId ?? null,
+        acting,
       },
     });
     return {
@@ -372,9 +388,10 @@ export const platformViewAsStart = defineCommand({
         id: session!.id,
         workspaceId: ws.id,
         businessName: ws.name,
-        reason: input.reason,
+        reason,
         startedAt: session!.startedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        expiresAt: expiresAt?.toISOString() ?? null,
+        acting,
       },
     };
   },

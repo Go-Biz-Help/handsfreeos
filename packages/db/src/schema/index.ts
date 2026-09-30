@@ -4837,6 +4837,8 @@ export const staff = platform.table('staff', {
   displayName: text('display_name').notNull().default(''),
   signature: text('signature').notNull().default(''),
   invitedBy: userRef('invited_by'),
+  /** The one person who may open any business as its owner. Set at the database's console, never by a request. */
+  founder: boolean('founder').notNull().default(false),
   ...timestamps(),
 });
 
@@ -4950,10 +4952,14 @@ export const viewAsSessions = platform.table('view_as_sessions', {
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   ticketId: uuid('ticket_id').references(() => tickets.id, { onDelete: 'set null' }),
-  reason: text('reason').notNull(),
+  /** Why support looked. Null only on the founder's own sessions, which need none. */
+  reason: text('reason'),
   startedAt: ts('started_at').notNull().defaultNow(),
-  expiresAt: ts('expires_at').notNull(),
+  /** A look ends by itself; the founder's session has no end date and lasts until they leave. */
+  expiresAt: ts('expires_at'),
   endedAt: ts('ended_at'),
+  /** The founder working in the business as its owner, rather than support looking at it. */
+  acts: boolean('acts').notNull().default(false),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 

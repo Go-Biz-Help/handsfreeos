@@ -33,6 +33,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketI
       can={{
         assign: permissions.includes('support.assign'),
         viewAs: permissions.includes('platform.view_as'),
+        founder: me.staff?.founder === true,
       }}
       meUserId={userId}
     />

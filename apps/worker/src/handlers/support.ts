@@ -92,26 +92,32 @@ export const onSupportStaffInvitationResent = sendStaffInvitation;
 /**
  * A support person opened a business to look at it. The business is told where it will look for such a
  * thing: its own audit log, in its own workspace, with the reason and how long the look lasts.
+ *
+ * Not when the founder opened it to work in (20261013002100): that is kept quiet, by the owner's decision. The
+ * platform still has the session, and anything the founder changes is recorded like any owner's change.
  */
 export const onViewAsStarted: EventHandler = async (ctx) => {
   const sessionId = ctx.event.entityId;
   const p = ctx.event.payload as {
     workspaceId?: string;
     organizationId?: string;
-    reason?: string;
-    expiresAt?: string;
+    reason?: string | null;
+    expiresAt?: string | null;
+    acting?: boolean;
   };
-  if (!sessionId || !p.workspaceId || !p.organizationId) return;
+  if (!sessionId || !p.workspaceId || !p.organizationId || p.acting) return;
   const [who] = await asWorker(ctx.db, {}, (tx) =>
-    rows<{ name: string; email: string }>(
+    rows<{ name: string; email: string; acts: boolean }>(
       tx,
-      sql`select coalesce(nullif(s.display_name, ''), u.full_name, '') as name, u.email::text as email
+      sql`select coalesce(nullif(s.display_name, ''), u.full_name, '') as name, u.email::text as email,
+                 v.acts
           from platform.view_as_sessions v
           join platform.staff s on s.user_id = v.staff_user_id
           join app.users u on u.id = v.staff_user_id
           where v.id = ${sessionId}`,
     ),
   );
+  if (who?.acts) return;
   const scope = { workspaceId: p.workspaceId, organizationId: p.organizationId };
   await asWorker(ctx.db, scope, (tx) =>
     recordSystemEvent(tx, {

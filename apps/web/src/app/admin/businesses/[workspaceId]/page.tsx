@@ -46,7 +46,11 @@ export default async function BusinessPage({
           </p>
         </div>
         {me.staff?.permissions.includes('platform.view_as') ? (
-          <ViewAsButton workspaceId={b.workspaceId} businessName={b.name} />
+          <ViewAsButton
+            workspaceId={b.workspaceId}
+            businessName={b.name}
+            founder={me.staff.founder}
+          />
         ) : null}
       </div>
 
