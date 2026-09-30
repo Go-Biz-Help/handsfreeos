@@ -409,10 +409,45 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
   `addon_verify`; `app.ai_usage` source `addon` with `addon_id`. The lead page has a panel place, `lead.panels`.
 - Choice made for Chris (labels can change any time): the "Deal (…)" labels.
 
-### Step 7 — The catalog and the dates
+### Step 7 — The catalog and the dates (built, 2026-09-30)
 
 The 148 rows and 24 trackers, business days and holidays, due rules, conflict checks and the state machines, all
 pure and tested.
+
+**As built** (`packages/core/src/addons/realestate/`):
+
+- `catalog/`: every row of §13–§15 in order, with the specification's own words (title, phase, behaviour, owner,
+  mode, share) beside what the add-on needs: what creates it (entering a stage, a key date confirmed, or a named
+  moment such as an offer lost or a repair request), facts it depends on (financed, HOA, well, septic, solar,
+  open houses, a backup offer, and the rest), when it's due, what finishes it, who answers for it (agent,
+  coordinator or brokerage) and who does the work, its automation level and how much it matters. The 24 trackers
+  of §16 carry the defaults. A row on both sides can start at a different stage on each. `CATALOG_VERSION` 1.
+- `dates/`: federal holidays as observed (`us-federal-1`), business days with a business's own closed days, due
+  times with a replayable trace, and nine checks across a deal's dates.
+- `states.ts`: the two sides' stages, the named moves back, duty statuses and their moves.
+- Tests: the catalog (148 ids in order, all 24 trackers, sides, stages, dates and documents real), holidays for
+  2026 to 2028, business days, due times across a clock change, and the checks.
+
+**Defaults chosen for Chris** (each one a setting in the duty editor, step 12; say the word and they change):
+
+- Deadlines the specification leaves open: a seller lead answered within an hour; an offer logged within two
+  hours and read within four; CMAs within a business day; the buyer agreement within two business days of the
+  representation stage; inspections booked by three days after acceptance or four before the inspection period
+  ends, whichever comes first; the seller's disclosures three days before the listing goes live; photos five days
+  before; walkthrough access two days before closing; insurance ten days before closing; seller updates and
+  feedback reviews weekly; a price review every two weeks while active; post-close check-ins every 90 days and a
+  home anniversary each year.
+- Buyer offers: the first offer's CMA and offer (B-10, B-11) come with the first pass through Offer; B-15 and B-16
+  ("another CMA", "another offer") with each later one. An offer lost takes the deal back to Touring, a buyer's
+  terminated contract to Searching, a listing's to Active.
+- Ongoing rows (MLS searches, showing management, the contingency tracker, fair-housing guardrails and the like)
+  have no single deadline and no proof; they're kept up while the deal is in their stages.
+- Earnest money is tracked on listings (S-51) as the specification lists it; on buyer deals it's part of building
+  the contract's dates (X-15), which needs acceptance, earnest money and closing entered.
+- X-27 is the wire-fraud warning at contract (never automatic); the separate "wiring instructions changed" duty
+  with its phone check comes with step 9's `deal.report_wire_change`.
+- The Closing Disclosure check counts business days the same way as everything else (Monday to Friday, less
+  holidays), which is a day or so stricter than the federal rule that counts Saturdays.
 
 ### Step 8 — Deals, terms and the duty list
 
