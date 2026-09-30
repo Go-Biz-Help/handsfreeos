@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 
+import { cachedStaff } from '@/admin/staff';
 import { changes } from '@/changes';
 import { startCall } from '@/inbox/calls';
 import { appVersion } from '@/lib/app-version';
@@ -31,6 +32,7 @@ import {
   CHANNEL_NAME,
   followUpNotificationOf,
   Presenter,
+  pushIsFor,
   type LocalNotification,
 } from './present';
 import { PressRunner, type PressOutcome } from './press';
@@ -133,12 +135,18 @@ export const pushRegistration = new PushRegistration({
   log,
 });
 
-/** Someone is signed in here, and the push's business is one of theirs. */
+/**
+ * Someone is signed in here, and the push is theirs: about one of their businesses, or a new support ticket for someone
+ * the phone knows answers support (the answer the app asks for as it opens, kept on the phone).
+ */
 function forThisPhone(data: PushData): boolean {
   const state = session.getState();
   if (state.status !== 'signedIn') return false;
-  const me = cachedMe(state.person.userId);
-  return Boolean(me?.businesses.some((b) => b.id === data.workspaceId));
+  const { userId } = state.person;
+  return pushIsFor(data, {
+    businessIds: cachedMe(userId)?.businesses.map((b) => b.id) ?? [],
+    staff: Boolean(cachedStaff(userId)?.staff),
+  });
 }
 
 export const presenter = new Presenter({ platform: pushPlatform, schedule, forThisPhone });

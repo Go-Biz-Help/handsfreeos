@@ -3,6 +3,7 @@ import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 import { Linking, View } from 'react-native';
 
+import { useStaff } from '@/admin/staff';
 import { BellRing, Info, Smartphone } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
@@ -34,7 +35,7 @@ import {
  * Settings → Notifications (design/m10/More.dc.html): whether this phone gets notifications, then a push switch for
  * each moment beside today's email switches. The switches are the person's, the same as the web's Settings → Account,
  * so they need signal to save ("This needs signal."), and a change made on the web shows here as the person's profile
- * syncs.
+ * syncs. Someone who answers HandsFreeOS support also has New support tickets.
  */
 export default function NotificationSettings() {
   const { me, business, userId } = useBusiness();
@@ -64,6 +65,7 @@ export default function NotificationSettings() {
   const shownPush = push ?? syncedPush;
   const shownEmail = email ?? syncedEmail;
   const agency = managesAnAgency(me);
+  const { staff } = useStaff(userId);
 
   const save = async (
     settingsPatch: { push: PushSwitches } | { notifications: EmailSwitches },
@@ -115,7 +117,7 @@ export default function NotificationSettings() {
         </Badge>
       </View>
       <Grid
-        rows={NOTIFICATION_ROWS}
+        rows={NOTIFICATION_ROWS.filter((row) => staff || !row.staffOnly)}
         push={shownPush}
         email={shownEmail}
         disabled={saving}

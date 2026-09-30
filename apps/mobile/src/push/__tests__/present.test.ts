@@ -12,10 +12,20 @@ import {
   followUpNotificationOf,
   notificationOf,
   Presenter,
+  pushIsFor,
   type LocalNotification,
+  type PhonePerson,
 } from '../present';
 
-import { approval, CONVERSATION, customerMessage, LONE_STAR, urgentLead } from './fixtures';
+import {
+  approval,
+  CONVERSATION,
+  customerMessage,
+  LONE_STAR,
+  supportTicket,
+  TICKET,
+  urgentLead,
+} from './fixtures';
 
 /**
  * Android's data-only pushes, shown by the app itself: the words from `data`, the category's buttons, one notification
@@ -23,13 +33,16 @@ import { approval, CONVERSATION, customerMessage, LONE_STAR, urgentLead } from '
  * push's data wherever the phone hands it over.
  */
 
-function presenter(options: { forThisPhone?: boolean; platform?: 'ios' | 'android' } = {}) {
+function presenter(
+  options: { forThisPhone?: boolean; person?: PhonePerson; platform?: 'ios' | 'android' } = {},
+) {
   const shown: LocalNotification[] = [];
   let now = Date.parse('2026-09-16T20:00:00.000Z');
   const p = new Presenter({
     platform: options.platform ?? 'android',
     schedule: async (n) => void shown.push(n),
-    forThisPhone: () => options.forThisPhone ?? true,
+    forThisPhone: (data) =>
+      options.person ? pushIsFor(data, options.person) : (options.forThisPhone ?? true),
     now: () => now,
   });
   return { p, shown, advance: (ms: number) => (now += ms) };
@@ -104,6 +117,61 @@ describe('the Android presenter', () => {
     const words = presenter();
     await expect(words.p.present(customerMessage({ title: undefined }))).resolves.toBe('no-words');
     expect(words.shown).toEqual([]);
+  });
+
+  it('shows a new support ticket to someone who answers support, under the ticket’s one notification', async () => {
+    const { p, shown } = presenter({ person: { businessIds: [], staff: true } });
+    await expect(p.present(supportTicket())).resolves.toBe('shown');
+    expect(shown).toEqual([
+      {
+        identifier: `ticket-${TICKET}`,
+        content: {
+          title: 'New support ticket #1042',
+          subtitle: 'Dana Reed · Reed Plumbing',
+          body: 'Reminders stopped going out: “They went out on Monday and not since.”',
+          data: supportTicket(),
+          categoryIdentifier: 'support_ticket',
+          sound: 'default',
+          priority: 'max',
+          autoDismiss: true,
+        },
+        trigger: { channelId: CHANNEL_ID },
+      },
+    ]);
+    // A phone whose person doesn't answer support draws nothing for it.
+    const dale = presenter({ person: { businessIds: [LONE_STAR], staff: false } });
+    await expect(dale.p.present(supportTicket())).resolves.toBe('not-for-this-phone');
+    expect(dale.shown).toEqual([]);
+  });
+
+  it('keeps a support push to people who answer support, and a business’s push to its own people', () => {
+    const dale = { businessIds: [LONE_STAR], staff: false };
+    const sam = { businessIds: [], staff: true };
+    const both = { businessIds: [LONE_STAR], staff: true };
+    // Read with no business at all: a support push has none.
+    expect(taskEventOf({ data: { dataString: JSON.stringify(supportTicket()) } })).toEqual({
+      kind: 'received',
+      data: supportTicket(),
+    });
+    expect(pushIsFor(supportTicket(), sam)).toBe(true);
+    expect(pushIsFor(supportTicket(), both)).toBe(true);
+    // Someone who doesn't answer support never sees one, whatever businesses they're in.
+    expect(pushIsFor(supportTicket(), dale)).toBe(false);
+    expect(pushIsFor(customerMessage(), dale)).toBe(true);
+    expect(pushIsFor(customerMessage(), sam)).toBe(false);
+    expect(pushIsFor(customerMessage(), null)).toBe(false);
+    expect(pushIsFor(supportTicket(), null)).toBe(false);
+    // A support push naming a business, or a business push opening the desk, isn't a HandsFreeOS push.
+    expect(
+      pushDataOfNotification({
+        request: { content: { data: { ...supportTicket(), workspaceId: LONE_STAR } } },
+      }),
+    ).toBeNull();
+    expect(
+      pushDataOfNotification({
+        request: { content: { data: customerMessage({ path: `/admin/tickets/${TICKET}` }) } },
+      }),
+    ).toBeNull();
   });
 
   it('shows the stand-in pushes on an iPhone the way iOS would: time-sensitive for the urgent kinds, passive when quiet', () => {

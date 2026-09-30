@@ -236,6 +236,118 @@ describe('asking for help from inside the app', () => {
 });
 
 /**
+ * A new ticket on the support people's phones (20261013002200). The worker sends it holding no business, so it
+ * can't see anybody's phones; these two functions answer for it, and for nobody else.
+ */
+describe('who hears about a new ticket on their phone', () => {
+  const phoneOf = async (userId: string) => {
+    const [d] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`insert into app.push_devices (user_id, platform, expo_push_token, app_version)
+          values (${userId}, 'ios', ${`ExponentPushToken[staff-${randomBytes(8).toString('hex')}]`}, '1.0.0')
+          returning id`,
+    );
+    return d!.id;
+  };
+  let phones: Record<'admin' | 'agent' | 'suspended' | 'bizOwner', string>;
+
+  beforeAll(async () => {
+    phones = {
+      admin: await phoneOf(admin.id),
+      agent: await phoneOf(agent.id),
+      suspended: await phoneOf(suspended.id),
+      bizOwner: await phoneOf(bizOwner.id),
+    };
+    // The agent turned the switch off; the admin left it as it came (on).
+    await dbs.admin.db.execute(
+      sql`update app.users set settings = settings || '{"push": {"supportTickets": false}}'::jsonb
+          where id = ${agent.id}`,
+    );
+  });
+
+  const devicesOf = (users: string[] | null) =>
+    worker()((tx) =>
+      rows<{ device_id: string; user_id: string }>(
+        tx,
+        users
+          ? sql`select device_id, user_id from private.staff_push_devices('supportTickets', array[${sql.join(
+              users.map((u) => sql`${u}::uuid`),
+              sql`, `,
+            )}])`
+          : sql`select device_id, user_id from private.staff_push_devices('supportTickets')`,
+      ),
+    );
+
+  it('the worker finds the phones of active support people with the switch on, and nobody else’s', async () => {
+    const everyone = [admin.id, agent.id, suspended.id, bizOwner.id];
+    expect(await devicesOf(everyone)).toEqual([{ device_id: phones.admin, user_id: admin.id }]);
+    const all = (await devicesOf(null)).map((d) => d.device_id);
+    expect(all).toContain(phones.admin);
+    for (const not of [phones.agent, phones.suspended, phones.bizOwner])
+      expect(all).not.toContain(not);
+    // A switch it doesn't know is an error, never a switch that reads as on.
+    expect(
+      (
+        await expectPgError(() =>
+          worker()((tx) =>
+            rows(tx, sql`select * from private.staff_push_devices('supportTicket')`),
+          ),
+        )
+      ).detail,
+    ).toBe('push_switch_unknown');
+  });
+
+  it('turns off a support person’s phone the app is gone from, and never anyone else’s', async () => {
+    const off = async (ids: string[]) =>
+      (
+        await worker()((tx) =>
+          rows<{ off: number }>(
+            tx,
+            sql`select private.turn_off_staff_push_devices(array[${sql.join(
+              ids.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}], now() + interval '1 minute') as off`,
+          ),
+        )
+      )[0]!.off;
+    expect(await off([phones.bizOwner])).toBe(0);
+    expect(await off([phones.suspended, phones.bizOwner])).toBe(1);
+    const [row] = await rows<{ disabled_reason: string | null }>(
+      dbs.admin.db,
+      sql`select disabled_reason from app.push_devices where id = ${phones.suspended}`,
+    );
+    expect(row?.disabled_reason).toBe('not_registered');
+    const [still] = await rows<{ disabled_at: string | null }>(
+      dbs.admin.db,
+      sql`select disabled_at from app.push_devices where id = ${phones.bizOwner}`,
+    );
+    expect(still?.disabled_at).toBeNull();
+  });
+
+  it('are the worker’s alone: not a business owner’s, not even a support admin’s', async () => {
+    for (const person of [bizOwner, admin]) {
+      expect(
+        await code(() =>
+          as(person)((tx) =>
+            rows(tx, sql`select * from private.staff_push_devices('supportTickets')`),
+          ),
+        ),
+      ).toBe('42501');
+      expect(
+        await code(() =>
+          as(person)((tx) =>
+            rows(
+              tx,
+              sql`select private.turn_off_staff_push_devices(array[${phones.admin}::uuid], now())`,
+            ),
+          ),
+        ),
+      ).toBe('42501');
+    }
+  });
+});
+
+/**
  * The founder's own kind of session (20261013002100): it works in the business as its owner, so who may hold
  * one is asked here. What it does for the founder is in core's support-view-as.test.ts, the one suite that
  * marks anyone the founder (there can only be one, and the suites share a database).

@@ -136,6 +136,8 @@ describe('the route map', () => {
       [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/leads/${ID}`],
       [`/app/w/${WS}/tasks`, `/app/w/${WS}/tasks`],
       [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money/invoices/${ID}`],
+      // A new support ticket, to the support people: the phone's Support desk.
+      [`/admin/tickets/${ID}`, `/app/admin/tickets/${ID}`],
     ];
     for (const [path, href] of opens)
       expect(routeFor(path)).toMatchObject({ kind: 'screen', href });

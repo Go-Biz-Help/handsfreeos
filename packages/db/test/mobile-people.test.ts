@@ -192,6 +192,7 @@ describe('private.push_on', () => {
       'assigned',
       'jobs',
       'connections',
+      'supportTickets',
     ])
       expect(await on({}, key), key).toBe(true);
     expect(await on({}, 'payment')).toBe(false);

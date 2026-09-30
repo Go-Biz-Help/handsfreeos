@@ -873,6 +873,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   wallet: 'Your balance runs out',
   jobs: 'A job you were on is over',
   connections: 'A connection stops working',
+  supportTickets: 'New support tickets',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {

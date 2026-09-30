@@ -8,12 +8,15 @@
  *
  * Automatic mail (out-of-office, mailer daemons) is dropped, exactly as it is for a business's own inbox:
  * nothing here ever writes back to something that writes back.
+ *
+ * Something new also goes to the support people's phones (push.ts); an answer on a ticket already there doesn't.
  */
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { tickets, ticketEvents, ticketMessages } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
 import { acknowledgeTicket, isOurSupportAddress } from './mail';
+import { queueNewTicketPush } from './push';
 import {
   headerOf,
   htmlToText,
@@ -90,6 +93,25 @@ async function whoWroteIn(
     workspaceId: single?.workspace_id ?? null,
     organizationId: single?.organization_id ?? null,
   };
+}
+
+/**
+ * The name of the one business the writer works in, for the new ticket's push. Read holding that business's scope:
+ * the mail is filed holding none, and from there no business is readable.
+ */
+async function businessName(
+  ctx: DeliveryContext,
+  writer: { workspaceId: string | null; organizationId: string | null } | null,
+): Promise<string | null> {
+  if (!writer?.workspaceId || !writer.organizationId) return null;
+  const scope = { workspaceId: writer.workspaceId, organizationId: writer.organizationId };
+  const [ws] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ name: string }>(
+      tx,
+      sql`select name from app.workspaces where id = ${scope.workspaceId}`,
+    ),
+  );
+  return ws?.name ?? null;
 }
 
 /** The ticket this message belongs to: its reply token, then what it answers, then nothing. */
@@ -172,6 +194,7 @@ export const onSupportInboundEmail: DeliveryProcessor = async (ctx) => {
   const now = new Date();
 
   const ticketId = found ? await unmerged(ctx, found.ticketId) : null;
+  const business = ticketId ? null : await businessName(ctx, writer);
 
   let filedAs = ticketId ?? '';
   await asWorker(ctx.db, {}, async (tx) => {
@@ -226,6 +249,8 @@ export const onSupportInboundEmail: DeliveryProcessor = async (ctx) => {
       kind: opened ? 'opened' : 'customer_replied',
       data: { channel: 'email', from },
     });
+    // Queued with the ticket: a ticket that isn't filed pushes nobody.
+    if (opened) await queueNewTicketPush(tx, ctx.log, id, { business });
     filedAs = id;
   });
 

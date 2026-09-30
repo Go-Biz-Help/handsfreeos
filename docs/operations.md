@@ -9301,6 +9301,11 @@ Everything above is about the businesses. This is about you: the tickets custome
 that tell you how HandsFreeOS itself is doing. It lives at `app.handsfreeos.com/admin`, in the same app, and
 it does not exist for anyone who does not work here — a customer who guesses the address gets the 404 page.
 
+The phone app has the same desk: **More** → **Support desk**, a row only support people see. Somebody who
+answers support and is in no business opens straight onto it. Every section is there, with the same
+permissions, and it is all live: with no signal it says so. Looking at a business, read-only or as the
+founder, still happens on the web; the phone's button opens that page in the browser.
+
 Setting up the email side is [Postmark Part K](#postmark-part-k-support-email-with-no-mailbox-to-sign-into).
 
 ### Getting in the first time
@@ -9336,6 +9341,12 @@ the same way it refuses removing a business's last owner.
 - **Tickets** is the queue. "Needs an answer" is the one that matters; the rest are there for looking things
   up. A reply goes out from `support@handsfreeos.com` and the customer's answer comes back to the same
   ticket, so nobody has to match anything up by hand.
+- **Your phone tells you about each new ticket.** Every support person signed in on the HandsFreeOS phone
+  app gets a notification when someone writes in, from the app or by email: "New support ticket #1042", who
+  wrote and about what. Tapping it opens the ticket on the phone's Support desk. A customer's answer on a
+  ticket that's already there doesn't buzz anyone; the queue shows it. Turn it off under Settings →
+  Notifications, **New support tickets** (on the web, Settings → Account; only support people see that row).
+  Needs `20261013002200_new_tickets_on_support_phones.sql`. See "Apply new migrations".
 - **Ask the AI for a draft** writes a suggested answer from the saved replies and from tickets like this one
   that were answered before. It never sends anything: a person edits it and presses send. If it had nothing
   solid to go on it says so, and what it writes is the questions to ask instead.

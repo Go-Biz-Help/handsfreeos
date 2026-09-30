@@ -75,4 +75,25 @@ export function approval(kind: 'draft' | 'step' = 'draft'): PushData {
   };
 }
 
+/** A new support ticket, to HandsFreeOS's support people: it belongs to no business and opens the support desk. */
+export const TICKET = '77777777-7777-4777-8777-777777777777';
+export function supportTicket(overrides: Partial<PushData> = {}): PushData {
+  return {
+    v: 1,
+    notificationId: '20000000-0000-4000-8000-000000000004',
+    category: 'support_ticket',
+    workspaceId: null,
+    business: '',
+    path: `/admin/tickets/${TICKET}`,
+    sentAt: '2026-09-16T20:00:00.000Z',
+    refs: { ticketId: TICKET },
+    commandIds: {},
+    collapseId: `ticket-${TICKET}`,
+    title: 'New support ticket #1042',
+    subtitle: 'Dana Reed · Reed Plumbing',
+    body: 'Reminders stopped going out: “They went out on Monday and not since.”',
+    ...overrides,
+  };
+}
+
 export const COMMAND_IDS = ids;
