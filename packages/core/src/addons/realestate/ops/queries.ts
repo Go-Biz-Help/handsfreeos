@@ -222,6 +222,12 @@ export const dealList = defineAddonQuery(realestateAddon, {
   output: DealListOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_find_deals',
+    description:
+      'Find deals the person sees: open, closed or ended, theirs or everyone’s, buyer deals or listings, by name, client or address.',
+    keywords: ['deals', 'listings', 'buyers', 'my deals'],
+  },
   handler: async (ctx, input) => {
     const parts: SQL[] = [];
     if (input.status === 'open') parts.push(sql`r.archived_at is null and d.outcome is null`);
@@ -274,6 +280,11 @@ export const dealGet = defineAddonQuery(realestateAddon, {
   output: DealGetOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_get_deal',
+    description:
+      'Read one deal whole: stage, people, property, key dates and any that disagree, date problems, commission, and every duty with its status, due time and missing proof.',
+  },
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
     const [row] = await ctx.tx
@@ -534,6 +545,11 @@ export const termHistory = defineAddonQuery(realestateAddon, {
   output: TermHistoryOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_date_history',
+    description:
+      'Every value a deal’s key dates and terms have had, where each came from and who confirmed it.',
+  },
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
     const list = await ctx.tx

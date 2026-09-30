@@ -77,6 +77,11 @@ export const termEnter = defineAddonCommand(realestateAddon, {
   output: TermEnterOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_enter_date',
+    description: 'Enter a deal’s key date or term with where it came from. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.term.entered'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -211,6 +216,11 @@ export const termConfirm = defineAddonCommand(realestateAddon, {
   output: TermChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_confirm_date',
+    description: 'Confirm a key date or term someone entered. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.term.confirmed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

@@ -212,6 +212,12 @@ export const dutySetStatus = defineAddonCommand(realestateAddon, {
   output: DutyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_update_duty',
+    description:
+      'Say where a duty stands: in progress, waiting on someone, or blocked with what’s in the way. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.duty.status_changed'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -278,6 +284,12 @@ export const dutyAddEvidence = defineAddonCommand(realestateAddon, {
   output: DutyEvidenceOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_add_proof',
+    description:
+      'Add proof to a duty: a note, or one of the deal’s documents or files. It never gives the person’s word for them. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.duty.evidence_added'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -579,6 +591,11 @@ export const dutyComplete = defineAddonCommand(realestateAddon, {
   output: DutyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_complete_duty',
+    description: 'Mark a duty done once it has its proof. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.duty.completed'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -779,6 +796,11 @@ export const dutyAdd = defineAddonCommand(realestateAddon, {
   output: DutyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_add_duty',
+    description: 'Write a duty on one deal. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.duty.added'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -851,6 +873,12 @@ export const dealReportWireChange = defineAddonCommand(realestateAddon, {
   output: DealReportWireChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_report_wire_change',
+    description:
+      'Report that a deal’s wiring instructions reportedly changed: holds every payment until a person checks by phone. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.deal.wire_change_reported'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

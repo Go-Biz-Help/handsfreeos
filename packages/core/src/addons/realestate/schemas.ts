@@ -13,6 +13,7 @@ import {
   type DealFact,
   type DocumentKind,
 } from './catalog/types';
+import { FAIR_HOUSING_CATEGORIES, type FairHousingCategory } from './fair-housing';
 import { RUNGS } from './ladder';
 import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
@@ -800,6 +801,104 @@ export const SweepOutput = z.object({
       accountableUserId: uuid.nullable(),
       mainAgentUserId: uuid.nullable(),
       coordinatorUserIds: z.array(uuid),
+    }),
+  ),
+});
+
+// ---------- client updates (step 13) ----------
+
+export const MILESTONES = [
+  'under_contract',
+  'inspection_done',
+  'clear_to_close',
+  'closed',
+  'asked',
+] as const;
+const FlagOut = z.object({
+  phrase: z.string().max(200),
+  category: z.enum(
+    Object.keys(FAIR_HOUSING_CATEGORIES) as [FairHousingCategory, ...FairHousingCategory[]],
+  ),
+  reason: z.string(),
+  safer: z.string(),
+});
+const inDraft = { workspaceId: uuid, draftId: uuid };
+
+export const StatusEmailRequestInput = z.object({
+  ...inDeal,
+  milestone: z.enum(MILESTONES).default('asked'),
+});
+export const StatusEmailOutput = z.object({
+  dealId: uuid,
+  draftId: uuid,
+  status: z.enum(['drafting', 'ready', 'sent', 'discarded', 'failed']),
+});
+export const StatusEmailDraftedInput = z.object({
+  ...inDraft,
+  subject: z.string().max(200).optional(),
+  body: z.string().max(10000).optional(),
+  model: z.string().max(100).optional(),
+  facts: z.record(z.string(), z.unknown()).optional(),
+  failure: z.string().max(500).optional(),
+  checks: z
+    .array(
+      z.object({
+        source: z.enum(['words', 'model']),
+        version: z.string().min(1).max(100),
+        status: z.enum(['passed', 'flagged', 'unavailable']),
+        flags: z.array(FlagOut).max(50),
+      }),
+    )
+    .max(4)
+    .default([]),
+});
+export const StatusEmailCheckedInput = z.object({
+  ...inDraft,
+  /** The digest of the words the model read: a check of older words is set aside. */
+  textHash: z.string().regex(/^[0-9a-f]{64}$/),
+  version: z.string().min(1).max(100),
+  status: z.enum(['passed', 'flagged', 'unavailable']),
+  flags: z.array(FlagOut).max(50),
+});
+export const StatusEmailSaveInput = z.object({
+  ...inDraft,
+  subject: z.string().trim().min(1, 'Write a subject.').max(200),
+  body: z.string().trim().min(1, 'Write the email.').max(10000),
+});
+export const StatusEmailSavedOutput = StatusEmailOutput.extend({ flags: z.array(FlagOut) });
+export const StatusEmailAcknowledgeInput = z.object({ ...inDraft, reason });
+export const StatusEmailDraftInput = z.object(inDraft);
+
+export const StatusEmailListInput = z.object(inDeal);
+const DraftOut = z.object({
+  draftId: uuid,
+  dealId: uuid,
+  milestone: z.enum(MILESTONES),
+  status: z.enum(['drafting', 'ready', 'sent', 'discarded', 'failed']),
+  subject: z.string().nullable(),
+  body: z.string().nullable(),
+  failure: z.string().nullable(),
+  to: z.object({ personId: uuid, name: z.string(), email: z.string().nullable() }).nullable(),
+  requestedAt: isoDateTime,
+  sentAt: isoDateTime.nullable(),
+});
+export const StatusEmailListOutput = z.object({ drafts: z.array(DraftOut) });
+export const StatusEmailGetOutput = z.object({
+  draft: DraftOut,
+  /** The flags on the words as they are now, from the list and the model. */
+  flags: z.array(FlagOut),
+  /** The model's check of these words is still running. */
+  checking: z.boolean(),
+  acknowledged: z.object({ at: isoDateTime, reason: z.string() }).nullable(),
+  canSend: z.boolean(),
+  checks: z.array(
+    z.object({
+      source: z.enum(['words', 'model']),
+      version: z.string(),
+      status: z.enum(['passed', 'flagged', 'unavailable']),
+      flags: z.array(FlagOut),
+      checkedAt: isoDateTime,
+      current: z.boolean(),
     }),
   ),
 });

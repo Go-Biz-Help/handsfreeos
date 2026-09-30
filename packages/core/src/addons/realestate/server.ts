@@ -6,6 +6,7 @@
  */
 import type { AddonServerModule } from '../server';
 import { realestateAddon } from './manifest';
+import { clientUpdateCommands, clientUpdateQueries } from './ops/client-updates';
 import { dealLifeCommands } from './ops/deals';
 import { documentCommands } from './ops/documents';
 import { dutyQueries } from './ops/duty-queries';
@@ -26,6 +27,13 @@ export const realestateAddonServer: AddonServerModule = {
     ...documentCommands,
     ...healthCommands,
     ...editorCommands,
+    ...clientUpdateCommands,
   ],
-  queries: [...realestateQueries, ...dutyQueries, ...healthQueries, ...editorQueries],
+  queries: [
+    ...realestateQueries,
+    ...dutyQueries,
+    ...healthQueries,
+    ...editorQueries,
+    ...clientUpdateQueries,
+  ],
 };

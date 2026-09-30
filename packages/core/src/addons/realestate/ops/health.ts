@@ -76,6 +76,12 @@ export const dealRisks = defineAddonQuery(realestateAddon, {
   output: DealRisksOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_what_could_stop_closing',
+    description:
+      'What could stop a deal closing: its health with every reason, and each open material duty with who answers for it, when it’s due, the proof it needs and the next step.',
+    keywords: ['at risk', 'health', 'closing', 'blockers', 'what could stop'],
+  },
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
     const { health, duties: list } = await healthNow(ctx, deal);

@@ -12,6 +12,8 @@
  *   this raises one alert per duty that climbs as it goes, and clears the rest. Turned back on, it's armed from
  *   then: a rung reached while it was off becomes a Home card, never a late push or email. An acknowledged alert
  *   stops climbing.
+ * - **Client updates** (./client-updates.ts): drafted from the deal's facts when asked or at a milestone the
+ *   business keeps on, checked for fair-housing risk by the fixed list and the model, and left for the agent.
  * - **A changed wire:** reported on a deal, it raises a critical alert at once, for everyone who sees the deal, at
  *   any hour, asking to be acknowledged; the phone check finishing (done, waived or cancelled) clears it.
  */
@@ -22,6 +24,13 @@ import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
+import {
+  draftClosed,
+  draftReady,
+  draftRequested,
+  draftSaved,
+  milestoneReached,
+} from './client-updates';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -156,6 +165,14 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.duty.completed': dutyFinished,
     'realestate.duty.waived': dutyFinished,
     'realestate.duty.cancelled': dutyFinished,
+    'realestate.status_email.requested': draftRequested,
+    'realestate.status_email.saved': draftSaved,
+    'realestate.status_email.ready': draftReady,
+    'realestate.status_email.sent': draftClosed,
+    'realestate.status_email.discarded': draftClosed,
+    'realestate.deal.stage_changed': milestoneReached,
+    'realestate.deal.event_recorded': milestoneReached,
+    'realestate.deal.closed': milestoneReached,
   },
   jobs: { [SWEEP]: runSweep },
   onEnable: armSweep,

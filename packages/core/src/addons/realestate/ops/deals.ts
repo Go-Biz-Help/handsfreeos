@@ -232,6 +232,12 @@ export const dealOpen = defineAddonCommand(realestateAddon, {
   output: DealOpenOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_open_deal',
+    description:
+      'Start a buyer deal or a listing for a customer or Pipeline lead. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.deal.opened'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
@@ -376,6 +382,11 @@ export const dealMoveStage = defineAddonCommand(realestateAddon, {
   output: DealChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_move_deal',
+    description: 'Move a deal forward to a later stage. Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.deal.stage_changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -449,6 +460,12 @@ export const dealRecordEvent = defineAddonCommand(realestateAddon, {
   output: DealChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_record_deal_moment',
+    description:
+      'Record something that happened on a deal (an offer in, the inspection report, a repair request, an amendment…). Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.deal.event_recorded'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -810,6 +827,12 @@ export const dealSetFacts = defineAddonCommand(realestateAddon, {
   output: DealSetFactsOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_set_deal_facts',
+    description:
+      'Say what’s true of a deal or its home (financed, HOA, well, septic…). Asks the person first.',
+    autonomy: 'confirm',
+  },
   emits: ['realestate.deal.facts_changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

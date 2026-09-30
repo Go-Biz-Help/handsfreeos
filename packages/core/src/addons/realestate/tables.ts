@@ -24,6 +24,7 @@ import {
   files,
   leads,
   messages,
+  people,
   users,
   workspaces,
 } from '@hfos/db/schema';
@@ -436,6 +437,79 @@ export const dutyLog = addonRealestate.table(
   ],
 );
 
+/** A client update: drafted from the deal's facts, edited by the agent, checked, and sent. */
+export const drafts = addonRealestate.table(
+  'drafts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull().default('status_update').$type<'status_update'>(),
+    milestone: text('milestone')
+      .notNull()
+      .$type<'under_contract' | 'inspection_done' | 'clear_to_close' | 'closed' | 'asked'>(),
+    personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+    subject: text('subject'),
+    body: text('body'),
+    status: text('status')
+      .notNull()
+      .default('drafting')
+      .$type<'drafting' | 'ready' | 'sent' | 'discarded' | 'failed'>(),
+    failure: text('failure'),
+    facts: jsonb('facts').$type<Record<string, unknown>>(),
+    model: text('model'),
+    requestedBy: userRef('requested_by'),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    editedBy: userRef('edited_by'),
+    editedAt: ts('edited_at'),
+    flagsAcknowledgedBy: userRef('flags_acknowledged_by'),
+    flagsAcknowledgedAt: ts('flags_acknowledged_at'),
+    flagsAcknowledgedReason: text('flags_acknowledged_reason'),
+    sentMessageId: uuid('sent_message_id').references(() => messages.id, { onDelete: 'set null' }),
+    sentBy: userRef('sent_by'),
+    sentAt: ts('sent_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each fair-housing check of a draft, as it was. Append-only. */
+export const fairHousingChecks = addonRealestate.table(
+  'fair_housing_checks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    draftId: uuid('draft_id').notNull(),
+    source: text('source').notNull().$type<'words' | 'model'>(),
+    version: text('version').notNull(),
+    status: text('status').notNull().$type<'passed' | 'flagged' | 'unavailable'>(),
+    flags: jsonb('flags')
+      .$type<unknown[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    textHash: text('text_hash').notNull(),
+    checkedAt: ts('checked_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.draftId],
+      foreignColumns: [drafts.workspaceId, drafts.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -452,4 +526,6 @@ export const REALESTATE_TABLES = {
   documents,
   dutyEvidence,
   dutyLog,
+  drafts,
+  fairHousingChecks,
 } as const;

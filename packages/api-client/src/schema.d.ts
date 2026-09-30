@@ -6917,6 +6917,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.status_email.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a client update’s fair-housing flags are fine as written, with the reason. Kept with the update; editing it again asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.flags_acknowledged.
+         */
+        post: operations["command_realestate_status_email_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Throw away a client update that won’t be sent. It stays in the deal’s history.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.discarded.
+         */
+        post: operations["command_realestate_status_email_discard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a status email to a deal’s client: HandsFreeOS drafts it from the deal’s facts (its stage, confirmed dates, what’s done and what’s next), checks it for fair-housing risk, and leaves it for the agent to edit and send.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.requested.
+         */
+        post: operations["command_realestate_status_email_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s edits to a client update. Its words are checked again for fair-housing risk (the list at once, the model a moment later), and any earlier confirmation of flags no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.saved.
+         */
+        post: operations["command_realestate_status_email_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a client update the agent has reviewed, as an email to the deal’s client, from the agent’s own mailbox if they have one, else the team inbox. Refused while its fair-housing flags are neither fixed nor confirmed.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.status_email.sent.
+         */
+        post: operations["command_realestate_status_email_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.template.archive_custom": {
         parameters: {
             query?: never;
@@ -12311,6 +12411,46 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.status_email.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One client update: its words, who it’s to, the fair-housing flags on its words as they are now (with why and a safer way to say it), and whether it can be sent.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_status_email_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.status_email.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s client updates, newest first: drafting, ready to review, sent or thrown away.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_status_email_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27966,6 +28106,201 @@ export interface operations {
                         dealId: string;
                         /** Format: uuid */
                         relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_discard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /**
+                     * @default asked
+                     * @enum {string}
+                     */
+                    milestone?: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    draftId: string;
+                    subject: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
                     };
                 };
             };
@@ -44558,6 +44893,141 @@ export interface operations {
                         openDeals: number;
                         overdueDuties: number;
                         version: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_status_email_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        acknowledged: {
+                            /** Format: date-time */
+                            at: string;
+                            reason: string;
+                        } | null;
+                        canSend: boolean;
+                        checking: boolean;
+                        checks: {
+                            /** Format: date-time */
+                            checkedAt: string;
+                            current: boolean;
+                            flags: {
+                                /** @enum {string} */
+                                category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                phrase: string;
+                                reason: string;
+                                safer: string;
+                            }[];
+                            /** @enum {string} */
+                            source: "words" | "model";
+                            /** @enum {string} */
+                            status: "passed" | "flagged" | "unavailable";
+                            version: string;
+                        }[];
+                        draft: {
+                            body: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            /** Format: uuid */
+                            draftId: string;
+                            failure: string | null;
+                            /** @enum {string} */
+                            milestone: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                            subject: string | null;
+                            to: {
+                                email: string | null;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                        };
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_status_email_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        drafts: {
+                            body: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            /** Format: uuid */
+                            draftId: string;
+                            failure: string | null;
+                            /** @enum {string} */
+                            milestone: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                            subject: string | null;
+                            to: {
+                                email: string | null;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                        }[];
                     };
                 };
             };

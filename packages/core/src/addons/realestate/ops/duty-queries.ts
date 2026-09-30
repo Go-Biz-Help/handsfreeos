@@ -36,6 +36,11 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
   output: DutyGetOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_get_duty',
+    description:
+      'Read one duty: what it is, who answers for it, when it’s due and why, what proof finishes it and what’s missing, and its history.',
+  },
   handler: async (ctx, input) => {
     const { duty, deal } = await loadDuty(ctx, input.dutyId);
     const def = duty.definition as unknown as ResolvedDuty;
@@ -178,6 +183,12 @@ export const dutyList = defineAddonQuery(realestateAddon, {
   output: DutyListOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_list_duties',
+    description:
+      'List duties across the deals the person sees: theirs or everyone’s, open, overdue, drafts or all, on one deal or all.',
+    keywords: ['my duties', 'overdue', 'what’s due'],
+  },
   handler: async (ctx, input) => {
     const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
     const parts: SQL[] = [sql`r.archived_at is null`];
@@ -246,6 +257,11 @@ export const documentList = defineAddonQuery(realestateAddon, {
   output: DocumentListOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  ai: {
+    tool: 'realestate_list_documents',
+    description:
+      'List a deal’s documents: kind, version, status, whether it counts and whether it’s signed and locked.',
+  },
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
     const list = await rows<{

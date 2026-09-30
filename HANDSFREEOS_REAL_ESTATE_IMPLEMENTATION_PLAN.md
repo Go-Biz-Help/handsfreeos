@@ -614,9 +614,50 @@ The duty editor, publishing and applying a version, the alert person, reminder d
 **Still to build** with the screens (after the boards are approved): the Duties editor page, the settings page and
 "Apply to this deal".
 
-### Step 13 — AI
+### Step 13 — AI (server built, 2026-09-30; screens wait for the boards)
 
 The Assistant's tools, client update drafts, the fair-housing check, and sending.
+
+**As built (server):**
+
+- The Assistant's tools, only while the add-on is on and the person holds `realestate.use`, and only over the deals
+  they see. On its own: find deals, read a deal, "what could stop this closing?", list duties, read a duty, list
+  documents, a date's history, read a client update, and draft one (drafting sends nothing). With the person's OK:
+  open a deal, move it, record a moment, set its facts, enter or confirm a date, update a duty, add proof (never
+  the person's word for them), complete a duty, add one, report a changed wire, and send a client update. Never
+  offered: exceptions, waiving, terminating or ending a deal, archiving, the final commission, the team, and the
+  duty editor.
+- `20261013002900`: `drafts` (one client update, requested to sent or discarded, with the facts the model was given
+  and the model) and `fair_housing_checks` (every check of every version of its words, append-only, with a digest
+  of the exact text read).
+- `fair-housing.ts`: the fixed list (`fh-words-1`): phrases by protected class and the steering proxies, each with
+  why and a safer way to say it. `prompts.ts`: the drafting and checking prompts, the deal's facts quoted as data
+  (the address, stage, confirmed dates, what's done and next, the agent's name, the client's first name; never
+  notes).
+- Commands: `status_email.request` (asked for, or at a milestone), `save` (the agent's edits: the list checks at
+  once, the model a moment later, and an earlier confirmation no longer counts), `acknowledge_flags` (with a
+  reason), `send` (refused while a check is running or flags are neither fixed nor confirmed; through core's
+  `message.send` to the client, from the agent's own mailbox, else their own address, else the team inbox) and
+  `discard`; the worker's own `drafted` and `checked`. Queries: `status_email.list` and `get` (flags on the words
+  as they are now, and whether it can be sent).
+- The worker drafts with the model (counted as the add-on's AI use), runs both checks, offers a draft at each
+  milestone the business keeps on (under contract, the inspection report in, clear to close, closed) with a card on
+  the main agent's Home, and clears it when sent or thrown away. A model that can't be asked leaves the fixed
+  list's check, marked so.
+- Tests: `test/addons/realestate-updates.test.ts` and `apps/worker/test/realestate-updates.test.ts`.
+- `20261013003000` (core, fixing step 4): an add-on table that follows a private record now asks once per query
+  which private records the person can't see (`private.unseen_private_records()`) and which support may read
+  (`private.support_seen_records()`), instead of asking for every row. An owner's whole Deals list went from timing
+  out under load to under a second; who sees what is unchanged (the private-records and add-on tests).
+- To look at later: a deal command takes 0.5 to 1.4 seconds on the local stack (opening a listing at Active makes
+  45 duties). Fine for now; the engine's many small writes are where to start.
+
+**Choices made for Chris** (say the word and they change):
+
+- "Clear to close" is the deal reaching the Closing stage, and "inspection done" is the inspection report being
+  recorded.
+- A draft for a milestone comes once; asking again makes a new one.
+- When the model can't be reached, the update can still go after the fixed list's check.
 
 ### Step 14 — Beta
 

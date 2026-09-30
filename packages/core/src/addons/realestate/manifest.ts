@@ -191,6 +191,8 @@ export const realestateAddon = defineAddon({
     'documents',
     'duty_evidence',
     'duty_log',
+    'drafts',
+    'fair_housing_checks',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -236,6 +238,12 @@ export const realestateAddon = defineAddon({
       'realestate.template.changed',
       'realestate.template.published',
       'realestate.deal.template_applied',
+      'realestate.status_email.requested',
+      'realestate.status_email.ready',
+      'realestate.status_email.saved',
+      'realestate.status_email.flags_acknowledged',
+      'realestate.status_email.sent',
+      'realestate.status_email.discarded',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -243,6 +251,15 @@ export const realestateAddon = defineAddon({
       'realestate.duty.completed',
       'realestate.duty.waived',
       'realestate.duty.cancelled',
+      // Client updates: drafted and checked by the model, and offered at each milestone.
+      'realestate.status_email.requested',
+      'realestate.status_email.saved',
+      'realestate.status_email.ready',
+      'realestate.status_email.sent',
+      'realestate.status_email.discarded',
+      'realestate.deal.stage_changed',
+      'realestate.deal.event_recorded',
+      'realestate.deal.closed',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
