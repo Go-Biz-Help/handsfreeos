@@ -1,4 +1,13 @@
 'use client';
+import {
+  deskSectionLabel,
+  STAFF_ROLE_CHOICES,
+  SUPPORT_TEAM_WORDS,
+  supportInvitationLine,
+  supportInviteEmailOk,
+  supportPersonLine,
+  supportPersonName,
+} from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -10,23 +19,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 type Role = 'agent' | 'lead' | 'admin';
 
-const ROLES: readonly { value: Role; label: string; help: string }[] = [
-  {
-    value: 'agent',
-    label: 'Support agent',
-    help: 'Answers tickets, and can look at a business read-only.',
-  },
-  {
-    value: 'lead',
-    label: 'Support lead',
-    help: 'Also assigns tickets, keeps the saved replies, and sees the health page.',
-  },
-  {
-    value: 'admin',
-    label: 'Support admin',
-    help: 'Also invites and removes support people.',
-  },
-];
+const ROLES: readonly { value: Role; label: string; help: string }[] = STAFF_ROLE_CHOICES;
 
 export interface StaffMemberView {
   readonly userId: string;
@@ -85,7 +78,7 @@ export function StaffPage({
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">Support people</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('staff')}</h1>
         {canManage ? <InviteStaff onDone={() => router.refresh()} /> : null}
       </div>
       {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
@@ -99,20 +92,18 @@ export function StaffPage({
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">
-                {s.displayName || s.fullName || s.email}
-                {s.userId === meUserId ? <span className="text-text-3"> · you</span> : null}
+                {supportPersonName(s)}
+                {s.userId === meUserId ? (
+                  <span className="text-text-3">{SUPPORT_TEAM_WORDS.youTag}</span>
+                ) : null}
               </p>
-              <p className="truncate text-[13px] text-text-3">
-                {s.email} · {s.openTicketCount} open{' '}
-                {s.openTicketCount === 1 ? 'ticket' : 'tickets'}
-                {s.status === 'suspended' ? ' · suspended' : ''}
-              </p>
+              <p className="truncate text-[13px] text-text-3">{supportPersonLine(s)}</p>
             </div>
             {canManage && s.userId !== meUserId ? (
               <>
                 <select
                   value={s.role}
-                  aria-label={`Role for ${s.email}`}
+                  aria-label={SUPPORT_TEAM_WORDS.roleFor(s.email)}
                   onChange={(e) =>
                     run(s.userId, () =>
                       call('/v1/commands/support.staff.set_role', {
@@ -141,7 +132,9 @@ export function StaffPage({
                     )
                   }
                 >
-                  {s.status === 'active' ? 'Suspend' : 'Let back in'}
+                  {s.status === 'active'
+                    ? SUPPORT_TEAM_WORDS.suspend
+                    : SUPPORT_TEAM_WORDS.letBackIn}
                 </Button>
                 <Button
                   variant="ghost"
@@ -152,7 +145,7 @@ export function StaffPage({
                     )
                   }
                 >
-                  Remove
+                  {SUPPORT_TEAM_WORDS.remove}
                 </Button>
               </>
             ) : (
@@ -166,17 +159,13 @@ export function StaffPage({
 
       {invitations.length ? (
         <section className="mt-6">
-          <h2 className="text-sm font-semibold">Waiting to accept</h2>
+          <h2 className="text-sm font-semibold">{SUPPORT_TEAM_WORDS.waiting}</h2>
           <ul className="mt-2 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
             {invitations.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{i.email}</p>
-                  <p className="text-[13px] text-text-3">
-                    {ROLES.find((r) => r.value === i.role)?.label} · invited by{' '}
-                    {i.invitedByName || 'HandsFreeOS'} · link expires{' '}
-                    {new Date(i.expiresAt).toLocaleDateString()}
-                  </p>
+                  <p className="text-[13px] text-text-3">{supportInvitationLine(i)}</p>
                 </div>
                 {canManage ? (
                   <>
@@ -191,7 +180,7 @@ export function StaffPage({
                         )
                       }
                     >
-                      Send again
+                      {SUPPORT_TEAM_WORDS.sendAgain}
                     </Button>
                     <Button
                       variant="ghost"
@@ -204,7 +193,7 @@ export function StaffPage({
                         )
                       }
                     >
-                      Cancel
+                      {SUPPORT_TEAM_WORDS.cancel}
                     </Button>
                   </>
                 ) : null}
@@ -245,12 +234,10 @@ function MyProfile({ displayName, signature }: { displayName: string; signature:
 
   return (
     <form onSubmit={save} className="mt-6 rounded-card border border-border bg-card p-4">
-      <h2 className="text-sm font-semibold">How you sign off</h2>
-      <p className="mt-1 text-[13px] text-text-3">
-        This is the name on your replies, and the last line of them.
-      </p>
+      <h2 className="text-sm font-semibold">{SUPPORT_TEAM_WORDS.signOffTitle}</h2>
+      <p className="mt-1 text-[13px] text-text-3">{SUPPORT_TEAM_WORDS.signOffDetail}</p>
       <div className="mt-3 flex flex-col gap-3">
-        <Field label="Your name to customers" htmlFor="staff-name">
+        <Field label={SUPPORT_TEAM_WORDS.nameLabel} htmlFor="staff-name">
           <Input
             id="staff-name"
             value={name}
@@ -258,10 +245,10 @@ function MyProfile({ displayName, signature }: { displayName: string; signature:
               setName(e.target.value);
               setSaved(false);
             }}
-            placeholder="Chris"
+            placeholder={SUPPORT_TEAM_WORDS.namePlaceholder}
           />
         </Field>
-        <Field label="Sign-off" htmlFor="staff-signature">
+        <Field label={SUPPORT_TEAM_WORDS.signatureLabel} htmlFor="staff-signature">
           <Input
             id="staff-signature"
             value={sign}
@@ -269,12 +256,14 @@ function MyProfile({ displayName, signature }: { displayName: string; signature:
               setSign(e.target.value);
               setSaved(false);
             }}
-            placeholder="— Chris at HandsFreeOS"
+            placeholder={SUPPORT_TEAM_WORDS.signaturePlaceholder}
           />
         </Field>
         <div className="flex items-center gap-3">
-          <Button type="submit">Save</Button>
-          {saved ? <span className="text-[13px] text-success-text">Saved.</span> : null}
+          <Button type="submit">{SUPPORT_TEAM_WORDS.save}</Button>
+          {saved ? (
+            <span className="text-[13px] text-success-text">{SUPPORT_TEAM_WORDS.saved}</span>
+          ) : null}
           {error ? <span className="text-[13px] text-danger-text">{error}</span> : null}
         </div>
       </div>
@@ -292,8 +281,7 @@ function InviteStaff({ onDone }: { onDone: () => void }) {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim()))
-      return setError('Enter a valid email address.');
+    if (!supportInviteEmailOk(email)) return setError(SUPPORT_TEAM_WORDS.badEmail);
     setBusy(true);
     setError(null);
     try {
@@ -316,16 +304,16 @@ function InviteStaff({ onDone }: { onDone: () => void }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <Button onClick={() => setOpen(true)} data-testid="staff-invite-open">
         <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        Invite someone
+        {SUPPORT_TEAM_WORDS.invite}
       </Button>
       <DialogContent
-        title="Invite someone to answer support"
-        description="They get a link that works once, only for this address. They will need a HandsFreeOS sign-in with the same address."
+        title={SUPPORT_TEAM_WORDS.inviteTitle}
+        description={SUPPORT_TEAM_WORDS.inviteDetail}
       >
         {sent ? (
           <div className="mt-4">
             <p className="text-sm">
-              Sent to <strong>{sent}</strong>. They have seven days to accept.
+              {SUPPORT_TEAM_WORDS.sentTo} <strong>{sent}</strong>. {SUPPORT_TEAM_WORDS.sevenDays}
             </p>
             <Button
               className="mt-4"
@@ -334,23 +322,23 @@ function InviteStaff({ onDone }: { onDone: () => void }) {
                 setOpen(false);
               }}
             >
-              Done
+              {SUPPORT_TEAM_WORDS.done}
             </Button>
           </div>
         ) : (
           <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
-            <Field label="Their email" htmlFor="staff-email">
+            <Field label={SUPPORT_TEAM_WORDS.emailLabel} htmlFor="staff-email">
               <Input
                 id="staff-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder={SUPPORT_TEAM_WORDS.emailPlaceholder}
                 data-testid="staff-invite-email"
               />
             </Field>
             <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">What they may do</legend>
+              <legend className="text-sm font-medium">{SUPPORT_TEAM_WORDS.whatTheyMayDo}</legend>
               {ROLES.map((r) => (
                 <label
                   key={r.value}
@@ -374,10 +362,10 @@ function InviteStaff({ onDone }: { onDone: () => void }) {
             {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
             <div className="flex gap-2">
               <Button type="submit" disabled={busy} data-testid="staff-invite-send">
-                Send the invitation
+                {SUPPORT_TEAM_WORDS.sendInvitation}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
+                {SUPPORT_TEAM_WORDS.cancel}
               </Button>
             </div>
           </form>

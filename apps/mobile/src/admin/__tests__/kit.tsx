@@ -1,3 +1,4 @@
+import { ROLE_PERMISSIONS } from '@hfos/core';
 import { render } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -15,33 +16,9 @@ export const SAM = '11111111-1111-4111-8111-111111111111';
 export const RILEY = '22222222-2222-4222-8222-222222222222';
 export const LONE_STAR = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-/** Every staff permission a support admin holds (core's `staff_admin`). */
-export const ADMIN_PERMISSIONS = [
-  'support.read',
-  'support.reply',
-  'support.assign',
-  'support.manage',
-  'platform.businesses.read',
-  'platform.view_as',
-  'platform.health.read',
-  'platform.staff.manage',
-  'platform.rates.manage',
-  'platform.ai.manage',
-  'platform.wallets.adjust',
-  'platform.founding.manage',
-  'platform.ideas.moderate',
-  'platform.ideas.manage',
-  'platform.addons.manage',
-] as const;
-
-/** A support agent's (core's `staff_agent`). */
-export const AGENT_PERMISSIONS = [
-  'support.read',
-  'support.reply',
-  'platform.businesses.read',
-  'platform.view_as',
-  'platform.ideas.moderate',
-] as const;
+/** Every staff permission a support admin holds, and a support agent's: core's own lists. */
+export const ADMIN_PERMISSIONS: readonly string[] = ROLE_PERMISSIONS.staff_admin;
+export const AGENT_PERMISSIONS: readonly string[] = ROLE_PERMISSIONS.staff_agent;
 
 export const admin: Staff = {
   userId: SAM,

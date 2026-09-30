@@ -1,10 +1,15 @@
 'use client';
+import {
+  DESK_BUSINESS_SORTS,
+  DESK_BUSINESS_WORDS,
+  deskBusinessTotals,
+  deskSectionLabel,
+} from '@hfos/core';
 import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
-import { sinceWords } from './ticket-bits';
 
 export interface BusinessRow {
   readonly workspaceId: string;
@@ -15,13 +20,6 @@ export interface BusinessRow {
   readonly openTicketCount: number;
   readonly createdAt: string;
 }
-
-const SORTS = [
-  { key: 'newest', label: 'Newest' },
-  { key: 'busiest', label: 'Most active' },
-  { key: 'quietest', label: 'Gone quiet' },
-  { key: 'name', label: 'By name' },
-] as const;
 
 /** Every business on HandsFreeOS. The three numbers at the top are the ones Chris will look at daily. */
 export function Businesses({
@@ -53,18 +51,12 @@ export function Businesses({
     e.preventDefault();
     go({ q: term.trim() || null });
   };
-  const quiet = (iso: string | null) =>
-    iso ? sinceWords(Math.round((Date.now() - Date.parse(iso)) / 60000)) : 'never';
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <h1 className="text-xl font-semibold md:text-2xl">Businesses</h1>
+      <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('businesses')}</h1>
       <dl className="mt-4 grid grid-cols-3 gap-3">
-        {[
-          { label: 'On HandsFreeOS', value: totals.businesses },
-          { label: 'Signed up this week', value: totals.newThisWeek },
-          { label: 'Did something this week', value: totals.activeThisWeek },
-        ].map((s) => (
+        {deskBusinessTotals(totals).map((s) => (
           <div key={s.label} className="rounded-card border border-border bg-card px-4 py-3">
             <dt className="text-[13px] text-text-3">{s.label}</dt>
             <dd className="mt-0.5 text-2xl font-semibold tabular-nums">{s.value}</dd>
@@ -81,8 +73,8 @@ export function Businesses({
           <Input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search by business or agency name"
-            aria-label="Search businesses"
+            placeholder={DESK_BUSINESS_WORDS.searchPlaceholder}
+            aria-label={DESK_BUSINESS_WORDS.searchLabel}
             data-testid="business-search"
             className="pl-10"
           />
@@ -90,7 +82,7 @@ export function Businesses({
       </form>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {SORTS.map((s) => (
+        {DESK_BUSINESS_SORTS.map((s) => (
           <button
             key={s.key}
             type="button"
@@ -116,19 +108,23 @@ export function Businesses({
             >
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{b.name}</span>
               <span className="text-[13px] text-text-3">
-                {b.memberCount} {b.memberCount === 1 ? 'person' : 'people'}
+                {DESK_BUSINESS_WORDS.people(b.memberCount)}
               </span>
-              <span className="text-[13px] text-text-3">· last active {quiet(b.lastActiveAt)}</span>
+              <span className="text-[13px] text-text-3">
+                · {DESK_BUSINESS_WORDS.lastActive(b.lastActiveAt)}
+              </span>
               {b.openTicketCount > 0 ? (
                 <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-text">
-                  {b.openTicketCount} open {b.openTicketCount === 1 ? 'ticket' : 'tickets'}
+                  {DESK_BUSINESS_WORDS.openTickets(b.openTicketCount)}
                 </span>
               ) : null}
             </Link>
           </li>
         ))}
         {businesses.length === 0 ? (
-          <li className="px-4 py-10 text-center text-[13px] text-text-3">Nothing matches that.</li>
+          <li className="px-4 py-10 text-center text-[13px] text-text-3">
+            {DESK_BUSINESS_WORDS.nothingMatches}
+          </li>
         ) : null}
       </ul>
 
@@ -143,7 +139,7 @@ export function Businesses({
             }}
             className="h-10 rounded-control border border-border px-4 text-sm font-medium hover:bg-card-2"
           >
-            More
+            {DESK_BUSINESS_WORDS.more}
           </button>
         </div>
       ) : null}
