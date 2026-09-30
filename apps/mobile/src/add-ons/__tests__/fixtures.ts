@@ -281,6 +281,7 @@ export function listFor(
             summary: m.summary,
             category: m.category,
             status: m.catalog.status,
+            testing: false,
           }))
       : [],
   };

@@ -10,9 +10,9 @@ import {
   customRecordTypes,
   workspaces,
 } from '@hfos/db/schema';
-import { addonRuns, capabilitySets } from '../addons/capabilities';
+import { addonRuns, capabilitySets, grantedHere } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
-import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
+import { capabilityContextOf, loadGrants, loadInstallations, loadOverrides } from '../addons/load';
 import { planTransition } from '../addons/plan';
 import { suggestAddon, type SuggestionChoice } from '../addons/suggest';
 import { HfosError } from '../errors';
@@ -55,12 +55,13 @@ export function addonQueries(catalog: Catalog) {
     permission: 'workspace.read',
     scope,
     async handler(ctx, input) {
-      const [installations, overrides] = await Promise.all([
+      const [installations, overrides, grants] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
+        loadGrants(ctx.tx, input.workspaceId),
       ]);
       const permissions = ctx.scope.workspacePermissions ?? [];
-      const cctx = capabilityContextOf(catalog, installations, overrides, permissions);
+      const cctx = capabilityContextOf(catalog, installations, overrides, permissions, grants);
       const sets = capabilitySets(cctx);
       // Suggestions only ever reach people who could act on them (the owner's decision, 2026-09-28).
       const manages = permissions.includes('addons.manage');
@@ -94,13 +95,17 @@ export function addonQueries(catalog: Catalog) {
         },
         catalog: manages
           ? catalog
-              .filter((m) => (overrides[m.id] ?? m.catalog.status) === 'available')
+              .filter(
+                (m) =>
+                  (overrides[m.id] ?? m.catalog.status) === 'available' || grantedHere(cctx, m.id),
+              )
               .map((m) => ({
                 addonId: m.id,
                 name: m.name,
                 summary: m.summary,
                 category: m.category,
                 status: overrides[m.id] ?? m.catalog.status,
+                testing: grantedHere(cctx, m.id),
               }))
           : [],
       };
@@ -116,9 +121,10 @@ export function addonQueries(catalog: Catalog) {
     permission: 'addons.manage',
     scope,
     async handler(ctx, input) {
-      const [installations, overrides, counts] = await Promise.all([
+      const [installations, overrides, grants, counts] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
+        loadGrants(ctx.tx, input.workspaceId),
         rows<{
           records: string;
           relationships: string;
@@ -144,6 +150,7 @@ export function addonQueries(catalog: Catalog) {
         installations,
         overrides,
         ctx.scope.workspacePermissions ?? [],
+        grants,
       );
       const first = planTransition(cctx, input.addonId, input.action);
       // With every add-on it asks about agreed to, so the plan shown is the one that would run after "yes".

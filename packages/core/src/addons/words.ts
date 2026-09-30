@@ -125,6 +125,10 @@ export const ADDON_PAGE_WORDS = {
   noneToAdd: 'When there’s an add-on this business can use, it shows here.',
   comingSoon: 'Coming soon',
   comingSoonDetail: 'Being built now. You can’t add these yet.',
+  /** One HandsFreeOS handed this business to try while it's still being built. */
+  testing: 'Testing',
+  testingDetail:
+    'HandsFreeOS lets this business try it before it’s finished. Things may change, and nobody else has it yet.',
   /** One add-on that is coming soon. */
   notYet: 'It’s being built now. You can’t add it yet.',
   /** Nothing anywhere: none here, none to add, none coming. The catalogue is empty until the first add-on ships. */

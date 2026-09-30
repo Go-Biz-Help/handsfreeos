@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
 import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
@@ -115,6 +116,12 @@ export default async function BusinessPage({
         workspaceId={workspaceId}
         phoneModel={detail.phoneModel}
         canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
+      />
+
+      <AddonTestingBlock
+        workspaceId={workspaceId}
+        grants={detail.addonGrants}
+        canChange={me.staff?.permissions.includes('platform.addons.manage') ?? false}
       />
 
       <OwnBusinessBlock

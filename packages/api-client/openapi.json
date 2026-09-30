@@ -47186,6 +47186,152 @@
         }
       }
     },
+    "/v1/commands/addon_grant.give": {
+      "post": {
+        "operationId": "command_addon_grant_give",
+        "summary": "Staff: let one business install an add-on that is still being built, to try it. Its owners and admins add it from their Add-ons page.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "granted": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "addonId",
+                    "granted",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon_grant.take_back": {
+      "post": {
+        "operationId": "command_addon_grant_take_back",
+        "summary": "Staff: stop offering a business an add-on it was handed to try. If it already added it, it keeps running.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "granted": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "addonId",
+                    "granted",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/onboarding.save_answers": {
       "post": {
         "operationId": "command_onboarding_save_answers",
@@ -51033,6 +51179,34 @@
                     "isPlatform": {
                       "type": "boolean"
                     },
+                    "addonGrants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "grantedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "note",
+                          "grantedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "people": {
                       "type": "array",
                       "items": {
@@ -51190,6 +51364,7 @@
                     "business",
                     "phoneModel",
                     "isPlatform",
+                    "addonGrants",
                     "people",
                     "counts",
                     "tickets",
@@ -95992,6 +96167,9 @@
                               "deprecated",
                               "unavailable"
                             ]
+                          },
+                          "testing": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -95999,7 +96177,8 @@
                           "name",
                           "summary",
                           "category",
-                          "status"
+                          "status",
+                          "testing"
                         ],
                         "additionalProperties": false
                       }

@@ -17,7 +17,7 @@ import { addonSuggestionDismissals, addonUserSettings } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { findAddon, type Catalog } from '../addons/graph';
 import type { LifecycleAction } from '../addons/lifecycle';
-import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
+import { capabilityContextOf, loadGrants, loadInstallations, loadOverrides } from '../addons/load';
 import type { AddonManifest } from '../addons/manifest';
 import { planTransition } from '../addons/plan';
 import { requireHuman } from '../kernel/actor';
@@ -60,12 +60,19 @@ async function makeMoves(
   agreed?: () => void,
 ): Promise<{ moved: Moved[] }> {
   const workspaceId = ctx.scope.workspaceId!;
-  const [installations, overrides] = await Promise.all([
+  const [installations, overrides, grants] = await Promise.all([
     loadInstallations(ctx.tx, workspaceId),
     loadOverrides(ctx.tx),
+    loadGrants(ctx.tx, workspaceId),
   ]);
   const plan = planTransition(
-    capabilityContextOf(catalog, installations, overrides, ctx.scope.workspacePermissions ?? []),
+    capabilityContextOf(
+      catalog,
+      installations,
+      overrides,
+      ctx.scope.workspacePermissions ?? [],
+      grants,
+    ),
     addonId,
     action,
     include,

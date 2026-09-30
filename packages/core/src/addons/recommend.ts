@@ -2,8 +2,9 @@
  * When HandsFreeOS may mention an add-on a business doesn't have. The rules are in code, so no wording in a prompt
  * can turn the Assistant into an advert:
  *
- * - only add-ons in the `installable` set: `available`, free, not installed, and installable here — never planned,
- *   in development, beta, built, deprecated or unavailable;
+ * - only add-ons in the `installable` set that are `available` and free: not installed, installable here, and never
+ *   planned, in development, beta, built, deprecated or unavailable (one staff handed a business to try is
+ *   installable there, but never suggested);
  * - only when the request matches it well enough (`MIN_SCORE`);
  * - only when nothing the business already has matches the request as well (the request is a gap);
  * - at most `limit` (2), best first.
@@ -12,7 +13,7 @@
  * ever narrows what the AI is allowed to say; the AI still decides whether the person is actually asking for it.
  */
 import type { CapabilityContext, CapabilityView } from './capabilities';
-import { capabilitySets } from './capabilities';
+import { capabilitySets, effectiveStatus } from './capabilities';
 import { findAddon } from './graph';
 import type { AddonId, CapabilityId } from './manifest';
 
@@ -86,7 +87,8 @@ export function recommendAddons(ctx: CapabilityContext, need: string, limit = 2)
   const out: Recommendation[] = [];
   for (const [addonId, caps] of byAddon) {
     const m = findAddon(ctx.catalog, addonId);
-    if (!m) continue;
+    if (!m || effectiveStatus(m, ctx.overrides) !== 'available' || m.billing.model !== 'free')
+      continue;
     const text = [
       m.name,
       m.summary,

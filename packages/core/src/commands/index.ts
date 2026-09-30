@@ -377,6 +377,13 @@ export const {
 } = addonRoadmapCommands(ADDON_CATALOG);
 export { addonRoadmapCommands } from './addon-roadmap';
 
+import { addonGrantCommands } from './addon-grant';
+
+/** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
+export const { give: addonGrantGive, takeBack: addonGrantTakeBack } =
+  addonGrantCommands(ADDON_CATALOG);
+export { addonGrantCommands } from './addon-grant';
+
 export {
   conversationAssign,
   conversationArchive,
@@ -903,6 +910,9 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Staff handing a business an add-on to try (Real Estate, step 2).
+  addonGrantGive,
+  addonGrantTakeBack,
   // Getting started.
   onboardingSaveAnswers,
   onboardingSkip,

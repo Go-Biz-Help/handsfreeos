@@ -20,7 +20,7 @@ import type { CommandDef, QueryDef } from '../kernel/types';
 import type { CapabilityContext, CapabilityView } from './capabilities';
 import { capabilitySets, effectiveStatus } from './capabilities';
 import type { Catalog } from './graph';
-import { capabilityContextOf, loadInstallations, loadOverrides } from './load';
+import { capabilityContextOf, loadGrants, loadInstallations, loadOverrides } from './load';
 import type { AddonId, AddonManifest, CapabilityId } from './manifest';
 import { recommendAddons, words } from './recommend';
 import { AI_TOOL_NAME, type AddonServerModule } from './server';
@@ -417,9 +417,10 @@ export async function loadCapabilityContext(
   workspaceId: string,
   permissions: readonly string[] | null,
 ): Promise<CapabilityContext> {
-  const [installations, overrides] = await Promise.all([
+  const [installations, overrides, grants] = await Promise.all([
     loadInstallations(tx, workspaceId),
     loadOverrides(tx),
+    loadGrants(tx, workspaceId),
   ]);
-  return capabilityContextOf(catalog, installations, overrides, permissions);
+  return capabilityContextOf(catalog, installations, overrides, permissions, grants);
 }

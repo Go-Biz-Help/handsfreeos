@@ -139,9 +139,11 @@ export function AddonsSettings({
       Number(!isInstalledState(a.state)) - Number(!isInstalledState(b.state)) ||
       a.name.localeCompare(b.name),
   );
+  // Available ones, and any HandsFreeOS handed this business to try while it's being built.
   const toAdd = list.catalog.filter(
-    (c) => c.status === 'available' && !installedIds.has(c.addonId),
+    (c) => (c.status === 'available' || c.testing) && !installedIds.has(c.addonId),
   );
+  const testing = new Set(list.catalog.filter((c) => c.testing).map((c) => c.addonId));
   // Picked and being built (0109): what won a week's vote, or what HandsFreeOS chose.
   const coming = roadmap.comingSoon.filter((c) => !installedIds.has(c.addonId));
   const moving = list.installed.some((i) => isBusyState(i.state));
@@ -279,6 +281,7 @@ export function AddonsSettings({
               : undefined
           }
           note={note}
+          testing={testing.has(i.addonId)}
         />
       </li>
     );
@@ -306,6 +309,7 @@ export function AddonsSettings({
           open={null}
           onMove={(action) => start({ addonId: c.addonId, name: c.name }, action)}
           note={note}
+          testing={c.testing}
         />
       </li>
     );

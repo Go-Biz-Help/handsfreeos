@@ -4727,6 +4727,19 @@ export const addonOverrides = platform.table('addon_overrides', {
   setAt: ts('set_at').notNull().defaultNow(),
 });
 
+/** An add-on still being built that HandsFreeOS lets one business install to try it (Real Estate, step 2). */
+export const addonGrants = platform.table(
+  'addon_grants',
+  {
+    workspaceId: workspaceRef(),
+    addonId: text('addon_id').notNull(),
+    note: text('note'),
+    grantedBy: userRef('granted_by'),
+    grantedAt: ts('granted_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
+);
+
 /** A business's vote for a planned add-on (0109): one per business per add-on, cast by an owner or admin. */
 export const addonVotes = platform.table(
   'addon_votes',
@@ -6375,6 +6388,7 @@ export const tables = {
   addonResources,
   addonUsageEvents,
   addonOverrides,
+  addonGrants,
   addonVotes,
   addonVoteCounts,
   addonVoteWeeks,

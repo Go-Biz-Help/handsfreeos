@@ -285,12 +285,24 @@ the hosted database before its step reaches `main`, numbered above the hosted da
 
 This document, and the boards in `design/realestate`. Chris reviews the boards before Step 11.
 
-### Step 2 — Staff hand out a test add-on
+### Step 2 — Staff hand out a test add-on (built, 2026-09-30)
 
 1. Migration: `platform.addon_grants` and its policies.
 2. Core: grants in the capability sets, `addon_grant.give` and `addon_grant.take_back`, the Testing badge.
 3. Web: "Add-ons in testing" on the admin page for a business.
 4. Tests: a granted add-on is installable there and nowhere else; only staff write grants.
+
+**As built:**
+
+- `platform.addon_grants` and `private.give_addon_grant` / `private.take_back_addon_grant`
+  (`20261013002200`); `addon_grant.give` and `addon_grant.take_back` (`packages/core/src/commands/addon-grant.ts`).
+- A grant can hand out an add-on in `development`, `beta` or `built`, and an `available` paid one (so staff can
+  hand out a paid add-on before billing exists). Never a planned, deprecated or switched-off one
+  (`addon_not_grantable`).
+- A granted add-on is installable there (`installableHere`, `grantedHere`) and listed under Available to add with a
+  Testing badge, on the web and the phone (`addon.list`'s `catalog[].testing`). It is never suggested, on Home or
+  by the Assistant (`recommendAddons` still names only available, free ones).
+- `/admin/businesses/<id>` has "Add-ons in testing" for staff with `platform.addons.manage`.
 
 ### Step 3 — Signed files are kept
 

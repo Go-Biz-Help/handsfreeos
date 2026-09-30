@@ -632,6 +632,8 @@ describe('registry', () => {
       'addon.unvote',
       'addon.mark_news_seen',
       'addon_pick.choose',
+      'addon_grant.give',
+      'addon_grant.take_back',
       'onboarding.save_answers',
       'onboarding.skip',
       'onboarding.as_you_go',

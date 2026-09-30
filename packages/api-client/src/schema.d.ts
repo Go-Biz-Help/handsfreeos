@@ -117,6 +117,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon_grant.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: let one business install an add-on that is still being built, to try it. Its owners and admins add it from their Add-ons page.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.
+         */
+        post: operations["command_addon_grant_give"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_grant.take_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: stop offering a business an add-on it was handed to try. If it already added it, it keeps running.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.
+         */
+        post: operations["command_addon_grant_take_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon_pick.choose": {
         parameters: {
             query?: never;
@@ -11904,6 +11944,75 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_grant_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        changed: boolean;
+                        granted: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_grant_take_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        changed: boolean;
+                        granted: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -30085,6 +30194,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable";
                             summary: string;
+                            testing: boolean;
                         }[];
                         installed: {
                             addonId: string;
@@ -39192,6 +39302,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        addonGrants: {
+                            addonId: string;
+                            /** Format: date-time */
+                            grantedAt: string;
+                            note: string | null;
+                        }[];
                         business: {
                             /** Format: date-time */
                             createdAt: string;

@@ -103,7 +103,10 @@ export const AddonListOutput = z.object({
     /** Only for people who may install add-ons: what is planned. Never installable. */
     planned: z.array(CapabilityRow),
   }),
-  /** Only for people who may install add-ons: the available ones. What is planned is `addon.roadmap`'s. */
+  /**
+   * Only for people who may install add-ons: the available ones, and any HandsFreeOS handed this business to try
+   * while it's still being built (`testing`). What is planned is `addon.roadmap`'s.
+   */
   catalog: z.array(
     z.object({
       addonId,
@@ -111,6 +114,8 @@ export const AddonListOutput = z.object({
       summary: z.string(),
       category: z.string(),
       status: z.enum(CATALOG_STATUSES),
+      /** Handed to this business by HandsFreeOS staff to try; nobody else is offered it. */
+      testing: z.boolean(),
     }),
   ),
 });
@@ -289,3 +294,19 @@ export const AddonPickOverviewOutput = z.object({
 /** The team choosing the pick for a week that closed with nothing voted for or a tie. */
 export const AddonPickChooseInput = z.object({ weekId: uuid, addonId });
 export const AddonPickChooseOutput = z.object({ weekId: uuid, addonId });
+
+/** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
+export const AddonGrantGiveInput = z.object({
+  workspaceId: uuid,
+  addonId,
+  /** Why, for the next person who looks: "Testing Real Estate with Hill Country Realty". */
+  note: z.string().trim().max(300).optional(),
+});
+export const AddonGrantTakeBackInput = z.object({ workspaceId: uuid, addonId });
+export const AddonGrantOutput = z.object({
+  workspaceId: uuid,
+  addonId,
+  granted: z.boolean(),
+  /** False when it already was as asked: a second press. */
+  changed: z.boolean(),
+});

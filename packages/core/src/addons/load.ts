@@ -1,5 +1,5 @@
 /**
- * Reading what a business has (server side): its installation rows and HandsFreeOS's overrides, and the capability
+ * Reading what a business has (server side): its installation rows, HandsFreeOS's overrides and grants, and the capability
  * context the pure rules in `./capabilities` and `./plan` work from. One query each, whatever the number of add-ons.
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -66,6 +66,15 @@ export async function loadOverrides(tx: Tx): Promise<Record<string, OverrideStat
   return Object.fromEntries(found.map((r) => [r.addon_id, r.status]));
 }
 
+/** The add-ons HandsFreeOS handed this business to try while they're still being built (`platform.addon_grants`). */
+export async function loadGrants(tx: Tx, workspaceId: string): Promise<string[]> {
+  const found = await rows<{ addon_id: string }>(
+    tx,
+    sql`select addon_id from platform.addon_grants where workspace_id = ${workspaceId}::uuid order by addon_id`,
+  );
+  return found.map((r) => r.addon_id);
+}
+
 /** The add-ons running in one business (enabled, not switched off by HandsFreeOS). */
 export async function loadActiveAddons(tx: Tx, workspaceId: string): Promise<string[]> {
   const [row] = await rows<{ ids: string[] }>(
@@ -81,11 +90,13 @@ export function capabilityContextOf(
   installations: readonly InstallationRow[],
   overrides: Readonly<Record<string, OverrideStatus>>,
   permissions: readonly string[] | null,
+  grants: readonly string[] = [],
 ): CapabilityContext {
   return {
     catalog,
     installations: Object.fromEntries(installations.map((i) => [i.addonId, i.state])),
     overrides,
     permissions,
+    grants,
   };
 }
