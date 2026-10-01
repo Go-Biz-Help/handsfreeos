@@ -193,6 +193,13 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
     async signedUrl(bucket, path) {
       return `https://storage.test/${bucket}/${path}`;
     },
+    async signedUploadUrl(bucket, path) {
+      return `https://storage.test/upload/${bucket}/${path}?token=t`;
+    },
+    async info(bucket, path) {
+      const held = uploads.get(`${bucket}/${path}`);
+      return held ? { size: held.bytes.length, contentType: held.contentType } : null;
+    },
     async check() {
       return { ok: true };
     },

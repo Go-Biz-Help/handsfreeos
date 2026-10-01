@@ -20,6 +20,13 @@ export interface ObjectStore {
   /** A short-lived link a provider can fetch (outbound picture messages). */
   signedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
   /**
+   * A link a signed-out page can upload one file to, at this path only, for two hours: a customer's video sent
+   * through a video link (http/video-links.ts). Nothing already there is replaced.
+   */
+  signedUploadUrl(bucket: string, path: string): Promise<string>;
+  /** What is stored at a path, as Storage measured it: its size and type. Null when nothing is. */
+  info(bucket: string, path: string): Promise<{ size: number; contentType: string } | null>;
+  /**
    * Whether Storage answers this key at all, for the line the worker logs as it starts. A key that is set but
    * not accepted looked exactly like a working one until a customer left a voicemail.
    */
@@ -106,6 +113,26 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
         );
       return data.signedUrl;
     },
+    async signedUploadUrl(bucket, path) {
+      const { data, error } = await client.storage.from(bucket).createSignedUploadUrl(path);
+      if (error || !data?.signedUrl)
+        throw new Error(
+          `storage signed upload failed: ${credentialError(error?.message ?? 'no url')}`,
+        );
+      return data.signedUrl;
+    },
+    async info(bucket, path) {
+      const dir = path.split('/').slice(0, -1).join('/');
+      const name = path.split('/').pop()!;
+      const { data, error } = await client.storage
+        .from(bucket)
+        .list(dir, { search: name, limit: 100 });
+      if (error) throw new Error(`storage list failed: ${credentialError(error.message)}`);
+      const found = (data ?? []).find((o) => o.name === name);
+      if (!found) return null;
+      const meta = (found.metadata ?? {}) as { size?: number; mimetype?: string };
+      return { size: Number(meta.size ?? 0), contentType: String(meta.mimetype ?? '') };
+    },
     async check(bucket) {
       // Listing an empty prefix touches the bucket and its rules without writing anything. An empty answer is
       // a pass: the question is whether Storage takes the key, not whether anything is in there yet.
@@ -128,5 +155,7 @@ export const unconfiguredStore: ObjectStore = {
   exists: notConfigured,
   upload: notConfigured,
   signedUrl: notConfigured,
+  signedUploadUrl: notConfigured,
+  info: notConfigured,
   check: async () => ({ ok: false, error: 'SUPABASE_URL and SUPABASE_SECRET_KEY are not set' }),
 };
