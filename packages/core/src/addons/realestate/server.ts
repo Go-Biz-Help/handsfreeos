@@ -15,6 +15,7 @@ import { editorCommands, editorQueries } from './ops/editor';
 import { healthCommands, healthQueries } from './ops/health';
 import { homeCommands, homeQueries } from './ops/homes';
 import { memoryCommands, memoryQueries } from './ops/memory';
+import { tourCommands, tourQueries } from './ops/tours';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -32,6 +33,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...clientUpdateCommands,
     ...homeCommands,
     ...memoryCommands,
+    ...tourCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -41,5 +43,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...clientUpdateQueries,
     ...homeQueries,
     ...memoryQueries,
+    ...tourQueries,
   ],
 };

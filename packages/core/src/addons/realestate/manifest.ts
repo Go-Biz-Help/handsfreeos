@@ -117,7 +117,7 @@ export const realestateAddon = defineAddon({
       key: 'realestate.except',
       label: 'Approve exceptions',
       description:
-        'Mark a duty done without its proof or waive it, with a reason, and set a deal’s final commission.',
+        'Mark a duty done without its proof or waive it, with a reason, let a tour through without a current buyer agreement, and set a deal’s final commission.',
       defaultRoles: ['admin'],
       requires: ['realestate.use'],
     },
@@ -202,6 +202,9 @@ export const realestateAddon = defineAddon({
     'homes',
     'home_reactions',
     'memory_items',
+    'tours',
+    'tour_stops',
+    'tour_feedback',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -263,6 +266,12 @@ export const realestateAddon = defineAddon({
       'realestate.memory.decided',
       'realestate.memory.requested',
       'realestate.memory.suggested',
+      'realestate.tour.planned',
+      'realestate.tour.stops_changed',
+      'realestate.tour.rescheduled',
+      'realestate.tour.canceled',
+      'realestate.tour.visited',
+      'realestate.tour.feedback_added',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -287,6 +296,9 @@ export const realestateAddon = defineAddon({
       'realestate.memory.requested',
       'realestate.memory.suggested',
       'realestate.memory.decided',
+      // Tours: a tour's appointment moved or canceled on the calendar moves or cancels the tour.
+      'appointment.rescheduled',
+      'appointment.cancelled',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.

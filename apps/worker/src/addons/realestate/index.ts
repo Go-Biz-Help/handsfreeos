@@ -39,6 +39,7 @@ import {
   memoryRequested,
   memoryWaitingChanged,
 } from './memory';
+import { tourAppointmentChanged } from './tours';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -189,6 +190,9 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.memory.requested': memoryRequested,
     'realestate.memory.suggested': memoryWaitingChanged,
     'realestate.memory.decided': memoryWaitingChanged,
+    // Tours: the appointment moved or canceled on the calendar (./tours.ts).
+    'appointment.rescheduled': tourAppointmentChanged,
+    'appointment.cancelled': tourAppointmentChanged,
   },
   jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob },
   onEnable: armSweep,

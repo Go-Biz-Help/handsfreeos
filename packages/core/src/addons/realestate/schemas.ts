@@ -22,6 +22,7 @@ import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { TERM_KEYS } from './terms';
+import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
 const reason = z
   .string()
@@ -1180,4 +1181,159 @@ export const MemoryListInput = z.object({ ...inDeal, includeClosed: z.boolean().
 export const MemoryListOutput = z.object({
   items: z.array(MemoryItemOut),
   waiting: z.number().int(),
+});
+
+// ---------- tours (round two) ----------
+
+const homeIds = z
+  .array(uuid)
+  .min(1, 'Pick at least one home.')
+  .max(MAX_TOUR_STOPS, `A tour can have up to ${MAX_TOUR_STOPS} homes. Split it into two.`)
+  .refine((ids) => new Set(ids).size === ids.length, { error: 'Each home goes on a tour once.' });
+const tourMinutes = z.int().min(15, 'At least 15 minutes.').max(720, 'At most 12 hours.');
+/** An owner's or admin's reason for a tour without a signed, current buyer agreement. */
+const TourException = z.object({ reason });
+
+export const TourPlanInput = z.object({
+  ...inDeal,
+  /** The homes, in the order they'll be seen. */
+  homeIds,
+  startsAt: isoDateTime,
+  /** Defaults to half an hour a home. */
+  durationMinutes: tourMinutes.optional(),
+  /** Defaults to the business's tour calendar (Settings → Real Estate), or the agent's only calendar. */
+  calendarId: uuid.optional(),
+  /** Who leads it; defaults to whoever plans it. */
+  agentUserId: uuid.optional(),
+  note: z.string().trim().max(2000, 'Keep it under 2,000 characters.').optional(),
+  /** Send the client the calendar's confirmation; reminders follow the calendar either way. */
+  notifyClient: z.boolean().default(true),
+  acknowledgeWarnings: z.boolean().default(false),
+  exception: TourException.optional(),
+});
+export const TourPlanOutput = z.object({
+  tourId: uuid,
+  appointmentId: uuid,
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  /** The calendar's warnings (outside hours, busy…), already accepted. */
+  warnings: z.array(z.object({ code: z.string(), message: z.string() })),
+  /** It went ahead on an owner's or admin's exception. */
+  exception: z.boolean(),
+});
+
+export const TourSetStopsInput = z.object({ workspaceId: uuid, tourId: uuid, homeIds });
+export const TourRescheduleInput = z.object({
+  workspaceId: uuid,
+  tourId: uuid,
+  startsAt: isoDateTime,
+  durationMinutes: tourMinutes.optional(),
+  notifyClient: z.boolean().default(true),
+  acknowledgeWarnings: z.boolean().default(false),
+  exception: TourException.optional(),
+});
+export const TourCancelInput = z.object({
+  workspaceId: uuid,
+  tourId: uuid,
+  reason: z.string().trim().max(500, 'Keep it under 500 characters.').optional(),
+  notifyClient: z.boolean().default(true),
+});
+export const TourChangeOutput = z.object({
+  tourId: uuid,
+  status: z.enum(TOUR_STATUS_KEYS),
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+});
+
+export const TourRecordVisitInput = z.object({
+  workspaceId: uuid,
+  stopId: uuid,
+  status: z.enum(['visited', 'skipped']),
+  note: z.string().trim().max(1000, 'Keep it under 1,000 characters.').optional(),
+});
+export const TourRecordVisitOutput = z.object({
+  tourId: uuid,
+  stopId: uuid,
+  /** Every home on it seen or skipped: the tour is done. */
+  tourStatus: z.enum(TOUR_STATUS_KEYS),
+});
+
+export const TourFeedbackInput = z.object({
+  workspaceId: uuid,
+  stopId: uuid,
+  /** The client it's from. */
+  personId: uuid,
+  interest: z.enum(TOUR_INTEREST_KEYS),
+  rating: z.int().min(1).max(5).nullable().optional(),
+  words: z.string().trim().max(2000, 'Keep it under 2,000 characters.').optional(),
+});
+export const TourFeedbackOutput = z.object({ feedbackId: uuid, updated: z.boolean() });
+
+/** The appointment moved or canceled on the calendar: the worker's. */
+export const TourFollowInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  change: z.enum(['rescheduled', 'cancelled']),
+  startsAt: isoDateTime.optional(),
+  endsAt: isoDateTime.optional(),
+  by: z.string().max(40).optional(),
+  reason: z.string().max(500).nullable().optional(),
+});
+export const TourFollowOutput = z.object({ tourId: uuid.nullable(), changed: z.boolean() });
+
+export const AgreementOut = z.object({
+  /** A tour today may go ahead. */
+  ok: z.boolean(),
+  rule: z.enum(['buyer_agreement_needed', 'buyer_agreement_expired']).nullable(),
+  /** What's wrong and what to do, when it isn't. */
+  words: z.string().nullable(),
+  signedTitle: z.string().nullable(),
+  endsOn: z.string().nullable(),
+});
+const TourFeedbackOut = z.object({
+  id: uuid,
+  personId: uuid,
+  name: z.string(),
+  interest: z.enum(TOUR_INTEREST_KEYS),
+  rating: z.number().int().nullable(),
+  words: z.string().nullable(),
+  /** Typed in by someone on the team who heard it; null when the client gave it. */
+  recordedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  at: isoDateTime,
+});
+export const TourOut = z.object({
+  id: uuid,
+  status: z.enum(TOUR_STATUS_KEYS),
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  appointmentId: uuid.nullable(),
+  calendarId: uuid.nullable(),
+  agent: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  note: z.string().nullable(),
+  exception: z
+    .object({
+      reason: z.string(),
+      by: z.object({ id: uuid, fullName: z.string() }).nullable(),
+      at: isoDateTime,
+    })
+    .nullable(),
+  canceledReason: z.string().nullable(),
+  stops: z.array(
+    z.object({
+      id: uuid,
+      homeId: uuid,
+      address: z.string(),
+      position: z.number().int(),
+      status: z.enum(STOP_STATUS_KEYS),
+      visitedAt: isoDateTime.nullable(),
+      note: z.string().nullable(),
+      feedback: z.array(TourFeedbackOut),
+    }),
+  ),
+});
+export const ToursInput = z.object({ ...inDeal, includeCanceled: z.boolean().default(false) });
+export const ToursOutput = z.object({
+  agreement: AgreementOut,
+  tours: z.array(TourOut),
+  can: z.object({ except: z.boolean() }),
 });

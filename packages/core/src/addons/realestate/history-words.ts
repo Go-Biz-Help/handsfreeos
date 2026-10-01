@@ -9,6 +9,7 @@ import { KEY_DATES } from './dates/key-dates';
 import { STAGE_LABELS, DUTY_STATUS_LABELS, type DealStage, type DutyStatus } from './states';
 import { DEAL_ROLE_LABELS, EVENT_WORDS, PARTY_ROLES, type DealRole, type PartyRole } from './words';
 import { MONEY_TERMS, TEXT_TERMS } from './terms';
+import { TOUR_INTEREST, type TourInterest } from './tours';
 import { money } from '../../money/format';
 
 type Bag = Readonly<Record<string, unknown>> | null | undefined;
@@ -73,6 +74,29 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `No longer true: ${str(a.words)}`;
     case 'home_status':
       return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
+    // Tours.
+    case 'tour_planned':
+      return Number(a.homes) > 1
+        ? `Planned a tour of ${Number(a.homes)} homes for ${str(a.when)}`
+        : `Planned a tour of ${str(a.first) || 'a home'} for ${str(a.when)}`;
+    case 'tour_exception':
+      return `Let the tour on ${str(a.when)} go ahead without a current buyer agreement`;
+    case 'tour_stops':
+      return `Changed the homes on the tour for ${str(a.when)}`;
+    case 'tour_moved':
+      return a.by
+        ? `The tour moved from ${str(b.when)} to ${str(a.when)}, by ${str(a.by)}`
+        : `Moved the tour from ${str(b.when)} to ${str(a.when)}`;
+    case 'tour_canceled':
+      return a.by
+        ? `The tour for ${str(a.when)} was canceled, by ${str(a.by)}`
+        : `Canceled the tour for ${str(a.when)}`;
+    case 'tour_visited':
+      return a.status === 'skipped'
+        ? `Skipped ${str(a.address)} on the tour`
+        : `Saw ${str(a.address)} on the tour`;
+    case 'tour_feedback':
+      return `${str(a.name)} on ${str(a.address)}: ${TOUR_INTEREST[str(a.interest) as TourInterest] ?? str(a.interest)}`;
     case 'team':
       if (a.added)
         return `Added someone to the deal as ${DEAL_ROLE_LABELS[str(a.role) as DealRole]?.toLowerCase() ?? 'a teammate'}`;

@@ -999,6 +999,38 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   clears when none wait.
 - The stand-in model reads a buyer's sentences the plain way (`scriptedBuyerMemory`).
 
+### Step 8: tours and the agreement rule (server built, 2026-10-01)
+
+**As built** (`20261014001000_realestate_tours.sql`):
+
+- `tours` (one per appointment: when, who leads it, the agreement it rested on or the exception that let it
+  through, whether it happened), `tour_stops` (the homes in order, each seen or skipped, with the team's note) and
+  `tour_feedback` (each client's "loved it", "maybe" or "not for us" on a home they saw, with a rating and words). All
+  three open to the client's portal, without the team's notes.
+- `realestate.tour.plan` (risk 2; the Assistant's `realestate_plan_tour`, which a person OKs) books one appointment
+  through core's `appointment.create`, in the same transaction: the agent's calendar, the deal's client on it, the
+  homes in order in its notes, the first home as its place, half an hour a home unless told. The deal makes it
+  private, so others see only "Busy" (step 1).
+- The calendar is the one asked for, else the new `tourCalendarId` setting (Settings → Real Estate), else the one
+  active calendar the agent is on. Otherwise it's refused, saying where to pick one (`realestate_tour_calendar`).
+- **The agreement rule**: the deal needs a signed `buyer_agreement` document and a "Buyer agreement ends" date on or
+  after the tour's day (two dates that disagree count as the earlier). Refused as `buyer_agreement_needed` (none, or
+  no end date) or `buyer_agreement_expired`, saying what to add and where. An exception needs Approve exceptions
+  (`realestate.except`, now described as covering this) and a person; the AI is refused. Its reason is kept on the
+  tour and in the deal's history. A tour already let through keeps its exception when it moves.
+- `realestate.tour.set_stops`, `.reschedule` and `.cancel` change the appointment with it (`appointment.update`,
+  `.reschedule`, `.cancel`). Moving one past the agreement's end is refused, as planning is.
+- `realestate.tour.record_visit` marks a home seen or skipped, from an hour before the tour starts. A seen home
+  becomes "toured"; once every home is seen or skipped the tour is done. `realestate.tour.feedback` keeps a client's
+  view of a home they saw, as the agent heard it (the client's own comes with the portal, step 12). The team's words
+  go through the fair-housing list.
+- The worker follows the calendar: when a tour's appointment is moved or canceled there (by the team, or the client
+  from their booking's link), `realestate.tour.follow` moves or cancels the tour, with a history line saying so.
+- `realestate.tours` gives a deal's tours with their homes and feedback, and whether the agreement lets a tour go
+  ahead today, in the refusal's own words.
+- Chosen for Chris: only the first client (one with an email or phone first) is on the appointment; the others see
+  it in their portal. Tour stops of a planned tour can be removed (nothing about them is kept until a home is seen).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

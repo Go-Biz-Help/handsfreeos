@@ -7397,6 +7397,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.tour.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a planned tour, and its appointment, telling the client if asked.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.canceled.
+         */
+        post: operations["command_realestate_tour_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep what a client thought of a home they saw on a tour (loved it, maybe, not for us), as the agent heard it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added.
+         */
+        post: operations["command_realestate_tour_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan a tour of a buyer’s homes: one appointment on the calendar with the homes in order, the client invited. Needs a signed buyer agreement that covers the day, unless an owner or admin makes an exception with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.planned.
+         */
+        post: operations["command_realestate_tour_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.record_visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a home on a tour seen or skipped, with a note for the team. Once every home is, the tour is done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited.
+         */
+        post: operations["command_realestate_tour_record_visit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a planned tour to another time, and its appointment with it. The buyer agreement must cover the new day too, unless an owner or admin already let this tour through.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.rescheduled.
+         */
+        post: operations["command_realestate_tour_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.set_stops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change which homes a planned tour sees, and in what order.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.stops_changed.
+         */
+        post: operations["command_realestate_tour_set_stops"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.add_tag": {
         parameters: {
             query?: never;
@@ -12831,6 +12951,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_term_history"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s tours: when, the homes in order, which were seen, what the client thought of each; and whether the buyer agreement lets a tour go ahead today.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_tours"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29562,6 +29702,271 @@ export interface operations {
             };
         };
     };
+    command_realestate_tour_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    notifyClient?: boolean;
+                    reason?: string;
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    interest: "love" | "maybe" | "no";
+                    /** Format: uuid */
+                    personId: string;
+                    rating?: number | null;
+                    /** Format: uuid */
+                    stopId: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        feedbackId: string;
+                        updated: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    durationMinutes?: number;
+                    exception?: {
+                        reason: string;
+                    };
+                    homeIds: string[];
+                    note?: string;
+                    /** @default true */
+                    notifyClient?: boolean;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        exception: boolean;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** Format: uuid */
+                        tourId: string;
+                        warnings: {
+                            code: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_record_visit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** @enum {string} */
+                    status: "visited" | "skipped";
+                    /** Format: uuid */
+                    stopId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        stopId: string;
+                        /** Format: uuid */
+                        tourId: string;
+                        /** @enum {string} */
+                        tourStatus: "planned" | "done" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_reschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    durationMinutes?: number;
+                    exception?: {
+                        reason: string;
+                    };
+                    /** @default true */
+                    notifyClient?: boolean;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_set_stops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    homeIds: string[];
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
     command_record_add_tag: {
         parameters: {
             query?: never;
@@ -46243,6 +46648,107 @@ export interface operations {
                             supersededAt: string | null;
                             text: string | null;
                             time: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_tours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeCanceled?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agreement: {
+                            endsOn: string | null;
+                            ok: boolean;
+                            rule: ("buyer_agreement_needed" | "buyer_agreement_expired") | null;
+                            signedTitle: string | null;
+                            words: string | null;
+                        };
+                        can: {
+                            except: boolean;
+                        };
+                        tours: {
+                            agent: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            appointmentId: string | null;
+                            calendarId: string | null;
+                            canceledReason: string | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            exception: {
+                                /** Format: date-time */
+                                at: string;
+                                by: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                reason: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            status: "planned" | "done" | "canceled";
+                            stops: {
+                                address: string;
+                                feedback: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @enum {string} */
+                                    interest: "love" | "maybe" | "no";
+                                    name: string;
+                                    /** Format: uuid */
+                                    personId: string;
+                                    rating: number | null;
+                                    recordedBy: {
+                                        fullName: string;
+                                        /** Format: uuid */
+                                        id: string;
+                                    } | null;
+                                    words: string | null;
+                                }[];
+                                /** Format: uuid */
+                                homeId: string;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                                position: number;
+                                /** @enum {string} */
+                                status: "planned" | "visited" | "skipped";
+                                visitedAt: string | null;
+                            }[];
                         }[];
                     };
                 };

@@ -15,6 +15,7 @@ import {
   numeric,
   pgSchema,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -22,6 +23,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   appointments,
+  calendars,
   customRecords,
   files,
   leads,
@@ -691,6 +693,118 @@ export const memoryItems = addonRealestate.table(
   ],
 );
 
+/** A tour: one appointment on the calendar, with the homes in order (round two, step 8). */
+export const tours = addonRealestate.table(
+  'tours',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
+    calendarId: uuid('calendar_id').references(() => calendars.id, { onDelete: 'set null' }),
+    status: text('status').notNull().default('planned').$type<'planned' | 'done' | 'canceled'>(),
+    startsAt: ts('starts_at').notNull(),
+    endsAt: ts('ends_at').notNull(),
+    agentUserId: userRef('agent_user_id'),
+    agreementDocumentId: uuid('agreement_document_id').references(() => documents.id, {
+      onDelete: 'set null',
+    }),
+    exceptionReason: text('exception_reason'),
+    exceptionBy: userRef('exception_by'),
+    exceptionAt: ts('exception_at'),
+    note: text('note'),
+    canceledReason: text('canceled_reason'),
+    canceledAt: ts('canceled_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A home on a tour, in its place, and whether it was seen. */
+export const tourStops = addonRealestate.table(
+  'tour_stops',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    tourId: uuid('tour_id').notNull(),
+    homeId: uuid('home_id').notNull(),
+    position: integer('position').notNull(),
+    status: text('status').notNull().default('planned').$type<'planned' | 'visited' | 'skipped'>(),
+    visitedAt: ts('visited_at'),
+    note: text('note'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.tourId, t.homeId),
+    foreignKey({
+      columns: [t.workspaceId, t.tourId],
+      foreignColumns: [tours.workspaceId, tours.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** What a client thought of a home they saw on a tour. */
+export const tourFeedback = addonRealestate.table(
+  'tour_feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    tourId: uuid('tour_id').notNull(),
+    stopId: uuid('stop_id').notNull(),
+    homeId: uuid('home_id').notNull(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    recordedBy: userRef('recorded_by'),
+    interest: text('interest').notNull().$type<'love' | 'maybe' | 'no'>(),
+    rating: smallint('rating'),
+    words: text('words'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.stopId, t.personId),
+    foreignKey({
+      columns: [t.workspaceId, t.stopId],
+      foreignColumns: [tourStops.workspaceId, tourStops.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.tourId],
+      foreignColumns: [tours.workspaceId, tours.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -714,4 +828,7 @@ export const REALESTATE_TABLES = {
   homes,
   homeReactions,
   memoryItems,
+  tours,
+  tourStops,
+  tourFeedback,
 } as const;
