@@ -212,6 +212,11 @@ export async function listingView(ctx: Ctx, deal: Deal) {
       publishedAt: l?.pagePublishedAt?.toISOString() ?? null,
     },
     listPriceCents: await listPriceOf(ctx, deal.recordId),
+    matches: {
+      suggested: l?.matchesSuggested ?? 0,
+      added: l?.matchesAdded ?? 0,
+      at: l?.matchedAt?.toISOString() ?? null,
+    },
     description: await descriptionView(ctx, deal),
     can: { letThrough: mayLetThrough(ctx) },
   };

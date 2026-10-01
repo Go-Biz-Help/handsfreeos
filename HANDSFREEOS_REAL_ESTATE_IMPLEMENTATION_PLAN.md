@@ -1473,15 +1473,26 @@ boards; the server steps go ahead meanwhile.
 - `realestate.listing.prices` is the price now, the change waiting, and every change.
 - Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts`.
 
-### Step 11: matching to buyers
+### Step 11: matching to buyers (server built, 2026-10-01)
 
-- The worker (`realestate.listing_match`) runs when a listing goes live, when its price changes and when a buyer's
-  profile is saved. It scores the business's open buyer deals with round two's `fit.ts`: price, areas, kind of home,
-  beds, baths and size, nothing else.
-- A suggestion (`listing_suggestions`) belongs to the buyer's deal and keeps a copy of the listing's public facts, so
-  nothing reads across deals. The agents on the buyer's deal are alerted.
-- "Add to their homes" adds it as a home from our own listing, its facts confirmed; "Not a fit" sets it aside. The
-  listing's side sees only how many (S-23, S-24).
+**As built** (`20261020000800_realestate_listing_matches.sql`; `ops/matching.ts`, `suggestsListing` in `homes.ts`):
+
+- `realestate.match.run` (the worker's, as the system) matches one listing against every buyer deal still looking,
+  or one buyer against every live listing. Live means on the market (Active to Negotiation), on the MLS, not ended
+  or archived; looking means a buyer deal before Under contract with a saved profile. It reads round two's `homeFit`
+  only: price, areas, kind of home, beds, baths and size. `suggestsListing`: within budget, nothing missed and one
+  more thing met (an area not named is "check the area", never a miss).
+- `listing_suggestions` belong to the buyer's deal, with a copy of the listing's address, confirmed facts, price,
+  how they fit, its MLS number and page; a home already on the deal isn't suggested. Matching again refreshes them;
+  one that stops fitting, or a listing off the market, is "gone". New ones are S-23 and S-24's note on the listing.
+- The worker runs it when a listing goes live, its price changes or a suggestion is decided (that listing), and
+  when a buyer's profile is saved (that buyer); new suggestions alert the buyer deal's agents ("Our listing at 2207
+  Juniper Trail fits Ortiz search").
+- `realestate.suggestions` on the buyer's deal; `suggestion.add` makes a home from it (source `our_listing`, its
+  facts confirmed as the listing has them); `suggestion.not_a_fit` sets it aside, with why if they like.
+- The listing's side sees only how many it was suggested to and how many added it (`realestate.listing`'s
+  `matches`), counted by the worker, never who.
+- Tests: `realestate-listing.test.ts` (the rule, pure, then on the database), the worker's `realestate-listing.test.ts`.
 
 ### Step 12: the seller's portal
 

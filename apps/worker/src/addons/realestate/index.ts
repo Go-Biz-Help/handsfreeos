@@ -32,6 +32,7 @@ import {
   milestoneReached,
 } from './client-updates';
 import { homeAdded } from './homes';
+import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
 import {
   descriptionRequested,
   descriptionSaved,
@@ -231,7 +232,15 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.open_house.planned': openHousePlanned,
     'realestate.open_house.followed_up': openHouseFollowedUp,
     'realestate.offers.seller_chose': sellerChose,
-    'realestate.listing.price_changed': priceChanged,
+    'realestate.listing.price_changed': async (ctx) => {
+      await priceChanged(ctx);
+      await matchListing(ctx);
+    },
+    // Our listings matched to our buyers (./matching.ts).
+    'realestate.listing.live': matchListing,
+    'realestate.buyer_profile.saved': matchBuyer,
+    'realestate.suggestion.decided': suggestionDecided,
+    'realestate.listing.suggested': listingSuggested,
   },
   jobs: {
     [SWEEP]: runSweep,

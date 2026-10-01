@@ -84,6 +84,8 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return a.source === 'client'
         ? `The client added ${str(a.address)}`
         : `Added ${str(a.address)} to the homes`;
+    case 'suggestion_not_a_fit':
+      return `Set aside ${str(a.address)}, one of our listings: not a fit`;
     case 'home_facts':
       return `Confirmed the facts for ${str(a.address)}`;
     // Round three: the listing.

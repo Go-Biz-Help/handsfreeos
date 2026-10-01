@@ -182,3 +182,16 @@ export function homeFit(profile: FitProfile, facts: ListingFacts, address: strin
     unknown: lines.filter((l) => l.met === null).length,
   };
 }
+
+/**
+ * Whether one of the business's own listings is worth suggesting to a buyer's agent (round three, step 11): within
+ * their budget, nothing they asked for missed, and at least one more thing met. What isn't known yet never counts
+ * against it; the agent judges the rest.
+ */
+export function suggestsListing(fit: Fit): boolean {
+  return (
+    fit.missed === 0 &&
+    fit.met >= 2 &&
+    fit.lines.some((l) => l.key === 'budget' && l.met === true)
+  );
+}

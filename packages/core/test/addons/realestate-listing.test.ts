@@ -15,6 +15,7 @@ import {
   notOnMlsWords,
   streetOf,
 } from '../../src/addons/realestate/listing';
+import { homeFit, suggestsListing } from '../../src/addons/realestate/homes';
 import { netEstimate, shareOf } from '../../src/addons/realestate/net';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realestate/fair-housing';
@@ -136,6 +137,33 @@ describe('the seller’s estimate, pure', () => {
     expect(flat.netCents).toBe(
       40_000_000 - 1_000_000 - 500_000 - 21_240_000 - 385_000 - 200_000 - 75_000,
     );
+  });
+});
+
+describe('suggesting our listing to a buyer, pure', () => {
+  const want = {
+    budgetMinCents: null,
+    budgetMaxCents: 50_000_000,
+    areas: ['Austin'],
+    homeTypes: [],
+    bedsMin: 3,
+    bathsMin: null,
+    sqftMin: null,
+  };
+  const home = { price_cents: 47_900_000, beds: 4, baths: 3, sqft: 2340 };
+
+  it('suggests one within budget with nothing they asked for missed', () => {
+    expect(suggestsListing(homeFit(want, home, '2207 Juniper Trail, Austin, TX'))).toBe(true);
+    // Not in an area they named is "check the area", never a miss.
+    expect(suggestsListing(homeFit(want, home, '9 Elm St, Round Rock, TX'))).toBe(true);
+  });
+
+  it('never suggests one over budget, short of what they need, or with no budget to go by', () => {
+    expect(suggestsListing(homeFit({ ...want, budgetMaxCents: 40_000_000 }, home, 'Austin'))).toBe(
+      false,
+    );
+    expect(suggestsListing(homeFit({ ...want, bedsMin: 5 }, home, 'Austin'))).toBe(false);
+    expect(suggestsListing(homeFit({ ...want, budgetMaxCents: null }, home, 'Austin'))).toBe(false);
   });
 });
 
@@ -1187,6 +1215,113 @@ describe('a price change', () => {
       [47_900_000, 'applied'],
       [48_900_000, 'applied'],
     ]);
+  });
+});
+
+// ---------- our listing suggested to our buyers (step 11) ----------
+
+describe('our listing suggested to our buyers', () => {
+  const profile = (dealId: string, budgetMaxCents: number) =>
+    run(agent, 'realestate.buyer_profile.save', {
+      dealId,
+      profile: { budgetMaxCents, areas: ['Austin'], bedsMin: 3, mustHaves: [], dealBreakers: [] },
+    });
+  const counts = async () =>
+    (await ask(agent, 'realestate.listing', { dealId: listing })).listing.matches;
+  let patel: string;
+
+  it('goes to the agents of the buyers it fits, with a copy of its public facts, as S-23’s note', async () => {
+    await profile(buyerDeal, 50_000_000);
+    patel = (await run(agent, 'realestate.deal.open', { side: 'buyer', name: 'Patel search' }))
+      .dealId;
+    await profile(patel, 40_000_000);
+    expect(await system('realestate.match.run', { listingDealId: listing })).toEqual({
+      suggested: 1,
+      refreshed: 0,
+      gone: 0,
+    });
+    const { suggestions } = await ask(agent, 'realestate.suggestions', { dealId: buyerDeal });
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]).toMatchObject({
+      address: '2207 Juniper Trail, Austin, TX 78745',
+      priceCents: 47_900_000,
+      mlsNumber: expect.any(String),
+      state: 'new',
+    });
+    expect(suggestions[0].facts).toMatchObject({ beds: 4, baths: 3, sqft: 2340 });
+    expect(suggestions[0].fit.map((f: Any) => [f.key, f.met])).toEqual([
+      ['budget', true],
+      ['area', true],
+      ['beds', true],
+    ]);
+    // Over the Patels' budget: nothing for them.
+    expect((await ask(agent, 'realestate.suggestions', { dealId: patel })).suggestions).toEqual([]);
+    // The listing's side sees how many, never who.
+    expect(await counts()).toMatchObject({ suggested: 1, added: 0 });
+    const notes = await rows<{ body: string }>(
+      admin(),
+      sql`select e.body from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where d.deal_record_id = ${listing} and d.duty_key = 'S-23' and e.kind = 'note'`,
+    );
+    expect(notes.map((n) => n.body)).toEqual(['Suggested to the agents of 1 of our buyers']);
+    // Run again, it's refreshed, not suggested twice.
+    expect(await system('realestate.match.run', { listingDealId: listing })).toEqual({
+      suggested: 0,
+      refreshed: 1,
+      gone: 0,
+    });
+    // A buyer's new profile is matched against every live listing.
+    await profile(patel, 48_000_000);
+    expect(await system('realestate.match.run', { buyerDealId: patel })).toMatchObject({
+      suggested: 1,
+    });
+    expect(await counts()).toMatchObject({ suggested: 2 });
+    expect(await refused(ask(agent, 'realestate.suggestions', { dealId: listing }))).toBe(
+      'realestate_buyer_only',
+    );
+  });
+
+  it('is added to their homes with its facts confirmed, or set aside, and the listing sees how many added', async () => {
+    const [mine] = (await ask(agent, 'realestate.suggestions', { dealId: buyerDeal })).suggestions;
+    const added = await run(agent, 'realestate.suggestion.add', { suggestionId: mine.id });
+    expect(added.state).toBe('added');
+    const [home] = await rows<{ source: string; facts_state: string; beds: number }>(
+      admin(),
+      sql`select source, facts_state, (facts->>'beds')::int as beds from addon_realestate.homes
+          where id = ${added.homeId}`,
+    );
+    expect(home).toEqual({ source: 'our_listing', facts_state: 'confirmed', beds: 4 });
+    const [theirs] = (await ask(agent, 'realestate.suggestions', { dealId: patel })).suggestions;
+    const set = await run(agent, 'realestate.suggestion.not_a_fit', {
+      suggestionId: theirs.id,
+      reason: 'They want a newer home.',
+    });
+    expect(set.state).toBe('not_a_fit');
+    // The worker counts again once one is decided.
+    await system('realestate.match.run', { listingDealId: listing });
+    expect(await counts()).toMatchObject({ suggested: 2, added: 1 });
+    // Already one of their homes: never suggested again.
+    expect(await system('realestate.match.run', { buyerDealId: buyerDeal })).toMatchObject({
+      suggested: 0,
+    });
+  });
+
+  it('is gone when it no longer fits', async () => {
+    const kim = (await run(agent, 'realestate.deal.open', { side: 'buyer', name: 'Kim search' }))
+      .dealId;
+    await profile(kim, 48_000_000);
+    await system('realestate.match.run', { buyerDealId: kim });
+    expect((await ask(agent, 'realestate.suggestions', { dealId: kim })).suggestions[0].state).toBe(
+      'new',
+    );
+    await profile(kim, 45_000_000);
+    expect(await system('realestate.match.run', { buyerDealId: kim })).toMatchObject({ gone: 1 });
+    const [s] = (await ask(agent, 'realestate.suggestions', { dealId: kim })).suggestions;
+    expect(s.state).toBe('gone');
+    expect(await refused(run(agent, 'realestate.suggestion.add', { suggestionId: s.id }))).toBe(
+      'realestate_suggestion_gone',
+    );
   });
 });
 

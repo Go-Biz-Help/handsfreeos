@@ -1092,7 +1092,7 @@ export const FitLineOut = z.object({
 export const HomeOut = z.object({
   id: uuid,
   address: z.string(),
-  source: z.enum(['agent', 'client', 'mls']),
+  source: z.enum(['agent', 'client', 'mls', 'our_listing']),
   link: z.string().nullable(),
   status: z.enum(HOME_STATUS_KEYS),
   statusNote: z.string().nullable(),
@@ -2317,6 +2317,12 @@ export const ListingOut = z.object({
   }),
   /** The deal's list price now, if it has one. */
   listPriceCents: z.number().int().nullable(),
+  /** How many of the business's buyers it was suggested to, and how many added it; never who. */
+  matches: z.object({
+    suggested: z.number().int(),
+    added: z.number().int(),
+    at: isoDateTime.nullable(),
+  }),
   /** The description: the one signed off and in use, and the one being worked on. */
   description: z.object({
     inUse: z
@@ -2815,4 +2821,45 @@ export const ListingPricesOutput = z.object({
   waiting: ListingPriceOut.nullable(),
   /** Every change asked for, newest first. */
   history: z.array(ListingPriceOut),
+});
+
+// ---------- round three, step 11: our listings suggested to our buyers ----------
+
+export const MatchRunInput = z
+  .object({ workspaceId: uuid, listingDealId: uuid.optional(), buyerDealId: uuid.optional() })
+  .refine((m) => !!m.listingDealId !== !!m.buyerDealId, {
+    error: 'Match one listing or one buyer.',
+    path: ['listingDealId'],
+  });
+export const MatchRunOutput = z.object({
+  suggested: z.number().int(),
+  refreshed: z.number().int(),
+  gone: z.number().int(),
+});
+const SuggestionOut = z.object({
+  id: uuid,
+  address: z.string(),
+  priceCents: z.number().int().nullable(),
+  facts: z.record(z.string(), z.unknown()),
+  fit: z.array(z.object({ key: z.string(), met: z.boolean().nullable(), words: z.string() })),
+  mlsNumber: z.string().nullable(),
+  pageSlug: z.string().nullable(),
+  state: z.enum(['new', 'added', 'not_a_fit', 'gone']),
+  homeId: uuid.nullable(),
+  decidedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  decidedAt: isoDateTime.nullable(),
+  decidedReason: z.string().nullable(),
+  createdAt: isoDateTime,
+});
+export const SuggestionsOutput = z.object({ dealId: uuid, suggestions: z.array(SuggestionOut) });
+export const SuggestionInput = z.object({ workspaceId: uuid, suggestionId: uuid });
+export const SuggestionNotAFitInput = z.object({
+  workspaceId: uuid,
+  suggestionId: uuid,
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export const SuggestionChangeOutput = z.object({
+  suggestionId: uuid,
+  state: z.enum(['new', 'added', 'not_a_fit', 'gone']),
+  homeId: uuid.nullable(),
 });

@@ -348,6 +348,29 @@ describe('a new price', () => {
   });
 });
 
+describe('our listing and our buyers', () => {
+  it('tells a buyer’s agent when one of our listings fits what their buyer wants', async () => {
+    const { dealId } = await run('realestate.deal.open', { side: 'buyer', name: 'Ortiz search' });
+    await run('realestate.buyer_profile.save', {
+      dealId,
+      profile: { budgetMaxCents: 50_000_000, areas: ['Austin'], mustHaves: [], dealBreakers: [] },
+    });
+    await drain();
+    const [alert] = await rows<{ title: string; href: string; assignee: string }>(
+      admin(),
+      sql`select title, href, assignee_user_id as assignee from app.addon_alerts
+          where workspace_id = ${ws} and key like ${`suggested:${dealId}:%`}`,
+    );
+    expect(alert).toEqual({
+      title: 'Our listing at 2207 Juniper Trail fits Ortiz search',
+      href: `/a/realestate/deals/${dealId}/homes`,
+      assignee: agent.id,
+    });
+    const { listing: l } = await ask('realestate.listing', { dealId: listing });
+    expect(l.matches.suggested).toBe(1);
+  });
+});
+
 describe('a seller’s answer on an offer', () => {
   it('tells the listing’s agent what she wants, without accepting anything', async () => {
     const { offerId } = await run('realestate.offer.start', {

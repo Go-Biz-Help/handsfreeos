@@ -8397,6 +8397,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.suggestion.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add one of our listings suggested for a buyer to their homes, with its facts as the listing has them.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added, realestate.suggestion.decided.
+         */
+        post: operations["command_realestate_suggestion_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.suggestion.not_a_fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside one of our listings suggested for a buyer: it isn’t a fit, with why if you like.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.suggestion.decided.
+         */
+        post: operations["command_realestate_suggestion_not_a_fit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.template.archive_custom": {
         parameters: {
             query?: never;
@@ -14311,6 +14351,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_status_email_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Our own listings that fit what a buyer wants, suggested on their deal: each with its facts, how it fits, and whether it was added or set aside.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_suggestions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33081,6 +33141,77 @@ export interface operations {
             };
         };
     };
+    command_realestate_suggestion_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homeId: string | null;
+                        /** @enum {string} */
+                        state: "new" | "added" | "not_a_fit" | "gone";
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_suggestion_not_a_fit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homeId: string | null;
+                        /** @enum {string} */
+                        state: "new" | "added" | "not_a_fit" | "gone";
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_template_archive_custom: {
         parameters: {
             query?: never;
@@ -50459,7 +50590,7 @@ export interface operations {
                                 reaction: "saved" | "passed";
                             }[];
                             /** @enum {string} */
-                            source: "agent" | "client" | "mls";
+                            source: "agent" | "client" | "mls" | "our_listing";
                             /** @enum {string} */
                             status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
                             statusNote: string | null;
@@ -50687,6 +50818,11 @@ export interface operations {
                             } | null;
                             highlights: string | null;
                             listPriceCents: number | null;
+                            matches: {
+                                added: number;
+                                at: string | null;
+                                suggested: number;
+                            };
                             mls: {
                                 liveOn: string;
                                 number: string;
@@ -51489,6 +51625,66 @@ export interface operations {
                                 /** Format: uuid */
                                 personId: string;
                             } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_suggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        suggestions: {
+                            address: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            decidedReason: string | null;
+                            facts: {
+                                [key: string]: unknown;
+                            };
+                            fit: {
+                                key: string;
+                                met: boolean | null;
+                                words: string;
+                            }[];
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            mlsNumber: string | null;
+                            pageSlug: string | null;
+                            priceCents: number | null;
+                            /** @enum {string} */
+                            state: "new" | "added" | "not_a_fit" | "gone";
                         }[];
                     };
                 };

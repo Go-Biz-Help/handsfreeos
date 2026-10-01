@@ -603,7 +603,7 @@ export const homes = addonRealestate.table(
     dealRecordId: uuid('deal_record_id').notNull(),
     address: text('address').notNull(),
     addressKey: text('address_key').notNull(),
-    source: text('source').notNull().$type<'agent' | 'client' | 'mls'>(),
+    source: text('source').notNull().$type<'agent' | 'client' | 'mls' | 'our_listing'>(),
     link: text('link'),
     pastedText: text('pasted_text'),
     facts: jsonb('facts')
@@ -1325,6 +1325,10 @@ export const listings = addonRealestate.table(
     pageState: text('page_state').notNull().default('none').$type<'none' | 'published' | 'down'>(),
     pagePublishedBy: userRef('page_published_by'),
     pagePublishedAt: ts('page_published_at'),
+    // Round three, step 11: how many of the business's buyers it was suggested to, and added for.
+    matchesSuggested: integer('matches_suggested').notNull().default(0),
+    matchesAdded: integer('matches_added').notNull().default(0),
+    matchedAt: ts('matched_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1657,6 +1661,49 @@ export const listingPrices = addonRealestate.table(
     foreignKey({
       columns: [t.workspaceId, t.clientTaskId],
       foreignColumns: [clientTasks.workspaceId, clientTasks.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** One of our listings suggested on a buyer's deal, with a copy of its public facts (round three, step 11). */
+export const listingSuggestions = addonRealestate.table(
+  'listing_suggestions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    listingDealId: uuid('listing_deal_id'),
+    address: text('address').notNull(),
+    addressKey: text('address_key').notNull(),
+    facts: jsonb('facts').notNull().default({}).$type<Record<string, unknown>>(),
+    fit: jsonb('fit')
+      .notNull()
+      .default([])
+      .$type<{ key: string; met: boolean | null; words: string }[]>(),
+    mlsNumber: text('mls_number'),
+    pageSlug: text('page_slug'),
+    state: text('state').notNull().default('new').$type<'new' | 'added' | 'not_a_fit' | 'gone'>(),
+    homeId: uuid('home_id'),
+    decidedBy: userRef('decided_by'),
+    decidedAt: ts('decided_at'),
+    decidedReason: text('decided_reason'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.dealRecordId, t.listingDealId),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.listingDealId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
     }).onDelete('set null'),
     foreignKey({
       columns: [t.workspaceId, t.dealRecordId],

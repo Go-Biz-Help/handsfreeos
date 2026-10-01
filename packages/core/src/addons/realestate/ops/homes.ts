@@ -131,7 +131,7 @@ export async function profileOf(ctx: Ctx, dealId: string): Promise<Profile | nul
   return p ?? null;
 }
 
-const fitProfileOf = (p: Profile | null): FitProfile => ({
+export const fitProfileOf = (p: Profile | null): FitProfile => ({
   budgetMinCents: p?.budgetMinCents ?? null,
   budgetMaxCents: p?.budgetMaxCents ?? null,
   areas: p?.areas ?? [],
@@ -268,7 +268,7 @@ export async function addHome(
     readonly address: string;
     readonly link?: string | undefined;
     readonly pastedText?: string | undefined;
-    readonly source: 'agent' | 'client';
+    readonly source: 'agent' | 'client' | 'our_listing';
     readonly personId?: string | null;
   },
 ): Promise<{ homeId: string; filling: boolean }> {
