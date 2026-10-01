@@ -158,7 +158,7 @@ export function scorableOf(row: AttentionRow): Scorable & { id: string } {
 export interface ItemHints {
   readonly appointmentId: string | null;
   readonly startsAt: string | null;
-  readonly reach: 'sms' | 'email' | 'chat' | null;
+  readonly reach: 'sms' | 'email' | 'chat' | 'portal' | null;
   /** There's a number to ring and the business is open: a money card offers the call first. */
   readonly callable: boolean;
   /** An add-on's alert (server only: the phone keeps no add-on cards). */

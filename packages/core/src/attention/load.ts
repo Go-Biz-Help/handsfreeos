@@ -603,7 +603,7 @@ async function loadHotExtras(
 interface ConversationInfo {
   readonly id: string;
   readonly personId: string | null;
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly status: 'open' | 'snoozed' | 'closed';
   readonly assigneeUserId: string | null;
   readonly awaitingReplySince: string | null;
@@ -725,7 +725,7 @@ async function loadConversations(
   const list = await rows<{
     id: string;
     person_id: string | null;
-    channel: 'sms' | 'email' | 'chat';
+    channel: 'sms' | 'email' | 'chat' | 'portal';
     status: 'open' | 'snoozed' | 'closed';
     assignee_user_id: string | null;
     awaiting_reply_since: Date | null;
@@ -1282,7 +1282,9 @@ const counterpartLabel = (c: ConversationInfo): string =>
     ? formatPhone(c.counterpart)
     : c.channel === 'chat'
       ? 'Website visitor'
-      : c.counterpart;
+      : c.channel === 'portal'
+        ? 'A client in their portal'
+        : c.counterpart;
 
 const detailOf = (text: string | null | undefined): string | null =>
   text?.trim() ? clipLine(text, DETAIL_MAX) : null;

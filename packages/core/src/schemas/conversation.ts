@@ -7,8 +7,8 @@ import { QuietState } from './telephony';
 /** What a person can open a conversation on (conversation.open): a text or an email. */
 export const messageChannel = z.enum(['sms', 'email']);
 export type MessageChannel = z.infer<typeof messageChannel>;
-/** What a conversation is on: a text, an email, or a website chat (M7). */
-export const conversationChannel = z.enum(['sms', 'email', 'chat']);
+/** What a conversation is on: a text, an email, a website chat (M7), or a customer's portal (Real Estate round two). */
+export const conversationChannel = z.enum(['sms', 'email', 'chat', 'portal']);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
 /**
@@ -113,6 +113,8 @@ export const ConversationSummary = z.object({
   folder: conversationFolder,
   /** The viewer's own mail (M19): only they see it, until they share it with the team. */
   private: z.boolean(),
+  /** The record a thread is about: a portal thread's deal (Real Estate round two). */
+  record: z.object({ id: uuid, name: z.string() }).nullable().default(null),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 
@@ -171,6 +173,7 @@ export const canTextReason = z.enum([
   'no_phone',
   'email_channel',
   'chat_channel',
+  'portal_channel',
 ]);
 /**
  * A website chat's visitor, for the inbox: what they typed ("Said their name is …", never verified), the

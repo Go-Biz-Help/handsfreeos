@@ -26,6 +26,12 @@ export async function realestateBusiness(u: TestUser, name: string): Promise<str
     channel: 'test',
   });
   const id = made.output.workspaceId;
+  await installRealestate(id);
+  return id;
+}
+
+/** The add-on on in a business that already exists, as the worker sets it up. */
+export async function installRealestate(id: string): Promise<void> {
   await rows(
     admin(),
     sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
@@ -60,5 +66,4 @@ export async function realestateBusiness(u: TestUser, name: string): Promise<str
             'realestate', ${t.key}, ${t.portal === true})`,
     );
   }
-  return id;
 }

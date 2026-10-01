@@ -15101,7 +15101,7 @@ export interface operations {
                     action?: "hand_to_ai" | "reply" | "set_next_action";
                     body?: string;
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     dueAt?: string | null;
                     /** Format: uuid */
                     itemId: string;
@@ -23123,7 +23123,7 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     clientId?: string;
                     /** Format: uuid */
                     conversationId?: string;
@@ -36087,7 +36087,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -36219,7 +36219,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -36311,7 +36311,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -36415,7 +36415,7 @@ export interface operations {
                             /** @enum {string} */
                             action: "hand_to_ai" | "reply" | "set_next_action";
                             available: boolean;
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             /** @default null */
                             draft: {
@@ -38196,7 +38196,7 @@ export interface operations {
                     "application/json": {
                         canText: {
                             ok: boolean;
-                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel") | null;
+                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel" | "portal_channel") | null;
                         };
                         chat: {
                             blocked: boolean;
@@ -38224,7 +38224,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat";
+                            channel: "sms" | "email" | "chat" | "portal";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -38245,7 +38245,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat";
+                                channel: "sms" | "email" | "chat" | "portal";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -38284,6 +38284,12 @@ export interface operations {
                                 id: string;
                             } | null;
                             private: boolean;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -38411,7 +38417,7 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
@@ -40593,7 +40599,7 @@ export interface operations {
                      */
                     box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived" | "other" | "spam";
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -40633,7 +40639,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat";
+                            channel: "sms" | "email" | "chat" | "portal";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -40654,7 +40660,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat";
+                                channel: "sms" | "email" | "chat" | "portal";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -40693,6 +40699,12 @@ export interface operations {
                                 id: string;
                             } | null;
                             private: boolean;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -41993,7 +42005,7 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */

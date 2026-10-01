@@ -915,6 +915,38 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   `file.begin_customer_upload`, so every customer operation is `portal.*`.
 - Waiting for the boards: the customer page's file list showing "From the client" and a "Show in portal" switch.
 
+### Step 5: portal messages in the Inbox (server built, 2026-10-01)
+
+**As built** (`20261014000600_portal_channel.sql`, `20261014000700_portal_messages.sql`):
+
+- A new channel and timeline kind, `portal` (the enum values alone in their file).
+- **One thread per client per record**, not one per client: counterpart `portal:<person>:<record>`, the record in the
+  new `conversations.custom_record_id`, assigned to the record's main person when it starts. A thread on a private
+  record is sealed with it (`keep_sealed`), so round one's rules decide who reads it: the people on that deal,
+  owners, admins and whoever sees every deal (Chris's rule). Its messages (`unseen_sealed_conversations()`), its
+  timeline lines (logged on the deal) and its Home cards follow it. A client with two deals has two threads, each
+  seen by that deal's people.
+- The client: `portal.message_send` (about a record of theirs, 100 a day, filed once per `clientId`),
+  `portal.messages` (their thread, newest last, with who wrote each reply) and `portal.mark_read`. Under row security
+  as `portal_actor` they read only their own portal threads, in a few columns.
+- The team: `message.send` on channel `portal` (`sendPortal`). It goes out as `message.sent`, never queued for a
+  carrier. The AI teammate and workflows never answer a portal, a portal thread can't be texted, called or linked to
+  someone else, and it carries no attachments (a file goes to the portal with `file.share_to_portal`).
+- The worker marks a person's reply sent (`portal_message.mark_sent`). If the client hasn't read it ten minutes later,
+  `portal.unread_notice` emails them a link to their portal and nothing of what was said, once per batch, and not if
+  their portal is off.
+- Every place that named the channels now names `portal`: the Inbox's words, rows and lanes ("Client portal · deal"),
+  Home's words, the timeline, the Assistant, workflows' conditions, the team's emails, the push words. Contact AI
+  reads no sealed thread or note, so nothing said about a private deal becomes a tag everyone sees.
+- Push: a client's message pushes like any customer's, without a channel in its data. The phones people have now
+  would drop a push naming one they don't know, and their Reply falls back to a text, which the server refuses on a
+  portal thread. The phone's own portal threads come with its deal screens (round six), and so does a Reply that knows.
+- Phones: business_v1's and me_v1's conversations and messages send only `channel != 'portal'`, in place, batched with
+  step 1's narrowing.
+- The web Inbox answers a portal thread like a website chat (replies stay where they were written), with a door icon
+  and "Client portal". The boards' finished look comes with the staff screens.
+- Chosen differently from the plan's names: `portal.message_send` (the client sends; the plan said `message_receive`).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

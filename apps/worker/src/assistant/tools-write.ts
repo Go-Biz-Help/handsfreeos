@@ -325,6 +325,10 @@ function cannotText(reason: string, first: string): string {
       return 'The carriers haven’t approved texting for this business yet.';
     case 'email_channel':
       return 'That conversation is email. Send an email instead.';
+    case 'chat_channel':
+      return 'That conversation is a website chat. Reply in the chat instead.';
+    case 'portal_channel':
+      return `That conversation is in ${first}’s portal. Reply to them there, from the Inbox.`;
     default:
       return 'Texts to them can’t go out right now.';
   }

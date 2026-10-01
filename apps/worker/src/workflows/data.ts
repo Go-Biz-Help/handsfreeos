@@ -81,7 +81,7 @@ export interface AppointmentRecord {
 
 export interface ConversationRecord {
   readonly id: string;
-  readonly channel: 'sms' | 'email';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly status: string;
   readonly assignee_user_id: string | null;
   readonly awaiting_reply_since: Date | null;
@@ -250,7 +250,14 @@ export class RunData {
         return (ap as unknown as Record<string, unknown>)[key] ?? undefined;
       case 'conversation':
         if (!c) return undefined;
-        if (key === 'channel') return c.channel === 'sms' ? 'text' : 'email';
+        if (key === 'channel')
+          return c.channel === 'sms'
+            ? 'text'
+            : c.channel === 'chat'
+              ? 'website chat'
+              : c.channel === 'portal'
+                ? 'portal message'
+                : 'email';
         return key === 'last_message' ? (c.last_message ?? undefined) : undefined;
       case 'business':
         return b ? ((b as unknown as Record<string, unknown>)[key] ?? undefined) : undefined;

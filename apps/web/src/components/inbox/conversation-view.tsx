@@ -276,7 +276,9 @@ export function ConversationView({
   // Calls go to a text conversation's number, known customer or not. An email thread or a website chat uses
   // the customer's phone, so a chat visitor not in Contacts has no Call (the chat's counterpart isn't a
   // number). Customers see the business number.
-  const byNumber = !email && !chat;
+  // A client's portal thread is neither: its client's phone, like an email thread's.
+  const portal = c.channel === 'portal';
+  const byNumber = !email && !chat && !portal;
   const callPhone = byNumber ? c.counterpart : (person?.phoneE164 ?? null);
   const canCall = calls.available && !!callPhone;
   const callTarget = {
@@ -767,7 +769,7 @@ export function ConversationView({
                   {CONVERSATION_ACTIONS.closeAll}
                 </DropdownMenuItem>
               ) : null}
-              {chat ? null : (
+              {chat || portal ? null : (
                 <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
                   <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {email ? CONVERSATION_ACTIONS.copyEmail : CONVERSATION_ACTIONS.copyPhone}

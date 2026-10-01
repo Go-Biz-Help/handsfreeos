@@ -67,9 +67,11 @@ export function unansweredEmail(input: {
   const wrote =
     input.channel === 'chat'
       ? { text: 'wrote to', after: ' in the website chat' }
-      : input.channel === 'email'
-        ? { text: 'emailed', after: '' }
-        : { text: 'texted', after: '' };
+      : input.channel === 'portal'
+        ? { text: 'wrote to', after: ' in their client portal' }
+        : input.channel === 'email'
+          ? { text: 'emailed', after: '' }
+          : { text: 'texted', after: '' };
   const why = input.assignedToYou
     ? 'You’re getting this because the conversation is assigned to you. We send one reminder per message.'
     : 'You’re getting this because you’re an owner or admin and nobody is assigned to the conversation. We send one reminder per message.';
@@ -1253,6 +1255,33 @@ export function portalCodeEmail(input: {
       `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
       para(`It expires in ${input.minutes} minutes.`) +
       small('If you didn’t ask for it, ignore this email: nobody can open your portal without it.'),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * A client's portal has a message they haven't read (Real Estate round two). Only a link, never the message: what's
+ * said in a portal stays in the portal (Chris, 2026-09-30).
+ */
+export function portalReplyEmail(input: {
+  business: string;
+  firstName: string;
+  /** Who wrote ("Dana"), or null for the business. */
+  from: string | null;
+  link: string;
+  count: number;
+}): EmailContent {
+  const who = input.from ? `${input.from} at ${input.business}` : input.business;
+  const what = input.count === 1 ? 'a message' : `${input.count} messages`;
+  const subject = `${who} sent you ${what}`;
+  const hi = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const text = `${hi}\n\n${who} sent you ${what} in your portal. Read and reply here: ${input.link}\n\nIf the link asks for a code, we’ll email you one.`;
+  const html = shell(
+    preheader(`${who} sent you ${what}`) +
+      para(escapeHtml(hi)) +
+      para(`<strong>${escapeHtml(who)}</strong> sent you ${what} in your portal.`) +
+      para(`<a href="${escapeHtml(input.link)}">Read and reply</a>`) +
+      small('If the link asks for a code, we’ll email you one.'),
   );
   return { subject, text, html };
 }

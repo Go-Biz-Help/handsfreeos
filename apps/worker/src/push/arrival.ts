@@ -23,7 +23,7 @@ import { managers } from '../handlers/telephony';
 import type { TenantScope } from '../services';
 import { payloadOf, personName, pushMoment, stillHere, str } from './moment';
 import { PUSH_JOBS, pushAudience, queuePush } from './queue';
-import { aiCanTake, CHANNEL_WORD, conversationCollapseId } from './urgent';
+import { aiCanTake, CHANNEL_WORD, conversationCollapseId, pushChannel } from './urgent';
 
 type Conversation = typeof conversations.$inferSelect;
 
@@ -142,7 +142,7 @@ export const onCustomerMessagePush = pushMoment('customerWaiting', async (ctx, s
     path: `/app/w/${ws}/inbox/${conv.id}`,
     refs: {
       conversationId: conv.id,
-      channel: conv.channel,
+      channel: pushChannel(conv.channel),
       messageId,
       ...(conv.personId ? { personId: conv.personId } : {}),
     },

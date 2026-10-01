@@ -19,7 +19,9 @@ export interface SystemActivityInput {
 }
 
 export interface ChannelActivityInput {
-  readonly kind: 'sms' | 'email' | 'call' | 'chat';
+  readonly kind: 'sms' | 'email' | 'call' | 'chat' | 'portal';
+  /** The record it's about (a portal message's deal), so a private record's line is sealed with it. */
+  readonly customRecordId?: string | null;
   /** inbound / outbound for texts and email; answered / missed / voicemail / outbound for calls. */
   readonly subtype: string;
   readonly personId: string | null;
@@ -84,6 +86,7 @@ export async function logChannelActivity(
       kind: input.kind,
       subtype: input.subtype,
       personId: input.personId,
+      ...(input.customRecordId ? { customRecordId: input.customRecordId } : {}),
       body: input.body ?? null,
       occurredAt: input.occurredAt ?? new Date(),
       authorUserId:

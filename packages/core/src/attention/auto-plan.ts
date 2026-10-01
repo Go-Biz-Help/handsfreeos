@@ -542,7 +542,7 @@ export async function planAutoAction(
 
 export type HandleConversation = {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly handledBy: 'none' | 'ai' | 'person';
   /** The number, address or chat visitor it's with. */
   readonly counterpart: string;
@@ -737,11 +737,14 @@ export async function askOptions(
       ? `Turn ${teammate.name} on first.`
       : !conv
         ? 'There’s no conversation with them yet. Reply to start one.'
-        : !teammateConfigOf(teammate).channels[conv.channel]
-          ? `${teammate.name} doesn’t answer ${channelWords[conv.channel]}.`
-          : conv.handledBy === 'ai'
-            ? `${teammate.name} is already answering them.`
-            : null;
+        : // A client's portal is for their people: the AI teammate never answers it.
+          conv.channel === 'portal'
+          ? `${teammate.name} doesn’t answer messages in a client’s portal. Reply yourself.`
+          : !teammateConfigOf(teammate).channels[conv.channel]
+            ? `${teammate.name} doesn’t answer ${channelWords[conv.channel]}.`
+            : conv.handledBy === 'ai'
+              ? `${teammate.name} is already answering them.`
+              : null;
   const [person] = item.personId
     ? await rows<{
         phone: string | null;
@@ -783,7 +786,13 @@ export async function askOptions(
     {
       action: 'reply',
       label:
-        channel === 'email' ? 'Email them' : channel === 'chat' ? 'Reply in chat' : 'Text them',
+        channel === 'email'
+          ? 'Email them'
+          : channel === 'chat'
+            ? 'Reply in chat'
+            : channel === 'portal'
+              ? 'Reply in their portal'
+              : 'Text them',
       available: replyWhy === null,
       reason: replyWhy === null ? null : capital(replyWhy),
       channel,

@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   CircleAlert,
   Clock,
+  DoorOpen,
   Globe,
   Image as ImageIcon,
   Mail,
@@ -67,8 +68,11 @@ type QuietChoice = 'ask' | 'now' | 'later';
 const PHOTO_TYPES = 'image/jpeg,image/png,image/gif';
 const PHOTO = new Set(PHOTO_TYPES.split(','));
 
-/** Texts and email switch between each other; a website chat's replies stay in the chat. */
-type Mode = 'sms' | 'email' | 'chat';
+/**
+ * Texts and email switch between each other; a website chat's replies stay in the chat, and a client portal's in
+ * their portal (Real Estate round two).
+ */
+type Mode = 'sms' | 'email' | 'chat' | 'portal';
 
 interface Attachment {
   readonly fileId: string;
@@ -273,7 +277,9 @@ export function Composer({
   const previews = useRef(new Set<string>());
   const ccId = useId();
   const email = mode === 'email';
-  const chat = mode === 'chat';
+  // A reply that stays where it was written: a website chat, or a client's portal.
+  const chat = mode === 'chat' || mode === 'portal';
+  const portal = mode === 'portal';
   const cross = mode !== channel;
   // Texting from an email thread goes to the customer's text thread; the server has the last word there.
   const canText = crossChannelCanText(
@@ -585,7 +591,10 @@ export function Composer({
     }
   }
 
-  /** A reply in the website chat: it shows in their chat window (no quiet hours, no attachments). */
+  /**
+   * A reply in the website chat or a client's portal: it shows in their chat window or their portal (no quiet hours,
+   * no attachments).
+   */
   async function sendChat(body: string) {
     if (!target.conversationId) return;
     const clientId = crypto.randomUUID();
@@ -598,7 +607,7 @@ export function Composer({
           body: {
             workspaceId: target.workspaceId,
             conversationId: target.conversationId,
-            channel: 'chat',
+            channel: portal ? 'portal' : 'chat',
             body,
             clientId,
           },
@@ -853,12 +862,18 @@ export function Composer({
         <div className="flex items-center justify-between gap-2">
           <span
             className="inline-flex h-7 items-center gap-1.5 rounded-[6px] bg-card-2 px-2.5 text-[13px] font-medium text-text-2"
-            data-testid="composer-mode-chat"
+            data-testid={portal ? 'composer-mode-portal' : 'composer-mode-chat'}
           >
-            <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {COMPOSER_WORDS.websiteChat}
+            {portal ? (
+              <DoorOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
+            ) : (
+              <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
+            )}
+            {portal ? COMPOSER_WORDS.clientPortal : COMPOSER_WORDS.websiteChat}
           </span>
-          <span className="truncate text-xs text-text-3">{COMPOSER_WORDS.chatReplies}</span>
+          <span className="truncate text-xs text-text-3">
+            {portal ? COMPOSER_WORDS.portalReplies : COMPOSER_WORDS.chatReplies}
+          </span>
         </div>
       ) : null}
       {variant === 'desktop' && !chat ? (

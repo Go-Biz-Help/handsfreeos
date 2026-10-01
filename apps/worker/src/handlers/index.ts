@@ -4,6 +4,7 @@ import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
+import { onPortalReplySent } from '../portal/replies';
 import { onPortalAccessGiven } from '../portal/invite';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
@@ -173,7 +174,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An owner deleted a business: the job lets go of what is outside, then purges it (workspace/delete.ts).
     'workspace.deletion_requested': onWorkspaceDeletionRequested,
     // A reply in a website chat is out: people's are marked sent, and the unread follow-up is armed (chat/).
-    'message.sent': onChatReplySent,
+    // A reply in a website chat or a client's portal: marked sent, and the unread follow-up armed.
+    'message.sent': [onChatReplySent, onPortalReplySent],
     'conversation.linked': onConversationLinked,
     'conversation.snoozed': onConversationSnoozed,
     'email_domain.added': onEmailDomainAdded,

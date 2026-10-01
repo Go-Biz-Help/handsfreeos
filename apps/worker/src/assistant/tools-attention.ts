@@ -103,7 +103,12 @@ const QUOTED_DETAIL: ReadonlySet<AttentionKind> = new Set([
   'addon_alert',
 ]);
 
-const CHANNEL_WORD = { sms: 'Texts', email: 'Email', chat: 'Website chat' } as const;
+const CHANNEL_WORD = {
+  sms: 'Texts',
+  email: 'Email',
+  chat: 'Website chat',
+  portal: 'Client portal',
+} as const;
 
 /** "Maria Lopez" from "Maria Lopez · AC install" (a task's title is its own). */
 const headOf = (item: Pick<Item, 'title'>) => item.title.split(' · ')[0] ?? item.title;
@@ -251,12 +256,12 @@ type HandlePlan =
       readonly kind: 'hand_to_ai';
       readonly teammate: string;
       readonly label: string;
-      readonly channel: 'sms' | 'email' | 'chat' | null;
+      readonly channel: 'sms' | 'email' | 'chat' | 'portal' | null;
       readonly conversationId: string | null;
     }
   | {
       readonly kind: 'reply';
-      readonly channel: 'sms' | 'email' | 'chat';
+      readonly channel: 'sms' | 'email' | 'chat' | 'portal';
       readonly body: string;
       readonly subject: string | null;
       readonly to: string | null;
@@ -498,7 +503,9 @@ const handleItem: AttentionConfirmTool = {
                 ? `Email ${first}?`
                 : plan.channel === 'chat'
                   ? `Reply to ${first} in the chat?`
-                  : `Send this text to ${first}?`,
+                  : plan.channel === 'portal'
+                    ? `Reply to ${first} in their portal?`
+                    : `Send this text to ${first}?`,
             fields: [
               { label: 'To', value: [name, plan.to].filter(Boolean).join(' · ') },
               ...(plan.subject ? [{ label: 'Subject', value: plan.subject }] : []),
@@ -515,7 +522,7 @@ const handleItem: AttentionConfirmTool = {
             confirmLabel:
               plan.channel === 'email'
                 ? 'Send email'
-                : plan.channel === 'chat'
+                : plan.channel === 'chat' || plan.channel === 'portal'
                   ? 'Send reply'
                   : plan.quiet
                     ? 'Send anyway'

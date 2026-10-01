@@ -16,8 +16,8 @@ export const attentionScope = z.enum(['mine', 'everyone']);
 export const autoAction = z.enum(AUTO_ACTIONS);
 export const autoState = z.enum(['scheduled', 'sent', 'skipped', 'cancelled']);
 export const handledVia = z.enum(['person', 'let_handle', 'auto']);
-/** The channel an item would use with the customer: a text, an email, or a reply in a website chat. */
-export const attentionReach = z.enum(['sms', 'email', 'chat']);
+/** The channel an item would use with the customer: a text, an email, or a reply in a website chat or their portal. */
+export const attentionReach = z.enum(['sms', 'email', 'chat', 'portal']);
 
 /** What Let HandsFreeOS Handle does for an ask-first item, as the person who chose it. */
 export const ATTENTION_ASK_ACTIONS = ['hand_to_ai', 'reply', 'set_next_action'] as const;
@@ -226,7 +226,7 @@ export const AttentionAskOptionOut = z.object({
   available: z.boolean(),
   /** Why not, in plain words, when it isn't available. */
   reason: z.string().nullable(),
-  channel: z.enum(['sms', 'email', 'chat']).nullable(),
+  channel: attentionReach.nullable(),
   conversationId: uuid.nullable(),
   /** A suggested next action. */
   suggestion: z.object({ text: z.string(), dueAt: isoDateTime.nullable() }).nullable(),
@@ -306,7 +306,7 @@ export const AttentionLetHandleInput = z.object({
   action: attentionAskAction.optional(),
   /** reply: the message, its channel (the conversation's by default), an email's subject. */
   body: z.string().trim().min(1, 'Write a message.').max(10000).optional(),
-  channel: z.enum(['sms', 'email', 'chat']).optional(),
+  channel: attentionReach.optional(),
   subject: z.string().trim().max(200).optional(),
   acknowledgeQuietHours: z.boolean().default(false),
   /** set_next_action: what to do next, and when. */

@@ -25,7 +25,7 @@ export function ContactAvatar({
   size = 'md',
 }: {
   person: { id: string; fullName: string } | null;
-  channel: 'sms' | 'email' | 'chat';
+  channel: 'sms' | 'email' | 'chat' | 'portal';
   size?: 'md' | 'lg';
 }) {
   if (person && person.fullName)

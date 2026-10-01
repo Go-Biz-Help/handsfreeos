@@ -13,7 +13,13 @@ export type WordPart = string | { readonly strong: string };
 
 /** Why texting can't happen here (conversation.get's `canText.reason`, and the phone's own reading). */
 export type CanTextReason =
-  'no_number' | 'not_ready' | 'opted_out' | 'no_phone' | 'email_channel' | 'chat_channel';
+  | 'no_number'
+  | 'not_ready'
+  | 'opted_out'
+  | 'no_phone'
+  | 'email_channel'
+  | 'chat_channel'
+  | 'portal_channel';
 
 export interface CanText {
   readonly ok: boolean;
@@ -27,7 +33,7 @@ export interface CanText {
  * where it was sent.
  */
 export function canTextOf(facts: {
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly hasActiveNumber: boolean;
   readonly optedOut: boolean;
   readonly personSmsConsent: string | null;
@@ -35,6 +41,7 @@ export function canTextOf(facts: {
 }): CanText {
   if (facts.channel === 'email') return { ok: false, reason: 'email_channel' };
   if (facts.channel === 'chat') return { ok: false, reason: 'chat_channel' };
+  if (facts.channel === 'portal') return { ok: false, reason: 'portal_channel' };
   if (!facts.hasActiveNumber) return { ok: false, reason: 'no_number' };
   if (facts.messagingReady === false) return { ok: false, reason: 'not_ready' };
   if (facts.optedOut || facts.personSmsConsent === 'opted_out')
@@ -47,7 +54,7 @@ export function canTextOf(facts: {
  * their mobile number and the business's number, and the server has the last word there.
  */
 export function crossChannelCanText(
-  threadChannel: 'sms' | 'email' | 'chat',
+  threadChannel: 'sms' | 'email' | 'chat' | 'portal',
   inThread: CanText,
   phoneDisplay: string,
   fromNumber: string | null,
@@ -189,7 +196,7 @@ export const CHAT_BLOCKED_NOTE: ComposerNote = {
 
 /** What the box says: why it's off, or who it writes to. */
 export function composerPlaceholder(facts: {
-  readonly mode: 'sms' | 'email' | 'chat';
+  readonly mode: 'sms' | 'email' | 'chat' | 'portal';
   readonly off: boolean;
   readonly note: ComposerNote | null;
   readonly firstName: string | null;
@@ -203,6 +210,7 @@ export function composerPlaceholder(facts: {
       (facts.mode === 'email' ? 'Email isn’t available' : 'Texting isn’t available')
     );
   if (facts.mode === 'chat') return `Reply to ${facts.firstName ?? 'them'} in the chat…`;
+  if (facts.mode === 'portal') return `Write to ${facts.firstName ?? 'them'} in their portal…`;
   if (facts.mode === 'email') return facts.compact ? 'Reply by email…' : 'Write your email…';
   return `Text ${facts.firstName ?? facts.phoneDisplay}…`;
 }
@@ -317,10 +325,14 @@ export function quietQuestion(
   };
 }
 
-/** The Send button: "Send text", "Send…" in quiet hours, "Send email", or "Send" in a website chat. */
-export function sendLabel(mode: 'sms' | 'email' | 'chat', quiet: boolean, off: boolean): string {
+/** The Send button: "Send text", "Send…" in quiet hours, "Send email", or "Send" in a website chat or a portal. */
+export function sendLabel(
+  mode: 'sms' | 'email' | 'chat' | 'portal',
+  quiet: boolean,
+  off: boolean,
+): string {
   if (mode === 'email') return 'Send email';
-  if (mode === 'chat') return 'Send';
+  if (mode === 'chat' || mode === 'portal') return 'Send';
   return quiet && !off ? 'Send…' : 'Send text';
 }
 
@@ -339,6 +351,9 @@ export const COMPOSER_WORDS = {
   email: 'Email',
   websiteChat: 'Website chat',
   chatReplies: 'Replies show in their chat window',
+  clientPortal: 'Client portal',
+  portalReplies:
+    'Replies show in their portal. If they don’t read one within 10 minutes, they get an email with a link.',
   repliesHere: 'Replies come back to this thread.',
   enterSends: 'Enter sends · Shift+Enter adds a line',
   addingFile: 'Adding the file…',
@@ -379,8 +394,8 @@ export const PENDING_REPLY_WORDS = {
   askedFirst: 'HandsFreeOS asks something first.',
   doItAnyway: 'Send it anyway',
   /** Above the composer while the phone has no signal. */
-  offline: (mode: 'sms' | 'email' | 'chat') =>
-    `${mode === 'email' ? 'Emails' : mode === 'chat' ? 'Replies' : 'Texts'} written with no signal go out on their own within 30 minutes. After that, the phone asks first.`,
+  offline: (mode: 'sms' | 'email' | 'chat' | 'portal') =>
+    `${mode === 'email' ? 'Emails' : mode === 'chat' || mode === 'portal' ? 'Replies' : 'Texts'} written with no signal go out on their own within 30 minutes. After that, the phone asks first.`,
 } as const;
 
 /** The composer's photo choices on the phone. */

@@ -590,7 +590,7 @@ export const attentionLetHandle = defineCommand({
         const to =
           conv && conv.channel === channel
             ? { conversationId: conv.id }
-            : row.personId && channel !== 'chat'
+            : row.personId && channel !== 'chat' && channel !== 'portal'
               ? { personId: row.personId }
               : null;
         if (!to)
@@ -599,9 +599,11 @@ export const attentionLetHandle = defineCommand({
             409,
             channel === 'chat'
               ? 'There’s no website chat with them to reply in. Reply by text or email instead.'
-              : conv
-                ? `There’s no customer on this item to reach by ${channel === 'email' ? 'email' : 'text'}. Reply by ${conv.channel === 'email' ? 'email' : conv.channel === 'chat' ? 'website chat' : 'text'} instead, where they wrote.`
-                : 'There’s no customer on this item to send a message to. Open it to see who it’s about.',
+              : channel === 'portal'
+                ? 'There’s no portal thread with them to reply in. Reply by text or email instead.'
+                : conv
+                  ? `There’s no customer on this item to reach by ${channel === 'email' ? 'email' : 'text'}. Reply by ${conv.channel === 'email' ? 'email' : conv.channel === 'chat' ? 'website chat' : conv.channel === 'portal' ? 'their portal' : 'text'} instead, where they wrote.`
+                  : 'There’s no customer on this item to send a message to. Open it to see who it’s about.',
           );
         const sent = await executeCommandWithin(ctx, messageSend, {
           workspaceId: ws,

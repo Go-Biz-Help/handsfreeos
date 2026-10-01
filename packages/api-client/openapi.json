@@ -9198,7 +9198,8 @@
                     "enum": [
                       "sms",
                       "email",
-                      "chat"
+                      "chat",
+                      "portal"
                     ]
                   },
                   "body": {
@@ -26774,7 +26775,8 @@
                     "enum": [
                       "sms",
                       "email",
-                      "chat"
+                      "chat",
+                      "portal"
                     ]
                   },
                   "subject": {
@@ -69383,7 +69385,8 @@
                     "enum": [
                       "sms",
                       "email",
-                      "chat"
+                      "chat",
+                      "portal"
                     ]
                   },
                   "q": {
@@ -69429,7 +69432,8 @@
                             "enum": [
                               "sms",
                               "email",
-                              "chat"
+                              "chat",
+                              "portal"
                             ]
                           },
                           "counterpart": {
@@ -69777,7 +69781,8 @@
                                   "enum": [
                                     "sms",
                                     "email",
-                                    "chat"
+                                    "chat",
+                                    "portal"
                                   ]
                                 },
                                 "lineId": {
@@ -69903,6 +69908,32 @@
                           },
                           "private": {
                             "type": "boolean"
+                          },
+                          "record": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -69934,7 +69965,8 @@
                           "unreadTotal",
                           "sameAs",
                           "folder",
-                          "private"
+                          "private",
+                          "record"
                         ],
                         "additionalProperties": false
                       }
@@ -70169,7 +70201,8 @@
                           "enum": [
                             "sms",
                             "email",
-                            "chat"
+                            "chat",
+                            "portal"
                           ]
                         },
                         "counterpart": {
@@ -70517,7 +70550,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               "lineId": {
@@ -70643,6 +70677,32 @@
                         },
                         "private": {
                           "type": "boolean"
+                        },
+                        "record": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -70674,7 +70734,8 @@
                         "unreadTotal",
                         "sameAs",
                         "folder",
-                        "private"
+                        "private",
+                        "record"
                       ],
                       "additionalProperties": false
                     },
@@ -70998,7 +71059,8 @@
                                 "opted_out",
                                 "no_phone",
                                 "email_channel",
-                                "chat_channel"
+                                "chat_channel",
+                                "portal_channel"
                               ]
                             },
                             {
@@ -71167,7 +71229,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               {
@@ -71906,7 +71969,8 @@
                               "enum": [
                                 "sms",
                                 "email",
-                                "chat"
+                                "chat",
+                                "portal"
                               ]
                             },
                             {
@@ -88393,7 +88457,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               {
@@ -89017,7 +89082,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               {
@@ -89943,7 +90009,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               {
@@ -90701,7 +90768,8 @@
                                 "enum": [
                                   "sms",
                                   "email",
-                                  "chat"
+                                  "chat",
+                                  "portal"
                                 ]
                               },
                               {

@@ -191,7 +191,9 @@ function Thread() {
     decided: Decided;
   } | null>(null);
 
-  const channel = c?.channel ?? 'sms';
+  // Phones receive no client portal threads until the deal screens (Real Estate round six); one that got here reads
+  // like a chat, whose replies stay where they were written (the server refuses a chat reply on it).
+  const channel = c?.channel === 'portal' ? 'chat' : (c?.channel ?? 'sms');
   const current: ComposerMode = mode ?? channel;
   // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
   const canRich = current === 'sms' && !editing;

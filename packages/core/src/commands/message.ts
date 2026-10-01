@@ -138,6 +138,14 @@ const statusRank = (status: string): number => STATUS_RANK[status] ?? 0;
 
 type Conversation = typeof conversations.$inferSelect;
 
+/** What a thread is, in a sentence: "a text thread", "a client’s portal thread". */
+const THREAD_WORDS: Readonly<Record<Conversation['channel'], string>> = {
+  sms: 'a text thread',
+  email: 'an email thread',
+  chat: 'a website chat',
+  portal: 'a client’s portal thread',
+};
+
 async function resolveSmsConversation(
   ctx: CommandContext,
   input: { conversationId?: string; personId?: string; toPhone?: string },
@@ -149,7 +157,7 @@ async function resolveSmsConversation(
       throw HfosError.rule(
         'channel_mismatch',
         400,
-        `This conversation is ${c.channel === 'chat' ? 'a website chat' : 'an email thread'}. Open the customer’s texts to send a text.`,
+        `This conversation is ${THREAD_WORDS[c.channel]}. Open the customer’s texts to send a text.`,
       );
     return { conversation: c, created: false };
   }
@@ -922,7 +930,7 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
     throw HfosError.rule(
       'channel_mismatch',
       400,
-      `This conversation is ${conv.channel === 'sms' ? 'a text thread' : 'an email thread'}, not a website chat. Reply by ${conv.channel === 'sms' ? 'text' : 'email'} instead.`,
+      `This conversation is ${THREAD_WORDS[conv.channel]}, not a website chat. Reply there instead.`,
     );
   if (input.clientId) {
     const [dup] = await ctx.tx
@@ -985,6 +993,90 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
     })
     .where(eq(conversations.id, conv.id));
   if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await claimOnReply(ctx, conv);
+  return { messageId, conversationId: conv.id, status, duplicate: false };
+}
+
+/**
+ * A reply in a client's portal (Real Estate round two): no number, carrier or quiet hours, and never the AI teammate,
+ * which doesn't answer portals. The client reads it in their portal, so it goes out as `message.sent`, never
+ * `message.queued` (the worker texts or emails queued messages). People's rows start queued (the messages insert
+ * policy) until the worker marks them sent and, if the client hasn't read it ten minutes later, emails them a link.
+ * A file goes to their portal with file.share_to_portal, not in a message.
+ */
+async function sendPortal(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
+  const workspaceId = ctx.scope.workspaceId!;
+  const conv = await loadConversation(ctx, input.conversationId!);
+  if (conv.channel !== 'portal')
+    throw HfosError.rule(
+      'channel_mismatch',
+      400,
+      `This conversation is ${THREAD_WORDS[conv.channel]}, not a client’s portal. Reply there instead.`,
+    );
+  if (ctx.actor.type === 'ai_employee' || ctx.actor.type === 'workflow')
+    throw HfosError.forbidden(
+      'Only the people on a client’s deal answer them in their portal.',
+      'portal_people_only',
+    );
+  if (input.clientId) {
+    const [dup] = await ctx.tx
+      .select({ id: messages.id, status: messages.status })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conv.id), eq(messages.clientId, input.clientId)));
+    if (dup)
+      return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
+  }
+  if (input.attachmentFileIds.length)
+    throw HfosError.validation(
+      [{ path: 'attachmentFileIds', message: 'Portal messages don’t carry attachments.' }],
+      'Portal messages don’t carry attachments. Show the file in their portal from the customer’s files instead.',
+    );
+  const messageId = randomUUID();
+  const now = new Date();
+  const status = ctx.actor.type === 'human' ? ('queued' as const) : ('sent' as const);
+  const preview = messagePreview(input.body, 0);
+  const eventId = await ctx.emit({
+    type: 'message.sent',
+    entityType: 'message',
+    entityId: messageId,
+    payload: { conversationId: conv.id, personId: conv.personId, channel: 'portal', status },
+    after: { to: 'Client portal', preview: preview.slice(0, 80) },
+  });
+  const activityId = await logChannelActivity(ctx, {
+    kind: 'portal',
+    subtype: 'outbound',
+    personId: conv.personId,
+    customRecordId: conv.customRecordId,
+    body: input.body,
+    occurredAt: now,
+    eventId,
+    meta: { direction: 'outbound', messageId, conversationId: conv.id, status },
+  });
+  await ctx.tx.insert(messages).values({
+    id: messageId,
+    workspaceId,
+    conversationId: conv.id,
+    channel: 'portal',
+    direction: 'outbound',
+    status,
+    toAddresses: [conv.counterpart],
+    bodyText: input.body,
+    ...senderColumns(ctx),
+    clientId: input.clientId ?? null,
+    occurredAt: now,
+    sentAt: status === 'sent' ? now : null,
+    activityId,
+  });
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview: preview,
+      lastDirection: 'outbound',
+      ...afterOutbound(input.keepConversationStatus, false, now),
+    })
+    .where(eq(conversations.id, conv.id));
   await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status, duplicate: false };
 }
@@ -1070,6 +1162,7 @@ export const messageSend = defineCommand({
     }
     if (input.channel === 'email') return sendEmail(ctx, input);
     if (input.channel === 'chat') return sendChat(ctx, input);
+    if (input.channel === 'portal') return sendPortal(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
     if (input.clientId) {

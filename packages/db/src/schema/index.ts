@@ -276,6 +276,8 @@ export const activityKind = app.enum('activity_kind', [
   'sms',
   'system',
   'chat',
+  /** A message in a customer's portal (Real Estate round two, 20261014000600). */
+  'portal',
 ]);
 export const fileStatus = app.enum('file_status', ['pending', 'ready']);
 export const importKind = app.enum('import_kind', ['people', 'companies']);
@@ -686,7 +688,8 @@ export const registrationStatus = app.enum('registration_status', [
   'rejected',
   'failed',
 ]);
-export const channel = app.enum('channel', ['sms', 'email', 'chat']);
+/** `portal`: a customer's own portal (Real Estate round two, 20261014000600). */
+export const channel = app.enum('channel', ['sms', 'email', 'chat', 'portal']);
 export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
 export const direction = app.enum('direction', ['inbound', 'outbound']);
 export const messageStatus = app.enum('message_status', [
@@ -1191,6 +1194,11 @@ export const conversations = app.table('conversations', {
   folder: conversationFolder('folder').notNull().default('inbox'),
   /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
   privateTo: uuid('private_to'),
+  /** The record a thread is about (a portal thread's deal); a private record's thread is sealed with it (round two). */
+  customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 /** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */

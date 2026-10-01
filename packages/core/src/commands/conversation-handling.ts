@@ -35,6 +35,7 @@ const CHANNEL_WORDS: Readonly<Record<string, string>> = {
   sms: 'texts',
   email: 'email',
   chat: 'website chat',
+  portal: 'messages in a client’s portal',
 };
 
 /** Each channel's switch under Channels on the AI teammate page. */

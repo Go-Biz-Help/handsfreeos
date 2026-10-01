@@ -59,7 +59,10 @@ type ConversationRow = {
   /** M19: the Inbox, Other mail or Spam, and whether it is the viewer's own mail. */
   folder: 'inbox' | 'other' | 'spam';
   private: boolean;
-  channel: 'sms' | 'email' | 'chat';
+  channel: 'sms' | 'email' | 'chat' | 'portal';
+  /** A portal thread's record, and its name (Real Estate round two). */
+  record_id: string | null;
+  record_name: string | null;
   /** A website chat's visitor's name, as they typed it. */
   visitor_name: string | null;
   counterpart: string;
@@ -110,7 +113,9 @@ type ConversationRow = {
 /** A lane as the database hands it over: raw, because how a line reads is the mapper's business. */
 type LaneRow = {
   id: string;
-  channel: 'sms' | 'email' | 'chat';
+  channel: 'sms' | 'email' | 'chat' | 'portal';
+  /** A portal thread's record's name. */
+  record_name: string | null;
   line_id: string | null;
   line_e164: string | null;
   line_label: string | null;
@@ -151,6 +156,7 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
             'line_e164', pn.e164,
             'line_label', pn.label,
             'line_address', ea.address,
+            'record_name', zr.name,
             'unread_count', z.unread_count,
             'status', z.status::text,
             'archived', z.archived_at is not null,
@@ -162,6 +168,7 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
      left join app.phone_numbers pn on pn.id = z.phone_number_id
      left join app.email_addresses ea on ea.id = z.email_address_id
      left join app.users zu on zu.id = z.assignee_user_id
+     left join app.custom_records zr on zr.id = z.custom_record_id
     where z.workspace_id = ${workspaceId}
       -- The thread being looked at is always in its own switcher, archived or not: a menu that cannot name
       -- where you are standing is a menu that reads as though you are nowhere.
@@ -237,6 +244,7 @@ const conversationSelect = (
     c.handoff_reason, c.handoff_note, c.taken_over_by,
     coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
     c.folder::text as folder, c.private_to is not null as private,
+    c.custom_record_id as record_id, cr.name as record_name,
     ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
     ${GROUP_KEY} as group_key
   from app.conversations c
@@ -245,6 +253,7 @@ const conversationSelect = (
   left join app.chat_visitors cv on cv.conversation_id = c.id
   left join app.ai_teammates tm on tm.id = c.ai_teammate_id
   left join app.users tu on tu.id = c.taken_over_by
+  left join app.custom_records cr on cr.id = c.custom_record_id
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
@@ -258,7 +267,10 @@ function summary(r: ConversationRow): ConversationSummary {
         ? formatPhone(r.counterpart)
         : r.channel === 'chat'
           ? (r.visitor_name ?? CHAT_VISITOR_NAME)
-          : r.counterpart,
+          : r.channel === 'portal'
+            ? // Never the portal's key: the client, as the business has them.
+              fullName(r.first_name ?? '', r.last_name ?? '') || 'Client portal'
+            : r.counterpart,
     status: r.status,
     person: r.person_id
       ? { id: r.person_id, fullName: fullName(r.first_name ?? '', r.last_name ?? '') }
@@ -304,6 +316,7 @@ function summary(r: ConversationRow): ConversationSummary {
     sameAs: r.same_as?.id ? { id: r.same_as.id, fullName: r.same_as.fullName || 'Unnamed' } : null,
     folder: r.folder,
     private: !!r.private,
+    record: r.record_id ? { id: r.record_id, name: r.record_name ?? 'A record' } : null,
   };
 }
 
@@ -326,6 +339,7 @@ function lane(l: LaneRow): ConversationLane {
       e164: l.line_e164,
       label: l.line_label,
       address: l.line_address,
+      record: l.record_name,
     }),
     unreadCount: Number(l.unread_count),
     status: l.status,
@@ -697,14 +711,16 @@ export const conversationGet = defineQuery({
         ? { ok: false, reason: 'email_channel' as const }
         : row.channel === 'chat'
           ? { ok: false, reason: 'chat_channel' as const }
-          : !number || number.status !== 'active'
-            ? { ok: false, reason: 'no_number' as const }
-            : !ready.messagingReady
-              ? { ok: false, reason: 'not_ready' as const }
-              : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
-                  person?.smsConsent === 'opted_out'
-                ? { ok: false, reason: 'opted_out' as const }
-                : { ok: true, reason: null };
+          : row.channel === 'portal'
+            ? { ok: false, reason: 'portal_channel' as const }
+            : !number || number.status !== 'active'
+              ? { ok: false, reason: 'no_number' as const }
+              : !ready.messagingReady
+                ? { ok: false, reason: 'not_ready' as const }
+                : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
+                    person?.smsConsent === 'opted_out'
+                  ? { ok: false, reason: 'opted_out' as const }
+                  : { ok: true, reason: null };
     return {
       conversation: summary(row),
       chat: row.channel === 'chat' ? await chatOf(ctx, input.workspaceId, row.id, person) : null,
@@ -727,7 +743,7 @@ type ThreadRow = {
   occurred_at: Date;
   direction: 'inbound' | 'outbound';
   status: string;
-  channel: 'sms' | 'email' | 'chat' | null;
+  channel: 'sms' | 'email' | 'chat' | 'portal' | null;
   body: string | null;
   subject: string | null;
   from_address: string | null;

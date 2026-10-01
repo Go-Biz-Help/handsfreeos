@@ -35,7 +35,16 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
   sms: 'Text',
   email: 'Email',
   chat: 'Chat',
+  portal: 'Portal',
 };
+
+/**
+ * The channel a push's Reply sends on. A client's portal thread (Real Estate round two) carries none: the phones
+ * people have now don't know it, and would drop the whole push over it, and their Reply falls back to a text, which
+ * the server refuses on a portal thread rather than sending.
+ */
+export const pushChannel = (channel: string): PushRefs['channel'] =>
+  channel === 'sms' || channel === 'email' || channel === 'chat' ? channel : undefined;
 
 /** The kind before the AI teammate is looked at (both share a switch with their `_no_ai` kind). */
 const baseCategory = (kind: UrgentKind): PushCategory =>
@@ -107,7 +116,7 @@ export async function queueUrgentPush(tx: Tx, scope: TenantScope, u: UrgentPush)
     ...(u.item ? { itemId: u.item.id } : {}),
     ...(u.item?.leadId ? { leadId: u.item.leadId } : {}),
     ...(personId ? { personId } : {}),
-    ...(conv ? { conversationId: conv.id, channel: conv.channel } : {}),
+    ...(conv ? { conversationId: conv.id, channel: pushChannel(conv.channel) } : {}),
   };
   const said = u.preview.trim();
 

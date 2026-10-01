@@ -1598,7 +1598,9 @@ function statusSentence(e: AuditEntry): string {
       ? 'an email'
       : s(e.after?.channel) === 'chat'
         ? 'a chat message'
-        : 'a text';
+        : s(e.after?.channel) === 'portal'
+          ? 'a portal message'
+          : 'a text';
   if (status === 'delivered') return `confirmed ${what} was delivered`;
   if (status === 'bounced')
     return `recorded that an email bounced${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;

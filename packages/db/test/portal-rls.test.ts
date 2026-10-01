@@ -202,7 +202,7 @@ describe('a signed-in customer', () => {
       sql`select notes from app.people`,
       sql`select notes from app.custom_records`,
       sql`select id from app.tasks`,
-      sql`select id from app.conversations`,
+      sql`select id from app.calls`,
       sql`select id from app.audit_logs`,
       sql`select id from app.portal_sessions`,
       sql`select id from app.portal_codes`,
@@ -291,6 +291,51 @@ describe('files', () => {
         ),
       ),
     ).toBe('23514');
+  });
+});
+
+describe('messages', () => {
+  const thread = (channel: string, person: string, counterpart: string, record: string | null) =>
+    one(
+      rows<{ id: string }>(
+        admin(),
+        sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, custom_record_id, last_preview)
+            values (${ws}, ${channel}::app.channel, ${counterpart}, ${person}, ${record}, 'Private words')
+            returning id`,
+      ),
+    );
+  const message = (conversation: string, channel: string) =>
+    one(
+      rows<{ id: string }>(
+        admin(),
+        sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text,
+              from_address)
+            values (${ws}, ${conversation}, ${channel}::app.channel, 'inbound', 'received', 'Hello', 'x')
+            returning id`,
+      ),
+    );
+
+  it('shows a client their own portal threads and messages, and none of the business’s other threads', async () => {
+    const hers = await thread('portal', linh, `portal:${linh}:${mine}`, mine);
+    const his = await thread('portal', omar, `portal:${omar}:${theirs}`, theirs);
+    const texts = await thread('sms', linh, '+17135550199', null);
+    const ownMessage = await message(hers, 'portal');
+    await message(his, 'portal');
+    await message(texts, 'sms');
+    const got = await asPortal(session)(async (tx) => ({
+      threads: ids(await rows<{ id: string }>(tx, sql`select id from app.conversations`)),
+      messages: ids(await rows<{ id: string }>(tx, sql`select id from app.messages`)),
+    }));
+    expect(got).toEqual({ threads: [hers], messages: [ownMessage] });
+    for (const q of [
+      sql`select last_preview from app.conversations`,
+      sql`select from_address from app.messages`,
+    ])
+      expect(await denied(() => asPortal(session)((tx) => rows(tx, q)))).toBe('42501');
+  });
+
+  it('keeps a portal thread’s key in shape', async () => {
+    expect(await denied(() => thread('portal', linh, 'portal:anything', null))).toBe('23514');
   });
 });
 

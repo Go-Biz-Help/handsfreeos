@@ -16,9 +16,18 @@ const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
-/** Texts, emails and website chats mirror a conversation: what the customer sent, or what the business sent them. */
+/**
+ * Texts, emails, website chats and portal messages mirror a conversation: what the customer sent, or what the business
+ * sent them.
+ */
 export function isChannelEntry(e: TimelineEntry): boolean {
-  return e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || !!e.meta.direction;
+  return (
+    e.kind === 'sms' ||
+    e.kind === 'email' ||
+    e.kind === 'chat' ||
+    e.kind === 'portal' ||
+    !!e.meta.direction
+  );
 }
 const inbound = (e: TimelineEntry) => isChannelEntry(e) && e.meta.direction === 'inbound';
 const undelivered = (e: TimelineEntry) =>
@@ -61,6 +70,8 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   // A customer who confirmed by text (C, or YES while asked) or with the Confirm button on their appointment page.
   if (e.subtype === 'appointment_confirmed' && (e.meta.via === 'sms' || e.meta.via === 'link'))
     return subjectName || 'The customer';
+  // The customer in their own portal (Real Estate round two): a file they added, a task they did.
+  if (e.actorType === 'customer') return subjectName || 'The client';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'workflow') {
@@ -139,6 +150,7 @@ export function describeTimeline(
     return undelivered(e) ? `sent an email that bounced${subject}` : `sent an email${subject}`;
   }
   if (e.kind === 'chat') return inbound(e) ? 'chatted on your website' : 'replied in chat';
+  if (e.kind === 'portal') return inbound(e) ? 'wrote in their portal' : 'replied in their portal';
   const title = str(e.meta.title);
   const noun =
     recordType === 'person'
@@ -338,7 +350,7 @@ export function timelineTone(e: TimelineEntry): TimelineTone {
       ? (tone as AddonLineTone)
       : 'accent';
   }
-  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat')
+  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || e.kind === 'portal')
     return undelivered(e) ? 'danger' : 'accent';
   if (e.kind === 'note') return 'accent';
   if (e.kind === 'call' && ['missed', 'outbound_missed', 'voicemail'].includes(e.subtype ?? ''))

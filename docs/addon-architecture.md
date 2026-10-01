@@ -114,6 +114,9 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   - Its own table opens to customers with `private.addon_portal_policies(table, record column, columns)`, select only,
     and only the columns named.
   - Its portal pages go in the manifest (`ui.portal`: a path, a title and the customer query it shows).
+  - Core gives every portal files (`portal.upload_begin`/`confirm`, `portal.files`, `file.share_to_portal`) and
+    messages (`portal.message_send`, `portal.messages`, `portal.mark_read`; the team answers on channel `portal`).
+    A portal thread is about one record, so a private record's thread is seen only by the people on it.
 
 ## The lifecycle
 

@@ -76,7 +76,7 @@ export async function loadItemHints(
       ? await rows<{
           id: string;
           person_id: string | null;
-          channel: 'sms' | 'email' | 'chat';
+          channel: 'sms' | 'email' | 'chat' | 'portal';
           counterpart: string;
           last_message_at: Date | string | null;
         }>(

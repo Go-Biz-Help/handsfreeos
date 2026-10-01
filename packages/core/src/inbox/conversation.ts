@@ -18,8 +18,11 @@ export function customerFirstName(
 }
 
 /** "Mike", "this visitor" or "this number": who a sentence about the customer names. */
-export function whoOf(first: string | null, channel: 'sms' | 'email' | 'chat'): string {
-  return first ?? (channel === 'chat' ? 'this visitor' : 'this number');
+export function whoOf(first: string | null, channel: 'sms' | 'email' | 'chat' | 'portal'): string {
+  return (
+    first ??
+    (channel === 'chat' ? 'this visitor' : channel === 'portal' ? 'this client' : 'this number')
+  );
 }
 
 /** A website chat's line: "Website chat · on /pricing", "Website chat · lonestarhvac.com". */
@@ -39,14 +42,18 @@ export function chatLine(
  */
 export function threadChannelLine(
   c: {
-    readonly channel: 'sms' | 'email' | 'chat';
+    readonly channel: 'sms' | 'email' | 'chat' | 'portal';
     readonly counterpart: string;
     readonly counterpartDisplay: string;
+    /** A portal thread's record ("12 Main St purchase"). */
+    readonly record?: { readonly name: string } | null;
   },
   person: { readonly phone: string | null } | null,
   opts: { readonly chat?: Parameters<typeof chatLine>[0]; readonly short?: boolean } = {},
 ): string {
   if (c.channel === 'chat') return chatLine(opts.chat ?? null);
+  if (c.channel === 'portal')
+    return c.record ? `Client portal · ${c.record.name}` : 'Client portal';
   if (c.channel === 'email') return `${c.counterpart} · Email`;
   if (person) return `${person.phone ?? c.counterpartDisplay} · Texts`;
   return opts.short ? 'Texts' : 'Texts · not in Contacts yet';
@@ -68,7 +75,7 @@ export const ALL_LINES_WORDS = {
 /** "(713) 555-0142 isn’t a customer yet. Add them, or link the number to someone you already have." */
 export function notCustomerBanner(
   counterpartDisplay: string,
-  channel: 'sms' | 'email' | 'chat',
+  channel: 'sms' | 'email' | 'chat' | 'portal',
 ): { readonly parts: readonly WordPart[]; readonly short: string; readonly action: string } {
   return {
     parts: [
@@ -214,13 +221,18 @@ export const PRIVATE_THREAD_WORDS = {
 export function customerSinceLine(
   person: { readonly phone: string | null; readonly customerSince: string } | null,
   c: {
-    readonly channel: 'sms' | 'email' | 'chat';
+    readonly channel: 'sms' | 'email' | 'chat' | 'portal';
     readonly counterpart: string;
     readonly counterpartDisplay: string;
   },
 ): string {
   if (!person) return 'Not in Contacts yet';
-  const contact = c.channel === 'email' ? c.counterpart : (person.phone ?? c.counterpartDisplay);
+  const contact =
+    c.channel === 'email'
+      ? c.counterpart
+      : c.channel === 'portal'
+        ? (person.phone ?? 'Client portal')
+        : (person.phone ?? c.counterpartDisplay);
   return `${contact} · Customer since ${new Date(person.customerSince).getFullYear()}`;
 }
 

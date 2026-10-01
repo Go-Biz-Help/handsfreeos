@@ -259,6 +259,7 @@ import {
   portalSessionSeen,
 } from './portal-access';
 import { portalFileCommands } from './portal-files';
+import { portalMessageCommands } from './portal-messages';
 import { jobAddVisit, jobSetStatus } from './job';
 import {
   aiTeammateCreate,
@@ -840,6 +841,8 @@ export const commands: readonly CommandDef[] = [
   portalSessionEnd,
   // Files in a customer's portal (round two, step 4).
   ...portalFileCommands,
+  // Messages in a customer's portal (round two, step 5).
+  ...portalMessageCommands,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -985,6 +988,7 @@ export * from './offer';
 export * from './chat-verify';
 export * from './portal-access';
 export * from './portal-files';
+export * from './portal-messages';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

@@ -32,6 +32,7 @@ import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
+import { PORTAL_JOBS, portalUnreadNotice } from './portal/replies';
 import {
   EMAIL_RECEIVING_CHECK_JOB,
   domainRecordInput,
@@ -513,6 +514,7 @@ export const jobs: JobMap = {
   ...teammateJobs,
   // The website chat: a reply still unread after 10 minutes goes by email or text.
   [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
+  [PORTAL_JOBS.unreadNotice]: portalUnreadNotice,
   // The Action Center: the hourly plan and each business's sweep, exact-time rechecks, snoozes running out.
   ...attentionJobs,
   // Settings → Automations' own: re-engaging dead leads once a day (armed by the Action Center's hourly plan).

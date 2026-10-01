@@ -92,6 +92,8 @@ const SECRET_TABLES = [
   'mailbox_connections',
   'migration_connections',
   'payment_connections',
+  // Real Estate round two: a client's signed-in device, kept only as its bearer's hash. No phone ever needs it.
+  'portal_sessions',
   // M16: the sign-in to a Google Business Profile or a Facebook Page. No phone ever needs it.
   'review_connections',
   'telephony_accounts',

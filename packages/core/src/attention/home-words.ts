@@ -939,9 +939,11 @@ export function letHandleChannelVerb(channel: string | null | undefined, first: 
     ? `Emails ${first} now`
     : channel === 'chat'
       ? `Answers ${first} in the chat now`
-      : channel === 'sms'
-        ? `Texts ${first} now`
-        : `Writes to ${first} now`;
+      : channel === 'portal'
+        ? `Answers ${first} in their portal now`
+        : channel === 'sms'
+          ? `Texts ${first} now`
+          : `Writes to ${first} now`;
 }
 
 /** What handing a customer to the AI teammate does, as the sheet lists it. */
@@ -996,7 +998,13 @@ export function letHandleAskButton(
 
 /** Where a reply goes, above its box. */
 export const letHandleReplyBy = (channel: string | null | undefined): string =>
-  channel === 'email' ? 'By email' : channel === 'chat' ? 'In the website chat' : 'By text';
+  channel === 'email'
+    ? 'By email'
+    : channel === 'chat'
+      ? 'In the website chat'
+      : channel === 'portal'
+        ? 'In their portal'
+        : 'By text';
 
 /** What HandsFreeOS did when the person pressed its button, for the toast. */
 export function letHandleAutoToast(o: {

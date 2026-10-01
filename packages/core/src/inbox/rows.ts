@@ -98,7 +98,7 @@ export interface ConversationListRow {
 /** One of a customer's conversations, as the list's row and the thread's line switcher take it (0089). */
 export interface InboxLane {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   /** "Front desk · (713) 555-0100", "info@lonestarhvac.com", "Website chat". */
   readonly lineDisplay: string;
   readonly unreadCount: number;
@@ -109,12 +109,15 @@ export interface InboxLane {
  * as well as its digits; a lane with no line still says something, because a blank item is not choosable.
  */
 export function lineDisplayOf(l: {
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly e164: Text | undefined;
   readonly label: Text | undefined;
   readonly address: Text | undefined;
+  /** A portal thread's record ("12 Main St purchase"). */
+  readonly record?: Text | undefined;
 }): string {
   if (l.channel === 'chat') return 'Website chat';
+  if (l.channel === 'portal') return l.record ? `Client portal · ${l.record}` : 'Client portal';
   if (l.channel === 'email') return l.address || 'Email';
   const number = l.e164 ? formatPhone(l.e164) : null;
   if (!number) return 'Text';

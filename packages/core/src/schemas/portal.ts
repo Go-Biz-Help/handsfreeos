@@ -164,3 +164,61 @@ export const FileShareToPortalOutput = z.object({
   shared: z.boolean(),
   changed: z.boolean(),
 });
+
+// ---------- messages in the portal ----------
+
+/** A client writes at most this many messages a day (a chat's daily cap's spirit, for one person). */
+export const PORTAL_MESSAGES_PER_DAY = 100;
+
+export const PortalMessageSendInput = z.object({
+  ...inWorkspace,
+  /** The record it's about (a deal); null for a portal with no records. */
+  recordId: uuid.nullable().default(null),
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Write a message.')
+    .max(4000, 'Keep a message under 4,000 characters.'),
+  /** The portal page's own id for it, so sending twice files it once. */
+  clientId: z.string().trim().min(8).max(80),
+});
+export const PortalMessageSendOutput = z.object({
+  messageId: uuid,
+  conversationId: uuid,
+  duplicate: z.boolean(),
+});
+
+export const PortalMessagesInput = z.object({
+  ...inWorkspace,
+  recordId: uuid.nullable().default(null),
+  /** Older than this, for the next page. */
+  before: isoDateTime.optional(),
+});
+export const PortalMessageOut = z.object({
+  id: uuid,
+  fromYou: z.boolean(),
+  body: z.string(),
+  at: isoDateTime,
+  /** Who wrote it, for one from the business ("Dana Reyes"); null for their own, or someone who has left. */
+  from: z.string().nullable(),
+  /** Their own message reached the business; one from the business is marked seen once shown to them. */
+  seen: z.boolean(),
+});
+export const PortalMessagesOutput = z.object({
+  conversationId: uuid.nullable(),
+  /** Newest last. */
+  messages: z.array(PortalMessageOut),
+  /** From the business, not yet shown to them. */
+  unread: z.number().int(),
+  hasMore: z.boolean(),
+});
+
+export const PortalMarkReadInput = z.object({
+  ...inWorkspace,
+  conversationId: uuid,
+  throughMessageId: uuid,
+});
+export const PortalMarkReadOutput = z.object({ marked: z.number().int() });
+
+export const PortalMarkSentInput = z.object({ ...inWorkspace, messageId: uuid });
+export const PortalMarkSentOutput = z.object({ messageId: uuid, marked: z.boolean() });
