@@ -19,6 +19,13 @@ import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
 import { CMA_STATUS_KEYS, COMP_STATUS_KEYS } from './cma';
+import {
+  CLIENT_PRIORITY_KEYS,
+  FINANCING_STEP_KEYS,
+  FINDING_ASK_KEYS,
+  FINDING_SEVERITY_KEYS,
+  INSPECTION_KIND_KEYS,
+} from './closing';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
@@ -1682,3 +1689,222 @@ export const OfferOut = z.object({
 });
 export const OffersInput = z.object({ ...inDeal });
 export const OffersOutput = z.object({ offers: z.array(OfferOut) });
+
+// ---------- financing, inspections and repairs (round two) ----------
+
+export const FinancingInput = z.object({ ...inDeal });
+export const FinancingSetLenderInput = z.object({
+  ...inDeal,
+  lenderName: z.string().trim().max(200).nullable().optional(),
+  officerName: z.string().trim().max(200).nullable().optional(),
+  officerEmail: z.email().max(320).nullable().optional(),
+  officerPhone: z.string().trim().max(40).nullable().optional(),
+  loanType: z.enum(LOAN_TYPE_KEYS).nullable().optional(),
+  loanAmountCents: z.int().min(1).max(100_000_000_000).nullable().optional(),
+});
+const StepFields = {
+  startedOn: localDate.nullable().optional(),
+  expectedOn: localDate.nullable().optional(),
+  amountCents: z.int().min(1).max(100_000_000_000).nullable().optional(),
+  rate: z.number().min(0).max(30).nullable().optional(),
+  expiresOn: localDate.nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+};
+export const FinancingUpdateStepInput = z.object({
+  ...inDeal,
+  step: z.enum(FINANCING_STEP_KEYS),
+  ...StepFields,
+});
+export const StepProof = z.object({ kind: z.enum(['document', 'file', 'message']), id: uuid });
+export const FinancingMarkDoneInput = z.object({
+  ...inDeal,
+  step: z.enum(FINANCING_STEP_KEYS),
+  /** When it was done; today when not given. */
+  doneOn: localDate.optional(),
+  /** The lender's letter or email, or one of the deal's documents. */
+  proof: StepProof,
+  ...StepFields,
+});
+export const FinancingReopenInput = z.object({
+  ...inDeal,
+  step: z.enum(FINANCING_STEP_KEYS),
+  reason,
+});
+export const FinancingChangeOutput = z.object({
+  dealId: uuid,
+  step: z.enum(FINANCING_STEP_KEYS).nullable(),
+  /** Dates entered on the deal from it (a rate lock's end, the Closing Disclosure received). */
+  termsEntered: z.int().default(0),
+});
+export const FinancingOutput = z.object({
+  lender: z.object({
+    lenderName: z.string().nullable(),
+    officerName: z.string().nullable(),
+    officerEmail: z.string().nullable(),
+    officerPhone: z.string().nullable(),
+    loanType: z.enum(LOAN_TYPE_KEYS).nullable(),
+    loanAmountCents: z.number().int().nullable(),
+  }),
+  closing: z.string().nullable(),
+  /** The day the Closing Disclosure must reach the buyers by, once closing is known. */
+  cdDeadline: z.string().nullable(),
+  steps: z.array(
+    z.object({
+      step: z.enum(FINANCING_STEP_KEYS),
+      label: z.string(),
+      status: z.enum(['not_started', 'in_progress', 'done']),
+      startedOn: z.string().nullable(),
+      expectedOn: z.string().nullable(),
+      doneOn: z.string().nullable(),
+      amountCents: z.number().int().nullable(),
+      rate: z.number().nullable(),
+      expiresOn: z.string().nullable(),
+      note: z.string().nullable(),
+      proof: z
+        .object({ kind: z.enum(['document', 'file', 'message']), id: uuid, label: z.string() })
+        .nullable(),
+      doneBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+      line: z.string(),
+      warning: z.string().nullable(),
+    }),
+  ),
+});
+
+export const InspectionAddInput = z.object({
+  ...inDeal,
+  kind: z.enum(INSPECTION_KIND_KEYS),
+  inspector: z.string().trim().max(200).optional(),
+  scheduledAt: isoDateTime.optional(),
+  reportExpectedOn: localDate.optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+export const InspectionAddOutput = z.object({ inspectionId: uuid });
+export const InspectionUpdateInput = z.object({
+  workspaceId: uuid,
+  inspectionId: uuid,
+  inspector: z.string().trim().max(200).nullable().optional(),
+  scheduledAt: isoDateTime.nullable().optional(),
+  reportExpectedOn: localDate.nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+});
+export const InspectionReportInInput = z.object({
+  workspaceId: uuid,
+  inspectionId: uuid,
+  /** The report, uploaded as one of the deal's documents. */
+  documentId: uuid.optional(),
+  reportInOn: localDate.optional(),
+  pages: z.int().min(1).max(2000).optional(),
+});
+export const InspectionCancelInput = z.object({ workspaceId: uuid, inspectionId: uuid, reason });
+export const InspectionChangeOutput = z.object({
+  inspectionId: uuid,
+  status: z.enum(['scheduled', 'report_in', 'canceled']),
+});
+
+const FindingFields = {
+  title: z.string().trim().min(1, 'Say what was found.').max(200),
+  location: z.string().trim().max(200).nullable().optional(),
+  severity: z.enum(FINDING_SEVERITY_KEYS),
+  estimateCents: z.int().min(0).max(100_000_000_000).nullable().optional(),
+  clientPriority: z.enum(CLIENT_PRIORITY_KEYS).nullable().optional(),
+  ask: z.enum(FINDING_ASK_KEYS).optional(),
+  creditCents: z.int().min(0).max(100_000_000_000).nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+};
+export const FindingAddInput = z.object({
+  workspaceId: uuid,
+  inspectionId: uuid,
+  ...FindingFields,
+});
+export const FindingAddOutput = z.object({ findingId: uuid });
+export const FindingUpdateInput = z.object({
+  workspaceId: uuid,
+  findingId: uuid,
+  ...FindingFields,
+  title: FindingFields.title.optional(),
+  severity: FindingFields.severity.optional(),
+});
+export const FindingRemoveInput = z.object({ workspaceId: uuid, findingId: uuid });
+export const FindingChangeOutput = z.object({ findingId: uuid });
+
+export const RepairSendInput = z.object({
+  ...inDeal,
+  /** The request's words, as sent (the draft, edited). */
+  words: z.string().trim().min(1, 'Write the request.').max(4000),
+  /** The findings it asks about; the draft's when not given. */
+  findingIds: z.array(uuid).max(100).optional(),
+  respondBy: isoDateTime.nullable().optional(),
+  at: isoDateTime.optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+export const RepairAnswerInput = z.object({
+  ...inDeal,
+  outcome: z.enum(['agreed', 'countered', 'refused']),
+  /** The seller's answer in words: what they'll do. */
+  words: z.string().trim().min(1, 'Say what the seller answered.').max(4000),
+  creditCents: z.int().min(0).max(100_000_000_000).optional(),
+  respondBy: isoDateTime.nullable().optional(),
+  at: isoDateTime.optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+export const RepairChangeOutput = z.object({
+  dealId: uuid,
+  repairId: uuid,
+  number: z.int(),
+  /** Duties that came with it (repairs agreed). */
+  dutiesCreated: z.int().default(0),
+});
+export const InspectionsInput = z.object({ ...inDeal });
+const FindingOut = z.object({
+  id: uuid,
+  title: z.string(),
+  location: z.string().nullable(),
+  severity: z.enum(FINDING_SEVERITY_KEYS),
+  estimateCents: z.number().int().nullable(),
+  clientPriority: z.enum(CLIENT_PRIORITY_KEYS).nullable(),
+  ask: z.enum(FINDING_ASK_KEYS),
+  creditCents: z.number().int().nullable(),
+  note: z.string().nullable(),
+});
+export const InspectionsOutput = z.object({
+  /** When the inspection period ends, from the deal's key dates. */
+  periodEnds: z.string().nullable(),
+  inspections: z.array(
+    z.object({
+      id: uuid,
+      kind: z.enum(INSPECTION_KIND_KEYS),
+      label: z.string(),
+      inspector: z.string().nullable(),
+      scheduledAt: isoDateTime.nullable(),
+      reportExpectedOn: z.string().nullable(),
+      status: z.enum(['scheduled', 'report_in', 'canceled']),
+      reportDocument: z.object({ id: uuid, title: z.string() }).nullable(),
+      reportInOn: z.string().nullable(),
+      pages: z.number().int().nullable(),
+      note: z.string().nullable(),
+      findings: z.array(FindingOut),
+    }),
+  ),
+  repairs: z.array(
+    z.object({
+      id: uuid,
+      number: z.number().int(),
+      side: z.enum(['us', 'them']),
+      at: isoDateTime,
+      words: z.string(),
+      creditCents: z.number().int(),
+      respondBy: isoDateTime.nullable(),
+      outcome: z.enum(['agreed', 'countered', 'refused']).nullable(),
+      items: z.array(
+        z.object({
+          findingId: uuid,
+          title: z.string(),
+          ask: z.string(),
+          creditCents: z.number().int().nullable(),
+        }),
+      ),
+    }),
+  ),
+  /** The request as the findings would draft it now. */
+  draft: z.object({ words: z.string(), creditCents: z.number().int(), items: z.number().int() }),
+});

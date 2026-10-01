@@ -1084,6 +1084,29 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   version or an answer clears it. Turning the add-on off cancels it with its other work; turning it on arms what's
   still ahead.
 
+### Step 11: financing, inspections and repairs (server built, 2026-10-01)
+
+**As built** (`20261014001300_realestate_financing_inspections.sql`):
+
+- `financing` (the lender, loan officer and loan) and `financing_steps` (preapproval, application, rate lock,
+  appraisal, conditional approval, clear to close, the Closing Disclosure, funding): each step's dates, amount and
+  rate as it goes. `realestate.financing.mark_done` is a person's only, with proof (one of the deal's documents, a
+  file on it, or the lender's message in the Inbox); `.reopen_step` takes it back with a reason.
+- The dates duties rest on come from it, as the lender's: a preapproval's or rate lock's end, and the day the Closing
+  Disclosure was received, go to the deal's key dates.
+- Pure `closing.ts`: the Closing Disclosure's deadline (`cdDeadline`: three business days before closing, Saturdays
+  counting, Sundays and federal holidays not, as the federal rule counts them), each step's line, and warnings (a
+  lock or preapproval ending before closing, an appraisal under the price, a late Closing Disclosure).
+- `inspections` (kind, inspector, when, the report as one of the deal's documents) and `inspection_findings` (what,
+  where, how serious, the estimate, the client's priority and what to ask for). The deal's first report is the moment
+  "the inspection report is in", with its duties.
+- `repair_requests`: each version of the request and each answer of the seller's, never changed. The request is
+  drafted from the findings (`repairDraft`: what the client didn't skip, must-fixes first) and edited before it's
+  kept as sent. The seller agreeing is the moment "repairs are agreed", with its duties.
+- The client's portal reads the steps' status and dates, the inspections, findings and requests; never the team's
+  notes or the proof.
+- The wire-fraud rule stands as it was: nothing here touches wiring.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

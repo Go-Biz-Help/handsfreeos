@@ -7177,6 +7177,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.financing.mark_done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a financing step done, with its proof: the lender’s letter or email, or one of the deal’s documents. Only a person marks a step done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done.
+         */
+        post: operations["command_realestate_financing_mark_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.reopen_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a financing step marked done, with the reason. Kept in the deal’s history.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         */
+        post: operations["command_realestate_financing_reopen_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.set_lender": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a buyer deal’s lender, loan officer and loan.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         */
+        post: operations["command_realestate_financing_set_lender"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.update_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep where a financing step stands: when it started or is expected, the amount (preapproval, appraisal), the locked rate, when it ends, and a note.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         */
+        post: operations["command_realestate_financing_update_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add what an inspection found: what and where, how serious, the estimate, the client’s priority and what to ask for.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_finding_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take off a finding typed in by mistake.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_finding_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a finding: its words, how serious, the estimate, the client’s priority or what to ask for.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_finding_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.home.add": {
         parameters: {
             query?: never;
@@ -7231,6 +7371,86 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.home.status_changed.
          */
         post: operations["command_realestate_home_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an inspection on a buyer deal: its kind, the inspector, when, and when the report is expected.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_inspection_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an inspection, with the reason. Its findings stay, but no longer count toward the request.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_inspection_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.report_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an inspection’s report in, with the uploaded report. The deal’s first report brings the duties that follow one.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in.
+         */
+        post: operations["command_realestate_inspection_report_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an inspection’s inspector, time, expected report date or note.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_inspection_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7451,6 +7671,46 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.party.removed.
          */
         post: operations["command_realestate_party_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.record_answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the seller’s answer to the repair request: agreed, a counter, or refused, in their words. Agreed brings the duties that follow agreed repairs.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.answered.
+         */
+        post: operations["command_realestate_repair_record_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the repair request as it was sent to the seller: its words, what it asks for by finding, and when they must answer by.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.sent.
+         */
+        post: operations["command_realestate_repair_send"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13137,6 +13397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.financing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s financing: the lender and loan, each step from preapproval to funding with its dates and proof, and the Closing Disclosure’s deadline.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_financing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.homes": {
         parameters: {
             query?: never;
@@ -13151,6 +13431,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_homes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.inspections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s inspections and what each found, the repair request and the seller’s answers, the request the findings would draft now, and when the inspection period ends.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_inspections"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29455,6 +29755,295 @@ export interface operations {
             };
         };
     };
+    command_realestate_financing_mark_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: date */
+                    doneOn?: string;
+                    expectedOn?: string | null;
+                    expiresOn?: string | null;
+                    note?: string | null;
+                    proof: {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "document" | "file" | "message";
+                    };
+                    rate?: number | null;
+                    startedOn?: string | null;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_reopen_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    reason: string;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_set_lender: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    lenderName?: string | null;
+                    loanAmountCents?: number | null;
+                    loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                    officerEmail?: string | null;
+                    officerName?: string | null;
+                    officerPhone?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_update_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    expectedOn?: string | null;
+                    expiresOn?: string | null;
+                    note?: string | null;
+                    rate?: number | null;
+                    startedOn?: string | null;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ask?: "repair" | "replace" | "credit" | "not_asked";
+                    clientPriority?: ("must_fix" | "would_like" | "skip") | null;
+                    creditCents?: number | null;
+                    estimateCents?: number | null;
+                    /** Format: uuid */
+                    inspectionId: string;
+                    location?: string | null;
+                    note?: string | null;
+                    /** @enum {string} */
+                    severity: "safety" | "repair" | "minor";
+                    title: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    findingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ask?: "repair" | "replace" | "credit" | "not_asked";
+                    clientPriority?: ("must_fix" | "would_like" | "skip") | null;
+                    creditCents?: number | null;
+                    estimateCents?: number | null;
+                    /** Format: uuid */
+                    findingId: string;
+                    location?: string | null;
+                    note?: string | null;
+                    /** @enum {string} */
+                    severity?: "safety" | "repair" | "minor";
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_home_add: {
         parameters: {
             query?: never;
@@ -29571,6 +30160,158 @@ export interface operations {
                         homeId: string;
                         /** @enum {string} */
                         status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    inspector?: string;
+                    /** @enum {string} */
+                    kind: "general" | "termite" | "roof" | "sewer" | "radon" | "mold" | "pool" | "hvac" | "structural" | "other";
+                    note?: string;
+                    /** Format: date */
+                    reportExpectedOn?: string;
+                    /** Format: date-time */
+                    scheduledAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    inspectionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_report_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    inspectionId: string;
+                    pages?: number;
+                    /** Format: date */
+                    reportInOn?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    inspectionId: string;
+                    inspector?: string | null;
+                    note?: string | null;
+                    reportExpectedOn?: string | null;
+                    scheduledAt?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
                     };
                 };
             };
@@ -30054,6 +30795,94 @@ export interface operations {
                         dealId: string;
                         /** Format: uuid */
                         relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_repair_record_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    creditCents?: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    outcome: "agreed" | "countered" | "refused";
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_repair_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    findingIds?: string[];
+                    note?: string;
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
                     };
                 };
             };
@@ -47364,6 +48193,74 @@ export interface operations {
             };
         };
     };
+    query_realestate_financing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cdDeadline: string | null;
+                        closing: string | null;
+                        lender: {
+                            lenderName: string | null;
+                            loanAmountCents: number | null;
+                            loanType: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                            officerEmail: string | null;
+                            officerName: string | null;
+                            officerPhone: string | null;
+                        };
+                        steps: {
+                            amountCents: number | null;
+                            doneBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            doneOn: string | null;
+                            expectedOn: string | null;
+                            expiresOn: string | null;
+                            label: string;
+                            line: string;
+                            note: string | null;
+                            proof: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "document" | "file" | "message";
+                                label: string;
+                            } | null;
+                            rate: number | null;
+                            startedOn: string | null;
+                            /** @enum {string} */
+                            status: "not_started" | "in_progress" | "done";
+                            /** @enum {string} */
+                            step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                            warning: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_realestate_homes: {
         parameters: {
             query?: never;
@@ -47453,6 +48350,96 @@ export interface operations {
                             /** @enum {string} */
                             status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
                             statusNote: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_inspections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        draft: {
+                            creditCents: number;
+                            items: number;
+                            words: string;
+                        };
+                        inspections: {
+                            findings: {
+                                /** @enum {string} */
+                                ask: "repair" | "replace" | "credit" | "not_asked";
+                                clientPriority: ("must_fix" | "would_like" | "skip") | null;
+                                creditCents: number | null;
+                                estimateCents: number | null;
+                                /** Format: uuid */
+                                id: string;
+                                location: string | null;
+                                note: string | null;
+                                /** @enum {string} */
+                                severity: "safety" | "repair" | "minor";
+                                title: string;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            inspector: string | null;
+                            /** @enum {string} */
+                            kind: "general" | "termite" | "roof" | "sewer" | "radon" | "mold" | "pool" | "hvac" | "structural" | "other";
+                            label: string;
+                            note: string | null;
+                            pages: number | null;
+                            reportDocument: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            reportExpectedOn: string | null;
+                            reportInOn: string | null;
+                            scheduledAt: string | null;
+                            /** @enum {string} */
+                            status: "scheduled" | "report_in" | "canceled";
+                        }[];
+                        periodEnds: string | null;
+                        repairs: {
+                            /** Format: date-time */
+                            at: string;
+                            creditCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            items: {
+                                ask: string;
+                                creditCents: number | null;
+                                /** Format: uuid */
+                                findingId: string;
+                                title: string;
+                            }[];
+                            number: number;
+                            outcome: ("agreed" | "countered" | "refused") | null;
+                            respondBy: string | null;
+                            /** @enum {string} */
+                            side: "us" | "them";
+                            words: string;
                         }[];
                     };
                 };

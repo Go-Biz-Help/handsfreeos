@@ -987,6 +987,180 @@ export const offerVersions = addonRealestate.table(
   ],
 );
 
+/** A buyer deal's lender and loan (round two, step 11). */
+export const financing = addonRealestate.table(
+  'financing',
+  {
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    lenderName: text('lender_name'),
+    officerName: text('officer_name'),
+    officerEmail: text('officer_email'),
+    officerPhone: text('officer_phone'),
+    loanType: text('loan_type').$type<'conventional' | 'fha' | 'va' | 'usda' | 'cash' | 'other'>(),
+    loanAmountCents: cents('loan_amount_cents'),
+    updatedBy: userRef('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.dealRecordId] }),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** One step of the loan, and its proof once done. */
+export const financingSteps = addonRealestate.table(
+  'financing_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    step: text('step')
+      .notNull()
+      .$type<
+        | 'preapproval'
+        | 'application'
+        | 'rate_lock'
+        | 'appraisal'
+        | 'conditional_approval'
+        | 'clear_to_close'
+        | 'closing_disclosure'
+        | 'funding'
+      >(),
+    status: text('status')
+      .notNull()
+      .default('not_started')
+      .$type<'not_started' | 'in_progress' | 'done'>(),
+    startedOn: date('started_on', { mode: 'string' }),
+    expectedOn: date('expected_on', { mode: 'string' }),
+    doneOn: date('done_on', { mode: 'string' }),
+    amountCents: cents('amount_cents'),
+    rate: numeric('rate', { precision: 6, scale: 3 }),
+    expiresOn: date('expires_on', { mode: 'string' }),
+    note: text('note'),
+    proofKind: text('proof_kind').$type<'document' | 'file' | 'message'>(),
+    proofId: uuid('proof_id'),
+    doneBy: userRef('done_by'),
+    doneAt: ts('done_at'),
+    updatedBy: userRef('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.dealRecordId, t.step),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** An inspection: its inspector, when, and its report. */
+export const inspections = addonRealestate.table(
+  'inspections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull(),
+    inspector: text('inspector'),
+    scheduledAt: ts('scheduled_at'),
+    reportExpectedOn: date('report_expected_on', { mode: 'string' }),
+    status: text('status')
+      .notNull()
+      .default('scheduled')
+      .$type<'scheduled' | 'report_in' | 'canceled'>(),
+    reportDocumentId: uuid('report_document_id').references(() => documents.id, {
+      onDelete: 'set null',
+    }),
+    reportInOn: date('report_in_on', { mode: 'string' }),
+    pages: integer('pages'),
+    note: text('note'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** What an inspection found, and what the client wants done about it. */
+export const inspectionFindings = addonRealestate.table(
+  'inspection_findings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    inspectionId: uuid('inspection_id').notNull(),
+    title: text('title').notNull(),
+    location: text('location'),
+    severity: text('severity').notNull().$type<'safety' | 'repair' | 'minor'>(),
+    estimateCents: cents('estimate_cents'),
+    clientPriority: text('client_priority').$type<'must_fix' | 'would_like' | 'skip'>(),
+    ask: text('ask')
+      .notNull()
+      .default('not_asked')
+      .$type<'repair' | 'replace' | 'credit' | 'not_asked'>(),
+    creditCents: cents('credit_cents'),
+    position: integer('position').notNull(),
+    note: text('note'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.inspectionId],
+      foreignColumns: [inspections.workspaceId, inspections.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each version of the repair request, and the seller's answers: never changed. */
+export const repairRequests = addonRealestate.table(
+  'repair_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    number: integer('number').notNull(),
+    side: text('side').notNull().$type<'us' | 'them'>(),
+    at: ts('at').notNull().defaultNow(),
+    words: text('words').notNull(),
+    items: jsonb('items')
+      .$type<{ findingId: string; title: string; ask: string; creditCents: number | null }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    creditCents: cents('credit_cents').notNull().default(0),
+    respondBy: ts('respond_by'),
+    outcome: text('outcome').$type<'agreed' | 'countered' | 'refused'>(),
+    note: text('note'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.dealRecordId, t.number),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -1017,4 +1191,9 @@ export const REALESTATE_TABLES = {
   cmaComps,
   offers,
   offerVersions,
+  financing,
+  financingSteps,
+  inspections,
+  inspectionFindings,
+  repairRequests,
 } as const;

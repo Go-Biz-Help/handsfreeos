@@ -4,6 +4,12 @@
  * it (the screen adds that). Browser-safe and pure: the web, the phone and the Assistant say the same thing.
  */
 import { DOCUMENT_KINDS } from './catalog/types';
+import {
+  FINANCING_STEPS,
+  INSPECTION_KINDS,
+  type FinancingStep,
+  type InspectionKind,
+} from './closing';
 import { HOME_STATUSES, type HomeStatus } from './homes';
 import { KEY_DATES } from './dates/key-dates';
 import { STAGE_LABELS, DUTY_STATUS_LABELS, type DealStage, type DutyStatus } from './states';
@@ -26,6 +32,10 @@ const termName = (k: unknown) => {
   };
   return all[key]?.label.toLowerCase() ?? key;
 };
+const financingStep = (v: unknown) =>
+  FINANCING_STEPS[str(v) as FinancingStep]?.label.toLowerCase() ?? str(v);
+const inspectionKind = (v: unknown) =>
+  INSPECTION_KINDS[str(v) as InspectionKind]?.toLowerCase() ?? 'inspection';
 const eventWords = (v: unknown) =>
   (Array.isArray(v) ? v : [])
     .map((e) => (EVENT_WORDS as Readonly<Record<string, string>>)[str(e)])
@@ -74,6 +84,25 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `No longer true: ${str(a.words)}`;
     case 'home_status':
       return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
+    // Financing, inspections and repairs.
+    case 'financing_step_done':
+      return `Marked ${financingStep(a.step)} done${a.proof ? `, with ${str(a.proof)}` : ''}`;
+    case 'financing_step_reopened':
+      return `Took back ${financingStep(a.step)} as done`;
+    case 'inspection_added':
+      return `Added the ${inspectionKind(a.kind)}`;
+    case 'inspection_report_in':
+      return `The ${inspectionKind(a.kind)} report is in`;
+    case 'inspection_canceled':
+      return `Canceled the ${inspectionKind(a.kind)}`;
+    case 'repair_requested':
+      return Number(a.number) > 1 ? 'Sent a new repair request' : 'Sent the repair request';
+    case 'repair_answered':
+      return a.outcome === 'agreed'
+        ? 'The seller agreed to the repairs'
+        : a.outcome === 'countered'
+          ? 'The seller countered the repair request'
+          : 'The seller refused the repair request';
     // Offers.
     case 'offer_made':
       return `Made an offer of ${str(a.price)} on ${str(a.address)}`;

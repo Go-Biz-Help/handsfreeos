@@ -209,6 +209,11 @@ export const realestateAddon = defineAddon({
     'cma_comps',
     'offers',
     'offer_versions',
+    'financing',
+    'financing_steps',
+    'inspections',
+    'inspection_findings',
+    'repair_requests',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -287,6 +292,12 @@ export const realestateAddon = defineAddon({
       'realestate.offer.version_added',
       'realestate.offer.answered',
       'realestate.offer.shared',
+      'realestate.financing.changed',
+      'realestate.financing.step_done',
+      'realestate.inspection.changed',
+      'realestate.inspection.report_in',
+      'realestate.repair.sent',
+      'realestate.repair.answered',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
