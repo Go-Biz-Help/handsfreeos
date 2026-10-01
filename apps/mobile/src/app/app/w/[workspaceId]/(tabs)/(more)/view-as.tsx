@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useWorkspaceRow } from '@/home/use-home';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
@@ -34,6 +35,18 @@ export default function ViewAsTeammate() {
   const { me, business, userId, viewing } = useBusiness();
   const grants = useGrants();
   const { online } = useNetwork();
+  // Whether the business shows each person only their own threads, as the copy has it.
+  const { settings } = useWorkspaceRow();
+  const inboxPerPerson = React.useMemo(() => {
+    try {
+      const parsed = settings
+        ? (JSON.parse(settings) as { inbox?: { perPerson?: unknown } })
+        : null;
+      return parsed?.inbox?.perPerson === true;
+    } catch {
+      return false;
+    }
+  }, [settings]);
   const [team, setTeam] = React.useState<readonly Teammate[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [opening, setOpening] = React.useState<string | null>(null);
@@ -55,7 +68,9 @@ export default function ViewAsTeammate() {
     };
   }, [online, viewing, business.id]);
 
-  const below = (team ?? []).filter((m) => m.userId !== me.user.id && mayViewAs(grants, m));
+  const below = (team ?? []).filter(
+    (m) => m.userId !== me.user.id && mayViewAs(grants, m, { inboxPerPerson }),
+  );
 
   const open = async (m: Teammate) => {
     setOpening(m.userId);

@@ -222,6 +222,43 @@ describe('who may view as whom', () => {
     }
   });
 
+  it('nor someone shown only their own threads or bills, as a teammate who has some', async () => {
+    // Admins here may not set up numbers and email, and each person sees their own threads: so do admins.
+    await rows(
+      admin$(),
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${wsId}, 'admin', 'channels.manage', false)`,
+    );
+    await run(inboxSetVisibility, { workspaceId: wsId, perPerson: true }, owner);
+    try {
+      await expect(
+        run(teammateViewStart, { workspaceId: wsId, userId: member.id }, admin),
+      ).rejects.toMatchObject({ code: 'forbidden', rule: 'teammate_view_beyond' });
+    } finally {
+      await run(inboxSetVisibility, { workspaceId: wsId, perPerson: false }, owner);
+      await rows(
+        admin$(),
+        sql`delete from app.role_permission_overrides where workspace_id = ${wsId} and role = 'admin'`,
+      );
+    }
+    // Admins here see only the bills for their own work; a member sees theirs.
+    await rows(
+      admin$(),
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${wsId}, 'admin', 'money.manage', false)`,
+    );
+    try {
+      await expect(
+        run(teammateViewStart, { workspaceId: wsId, userId: member.id }, admin),
+      ).rejects.toMatchObject({ code: 'forbidden', rule: 'teammate_view_beyond' });
+    } finally {
+      await rows(
+        admin$(),
+        sql`delete from app.role_permission_overrides where workspace_id = ${wsId} and role = 'admin'`,
+      );
+    }
+  });
+
   it('an owner can take it away from admins', async () => {
     await rows(
       admin$(),

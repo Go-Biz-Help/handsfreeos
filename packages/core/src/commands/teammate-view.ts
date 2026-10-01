@@ -99,9 +99,11 @@ export const teammateViewStart = defineCommand({
       role: WorkspaceRole | null;
       permissions: string[] | null;
       works_here: boolean;
+      narrowed: boolean;
     }>(
       ctx.tx,
       sql`select u.full_name, u.email::text as email,
+                 coalesce(private.inbox_narrowed(${input.workspaceId}::uuid), false) as narrowed,
                  private.user_workspace_role(u.id, ${input.workspaceId}::uuid) as role,
                  (select p.permissions from private.workspace_member_permissions(${input.workspaceId}::uuid) p
                   where p.user_id = u.id) as permissions,
@@ -136,6 +138,19 @@ export const teammateViewStart = defineCommand({
           'teammate_view_beyond',
         );
       }
+      // The same permissions aren't the same threads and bills: someone shown only their own would see the
+      // teammate's through the view.
+      const theirs = person.permissions ?? [];
+      if (person.narrowed && theirs.includes('inbox.use'))
+        throw HfosError.forbidden(
+          `You see only your own threads here, so viewing as ${name} would show you threads you can’t see. Ask an owner of this business to view as them instead.`,
+          'teammate_view_beyond',
+        );
+      if (theirs.includes('money.read') && !reach.permissions.includes('money.manage'))
+        throw HfosError.forbidden(
+          `You see only the bills for your own work here, so viewing as ${name} would show you bills you can’t see. Ask an owner of this business to view as them instead.`,
+          'teammate_view_beyond',
+        );
     }
     // One at a time in a business: the last one ends as this one opens.
     const now = new Date();

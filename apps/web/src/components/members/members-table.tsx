@@ -29,6 +29,7 @@ export function MembersTable({
   myRole,
   myPermissions,
   myUserId,
+  inboxPerPerson = false,
   permissionSettings = null,
   openPermissionsFor = null,
 }: {
@@ -38,6 +39,8 @@ export function MembersTable({
   /** What the business lets the person looking do (0106). */
   myPermissions: readonly string[];
   myUserId: string;
+  /** Whether the business shows each person only their own threads, which View as weighs (20261016000200). */
+  inboxPerPerson?: boolean;
   /** Every role's and person's own permission settings, for an owner who sets them; null for anyone else. */
   permissionSettings?: PermissionSettingsOut | null;
   /** Open this person's permissions straight away (Settings → Permissions links here). */
@@ -133,7 +136,8 @@ export function MembersTable({
               const hasOwn = Object.keys(ownSettings(m.userId)).length > 0;
               // Someone below them who can do nothing they can't (20261016000200); the API decides.
               const viewable =
-                !isSelf && mayViewAs({ role: myRole, permissions: myPermissions }, m);
+                !isSelf &&
+                mayViewAs({ role: myRole, permissions: myPermissions }, m, { inboxPerPerson });
               return (
                 <tr key={m.userId} data-testid={`member-row-${m.email}`}>
                   <td className="border-b border-border px-4 py-3 last:border-b-0">

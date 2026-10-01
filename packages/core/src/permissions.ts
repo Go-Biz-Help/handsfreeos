@@ -551,18 +551,25 @@ export function permissionsBeyond(
 
 /**
  * Whether someone may view the app as a teammate (20261016000200): they hold members.view_as, the teammate's role is
- * below theirs, and the teammate can do nothing they can't, so a view never shows more than they could see as
- * themselves. private.may_view_as() says the same in the database and is the one that decides; this is for offering
- * it. HandsFreeOS, with a business open, views as anyone in it, and its own pages offer that.
+ * below theirs, the teammate can do nothing they can't, and where the business shows people only their own threads or
+ * bills, they see all of them. So a view never shows more than they could see as themselves. private.may_view_as()
+ * says the same in the database and is the one that decides; this is for offering it. `inboxPerPerson` is the
+ * business's setting (workspace.get); left out, the database still decides. HandsFreeOS, with a business open, views as
+ * anyone in it, and its own pages offer that.
  */
 export function mayViewAs(
   viewer: Grants,
   person: { readonly role: string; readonly permissions: readonly string[] },
+  business: { readonly inboxPerPerson?: boolean } = {},
 ): boolean {
+  const has = (p: Permission) => person.permissions.includes(p);
   return (
     holds(viewer, 'members.view_as') &&
     roleRank(person.role) < roleRank(viewer.role) &&
-    permissionsBeyond(viewer, person.permissions).length === 0
+    permissionsBeyond(viewer, person.permissions).length === 0 &&
+    // Someone who sees only their own threads, or their own bills, would see the teammate's through the view.
+    !(business.inboxPerPerson && !holds(viewer, 'channels.manage') && has('inbox.use')) &&
+    (holds(viewer, 'money.manage') || !has('money.read'))
   );
 }
 

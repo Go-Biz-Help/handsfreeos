@@ -10,8 +10,10 @@
 --        **Who may view as whom.** Someone who works in the business may view
 --        as a teammate below their role (an owner as an admin or a member, an
 --        admin as a member) who can do nothing they can't: the rule that
---        already stops anyone handing out a role above their own, so a view
---        never shows more than the viewer could see anyway. It is a
+--        already stops anyone handing out a role above their own. And where
+--        the business shows someone only their own threads or bills, only
+--        someone who sees all of them views as a person who has some, so a
+--        view never shows more than the viewer could see anyway. It is a
 --        permission, members.view_as, owners' and admins' by default, which
 --        an owner can take away. HandsFreeOS may view as anyone in a business
 --        it has open: support inside a look (M13), which keeps its reason, its
@@ -68,6 +70,14 @@ returns boolean language sql stable security definer set search_path = '' as $$
         and coalesce((select wa.permissions from app.workspace_access wa
                       where wa.user_id = p_person and wa.workspace_id = p_ws), '{}'::text[])
             <@ private.my_permissions(p_ws)
+        -- Holding the same permissions isn't seeing the same threads and bills: someone who sees only their own
+        -- (0083's narrowed inbox, 0050's members' money) would see the teammate's through the view.
+        and (not private.inbox_narrowed(p_ws)
+             or not exists (select 1 from app.workspace_access wa
+                            where wa.user_id = p_person and wa.workspace_id = p_ws and 'inbox.use' = any (wa.permissions)))
+        and (private.has_permission(p_ws, 'money.manage')
+             or not exists (select 1 from app.workspace_access wa
+                            where wa.user_id = p_person and wa.workspace_id = p_ws and 'money.read' = any (wa.permissions)))
       )
     ), false)
 $$;

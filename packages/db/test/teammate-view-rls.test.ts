@@ -93,6 +93,29 @@ describe('who may view as whom', () => {
     expect(await mayViewAs(stranger, member)).toBe(false);
   });
 
+  it('not by someone shown only their own threads, as someone who has some', async () => {
+    await dbs.admin.db.execute(
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${wsId}, 'admin', 'channels.manage', false)`,
+    );
+    await dbs.admin.db.execute(
+      sql`update app.workspaces set settings = jsonb_set(settings, '{inbox}', '{"perPerson": true}')
+          where id = ${wsId}`,
+    );
+    try {
+      expect(await mayViewAs(admin, member)).toBe(false);
+      expect(await mayViewAs(owner, member)).toBe(true);
+    } finally {
+      await dbs.admin.db.execute(
+        sql`update app.workspaces set settings = settings - 'inbox' where id = ${wsId}`,
+      );
+      await dbs.admin.db.execute(
+        sql`delete from app.role_permission_overrides where workspace_id = ${wsId} and role = 'admin'`,
+      );
+    }
+    expect(await mayViewAs(admin, member)).toBe(true);
+  });
+
   it('a view the rule refuses can’t be written, whatever the request says', async () => {
     expect(await code(() => openView(admin, owner))).toBe('42501');
     expect(await code(() => openView(stranger, member))).toBe('42501');

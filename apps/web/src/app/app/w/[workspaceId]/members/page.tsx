@@ -55,6 +55,7 @@ export default async function MembersPage({
         myRole={myRole}
         myPermissions={mine}
         myUserId={userId}
+        inboxPerPerson={got.workspace.inboxPerPerson}
         permissionSettings={permissionSettings}
         openPermissionsFor={typeof sp.permissions === 'string' ? sp.permissions : null}
       />
