@@ -5,6 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  a2pBrandUsageKey,
+  a2pBrandVettingUsageKey,
+  a2pCampaignMonthUsageKey,
+  a2pCampaignVettingUsageKey,
   aiUsageKey,
   assistantUsageKey,
   callLegUsageKey,
@@ -13,6 +17,7 @@ import {
   billingDay,
   mmsUsageKey,
   billingMonth,
+  campaignPeriod,
   monthOf,
   numberMonthUsageKey,
   reconcileUsageKey,
@@ -127,5 +132,64 @@ describe('billingMonth, billingDay and monthOf', () => {
   it('refuse what they cannot read', () => {
     expect(() => billingDay('yesterday')).toThrow(/a day like/);
     expect(() => billingMonth('')).toThrow(/a month like/);
+  });
+});
+
+describe('texting registration fees', () => {
+  const brand = 'BN0123456789abcdef0123456789abcdef';
+  const campaign = 'QE0123456789abcdef0123456789abcdef';
+
+  it('charges a brand once, by its own sid, however often it is sent again', () => {
+    expect(a2pBrandUsageKey(brand)).toBe(`a2p-brand:${brand}`);
+    expect(a2pBrandVettingUsageKey(brand)).toBe(`a2p-brand-vetting:${brand}`);
+    // The registration and its extra check are two fees for one brand.
+    expect(a2pBrandUsageKey(brand)).not.toBe(a2pBrandVettingUsageKey(brand));
+    expect(() => a2pBrandUsageKey('')).toThrow(/brand sid/);
+  });
+
+  it('charges each campaign review, since a campaign sent again is a new campaign', () => {
+    expect(a2pCampaignVettingUsageKey(campaign)).toBe(`a2p-campaign-vetting:${campaign}`);
+    expect(a2pCampaignVettingUsageKey(campaign)).not.toBe(a2pCampaignVettingUsageKey('QE2'));
+  });
+
+  it('charges a campaign once a month, the month being part of the key', () => {
+    expect(a2pCampaignMonthUsageKey(campaign, '2026-10')).toBe(`a2p-campaign:${campaign}:2026-10`);
+    expect(a2pCampaignMonthUsageKey(campaign, '2026-10-17T09:00:00Z')).toBe(
+      a2pCampaignMonthUsageKey(campaign, '2026-10'),
+    );
+    expect(a2pCampaignMonthUsageKey(campaign, '2026-10')).not.toBe(
+      a2pCampaignMonthUsageKey(campaign, '2026-11'),
+    );
+  });
+});
+
+describe('a campaign’s month', () => {
+  const approved = new Date('2026-10-15T14:00:00Z');
+
+  it('starts on the day it was approved, and again on that day each month', () => {
+    expect(campaignPeriod(approved, approved)).toEqual({ month: '2026-10', startsAt: approved });
+    expect(campaignPeriod(approved, new Date('2026-11-15T13:59:59Z'))?.month).toBe('2026-10');
+    expect(campaignPeriod(approved, new Date('2026-11-15T14:00:00Z'))).toEqual({
+      month: '2026-11',
+      startsAt: new Date('2026-11-15T14:00:00Z'),
+    });
+    expect(campaignPeriod(approved, new Date('2027-01-20T00:00:00Z'))?.month).toBe('2027-01');
+  });
+
+  it('uses the last day of a month that has no such day', () => {
+    const lateJanuary = new Date('2027-01-31T10:00:00Z');
+    expect(campaignPeriod(lateJanuary, new Date('2027-02-27T23:00:00Z'))?.month).toBe('2027-01');
+    expect(campaignPeriod(lateJanuary, new Date('2027-02-28T10:00:00Z'))).toEqual({
+      month: '2027-02',
+      startsAt: new Date('2027-02-28T10:00:00Z'),
+    });
+    // March has a 31st, so March's month starts on it rather than on the 28th.
+    expect(campaignPeriod(lateJanuary, new Date('2027-03-30T10:00:00Z'))?.month).toBe('2027-02');
+    expect(campaignPeriod(lateJanuary, new Date('2027-03-31T10:00:00Z'))?.month).toBe('2027-03');
+  });
+
+  it('owes nothing before it is approved', () => {
+    expect(campaignPeriod(approved, new Date('2026-10-14T00:00:00Z'))).toBeNull();
+    expect(campaignPeriod(new Date('nonsense'), approved)).toBeNull();
   });
 });

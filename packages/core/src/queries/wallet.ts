@@ -320,6 +320,11 @@ export const usagePrices = defineQuery({
         tenOf('speech.live.minute', 'The AI listening on a call', 'for 10 minutes'),
         tenOf('speech.recording.minute', 'Talk turned into words', 'for 10 minutes'),
         tenOf('speech.voice.kchar', 'The AI speaking', 'for 10,000 characters'),
+        // The carriers' fees for texting from a local number, passed on at what they cost us.
+        say('a2p.brand.registration', 'Registering your business for texting', 'once'),
+        say('a2p.campaign.vetting', 'The carriers reviewing your texts', 'each time'),
+        say('a2p.campaign.month', 'Your texting registration, once approved', 'a month'),
+        say('a2p.brand.vetting', 'An extra check for over 1,000 texts a month', 'once'),
       ],
     };
   },

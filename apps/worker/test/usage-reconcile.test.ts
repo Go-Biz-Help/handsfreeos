@@ -9,6 +9,7 @@ import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CARRIER_CATEGORIES,
+  CHARGED_WHEN_THEY_HAPPEN,
   dayToReconcile,
   nextReconcileAt,
   reconcileDay,
@@ -171,6 +172,27 @@ describe('a category nothing here has heard of', () => {
       expect(CARRIER_CATEGORIES, parent).not.toHaveProperty(parent);
     expect(CARRIER_CATEGORIES).toHaveProperty('sms-inbound');
     expect(CARRIER_CATEGORIES).toHaveProperty('sms-outbound');
+  });
+});
+
+describe('texting registration fees', () => {
+  /**
+   * Charged when they happen (money/registration-fees.ts), and dated by Twilio's own clock rather than ours, so
+   * comparing them day by day would charge a business twice for one fee.
+   */
+  it('are known, and neither charged again nor reported as unknown', async () => {
+    const asked = watch();
+    const found = await reconcileDay(
+      ctx,
+      scope,
+      DAY,
+      [line('a2p-registration-fees', 19.5), line('sms-outbound', 2)],
+      new Map(),
+    );
+    expect(found.unknown).toEqual([]);
+    expect(asked.map((a) => a.meta?.['carrier_category'])).toEqual(['sms-outbound']);
+    expect(CHARGED_WHEN_THEY_HAPPEN.has('a2p-registration-fees')).toBe(true);
+    vi.restoreAllMocks();
   });
 });
 

@@ -94,6 +94,14 @@ export const CARRIER_CATEGORIES: Readonly<Record<string, readonly UsageKey[]>> =
   'carrier-fees': [],
 };
 
+/**
+ * Twilio's categories for things charged when they happen and never compared day by day. Texting registration
+ * fees (money/registration-fees.ts) are dated by Twilio's own clock: a review when the reviewer gets to it, a
+ * campaign's month on its own anniversary. A day-by-day comparison would see a charge on one day and its fee on
+ * another and charge the business twice, so these are known and left alone rather than reported as unknown.
+ */
+export const CHARGED_WHEN_THEY_HAPPEN: ReadonlySet<string> = new Set(['a2p-registration-fees']);
+
 /** The day a pass covers, in UTC, because that is how the carrier dates its records. */
 export const dayToReconcile = (now: number): string =>
   new Date(now - LAG_DAYS * DAY_MS).toISOString().slice(0, 10);
@@ -195,6 +203,7 @@ export async function reconcileDay(
   for (const line of theirs) {
     const theirCostCents = roundHalfUp(line.costMicros / 10_000);
     if (theirCostCents <= 0) continue;
+    if (CHARGED_WHEN_THEY_HAPPEN.has(line.category)) continue;
     if (!(line.category in CARRIER_CATEGORIES)) {
       unknown.push(line.category);
       continue;

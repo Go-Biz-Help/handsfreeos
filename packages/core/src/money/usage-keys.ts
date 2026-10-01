@@ -69,6 +69,74 @@ export const assistantUsageKey = (runId: string): string =>
 export const speechUsageKey = (batchId: string, rateKey: string): string =>
   `speech:${need(batchId, 'speech batch id')}:${need(rateKey, 'rate key')}`;
 
+/**
+ * A business's brand registered for texting on local numbers, by the brand's own sid. Sending a turned-down
+ * brand again keeps its sid, so it lands on this row and isn't charged twice (Twilio doesn't charge it twice).
+ */
+export const a2pBrandUsageKey = (brandSid: string): string =>
+  `a2p-brand:${need(brandSid, 'brand sid')}`;
+
+/** The brand's extra (secondary) check, once per brand. */
+export const a2pBrandVettingUsageKey = (brandSid: string): string =>
+  `a2p-brand-vetting:${need(brandSid, 'brand sid')}`;
+
+/**
+ * One review of one campaign. A turned-down campaign is replaced by a new one with a new sid, and Twilio
+ * charges the review again, so this does too.
+ */
+export const a2pCampaignVettingUsageKey = (campaignSid: string): string =>
+  `a2p-campaign-vetting:${need(campaignSid, 'campaign sid')}`;
+
+/**
+ * One month of one campaign. Like a number's month, the month is part of the key, so a sweep that runs every
+ * day charges each month once. The month is the one its period starts in (`campaignPeriod`).
+ */
+export const a2pCampaignMonthUsageKey = (campaignSid: string, month: string): string =>
+  `a2p-campaign:${need(campaignSid, 'campaign sid')}:${billingMonth(month)}`;
+
+/** One month of a campaign: the month the key names, and the moment that month's period began. */
+export interface CampaignPeriod {
+  readonly month: string;
+  readonly startsAt: Date;
+}
+
+/**
+ * Which month's fee a campaign owes now, or null before its first. Twilio charges the first month on approval
+ * and each month after on the same day of the month, so a campaign approved on October 15 owes October's from
+ * then, November's from November 15, and so on. A day the month doesn't have is its last day: one approved
+ * January 31 owes February's from February 28. In UTC, which is how Twilio dates its charges.
+ */
+export function campaignPeriod(
+  approvedAt: Date | number,
+  now: Date | number,
+): CampaignPeriod | null {
+  const from = typeof approvedAt === 'number' ? new Date(approvedAt) : approvedAt;
+  const at = typeof now === 'number' ? new Date(now) : now;
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(at.getTime()) || at < from) return null;
+  /** The moment the period that starts `n` months after approval begins. */
+  const startOf = (n: number): Date => {
+    const year = from.getUTCFullYear();
+    const month = from.getUTCMonth() + n;
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return new Date(
+      Date.UTC(
+        year,
+        month,
+        Math.min(from.getUTCDate(), lastDay),
+        from.getUTCHours(),
+        from.getUTCMinutes(),
+        from.getUTCSeconds(),
+        from.getUTCMilliseconds(),
+      ),
+    );
+  };
+  let months =
+    (at.getUTCFullYear() - from.getUTCFullYear()) * 12 + (at.getUTCMonth() - from.getUTCMonth());
+  if (startOf(months) > at) months -= 1;
+  const startsAt = startOf(months);
+  return { month: startsAt.toISOString().slice(0, 7), startsAt };
+}
+
 /** One top-up. The recharge row's id, which is written before the provider is ever called. */
 export const topUpUsageKey = (rechargeId: string): string =>
   `topup:${need(rechargeId, 'recharge id')}`;

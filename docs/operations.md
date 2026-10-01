@@ -4318,7 +4318,7 @@ Carrier fees on local-number texts, added to the prices above:
 
 Twilio's registration-fee help article still says only T-Mobile charges on received texts. The pricing page is the newer source.
 
-Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers.
+Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers. HandsFreeOS passes the first four on to the business's usage balance at cost, when they happen (see "Usage balances: what businesses pay us"). On Twilio's bill they all appear under one category, `a2p-registration-fees` ("Messaging A2P Brand Registration Fee" and the like).
 
 | Fee                  | Price                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -8784,6 +8784,24 @@ rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A bu
 (stage `enforce`) can't talk out loud any more, the same as the rest of the AI. Needs
 `20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
 made by Twilio (the fallback without a Deepgram key) are not on the balance.
+
+**The carriers' fees for texting from a local number are on the balance too, at cost.** Registering a business to
+text from a local number (A2P 10DLC) costs fees that Twilio passes on to us, and the balance passes them on with
+no markup. Four lines on the rate card, each at markup 10000:
+
+| Line                     | Price           | Charged when                                                                                                                  |
+| ------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `a2p.brand.registration` | $4.50 once      | The brand is first sent. Sending a turned-down brand again is free, at Twilio and here.                                       |
+| `a2p.brand.vetting`      | $41.50 once     | The brand is first sent, unless the business picked **Under 1,000** texts a month.                                            |
+| `a2p.campaign.vetting`   | $15 each time   | A campaign is sent. A turned-down campaign is replaced by a new one, and Twilio charges the review again.                     |
+| `a2p.campaign.month`     | $10 every month | The campaign is approved, then on the same day each month while the account is open (the daily `wallet.campaign_months` job). |
+
+The last step of the registration on the web says what sending will take from the balance. **Settings** →
+**Usage & balance** lists the four prices. The nightly reconciliation leaves Twilio's `a2p-registration-fees`
+category alone: Twilio dates these by its own clock, so a day-by-day comparison would charge twice. The $11
+brand appeal isn't charged; it only happens when support asks Twilio for one. With `WALLET_MODE` off nothing is
+charged. Needs `20261016000200_a_fee_is_a_unit.sql` and `20261016000300_texting_registration_on_the_wallet.sql`.
+To change a price when Twilio does, publish a new card at `/admin/rates` as for any other line.
 
 ### Part 0: The Stripe account the money lands in
 

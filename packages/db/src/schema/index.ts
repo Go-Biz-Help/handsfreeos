@@ -4992,6 +4992,7 @@ export const usageUnit = platform.enum('usage_unit', [
   'minute',
   'mtok',
   'kchar',
+  'fee',
 ]);
 export const usageRounding = platform.enum('usage_rounding', ['none', 'minute', 'six_seconds']);
 
