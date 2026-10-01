@@ -117,6 +117,12 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   - Core gives every portal files (`portal.upload_begin`/`confirm`, `portal.files`, `file.share_to_portal`) and
     messages (`portal.message_send`, `portal.messages`, `portal.mark_read`; the team answers on channel `portal`).
     A portal thread is about one record, so a private record's thread is seen only by the people on it.
+  - On the web, core draws the portal at `/c/<link>` (`apps/web/src/components/portal/`): the sign-in, the frame,
+    Home, Messages and Files, all read in the customer's browser with the device's own sign-in
+    (`lib/api/public-portal.ts`). An add-on's part is its registry entry's `portal`: a card or two on Home
+    (`home`) and its pages (`pages`, one component handed the path), opened at `a/<id>/<path>` only for a path
+    its `ui.portal` declares. Its pages without an id (Real Estate's Homes and To do) are places in the portal's
+    menu, between Home and Messages. They read and act through `usePortal()`, never holding the sign-in.
 
 ## The lifecycle
 
@@ -292,7 +298,7 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
-- **Real Estate Agent's later rounds.** Its first round (deals, duties, dates, proof, documents, alerts, the duty
-  editor, client updates) is built and in beta (docs/realestate.md); MLS and property data, showings, lockbox
-  details, comparative reports and the buyer and listing workspaces wait for an add-on's own credentials and webhook
+- **Real Estate Agent's later rounds.** Its first two rounds (deals, duties, dates, proof, documents, alerts, the duty
+  editor, client updates; then the buyer's side and the client's portal) are built and in beta (docs/realestate.md);
+  MLS and property data, showings services and lockbox details wait for an add-on's own credentials and webhook
   routes above. Everyone else still sees it as Coming soon.

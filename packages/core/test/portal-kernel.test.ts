@@ -185,7 +185,15 @@ describe('a customer’s look-ups', () => {
       person: { firstName: 'Linh', lastName: 'Client' },
       // Real Estate's first page; the ones with an id open from it.
       addons: [
-        { id: 'realestate', name: 'Real Estate Agent', pages: [{ path: '', title: 'Your deals' }] },
+        {
+          id: 'realestate',
+          name: 'Real Estate Agent',
+          pages: [
+            { path: '', title: 'Your deals' },
+            { path: 'homes', title: 'Homes' },
+            { path: 'todo', title: 'To do' },
+          ],
+        },
       ],
     });
   });

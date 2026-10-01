@@ -1172,6 +1172,30 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Browser test: `apps/web/e2e/realestate-buyer.spec.ts` (a pasted listing read and confirmed, a tour refused then let
   through, a member off the deal seeing only Busy). Step 15 adds the client's side to it.
 
+### Step 15: the client's portal on the web (built, 2026-10-01)
+
+**As built** (no migration):
+
+- Core's portal at `/c/<link>` (`apps/web/src/app/c/[token]/`, `apps/web/src/components/portal/`): the sign-in
+  (board 26: "Email me a code", then the six digits, pasted or typed), the frame with the business on top and a menu
+  at the bottom, Home (board 27), Messages (board 31) and Files. Everything is read in the client's browser through
+  `lib/api/public-portal.ts`; the device's bearer is kept in its localStorage under the link, and a device signed out
+  elsewhere goes back to the sign-in.
+- The registry's new `portal` entry gives an add-on its part: cards on Home and one component for its pages
+  (`a/<id>/<path>`, only paths its `ui.portal` declares). Its pages without an id are places in the menu.
+- Real Estate's portal (`apps/web/src/addons/realestate/portal/`): on Home, each open deal, what's coming up and the
+  first of the to-do; **Homes** (board 29, save or pass, "Add one you found"); **To do** (uploads, sign-offs, things
+  to do, and "Leave feedback" after a tour); a deal (board 28); a tour's homes to say what they thought (board 30:
+  stars, what they liked and didn't, "Loved it / Maybe / Not for us"; the board's chips changed to these first); an
+  offer's one-page summary. The manifest's `ui.portal` gains `homes`, `todo`, `deals/:dealId/tours/:tourId` and
+  `deals/:dealId/offers/:offerId`.
+- A tour's homes can be marked seen from the hour before it starts, as the server allows.
+- Browser test: `realestate-buyer.spec.ts` now goes on to invite the client, sign in on a phone with the emailed code,
+  pass on a home, leave feedback on one seen and message the agent; the agent then has the feedback on the tour, the
+  pass on Homes and the message in the Inbox.
+- Docs: docs/realestate.md (round two's screens and rules), docs/addon-architecture.md (the portal on the web) and
+  CLAUDE.md.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

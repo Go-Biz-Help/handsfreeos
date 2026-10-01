@@ -23,6 +23,7 @@ import type { ComponentType } from 'react';
 import {
   House as realestateAddonIcon,
   ListChecks as realestateDutiesIcon,
+  ListTodo as realestateTodoIcon,
   Settings2 as realestateSettingsIcon,
 } from 'lucide-react';
 
@@ -81,6 +82,22 @@ export interface AddonSettingsProps {
 /** An add-on's settings form, fetched the first time it's opened: `() => import('./<id>/settings')`. */
 export type SettingsLoader = () => Promise<{ default: ComponentType<AddonSettingsProps> }>;
 
+/**
+ * An add-on's part of a customer's portal (`/c/<link>`, components/portal/): drawn only for a customer with records
+ * of its kinds, inside the portal's shell, which hands it `usePortal()` (components/portal/context.tsx).
+ */
+export interface AddonPortalUi {
+  /** Its part of the portal's Home: what's happening on their records, in a card or two. */
+  readonly home?: () => Promise<{ default: ComponentType }>;
+  /**
+   * Its pages (`a/<id>/<path>`): one component for all of them, handed the path's parts. Only the paths the manifest
+   * declares in `ui.portal` open; any other is the portal's not-found.
+   */
+  readonly pages: () => Promise<{ default: ComponentType<{ readonly path: readonly string[] }> }>;
+  /** The icon of each of its places in the portal's menu, by the page's path. */
+  readonly icons?: Readonly<Record<string, AddonIcon>>;
+}
+
 /** What the web knows about one add-on. */
 export interface AddonUi {
   /** Its places in the side menu, and its card on the Add-ons page. */
@@ -91,6 +108,8 @@ export interface AddonUi {
   readonly slots?: { readonly [S in AddonSlotName]?: SlotLoader<S> };
   /** Its own settings form on the Add-ons page, beside its switches. Absent: its switches are all there is. */
   readonly settings?: SettingsLoader;
+  /** Its pages in a customer's portal. */
+  readonly portal?: AddonPortalUi;
 }
 
 /** Every add-on's UI, by add-on id. */
@@ -105,5 +124,10 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       'record.panels': () => import('./realestate/record-panel'),
     },
     settings: () => import('./realestate/settings-link'),
+    portal: {
+      home: () => import('./realestate/portal/home-panel'),
+      pages: () => import('./realestate/portal/pages'),
+      icons: { homes: realestateAddonIcon, todo: realestateTodoIcon },
+    },
   },
 };

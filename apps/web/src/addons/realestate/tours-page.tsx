@@ -236,7 +236,8 @@ function TourCard({
   onCancel: () => void;
   hasClients: boolean;
 }) {
-  const started = Date.parse(t.startsAt) <= Date.now();
+  // Homes can be marked seen from the hour before it starts.
+  const started = Date.parse(t.startsAt) - 3_600_000 <= Date.now();
   return (
     <Card className="p-0" id={`tour-${t.id}`} data-testid="tour-card">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3.5 md:px-5">

@@ -394,9 +394,18 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/client-tasks', query: ['invite'] },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
+    // Homes and To do are places in the portal's menu (pages without an id); the rest open from them.
     portal: [
       { path: '', title: 'Your deals', query: 'realestate.portal.deals' },
+      { path: 'homes', title: 'Homes', query: 'realestate.portal.deals' },
+      { path: 'todo', title: 'To do', query: 'realestate.portal.deals' },
       { path: 'deals/:dealId', title: 'Your deal', query: 'realestate.portal.deal' },
+      { path: 'deals/:dealId/tours/:tourId', title: 'Your tour', query: 'realestate.portal.deal' },
+      {
+        path: 'deals/:dealId/offers/:offerId',
+        title: 'Your offer',
+        query: 'realestate.portal.deal',
+      },
     ],
   },
   ai: {
