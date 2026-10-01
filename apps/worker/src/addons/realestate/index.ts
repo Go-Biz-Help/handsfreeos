@@ -41,6 +41,13 @@ import {
 } from './memory';
 import { tourAppointmentChanged } from './tours';
 import { cmaSummaryRequested, cmaSummarySaved } from './cma';
+import {
+  armOfferClocks,
+  OFFER_CLOCK,
+  offerAnswered,
+  offerClockJob,
+  offerVersionAdded,
+} from './offers';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -197,7 +204,13 @@ export const realestateAddonWorker: AddonWorkerModule = {
     // The CMA's summary: drafted, and every version of its words checked (./cma.ts).
     'realestate.cma.summary_requested': cmaSummaryRequested,
     'realestate.cma.summary_saved': cmaSummarySaved,
+    // Offers: each version's response clock (./offers.ts).
+    'realestate.offer.version_added': offerVersionAdded,
+    'realestate.offer.answered': offerAnswered,
   },
-  jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob },
-  onEnable: armSweep,
+  jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob, [OFFER_CLOCK]: offerClockJob },
+  onEnable: async (ctx) => {
+    await armSweep(ctx);
+    await armOfferClocks(ctx);
+  },
 };

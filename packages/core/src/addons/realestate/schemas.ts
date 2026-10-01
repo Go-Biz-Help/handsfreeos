@@ -20,6 +20,7 @@ import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
 import { CMA_STATUS_KEYS, COMP_STATUS_KEYS } from './cma';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
+import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { TERM_KEYS } from './terms';
@@ -1535,3 +1536,149 @@ export const CmasOutput = z.object({
   ),
 });
 export const CmaGetOutput = z.object({ cma: CmaOut });
+
+// ---------- offers and counters (round two) ----------
+
+const money0 = z.int().min(0).max(100_000_000_000);
+export const OfferTermsIn = z
+  .object({
+    priceCents: z.int().min(1, 'Enter the price.').max(100_000_000_000),
+    emdCents: money0.nullable().default(null),
+    emdDays: z.int().min(0).max(60).nullable().default(null),
+    sellerCreditCents: money0.default(0),
+    inspectionDays: z.int().min(0).max(90).nullable().default(null),
+    loanType: z.enum(LOAN_TYPE_KEYS).nullable().default(null),
+    financingDays: z.int().min(0).max(120).nullable().default(null),
+    appraisalContingency: z.boolean().nullable().default(null),
+    closingDate: localDate.nullable().default(null),
+    otherTerms: z
+      .string()
+      .trim()
+      .max(2000, 'Keep it under 2,000 characters.')
+      .nullable()
+      .default(null),
+  })
+  .refine((t) => t.loanType !== 'cash' || t.financingDays === null, {
+    error: 'A cash offer has no financing days.',
+    path: ['financingDays'],
+  });
+
+const VersionIn = {
+  terms: OfferTermsIn,
+  /** The time it must be answered by. */
+  respondBy: isoDateTime.nullable().optional(),
+  /** When it was sent or came in; now when not given. */
+  at: isoDateTime.optional(),
+  /** The uploaded contract or counter it is: one of the deal's documents. */
+  documentId: uuid.optional(),
+  note: z.string().trim().max(1000).optional(),
+};
+
+export const OfferStartInput = z.object({
+  ...inDeal,
+  homeId: uuid,
+  theirAgentName: z.string().trim().max(200).optional(),
+  theirBrokerage: z.string().trim().max(200).optional(),
+  theirEmail: z.email().max(320).optional(),
+  theirPhone: z.string().trim().max(40).optional(),
+  ...VersionIn,
+});
+export const OfferStartOutput = z.object({ offerId: uuid, versionId: uuid, number: z.int() });
+
+export const OfferAddVersionInput = z.object({
+  workspaceId: uuid,
+  offerId: uuid,
+  /** Ours (a counter, or a better offer), or the seller's counter. */
+  side: z.enum(['us', 'them']),
+  ...VersionIn,
+});
+export const OfferAddVersionOutput = z.object({
+  offerId: uuid,
+  versionId: uuid,
+  number: z.int(),
+  status: z.enum(OFFER_STATUS_KEYS),
+});
+
+export const OfferAttachDocumentInput = z.object({
+  workspaceId: uuid,
+  versionId: uuid,
+  documentId: uuid,
+});
+export const OfferInput = z.object({ workspaceId: uuid, offerId: uuid });
+export const OfferRespondInput = z.object({
+  workspaceId: uuid,
+  offerId: uuid,
+  /** Accepted by them (our version) or by us (theirs); declined; or it passed with no answer. */
+  outcome: z.enum(['accepted', 'declined', 'expired']),
+  /** The version accepted; the newest when not given. */
+  versionId: uuid.optional(),
+  /** When it was accepted; now when not given. */
+  at: isoDateTime.optional(),
+  note: z.string().trim().max(500).optional(),
+});
+export const OfferWithdrawInput = z.object({ workspaceId: uuid, offerId: uuid, reason });
+export const OfferChangeOutput = z.object({
+  offerId: uuid,
+  status: z.enum(OFFER_STATUS_KEYS),
+  /** Accepted: the terms entered on the deal for a person to confirm. */
+  termsEntered: z.int().default(0),
+  /** The deal moved on (accepted) or back (lost). */
+  dealStage: z.string().nullable().default(null),
+});
+
+const OfferSummaryOut = z.object({
+  title: z.string(),
+  note: z.string(),
+  lines: z.array(z.object({ label: z.string(), value: z.string() })),
+  next: z.string(),
+});
+const OfferVersionOut = z.object({
+  id: uuid,
+  number: z.int(),
+  side: z.enum(['us', 'them']),
+  at: isoDateTime,
+  priceCents: z.number().int(),
+  emdCents: z.number().int().nullable(),
+  emdDays: z.number().int().nullable(),
+  sellerCreditCents: z.number().int(),
+  inspectionDays: z.number().int().nullable(),
+  loanType: z.enum(LOAN_TYPE_KEYS).nullable(),
+  financingDays: z.number().int().nullable(),
+  appraisalContingency: z.boolean().nullable(),
+  closingDate: z.string().nullable(),
+  otherTerms: z.string().nullable(),
+  respondBy: isoDateTime.nullable(),
+  note: z.string().nullable(),
+  /** The uploaded document it is, as it stands now (its newest version). */
+  document: z
+    .object({ id: uuid, title: z.string(), status: z.string(), signed: z.boolean() })
+    .nullable(),
+});
+export const OfferOut = z.object({
+  id: uuid,
+  number: z.int(),
+  homeId: uuid,
+  address: z.string(),
+  status: z.enum(OFFER_STATUS_KEYS),
+  theirAgentName: z.string().nullable(),
+  theirBrokerage: z.string().nullable(),
+  theirEmail: z.string().nullable(),
+  theirPhone: z.string().nullable(),
+  versions: z.array(OfferVersionOut),
+  acceptedVersionId: uuid.nullable(),
+  endedAt: isoDateTime.nullable(),
+  endedReason: z.string().nullable(),
+  /** Who answers next and by when, while it's open. */
+  clock: z
+    .object({
+      waitingOn: z.enum(['them', 'us']),
+      respondBy: isoDateTime.nullable(),
+      words: z.string().nullable(),
+    })
+    .nullable(),
+  shared: z.object({ versionId: uuid, at: isoDateTime, current: z.boolean() }).nullable(),
+  /** The newest version's one-page summary, as the client would see it. */
+  summary: OfferSummaryOut,
+});
+export const OffersInput = z.object({ ...inDeal });
+export const OffersOutput = z.object({ offers: z.array(OfferOut) });

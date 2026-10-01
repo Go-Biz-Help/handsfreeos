@@ -379,6 +379,8 @@ export const documents = addonRealestate.table(
     voidedAt: ts('voided_at'),
     voidedBy: userRef('voided_by'),
     voidReason: text('void_reason'),
+    /** The offer or counter it is (round two). */
+    offerVersionId: uuid('offer_version_id'),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -904,6 +906,87 @@ export const cmaComps = addonRealestate.table(
   ],
 );
 
+/** An offer on one of a buyer's homes: who it's with and where it stands (round two, step 10). */
+export const offers = addonRealestate.table(
+  'offers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    homeId: uuid('home_id').notNull(),
+    number: integer('number').notNull(),
+    status: text('status')
+      .notNull()
+      .default('waiting_them')
+      .$type<'waiting_them' | 'waiting_us' | 'accepted' | 'declined' | 'expired' | 'withdrawn'>(),
+    theirAgentName: text('their_agent_name'),
+    theirBrokerage: text('their_brokerage'),
+    theirEmail: text('their_email'),
+    theirPhone: text('their_phone'),
+    acceptedVersionId: uuid('accepted_version_id'),
+    endedAt: ts('ended_at'),
+    endedReason: text('ended_reason'),
+    sharedVersionId: uuid('shared_version_id'),
+    sharedBy: userRef('shared_by'),
+    sharedAt: ts('shared_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.dealRecordId, t.number),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** An offer or counter as it was sent: never changed. */
+export const offerVersions = addonRealestate.table(
+  'offer_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    offerId: uuid('offer_id').notNull(),
+    number: integer('number').notNull(),
+    side: text('side').notNull().$type<'us' | 'them'>(),
+    at: ts('at').notNull().defaultNow(),
+    priceCents: cents('price_cents').notNull(),
+    emdCents: cents('emd_cents'),
+    emdDays: integer('emd_days'),
+    sellerCreditCents: cents('seller_credit_cents').notNull().default(0),
+    inspectionDays: integer('inspection_days'),
+    loanType: text('loan_type').$type<'conventional' | 'fha' | 'va' | 'usda' | 'cash' | 'other'>(),
+    financingDays: integer('financing_days'),
+    appraisalContingency: boolean('appraisal_contingency'),
+    closingDate: date('closing_date', { mode: 'string' }),
+    otherTerms: text('other_terms'),
+    respondBy: ts('respond_by'),
+    note: text('note'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.offerId, t.number),
+    foreignKey({
+      columns: [t.workspaceId, t.offerId],
+      foreignColumns: [offers.workspaceId, offers.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -932,4 +1015,6 @@ export const REALESTATE_TABLES = {
   tourFeedback,
   cmas,
   cmaComps,
+  offers,
+  offerVersions,
 } as const;

@@ -74,6 +74,23 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `No longer true: ${str(a.words)}`;
     case 'home_status':
       return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
+    // Offers.
+    case 'offer_made':
+      return `Made an offer of ${str(a.price)} on ${str(a.address)}`;
+    case 'offer_countered':
+      return a.side === 'them'
+        ? `The seller countered at ${str(a.price)} on ${str(a.address)}`
+        : `Countered at ${str(a.price)} on ${str(a.address)}`;
+    case 'offer_answered':
+      return a.outcome === 'accepted'
+        ? `The offer on ${str(a.address)} was accepted at ${str(a.price)}`
+        : a.outcome === 'declined'
+          ? `The offer on ${str(a.address)} was declined`
+          : a.outcome === 'expired'
+            ? `The offer on ${str(a.address)} passed with no answer`
+            : `Withdrew the offer on ${str(a.address)}`;
+    case 'offer_shared':
+      return `Shared the offer on ${str(a.address)} with the client`;
     // The CMA.
     case 'cma_started':
       return `Started CMA ${str(a.number)} for ${str(a.address)}`;

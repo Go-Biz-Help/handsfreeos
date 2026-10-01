@@ -17,6 +17,7 @@ import { homeCommands, homeQueries } from './ops/homes';
 import { memoryCommands, memoryQueries } from './ops/memory';
 import { tourCommands, tourQueries } from './ops/tours';
 import { cmaCommands, cmaQueries } from './ops/cma';
+import { offerCommands, offerQueries } from './ops/offers';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -36,6 +37,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...memoryCommands,
     ...tourCommands,
     ...cmaCommands,
+    ...offerCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -47,5 +49,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...memoryQueries,
     ...tourQueries,
     ...cmaQueries,
+    ...offerQueries,
   ],
 };

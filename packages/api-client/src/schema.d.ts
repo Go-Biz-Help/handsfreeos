@@ -7297,6 +7297,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.offer.add_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the next version of an open offer, as it was sent: the seller’s counter, or ours. Who answers next, and by when, follows it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.
+         */
+        post: operations["command_realestate_offer_add_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.attach_document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which of the deal’s uploaded documents an offer’s version is: the contract or counter as signed.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_offer_attach_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.record_response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record how an offer was answered: accepted (its terms go to the deal’s key dates to confirm, and the deal moves to Under contract), declined, or passed with no answer. With no other offer out, a lost offer takes the deal back to Touring.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered.
+         */
+        post: operations["command_realestate_offer_record_response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.share_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the newest version of an offer in the client’s portal as a one-page summary in plain words. The team’s notes never show.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.shared.
+         */
+        post: operations["command_realestate_offer_share_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an offer made on one of a buyer’s homes, as it was sent: its terms, who it’s with, and when the seller must answer by. The contract itself is uploaded as one of the deal’s documents.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.
+         */
+        post: operations["command_realestate_offer_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an open offer, with the reason. With no other offer out, the deal goes back to Touring.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered.
+         */
+        post: operations["command_realestate_offer_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.party.add": {
         parameters: {
             query?: never;
@@ -13051,6 +13171,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s offers: each version and counter with its terms and document, who answers next and by when, and the one-page summary the client sees.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_offers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29540,6 +29680,303 @@ export interface operations {
                         /** Format: uuid */
                         dealId: string;
                         requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_add_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    respondBy?: string | null;
+                    /** @enum {string} */
+                    side: "us" | "them";
+                    terms: {
+                        /** @default null */
+                        appraisalContingency?: boolean | null;
+                        /** @default null */
+                        closingDate?: string | null;
+                        /** @default null */
+                        emdCents?: number | null;
+                        /** @default null */
+                        emdDays?: number | null;
+                        /** @default null */
+                        financingDays?: number | null;
+                        /** @default null */
+                        inspectionDays?: number | null;
+                        /** @default null */
+                        loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                        /** @default null */
+                        otherTerms?: string | null;
+                        priceCents: number;
+                        /** @default 0 */
+                        sellerCreditCents?: number;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        number: number;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** Format: uuid */
+                        versionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_attach_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    versionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_record_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    /** @enum {string} */
+                    outcome: "accepted" | "declined" | "expired";
+                    /** Format: uuid */
+                    versionId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_share_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    homeId: string;
+                    note?: string;
+                    respondBy?: string | null;
+                    terms: {
+                        /** @default null */
+                        appraisalContingency?: boolean | null;
+                        /** @default null */
+                        closingDate?: string | null;
+                        /** @default null */
+                        emdCents?: number | null;
+                        /** @default null */
+                        emdDays?: number | null;
+                        /** @default null */
+                        financingDays?: number | null;
+                        /** @default null */
+                        inspectionDays?: number | null;
+                        /** @default null */
+                        loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                        /** @default null */
+                        otherTerms?: string | null;
+                        priceCents: number;
+                        /** @default 0 */
+                        sellerCreditCents?: number;
+                    };
+                    theirAgentName?: string;
+                    theirBrokerage?: string;
+                    /** Format: email */
+                    theirEmail?: string;
+                    theirPhone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        number: number;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** Format: uuid */
+                        versionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
                     };
                 };
             };
@@ -47078,6 +47515,103 @@ export interface operations {
                             words: string;
                         }[];
                         waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_offers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            acceptedVersionId: string | null;
+                            address: string;
+                            clock: {
+                                respondBy: string | null;
+                                /** @enum {string} */
+                                waitingOn: "them" | "us";
+                                words: string | null;
+                            } | null;
+                            endedAt: string | null;
+                            endedReason: string | null;
+                            /** Format: uuid */
+                            homeId: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            shared: {
+                                /** Format: date-time */
+                                at: string;
+                                current: boolean;
+                                /** Format: uuid */
+                                versionId: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                            summary: {
+                                lines: {
+                                    label: string;
+                                    value: string;
+                                }[];
+                                next: string;
+                                note: string;
+                                title: string;
+                            };
+                            theirAgentName: string | null;
+                            theirBrokerage: string | null;
+                            theirEmail: string | null;
+                            theirPhone: string | null;
+                            versions: {
+                                appraisalContingency: boolean | null;
+                                /** Format: date-time */
+                                at: string;
+                                closingDate: string | null;
+                                document: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    signed: boolean;
+                                    status: string;
+                                    title: string;
+                                } | null;
+                                emdCents: number | null;
+                                emdDays: number | null;
+                                financingDays: number | null;
+                                /** Format: uuid */
+                                id: string;
+                                inspectionDays: number | null;
+                                loanType: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                                note: string | null;
+                                number: number;
+                                otherTerms: string | null;
+                                priceCents: number;
+                                respondBy: string | null;
+                                sellerCreditCents: number;
+                                /** @enum {string} */
+                                side: "us" | "them";
+                            }[];
+                        }[];
                     };
                 };
             };

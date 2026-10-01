@@ -207,6 +207,8 @@ export const realestateAddon = defineAddon({
     'tour_feedback',
     'cmas',
     'cma_comps',
+    'offers',
+    'offer_versions',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -282,6 +284,9 @@ export const realestateAddon = defineAddon({
       'realestate.cma.summary_saved',
       'realestate.cma.flags_acknowledged',
       'realestate.cma.shared',
+      'realestate.offer.version_added',
+      'realestate.offer.answered',
+      'realestate.offer.shared',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -312,10 +317,13 @@ export const realestateAddon = defineAddon({
       // The CMA's summary: drafted from its numbers, and every version of its words checked.
       'realestate.cma.summary_requested',
       'realestate.cma.summary_saved',
+      // Offers: the response clock, armed with each version and stopped when it's answered.
+      'realestate.offer.version_added',
+      'realestate.offer.answered',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
-  jobs: ['realestate.sweep', 'realestate.memory_suggest'],
+  jobs: ['realestate.sweep', 'realestate.memory_suggest', 'realestate.offer_clock'],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.

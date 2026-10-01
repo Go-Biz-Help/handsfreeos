@@ -1058,6 +1058,32 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - `realestate.cmas` and `realestate.cma` (each comp's value, the range, the summary, its checks and why it can't be
   shared yet). The stand-in model writes a plain summary from the numbers (`scriptedCmaSummary`).
 
+### Step 10: offers and counters (server built, 2026-10-01)
+
+**As built** (`20261014001200_realestate_offers.sql`):
+
+- `offers`: one per home an offer is made on ("Offer 2" on the deal), with the listing agent it's with, who answers
+  next (`waiting_them`, `waiting_us`) or how it ended (accepted, declined, expired, withdrawn), the version accepted,
+  and the version whose summary is in the client's portal. One offer out on a home at a time.
+- `offer_versions`: each offer and counter as it was sent, never changed (append-only): ours or theirs, when, price,
+  earnest money and its days, seller credit, inspection days, loan type and its days, the appraisal condition,
+  closing, other terms, the time it must be answered by, and the team's note. `documents.offer_version_id` says
+  which uploaded document a version is; the offer shows that document as it stands now (its newest version).
+- `realestate.offer.start` (the home becomes "offer made"), `.add_version`, `.attach_document`, `.share_summary`
+  (the one-page summary in the portal; the portal reads only the shared version, never the note),
+  `.record_response` (risk 2) and `.withdraw` (risk 2).
+- Accepted: its terms go to the deal's key dates through `realestate.term.enter`, unconfirmed and marked as from the
+  accepted version, for a person to check against the signed contract: acceptance, price, earnest money and its due
+  date, seller credit, inspection end, loan type, financing end and closing (days counted as calendar days after
+  acceptance). A deal at Offer or Negotiation moves to Under contract. Declined, passed or withdrawn with no other
+  offer out, the deal takes the lost path (`realestate.deal.record_offer_lost`) back to Touring.
+- Pure `offer-words.ts`: the terms in the client's words, the one-page summary (its title, the terms, what happens
+  next) and the clock ("2 h 14 min left").
+- The worker's clock (`realestate.offer_clock`): two hours before a version's deadline (at risk), at it (critical)
+  and an hour after with no answer (critical), each only while that version is still the one waiting; a newer
+  version or an answer clears it. Turning the add-on off cancels it with its other work; turning it on arms what's
+  still ahead.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,
