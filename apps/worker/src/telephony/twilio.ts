@@ -674,6 +674,8 @@ async function submitCustomerProfile(
     Type: 'customer_profile_business_information',
     Attributes: JSON.stringify({
       business_name: b.legalName,
+      // The client registers as itself, under HandsFreeOS's ISV profile; Twilio refuses the profile without it.
+      business_identity: 'direct_customer',
       business_type: A2P_BUSINESS_TYPE[b.businessType] ?? 'Limited Liability Corporation',
       // Home-services businesses (HVAC, plumbing, roofing, electrical).
       business_industry: carrierIndustry(b.industry),
