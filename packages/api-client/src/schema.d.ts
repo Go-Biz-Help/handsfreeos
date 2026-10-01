@@ -6197,6 +6197,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.client_task.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a deal’s client something to do in their portal: upload a document (a preapproval letter, an ID), sign off on words, or do something; for one client or all of them.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.added.
+         */
+        post: operations["command_realestate_client_task_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.client_task.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a task given to the client, with the reason. It leaves their portal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.changed.
+         */
+        post: operations["command_realestate_client_task_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.client_task.mark_done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a client’s part of a task done for them, with a note (an ID handed over at the office). A sign-off is the client’s own, in their portal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.done.
+         */
+        post: operations["command_realestate_client_task_mark_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.cma.acknowledge_flags": {
         parameters: {
             query?: never;
@@ -13191,6 +13251,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_buyer_profile_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.client_tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a deal’s clients do themselves in their portal: each task, who it’s waiting on, what each client did; and whether each client has the portal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_client_tasks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27782,6 +27862,125 @@ export interface operations {
                         /** Format: uuid */
                         dealId: string;
                         version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    detail?: string;
+                    /** @enum {string} */
+                    documentKind?: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /** Format: date */
+                    dueOn?: string;
+                    /** Format: uuid */
+                    forPersonId?: string;
+                    /** @enum {string} */
+                    kind?: "upload" | "sign_off" | "do";
+                    /** @enum {string} */
+                    preset?: "preapproval" | "buyer_agreement" | "photo_id" | "repair_sign_off" | "closing_items";
+                    signOffWords?: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "open" | "done" | "canceled";
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_mark_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId?: string;
+                    note: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "open" | "done" | "canceled";
+                        /** Format: uuid */
+                        taskId: string;
                     };
                 };
             };
@@ -47339,6 +47538,80 @@ export interface operations {
                             } | null;
                             version: number;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_client_tasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeCanceled?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        clients: {
+                            email: string | null;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            /** @enum {string} */
+                            portal: "none" | "invited" | "signed_in" | "revoked";
+                        }[];
+                        tasks: {
+                            completions: {
+                                /** Format: date-time */
+                                at: string;
+                                file: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                name: string;
+                                note: string | null;
+                                /** Format: uuid */
+                                personId: string;
+                                recordedBy: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                signedWords: string | null;
+                            }[];
+                            detail: string | null;
+                            doneAt: string | null;
+                            dueOn: string | null;
+                            forPersonId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "upload" | "sign_off" | "do";
+                            signOffWords: string | null;
+                            /** @enum {string} */
+                            status: "open" | "done" | "canceled";
+                            title: string;
+                            waiting: string | null;
+                        }[];
                     };
                 };
             };

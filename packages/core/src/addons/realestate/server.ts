@@ -20,6 +20,8 @@ import { cmaCommands, cmaQueries } from './ops/cma';
 import { offerCommands, offerQueries } from './ops/offers';
 import { financingCommands, financingQueries } from './ops/financing';
 import { inspectionCommands, inspectionQueries } from './ops/inspections';
+import { clientTaskCommands, clientTaskQueries } from './ops/client-tasks';
+import { portalCommands, portalQueries } from './ops/portal';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -42,6 +44,8 @@ export const realestateAddonServer: AddonServerModule = {
     ...offerCommands,
     ...financingCommands,
     ...inspectionCommands,
+    ...clientTaskCommands,
+    ...portalCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -56,5 +60,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...offerQueries,
     ...financingQueries,
     ...inspectionQueries,
+    ...clientTaskQueries,
+    ...portalQueries,
   ],
 };

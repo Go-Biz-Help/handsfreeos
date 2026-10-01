@@ -84,6 +84,21 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `No longer true: ${str(a.words)}`;
     case 'home_status':
       return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
+    // The client's to-do and their portal.
+    case 'client_task_added':
+      return `Gave the client a task: ${str(a.title)}`;
+    case 'client_task_canceled':
+      return `Took back the client’s task: ${str(a.title)}`;
+    case 'client_task_part':
+      return a.kind === 'sign_off'
+        ? `${str(a.name)} signed off: ${str(a.title)}`
+        : a.kind === 'upload'
+          ? `${str(a.name)} uploaded for: ${str(a.title)}`
+          : `${str(a.name)} did: ${str(a.title)}`;
+    case 'home_reacted':
+      return a.reaction === 'passed'
+        ? `The client passed on ${str(a.address)}`
+        : `The client saved ${str(a.address)}`;
     // Financing, inspections and repairs.
     case 'financing_step_done':
       return `Marked ${financingStep(a.step)} done${a.proof ? `, with ${str(a.proof)}` : ''}`;

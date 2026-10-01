@@ -1161,6 +1161,66 @@ export const repairRequests = addonRealestate.table(
   ],
 );
 
+/** Something the client does themselves, in their portal (round two, step 12). */
+export const clientTasks = addonRealestate.table(
+  'client_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull().$type<'upload' | 'sign_off' | 'do'>(),
+    title: text('title').notNull(),
+    detail: text('detail'),
+    signOffWords: text('sign_off_words'),
+    forPersonId: uuid('for_person_id').references(() => people.id, { onDelete: 'cascade' }),
+    dueOn: date('due_on', { mode: 'string' }),
+    documentKind: text('document_kind'),
+    status: text('status').notNull().default('open').$type<'open' | 'done' | 'canceled'>(),
+    doneAt: ts('done_at'),
+    canceledReason: text('canceled_reason'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A client's own part of a task: their upload, or the exact words they signed off on. */
+export const clientTaskCompletions = addonRealestate.table(
+  'client_task_completions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    taskId: uuid('task_id').notNull(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+    signedWords: text('signed_words'),
+    recordedBy: userRef('recorded_by'),
+    note: text('note'),
+    at: ts('at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.taskId, t.personId),
+    foreignKey({
+      columns: [t.workspaceId, t.taskId],
+      foreignColumns: [clientTasks.workspaceId, clientTasks.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -1196,4 +1256,6 @@ export const REALESTATE_TABLES = {
   inspections,
   inspectionFindings,
   repairRequests,
+  clientTasks,
+  clientTaskCompletions,
 } as const;

@@ -1107,6 +1107,30 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   notes or the proof.
 - The wire-fraud rule stands as it was: nothing here touches wiring.
 
+### Step 12: the client's tasks and portal operations (server built, 2026-10-01)
+
+**As built** (`20261014001400_realestate_client_tasks_portal.sql`):
+
+- `client_tasks` (upload, sign off on exact words, or do; for one client or every client; due date; an upload's
+  document kind) and `client_task_completions` (each client's own part: their file, the exact words they signed
+  off on, or a teammate's note when done for them). The usual tasks are ready made (`CLIENT_TASK_PRESETS`:
+  preapproval letter, signed buyer agreement, photo ID, repair sign-off, closing items), with the agent's first
+  name in their words.
+- Done: a sign-off once every client it's for has signed off, word for word; anything else once one has
+  ("Waiting on Tuan"). An upload of a kind of document becomes one of the deal's documents, so it can prove its duty
+  (step 13). Staff: `realestate.client_task.add`, `.cancel`, `.mark_done` (a person, with a note; never a sign-off)
+  and `realestate.client_tasks` (with each client's portal state: none, invited, signed in, revoked).
+- The client's own operations (actors `customer` alone, named `realestate.portal.*`, run through the worker's
+  portal door): `realestate.portal.deals` and `.deal` (where it stands in their words, `CLIENT_STAGE_WORDS` and five
+  steps, the key dates that count, their to-do, the homes and their own and co-buyers' reactions, tours and their
+  own feedback, shared CMAs and offer summaries, the financing steps), `.home.add`, `.home.react`,
+  `.tour.feedback`, `.task.complete` and `.task.attach` (only a file they uploaded to that deal).
+- Look-ups run as `portal_actor`, each naming only the columns opened to the portal. The portal now reads a deal's
+  side and stage, its key dates (dates only; two that disagree wait for the agent), the business's time zone, its
+  main agent's name and the co-buyers' first names (`portal.record_owners()`, `portal.record_people()`). A task for
+  one co-buyer is theirs alone.
+- The manifest's portal pages: "Your deals" and "Your deal" (`deals/:dealId`).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

@@ -183,8 +183,10 @@ describe('a customer’s look-ups', () => {
     expect(home).toEqual({
       business: { name: 'Portal Kernel Realty' },
       person: { firstName: 'Linh', lastName: 'Client' },
-      // Real Estate has no portal pages yet (its pages come with its portal operations).
-      addons: [],
+      // Real Estate's first page; the ones with an id open from it.
+      addons: [
+        { id: 'realestate', name: 'Real Estate Agent', pages: [{ path: '', title: 'Your deals' }] },
+      ],
     });
   });
 
@@ -307,7 +309,10 @@ describe('a device signed out since', () => {
 describe('what customers may run', () => {
   it('is named for the portal, for customers alone, with no permission, no AI and little risk', () => {
     const ops = [...registry.commands, ...registry.queries];
-    const issues = ops.flatMap((op) => customerOperationIssues(op, 'portal.'));
+    // Core's are named "portal.…"; an add-on's, "<its id>.portal.…".
+    const issues = ops.flatMap((op) =>
+      customerOperationIssues(op, op.addon ? `${op.addon.id}.portal.` : 'portal.'),
+    );
     expect(issues).toEqual([]);
     expect(ops.filter((op) => op.actors?.includes('customer')).map((op) => op.name)).toContain(
       'portal.home',

@@ -19,6 +19,7 @@ import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
 import { CMA_STATUS_KEYS, COMP_STATUS_KEYS } from './cma';
+import { CLIENT_TASK_KIND_KEYS, CLIENT_TASK_PRESET_KEYS } from './client-words';
 import {
   CLIENT_PRIORITY_KEYS,
   FINANCING_STEP_KEYS,
@@ -1907,4 +1908,233 @@ export const InspectionsOutput = z.object({
   ),
   /** The request as the findings would draft it now. */
   draft: z.object({ words: z.string(), creditCents: z.number().int(), items: z.number().int() }),
+});
+
+// ---------- the client's tasks and portal (round two) ----------
+
+export const ClientTaskAddInput = z
+  .object({
+    ...inDeal,
+    /** One of the usual tasks, ready made; its words can still be changed below. */
+    preset: z.enum(CLIENT_TASK_PRESET_KEYS).optional(),
+    kind: z.enum(CLIENT_TASK_KIND_KEYS).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    detail: z.string().trim().max(2000).optional(),
+    signOffWords: z.string().trim().min(1).max(2000).optional(),
+    /** One client's; every client's on the deal when not given. */
+    forPersonId: uuid.optional(),
+    dueOn: localDate.optional(),
+    /** An upload becomes one of the deal's documents of this kind. */
+    documentKind: z.enum(DOCUMENT_KIND_KEYS).optional(),
+  })
+  .refine((i) => !!i.preset || (!!i.kind && !!i.title), {
+    error: 'Pick one of the usual tasks, or say what kind it is and give it a title.',
+    path: ['title'],
+  });
+export const ClientTaskAddOutput = z.object({ taskId: uuid });
+export const ClientTaskCancelInput = z.object({ workspaceId: uuid, taskId: uuid, reason });
+export const ClientTaskMarkDoneInput = z.object({
+  workspaceId: uuid,
+  taskId: uuid,
+  /** The client it was done for. */
+  personId: uuid,
+  note: z.string().trim().min(1, 'Say how it was done.').max(500),
+  fileId: uuid.optional(),
+});
+export const ClientTaskChangeOutput = z.object({
+  taskId: uuid,
+  status: z.enum(['open', 'done', 'canceled']),
+});
+const ClientTaskOut = z.object({
+  id: uuid,
+  kind: z.enum(CLIENT_TASK_KIND_KEYS),
+  title: z.string(),
+  detail: z.string().nullable(),
+  signOffWords: z.string().nullable(),
+  forPersonId: uuid.nullable(),
+  dueOn: z.string().nullable(),
+  status: z.enum(['open', 'done', 'canceled']),
+  doneAt: isoDateTime.nullable(),
+  /** "Waiting on Tuan", while it's open. */
+  waiting: z.string().nullable(),
+  completions: z.array(
+    z.object({
+      personId: uuid,
+      name: z.string(),
+      at: isoDateTime,
+      file: z.object({ id: uuid, name: z.string() }).nullable(),
+      signedWords: z.string().nullable(),
+      /** Marked done by someone on the team, with their note. */
+      recordedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+      note: z.string().nullable(),
+    }),
+  ),
+});
+export const ClientTasksInput = z.object({
+  ...inDeal,
+  includeCanceled: z.boolean().default(false),
+});
+export const ClientTasksOutput = z.object({
+  tasks: z.array(ClientTaskOut),
+  /** The deal's clients, and whether each has the portal. */
+  clients: z.array(
+    z.object({
+      personId: uuid,
+      name: z.string(),
+      email: z.string().nullable(),
+      portal: z.enum(['none', 'invited', 'signed_in', 'revoked']),
+    }),
+  ),
+});
+
+// The portal's own (customer) operations.
+
+export const PortalDealsInput = z.object({ workspaceId: uuid });
+const PortalKeyDate = z.object({
+  key: z.string(),
+  label: z.string(),
+  date: z.string(),
+  time: z.string().nullable(),
+});
+export const PortalDealsOutput = z.object({
+  deals: z.array(
+    z.object({
+      dealId: uuid,
+      name: z.string(),
+      side: z.enum(DEAL_SIDES),
+      stage: z.string(),
+      step: z.number().int(),
+      steps: z.array(z.string()),
+      agentName: z.string().nullable(),
+      nextDate: PortalKeyDate.nullable(),
+      openTasks: z.number().int(),
+      closed: z.boolean(),
+    }),
+  ),
+});
+export const PortalDealInput = z.object({ workspaceId: uuid, dealId: uuid });
+export const PortalDealOutput = z.object({
+  deal: z.object({
+    dealId: uuid,
+    name: z.string(),
+    side: z.enum(DEAL_SIDES),
+    stage: z.string(),
+    step: z.number().int(),
+    steps: z.array(z.string()),
+    agentName: z.string().nullable(),
+    closed: z.boolean(),
+  }),
+  keyDates: z.array(PortalKeyDate),
+  tasks: z.array(ClientTaskOut.omit({ completions: true }).extend({ mine: z.boolean() })),
+  homes: z.array(
+    z.object({
+      id: uuid,
+      address: z.string(),
+      link: z.string().nullable(),
+      facts: z.record(z.string(), z.unknown()),
+      status: z.string(),
+      addedByMe: z.boolean(),
+      mine: z.enum(['saved', 'passed']).nullable(),
+      others: z.array(z.object({ name: z.string(), reaction: z.enum(['saved', 'passed']) })),
+    }),
+  ),
+  tours: z.array(
+    z.object({
+      id: uuid,
+      status: z.string(),
+      startsAt: isoDateTime,
+      endsAt: isoDateTime,
+      stops: z.array(
+        z.object({
+          id: uuid,
+          homeId: uuid,
+          address: z.string(),
+          position: z.number().int(),
+          status: z.string(),
+          myFeedback: z
+            .object({
+              interest: z.string(),
+              rating: z.number().int().nullable(),
+              words: z.string().nullable(),
+            })
+            .nullable(),
+        }),
+      ),
+    }),
+  ),
+  cmas: z.array(
+    z.object({
+      id: uuid,
+      address: z.string(),
+      lowCents: z.number().int(),
+      likelyCents: z.number().int(),
+      highCents: z.number().int(),
+      summary: z.string().nullable(),
+      sharedAt: isoDateTime,
+    }),
+  ),
+  offers: z.array(
+    z.object({
+      id: uuid,
+      address: z.string(),
+      status: z.string(),
+      summary: z.object({
+        title: z.string(),
+        note: z.string(),
+        lines: z.array(z.object({ label: z.string(), value: z.string() })),
+        next: z.string(),
+      }),
+    }),
+  ),
+  financing: z.array(
+    z.object({
+      step: z.string(),
+      label: z.string(),
+      status: z.string(),
+      date: z.string().nullable(),
+    }),
+  ),
+});
+
+export const PortalHomeAddInput = z.object({
+  workspaceId: uuid,
+  dealId: uuid,
+  address: z.string().trim().min(3, 'Enter the home’s address.').max(300),
+  link: z
+    .string()
+    .trim()
+    .max(2000)
+    .regex(/^https?:\/\//i, { error: 'Paste the whole link, starting with https://' })
+    .optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+export const PortalHomeAddOutput = z.object({ homeId: uuid });
+export const PortalHomeReactInput = z.object({
+  workspaceId: uuid,
+  homeId: uuid,
+  reaction: z.enum(['saved', 'passed']),
+  note: z.string().trim().max(1000).optional(),
+});
+export const PortalHomeReactOutput = z.object({
+  homeId: uuid,
+  reaction: z.enum(['saved', 'passed']),
+});
+export const PortalTourFeedbackInput = z.object({
+  workspaceId: uuid,
+  stopId: uuid,
+  interest: z.enum(TOUR_INTEREST_KEYS),
+  rating: z.int().min(1).max(5).nullable().optional(),
+  words: z.string().trim().max(2000).optional(),
+});
+export const PortalTourFeedbackOutput = z.object({ feedbackId: uuid });
+export const PortalTaskCompleteInput = z.object({
+  workspaceId: uuid,
+  taskId: uuid,
+  /** A sign-off: the words as the client read them; they must be the task's own. */
+  signedWords: z.string().max(2000).optional(),
+});
+export const PortalTaskAttachInput = z.object({ workspaceId: uuid, taskId: uuid, fileId: uuid });
+export const PortalTaskOutput = z.object({
+  taskId: uuid,
+  status: z.enum(['open', 'done', 'canceled']),
 });

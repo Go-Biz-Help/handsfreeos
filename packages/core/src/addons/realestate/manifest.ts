@@ -214,6 +214,8 @@ export const realestateAddon = defineAddon({
     'inspections',
     'inspection_findings',
     'repair_requests',
+    'client_tasks',
+    'client_task_completions',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -298,6 +300,10 @@ export const realestateAddon = defineAddon({
       'realestate.inspection.report_in',
       'realestate.repair.sent',
       'realestate.repair.answered',
+      'realestate.client_task.added',
+      'realestate.client_task.changed',
+      'realestate.client_task.done',
+      'realestate.home.reacted',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -375,6 +381,11 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/documents' },
       { path: 'deals/:dealId/history' },
       { path: 'deals/:dealId/updates/:draftId' },
+    ],
+    // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
+    portal: [
+      { path: '', title: 'Your deals', query: 'realestate.portal.deals' },
+      { path: 'deals/:dealId', title: 'Your deal', query: 'realestate.portal.deal' },
     ],
   },
   ai: {
