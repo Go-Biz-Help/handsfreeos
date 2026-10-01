@@ -585,7 +585,7 @@ function CompDialog({
       <DialogContent
         title={comp ? street(comp.address) : 'Add a comp'}
         description="A home nearby that sold, is pending or is for sale, with its own facts."
-        className="w-[min(640px,calc(100vw-32px))]"
+        className="max-h-[92dvh] w-[min(640px,calc(100vw-32px))] overflow-y-auto"
       >
         <form
           className="mt-4 grid gap-3 sm:grid-cols-3"

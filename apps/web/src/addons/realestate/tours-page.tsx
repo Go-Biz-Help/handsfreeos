@@ -11,7 +11,6 @@ import {
   TOUR_STATUSES,
   type TourInterest,
 } from '@hfos/core/addons/realestate/tours';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
@@ -33,6 +32,7 @@ import { ReasonDialog } from './deal-dialogs';
 import { PlanTourDialog, type CalendarChoice } from './plan-tour';
 import type { Home, Tour, TourList, TourStop } from './types';
 import { useAct } from './use-act';
+import { useQueryState } from './use-query-state';
 
 export interface DealClientRef {
   readonly personId: string;
@@ -63,19 +63,9 @@ export function ToursPage({
   live: boolean;
 }) {
   useLiveRefresh(['custom_record']);
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const setPlan = (on: boolean) => {
-    const next = new URLSearchParams(params.toString());
-    if (on) next.set('plan', '1');
-    else {
-      next.delete('plan');
-      next.delete('home');
-    }
-    const q = next.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  };
+  const [plan, setPlanParam] = useQueryState('plan', 'home');
+  const [firstHome] = useQueryState('home');
+  const setPlan = (on: boolean) => setPlanParam(on ? '1' : null);
   const [showCanceled, setShowCanceled] = useState(false);
   const [moving, setMoving] = useState<Tour | null>(null);
   const [canceling, setCanceling] = useState<Tour | null>(null);
@@ -164,7 +154,7 @@ export function ToursPage({
         {showCanceled ? canceled.map(card) : null}
       </div>
       <PlanTourDialog
-        open={params.get('plan') === '1'}
+        open={plan === '1'}
         onOpenChange={setPlan}
         workspaceId={workspaceId}
         dealId={dealId}
@@ -175,7 +165,7 @@ export function ToursPage({
         calendars={calendars}
         team={team}
         clients={firstNames(clients.map((c) => c.name))}
-        firstHome={params.get('home')}
+        firstHome={firstHome}
       />
       <MoveDialog
         tour={moving}

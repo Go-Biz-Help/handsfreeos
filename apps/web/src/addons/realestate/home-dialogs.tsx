@@ -280,7 +280,8 @@ function FactsEditor({
 function useFilled(workspaceId: string, dealId: string, homeId: string | null) {
   const [home, setHome] = useState<Home | null>(null);
   useEffect(() => {
-    if (!homeId) return;
+    // Closed and opened again: a fresh start.
+    if (!homeId) return setHome(null);
     let stop = false;
     let tries = 0;
     const look = async () => {
@@ -354,7 +355,10 @@ export function AddHomeDialog({
   const reading = !!homeId && !filled;
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
-      <DialogContent title="Add a home" className="w-[min(680px,calc(100vw-32px))]">
+      <DialogContent
+        title="Add a home"
+        className="max-h-[92dvh] w-[min(680px,calc(100vw-32px))] overflow-y-auto"
+      >
         <form
           className="mt-3 flex flex-col gap-3.5"
           onSubmit={(e) => {
@@ -514,7 +518,7 @@ export function HomeDialog({
       <DialogContent
         title={street(home.address)}
         description={`${home.address} · ${added} ${fmtDateShort(dateOf(home.addedAt, timeZone))}`}
-        className="w-[min(640px,calc(100vw-32px))]"
+        className="max-h-[92dvh] w-[min(640px,calc(100vw-32px))] overflow-y-auto"
       >
         <div className="mt-4 space-y-4" data-testid="home-dialog">
           <div className="flex flex-wrap items-center gap-2 text-[13.5px]">

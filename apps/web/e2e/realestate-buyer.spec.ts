@@ -80,6 +80,7 @@ test('a buyer deal from the agent’s screens to the client’s portal', async (
   await expect(page.getByTestId('fact-card-beds')).toContainText('3 beds · 2 baths');
   await page.getByTestId('facts-confirm').click();
   await expect(page.getByText('Added, with its facts.')).toBeVisible();
+  await expect(page.getByTestId('home-address')).toHaveCount(0);
   const row = page.getByTestId('home-row-418 Maple Ave');
   await expect(row).toContainText('$409,000');
   await expect(row).toContainText('3 · 2 · 1,780');
@@ -107,6 +108,7 @@ test('a buyer deal from the agent’s screens to the client’s portal', async (
     .fill('Signed on paper at the office; it’s being scanned today.');
   await plan.getByTestId('tour-submit').click();
   await expect(page.getByText(/Planned, as an exception/)).toBeVisible();
+  await expect(plan).toHaveCount(0);
   const tour = page.getByTestId('tour-card');
   await expect(tour).toContainText('418 Maple Ave');
   await expect(tour).toContainText('Let through without a current buyer agreement');

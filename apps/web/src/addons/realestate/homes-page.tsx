@@ -7,7 +7,6 @@
 import { HOME_STATUSES } from '@hfos/core/addons/realestate/homes';
 import { money } from '@hfos/core';
 import { Home as HomeIcon } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Button, ButtonLink } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import { HomeVoice } from './buyer-cards';
 import { DealCrumb, firstNames, FitList, street } from './buyer-bits';
 import { AddHomeDialog, HomeDialog } from './home-dialogs';
 import type { Home } from './types';
+import { useQueryState } from './use-query-state';
 
 type Filter = 'all' | 'shortlisted' | 'saved' | 'passed' | 'facts';
 
@@ -43,16 +43,8 @@ export function HomesPage({
   live: boolean;
 }) {
   useLiveRefresh(['custom_record']);
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const setParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
-    const q = next.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  };
+  const [adding, setAdding] = useQueryState('add');
+  const [homeId, setHomeId] = useQueryState('home');
   const [filter, setFilter] = useState<Filter>('all');
   const who = firstNames(clients) || 'the client';
   const saved = (h: Home) => h.reactions.some((r) => r.reaction === 'saved');
@@ -80,7 +72,7 @@ export function HomesPage({
       ),
     [homes, filter],
   );
-  const open = homes.find((h) => h.id === params.get('home')) ?? null;
+  const open = homes.find((h) => h.id === homeId) ?? null;
   const chips: { key: Filter; label: string; n: number }[] = [
     { key: 'all', label: 'All', n: homes.length },
     { key: 'shortlisted', label: 'Shortlisted', n: counts.shortlisted },
@@ -112,7 +104,7 @@ export function HomesPage({
               What they want
             </ButtonLink>
             {live ? (
-              <Button onClick={() => setParam('add', '1')} data-testid="homes-add">
+              <Button onClick={() => setAdding('1')} data-testid="homes-add">
                 Add a home
               </Button>
             ) : null}
@@ -163,7 +155,7 @@ export function HomesPage({
               {shown.map((h) => (
                 <tr
                   key={h.id}
-                  onClick={() => setParam('home', h.id)}
+                  onClick={() => setHomeId(h.id)}
                   className="flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0 hover:bg-card-2 md:table-row md:px-0 md:py-0"
                   data-testid={`home-row-${street(h.address)}`}
                 >
@@ -178,7 +170,7 @@ export function HomesPage({
                           className="truncate text-left font-semibold hover:underline"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setParam('home', h.id);
+                            setHomeId(h.id);
                           }}
                         >
                           {street(h.address)}
@@ -216,14 +208,14 @@ export function HomesPage({
         people, schools’ makeup or anything about who lives there.
       </p>
       <AddHomeDialog
-        open={params.get('add') === '1'}
-        onOpenChange={(o) => setParam('add', o ? '1' : null)}
+        open={adding === '1'}
+        onOpenChange={(o) => setAdding(o ? '1' : null)}
         workspaceId={workspaceId}
         dealId={dealId}
       />
       <HomeDialog
         home={open}
-        onOpenChange={(o) => !o && setParam('home', null)}
+        onOpenChange={(o) => !o && setHomeId(null)}
         workspaceId={workspaceId}
         dealId={dealId}
         timeZone={timeZone}

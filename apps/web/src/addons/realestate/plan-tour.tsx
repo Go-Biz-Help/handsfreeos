@@ -150,7 +150,10 @@ export function PlanTourDialog({
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Plan a tour" className="w-[min(680px,calc(100vw-32px))]">
+      <DialogContent
+        title="Plan a tour"
+        className="max-h-[92dvh] w-[min(680px,calc(100vw-32px))] overflow-y-auto"
+      >
         <form
           className="mt-4 flex flex-col gap-4"
           onSubmit={(e) => {

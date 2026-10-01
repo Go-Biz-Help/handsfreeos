@@ -12,7 +12,6 @@ import {
   OFFER_STATUSES,
 } from '@hfos/core/addons/realestate/offer-words';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
@@ -35,6 +34,7 @@ import { ReasonDialog } from './deal-dialogs';
 import { AnswerDialog, StartOfferDialog, VersionDialog } from './offer-dialogs';
 import type { CmaRow, DealDocument, Home, Offer, OfferVersion } from './types';
 import { useAct } from './use-act';
+import { useQueryState } from './use-query-state';
 
 const thisYear = () => new Date().getFullYear();
 
@@ -69,14 +69,7 @@ export function OffersPage({
   live: boolean;
 }) {
   useLiveRefresh(['custom_record']);
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const start = params.get('start');
-  const setStart = (homeId: string | null) => {
-    const q = homeId === null ? '' : `?start=${homeId}`;
-    router.replace(`${pathname}${q}`, { scroll: false });
-  };
+  const [start, setStart] = useQueryState('start');
   const sorted = [...offers].sort(
     (a, b) =>
       Number(LIVE_OFFER_STATUSES.includes(b.status)) -
