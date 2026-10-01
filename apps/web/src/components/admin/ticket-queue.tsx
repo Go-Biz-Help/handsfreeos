@@ -1,21 +1,21 @@
 'use client';
+import {
+  DESK_WORDS,
+  TICKET_QUEUE_FILTERS,
+  sinceIso,
+  ticketQueueCount,
+  ticketQueueSummary,
+  type TicketQueueFilter,
+} from '@hfos/core';
 import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { STATUS_WORD, sinceWords, type TicketRow } from './ticket-bits';
+import { STATUS_WORD, type TicketRow } from './ticket-bits';
 
-const FILTERS = [
-  { key: 'unanswered', label: 'Needs an answer' },
-  { key: 'mine', label: 'Mine' },
-  { key: 'unassigned', label: 'Nobody’s' },
-  { key: 'waiting', label: 'Waiting on them' },
-  { key: 'all', label: 'Everything' },
-] as const;
-
-export type QueueFilter = (typeof FILTERS)[number]['key'];
+export type QueueFilter = TicketQueueFilter;
 
 export function TicketQueue({
   tickets,
@@ -54,26 +54,14 @@ export function TicketQueue({
     e.preventDefault();
     go({ q: term.trim() || null });
   };
-  const countFor = (key: QueueFilter) =>
-    key === 'unanswered'
-      ? counts.unanswered
-      : key === 'mine'
-        ? counts.mine
-        : key === 'unassigned'
-          ? counts.unassigned
-          : key === 'waiting'
-            ? counts.waitingOnCustomer
-            : null;
+  const countFor = (key: QueueFilter) => ticketQueueCount(key, counts);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold md:text-2xl">Tickets</h1>
         <p className="text-[13px] text-text-3" data-testid="queue-summary">
-          {counts.solvedToday} solved in the last day
-          {counts.oldestWaitingMinutes !== null && counts.unanswered > 0
-            ? ` · oldest unanswered ${sinceWords(counts.oldestWaitingMinutes)}`
-            : ''}
+          {ticketQueueSummary(counts)}
         </p>
       </div>
 
@@ -86,7 +74,7 @@ export function TicketQueue({
           <Input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search by subject, address or #number"
+            placeholder={DESK_WORDS.searchTickets}
             aria-label="Search tickets"
             data-testid="ticket-search"
             className="pl-10"
@@ -95,7 +83,7 @@ export function TicketQueue({
       </form>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => {
+        {TICKET_QUEUE_FILTERS.map((f) => {
           const on = f.key === filter;
           const n = countFor(f.key);
           return (
@@ -118,11 +106,11 @@ export function TicketQueue({
 
       {tickets.length === 0 ? (
         <div className="mt-8 rounded-card border border-border bg-card px-5 py-12 text-center">
-          <p className="text-sm font-medium">Nothing here.</p>
+          <p className="text-sm font-medium">{DESK_WORDS.queueEmptyTitle}</p>
           <p className="mt-1 text-[13px] text-text-3">
             {filter === 'unanswered'
-              ? 'Every ticket has been answered. That is the whole idea.'
-              : 'No tickets match this.'}
+              ? DESK_WORDS.queueEmptyUnanswered
+              : DESK_WORDS.queueEmptyFiltered}
           </p>
         </div>
       ) : (
@@ -137,11 +125,9 @@ export function TicketQueue({
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs tabular-nums text-text-3">#{t.number}</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    {t.subject || '(no subject)'}
+                    {t.subject || DESK_WORDS.noSubject}
                   </span>
-                  <span className="flex-none text-xs text-text-3">
-                    {sinceWords(Math.round((Date.now() - Date.parse(t.updatedAt)) / 60000))}
-                  </span>
+                  <span className="flex-none text-xs text-text-3">{sinceIso(t.updatedAt)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-3">
                   <span className="truncate">{t.requester.name || t.requester.email}</span>
@@ -161,7 +147,7 @@ export function TicketQueue({
                   {t.assignee ? (
                     <span className="ml-auto truncate">{t.assignee.name}</span>
                   ) : (
-                    <span className="ml-auto text-accent-text">Nobody yet</span>
+                    <span className="ml-auto text-accent-text">{DESK_WORDS.nobodyYet}</span>
                   )}
                 </div>
                 <p className="truncate text-[13px] text-text-2">{t.preview}</p>
@@ -182,7 +168,7 @@ export function TicketQueue({
             }}
             className="h-10 rounded-control border border-border px-4 text-sm font-medium hover:bg-card-2"
           >
-            Older tickets
+            {DESK_WORDS.olderTickets}
           </button>
         </div>
       ) : null}

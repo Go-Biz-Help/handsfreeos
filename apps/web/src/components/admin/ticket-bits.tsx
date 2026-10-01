@@ -1,4 +1,7 @@
-/** The small shared pieces of the support desk: the words it uses, and the shapes it passes around. */
+/**
+ * The small shared pieces of the support desk: the shapes it passes around, and its words, which are core's so the
+ * phone's Support desk says the same.
+ */
 
 export interface TicketPerson {
   readonly userId: string | null;
@@ -25,37 +28,12 @@ export interface TicketRow {
   readonly updatedAt: string;
 }
 
-export const STATUS_WORD: Record<TicketRow['status'], string> = {
-  new: 'New',
-  open: 'Open',
-  waiting_on_customer: 'Waiting on them',
-  solved: 'Solved',
-  closed: 'Closed',
-};
-
-export const CHANNEL_WORD: Record<TicketRow['channel'], string> = {
-  email: 'By email',
-  in_app: 'From inside the app',
-  chat: 'From the website chat',
-};
-
-export const PRIORITY_WORD: Record<TicketRow['priority'], string> = {
-  low: 'Low',
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-};
-
-/** "4 minutes", "3 hours", "2 days" — how long, said the way a person would say it. */
-export function sinceWords(minutes: number): string {
-  const m = Math.max(0, Math.round(minutes));
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} minute${m === 1 ? '' : 's'}`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `${h} hour${h === 1 ? '' : 's'}`;
-  const d = Math.round(h / 24);
-  return `${d} day${d === 1 ? '' : 's'}`;
-}
+export {
+  TICKET_CHANNEL_WORDS as CHANNEL_WORD,
+  TICKET_PRIORITY_WORDS as PRIORITY_WORD,
+  TICKET_STATUS_WORDS as STATUS_WORD,
+  sinceWords,
+} from '@hfos/core';
 
 /** A full date and time, in the reader's own zone. */
 export const whenWords = (iso: string) =>

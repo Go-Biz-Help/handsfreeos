@@ -1,4 +1,5 @@
 'use client';
+import { IDEA_AREAS_WORDS, IDEAS_WORDS, ideaAreaIdFrom, nextIdeaAreaSort } from '@hfos/core';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,15 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { IdeaArea } from '@/lib/api/types';
-
-/** An area's id from its name: "Service plans" is service_plans. */
-const idFrom = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .replace(/^[^a-z]+/, '')
-    .slice(0, 40);
 
 /**
  * The parts of HandsFreeOS an idea can be about. A new part of the product is a row here, not a deploy; an
@@ -38,7 +30,7 @@ export function IdeaAreasAdmin({ areas }: { areas: readonly IdeaArea[] }) {
     setBusy(area.id);
     try {
       unwrap(await apiBrowser().POST('/v1/commands/idea_area.save', { body: area }));
-      toast.success('Saved.');
+      toast.success(IDEA_AREAS_WORDS.saved);
       router.refresh();
       return true;
     } catch (e) {
@@ -51,15 +43,14 @@ export function IdeaAreasAdmin({ areas }: { areas: readonly IdeaArea[] }) {
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    const id = idFrom(name);
-    if (id.length < 2) return toast.error('Name it with a word or two.');
-    const last = areas.filter((a) => a.id !== 'other').at(-1)?.sort ?? 0;
+    const id = ideaAreaIdFrom(name);
+    if (id.length < 2) return toast.error(IDEA_AREAS_WORDS.needsName);
     if (
       await save({
         id,
         name: name.trim(),
         description: description.trim(),
-        sort: last + 10,
+        sort: nextIdeaAreaSort(areas),
         archived: false,
       })
     ) {
@@ -75,22 +66,22 @@ export function IdeaAreasAdmin({ areas }: { areas: readonly IdeaArea[] }) {
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2 hover:text-text"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-        Ideas
+        {IDEAS_WORDS.title}
       </Link>
-      <h1 className="text-xl font-semibold md:text-2xl">Areas</h1>
-      <p className="mt-1 text-[13px] text-text-3">
-        What people pick when they share an idea, in this order.
-      </p>
+      <h1 className="text-xl font-semibold md:text-2xl">{IDEA_AREAS_WORDS.title}</h1>
+      <p className="mt-1 text-[13px] text-text-3">{IDEA_AREAS_WORDS.intro}</p>
       <ul className="mt-4 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
         {areas.map((a) => (
           <li key={a.id} className="flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">
                 {a.name}
-                {a.archived ? <span className="ml-2 text-xs text-text-3">Archived</span> : null}
+                {a.archived ? (
+                  <span className="ml-2 text-xs text-text-3">{IDEA_AREAS_WORDS.archived}</span>
+                ) : null}
               </p>
               <p className="truncate text-xs text-text-3">
-                {a.description || 'No description'} · {a.openCount} open
+                {IDEA_AREAS_WORDS.line(a.description, a.openCount)}
               </p>
             </div>
             {a.id === 'other' ? null : (
@@ -108,7 +99,7 @@ export function IdeaAreasAdmin({ areas }: { areas: readonly IdeaArea[] }) {
                   })
                 }
               >
-                {a.archived ? 'Bring back' : 'Archive'}
+                {a.archived ? IDEA_AREAS_WORDS.bringBack : IDEA_AREAS_WORDS.archive}
               </Button>
             )}
           </li>
@@ -118,24 +109,24 @@ export function IdeaAreasAdmin({ areas }: { areas: readonly IdeaArea[] }) {
         onSubmit={add}
         className="mt-4 flex flex-col gap-2 rounded-card border border-border bg-card p-4"
       >
-        <p className="text-sm font-medium">Add an area</p>
+        <p className="text-sm font-medium">{IDEA_AREAS_WORDS.add}</p>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Service plans"
+          placeholder={IDEA_AREAS_WORDS.namePlaceholder}
           maxLength={60}
-          aria-label="Name"
+          aria-label={IDEA_AREAS_WORDS.nameLabel}
         />
         <Input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What belongs in it (optional)"
+          placeholder={IDEA_AREAS_WORDS.descriptionPlaceholder}
           maxLength={300}
-          aria-label="Description"
+          aria-label={IDEA_AREAS_WORDS.descriptionLabel}
         />
         <div>
           <Button type="submit" size="sm" disabled={!name.trim()}>
-            Add it
+            {IDEA_AREAS_WORDS.addButton}
           </Button>
         </div>
       </form>

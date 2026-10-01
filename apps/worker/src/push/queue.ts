@@ -10,11 +10,16 @@
  *   button pressed on two phones, or twice, does its thing once (the command receipts are each person's).
  *
  * The send job (send.ts) looks the phones up again when it runs and checks the switches once more.
+ *
+ * **HandsFreeOS's own support people** hear about a new support ticket (`queueStaffPush`). That push belongs to no
+ * business: its job has no workspace, and its people are every active support person with the kind's switch and a
+ * phone on (`private.staff_push_devices`), which the worker can't see from any business's scope.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
   clipLine,
   commandButtonsOf,
+  isStaffPush,
   PUSH_CATEGORIES,
   scheduleJob,
   type PushButton,
@@ -55,7 +60,7 @@ export interface PushMoment {
   /** Before the business's name in the subtitle ("Text" makes "Text · Lone Star HVAC & Roofing"). */
   readonly about?: string | null;
   readonly body: string;
-  /** /app/w/<business>/…, as the moment's email links. */
+  /** /app/w/<business>/…, as the moment's email links (a push to support people: /admin/…). */
   readonly path: string;
   readonly refs: PushRefs;
   /** The notification it replaces, where one about the same thing may be showing (`conversation-<id>`). */
@@ -104,19 +109,73 @@ export async function pushAudience(
 
 /** Queues the push for a moment; answers how many people it is for (0: nothing was queued). */
 export async function queuePush(tx: Tx, scope: TenantScope, moment: PushMoment): Promise<number> {
+  if (isStaffPush(moment.category))
+    throw new Error(`a ${moment.category} push is for support people: queueStaffPush sends it`);
   const userIds = await pushAudience(tx, moment.category, moment.userIds, moment.exceptUserId);
   if (userIds.length === 0) return 0;
   const [ws] = await rows<{ name: string }>(
     tx,
     sql`select name from app.workspaces where id = ${scope.workspaceId}`,
   );
-  const business = ws?.name ?? '';
+  await schedulePush(tx, moment, userIds, { ...scope, business: ws?.name ?? '' });
+  return userIds.length;
+}
+
+/** A moment for HandsFreeOS's own support people: about no business, so it names nobody to tell. */
+export type StaffPushMoment = Omit<PushMoment, 'userIds' | 'whileWaiting'>;
+
+/**
+ * HandsFreeOS's support people with this kind's switch and at least one phone on, but never `except` (a support
+ * person who wrote in themselves).
+ */
+export async function staffPushAudience(
+  tx: Tx,
+  category: PushCategory,
+  except?: string | null,
+): Promise<string[]> {
+  const found = await rows<{ user_id: string }>(
+    tx,
+    sql`select distinct user_id from private.staff_push_devices(${PUSH_CATEGORIES[category].switch})
+        order by user_id`,
+  );
+  return found.map((r) => r.user_id).filter((id) => id !== except);
+}
+
+/**
+ * Queues a push to HandsFreeOS's support people (`support_ticket`), with no business: the job has none, and its
+ * subtitle is `about` alone. Answers how many people it is for (0: nothing was queued).
+ */
+export async function queueStaffPush(tx: Tx, moment: StaffPushMoment): Promise<number> {
+  if (!isStaffPush(moment.category))
+    throw new Error(`a ${moment.category} push is about a business: queuePush sends it`);
+  const userIds = await staffPushAudience(tx, moment.category, moment.exceptUserId);
+  if (userIds.length === 0) return 0;
+  await schedulePush(tx, moment, userIds, {
+    workspaceId: null,
+    organizationId: null,
+    business: '',
+  });
+  return userIds.length;
+}
+
+/** The send job for a moment: one notice, one notification id and a command id per button, for everyone on it. */
+async function schedulePush(
+  tx: Tx,
+  moment: Omit<PushMoment, 'userIds'>,
+  userIds: readonly string[],
+  where: {
+    readonly workspaceId: string | null;
+    readonly organizationId: string | null;
+    readonly business: string;
+  },
+): Promise<void> {
+  const { business } = where;
   const commandIds: Partial<Record<PushButton, string>> = {};
   for (const button of commandButtonsOf(moment.category)) commandIds[button] = randomUUID();
   const payload: PushSendPayload = {
     notificationId: randomUUID(),
     category: moment.category,
-    workspaceId: scope.workspaceId,
+    workspaceId: where.workspaceId,
     business,
     title: clipLine(moment.title, PUSH_WORDS.title),
     subtitle:
@@ -139,8 +198,7 @@ export async function queuePush(tx: Tx, scope: TenantScope, moment: PushMoment):
     dedupeKey: pushJobKey(moment.key),
     runAt: new Date(),
     payload: payload as unknown as Record<string, unknown>,
-    workspaceId: scope.workspaceId,
-    organizationId: scope.organizationId,
+    workspaceId: where.workspaceId,
+    organizationId: where.organizationId,
   });
-  return userIds.length;
 }

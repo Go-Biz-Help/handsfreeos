@@ -13,8 +13,13 @@
  * (DeviceNotRegistered) is turned off, unless it registered again after the push went; receipts not ready yet are
  * asked for again, twice at most (Expo keeps them a day). Neither job logs a token or anything a push said; a refusal
  * logs Expo's own words for it, which say what to fix, with any token taken out.
+ *
+ * A push to HandsFreeOS's own support people (`support_ticket`) runs the same way with no business in scope: its
+ * phones, and turning off the ones the app is gone from, go through the two database functions made for it
+ * (`private.staff_push_devices`, `private.turn_off_staff_push_devices`), since no business's scope can see them.
  */
 import {
+  isStaffPush,
   PUSH_BUTTON_IDS,
   PUSH_CATEGORIES,
   PUSH_CATEGORY_IDS,
@@ -22,7 +27,7 @@ import {
   scheduleJob,
   type PushCategory,
 } from '@hfos/core/server';
-import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
+import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
 import type { JobHandler, JobMap } from '../jobs';
 import { errorMessage } from '../outbox';
@@ -56,7 +61,8 @@ type Delivery = z.infer<typeof Delivery>;
 const SendPayload = z.object({
   notificationId: z.uuid(),
   category: z.enum(PUSH_CATEGORY_IDS),
-  workspaceId: z.uuid(),
+  /** Null for a push to support people. */
+  workspaceId: z.uuid().nullable(),
   business: z.string(),
   title: z.string(),
   subtitle: z.string().nullable(),
@@ -90,6 +96,8 @@ const ReceiptsPayload = z.object({
     )
     .max(5_000),
   round: z.number().int().min(0).default(0),
+  /** The phones are support people's (a push about no business): turned off through their own function. */
+  staff: z.boolean().optional(),
 });
 
 interface Device {
@@ -149,6 +157,56 @@ async function turnOffGone(tx: Tx, deviceIds: readonly string[], sentAt: Date): 
   return off.length;
 }
 
+/** A support person's phones on, whose switch for the kind is on, while they are still an active support person. */
+async function staffDevices(
+  tx: Tx,
+  category: PushCategory,
+  userIds: readonly string[],
+): Promise<Device[]> {
+  if (userIds.length === 0) return [];
+  return rows<Device & Record<string, unknown>>(
+    tx,
+    sql`select device_id as id, platform, token
+        from private.staff_push_devices(${PUSH_CATEGORIES[category].switch}, array[${sql.join(
+          userIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )}])`,
+  );
+}
+
+/** A support person's phones the app is gone from: off, unless they registered again after `sentAt`. */
+async function turnOffStaffGone(
+  tx: Tx,
+  deviceIds: readonly string[],
+  sentAt: Date,
+): Promise<number> {
+  if (deviceIds.length === 0) return 0;
+  const [r] = await rows<{ off: number }>(
+    tx,
+    sql`select private.turn_off_staff_push_devices(array[${sql.join(
+      deviceIds.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )}], ${sentAt.toISOString()}::timestamptz) as off`,
+  );
+  return Number(r?.off ?? 0);
+}
+
+/**
+ * Whose phones a push goes to, and how the job reaches them: a business's people from its own scope, or HandsFreeOS's
+ * support people, from none, through the functions that may look.
+ */
+interface Phones {
+  readonly scope: SystemScope;
+  readonly find: (tx: Tx, category: PushCategory, userIds: readonly string[]) => Promise<Device[]>;
+  readonly turnOff: (tx: Tx, deviceIds: readonly string[], sentAt: Date) => Promise<number>;
+}
+
+function phonesFor(staff: boolean, jobScope: SystemScope): Phones {
+  return staff
+    ? { scope: {}, find: staffDevices, turnOff: turnOffStaffGone }
+    : { scope: tenantOf(jobScope), find: liveDevices, turnOff: turnOffGone };
+}
+
 const writeDelivery = (tx: Tx, jobId: string, delivery: Delivery) =>
   tx.execute(
     sql`update app.scheduled_jobs
@@ -202,7 +260,16 @@ export const pushSendJob: JobHandler = async (ctx) => {
     );
     return;
   }
-  const scope = tenantOf(ctx.scope);
+  const staff = isStaffPush(p.category);
+  if (staff !== (p.workspaceId === null)) {
+    ctx.log.warn(
+      { notificationId: p.notificationId, category: p.category },
+      'a push job’s business doesn’t fit its kind; not sent',
+    );
+    return;
+  }
+  const phones = phonesFor(staff, ctx.scope);
+  const { scope } = phones;
   const waiting = p.whileWaiting;
   if (waiting && !(await asWorker(ctx.db, scope, (tx) => stillWaiting(tx, waiting)))) {
     ctx.log.debug({ notificationId: p.notificationId }, 'answered before its push went; not sent');
@@ -212,7 +279,7 @@ export const pushSendJob: JobHandler = async (ctx) => {
   const handedOver = [...(p._delivery?.handedOver ?? []), ...(p._delivery?.inFlight ?? [])];
   const done = new Set(handedOver);
   const devices = (
-    await asWorker(ctx.db, scope, (tx) => liveDevices(tx, p.category, p.userIds))
+    await asWorker(ctx.db, scope, (tx) => phones.find(tx, p.category, p.userIds))
   ).filter((d) => !done.has(d.id));
   const notice: PushNotice = p;
   for (let i = 0; i < devices.length; i += PUSH_CHUNK) {
@@ -276,11 +343,12 @@ export const pushSendJob: JobHandler = async (ctx) => {
             sentAt: startedAt.toISOString(),
             tickets: accepted,
             round: 0,
+            ...(staff ? { staff: true } : {}),
           },
-          workspaceId: scope.workspaceId,
-          organizationId: scope.organizationId,
+          workspaceId: scope.workspaceId ?? null,
+          organizationId: scope.organizationId ?? null,
         });
-      return turnOffGone(tx, gone, startedAt);
+      return phones.turnOff(tx, gone, startedAt);
     });
     if (turnedOff > 0)
       ctx.log.info(
@@ -309,7 +377,7 @@ export const pushReceiptsJob: JobHandler = async (ctx) => {
   const provider = ctx.push.provider;
   if (!provider) return;
   const p = parsed.data;
-  const scope = tenantOf(ctx.scope);
+  const phones = phonesFor(p.staff === true, ctx.scope);
   const receipts: Record<string, PushReceipt> = {};
   for (let i = 0; i < p.tickets.length; i += RECEIPT_CHUNK)
     Object.assign(
@@ -333,8 +401,8 @@ export const pushReceiptsJob: JobHandler = async (ctx) => {
         });
     }
   }
-  const turnedOff = await asWorker(ctx.db, scope, (tx) =>
-    turnOffGone(tx, gone, new Date(p.sentAt)),
+  const turnedOff = await asWorker(ctx.db, phones.scope, (tx) =>
+    phones.turnOff(tx, gone, new Date(p.sentAt)),
   );
   if (turnedOff > 0)
     ctx.log.info(

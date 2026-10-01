@@ -1,4 +1,5 @@
 'use client';
+import { deskSectionLabel, SAVED_REPLY_WORDS } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -80,16 +81,13 @@ export function SavedReplies({
     <div className="mx-auto w-full max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold md:text-2xl">Saved replies</h1>
-          <p className="mt-1 text-[13px] text-text-3">
-            Written once, used often. The AI reads these before it drafts, so a good one here makes
-            every draft better.
-          </p>
+          <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('replies')}</h1>
+          <p className="mt-1 text-[13px] text-text-3">{SAVED_REPLY_WORDS.intro}</p>
         </div>
         {canManage ? (
           <Button onClick={() => open('new')} data-testid="reply-new">
             <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            New saved reply
+            {SAVED_REPLY_WORDS.add}
           </Button>
         ) : null}
       </div>
@@ -97,16 +95,16 @@ export function SavedReplies({
       {editing ? (
         <form onSubmit={save} className="mt-5 rounded-card border border-border bg-card p-4">
           <div className="flex flex-col gap-3">
-            <Field label="What is it for?" htmlFor="reply-title">
+            <Field label={SAVED_REPLY_WORDS.titleLabel} htmlFor="reply-title">
               <Input
                 id="reply-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Texts are not arriving"
+                placeholder={SAVED_REPLY_WORDS.titlePlaceholder}
                 data-testid="reply-title"
               />
             </Field>
-            <Field label="The reply" htmlFor="reply-body">
+            <Field label={SAVED_REPLY_WORDS.bodyLabel} htmlFor="reply-body">
               <Textarea
                 id="reply-body"
                 rows={8}
@@ -118,10 +116,10 @@ export function SavedReplies({
             {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={busy || !title.trim() || !body.trim()}>
-                Save
+                {SAVED_REPLY_WORDS.save}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
-                Cancel
+                {SAVED_REPLY_WORDS.cancel}
               </Button>
               {editing !== 'new' ? (
                 <Button
@@ -131,7 +129,7 @@ export function SavedReplies({
                   className="ml-auto text-danger-text"
                   onClick={() => remove(editing.id)}
                 >
-                  Delete
+                  {SAVED_REPLY_WORDS.delete}
                 </Button>
               ) : null}
             </div>
@@ -150,7 +148,7 @@ export function SavedReplies({
                   onClick={() => open(r)}
                   className="flex-none text-[13px] text-text-3 hover:text-text"
                 >
-                  Edit
+                  {SAVED_REPLY_WORDS.edit}
                 </button>
               ) : null}
             </div>
@@ -159,7 +157,7 @@ export function SavedReplies({
         ))}
         {replies.length === 0 ? (
           <li className="px-4 py-10 text-center text-[13px] text-text-3">
-            Nothing saved yet. The next answer you find yourself writing twice belongs here.
+            {SAVED_REPLY_WORDS.emptyTitle} {SAVED_REPLY_WORDS.emptyBody}
           </li>
         ) : null}
       </ul>

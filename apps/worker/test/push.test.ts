@@ -261,7 +261,7 @@ describe('what a push carries', () => {
     expect(commandButtonsOf('urgent_lead_no_ai')).toEqual(['snooze']);
     expect(commandButtonsOf('approval')).toEqual(['approve']);
     expect(commandButtonsOf('job_check')).toEqual(['done', 'no_show', 'still_there']);
-    for (const c of ['booking', 'assigned', 'payment'] as const)
+    for (const c of ['booking', 'assigned', 'payment', 'support_ticket'] as const)
       expect(commandButtonsOf(c)).toEqual([]);
     const unlock = Object.entries(PUSH_BUTTONS)
       .filter(([, b]) => b.unlock)
@@ -270,6 +270,45 @@ describe('what a push carries', () => {
     // Marking a visit changes the records; "Still there" only asks again later.
     expect(unlock).toEqual(['approve', 'done', 'let_ai_handle', 'let_handle', 'no_show', 'reply']);
     expect(PUSH_BUTTONS.call.opensApp && PUSH_BUTTONS.review.opensApp).toBe(true);
+  });
+
+  it('sends a new support ticket to support people about no business, opening the desk', () => {
+    const TICKET = randomUUID();
+    const n = notice('support_ticket', {
+      workspaceId: null,
+      business: '',
+      title: 'New support ticket #1042',
+      subtitle: 'Dana Reed · Reed Plumbing',
+      body: 'Reminders stopped going out: “They went out on Monday and not since.”',
+      path: `/admin/tickets/${TICKET}`,
+      refs: { ticketId: TICKET },
+      collapseId: `ticket-${TICKET}`,
+    });
+    const ios = messageFor({ platform: 'ios', token: 't' }, n);
+    // Ordinary, not urgent; kept 12 hours like a customer's message, and one notification per ticket.
+    expect(ios).toMatchObject({
+      categoryId: 'support_ticket',
+      interruptionLevel: 'active',
+      sound: 'default',
+      ttl: 12 * 3_600,
+      collapseId: `ticket-${TICKET}`,
+    });
+    expect(dataOf(ios)).toMatchObject({
+      workspaceId: null,
+      business: '',
+      path: `/admin/tickets/${TICKET}`,
+      refs: { ticketId: TICKET },
+    });
+    // A business's push never opens the desk, nor a desk push a business: the phone refuses both.
+    expect(
+      PushData.safeParse(noticeData({ ...n, workspaceId: WS })).success,
+      'a support push naming a business',
+    ).toBe(false);
+    expect(
+      PushData.safeParse(noticeData(notice('booking', { path: `/admin/tickets/${TICKET}` })))
+        .success,
+      'a business push opening the desk',
+    ).toBe(false);
   });
 
   it('stays well inside Expo’s 4 KB with the longest words a push is given', () => {

@@ -1,3 +1,4 @@
+import { DESK_HEALTH_WORDS, deskHealthCards, deskHealthHours, deskSectionLabel } from '@hfos/core';
 import { AiProviderBlock } from '@/components/admin/ai-provider-block';
 import { whenWords } from '@/components/admin/ticket-bits';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
@@ -9,7 +10,7 @@ export default async function HealthPage({
   searchParams: Promise<{ hours?: string }>;
 }) {
   const { hours } = await searchParams;
-  const window = Math.min(168, Math.max(1, Number(hours ?? 24) || 24));
+  const window = deskHealthHours(hours);
   const { api } = await apiServer();
   const [health, ai, me] = await Promise.all([
     api.POST('/v1/queries/platform.health.summary', { body: { hours: window } }).then(unwrapPage),
@@ -17,33 +18,13 @@ export default async function HealthPage({
     api.POST('/v1/queries/platform.ai_provider.get', { body: {} }).then((r) => r.data ?? null),
     api.POST('/v1/queries/platform.me', { body: {} }).then(unwrap),
   ]);
-  const cards = [
-    { label: 'Background jobs that failed', value: health.failedJobs.count },
-    { label: 'Webhooks that failed', value: health.failedDeliveries.count },
-    { label: 'Emails that bounced', value: health.emailBounces.count },
-    { label: 'Texts that failed', value: health.failedTexts.count },
-    { label: 'Payments that failed', value: health.paymentFailures.count },
-    { label: 'Calls with no words', value: health.lostTranscripts.count },
-    // The usage wallets (M16). `Balances that disagree` is the one to look at first: the cached balance is
-    // what every spending gate reads, so a wallet out of step with its own ledger means every gate is lying.
-    { label: 'Cards declined', value: health.wallets.declines },
-    { label: 'Balances suspended', value: health.wallets.suspended },
-    { label: 'Balances that disagree', value: health.wallets.drifting },
-    { label: 'Balances below zero', value: health.wallets.negative },
-    // The shadow week's own check: days the nightly true-up against Twilio did not run for a business with a
-    // carrier account. Nothing else would ever tell us the margin numbers were built on a missing day.
-    { label: 'Days not reconciled', value: health.wallets.unreconciledDays },
-    { label: 'Work still queued', value: health.outboxBacklog },
-  ];
+  const cards = deskHealthCards(health);
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">Health</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('health')}</h1>
         <p className="text-[13px] text-text-3">
-          Since {whenWords(health.since)}
-          {health.oldestPendingMinutes !== null && health.oldestPendingMinutes > 5
-            ? ` · oldest queued job ${health.oldestPendingMinutes} minutes old`
-            : ''}
+          {DESK_HEALTH_WORDS.since(whenWords(health.since), health.oldestPendingMinutes)}
         </p>
       </div>
 
@@ -70,17 +51,15 @@ export default async function HealthPage({
       />
 
       <section className="mt-6 rounded-card border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold">The last few</h2>
+        <h2 className="text-sm font-semibold">{DESK_HEALTH_WORDS.lastFew}</h2>
         {health.recent.length === 0 ? (
-          <p className="mt-2 text-[13px] text-text-3">
-            Nothing has failed in this window. Enjoy it.
-          </p>
+          <p className="mt-2 text-[13px] text-text-3">{DESK_HEALTH_WORDS.nothingFailed}</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2.5 text-[13px]">
             {health.recent.map((r, i) => (
               <li key={`${r.at}-${i}`} className="flex flex-wrap gap-x-2">
                 <span className="font-medium">{r.kind}</span>
-                <span className="text-text-3">{r.business ?? 'no business'}</span>
+                <span className="text-text-3">{r.business ?? DESK_HEALTH_WORDS.noBusiness}</span>
                 <span className="text-text-3">· {whenWords(r.at)}</span>
                 <span className="w-full break-words text-text-2">{r.detail}</span>
               </li>

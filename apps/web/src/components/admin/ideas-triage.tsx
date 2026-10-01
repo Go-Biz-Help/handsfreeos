@@ -1,5 +1,12 @@
 'use client';
-import { IDEA_SORT_WORDS, relativeTimeAgo, type IdeaStatus } from '@hfos/core';
+import {
+  IDEA_SORT_WORDS,
+  IDEAS_TEAM_WORDS,
+  IDEAS_WORDS,
+  ideaTriageCount,
+  ideaTriageSummary,
+  relativeTimeAgo,
+} from '@hfos/core';
 import { ChevronUp, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -51,32 +58,24 @@ export function IdeasTriage({
     e.preventDefault();
     go({ q: term.trim() || null });
   };
-  const countFor = (key: TriageTab): number | null =>
-    key === 'hidden'
-      ? data.counts.hidden
-      : key === 'all' || key === 'merged'
-        ? null
-        : data.counts[key as IdeaStatus];
+  const countFor = (key: TriageTab): number | null => ideaTriageCount(key, data.counts);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">Ideas</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">{IDEAS_WORDS.title}</h1>
         <div className="flex flex-wrap gap-2">
           {canManage ? (
             <ButtonLink href="/admin/ideas/areas" variant="ghost" size="sm">
-              Areas
+              {IDEAS_TEAM_WORDS.areas}
             </ButtonLink>
           ) : null}
           <ButtonLink href="/admin/ideas/whats-new" size="sm" data-testid="admin-whats-new">
-            What’s new
+            {IDEAS_WORDS.tabs.whatsNew}
           </ButtonLink>
         </div>
       </div>
-      <p className="mt-1 text-[13px] text-text-3">
-        {data.counts.under_review} waiting for an answer · {data.counts.planned} planned ·{' '}
-        {data.counts.in_progress} being built
-      </p>
+      <p className="mt-1 text-[13px] text-text-3">{ideaTriageSummary(data.counts)}</p>
 
       <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
         <form onSubmit={submit} className="relative min-w-0 flex-1">
@@ -87,20 +86,20 @@ export function IdeasTriage({
           <Input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search ideas"
-            aria-label="Search ideas"
+            placeholder={IDEAS_WORDS.search}
+            aria-label={IDEAS_WORDS.search}
             className="pl-10"
             data-testid="triage-search"
           />
         </form>
         <Select
           selectSize="sm"
-          aria-label="Area"
+          aria-label={IDEAS_WORDS.areaFilterLabel}
           value={areaId ?? ''}
           onChange={(e) => go({ area: e.target.value || null })}
           className="w-auto"
         >
-          <option value="">Every area</option>
+          <option value="">{IDEAS_TEAM_WORDS.everyArea}</option>
           {areas.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -110,7 +109,7 @@ export function IdeasTriage({
         <Segmented
           value={sort}
           onChange={(v) => go({ sort: v === 'top' ? null : v })}
-          ariaLabel="Sort"
+          ariaLabel={IDEAS_TEAM_WORDS.sort}
           options={(['top', 'trending', 'new'] as const).map((v) => ({
             value: v,
             label: IDEA_SORT_WORDS[v],
@@ -142,11 +141,11 @@ export function IdeasTriage({
 
       {data.ideas.length === 0 ? (
         <div className="mt-6 rounded-card border border-border bg-card px-5 py-12 text-center">
-          <p className="text-sm font-medium">Nothing here.</p>
+          <p className="text-sm font-medium">{IDEAS_TEAM_WORDS.emptyTitle}</p>
           <p className="mt-1 text-[13px] text-text-3">
             {tab === 'under_review'
-              ? 'Every idea has an answer. That is the whole idea.'
-              : 'No ideas match this.'}
+              ? IDEAS_TEAM_WORDS.emptyUnderReview
+              : IDEAS_TEAM_WORDS.emptyFiltered}
           </p>
         </div>
       ) : (
@@ -171,26 +170,24 @@ export function IdeasTriage({
                     <StatusPill status={i.status} />
                     <span>{names.get(i.areaId) ?? i.areaId}</span>
                     <span aria-hidden>·</span>
-                    <span>
-                      {i.businessCount === 1 ? '1 business' : `${i.businessCount} businesses`}
-                    </span>
+                    <span>{IDEAS_TEAM_WORDS.businesses(i.businessCount)}</span>
                     {i.commentCount ? (
                       <>
                         <span aria-hidden>·</span>
-                        <span>
-                          {i.commentCount === 1 ? '1 comment' : `${i.commentCount} comments`}
-                        </span>
+                        <span>{IDEAS_TEAM_WORDS.commentCount(i.commentCount)}</span>
                       </>
                     ) : null}
                     {i.hidden ? (
                       <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
-                        Taken down
+                        {IDEAS_TEAM_WORDS.takenDown}
                       </span>
                     ) : null}
-                    {i.mergedInto ? <span>Merged into #{i.mergedInto.number}</span> : null}
+                    {i.mergedInto ? (
+                      <span>{IDEAS_TEAM_WORDS.mergedIntoNumber(i.mergedInto.number)}</span>
+                    ) : null}
                   </span>
                   <span className="mt-0.5 block truncate text-[13px] text-text-2">
-                    {i.author ? i.author.name || i.author.email : 'Someone who left'}
+                    {i.author ? i.author.name || i.author.email : IDEAS_TEAM_WORDS.someoneWhoLeft}
                     {i.business ? ` · ${i.business.name}` : ''} ·{' '}
                     <span suppressHydrationWarning>{relativeTimeAgo(i.createdAt)}</span>
                   </span>
@@ -211,7 +208,7 @@ export function IdeasTriage({
             }}
             className="h-9 rounded-control px-4 text-sm font-medium text-accent-text hover:bg-accent-soft"
           >
-            Next page
+            {IDEAS_TEAM_WORDS.nextPage}
           </button>
         </div>
       ) : null}

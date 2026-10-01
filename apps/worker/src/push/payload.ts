@@ -11,18 +11,21 @@
  *
  * The words are short, the business is named on each (people work in more than one), and nothing secret goes in:
  * no customer links with their codes, no tokens, no provider ids. README.md is the contract the app builds on.
+ * A push to HandsFreeOS's own support people (`support_ticket`) is the one about no business: its workspace is null
+ * and it opens the support desk.
  */
 import {
   PUSH_DATA_VERSION,
   type PushButton,
+  PUSH_TEXT_MAX,
   type PushCategory,
   type PushData,
   type PushRefs,
 } from '@hfos/core';
 import type { PushMessage, PushPlatform } from './provider';
 
-/** What a lock screen shows before it cuts off. */
-export const PUSH_WORDS = { title: 64, subtitle: 64, body: 180 } as const;
+/** What a lock screen shows before it cuts off: core's, which words a support push to fit. */
+export const PUSH_WORDS = PUSH_TEXT_MAX;
 
 const HOUR_S = 3_600;
 
@@ -47,6 +50,8 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   job_check: 12 * HOUR_S,
   // Broken until someone reconnects it: still worth hearing about tomorrow.
   connection: 24 * HOUR_S,
+  // Someone waiting on HandsFreeOS, like a customer's message to a business; by tomorrow the desk's queue has it.
+  support_ticket: 12 * HOUR_S,
 };
 
 /**
@@ -64,12 +69,14 @@ const TIME_SENSITIVE: ReadonlySet<PushCategory> = new Set([
 export interface PushNotice {
   readonly notificationId: string;
   readonly category: PushCategory;
-  readonly workspaceId: string;
+  /** The business; null for a push to HandsFreeOS's support people, which is about none. */
+  readonly workspaceId: string | null;
+  /** The business's name; empty for a push about none. */
   readonly business: string;
   readonly title: string;
   readonly subtitle: string | null;
   readonly body: string;
-  /** /app/w/<business>/…: a web path, as the emails link. */
+  /** /app/w/<business>/…: a web path, as the emails link (the support desk's /admin/… for a push to support). */
   readonly path: string;
   readonly refs: PushRefs;
   readonly commandIds: Partial<Record<PushButton, string>>;
