@@ -11,6 +11,10 @@
  * - `POST /public/portal/op/:name`: the one door for what a signed-in customer does (step 3): any operation that lists
  *   'customer' (`portal.*`, `<addon>.portal.*`), run by the kernel as them, in their business. The body is its input;
  *   the business comes from the device, never from the body. Nothing here is in the API or its OpenAPI.
+ * - `POST /public/portal/uploads`: a customer adding a file (step 4). The kernel reserves its place
+ *   (`portal.upload_begin`), and the browser gets a one-time link to put it there; then `portal.upload_confirm`
+ *   through the door above checks what arrived.
+ * - `GET /public/portal/files/:fileId`: a five-minute link to a file in their portal, if row security shows it to them.
  *
  * As the money pages do: everything that acts is a POST (mail scanners open links), every answer is `no-store` and
  * `no-referrer`, a honeypot refuses bots, and each address has its limits. Everything runs as the system actor in
@@ -25,13 +29,14 @@ import {
   HfosError,
   portalCheckCode,
   portalSendCode,
+  portalUploadBegin,
   portalSessionEnd,
   portalSessionSeen,
   registry,
   type CustomerActor,
   type RequestMeta,
 } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asCustomer, asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { portalCodeEmail } from '../emails/templates';
@@ -77,6 +82,21 @@ const signedOut = () =>
   );
 
 const OpBody = z.record(z.string(), z.unknown());
+const UploadBody = z.object({
+  recordId: z.string().uuid().nullable().optional(),
+  name: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+});
+const DOWNLOAD_SECONDS = 300;
+
+const customerOf = (session: PortalSession): CustomerActor => ({
+  type: 'customer',
+  workspaceId: session.scope.workspaceId,
+  organizationId: session.scope.organizationId,
+  personId: session.personId,
+  sessionId: session.sessionId,
+});
 
 const notALink = () =>
   HfosError.notFound(
@@ -211,6 +231,15 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
     timeWindow: r.timeWindow,
   });
 
+  // A signed-in device's own limit; a request without one is held to its address.
+  const perDevice = {
+    ...limit(PORTAL_LIMITS.op),
+    keyGenerator: (req: FastifyRequest) => {
+      const b = bearerOf(req);
+      return b ? `portal:${sha256(b).toString('hex')}` : `ip:${req.ip}`;
+    },
+  };
+
   async function linked(token: string) {
     const r = await resolvePortalToken(deps.httpDb, deps.portalLinks, token);
     if (r.status !== 'ok')
@@ -306,18 +335,7 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
 
     pub.post<{ Params: { name: string } }>(
       '/public/portal/op/:name',
-      {
-        config: {
-          rateLimit: {
-            ...limit(PORTAL_LIMITS.op),
-            // Per device; a request without one is held to its address.
-            keyGenerator: (req: FastifyRequest) => {
-              const b = bearerOf(req);
-              return b ? `portal:${sha256(b).toString('hex')}` : `ip:${req.ip}`;
-            },
-          },
-        },
-      },
+      { config: { rateLimit: perDevice } },
       async (req) => {
         const session = await portalSessionOf(deps, req);
         if (!session) throw signedOut();
@@ -329,19 +347,60 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
           throw HfosError.notFound(
             'That isn’t something your portal does. Refresh the page and try again.',
           );
-        const actor: CustomerActor = {
-          type: 'customer',
-          workspaceId: session.scope.workspaceId,
-          organizationId: session.scope.organizationId,
-          personId: session.personId,
-          sessionId: session.sessionId,
-        };
+        const actor = customerOf(session);
         const input = {
           ...parseBody(OpBody, req.body ?? {}),
           workspaceId: session.scope.workspaceId,
         };
         if (cmd) return (await executeCommand(deps.httpDb, cmd, input, actor, meta(req))).output;
         return executeQuery(deps.httpDb, query!, input, actor, meta(req));
+      },
+    );
+
+    pub.post('/public/portal/uploads', { config: { rateLimit: perDevice } }, async (req) => {
+      const session = await portalSessionOf(deps, req);
+      if (!session) throw signedOut();
+      const body = parseBody(UploadBody, req.body ?? {});
+      const { output } = await executeCommand(
+        deps.httpDb,
+        portalUploadBegin,
+        { ...body, recordId: body.recordId ?? null, workspaceId: session.scope.workspaceId },
+        customerOf(session),
+        meta(req),
+      );
+      const uploadUrl = await deps.store.signedUploadUrl(output.bucket, output.objectPath);
+      return { fileId: output.fileId, uploadUrl };
+    });
+
+    pub.get<{ Params: { fileId: string } }>(
+      '/public/portal/files/:fileId',
+      { config: { rateLimit: perDevice } },
+      async (req) => {
+        const session = await portalSessionOf(deps, req);
+        if (!session) throw signedOut();
+        const fileId = req.params.fileId;
+        const gone = () =>
+          HfosError.notFound(
+            'That file isn’t in your portal any more. Refresh the page to see what is.',
+          );
+        if (!/^[0-9a-f-]{36}$/i.test(fileId)) throw gone();
+        // Row security, as the customer: only a file shown to them.
+        const [seen] = await asCustomer(deps.httpDb, session.sessionId, (tx) =>
+          rows<{ id: string }>(tx, sql`select id from app.files where id = ${fileId}::uuid`),
+        );
+        if (!seen) throw gone();
+        const [f] = await asWorker(deps.httpDb, session.scope, (tx) =>
+          rows<{ bucket: string; object_path: string; name: string }>(
+            tx,
+            sql`select bucket, object_path, name from app.files where id = ${fileId}::uuid`,
+          ),
+        );
+        if (!f) throw gone();
+        return {
+          name: f.name,
+          url: await deps.store.signedUrl(f.bucket, f.object_path, DOWNLOAD_SECONDS),
+          expiresInSeconds: DOWNLOAD_SECONDS,
+        };
       },
     );
 

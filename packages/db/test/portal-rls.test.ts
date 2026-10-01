@@ -231,6 +231,69 @@ describe('a signed-in customer', () => {
   });
 });
 
+describe('files', () => {
+  const file = (
+    recordType: string,
+    recordId: string,
+    opts: { visible: boolean; deleted?: boolean; by?: string },
+  ) =>
+    one(
+      rows<{ id: string }>(
+        admin(),
+        sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, status, portal_visible,
+              deleted_at, uploaded_by_person_id)
+            values (${ws}, ${recordType}::app.record_type, ${recordId},
+              ${`${ws}/${recordType}/${recordId}/${randomUUID()}/f.pdf`}, 'f.pdf', 'ready', ${opts.visible},
+              ${opts.deleted ? new Date().toISOString() : null}::timestamptz, ${opts.by ?? null})
+            returning id`,
+      ),
+    );
+
+  it('shows a customer the files shown to them, on their records and on them, and only a few columns', async () => {
+    const shared = await file('custom_record', mine, { visible: true });
+    const theirsToo = await file('person', linh, { visible: true, by: linh });
+    await file('custom_record', mine, { visible: false });
+    await file('custom_record', mine, { visible: true, deleted: true });
+    await file('custom_record', theirs, { visible: true });
+    await file('custom_record', notAsClient, { visible: true });
+    await file('person', omar, { visible: true });
+    const seen = await asPortal(session)((tx) =>
+      rows<{ id: string }>(tx, sql`select id from app.files`),
+    );
+    expect(ids(seen)).toEqual(sorted(shared, theirsToo));
+    expect(
+      await denied(() =>
+        asPortal(session)((tx) => rows(tx, sql`select object_path from app.files`)),
+      ),
+    ).toBe('42501');
+  });
+
+  it('lets nobody in the business say a customer added one, or put the business’s own papers in a portal', async () => {
+    expect(
+      await denied(() =>
+        as(owner)((tx) =>
+          rows(
+            tx,
+            sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, created_by,
+                  uploaded_by_person_id)
+                values (${ws}, 'custom_record', ${mine}, ${`${ws}/custom_record/${mine}/${randomUUID()}/x.pdf`}, 'x.pdf',
+                  ${owner.id}, ${linh})`,
+          ),
+        ),
+      ),
+    ).toBe('42501');
+    expect(
+      await denied(() =>
+        rows(
+          admin(),
+          sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, portal_visible)
+              values (${ws}, 'knowledge', ${randomUUID()}, ${`${ws}/knowledge/${randomUUID()}/x.pdf`}, 'x.pdf', true)`,
+        ),
+      ),
+    ).toBe('23514');
+  });
+});
+
 describe('when it stops', () => {
   it('sees nothing once the device is signed out, or with no device at all', async () => {
     const gone = await signedIn(linh);

@@ -195,6 +195,9 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
     async signedUrl(bucket, path) {
       return `https://storage.test/${bucket}/${path}`;
     },
+    async signedUploadUrl(bucket, path) {
+      return `https://storage.test/upload/${bucket}/${path}`;
+    },
     async check() {
       return { ok: true };
     },

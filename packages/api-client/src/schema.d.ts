@@ -2777,6 +2777,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/file.share_to_portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show a file in the portal of the customer it’s on, or of the clients on its record; or stop showing it.
+         * @description Risk level 2. Requires records.write. Emits file.portal_shared.
+         */
+        post: operations["command_file_share_to_portal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form_response.delete": {
         parameters: {
             query?: never;
@@ -19599,6 +19619,41 @@ export interface operations {
                         fileId: string;
                         /** Format: date-time */
                         lockedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_file_share_to_portal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    shared: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        fileId: string;
+                        shared: boolean;
                     };
                 };
             };

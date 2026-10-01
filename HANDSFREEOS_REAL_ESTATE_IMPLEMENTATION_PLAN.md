@@ -892,6 +892,29 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Waiting for the boards: the web's `app/c/[token]/a/<id>/…` pages and their `portalPage` gate. They come with the
   portal screens in step 15.
 
+### Step 4: client uploads (server built, 2026-10-01)
+
+**As built** (`20261014000500_customer_uploads.sql`):
+
+- `app.files` gains `uploaded_by_person_id` (the customer who added it; a trigger lets only the worker set it) and
+  `portal_visible`. Only files on a customer or on a record can be in a portal (a check).
+- A customer adds a file in three moves:
+  - `portal.upload_begin` reserves its place, on them or on a record they're on. It must be a PDF or a photo (JPEG,
+    PNG, HEIC, WebP), 20 MB at most, and 30 a day.
+  - The worker's `POST /public/portal/uploads` gives their browser a one-time Storage upload link
+    (`ObjectStore.signedUploadUrl`).
+  - `portal.upload_confirm` checks what actually arrived. A wrong type or too big a file is removed there and then
+    (`accepted: false`, and `file.deleted` takes the object away). A good one emits `file.attached`, so it's
+    fingerprinted, and goes on the record's timeline as the customer's.
+- Storage's own type list for the attachments bucket also refuses a web page outright.
+- The business shows its own files with `file.share_to_portal` (risk 2, `records.write`). A customer's own files stay
+  in their portal (`portal_file_theirs`).
+- `portal.files` lists what the customer sees; row security picks it. `GET /public/portal/files/:fileId` gives a
+  five-minute link to one, if row security shows it to them.
+- Chosen differently from the plan's names: `portal.upload_begin` and `portal.upload_confirm`, not
+  `file.begin_customer_upload`, so every customer operation is `portal.*`.
+- Waiting for the boards: the customer page's file list showing "From the client" and a "Show in portal" switch.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

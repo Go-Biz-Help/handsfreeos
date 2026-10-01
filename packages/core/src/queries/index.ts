@@ -1,6 +1,7 @@
 import type { QueryDef } from '../kernel/types';
 import { portalAccessGet } from '../commands/portal-access';
 import { portalQueries } from './portal';
+import { portalFileQueries } from '../commands/portal-files';
 import { formQueries } from './form';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
@@ -210,6 +211,7 @@ export const queries: readonly QueryDef[] = [
   portalAccessGet,
   // A customer's own, in their portal (Real Estate round two).
   ...portalQueries,
+  ...portalFileQueries,
   ...supportQueries,
   ...platformQueries,
   ...foundingQueries,

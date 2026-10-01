@@ -96,3 +96,71 @@ export const PortalHomeOutput = z.object({
   /** The add-ons with pages for them: on in the business, and with records they're on. */
   addons: z.array(z.object({ id: z.string(), name: z.string(), pages: z.array(PortalHomePage) })),
 });
+
+// ---------- files in the portal ----------
+
+/** What a customer may add from their portal: PDFs and photos, 20 MB each, 30 a day (Chris, round two). */
+export const PORTAL_UPLOAD_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
+] as const;
+export const PORTAL_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+export const PORTAL_UPLOADS_PER_DAY = 30;
+
+export const PortalUploadBeginInput = z.object({
+  ...inWorkspace,
+  /** One of the records they're on (a deal); absent, it goes on them. */
+  recordId: uuid.nullable().default(null),
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.string().trim().max(100),
+  sizeBytes: z.number().int().min(1),
+});
+export const PortalUploadBeginOutput = z.object({
+  fileId: uuid,
+  bucket: z.string(),
+  objectPath: z.string(),
+});
+
+export const PortalUploadConfirmInput = z.object({ ...inWorkspace, fileId: uuid });
+export const PortalUploadConfirmOutput = z.object({
+  fileId: uuid,
+  /** False when what arrived isn't allowed after all (too big, or not a PDF or photo): it was removed. */
+  accepted: z.boolean(),
+  refusal: z.object({ rule: z.string(), message: z.string() }).nullable(),
+  name: z.string(),
+  sizeBytes: z.number().int(),
+  mimeType: z.string(),
+});
+
+export const PortalFilesInput = z.object({
+  ...inWorkspace,
+  recordId: uuid.nullable().default(null),
+});
+export const PortalFileOut = z.object({
+  id: uuid,
+  name: z.string(),
+  mimeType: z.string().nullable(),
+  sizeBytes: z.number().nullable(),
+  /** The record it's on; null when it's on them. */
+  recordId: uuid.nullable(),
+  /** They added it. */
+  fromYou: z.boolean(),
+  locked: z.boolean(),
+  addedAt: isoDateTime,
+});
+export const PortalFilesOutput = z.object({ files: z.array(PortalFileOut) });
+
+export const FileShareToPortalInput = z.object({
+  ...inWorkspace,
+  fileId: uuid,
+  shared: z.boolean(),
+});
+export const FileShareToPortalOutput = z.object({
+  fileId: uuid,
+  shared: z.boolean(),
+  changed: z.boolean(),
+});

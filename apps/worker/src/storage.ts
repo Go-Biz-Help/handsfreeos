@@ -20,6 +20,11 @@ export interface ObjectStore {
   /** A short-lived link a provider can fetch (outbound picture messages). */
   signedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
   /**
+   * A one-time link to put one new object at `path` (a customer's upload from their portal, who has no session of
+   * their own with Storage). It works for two hours, once, and never replaces an object already there.
+   */
+  signedUploadUrl(bucket: string, path: string): Promise<string>;
+  /**
    * Whether Storage answers this key at all, for the line the worker logs as it starts. A key that is set but
    * not accepted looked exactly like a working one until a customer left a voicemail.
    */
@@ -106,6 +111,14 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
         );
       return data.signedUrl;
     },
+    async signedUploadUrl(bucket, path) {
+      const { data, error } = await client.storage.from(bucket).createSignedUploadUrl(path);
+      if (error || !data?.signedUrl)
+        throw new Error(
+          `storage signed upload url failed: ${credentialError(error?.message ?? 'no url')}`,
+        );
+      return data.signedUrl;
+    },
     async check(bucket) {
       // Listing an empty prefix touches the bucket and its rules without writing anything. An empty answer is
       // a pass: the question is whether Storage takes the key, not whether anything is in there yet.
@@ -128,5 +141,6 @@ export const unconfiguredStore: ObjectStore = {
   exists: notConfigured,
   upload: notConfigured,
   signedUrl: notConfigured,
+  signedUploadUrl: notConfigured,
   check: async () => ({ ok: false, error: 'SUPABASE_URL and SUPABASE_SECRET_KEY are not set' }),
 };

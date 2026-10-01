@@ -258,6 +258,7 @@ import {
   portalSessionEnd,
   portalSessionSeen,
 } from './portal-access';
+import { portalFileCommands } from './portal-files';
 import { jobAddVisit, jobSetStatus } from './job';
 import {
   aiTeammateCreate,
@@ -837,6 +838,8 @@ export const commands: readonly CommandDef[] = [
   portalCheckCode,
   portalSessionSeen,
   portalSessionEnd,
+  // Files in a customer's portal (round two, step 4).
+  ...portalFileCommands,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -981,6 +984,7 @@ export * from './money-ai';
 export * from './offer';
 export * from './chat-verify';
 export * from './portal-access';
+export * from './portal-files';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

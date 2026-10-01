@@ -645,6 +645,12 @@ export const files = app.table('files', {
   ...timestamps(),
   /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
   sealed: boolean('sealed').notNull().default(false),
+  /** The customer who added it from their portal; set by the worker alone (Real Estate round two). */
+  uploadedByPersonId: uuid('uploaded_by_person_id').references(() => people.id, {
+    onDelete: 'set null',
+  }),
+  /** Shown in the portal of the customers it's about (round two). */
+  portalVisible: boolean('portal_visible').notNull().default(false),
 });
 
 // ---------- Milestone 3: communication ----------
