@@ -1188,8 +1188,55 @@ export function scriptedListingFacts(message: string): { facts: ScriptedFact[] }
   return { facts };
 }
 
+/**
+ * What a buyer said worth remembering, read the plain way from <buyer_words>: each sentence that says what they need,
+ * can't stand, love, when they must move or what they can spend, quoted as written. Nothing already kept.
+ */
+export function scriptedBuyerMemory(message: string): {
+  items: { kind: string; words: string; quote: string; protected: boolean }[];
+} {
+  const words = unquote(quotedBlock(message, 'buyer_words') ?? '');
+  const kept = unquote(quotedBlock(message, 'already_kept') ?? '').toLowerCase();
+  const items: { kind: string; words: string; quote: string; protected: boolean }[] = [];
+  const sentences = words
+    .split('\n')
+    .map((l) => l.replace(/^\[[a-z]+ [0-9-]+\]\s*/, ''))
+    .flatMap((l) => l.split(/(?<=[.!?])\s+/))
+    .map((x) => x.trim())
+    .filter(Boolean);
+  for (const sentence of sentences) {
+    const kind = /\b(must have|have to have|need|needs)\b/i.test(sentence)
+      ? 'must_have'
+      : /\b(deal[- ]?breaker|absolutely no)\b/i.test(sentence)
+        ? 'deal_breaker'
+        : /\b(don[’']?t want|do not want|hate|can[’']?t stand|not a fan)\b/i.test(sentence)
+          ? 'dislikes'
+          : /\b(move by|move before|close by|close before|lease ends)\b/i.test(sentence)
+            ? 'timing'
+            : /(\$|\bbudget\b|pre-?approved|down payment)/i.test(sentence)
+              ? 'money'
+              : /\b(love|loved|want|would like|prefer)\b/i.test(sentence)
+                ? 'likes'
+                : null;
+    if (!kind) continue;
+    const said = sentence.replace(/[.!?]+$/, '');
+    if (kept.includes(said.toLowerCase())) continue;
+    items.push({
+      kind,
+      words: said.slice(0, 300),
+      quote: sentence.slice(0, 500),
+      protected: false,
+    });
+  }
+  return { items: items.slice(0, 20) };
+}
+
 export const LISTING_RULES: readonly ScriptRule[] = [
   { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
+  {
+    when: /Find what the buyer said they want\.$/,
+    json: (message) => scriptedBuyerMemory(message),
+  },
 ];
 
 export const SCRIPTED_RULES: readonly ScriptRule[] = [

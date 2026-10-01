@@ -32,6 +32,13 @@ import {
   milestoneReached,
 } from './client-updates';
 import { homeAdded } from './homes';
+import {
+  clientSpoke,
+  MEMORY_JOB,
+  memoryJob,
+  memoryRequested,
+  memoryWaitingChanged,
+} from './memory';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -176,7 +183,13 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.deal.closed': milestoneReached,
     // Round two: a home's facts, read from its pasted listing words.
     'realestate.home.added': homeAdded,
+    // Buyer memory: what the client says, read for what to remember (./memory.ts).
+    'message.received': clientSpoke,
+    'call.transcribed': clientSpoke,
+    'realestate.memory.requested': memoryRequested,
+    'realestate.memory.suggested': memoryWaitingChanged,
+    'realestate.memory.decided': memoryWaitingChanged,
   },
-  jobs: { [SWEEP]: runSweep },
+  jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob },
   onEnable: armSweep,
 };

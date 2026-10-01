@@ -7017,6 +7017,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.memory.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remember something a buyer wants or said (“A fenced yard for the dog”, “Must close by June 30”) on their deal. A person’s is kept; the AI’s waits for a person to confirm.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.added.
+         */
+        post: operations["command_realestate_memory_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.memory.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm or reject something the AI suggested about a buyer (with the words fixed if need be), or retire something that’s no longer true. Only a person decides.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.decided.
+         */
+        post: operations["command_realestate_memory_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.memory.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI to read what the buyer has said since it last looked, now, and suggest what to remember.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.memory.requested.
+         */
+        post: operations["command_realestate_memory_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.party.add": {
         parameters: {
             query?: never;
@@ -12591,6 +12651,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_homes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s remembered about a buyer on their deal: what they like, can’t stand, must have, their timing and money, each with the words it came from; and the AI’s suggestions waiting for a person.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_memory"];
         delete?: never;
         options?: never;
         head?: never;
@@ -28529,6 +28609,115 @@ export interface operations {
                         homeId: string;
                         /** @enum {string} */
                         status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    kind: "likes" | "dislikes" | "must_have" | "deal_breaker" | "timing" | "money" | "other";
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "suggested" | "confirmed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "confirm" | "reject" | "retire";
+                    /** Format: uuid */
+                    itemId: string;
+                    note?: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "confirmed" | "rejected" | "retired";
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        requested: boolean;
                     };
                 };
             };
@@ -45580,6 +45769,67 @@ export interface operations {
                             status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
                             statusNote: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeClosed?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "likes" | "dislikes" | "must_have" | "deal_breaker" | "timing" | "money" | "other";
+                            quote: string | null;
+                            sourceId: string | null;
+                            /** @enum {string} */
+                            sourceKind: "message" | "call" | "note" | "typed";
+                            /** @enum {string} */
+                            status: "suggested" | "confirmed" | "rejected" | "retired";
+                            /** @enum {string} */
+                            suggestedBy: "ai" | "person";
+                            words: string;
+                        }[];
+                        waiting: number;
                     };
                 };
             };

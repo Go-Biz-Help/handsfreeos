@@ -973,6 +973,32 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   step 13.
 - The stand-in model reads listings the plain way (`scriptedListingFacts`).
 
+### Step 7: buyer memory (server built, 2026-10-01)
+
+**As built** (`20261014000900_realestate_buyer_memory.sql`):
+
+- `memory_items`: one thing the buyer said (likes, can't stand, must have, deal-breaker, timing, money, other), in a
+  few words, with the quote it came from and where (a message, a call, a note), or typed in by a person. Suggested by
+  the AI or added by a person; confirmed, rejected or retired by a person. `deals.memory_read_through` is how far the
+  AI has read.
+- `realestate.memory.add`: a person's is kept; the AI's (the Assistant's `realestate_remember`) waits as a
+  suggestion. Words on the fair-housing list are refused, and the same thing twice is refused
+  (`realestate_memory_already`).
+- `realestate.memory.decide`: confirm (the words may be fixed), reject, or retire something no longer true. Only a
+  person, never the Assistant.
+- The worker reads a deal ten minutes after the client's message or transcribed call, once for a burst, or at once
+  when the agent asks (`realestate.memory.request`). It reads only what's new since it last looked (by when
+  HandsFreeOS got it, so a transcript that comes late is still read), oldest first, a batch at a time. It reads the
+  client's own messages (a website chat only once they proved who they are, as contact AI does; a private thread
+  only when it's this deal's), their call transcripts, and the team's notes on the deal or the client (never another
+  deal's).
+- `checkedMemory` keeps an item only when its quote is word for word in what was read, nothing on the fair-housing
+  list or that the model calls protected, and nothing already kept or turned down. Only a count of what was dropped
+  is kept, on the event. `realestate.memory.suggest` (the worker's) writes the rest as suggestions.
+- While suggestions wait, the deal's main agent has an `info` note on Home, linking to the deal's buyer tab; it
+  clears when none wait.
+- The stand-in model reads a buyer's sentences the plain way (`scriptedBuyerMemory`).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

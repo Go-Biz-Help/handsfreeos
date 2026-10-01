@@ -30,6 +30,7 @@ import {
   users,
   workspaces,
 } from '@hfos/db/schema';
+import type { MemoryKind } from './memory';
 import type { DealRole, DealLinkKind } from './words';
 
 export const addonRealestate = pgSchema('addon_realestate');
@@ -88,6 +89,8 @@ export const deals = addonRealestate.table(
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
+    /** How far the AI has read the client's words for buyer memory (round two). */
+    memoryReadThrough: ts('memory_read_through'),
   },
   (t) => [unique().on(t.workspaceId, t.recordId)],
 );
@@ -659,6 +662,35 @@ export const homeReactions = addonRealestate.table(
   ],
 );
 
+/** One thing the buyer said, with the words it came from; suggested by the AI, decided by a person (round two). */
+export const memoryItems = addonRealestate.table(
+  'memory_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull().$type<MemoryKind>(),
+    words: text('words').notNull(),
+    quote: text('quote'),
+    sourceKind: text('source_kind').notNull().$type<'message' | 'call' | 'note' | 'typed'>(),
+    sourceId: uuid('source_id'),
+    status: text('status').notNull().$type<'suggested' | 'confirmed' | 'rejected' | 'retired'>(),
+    suggestedBy: text('suggested_by').notNull().$type<'ai' | 'person'>(),
+    createdBy: userRef('created_by'),
+    decidedBy: userRef('decided_by'),
+    decidedAt: ts('decided_at'),
+    decidedNote: text('decided_note'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -681,4 +713,5 @@ export const REALESTATE_TABLES = {
   buyerProfileVersions,
   homes,
   homeReactions,
+  memoryItems,
 } as const;

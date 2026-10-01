@@ -19,6 +19,7 @@ import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
+import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { TERM_KEYS } from './terms';
 
@@ -1104,3 +1105,79 @@ export const HomeOut = z.object({
 });
 export const HomesInput = z.object({ ...inDeal, includeRemoved: z.boolean().default(false) });
 export const HomesOutput = z.object({ homes: z.array(HomeOut) });
+
+// ---------- buyer memory (round two) ----------
+
+export const MemoryAddInput = z.object({
+  ...inDeal,
+  kind: z.enum(MEMORY_KIND_KEYS),
+  words: z
+    .string()
+    .trim()
+    .min(1, 'Say what to remember.')
+    .max(300, 'Keep it under 300 characters.'),
+});
+export const MemoryAddOutput = z.object({
+  itemId: uuid,
+  status: z.enum(['suggested', 'confirmed']),
+});
+
+export const MemoryDecideInput = z.object({
+  workspaceId: uuid,
+  itemId: uuid,
+  /** confirm or reject a suggestion; retire one that's no longer true. */
+  decision: z.enum(['confirm', 'reject', 'retire']),
+  /** Confirming: the words as the agent put them, when they changed them. */
+  words: z.string().trim().min(1).max(300).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+export const MemoryDecideOutput = z.object({
+  itemId: uuid,
+  status: z.enum(['confirmed', 'rejected', 'retired']),
+  /** Suggestions still waiting on this deal. */
+  waiting: z.number().int(),
+});
+
+export const MemoryRequestInput = z.object({ ...inDeal });
+export const MemoryRequestOutput = z.object({ dealId: uuid, requested: z.boolean() });
+
+export const MemorySuggestInput = z.object({
+  workspaceId: uuid,
+  dealId: uuid,
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(MEMORY_KIND_KEYS),
+        words: z.string().trim().min(1).max(300),
+        quote: z.string().trim().min(1).max(500),
+        sourceKind: z.enum(['message', 'call', 'note']),
+        sourceId: uuid,
+      }),
+    )
+    .max(20),
+  /** How far it read: the newest of the words it was given. */
+  readThrough: isoDateTime,
+  unquoted: z.number().int().min(0).default(0),
+  protectedDropped: z.number().int().min(0).default(0),
+});
+export const MemorySuggestOutput = z.object({ added: z.number().int(), waiting: z.number().int() });
+
+export const MemoryItemOut = z.object({
+  id: uuid,
+  kind: z.enum(MEMORY_KIND_KEYS),
+  words: z.string(),
+  quote: z.string().nullable(),
+  sourceKind: z.enum(['message', 'call', 'note', 'typed']),
+  sourceId: uuid.nullable(),
+  status: z.enum(['suggested', 'confirmed', 'rejected', 'retired']),
+  suggestedBy: z.enum(['ai', 'person']),
+  createdBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  decidedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  decidedAt: isoDateTime.nullable(),
+  createdAt: isoDateTime,
+});
+export const MemoryListInput = z.object({ ...inDeal, includeClosed: z.boolean().default(false) });
+export const MemoryListOutput = z.object({
+  items: z.array(MemoryItemOut),
+  waiting: z.number().int(),
+});

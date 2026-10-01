@@ -201,6 +201,7 @@ export const realestateAddon = defineAddon({
     'buyer_profile_versions',
     'homes',
     'home_reactions',
+    'memory_items',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -258,6 +259,10 @@ export const realestateAddon = defineAddon({
       'realestate.home.facts_filled',
       'realestate.home.facts_confirmed',
       'realestate.home.status_changed',
+      'realestate.memory.added',
+      'realestate.memory.decided',
+      'realestate.memory.requested',
+      'realestate.memory.suggested',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -276,10 +281,16 @@ export const realestateAddon = defineAddon({
       'realestate.deal.closed',
       // A home with a listing's pasted words: the AI reads them for its facts.
       'realestate.home.added',
+      // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
+      'message.received',
+      'call.transcribed',
+      'realestate.memory.requested',
+      'realestate.memory.suggested',
+      'realestate.memory.decided',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
-  jobs: ['realestate.sweep'],
+  jobs: ['realestate.sweep', 'realestate.memory_suggest'],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
