@@ -174,6 +174,11 @@ export interface RequestMeta {
   readonly confirmedAt?: Date | null;
   /** The app build that sent it. */
   readonly appVersion?: string | null;
+  /**
+   * The view the request is in (20261018000100), from the `x-hfos-view-as` header: a look-up in that view's business
+   * is read as the teammate while the view holds, and a change there is refused. Anywhere else it changes nothing.
+   */
+  readonly viewAs?: string | null;
 }
 
 export type ScopeRef =
@@ -201,6 +206,11 @@ export interface ResolvedScope {
    * session. Look-ups only: a command never runs in one, and nothing here can write.
    */
   readonly viewAs?: { readonly sessionId: string } | null;
+  /**
+   * Set when the request is read through a view (20261018000100): the scope, the actor and every rule are the
+   * teammate's, and `viewerId` is who is looking. Look-ups only: a command never runs in one.
+   */
+  readonly teammateView?: { readonly viewId: string; readonly viewerId: string } | null;
 }
 
 export interface EmitInput {

@@ -1,6 +1,8 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
-import { APP_CLIENT, APP_HEADERS } from '@hfos/core';
+import { APP_CLIENT, APP_HEADERS, VIEW_AS_HEADER } from '@hfos/core';
 import * as Crypto from 'expo-crypto';
+
+import { currentView } from '@/view-as/state';
 
 import { appVersion } from './app-version';
 import { session } from './auth';
@@ -45,6 +47,10 @@ export function createAppApi(
       request.headers.set(APP_HEADERS.client, APP_CLIENT);
       request.headers.set(APP_HEADERS.appVersion, appVersion());
       saysWhichCommandAndWhen(request);
+      // Viewing as a teammate (20261018000100): HandsFreeOS answers as them, and refuses a change in that business.
+      const view = currentView();
+      if (view && !request.headers.has(VIEW_AS_HEADER))
+        request.headers.set(VIEW_AS_HEADER, view.viewId);
       return request;
     },
   });

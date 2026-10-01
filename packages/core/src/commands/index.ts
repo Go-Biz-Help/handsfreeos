@@ -4,6 +4,7 @@ import { reviewCommands } from './review';
 import { templateCommands } from './template';
 import { formResponseCommands } from './form-response';
 import { supportStaffCommands } from './support-staff';
+import { teammateViewCommands } from './teammate-view';
 import { supportTicketCommands } from './support';
 import { ideaCommands } from './ideas';
 import { activityDelete, activityLog, activityUpdate } from './activity';
@@ -553,6 +554,7 @@ export {
   waitlistJoinOnline,
 };
 export { hashInvitationToken } from './invitation.accept';
+export { teammateViewEnd, teammateViewStart } from './teammate-view';
 export { INVITATION_TTL_MS } from './membership.invite';
 export { DEFAULT_STAGES } from './pipeline.create';
 
@@ -876,6 +878,8 @@ export const commands: readonly CommandDef[] = [
   ...migrationCommands,
   ...supportTicketCommands,
   ...supportStaffCommands,
+  // Viewing the app as a teammate, read-only (20261018000100).
+  ...teammateViewCommands,
   ...formCommands,
   ...templateCommands,
   ...reviewCommands,

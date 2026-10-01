@@ -32,6 +32,8 @@ export const DESK_PHONE_WORDS = {
   lookOnWeb: 'Look at their business on the web',
   lookOnWebDetail: 'Read-only, with a reason and a time limit, as on the web',
   openAsOwnerOnWeb: 'Open as owner on the web',
+  /** Seeing the app exactly as one of a business's people does (20261018000100), read-only, on the web. */
+  viewAsOnWeb: 'View as one of them on the web',
   notifications: 'Notifications',
   notificationsDetail: 'New support tickets on this phone',
   thisPhone: 'This phone',

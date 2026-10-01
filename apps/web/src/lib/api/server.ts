@@ -1,9 +1,18 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
-import { ADDON_CATALOG, NO_SUCH_ROUTE, effectivePermissions, findAddon } from '@hfos/core';
+import {
+  ADDON_CATALOG,
+  NO_SUCH_ROUTE,
+  VIEW_AS_HEADER,
+  effectivePermissions,
+  findAddon,
+  type TeammateViewSession,
+} from '@hfos/core';
+import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { publicEnv } from '../env';
 import { getServerSession } from '../supabase/server';
+import { VIEW_AS_COOKIE, parseViewCookie, type ViewCookie } from '../view-as';
 import { ApiError, errorMessage, unwrap } from './errors';
 import { refusalDigest } from './page-refusals';
 import type { Me, WorkspaceGet, WorkspaceSummary } from './types';
@@ -44,16 +53,42 @@ function isNoSuchRoute(body: unknown): boolean {
   return isApiErrorBody(body) && body.error.rule === NO_SUCH_ROUTE;
 }
 
-/** Typed API client for Server Components; redirects to sign-in when there is no session. */
-export async function apiServer(): Promise<{ api: ApiClient; userId: string; email: string }> {
+/**
+ * Typed API client for Server Components; redirects to sign-in when there is no session.
+ *
+ * On a business's pages that are viewing as a teammate (20261018000100), every request names the view, and `userId`
+ * is the teammate's, so a page's "you" (assigned to you, your calendar) is theirs as the API's answers are. `viewing`
+ * says so; `signedInAs` is always the person signed in.
+ */
+export async function apiServer(): Promise<{
+  api: ApiClient;
+  userId: string;
+  email: string;
+  signedInAs: string;
+  viewing: ViewCookie | null;
+}> {
   const session = await getServerSession();
   if (!session) redirect('/sign-in');
+  const viewing = parseViewCookie((await cookies()).get(VIEW_AS_COOKIE)?.value);
   const api = createApiClient({
     baseUrl: publicEnv.apiUrl,
     getToken: () => session.accessToken,
     fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
   });
-  return { api, userId: session.userId, email: session.email };
+  if (viewing)
+    api.use({
+      onRequest({ request }) {
+        request.headers.set(VIEW_AS_HEADER, viewing.viewId);
+        return request;
+      },
+    });
+  return {
+    api,
+    userId: viewing?.personId ?? session.userId,
+    email: session.email,
+    signedInAs: session.userId,
+    viewing,
+  };
 }
 
 /**
@@ -82,6 +117,13 @@ export interface WorkspaceShell {
     readonly expiresAt: string | null;
     readonly acting: boolean;
   } | null;
+  /**
+   * Set while the person is viewing the app as a teammate here (20261018000100): `current` is the business as the
+   * teammate sees it, their role and permissions, read through the view.
+   */
+  readonly teammateView: TeammateViewSession | null;
+  /** The page carries a view that no longer holds (stopped elsewhere, or no longer theirs to see): forget it. */
+  readonly staleView: boolean;
 }
 
 /**
@@ -91,15 +133,26 @@ export interface WorkspaceShell {
  */
 export const getWorkspaceShell = cache(async (workspaceId: string): Promise<WorkspaceShell> => {
   const me = await getMe();
+  const { api, viewing } = await apiServer();
+  // A view the page carries holds only while the API says it is the one open here.
+  let teammateView: TeammateViewSession | null = null;
+  if (viewing) {
+    const open = unwrap(
+      await api.POST('/v1/queries/teammate_view.current', { body: { workspaceId } }),
+    ).view;
+    if (open?.id === viewing.viewId) teammateView = open;
+  }
+  const staleView = !!viewing && !teammateView;
   const mine = me.workspaces.find((w) => w.id === workspaceId);
-  if (mine) return { current: mine, viewingAs: null };
+  if (mine && !teammateView) return { current: mine, viewingAs: null, teammateView, staleView };
   /**
    * A HandsFreeOS support person looking at this business (M13). They are not a member and never become
    * one: the API serves their look-ups read-only under an open session, and refuses every command. The
    * banner says so, and the business has the same fact in its own audit log. The founder is the one exception:
    * their session works as the owner would, and the business is not told (20261013002100).
+   *
+   * Anyone viewing as a teammate gets the business as the API reads it through the view: the teammate's.
    */
-  const { api } = await apiServer();
   // Not one of ours (including users with no workspaces at all, e.g. after being removed):
   // behave like the API (404), never confirm it exists. /app sends workspace-less users to onboarding.
   let workspace: WorkspaceGet | null = null;
@@ -109,6 +162,7 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
+  if (mine) return { current: workspace!.workspace, viewingAs: null, teammateView, staleView };
   const looking = unwrap(
     await api.POST('/v1/queries/platform.view_as.current', { body: {} }),
   ).session;
@@ -119,8 +173,9 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
     expiresAt: looking.expiresAt,
     acting: looking.acting,
   };
-  // The founder working in it as its owner: the API answers as it would an owner, so the shell shows what it says.
-  if (looking.acting) return { current: w, viewingAs };
+  // The founder working in it as its owner, or HandsFreeOS viewing it as a teammate: the API answers as it would
+  // for them, so the shell shows what it says.
+  if (looking.acting || teammateView) return { current: w, viewingAs, teammateView, staleView };
   return {
     // They see every place the business has, as before (0106), its add-ons' included (0108): the API decides
     // what each look-up may read, and refuses every change, so nothing here widens what they can do.
@@ -135,5 +190,7 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
       ],
     },
     viewingAs,
+    teammateView: null,
+    staleView,
   };
 });

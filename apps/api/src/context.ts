@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readAppRequest, type RequestMeta } from '@hfos/core/server';
+import { readAppRequest, VIEW_AS_HEADER, type RequestMeta } from '@hfos/core/server';
 import type { FastifyRequest } from 'fastify';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,6 +17,7 @@ export function correlationIdFor(header: string | string[] | undefined): string 
  */
 export function requestMeta(req: FastifyRequest): RequestMeta {
   const reason = req.headers['x-hfos-reason'];
+  const viewAs = req.headers[VIEW_AS_HEADER];
   const app = readAppRequest(req.headers, new Date());
   return {
     correlationId: req.id,
@@ -28,6 +29,8 @@ export function requestMeta(req: FastifyRequest): RequestMeta {
         ? req.headers['user-agent'].slice(0, 512)
         : null,
     reason: typeof reason === 'string' ? reason.slice(0, 500) : null,
+    // The view the request is in (20261018000100); the kernel asks the database whether it is the caller's.
+    viewAs: typeof viewAs === 'string' && UUID.test(viewAs) ? viewAs.toLowerCase() : null,
     ...(app ?? {}),
   };
 }

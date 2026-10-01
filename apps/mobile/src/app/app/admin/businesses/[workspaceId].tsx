@@ -29,7 +29,7 @@ import { desk, useLive, type Ok } from '@/admin/live';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import { DeskWaiting, Line, Section, Stats } from '@/components/admin/bits';
 import { deskHref, useDesk, useDeskCan } from '@/components/admin/staff-context';
-import { Eye, KeyRound } from '@/components/icons';
+import { Eye, KeyRound, UserRoundSearch } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -152,6 +152,18 @@ export default function Business() {
               <Text className="text-[13.5px] text-text-3">{deskLastActive(p.lastActiveAt)}</Text>
             </View>
           ))}
+          {/* The web's page for the business has View as beside each of them: the phone holds no copy of theirs. */}
+          {canLook && detail.people.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={UserRoundSearch}
+              onPress={() => void openWeb(`/admin/businesses/${b.workspaceId}`)}
+              testID="business-view-as-on-web"
+            >
+              {DESK_PHONE_WORDS.viewAsOnWeb}
+            </Button>
+          ) : null}
         </Section>
 
         <WalletSection

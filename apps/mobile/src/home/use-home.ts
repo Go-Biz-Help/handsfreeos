@@ -15,6 +15,8 @@ import { SENT_SHOWN_MS } from '@/changes/rules';
 import { api } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
+import { sees } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 
 import { buildHome, type HomeList } from './build';
 import {
@@ -132,11 +134,21 @@ export function useHome(
   scope: AttentionScope | null,
   now: number,
 ): HomeList & { loading: boolean } {
-  const { business, userId } = useBusiness();
+  const { business, me } = useBusiness();
+  // Who Home is for: the person, or the teammate they're viewing as (20261018000100), whose items alone it shows.
+  const userId = me.user.id;
+  const lens = useLens();
   const who = useGrants();
   const ws = business.id;
   const since = React.useMemo(() => new Date(Date.now() - SENT_SHOWN_MS).toISOString(), []);
-  const items = useQuery<SyncedAttentionRow>(ATTENTION_SQL, [ws]);
+  const synced = useQuery<SyncedAttentionRow>(ATTENTION_SQL, [ws]);
+  const items = React.useMemo(
+    () => ({
+      data: synced.data.filter((r) => sees(lens?.attention, r.id)),
+      isLoading: synced.isLoading,
+    }),
+    [synced.data, synced.isLoading, lens],
+  );
   const approvals = useQuery<SyncedApproval>(APPROVALS_SQL, [ws, ws]);
   const users = useQuery<{ id: string; full_name: string | null; email: string | null }>(USERS_SQL);
   const outbox = useQuery<OutboxRow>(HOME_OUTBOX_SQL, [ws, since]);

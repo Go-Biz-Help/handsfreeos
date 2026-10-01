@@ -1,12 +1,18 @@
 import * as React from 'react';
 
 import type { Business, Me } from '@/lib/businesses';
+import type { PhoneView } from '@/view-as/state';
 
 export interface BusinessContextValue {
+  /** Who is signed in, always: what this phone keeps for them (their choices, their lock) is under it. */
   readonly userId: string;
+  /** Their businesses, and who the screens are for: the teammate, while viewing as one. */
   readonly me: Me;
+  /** The business, with the role and permissions the screens follow: the teammate's, while viewing as one. */
   readonly business: Business;
   readonly openSwitcher: () => void;
+  /** Viewing the app as a teammate here (20261018000100): read-only, until stopped. */
+  readonly viewing?: PhoneView | null;
 }
 
 const BusinessContext = React.createContext<BusinessContextValue | null>(null);

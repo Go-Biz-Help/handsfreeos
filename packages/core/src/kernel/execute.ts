@@ -28,6 +28,7 @@ import type {
   CommandContext,
   CommandDef,
   EmitInput,
+  HumanActor,
   MachineActor,
   QueryDef,
   RequestMeta,
@@ -117,6 +118,70 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
     default:
       return { organizationId: null, workspaceId: null, workspaceRole: null, orgRole: null };
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The view a request names (20261018000100), when it is the caller's own and for this business. */
+interface NamedView {
+  readonly viewId: string;
+  readonly personId: string;
+  readonly personEmail: string;
+  readonly personName: string;
+  /** Not ended, and the caller may still view as them (private.may_view_as). */
+  readonly live: boolean;
+}
+
+/**
+ * Asked as the caller, before anything is read: a view that isn't theirs, or is another business's, isn't one this
+ * request is in, and the request is theirs as usual.
+ */
+async function namedView(tx: Tx, meta: RequestMeta, ref: ScopeRef): Promise<NamedView | null> {
+  if (!meta.viewAs || !UUID.test(meta.viewAs) || ref.kind !== 'workspace') return null;
+  const [row] = await rows<{
+    workspace_id: string;
+    person_id: string;
+    person_email: string;
+    person_name: string | null;
+    live: boolean;
+  }>(
+    tx,
+    sql`select workspace_id, person_id, person_email, person_name, live
+        from private.teammate_view(${meta.viewAs}::uuid)`,
+  );
+  if (!row || row.workspace_id !== ref.workspaceId) return null;
+  return {
+    viewId: meta.viewAs,
+    personId: row.person_id,
+    personEmail: row.person_email,
+    personName: row.person_name?.trim() || row.person_email,
+    live: row.live,
+  };
+}
+
+/**
+ * From here on the transaction reads as the teammate: their claims, naming who is looking, so every rule answers as it
+ * would for them and private.read_through_a_view() knows someone else is (their own mail stays theirs). Only ever after
+ * namedView() said, as the viewer, that the view is theirs and holds.
+ */
+async function readAsTeammate(tx: Tx, viewer: HumanActor, view: NamedView): Promise<HumanActor> {
+  const claims = { sub: view.personId, email: view.personEmail, hfos_viewer: viewer.userId };
+  const payload = JSON.stringify({ role: 'authenticated', aud: 'authenticated', ...claims });
+  await tx.execute(sql`select set_config('request.jwt.claims', ${payload}, true)`);
+  return { type: 'human', userId: view.personId, email: view.personEmail, claims };
+}
+
+/** A view changes nothing; one that has ended says so, so the screen can go back to being the viewer's. */
+function viewRefusal(view: NamedView): HfosError {
+  return view.live
+    ? HfosError.forbidden(
+        `You’re viewing as ${view.personName}, so nothing here can be changed. Stop viewing (at the top of the screen) to work as yourself.`,
+        'teammate_view_read_only',
+      )
+    : HfosError.forbidden(
+        `Your view as ${view.personName} has ended, so this wasn’t saved. Refresh to work as yourself.`,
+        'teammate_view_ended',
+      );
 }
 
 /**
@@ -464,6 +529,9 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   let replayed: HfosError | null = null;
   try {
     const outcome = await asUser(db, actor.claims, async (tx) => {
+      // Viewing as a teammate is for seeing only (20261018000100): nothing in that business is changed through it.
+      const view = await namedView(tx, meta, scopeRef);
+      if (view) throw viewRefusal(view);
       const scope = await resolveScope(tx, scopeRef);
       // Looking at a business never changes it. The role behind a look is null, so nothing would have
       // passed a permission check anyway; this says so plainly, and covers the commands that ask for none.
@@ -611,7 +679,7 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
 
 /**
  * The Assistant is the one look-up a staff member viewing a business does not get: it is the door to
- * doing things, and view-as is for seeing only.
+ * doing things, and view-as is for seeing only. Nor does anyone viewing as a teammate: their chats are their own.
  */
 const VIEW_AS_BLOCKED: ReadonlySet<string> = new Set(['assistant.use']);
 
@@ -625,8 +693,8 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
   assertActorAllowed(query, actor);
   const input = parseInput(query.input, rawInput);
   const scopeRef = query.scope(input);
-  const run = async (tx: Tx, scope: ResolvedScope): Promise<z.output<O>> => {
-    const result = await query.handler({ tx, actor, scope, meta }, input);
+  const run = async (tx: Tx, scope: ResolvedScope, asWho: Actor = actor): Promise<z.output<O>> => {
+    const result = await query.handler({ tx, actor: asWho, scope, meta }, input);
     return query.output.parse(result) as z.output<O>;
   };
   try {
@@ -643,7 +711,14 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
       );
     }
     return await asUser(db, actor.claims, async (tx) => {
-      const scope = await resolveScope(tx, scopeRef);
+      // Through a view that holds, the look-up is the teammate's from here on: their scope, their rules. One that
+      // has ended reads as the viewer again, and the screen finds out from teammate_view.current.
+      const view = await namedView(tx, meta, scopeRef);
+      const reader = view?.live ? await readAsTeammate(tx, actor, view) : actor;
+      const resolved = await resolveScope(tx, scopeRef);
+      const scope: ResolvedScope = view?.live
+        ? { ...resolved, teammateView: { viewId: view.viewId, viewerId: actor.userId } }
+        : resolved;
       // A turned-off add-on's data is hidden until it's back on (the owner's decision, 2026-09-28), from people
       // working in the business and from anyone looking at it.
       await assertAddonRuns(tx, query.addon ?? null, scope.workspaceId, false);
@@ -652,9 +727,10 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
         // rules are the whole answer — except the Assistant, which is never part of looking.
         if (query.permission && VIEW_AS_BLOCKED.has(query.permission)) throw businessNotThere();
       } else if (query.permission) {
+        if (scope.teammateView && VIEW_AS_BLOCKED.has(query.permission)) throw businessNotThere();
         assertPermission(scope, query.permission);
       }
-      return run(tx, scope);
+      return run(tx, scope, reader);
     });
   } catch (e) {
     throw translateDbError(e);

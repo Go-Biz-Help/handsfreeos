@@ -18,6 +18,8 @@ import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
 import { useNetwork } from '@/lib/network';
+import { seesThread } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 
 import { useConversationNumber, type BusinessNumber } from './cell';
 import {
@@ -99,7 +101,9 @@ export function useConversation(conversationId: string): {
     business.id,
     conversationId,
   ]);
-  const row = rows[0];
+  // Viewing as a teammate (20261018000100), a thread they don't see isn't here.
+  const lens = useLens();
+  const row = rows[0] && seesThread(lens, rows[0], me.user.id) ? rows[0] : undefined;
   const { data: people } = useQuery<{
     id: string;
     first_name: string | null;

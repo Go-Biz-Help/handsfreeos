@@ -94,7 +94,7 @@ export const NEXT_APPOINTMENT_SQL = `
 
 /** What a customer's live invoices still come to, worked out on the phone (a generated column never arrives). */
 export const RECORD_INVOICES_SQL = `
-  SELECT total_cents, amount_paid_cents, amount_refunded_cents FROM invoices
+  SELECT id, total_cents, amount_paid_cents, amount_refunded_cents FROM invoices
   WHERE workspace_id = ? AND person_id = ? AND status NOT IN ('draft', 'void')`;
 
 /** The business: its time zone and settings. */

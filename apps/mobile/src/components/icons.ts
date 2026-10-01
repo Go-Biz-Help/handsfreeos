@@ -150,6 +150,7 @@ export { default as UserMinus } from 'lucide-react-native/icons/user-minus';
 export { default as UserPen } from 'lucide-react-native/icons/user-pen';
 export { default as UserPlus } from 'lucide-react-native/icons/user-plus';
 export { default as UserRound } from 'lucide-react-native/icons/user-round';
+export { default as UserRoundSearch } from 'lucide-react-native/icons/user-round-search';
 export { default as Users } from 'lucide-react-native/icons/users';
 export { default as UserX } from 'lucide-react-native/icons/user-x';
 export { default as Voicemail } from 'lucide-react-native/icons/voicemail';

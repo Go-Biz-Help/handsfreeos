@@ -89,6 +89,13 @@ function describeAction(e: AuditEntry): string {
       return e.entityType === 'invitation'
         ? `accepted an invitation and joined as ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`
         : 'joined the workspace';
+    // Viewing the app as a teammate (20261018000100): someone in the business, and HandsFreeOS support inside a look.
+    case 'teammate_view.start':
+      return `viewed the app as ${s(e.after?.person) || 'a teammate'}, read-only`;
+    case 'platform.teammate_view.started':
+      return `let ${s(e.after?.who) || 'HandsFreeOS support'} view the app as ${s(e.after?.person) || 'one of your team'}, read-only`;
+    case 'platform.view_as.started':
+      return `let ${s(e.after?.who) || 'HandsFreeOS support'} look at the business read-only${s(e.after?.reason) ? `: “${s(e.after?.reason)}”` : ''}`;
     case 'membership.change_role':
       return `changed ${who(e)}'s role from ${ROLE[s(e.before?.role)] ?? s(e.before?.role)} to ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`;
     // Milestone 10: a person's own account, handing a business over, and their cell
@@ -1760,6 +1767,8 @@ export function auditCategory(action: string): AuditCategory {
   // A person's own account (deleting it hands a business over) and their cell phone: about the team (M10).
   if (
     action.startsWith('membership.') ||
+    action.startsWith('teammate_view.') ||
+    action.startsWith('platform.teammate_view.') ||
     action.startsWith('account.') ||
     action.startsWith('user_phone.') ||
     action === 'organization.add_owner'

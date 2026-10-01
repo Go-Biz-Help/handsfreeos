@@ -19,6 +19,9 @@ import { useBusiness } from '@/components/shell/business-context';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 
+import { seesThread } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
+
 import { movedHereVersion, subscribeMovedHere, withMovedHere, withOwnChanges } from './outbox';
 import {
   CONVERSATIONS_SQL,
@@ -134,18 +137,22 @@ export function useConversations(): {
   const outbox = useInboxOutbox();
   const members = useMembers();
   const moved = useMovedHere();
+  // Viewing as a teammate (20261018000100): only the threads they see.
+  const lens = useLens();
   return React.useMemo(() => {
     void moved; // Only says to work it out again.
     const names = new Map(members.map((m) => [m.id, m.fullName]));
     const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
     return {
-      items: data.map((row) => ({
-        conversation: withMovedHere(withOwnChanges(conversationOf(row), outbox, self, names)),
-        draftWaiting: Number(row.draft_waiting ?? 0) > 0,
-      })),
+      items: data
+        .filter((row) => seesThread(lens, row, me.user.id))
+        .map((row) => ({
+          conversation: withMovedHere(withOwnChanges(conversationOf(row), outbox, self, names)),
+          draftWaiting: Number(row.draft_waiting ?? 0) > 0,
+        })),
       loading: isLoading,
     };
-  }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading, moved]);
+  }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading, moved, lens]);
 }
 
 /** Whether the person has an address of their own here (M19), so My mail shows before any mail has come to it. */
@@ -201,9 +208,14 @@ export function useLanes(
     c?.counterpart ?? '',
   ]);
   const outbox = useInboxOutbox();
+  const lens = useLens();
   return React.useMemo(() => {
     if (!c) return [];
     const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
-    return lanesOf(data.map((row) => withOwnChanges(conversationOf(row), outbox, self)));
-  }, [c, data, outbox, me.user.id, me.user.fullName, me.user.email]);
+    return lanesOf(
+      data
+        .filter((row) => seesThread(lens, row, me.user.id))
+        .map((row) => withOwnChanges(conversationOf(row), outbox, self)),
+    );
+  }, [c, data, outbox, me.user.id, me.user.fullName, me.user.email, lens]);
 }

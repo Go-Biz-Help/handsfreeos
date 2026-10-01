@@ -7,6 +7,7 @@ import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
+import { teammateViewQueries } from './teammate-view';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
@@ -208,6 +209,8 @@ export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   ...supportQueries,
   ...platformQueries,
+  // Viewing the app as a teammate (20261018000100).
+  ...teammateViewQueries,
   ...foundingQueries,
   me,
   accountDeletionCheck,
@@ -389,6 +392,7 @@ export * from './migration';
 export * from './number-import';
 export * from './support';
 export * from './platform';
+export * from './teammate-view';
 export * from './wallet';
 export * from './port';
 export * from './branded-domain';

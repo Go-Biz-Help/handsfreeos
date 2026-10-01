@@ -24,6 +24,8 @@ import { Screen } from '@/components/shell/screen';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { startCall } from '@/inbox/calls';
+import { sees } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 
 /**
  * A customer's own screen — the canvas's 360 view. Everything on it is read from the phone's copy, so it opens with no
@@ -49,10 +51,13 @@ export default function PersonScreen() {
   const onSheet = (which: 'note' | 'tags' | 'task' | 'photo', open: boolean) =>
     setSheets((all) => ({ ...all, [which]: open }));
 
-  const { data: conversations } = useQuery<{ id: string; channel: string }>(
+  const { data: allConversations } = useQuery<{ id: string; channel: string }>(
     PERSON_CONVERSATIONS_SQL,
     [business.id, personId],
   );
+  // Viewing as a teammate (20261018000100): Text and Email open only threads they see.
+  const lens = useLens();
+  const conversations = allConversations.filter((c) => sees(lens?.conversations, c.id));
   const threadFor = (channel: 'sms' | 'email') =>
     conversations.find((c) => c.channel === channel)?.id ??
     (channel === 'sms' ? undefined : conversations.find((c) => c.channel === 'chat')?.id);

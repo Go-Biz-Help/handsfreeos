@@ -527,6 +527,8 @@ describe('registry', () => {
       'support.staff.save_profile',
       'platform.view_as.start',
       'platform.view_as.end',
+      'teammate_view.start',
+      'teammate_view.end',
       // Milestone 15: forms, surveys and quizzes.
       'form.create',
       'form.save_draft',
@@ -671,6 +673,8 @@ describe('registry', () => {
       'platform.view_as.current',
       'platform.rates',
       'platform.wallet.get',
+      'teammate_view.current',
+      'teammate_view.lens',
       'founding.counts',
       'platform.founding',
       'founding.mine',
