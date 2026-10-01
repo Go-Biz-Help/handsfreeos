@@ -34,6 +34,7 @@ export * from './messaging/policies';
 export * from './messaging/preflight';
 export * from './messaging/sms';
 export * from './messaging/rcs';
+export * from './messaging/video-link';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
 export * from './messaging/number-import';

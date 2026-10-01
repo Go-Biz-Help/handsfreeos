@@ -113,8 +113,9 @@ sender_name = "HandsFreeOS"
 
 [storage]
 enabled = true
-# The maximum file size allowed (e.g. "5MB", "500KB").
-file_size_limit = "50MiB"
+# The maximum file size allowed (e.g. "5MB", "500KB"). 250 MB: a customer's full-quality video sent through a video
+# link (20261018000200). The hosted project's own limit is set in its dashboard (Storage → Settings), not here.
+file_size_limit = "250MiB"
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
