@@ -3,7 +3,7 @@ import type { Tx } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
 
 /**
- * Keeps a customer's yes to the separate box for offers (20261013002300), where it was ticked.
+ * Keeps a customer's yes to the separate box for offers (20261015000200), where it was ticked.
  *
  * Never over a STOP: a customer who stopped texts, or turned offers down, stays that way until they say
  * otherwise themselves. Server-only: it writes in the caller's transaction.

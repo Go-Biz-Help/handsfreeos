@@ -454,7 +454,7 @@ export const people = app.table('people', {
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
   smsConsentAt: ts('sms_consent_at'),
   smsConsentSource: text('sms_consent_source'),
-  /** The separate, optional box for offers (20261013002300). STOP on `smsConsent` still stops everything. */
+  /** The separate, optional box for offers (20261015000200). STOP on `smsConsent` still stops everything. */
   offersConsent: smsConsent('offers_consent').notNull().default('unknown'),
   offersConsentAt: ts('offers_consent_at'),
   offersConsentSource: text('offers_consent_source'),
@@ -939,7 +939,7 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
 });
 
 /**
- * The texting registration as the business fills it in (20261013002200): the wizard's answers, one row per
+ * The texting registration as the business fills it in (20261015000100): the wizard's answers, one row per
  * business, until it is sent. `registration.submit` deletes it.
  */
 export const registrationDrafts = app.table('registration_drafts', {
