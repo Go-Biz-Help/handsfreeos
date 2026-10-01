@@ -35,7 +35,7 @@ type WorkflowRow = SyncedWorkflowApprovalRow & {
 /** The workflow approvals waiting for this person, newest first, less the ones decided on this phone. */
 export function useWaitingWorkflowApprovals(now: number): readonly ApprovalFacts[] {
   const { business, me } = useBusiness();
-  // The person's, or the teammate's they're viewing as (20261016000200).
+  // The person's, or the teammate's they're viewing as (20261018000100).
   const userId = me.user.id;
   const who = useGrants();
   const { data } = useQuery<WorkflowRow>(WORKFLOW_APPROVALS_SQL, [business.id]);

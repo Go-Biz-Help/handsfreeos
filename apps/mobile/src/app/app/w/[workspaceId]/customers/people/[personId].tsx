@@ -55,7 +55,7 @@ export default function PersonScreen() {
     PERSON_CONVERSATIONS_SQL,
     [business.id, personId],
   );
-  // Viewing as a teammate (20261016000200): Text and Email open only threads they see.
+  // Viewing as a teammate (20261018000100): Text and Email open only threads they see.
   const lens = useLens();
   const conversations = allConversations.filter((c) => sees(lens?.conversations, c.id));
   const threadFor = (channel: 'sms' | 'email') =>

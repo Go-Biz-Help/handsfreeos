@@ -101,7 +101,7 @@ export function useConversation(conversationId: string): {
     business.id,
     conversationId,
   ]);
-  // Viewing as a teammate (20261016000200), a thread they don't see isn't here.
+  // Viewing as a teammate (20261018000100), a thread they don't see isn't here.
   const lens = useLens();
   const row = rows[0] && seesThread(lens, rows[0], me.user.id) ? rows[0] : undefined;
   const { data: people } = useQuery<{

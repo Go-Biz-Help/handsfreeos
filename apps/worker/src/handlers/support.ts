@@ -146,7 +146,7 @@ export const onViewAsStarted: EventHandler = async (ctx) => {
 };
 
 /**
- * A support person, inside a look, started viewing the app as someone in the business (20261016000200). The business
+ * A support person, inside a look, started viewing the app as someone in the business (20261018000100). The business
  * is told as it is of the look: in its own audit log, who from HandsFreeOS and as whom. Not the founder's.
  */
 export const onTeammateViewStarted: EventHandler = async (ctx) => {

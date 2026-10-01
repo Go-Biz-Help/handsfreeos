@@ -126,7 +126,7 @@ export interface ChangesDeps {
   readonly log?: (message: string, error?: unknown) => void;
   /**
    * Why no change can be made for this input now, or null: the person is viewing the app as a teammate in its
-   * business (20261016000200), where nothing is changed. Asked before anything is kept or sent.
+   * business (20261018000100), where nothing is changed. Asked before anything is kept or sent.
    */
   readonly refuse?: (input: unknown) => string | null;
 }

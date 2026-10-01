@@ -47,7 +47,7 @@ export function createAppApi(
       request.headers.set(APP_HEADERS.client, APP_CLIENT);
       request.headers.set(APP_HEADERS.appVersion, appVersion());
       saysWhichCommandAndWhen(request);
-      // Viewing as a teammate (20261016000200): HandsFreeOS answers as them, and refuses a change in that business.
+      // Viewing as a teammate (20261018000100): HandsFreeOS answers as them, and refuses a change in that business.
       const view = currentView();
       if (view && !request.headers.has(VIEW_AS_HEADER))
         request.headers.set(VIEW_AS_HEADER, view.viewId);

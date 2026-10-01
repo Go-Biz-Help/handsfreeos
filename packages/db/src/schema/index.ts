@@ -3718,7 +3718,7 @@ export const memberPermissionOverrides = app.table(
 );
 
 /**
- * Someone viewing the app as a teammate (20261016000200): read-only, until they stop. The API reads a viewing request
+ * Someone viewing the app as a teammate (20261018000100): read-only, until they stop. The API reads a viewing request
  * as the teammate once private.teammate_view() says the view is the caller's and still holds. Each person reads only
  * their own; the business learns of a view from its audit log.
  */

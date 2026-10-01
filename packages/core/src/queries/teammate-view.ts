@@ -1,5 +1,5 @@
 /**
- * Viewing the app as a teammate (20261016000200): whether a view is open, and what the phone needs to show its copy
+ * Viewing the app as a teammate (20261018000100): whether a view is open, and what the phone needs to show its copy
  * of the business through one.
  */
 import { rows, sql } from '@hfos/db/client';

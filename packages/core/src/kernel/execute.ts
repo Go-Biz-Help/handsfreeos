@@ -122,7 +122,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The view a request names (20261016000200), when it is the caller's own and for this business. */
+/** The view a request names (20261018000100), when it is the caller's own and for this business. */
 interface NamedView {
   readonly viewId: string;
   readonly personId: string;
@@ -529,7 +529,7 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   let replayed: HfosError | null = null;
   try {
     const outcome = await asUser(db, actor.claims, async (tx) => {
-      // Viewing as a teammate is for seeing only (20261016000200): nothing in that business is changed through it.
+      // Viewing as a teammate is for seeing only (20261018000100): nothing in that business is changed through it.
       const view = await namedView(tx, meta, scopeRef);
       if (view) throw viewRefusal(view);
       const scope = await resolveScope(tx, scopeRef);

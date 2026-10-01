@@ -209,7 +209,7 @@ export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   ...supportQueries,
   ...platformQueries,
-  // Viewing the app as a teammate (20261016000200).
+  // Viewing the app as a teammate (20261018000100).
   ...teammateViewQueries,
   ...foundingQueries,
   me,

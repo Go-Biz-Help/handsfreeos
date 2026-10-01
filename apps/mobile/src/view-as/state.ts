@@ -5,7 +5,7 @@ import { session } from '@/lib/auth';
 import { deviceStore } from '@/lib/device-store';
 
 /**
- * Viewing the app as a teammate on this phone (20261016000200). One view at a time, kept on the phone so the banner and
+ * Viewing the app as a teammate on this phone (20261018000100). One view at a time, kept on the phone so the banner and
  * the teammate's view of the copy outlast the app closing. Every request through `api` names it (`x-hfos-view-as`), so
  * what the phone asks HandsFreeOS is answered as the teammate; what it reads from its own copy it shows through the lens
  * the API gave; and no change is made in that business until it stops (`viewRefusal`, asked by the queue of changes).

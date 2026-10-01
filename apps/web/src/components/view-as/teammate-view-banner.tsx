@@ -8,7 +8,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { forgetView } from '@/lib/view-as';
 
 /**
- * Across the top of a business while someone views it as a teammate (20261016000200): whose view it is, that nothing
+ * Across the top of a business while someone views it as a teammate (20261018000100): whose view it is, that nothing
  * can be changed, and the way back. Stopping ends the view everywhere, so another tab carrying it goes back too.
  */
 export function TeammateViewBanner({

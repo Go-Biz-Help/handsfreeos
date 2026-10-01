@@ -10,7 +10,7 @@ import type { Business, Me } from '@/lib/businesses';
 import { currentView, dropView } from '@/view-as/state';
 
 /**
- * More → View as a teammate (20261016000200): an owner sees the admins and members below them, and picking one opens
+ * More → View as a teammate (20261018000100): an owner sees the admins and members below them, and picking one opens
  * the business as they see it, with what they see fetched through the view.
  */
 jest.mock('expo-router', () => ({

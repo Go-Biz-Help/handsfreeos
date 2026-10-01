@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isoDateTime, uuid, workspaceRole } from './common';
 
 /**
- * Viewing the app as a teammate (20261016000200): read-only, until you stop. A request names its view in the
+ * Viewing the app as a teammate (20261018000100): read-only, until you stop. A request names its view in the
  * `x-hfos-view-as` header, and the API reads the business as the teammate while the view holds.
  */
 

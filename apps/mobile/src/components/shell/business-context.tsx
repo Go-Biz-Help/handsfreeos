@@ -11,7 +11,7 @@ export interface BusinessContextValue {
   /** The business, with the role and permissions the screens follow: the teammate's, while viewing as one. */
   readonly business: Business;
   readonly openSwitcher: () => void;
-  /** Viewing the app as a teammate here (20261016000200): read-only, until stopped. */
+  /** Viewing the app as a teammate here (20261018000100): read-only, until stopped. */
   readonly viewing?: PhoneView | null;
 }
 

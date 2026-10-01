@@ -15,7 +15,7 @@ import { processOnce } from '../src/outbox';
 import { testServices, type TestServices } from './helpers';
 
 /**
- * Viewing the app as a teammate (20261016000200): when HandsFreeOS support, inside a look, views a business as one of
+ * Viewing the app as a teammate (20261018000100): when HandsFreeOS support, inside a look, views a business as one of
  * its people, the business is told in its own audit log, as it is of the look. The founder's view is not told.
  */
 const WORKER_ID = `vitest-teammate-view-${process.pid}`;

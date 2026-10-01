@@ -52,7 +52,7 @@ export const changes = new Changes({
   quietHoursMoment: (timeZone) => quietHoursMoment(timeZone),
   pauseBetweenPieces,
   log: (message, error) => copyLogger.log({ level: 50, message, error }),
-  // Nothing is changed in a business the person is viewing as a teammate (20261016000200).
+  // Nothing is changed in a business the person is viewing as a teammate (20261018000100).
   refuse: viewRefusal,
 });
 

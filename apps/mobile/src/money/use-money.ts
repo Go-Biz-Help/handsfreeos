@@ -272,7 +272,7 @@ export function useInvoices(): {
   const now = useMoneyNow();
   const { data, isLoading } = useQuery<InvoiceRow>(INVOICES_SQL, [business.id]);
   const outbox = useMoneyOutbox();
-  // Viewing as a teammate (20261016000200): only the bills they see.
+  // Viewing as a teammate (20261018000100): only the bills they see.
   const lens = useLens();
   return React.useMemo(
     () => ({

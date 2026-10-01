@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { rememberView } from '@/lib/view-as';
 
-/** One of the business's people, to view the app as once it's open (20261016000200). */
+/** One of the business's people, to view the app as once it's open (20261018000100). */
 interface Person {
   readonly userId: string;
   readonly fullName: string;
@@ -35,7 +35,7 @@ async function viewAs(workspaceId: string, person: Person | undefined): Promise<
  * The founder skips all of it (20261013002100): one click opens the business as its owner, with no reason and
  * no time limit, until they leave.
  *
- * With a `person`, the business opens as that person sees it (20261016000200): support's look, or the founder's
+ * With a `person`, the business opens as that person sees it (20261018000100): support's look, or the founder's
  * session, and inside it a view as them. Read-only either way.
  */
 export function ViewAsButton({

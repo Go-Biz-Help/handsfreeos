@@ -11,7 +11,7 @@ import {
 } from './helpers';
 
 /**
- * Viewing the app as a teammate (20261016000200): an owner opens Members, views the app as a member, sees the business
+ * Viewing the app as a teammate (20261018000100): an owner opens Members, views the app as a member, sees the business
  * as they see it (no inviting, no Permissions), can't change anything, and stops. The business's audit log says who
  * looked, and as whom.
  */

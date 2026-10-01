@@ -26,7 +26,7 @@ import {
 } from '../state';
 
 /**
- * Viewing as a teammate on the phone (20261016000200): the view belongs to whoever started it, stops every change in
+ * Viewing as a teammate on the phone (20261018000100): the view belongs to whoever started it, stops every change in
  * its business and no other, names itself on every request to HandsFreeOS, and shows the copy through what the
  * teammate sees, never somebody else's own mail.
  */

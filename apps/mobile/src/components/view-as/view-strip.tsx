@@ -13,7 +13,7 @@ import { refreshView, stopView } from '@/view-as/actions';
 import type { PhoneView } from '@/view-as/state';
 
 /**
- * Under the top bar of every business screen while viewing as a teammate (20261016000200): whose view it is, that it's
+ * Under the top bar of every business screen while viewing as a teammate (20261018000100): whose view it is, that it's
  * read-only, and the way back to the person's own.
  */
 export function ViewStrip() {

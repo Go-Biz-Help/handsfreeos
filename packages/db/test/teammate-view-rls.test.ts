@@ -11,7 +11,7 @@ import {
 } from './harness';
 
 /**
- * Viewing the app as a teammate (20261016000200), held by the database rather than by the API: who may open a view
+ * Viewing the app as a teammate (20261018000100), held by the database rather than by the API: who may open a view
  * (private.may_view_as, in the insert's own policy), that a view is only ever ended, that nobody reads anyone
  * else's views, and that a request read through a view never shows the teammate's own mail.
  */

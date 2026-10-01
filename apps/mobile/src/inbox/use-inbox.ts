@@ -137,7 +137,7 @@ export function useConversations(): {
   const outbox = useInboxOutbox();
   const members = useMembers();
   const moved = useMovedHere();
-  // Viewing as a teammate (20261016000200): only the threads they see.
+  // Viewing as a teammate (20261018000100): only the threads they see.
   const lens = useLens();
   return React.useMemo(() => {
     void moved; // Only says to work it out again.

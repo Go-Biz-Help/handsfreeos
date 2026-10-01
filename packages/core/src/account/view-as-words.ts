@@ -1,5 +1,5 @@
 /**
- * Viewing the app as a teammate (20261016000200), in the words the web and the phone both use: the button that
+ * Viewing the app as a teammate (20261018000100), in the words the web and the phone both use: the button that
  * starts a view, the banner while one is open, and the button that stops it.
  */
 import { ROLE_LABELS, type WorkspaceRole } from '../permissions';

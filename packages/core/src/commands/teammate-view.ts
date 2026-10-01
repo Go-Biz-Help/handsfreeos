@@ -1,5 +1,5 @@
 /**
- * Viewing the app as a teammate (20261016000200). Opening a view is all these do: what makes a request read as the
+ * Viewing the app as a teammate (20261018000100). Opening a view is all these do: what makes a request read as the
  * teammate is the kernel, once the request names a view that private.teammate_view() says is the caller's and still
  * holds. Both run outside the business (account scope), so they work while the viewer is in a view, in a support look
  * or in the founder's session, none of which may change the business itself.

@@ -1,7 +1,7 @@
 import { VIEW_AS_WORDS } from '@hfos/core';
 
 /**
- * Viewing as a teammate on the phone (20261016000200): core's words, which the web says too, and the few only the
+ * Viewing as a teammate on the phone (20261018000100): core's words, which the web says too, and the few only the
  * phone needs.
  */
 export const VIEW_AS_PHONE_WORDS = {

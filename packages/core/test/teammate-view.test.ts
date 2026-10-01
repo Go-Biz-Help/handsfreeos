@@ -1,5 +1,5 @@
 /**
- * Viewing the app as a teammate (20261016000200): who may view as whom, that a request in a view reads exactly as
+ * Viewing the app as a teammate (20261018000100): who may view as whom, that a request in a view reads exactly as
  * the teammate (their role, their permissions, their narrowed inbox) and changes nothing, that a person's own mail
  * stays theirs, and that a view stops holding the moment the viewer may no longer view as them.
  */

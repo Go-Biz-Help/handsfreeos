@@ -135,7 +135,7 @@ export function useHome(
   now: number,
 ): HomeList & { loading: boolean } {
   const { business, me } = useBusiness();
-  // Who Home is for: the person, or the teammate they're viewing as (20261016000200), whose items alone it shows.
+  // Who Home is for: the person, or the teammate they're viewing as (20261018000100), whose items alone it shows.
   const userId = me.user.id;
   const lens = useLens();
   const who = useGrants();

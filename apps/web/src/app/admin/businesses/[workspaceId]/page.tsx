@@ -82,7 +82,7 @@ export default async function BusinessPage({
                 </span>
                 <span className="flex flex-none items-center gap-2 text-text-3">
                   {deskLastActive(p.lastActiveAt)}
-                  {/* The business as this person sees it (20261016000200), read-only. */}
+                  {/* The business as this person sees it (20261018000100), read-only. */}
                   {me.staff?.permissions.includes('platform.view_as') ? (
                     <ViewAsButton
                       workspaceId={b.workspaceId}

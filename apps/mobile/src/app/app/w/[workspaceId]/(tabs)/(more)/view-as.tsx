@@ -27,7 +27,7 @@ interface Teammate {
 }
 
 /**
- * More → View as a teammate (20261016000200): the people below this person who can do nothing they can't, from
+ * More → View as a teammate (20261018000100): the people below this person who can do nothing they can't, from
  * HandsFreeOS (the phone's copy doesn't hold what each person may do). Picking one opens the business as they see it,
  * read-only, until Stop viewing.
  */

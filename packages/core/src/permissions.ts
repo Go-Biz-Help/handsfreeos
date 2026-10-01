@@ -24,7 +24,7 @@ export const ROLE_PERMISSIONS = {
     'members.invite',
     'members.change_role',
     'members.remove',
-    // Viewing the app as a teammate below them, read-only (20261016000200).
+    // Viewing the app as a teammate below them, read-only (20261018000100).
     'members.view_as',
     'invitations.read',
     'invitations.revoke',
@@ -550,7 +550,7 @@ export function permissionsBeyond(
 }
 
 /**
- * Whether someone may view the app as a teammate (20261016000200): they hold members.view_as, the teammate's role is
+ * Whether someone may view the app as a teammate (20261018000100): they hold members.view_as, the teammate's role is
  * below theirs, the teammate can do nothing they can't, and where the business shows people only their own threads or
  * bills, they see all of them. So a view never shows more than they could see as themselves. private.may_view_as()
  * says the same in the database and is the one that decides; this is for offering it. `inboxPerPerson` is the

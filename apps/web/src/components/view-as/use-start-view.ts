@@ -6,7 +6,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { rememberView } from '@/lib/view-as';
 
 /**
- * Starts viewing the app as a teammate (20261016000200) and opens their view of the business. The API decides who may
+ * Starts viewing the app as a teammate (20261018000100) and opens their view of the business. The API decides who may
  * view as whom and says why not; the person sees that as a toast.
  */
 export function useStartView(): {

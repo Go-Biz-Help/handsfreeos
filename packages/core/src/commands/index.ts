@@ -877,7 +877,7 @@ export const commands: readonly CommandDef[] = [
   ...migrationCommands,
   ...supportTicketCommands,
   ...supportStaffCommands,
-  // Viewing the app as a teammate, read-only (20261016000200).
+  // Viewing the app as a teammate, read-only (20261018000100).
   ...teammateViewCommands,
   ...formCommands,
   ...templateCommands,

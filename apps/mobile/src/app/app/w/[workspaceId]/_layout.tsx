@@ -41,7 +41,7 @@ function Business({ userId }: { userId: string }) {
     if (!me || !business) return null;
     const openSwitcher = () => setSwitcher(true);
     if (!view) return { userId, me, business, openSwitcher, viewing: null };
-    // Viewing as a teammate (20261016000200): the screens are for them, with their role and what they may do.
+    // Viewing as a teammate (20261018000100): the screens are for them, with their role and what they may do.
     return {
       userId,
       me: {

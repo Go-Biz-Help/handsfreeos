@@ -53,7 +53,7 @@ export default function More() {
   const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
   const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
   const { manage: managesAddons } = useAddonGrants();
-  // Owners and admins, as themselves: viewing as a teammate shows what someone below them sees (20261016000200).
+  // Owners and admins, as themselves: viewing as a teammate shows what someone below them sees (20261018000100).
   const canViewAs = !viewing && holds(grants, 'members.view_as');
   const { staff } = useStaff(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));

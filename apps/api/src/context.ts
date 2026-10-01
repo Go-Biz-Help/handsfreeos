@@ -29,7 +29,7 @@ export function requestMeta(req: FastifyRequest): RequestMeta {
         ? req.headers['user-agent'].slice(0, 512)
         : null,
     reason: typeof reason === 'string' ? reason.slice(0, 500) : null,
-    // The view the request is in (20261016000200); the kernel asks the database whether it is the caller's.
+    // The view the request is in (20261018000100); the kernel asks the database whether it is the caller's.
     viewAs: typeof viewAs === 'string' && UUID.test(viewAs) ? viewAs.toLowerCase() : null,
     ...(app ?? {}),
   };

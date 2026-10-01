@@ -57,7 +57,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: [...opts.env.webOrigins],
     credentials: false,
-    // x-hfos-view-as: the view a request is in (20261016000200), which the web sends from its cookie.
+    // x-hfos-view-as: the view a request is in (20261018000100), which the web sends from its cookie.
     allowedHeaders: [
       'content-type',
       'authorization',

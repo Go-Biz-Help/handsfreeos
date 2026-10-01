@@ -9412,7 +9412,7 @@ There can only be one founder. To hand it over, set the current one to `false` f
 
 **View as** shows the web app and the phone app exactly as one person sees them: their menu, their inbox, their
 money, their Home, read-only, until **Stop viewing** on the banner. Needs
-`20261016000200_viewing_the_app_as_a_teammate.sql`. See "Apply new migrations".
+`20261018000100_viewing_the_app_as_a_teammate.sql`. See "Apply new migrations".
 
 | Who         | May view as                             | Where it starts                                                               | The business is told           |
 | ----------- | --------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------ |

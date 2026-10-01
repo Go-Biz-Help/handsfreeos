@@ -36,7 +36,7 @@ export default async function WorkspaceLayout({
   const { workspaceId } = await params;
   const me = await getMe();
   // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
-  // or the founder working in it as its owner, or anyone viewing it as a teammate (20261016000200).
+  // or the founder working in it as its owner, or anyone viewing it as a teammate (20261018000100).
   const { current, viewingAs, teammateView, staleView } = await getWorkspaceShell(workspaceId);
   return (
     <LiveProvider workspaceId={workspaceId}>

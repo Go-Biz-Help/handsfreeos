@@ -30,7 +30,7 @@ export default async function WorkspaceMigrationsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const me = await getMe();
-  // Viewing as a teammate (20261016000200), it's their business the page is for.
+  // Viewing as a teammate (20261018000100), it's their business the page is for.
   const shell = await getWorkspaceShell(workspaceId);
   const current = shell.teammateView
     ? shell.current

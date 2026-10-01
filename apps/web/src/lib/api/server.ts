@@ -56,7 +56,7 @@ function isNoSuchRoute(body: unknown): boolean {
 /**
  * Typed API client for Server Components; redirects to sign-in when there is no session.
  *
- * On a business's pages that are viewing as a teammate (20261016000200), every request names the view, and `userId`
+ * On a business's pages that are viewing as a teammate (20261018000100), every request names the view, and `userId`
  * is the teammate's, so a page's "you" (assigned to you, your calendar) is theirs as the API's answers are. `viewing`
  * says so; `signedInAs` is always the person signed in.
  */
@@ -118,7 +118,7 @@ export interface WorkspaceShell {
     readonly acting: boolean;
   } | null;
   /**
-   * Set while the person is viewing the app as a teammate here (20261016000200): `current` is the business as the
+   * Set while the person is viewing the app as a teammate here (20261018000100): `current` is the business as the
    * teammate sees it, their role and permissions, read through the view.
    */
   readonly teammateView: TeammateViewSession | null;

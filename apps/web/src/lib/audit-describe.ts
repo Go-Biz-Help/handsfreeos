@@ -89,7 +89,7 @@ function describeAction(e: AuditEntry): string {
       return e.entityType === 'invitation'
         ? `accepted an invitation and joined as ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`
         : 'joined the workspace';
-    // Viewing the app as a teammate (20261016000200): someone in the business, and HandsFreeOS support inside a look.
+    // Viewing the app as a teammate (20261018000100): someone in the business, and HandsFreeOS support inside a look.
     case 'teammate_view.start':
       return `viewed the app as ${s(e.after?.person) || 'a teammate'}, read-only`;
     case 'platform.teammate_view.started':

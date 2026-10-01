@@ -39,7 +39,7 @@ export function MembersTable({
   /** What the business lets the person looking do (0106). */
   myPermissions: readonly string[];
   myUserId: string;
-  /** Whether the business shows each person only their own threads, which View as weighs (20261016000200). */
+  /** Whether the business shows each person only their own threads, which View as weighs (20261018000100). */
   inboxPerPerson?: boolean;
   /** Every role's and person's own permission settings, for an owner who sets them; null for anyone else. */
   permissionSettings?: PermissionSettingsOut | null;
@@ -134,7 +134,7 @@ export function MembersTable({
               // Owners always do everything, so there is nothing to set for them.
               const settable = !!permissionSettings && m.role !== 'owner';
               const hasOwn = Object.keys(ownSettings(m.userId)).length > 0;
-              // Someone below them who can do nothing they can't (20261016000200); the API decides.
+              // Someone below them who can do nothing they can't (20261018000100); the API decides.
               const viewable =
                 !isSelf &&
                 mayViewAs({ role: myRole, permissions: myPermissions }, m, { inboxPerPerson });

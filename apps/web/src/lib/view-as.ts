@@ -1,5 +1,5 @@
 /**
- * Viewing the app as a teammate (20261016000200). The view a business's pages are in is kept in a cookie scoped to
+ * Viewing the app as a teammate (20261018000100). The view a business's pages are in is kept in a cookie scoped to
  * that business's own path, so only its pages carry it, and every request they make names it to the API in the
  * `x-hfos-view-as` header: Server Components through apiServer, the browser through apiBrowser. The API decides
  * whether the view holds; the cookie only says which one to ask about.

@@ -155,7 +155,7 @@ export function useRecord(kind: RecordKind, recordId: string): RecordData {
     amount_paid_cents: number | null;
     amount_refunded_cents: number | null;
   }>(RECORD_INVOICES_SQL, [business.id, isPerson ? recordId : '']);
-  // Viewing as a teammate (20261016000200): what they're owed is from the bills they see.
+  // Viewing as a teammate (20261018000100): what they're owed is from the bills they see.
   const lens = useLens();
   const invoiceRows = React.useMemo(
     () => allInvoiceRows.filter((r) => sees(lens?.invoices, r.id)),

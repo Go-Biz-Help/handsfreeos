@@ -106,7 +106,7 @@ export function useWaitingDrafts(
   ]);
   const decisions = useDraftDecisions(business.id);
   const canManage = holds(useGrants(), 'ai_team.manage');
-  // Viewing as a teammate (20261016000200): only the drafts on threads they see.
+  // Viewing as a teammate (20261018000100): only the drafts on threads they see.
   const lens = useLens();
   return React.useMemo(() => {
     const items = data
