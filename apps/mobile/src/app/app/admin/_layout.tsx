@@ -31,7 +31,8 @@ export default function AdminLayout() {
 
 function StaffGate({ userId }: { userId: string }) {
   const theme = useThemeName();
-  const { staff, status, error, reload } = useStaff(userId);
+  // The desk asks every time it opens: the kept answer may be a few minutes old.
+  const { staff, status, error, reload } = useStaff(userId, { recheck: true });
   const desk = React.useMemo(() => (staff ? { userId, staff } : null), [userId, staff]);
 
   if (desk)
@@ -46,7 +47,18 @@ function StaffGate({ userId }: { userId: string }) {
       </DeskProvider>
     );
   if (status === 'ready') return <NotStaff userId={userId} />;
-  return <Checking error={status === 'error' ? errorMessage(error) : null} onRetry={reload} />;
+  return (
+    <Checking
+      error={
+        status === 'error'
+          ? errorMessage(error)
+          : status === 'offline'
+            ? DESK_PHONE_WORDS.needsSignal
+            : null
+      }
+      onRetry={reload}
+    />
+  );
 }
 
 function Checking({ error, onRetry }: { error: string | null; onRetry: () => void }) {

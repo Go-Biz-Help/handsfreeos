@@ -23,7 +23,8 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
 import { Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
-import { dayWords, DESK_BUSINESS_PHONE_WORDS, whenWords } from '@/admin/business-words';
+import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
+import { dayWords, whenWords } from '@/admin/words';
 import { desk, useLive, type Ok } from '@/admin/live';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import { DeskWaiting, Line, Section, Stats } from '@/components/admin/bits';
@@ -228,6 +229,9 @@ function WalletSection({
   const [amount, setAmount] = React.useState<string>(DESK_WALLET_WORDS.defaultAmount);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Made when the credit sheet opens, not on each press: a second press after an answer lost on the way back is the
+  // same credit, which wallet.adjust then records once.
+  const reference = React.useRef<string | null>(null);
   const stage = DESK_WALLET_STAGES[wallet.stage];
 
   const open = (what: () => void) => {
@@ -236,6 +240,7 @@ function WalletSection({
     what();
   };
   const close = () => {
+    reference.current = null;
     setMoving(null);
     setCrediting(false);
     setReason('');
@@ -279,7 +284,7 @@ function WalletSection({
           amountCents: cents,
           reason: reason.trim(),
           // One reference per decision: sending the same one twice is the same credit, not a second.
-          reference: deskCreditReference(workspaceId),
+          reference: (reference.current ??= deskCreditReference(workspaceId)),
         }),
       DESK_BUSINESS_PHONE_WORDS.creditPutOn,
     );

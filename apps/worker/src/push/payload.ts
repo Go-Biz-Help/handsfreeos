@@ -17,14 +17,15 @@
 import {
   PUSH_DATA_VERSION,
   type PushButton,
+  PUSH_TEXT_MAX,
   type PushCategory,
   type PushData,
   type PushRefs,
 } from '@hfos/core';
 import type { PushMessage, PushPlatform } from './provider';
 
-/** What a lock screen shows before it cuts off. */
-export const PUSH_WORDS = { title: 64, subtitle: 64, body: 180 } as const;
+/** What a lock screen shows before it cuts off: core's, which words a support push to fit. */
+export const PUSH_WORDS = PUSH_TEXT_MAX;
 
 const HOUR_S = 3_600;
 

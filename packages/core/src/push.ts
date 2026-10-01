@@ -19,6 +19,7 @@
  *   opens under `/app/w/<business>/`.
  */
 import { z } from 'zod';
+import { clipLine } from './attention/wording';
 
 // ---------- the switches ----------
 
@@ -276,14 +277,8 @@ export type PushData = z.infer<typeof PushData>;
 
 // ---------- the words of a staff push ----------
 
-/** One line: the words with their white space as single spaces, at most `max` characters. */
-function oneLine(text: string, max: number): string {
-  const t = text.replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
-}
-
-/** What a phone shows before it cuts a body off (apps/worker/src/push/payload.ts, `PUSH_WORDS`). */
-const BODY_MAX = 180;
+/** What a lock screen shows before it cuts off: the worker clips every push to these (push/payload.ts). */
+export const PUSH_TEXT_MAX = { title: 64, subtitle: 64, body: 180 } as const;
 
 /**
  * A new support ticket's notification, for HandsFreeOS's support people: "New support ticket #1042", who wrote and
@@ -300,11 +295,12 @@ export function supportTicketPushWords(ticket: {
   /** The business the ticket is about, when it is known. */
   readonly business?: string | null;
 }): { title: string; about: string; body: string } {
-  const subject = oneLine(ticket.subject, 80) || 'No subject';
-  const preview = oneLine(ticket.preview ?? '', BODY_MAX);
-  // The closing quote survives the phone's cut: the preview is shortened to what fits after the subject.
-  const room = BODY_MAX - subject.length - 4;
-  const body = preview && room >= 20 ? `${subject}: “${oneLine(preview, room)}”` : subject;
+  const subject = clipLine(ticket.subject, 80) || 'No subject';
+  // The closing quote survives the phone's cut: the preview is shortened to what fits after the subject, which
+  // leaves it at least 96 characters.
+  const room = PUSH_TEXT_MAX.body - subject.length - 4;
+  const preview = clipLine(ticket.preview ?? '', room);
+  const body = preview ? `${subject}: “${preview}”` : subject;
   return {
     title: `New support ticket #${ticket.number}`,
     about: [ticket.requester, ticket.business]

@@ -15,7 +15,7 @@ import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
-import { desk, useLive, usePaged, type Ok } from '@/admin/live';
+import { desk, useLive, usePaged, useReloadOnReturn, type Ok } from '@/admin/live';
 import {
   DeskWaiting,
   Empty,
@@ -85,6 +85,8 @@ export default function DeskIdeas() {
     list.reload();
     areas.reload();
   };
+  // Back from an idea that just moved, the tab it left no longer lists it.
+  useReloadOnReturn(list.reload);
 
   return (
     <Screen

@@ -8,8 +8,9 @@ import { useNetwork } from '@/lib/network';
 /**
  * Whether the signed-in person works at HandsFreeOS, from `platform.me`, as the web's /admin asks it on every page.
  *
- * The answer is kept on the phone, so More can show the Support desk row with no signal. It is only ever a hint for
- * what to show: every page of the desk asks the API, and the API refuses a person who no longer works here.
+ * The answer is kept on the phone, so More can show the Support desk row with no signal, and asked again when it is a
+ * few minutes old. It is only ever a hint for what to show: every page of the desk asks the API, and the API refuses
+ * a person who no longer works here.
  */
 
 export interface Staff {
@@ -63,13 +64,30 @@ export function loadStaff(userId: string): Promise<Staff | null> {
   return promise;
 }
 
-export type StaffStatus = 'loading' | 'ready' | 'error';
+export type StaffStatus = 'loading' | 'ready' | 'error' | 'offline';
+
+/** How long a kept answer is good for before a screen opening asks again. */
+const FRESH_MS = 5 * 60_000;
+
+/** The kept answer alone, asking nothing: for what only needs to know what the phone already knows. */
+export function useKeptStaff(userId: string): Staff | null {
+  const kept = useSyncExternalStore(
+    deviceStore.subscribe,
+    () => cachedStaff(userId),
+    () => cachedStaff(userId),
+  );
+  return kept?.staff ?? null;
+}
 
 /**
- * The person's standing at HandsFreeOS: the kept answer straight away, asked again when the screen opens and whenever
- * signal returns. `ready` with `staff: null` is a clear no.
+ * The person's standing at HandsFreeOS: the kept answer straight away, asked again when it is a few minutes old (or
+ * every time, with `recheck`, as the desk's own gate does) and whenever signal returns. `ready` with `staff: null` is
+ * a clear no; `offline` is no answer kept and no signal to get one.
  */
-export function useStaff(userId: string): {
+export function useStaff(
+  userId: string,
+  options: { readonly recheck?: boolean } = {},
+): {
   staff: Staff | null;
   status: StaffStatus;
   error: unknown;
@@ -83,6 +101,7 @@ export function useStaff(userId: string): {
   const { online } = useNetwork();
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
+  const recheck = options.recheck ?? false;
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -93,12 +112,15 @@ export function useStaff(userId: string): {
   }, [userId]);
 
   useEffect(() => {
-    if (online) reload();
-  }, [online, reload]);
+    if (!online) return;
+    const was = cachedStaff(userId);
+    if (!recheck && was && Date.now() - was.fetchedAt < FRESH_MS) return;
+    reload();
+  }, [online, reload, recheck, userId]);
 
   return {
     staff: kept?.staff ?? null,
-    status: kept ? 'ready' : loading ? 'loading' : error ? 'error' : 'loading',
+    status: kept ? 'ready' : loading ? 'loading' : error ? 'error' : online ? 'loading' : 'offline',
     error,
     reload,
   };

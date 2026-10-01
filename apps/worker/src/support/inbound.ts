@@ -15,6 +15,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { tickets, ticketEvents, ticketMessages } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
+import { errorMessage } from '../outbox';
 import { acknowledgeTicket, isOurSupportAddress } from './mail';
 import { queueNewTicketPush } from './push';
 import {
@@ -97,7 +98,8 @@ async function whoWroteIn(
 
 /**
  * The name of the one business the writer works in, for the new ticket's push. Read holding that business's scope:
- * the mail is filed holding none, and from there no business is readable.
+ * the mail is filed holding none, and from there no business is readable. It only words a notification, so a read
+ * that fails leaves the name out rather than holding up the mail.
  */
 async function businessName(
   ctx: DeliveryContext,
@@ -105,13 +107,21 @@ async function businessName(
 ): Promise<string | null> {
   if (!writer?.workspaceId || !writer.organizationId) return null;
   const scope = { workspaceId: writer.workspaceId, organizationId: writer.organizationId };
-  const [ws] = await asWorker(ctx.db, scope, (tx) =>
-    rows<{ name: string }>(
-      tx,
-      sql`select name from app.workspaces where id = ${scope.workspaceId}`,
-    ),
-  );
-  return ws?.name ?? null;
+  try {
+    const [ws] = await asWorker(ctx.db, scope, (tx) =>
+      rows<{ name: string }>(
+        tx,
+        sql`select name from app.workspaces where id = ${scope.workspaceId}`,
+      ),
+    );
+    return ws?.name ?? null;
+  } catch (e) {
+    ctx.log.warn(
+      { err: errorMessage(e) },
+      'could not read the business’s name for the new ticket’s push',
+    );
+    return null;
+  }
 }
 
 /** The ticket this message belongs to: its reply token, then what it answers, then nothing. */

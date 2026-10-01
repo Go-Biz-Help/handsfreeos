@@ -3,11 +3,11 @@ import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { desk, useLive } from '@/admin/live';
+import { desk, useLive, useReloadOnReturn } from '@/admin/live';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import { DESK_ICONS } from '@/components/admin/desk-icons';
 import { deskHref, useDesk } from '@/components/admin/staff-context';
-import { ArrowLeft, Globe, LogOut } from '@/components/icons';
+import { ArrowLeft, BellRing, Globe, LogOut } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { SignOutSheet } from '@/components/shell/sign-out-sheet';
@@ -29,6 +29,7 @@ export default function DeskHome() {
   const [signingOut, setSigningOut] = React.useState(false);
   const hasBusiness = (me?.businesses.length ?? 0) > 0;
   const queue = useLive(() => desk('/v1/queries/support.queue.summary', {}), 'queue-summary');
+  useReloadOnReturn(queue.reload);
   const unanswered = queue.data?.unanswered ?? 0;
   const name = staff.displayName || me?.user.fullName || me?.user.email || '';
 
@@ -72,6 +73,13 @@ export default function DeskHome() {
         ))}
       </List>
       <List>
+        <ListRow
+          icon={BellRing}
+          label={DESK_PHONE_WORDS.notifications}
+          detail={DESK_PHONE_WORDS.notificationsDetail}
+          onPress={() => router.push(deskHref('notifications') as Href)}
+          testID="desk-nav-notifications"
+        />
         {hasBusiness ? (
           <ListRow
             icon={ArrowLeft}

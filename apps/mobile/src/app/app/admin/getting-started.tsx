@@ -11,7 +11,8 @@ import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 
-import { DESK_BUSINESS_PHONE_WORDS, whenWords } from '@/admin/business-words';
+import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
+import { whenWords } from '@/admin/words';
 import { desk, useLive } from '@/admin/live';
 import { DeskWaiting, Empty, FilterChips, Section } from '@/components/admin/bits';
 import { deskHref, useDeskCan } from '@/components/admin/staff-context';

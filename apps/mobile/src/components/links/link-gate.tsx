@@ -3,6 +3,7 @@ import { router, usePathname, type Href } from 'expo-router';
 import * as React from 'react';
 import { AppState } from 'react-native';
 
+import { useKeptStaff } from '@/admin/staff';
 import { toast } from '@/components/ui/toast';
 import { useSession } from '@/lib/auth';
 import { biometrics } from '@/lib/biometrics';
@@ -39,10 +40,12 @@ function OpenLinks({ userId }: { userId: string }) {
   const { locked } = useLock();
   const pending = usePendingLink();
   const { me } = useMe(userId);
+  const staff = useKeptStaff(userId);
   const pathname = usePathname();
-  // Just signed in or started, the app first opens the business the person had open last (app/index.tsx): the link
-  // opens after that, or it would be replaced by it.
-  const choosing = pathname === '/app' && (me?.businesses.length ?? 0) > 0;
+  // Just signed in or started, the app first opens the business the person had open last, or the Support desk for
+  // somebody who answers support and is in no business (app/index.tsx): the link opens after that, or it would be
+  // replaced by it.
+  const choosing = pathname === '/app' && ((me?.businesses.length ?? 0) > 0 || staff !== null);
 
   React.useEffect(() => {
     if (!pending || locked || !me || choosing) return;

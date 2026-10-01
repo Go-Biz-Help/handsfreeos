@@ -269,6 +269,24 @@ describe('the route map', () => {
       businessId: null,
     });
     expect(routeFor('/admin/something-new')).toMatchObject({ kind: 'web' });
+    // The web's desk is at /admin, whichever address the link used.
+    expect(routeFor('/app/admin/something-new?x=1')).toEqual({
+      kind: 'web',
+      path: '/admin/something-new?x=1',
+      businessId: null,
+    });
+    // A page's own settings go with it, as the phone's screens read them.
+    expect(routeFor('/admin/health?hours=72')).toMatchObject({
+      href: '/app/admin/health?hours=72',
+      params: { hours: '72' },
+    });
+    expect(
+      decideLink('/admin/businesses?sort=quietest&q=bayou%20air', { businessIds: [] }),
+    ).toEqual({
+      kind: 'screen',
+      href: '/app/admin/businesses?sort=quietest&q=bayou%20air',
+      later: null,
+    });
   });
 
   it('never handles a customer’s page, or anything else outside /app', () => {

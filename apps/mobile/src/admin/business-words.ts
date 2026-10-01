@@ -16,15 +16,3 @@ export const DESK_BUSINESS_PHONE_WORDS = {
   aiUnreadable: 'Couldn’t read which AI is answering. Pull down to try again in a minute.',
   aiReading: 'Reading which AI is answering…',
 } as const;
-
-/** A full date and time, in the reader's own zone: "Sep 30, 9:41 AM". */
-export const whenWords = (iso: string): string =>
-  new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-/** A date alone, as the web writes a sign-up: in the reader's own zone and format. */
-export const dayWords = (iso: string): string => new Date(iso).toLocaleDateString();

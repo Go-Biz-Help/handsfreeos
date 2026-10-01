@@ -8,7 +8,8 @@ import {
 } from '@hfos/core';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import { DESK_BUSINESS_PHONE_WORDS, whenWords } from '@/admin/business-words';
+import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
+import { whenWords } from '@/admin/words';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import GettingStarted from '@/app/app/admin/getting-started';
 import Health from '@/app/app/admin/health';
@@ -34,6 +35,7 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
   usePathname: () => '/',
+  useFocusEffect: () => undefined,
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/lib/open-web', () => ({ openWeb: jest.fn(async () => true) }));

@@ -1,5 +1,5 @@
 import { DESK_WORDS } from '@hfos/core';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { DESK_PHONE_WORDS } from '@/admin/words';
@@ -17,6 +17,8 @@ import { agent, LONE_STAR, RILEY, SAM, lastBody, sent, showDesk, type Answers } 
  */
 
 let mockParams: Record<string, string> = {};
+/** The screen's last "came into view" callback, so a test can bring it back into view. */
+let mockFocus: (() => void) | null = null;
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
@@ -27,6 +29,9 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
   usePathname: () => '/',
+  useFocusEffect: (onFocus: () => void) => {
+    mockFocus = onFocus;
+  },
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/lib/open-web', () => ({ openWeb: jest.fn(async () => true) }));
@@ -228,6 +233,19 @@ describe('the queue', () => {
     await showDesk(<Tickets />, () => answers);
     await fireEvent.press(await screen.findByTestId('ticket-row-1042'));
     expect(router.push).toHaveBeenCalledWith(`/app/admin/tickets/${TICKET}`);
+  });
+
+  it('asks again when it comes back into view, so an answered ticket leaves the list', async () => {
+    await showDesk(<Tickets />, () => answers);
+    await screen.findByText('Texts not going out');
+    expect(sent('/v1/queries/support.ticket.list')).toHaveLength(1);
+    // Opening is the first time in view: its own load covers it.
+    await act(async () => mockFocus!());
+    expect(sent('/v1/queries/support.ticket.list')).toHaveLength(1);
+    answers['/v1/queries/support.ticket.list'] = { tickets: [], nextCursor: null };
+    await act(async () => mockFocus!());
+    expect(await screen.findByText(DESK_WORDS.queueEmptyUnanswered)).toBeTruthy();
+    expect(sent('/v1/queries/support.queue.summary')).toHaveLength(2);
   });
 
   it('says it needs a signal, and Try again asks once more', async () => {

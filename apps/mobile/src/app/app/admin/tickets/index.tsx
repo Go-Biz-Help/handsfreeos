@@ -14,7 +14,7 @@ import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
-import { desk, useLive, usePaged, type Ok } from '@/admin/live';
+import { desk, useLive, usePaged, useReloadOnReturn, type Ok } from '@/admin/live';
 import { DeskWaiting, Empty, FilterChips, SearchBox, useSettled } from '@/components/admin/bits';
 import { deskHref } from '@/components/admin/staff-context';
 import { Screen } from '@/components/shell/screen';
@@ -63,6 +63,7 @@ export default function Tickets() {
     list.reload();
     counts.reload();
   };
+  useReloadOnReturn(list.reload, counts.reload);
 
   return (
     <Screen

@@ -13,7 +13,7 @@ import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { desk, useLive, type Ok } from '@/admin/live';
-import { DESK_PHONE_WORDS } from '@/admin/words';
+import { dayWords, DESK_PHONE_WORDS, whenWords } from '@/admin/words';
 import { DeskWaiting, Line, PickSheet, Section } from '@/components/admin/bits';
 import { deskHref, useDesk, useDeskCan } from '@/components/admin/staff-context';
 import { Eye, Sparkles } from '@/components/icons';
@@ -36,15 +36,6 @@ type TicketFull = Ok<'/v1/queries/support.ticket.get'>;
 type Message = TicketFull['messages'][number];
 type StaffList = Ok<'/v1/queries/support.staff.list'>;
 type SavedReply = Ok<'/v1/queries/support.canned_reply.list'>['replies'][number];
-
-/** A full date and time, in the reader's own zone. */
-const whenWords = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 
 /**
  * One ticket (the web's /admin/tickets/<id>): the conversation, the AI's suggested answer when there is one, and what
@@ -234,7 +225,7 @@ export default function Ticket() {
                 <Text className="text-[13px] text-text-3">
                   {business.organizationName ? `${business.organizationName} · ` : ''}
                   {DESK_WORDS.people(business.memberCount)} ·{' '}
-                  {DESK_WORDS.withUsSince(new Date(business.createdAt).toLocaleDateString())}
+                  {DESK_WORDS.withUsSince(dayWords(business.createdAt))}
                 </Text>
               </View>
               {canReadBusinesses ? (

@@ -39,6 +39,7 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
   usePathname: () => '/',
+  useFocusEffect: () => undefined,
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/lib/open-web', () => ({ openWeb: jest.fn(async () => true) }));

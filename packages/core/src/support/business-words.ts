@@ -6,7 +6,7 @@
 
 import { money } from '../money/index';
 
-import { DESK_WORDS, sinceIso } from './desk-words';
+import { DESK_WORDS, sinceIso, sinceWords } from './desk-words';
 
 // ---------- the directory ----------
 
@@ -40,6 +40,13 @@ export function deskBusinessTotals(totals: {
 /** "3 hours", or "never" for somebody (or a business) who has never done anything. */
 export const deskLastActive = (iso: string | null, now = Date.now()): string =>
   iso ? sinceIso(iso, now) : DESK_BUSINESS_WORDS.never;
+
+/** "3 hours ago", "just now", or "never": when somebody last did anything, as a sentence ends it. */
+export function deskActiveAgo(iso: string | null, now = Date.now()): string {
+  if (!iso) return DESK_BUSINESS_WORDS.never;
+  const since = sinceIso(iso, now);
+  return since === sinceWords(0) ? since : `${since} ago`;
+}
 
 /** How much of each thing one business holds, as the five numbers over its page. */
 export function deskBusinessCounts(counts: {
@@ -84,9 +91,10 @@ export const DESK_BUSINESS_WORDS = {
     signedUp: string,
     now = Date.now(),
   ) =>
-    `${b.organizationName ? `${b.organizationName} · ` : ''}signed up ${signedUp} · last active ${
-      b.lastActiveAt ? `${sinceIso(b.lastActiveAt, now)} ago` : 'never'
-    }`,
+    `${b.organizationName ? `${b.organizationName} · ` : ''}signed up ${signedUp} · last active ${deskActiveAgo(
+      b.lastActiveAt,
+      now,
+    )}`,
   whatIsSetUp: 'What is set up',
   setUpYes: 'Yes',
   setUpNotYet: 'Not yet',

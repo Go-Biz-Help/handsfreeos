@@ -9,7 +9,10 @@ export default async function TicketsPage({
   searchParams: Promise<{ show?: string; q?: string; cursor?: string }>;
 }) {
   const { show, q, cursor } = await searchParams;
-  const filter = (show && show in TICKET_QUEUE_QUERIES ? show : 'unanswered') as TicketQueueFilter;
+  // Only the tabs themselves: `in` would also take `?show=constructor` from the object's prototype.
+  const filter = (
+    show && Object.hasOwn(TICKET_QUEUE_QUERIES, show) ? show : 'unanswered'
+  ) as TicketQueueFilter;
   const { api } = await apiServer();
   const where = TICKET_QUEUE_QUERIES[filter];
   const [list, counts] = await Promise.all([

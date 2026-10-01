@@ -10,7 +10,7 @@ import {
   deskWalletMoves,
 } from '@hfos/core';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -61,8 +61,12 @@ export function WalletBlock({
   const [amount, setAmount] = useState<string>(DESK_WALLET_WORDS.defaultAmount);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Made once per credit dialog, not on each press: pressing again after an answer lost on the way back is the same
+  // credit, which wallet.adjust then records once.
+  const reference = useRef<string | null>(null);
 
   const close = () => {
+    reference.current = null;
     setMoving(null);
     setCrediting(false);
     setReason('');
@@ -104,7 +108,7 @@ export function WalletBlock({
             amountCents: cents,
             reason: reason.trim(),
             // One reference per decision: sending the same one twice is the same credit, not a second.
-            reference: deskCreditReference(workspaceId),
+            reference: (reference.current ??= deskCreditReference(workspaceId)),
           },
         }),
       );

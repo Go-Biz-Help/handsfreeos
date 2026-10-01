@@ -32,4 +32,25 @@ export const DESK_PHONE_WORDS = {
   lookOnWeb: 'Look at their business on the web',
   lookOnWebDetail: 'Read-only, with a reason and a time limit, as on the web',
   openAsOwnerOnWeb: 'Open as owner on the web',
+  notifications: 'Notifications',
+  notificationsDetail: 'New support tickets on this phone',
+  thisPhone: 'This phone',
+  support: 'Support',
+  notificationsNote:
+    'Push goes to every phone you’re signed in on. Your other switches are in a business’s Settings → Notifications, and on the web under Settings → Account.',
 } as const;
+
+// The desk's dates, in the reader's own zone and format, as the web's desk writes them (its ticket-bits.tsx). Not
+// core's: core writes every time in a named zone, and these are the reader's own.
+
+/** A full date and time: "Sep 30, 9:41 AM". */
+export const whenWords = (iso: string): string =>
+  new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+/** A date alone, as the web writes a sign-up: in the reader's own zone and format. */
+export const dayWords = (iso: string): string => new Date(iso).toLocaleDateString();

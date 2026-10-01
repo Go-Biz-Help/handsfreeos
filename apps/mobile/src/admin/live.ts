@@ -1,4 +1,5 @@
 import type { paths } from '@hfos/api-client';
+import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 
 import { api, errorMessage, unwrap } from '@/lib/api';
@@ -128,6 +129,25 @@ export function usePaged<T extends { readonly nextCursor: string | null }>(
   }, [cursor, loadingMore, update]);
 
   return { ...live, hasMore: cursor !== null, loadingMore, more };
+}
+
+/**
+ * Asks again each time the screen comes back into view, but not when it first opens (its own load does that): back
+ * from a ticket that was just answered, the queue no longer lists it, so two people don't both pick it up.
+ */
+export function useReloadOnReturn(...reloads: readonly (() => void)[]): void {
+  const first = React.useRef(true);
+  const latest = React.useRef(reloads);
+  latest.current = reloads;
+  useFocusEffect(
+    React.useCallback(() => {
+      if (first.current) {
+        first.current = false;
+        return;
+      }
+      for (const reload of latest.current) reload();
+    }, []),
+  );
 }
 
 /**

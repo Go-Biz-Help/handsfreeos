@@ -199,11 +199,7 @@ const DESK_PAGES = [
 ];
 
 /** Where one of the support desk's web paths opens: the phone's Support desk, or the web for a page it hasn't got. */
-function deskRoute(
-  rest: readonly string[],
-  pathAndQuery: string,
-  query: Readonly<Record<string, string>>,
-): LinkTarget {
+function deskRoute(rest: readonly string[], query: Readonly<Record<string, string>>): LinkTarget {
   const known =
     rest.length === 0 ||
     DESK_PAGES.some((page) => {
@@ -213,18 +209,29 @@ function deskRoute(
         pattern.every((p, i) => (p === ':id' ? UUID.test(rest[i]!) : p === rest[i]))
       );
     });
-  if (!known) return { kind: 'web', path: pathAndQuery, businessId: null };
-  const href = `/app/admin${rest.length ? `/${rest.map(encodeURIComponent).join('/')}` : ''}`;
-  return { kind: 'screen', href, businessId: null, later: null, params: query };
+  // The page's own settings go with it (Health's `?hours=`, the directory's `?sort=&q=`), as the screens read them.
+  const search = Object.entries(query)
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join('&');
+  const tail = `${rest.length ? `/${rest.map(encodeURIComponent).join('/')}` : ''}${search ? `?${search}` : ''}`;
+  // A desk page the phone hasn't got opens the web's own, at /admin, whichever address the link used.
+  if (!known) return { kind: 'web', path: `/admin${tail}`, businessId: null };
+  return {
+    kind: 'screen',
+    href: `/app/admin${tail}`,
+    businessId: null,
+    later: null,
+    params: query,
+  };
 }
 
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
   const { path, query } = splitQuery(pathAndQuery);
   const parts = segments(path);
-  if (parts[0] === 'admin') return deskRoute(parts.slice(1), pathAndQuery, query);
+  if (parts[0] === 'admin') return deskRoute(parts.slice(1), query);
   if (parts[0] !== 'app') return { kind: 'none' };
-  if (parts[1] === 'admin') return deskRoute(parts.slice(2), pathAndQuery, query);
+  if (parts[1] === 'admin') return deskRoute(parts.slice(2), query);
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
   // An email about an idea (`/app/ideas/<id>`) names no business, since the board is every business's: it opens in
