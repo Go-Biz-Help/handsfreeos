@@ -1170,7 +1170,7 @@ export const clientTasks = addonRealestate.table(
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
     dealRecordId: uuid('deal_record_id').notNull(),
-    kind: text('kind').notNull().$type<'upload' | 'sign_off' | 'do'>(),
+    kind: text('kind').notNull().$type<'upload' | 'sign_off' | 'do' | 'questionnaire'>(),
     title: text('title').notNull(),
     detail: text('detail'),
     signOffWords: text('sign_off_words'),
@@ -1180,6 +1180,8 @@ export const clientTasks = addonRealestate.table(
     status: text('status').notNull().default('open').$type<'open' | 'done' | 'canceled'>(),
     doneAt: ts('done_at'),
     canceledReason: text('canceled_reason'),
+    refKind: text('ref_kind').$type<'listing_description' | 'listing_price'>(),
+    refId: uuid('ref_id'),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -1261,3 +1263,120 @@ export const REALESTATE_TABLES = {
   clientTasks,
   clientTaskCompletions,
 } as const;
+
+// ---------- round three: the listing ----------
+
+/** Where one of a listing's confirmed facts came from. */
+export interface ListingFactSource {
+  readonly from: 'seller' | 'pasted' | 'agent';
+  /** The pasted words it was found in. */
+  readonly quote?: string;
+}
+
+/** A listing deal's listing: its facts, the MLS, its public page (round three, step 3). */
+export const listings = addonRealestate.table(
+  'listings',
+  {
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    facts: jsonb('facts')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    factSources: jsonb('fact_sources')
+      .$type<Record<string, ListingFactSource>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    factsConfirmedBy: userRef('facts_confirmed_by'),
+    factsConfirmedAt: ts('facts_confirmed_at'),
+    pastedText: text('pasted_text'),
+    pastedState: text('pasted_state')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'filling' | 'read' | 'failed'>(),
+    pastedFacts: jsonb('pasted_facts')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    pastedSources: jsonb('pasted_sources')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    pastedModel: text('pasted_model'),
+    pastedFailure: text('pasted_failure'),
+    highlights: text('highlights'),
+    mlsNumber: text('mls_number'),
+    mlsLiveOn: date('mls_live_on', { mode: 'string' }),
+    mlsMarkedBy: userRef('mls_marked_by'),
+    mlsMarkedAt: ts('mls_marked_at'),
+    slug: text('slug'),
+    pageState: text('page_state').notNull().default('none').$type<'none' | 'published' | 'down'>(),
+    pagePublishedBy: userRef('page_published_by'),
+    pagePublishedAt: ts('page_published_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.dealRecordId] }),
+    unique().on(t.workspaceId, t.slug),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A listing's photos, in order: on the public page and the flyer, or kept for the agent and the seller. */
+export const listingPhotos = addonRealestate.table(
+  'listing_photos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    caption: text('caption'),
+    public: boolean('public').notNull().default(true),
+    addedBy: userRef('added_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.dealRecordId, t.fileId),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** The seller's answers about their home, saved as they go and sent once. */
+export const sellerQuestionnaires = addonRealestate.table(
+  'seller_questionnaires',
+  {
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    answers: jsonb('answers')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    state: text('state').notNull().default('draft').$type<'draft' | 'submitted'>(),
+    savedByPersonId: uuid('saved_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    savedAt: ts('saved_at'),
+    submittedByPersonId: uuid('submitted_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    submittedAt: ts('submitted_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.dealRecordId] }),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);

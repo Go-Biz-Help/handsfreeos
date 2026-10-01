@@ -216,6 +216,10 @@ export const realestateAddon = defineAddon({
     'repair_requests',
     'client_tasks',
     'client_task_completions',
+    // Round three: the listing.
+    'listings',
+    'listing_photos',
+    'seller_questionnaires',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -304,6 +308,11 @@ export const realestateAddon = defineAddon({
       'realestate.client_task.changed',
       'realestate.client_task.done',
       'realestate.home.reacted',
+      // Round three: the listing.
+      'realestate.listing.pasted',
+      'realestate.listing.facts_read',
+      'realestate.listing.facts_confirmed',
+      'realestate.listing.photos_changed',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -322,6 +331,8 @@ export const realestateAddon = defineAddon({
       'realestate.deal.closed',
       // A home with a listing's pasted words: the AI reads them for its facts.
       'realestate.home.added',
+      // A listing's old words, pasted: the same read, for the listing's facts.
+      'realestate.listing.pasted',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',

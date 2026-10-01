@@ -66,9 +66,21 @@ export function clientStep(side: 'buyer' | 'listing', stage: DealStage): number 
 
 // ---------- the client's tasks ----------
 
-export const CLIENT_TASK_KINDS = { upload: 'Upload', sign_off: 'Sign off', do: 'Do' } as const;
+export const CLIENT_TASK_KINDS = {
+  upload: 'Upload',
+  sign_off: 'Sign off',
+  do: 'Do',
+  // Round three: the seller's questionnaire about their home, asked from the listing.
+  questionnaire: 'Answer',
+} as const;
 export type ClientTaskKind = keyof typeof CLIENT_TASK_KINDS;
-export const CLIENT_TASK_KIND_KEYS = Object.keys(CLIENT_TASK_KINDS) as [
+/** The kinds an agent adds by hand; a questionnaire is asked from the listing's facts. */
+export const CLIENT_TASK_KIND_KEYS = [
+  'upload',
+  'sign_off',
+  'do',
+] as const satisfies readonly ClientTaskKind[];
+export const ALL_CLIENT_TASK_KIND_KEYS = Object.keys(CLIENT_TASK_KINDS) as [
   ClientTaskKind,
   ...ClientTaskKind[],
 ];

@@ -19,7 +19,11 @@ import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
 import { CMA_STATUS_KEYS, COMP_STATUS_KEYS } from './cma';
-import { CLIENT_TASK_KIND_KEYS, CLIENT_TASK_PRESET_KEYS } from './client-words';
+import {
+  ALL_CLIENT_TASK_KIND_KEYS,
+  CLIENT_TASK_KIND_KEYS,
+  CLIENT_TASK_PRESET_KEYS,
+} from './client-words';
 import {
   CLIENT_PRIORITY_KEYS,
   FINANCING_STEP_KEYS,
@@ -28,6 +32,7 @@ import {
   INSPECTION_KIND_KEYS,
 } from './closing';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
+import { FACT_FROM_KEYS, LISTING_HOME_FACT_KEYS } from './listing';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
@@ -1949,7 +1954,7 @@ export const ClientTaskChangeOutput = z.object({
 });
 const ClientTaskOut = z.object({
   id: uuid,
-  kind: z.enum(CLIENT_TASK_KIND_KEYS),
+  kind: z.enum(ALL_CLIENT_TASK_KIND_KEYS),
   title: z.string(),
   detail: z.string().nullable(),
   signOffWords: z.string().nullable(),
@@ -2142,3 +2147,135 @@ export const PortalTaskOutput = z.object({
   taskId: uuid,
   status: z.enum(['open', 'done', 'canceled']),
 });
+
+// ---------- round three: the listing ----------
+
+/** A listing's own facts: a home's, without a price (the list price is the deal's `list_price`). */
+export const ListingHomeFactsIn = ListingFactsIn.omit({ price_cents: true });
+
+export const ListingInput = z.object({ ...inDeal });
+
+export const ListingPasteInput = z.object({
+  ...inDeal,
+  /** The old listing's words: the AI finds the home's facts in them, each with its words, for the agent to confirm. */
+  text: z
+    .string()
+    .trim()
+    .min(20, 'Paste the old listing’s words, at least a sentence.')
+    .max(20_000, 'Paste up to 20,000 characters of the listing.'),
+});
+export const ListingPasteOutput = z.object({ dealId: uuid, filling: z.boolean() });
+
+export const ListingFillFactsInput = z.object({
+  workspaceId: uuid,
+  dealId: uuid,
+  facts: ListingHomeFactsIn.default({}),
+  /** Each fact's words in the pasted text. */
+  sources: z.record(z.string(), z.string().max(300)).default({}),
+  dropped: z.number().int().min(0).default(0),
+  model: z.string().max(100).optional(),
+  /** Why it couldn't be read, instead. */
+  failure: z.string().max(500).optional(),
+});
+export const ListingFillFactsOutput = z.object({
+  dealId: uuid,
+  state: z.enum(['read', 'failed', 'skipped']),
+});
+
+export const ListingConfirmFactsInput = z.object({
+  ...inDeal,
+  facts: ListingHomeFactsIn,
+  /** Where each one came from; anything not named was typed by the agent. */
+  sources: z.partialRecord(z.enum(LISTING_HOME_FACT_KEYS), z.enum(FACT_FROM_KEYS)).default({}),
+  /** The agent's notes for the description: what's been updated, what stands out. */
+  highlights: z.string().trim().max(2000, 'Keep it under 2,000 characters.').nullable().optional(),
+});
+export const ListingConfirmFactsOutput = z.object({ dealId: uuid, confirmedAt: isoDateTime });
+
+export const ListingPhotoAddInput = z.object({
+  ...inDeal,
+  /** One of the deal's files: a photo already uploaded to it. */
+  fileId: uuid,
+  caption: z.string().trim().max(120, 'Keep a caption under 120 characters.').optional(),
+  public: z.boolean().default(true),
+});
+export const ListingPhotosArrangeInput = z.object({
+  ...inDeal,
+  /** Every photo, in the order they're shown, with its caption and whether the page shows it. */
+  photos: z
+    .array(
+      z.object({
+        id: uuid,
+        caption: z.string().trim().max(120, 'Keep a caption under 120 characters.').nullable(),
+        public: z.boolean(),
+      }),
+    )
+    .max(100),
+});
+export const ListingPhotoRemoveInput = z.object({ ...inDeal, photoId: uuid });
+export const ListingPhotosOutput = z.object({ dealId: uuid, photos: z.number().int() });
+
+export const ListingQuestionnaireRequestInput = z.object({
+  ...inDeal,
+  /** One seller; left out, every seller on the deal fills in the one questionnaire. */
+  forPersonId: uuid.optional(),
+});
+export const ListingQuestionnaireRequestOutput = z.object({ taskId: uuid, created: z.boolean() });
+
+const FactCandidateOut = z.object({
+  from: z.enum(FACT_FROM_KEYS),
+  value: z.unknown(),
+  quote: z.string().nullable(),
+  words: z.string(),
+});
+export const ListingOut = z.object({
+  dealId: uuid,
+  address: z.string().nullable(),
+  street: z.string().nullable(),
+  facts: ListingHomeFactsIn,
+  factsConfirmedAt: isoDateTime.nullable(),
+  factsConfirmedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  /** Each fact: what's confirmed, what the seller and the old listing say, and whether they disagree. */
+  choices: z.array(
+    z.object({
+      key: z.enum(LISTING_HOME_FACT_KEYS),
+      label: z.string(),
+      confirmed: FactCandidateOut.nullable(),
+      candidates: z.array(FactCandidateOut),
+      disagree: z.boolean(),
+    }),
+  ),
+  pasted: z.object({
+    state: z.enum(['none', 'filling', 'read', 'failed']),
+    failure: z.string().nullable(),
+    found: z.number().int(),
+  }),
+  highlights: z.string().nullable(),
+  questionnaire: z.object({
+    state: z.enum(['none', 'asked', 'draft', 'submitted']),
+    taskId: uuid.nullable(),
+    submittedAt: isoDateTime.nullable(),
+    updates: z.string().nullable(),
+    loves: z.string().nullable(),
+  }),
+  photos: z.array(
+    z.object({
+      id: uuid,
+      fileId: uuid,
+      name: z.string(),
+      position: z.number().int(),
+      caption: z.string().nullable(),
+      public: z.boolean(),
+    }),
+  ),
+  /** Live on the MLS: nothing public goes before it. */
+  mls: z.object({ number: z.string(), liveOn: z.string() }).nullable(),
+  page: z.object({
+    state: z.enum(['none', 'published', 'down']),
+    slug: z.string().nullable(),
+    publishedAt: isoDateTime.nullable(),
+  }),
+  /** The deal's list price now, if it has one. */
+  listPriceCents: z.number().int().nullable(),
+});
+export const ListingOutput = z.object({ listing: ListingOut });

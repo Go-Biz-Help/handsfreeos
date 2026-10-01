@@ -78,6 +78,9 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
         : `Added ${str(a.address)} to the homes`;
     case 'home_facts':
       return `Confirmed the facts for ${str(a.address)}`;
+    // Round three: the listing.
+    case 'listing_facts':
+      return `Confirmed ${Number(a.count)} ${Number(a.count) === 1 ? 'fact' : 'facts'} about ${str(a.address)}`;
     case 'memory_confirmed':
       return `Remembered: ${str(a.words)}`;
     case 'memory_retired':

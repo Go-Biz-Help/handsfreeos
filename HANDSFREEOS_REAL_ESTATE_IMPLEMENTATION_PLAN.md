@@ -1312,16 +1312,26 @@ boards; the server steps go ahead meanwhile.
   permission like any campaign.
 - Tests: `campaigns.test.ts`, `email-campaigns.test.ts`, the worker's `automations-email-campaigns.test.ts`.
 
-### Step 3: the listing and its facts
+### Step 3: the listing and its facts (server built, 2026-10-01)
 
-- `listings` (one per listing deal: the facts, where each came from and whether the agent confirmed them, the MLS
-  number and the day it went live, the public page's address and whether it's published), `listing_photos` and
-  `listing_prices`.
-- The facts come three ways: the seller's questionnaire (a client task, filled in the portal), the old listing's text
-  pasted by the agent (round two's `home_fill` and `LISTING_FACTS`, on a listing), or typed by the agent. Only a
-  person confirms them (`listing.confirm_facts`).
-- The list price is the deal's `list_price` term (`term.enter`).
-- Proof: S-09 (the facts), S-18 (the photos).
+**As built** (`20261020000100_realestate_listings.sql`; `ops/listing.ts`, pure `listing.ts`):
+
+- `listings` (one per listing deal, made the first time anything is kept on it), `listing_photos` and
+  `seller_questionnaires`, each following its deal's privacy; the seller reads their listing's facts, photos, MLS
+  number and page, and their own questionnaire.
+- The facts are round two's home facts without a price: the list price is the deal's `list_price` term, read as it
+  stands (`listPriceOf`). `realestate.listing` shows each fact's confirmed value and where it came from, and what the
+  seller's sent questionnaire and the old listing say (`factChoices`, with `disagree` when they differ).
+- `realestate.listing.paste` keeps the old listing's words; the worker reads them as it reads a buyer's home
+  (`apps/worker/src/addons/realestate/listing.ts`), leaves out the old price, and records what it found through
+  `realestate.listing.fill_facts`. `realestate.listing.confirm_facts` is a person's only, and is S-09's proof.
+- `realestate.listing.request_questionnaire` asks the seller once: a client task of the new kind `questionnaire`,
+  which the portal finishes by sending answers (step 12), never by "Done".
+- Photos: `photo_add` (one of the deal's uploaded images, at the end; S-18's proof once it's open at Coming soon),
+  `photos_arrange` (every photo, in order, with captions and whether the page shows it) and `photo_remove` (the file
+  stays in the deal's files).
+- `client_tasks` gain `ref_kind`/`ref_id`, for a sign-off that moves a description or a price on (steps 4 and 10).
+- Tests: `packages/core/test/addons/realestate-listing.test.ts`, `apps/worker/test/realestate-listing.test.ts`.
 
 ### Step 4: the description, and the seller's sign-off
 

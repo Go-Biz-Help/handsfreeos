@@ -13,7 +13,6 @@ import {
   CLIENT_TASK_PRESET_KEYS,
   CLIENT_TASK_PRESETS,
   withAgent,
-  type ClientTaskKind,
   type ClientTaskPreset,
 } from '@hfos/core/addons/realestate/client-words';
 import { Check, Circle, Mail } from 'lucide-react';
@@ -33,6 +32,9 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { CardHead } from './bits';
+
+/** The kinds an agent adds by hand (a questionnaire is asked from the listing). */
+type AddableKind = (typeof CLIENT_TASK_KIND_KEYS)[number];
 import { DealCrumb, firstNames } from './buyer-bits';
 import { ReasonDialog } from './deal-dialogs';
 import type { ClientTask, ClientTaskList, DealClient } from './types';
@@ -426,7 +428,7 @@ function AddTaskDialog({
   const agent = agentName ? firstNames([agentName]) : 'your agent';
   const [preset, setPreset] = useState<ClientTaskPreset | ''>('preapproval');
   const p = preset ? CLIENT_TASK_PRESETS[preset] : null;
-  const [kind, setKind] = useState<ClientTaskKind>('upload');
+  const [kind, setKind] = useState<AddableKind>('upload');
   const [title, setTitle] = useState(p?.title ?? '');
   const [detail, setDetail] = useState(p ? withAgent(p.detail, agent) : '');
   const [signOff, setSignOff] = useState('');
@@ -494,7 +496,7 @@ function AddTaskDialog({
               <Select
                 id="ct-kind"
                 value={kind}
-                onChange={(e) => setKind(e.target.value as ClientTaskKind)}
+                onChange={(e) => setKind(e.target.value as AddableKind)}
               >
                 {CLIENT_TASK_KIND_KEYS.map((x) => (
                   <option key={x} value={x}>

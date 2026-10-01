@@ -661,6 +661,12 @@ export const portalTaskComplete = defineAddonCommand(realestateAddon, {
   emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { me, task, deal } = await myTask(ctx, input.taskId);
+    if (task.kind === 'questionnaire')
+      throw HfosError.rule(
+        'realestate_task_needs_answers',
+        409,
+        `“${task.title}” is finished by sending your answers. Open it, answer what you can, and send it.`,
+      );
     if (task.kind === 'upload')
       throw HfosError.rule(
         'realestate_task_needs_file',

@@ -22,6 +22,7 @@ import { financingCommands, financingQueries } from './ops/financing';
 import { inspectionCommands, inspectionQueries } from './ops/inspections';
 import { clientTaskCommands, clientTaskQueries } from './ops/client-tasks';
 import { portalCommands, portalQueries } from './ops/portal';
+import { listingCommands, listingQueries } from './ops/listing';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -46,6 +47,8 @@ export const realestateAddonServer: AddonServerModule = {
     ...inspectionCommands,
     ...clientTaskCommands,
     ...portalCommands,
+    // Round three: the listing.
+    ...listingCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -62,5 +65,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...inspectionQueries,
     ...clientTaskQueries,
     ...portalQueries,
+    ...listingQueries,
   ],
 };
