@@ -5,6 +5,8 @@ import { View } from 'react-native';
 
 import { useAddonGrants } from '@/add-ons/use-add-ons';
 import { ADDON_PHONE_WORDS } from '@/add-ons/words';
+import { useStaff } from '@/admin/staff';
+import { DESK_PHONE_WORDS } from '@/admin/words';
 import {
   CircleDollarSign,
   ClipboardList,
@@ -12,6 +14,7 @@ import {
   CloudCheck,
   FlaskConical,
   Globe,
+  Headset,
   LifeBuoy,
   Lightbulb,
   Puzzle,
@@ -38,7 +41,7 @@ import { openWeb } from '@/lib/open-web';
 /**
  * More: Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
  * then Add-ons (for owners and admins), Ideas and Get help, which are about HandsFreeOS itself, and Open on the web
- * for the desk work.
+ * for the desk work. Somebody who answers HandsFreeOS support also has the Support desk, which belongs to no business.
  */
 export default function More() {
   const { me, business, userId, openSwitcher } = useBusiness();
@@ -48,6 +51,7 @@ export default function More() {
   const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
   const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
   const { manage: managesAddons } = useAddonGrants();
+  const { staff } = useStaff(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
     <Screen title={MORE_WORDS.title} testID="more">
@@ -122,6 +126,17 @@ export default function More() {
           testID="more-settings"
         />
       </List>
+      {staff ? (
+        <List>
+          <ListRow
+            icon={Headset}
+            label={DESK_PHONE_WORDS.moreRow}
+            detail={DESK_PHONE_WORDS.moreDetail}
+            onPress={() => router.push('/app/admin')}
+            testID="more-support-desk"
+          />
+        </List>
+      ) : null}
       <List>
         {managesAddons ? (
           <ListRow

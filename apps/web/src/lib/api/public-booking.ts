@@ -13,6 +13,8 @@ export interface PublicBusiness {
   readonly name: string;
   readonly phone: string | null;
   readonly phoneDisplay: string | null;
+  /** The separate box for offers under "Text me", for a business that sends them. */
+  readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
 }
 
 export interface PublicSite {
@@ -319,6 +321,8 @@ interface CustomerFields {
   readonly phone: string | null;
   readonly email: string | null;
   readonly smsConsent: boolean;
+  /** The separate box for offers, for a business that sends them. */
+  readonly offersConsent?: boolean;
   /** The honeypot: always empty from a person. */
   readonly website: string;
   readonly turnstileToken?: string;

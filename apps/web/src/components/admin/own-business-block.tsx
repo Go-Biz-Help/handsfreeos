@@ -1,4 +1,5 @@
 'use client';
+import { DESK_OWN_BUSINESS_WORDS } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Segmented } from '@/components/ui/segmented';
@@ -47,24 +48,33 @@ export function OwnBusinessBlock({
       className="mt-5 rounded-card border border-border bg-card p-4"
       data-testid="admin-own-business"
     >
-      <h2 className="text-sm font-semibold">HandsFreeOS’s own business</h2>
-      <p className="mt-1 text-[13px] text-text-3">
-        Only HandsFreeOS’s own business may use handsfreeos.com for its email and receive mail
-        there. Names the support desk uses stay reserved.
-      </p>
+      <h2 className="text-sm font-semibold">{DESK_OWN_BUSINESS_WORDS.title}</h2>
+      <p className="mt-1 text-[13px] text-text-3">{DESK_OWN_BUSINESS_WORDS.explain}</p>
       <div className="mt-3">
         {canChange ? (
           <Segmented<Choice>
-            ariaLabel="HandsFreeOS’s own business"
+            ariaLabel={DESK_OWN_BUSINESS_WORDS.title}
             value={value}
             onChange={(v) => void pick(v)}
             options={[
-              { value: 'no', label: 'No', testId: 'admin-own-business-no', disabled: busy },
-              { value: 'yes', label: 'Yes', testId: 'admin-own-business-yes', disabled: busy },
+              {
+                value: 'no',
+                label: DESK_OWN_BUSINESS_WORDS.no,
+                testId: 'admin-own-business-no',
+                disabled: busy,
+              },
+              {
+                value: 'yes',
+                label: DESK_OWN_BUSINESS_WORDS.yes,
+                testId: 'admin-own-business-yes',
+                disabled: busy,
+              },
             ]}
           />
         ) : (
-          <p className="text-[13px]">{isPlatform ? 'Yes' : 'No'}</p>
+          <p className="text-[13px]">
+            {isPlatform ? DESK_OWN_BUSINESS_WORDS.yes : DESK_OWN_BUSINESS_WORDS.no}
+          </p>
         )}
       </div>
       {error ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}

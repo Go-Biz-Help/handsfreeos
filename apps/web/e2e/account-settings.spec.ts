@@ -43,11 +43,14 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
   // A row with no email shows a dash; approvals always email.
   const approvals = page.getByRole('row', { name: /Approvals/ });
   await expect(approvals).toContainText('Always');
+  // New support tickets is a row only for people who answer HandsFreeOS support.
+  await expect(page.getByTestId('push-supportTickets')).toHaveCount(0);
 
   const { token } = await signInOwner(email);
   const me = await api<{ user: { settings: Settings } }>(token, 'queries', 'account.me', {});
-  // All ten, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
-  // purpose: a switch arriving without anybody deciding it should is the thing this catches.
+  // All eleven, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
+  // purpose: a switch arriving without anybody deciding it should is the thing this catches. New support
+  // tickets is saved with the rest, though only support people see its row.
   expect(me.user.settings.push).toEqual({
     customerWaiting: true,
     missedCall: true,
@@ -59,6 +62,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
     wallet: true,
     jobs: true,
     connections: true,
+    supportTickets: true,
   });
   expect(me.user.settings.notifications).toMatchObject({
     attentionDigest: false,

@@ -43,6 +43,8 @@ import {
   phoneNumberSetRouting,
   phoneSetupStatus,
   phoneUpdateSettings,
+  registrationGetDraft,
+  registrationSaveDraft,
   registrationSubmit,
   registrationUpdateStatus,
   timelineList,
@@ -342,6 +344,31 @@ describe('the business number and carrier approval', () => {
     );
   });
 
+  it('keeps the registration’s answers as they are typed, for the people who can send it', async () => {
+    expect(await ask(registrationGetDraft, { workspaceId: wsId }, owner)).toEqual({
+      answers: null,
+      savedAt: null,
+    });
+    const answers = { form: { legalName: 'Lone Star HVAC LLC', ein: '12-3456789' }, at: 2 };
+    await run(registrationSaveDraft, { workspaceId: wsId, answers }, owner);
+    await run(registrationSaveDraft, { workspaceId: wsId, answers: { ...answers, at: 3 } }, owner);
+    const saved = await ask(registrationGetDraft, { workspaceId: wsId }, owner);
+    expect(saved.answers).toEqual({ ...answers, at: 3 });
+    expect(saved.savedAt).toEqual(expect.any(String));
+    // The EIN is in there: someone who can't manage the business's texting neither saves nor reads it.
+    await expectHfos(
+      () => run(registrationSaveDraft, { workspaceId: wsId, answers }, member),
+      'forbidden',
+    );
+    await expectHfos(() => ask(registrationGetDraft, { workspaceId: wsId }, member), 'forbidden');
+    // One row per business, however often it saves.
+    const [row] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.registration_drafts where workspace_id = ${wsId}`,
+    );
+    expect(row?.n).toBe(1);
+  });
+
   it('a registration matches the number type and stays in review until the carrier answers', async () => {
     // Local numbers need two example texts before the number type is even checked.
     await expectHfos(
@@ -385,6 +412,8 @@ describe('the business number and carrier approval', () => {
     );
     expect(registrationIds).toHaveLength(1);
     const registrationId = registrationIds[0]!;
+    // What was being typed is now what was sent.
+    expect((await ask(registrationGetDraft, { workspaceId: wsId }, owner)).answers).toBeNull();
     expect((await ask(phoneSetupStatus, { workspaceId: wsId }, owner)).nextStep).toBe(
       'awaiting_approval',
     );

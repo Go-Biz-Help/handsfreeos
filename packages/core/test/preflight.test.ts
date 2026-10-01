@@ -10,15 +10,25 @@ import { describe, expect, it } from 'vitest';
 import {
   checkOptInSurface,
   checkPolicy,
+  checkTerms,
   checkWebsite,
   mentionsTexting,
   pageText,
   preflightBlocked,
+  namesBusiness,
   promisesNotToShare,
+  readConsentBox,
   showsConsentBox,
+  termsGaps,
   type FetchedPage,
 } from '../src/messaging/preflight';
-import { MOBILE_DATA_CLAUSE, policyAsText, privacyPolicy } from '../src/messaging/policies';
+import { smsConsentWords } from '../src/messaging/consent';
+import {
+  MOBILE_DATA_CLAUSE,
+  policyAsText,
+  privacyPolicy,
+  termsOfService,
+} from '../src/messaging/policies';
 
 const page = (over: Partial<FetchedPage> = {}): FetchedPage => ({
   url: 'https://lonestarhvac.test',
@@ -101,16 +111,86 @@ describe('the website', () => {
   it('fails when no website was given', () => {
     expect(checkWebsite(null).ok).toBe(false);
   });
+
+  it('warns, without blocking, when the business’s name is nowhere on it', () => {
+    const check = checkWebsite(page(), ['Go Biz Help']);
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+    expect(check.detail).toMatch(/Go Biz Help/);
+    expect(checkWebsite(page(), ['Lone Star HVAC LLC']).ok).toBe(true);
+  });
+
+  it('finds a name however it is spaced, and by its first two words', () => {
+    expect(namesBusiness('Welcome to GoBizHelp!', ['Go Biz Help'])).toBe(true);
+    expect(namesBusiness('Lone Star HVAC fixes heating', ['Lone Star HVAC & Roofing'])).toBe(true);
+    expect(namesBusiness('Somebody else entirely', ['Go Biz Help'])).toBe(false);
+  });
+});
+
+describe('the terms', () => {
+  it('passes the ones we write ourselves', () => {
+    const html = `<html><body>${policyAsText(termsOfService({ name: 'Lone Star HVAC', phone: '(512) 555-0100' }))}</body></html>`;
+    expect(checkTerms(page({ html })).ok).toBe(true);
+  });
+
+  it('names what terms that mention texting leave out, without blocking', () => {
+    const html =
+      '<h1>Terms</h1><p>We may send you text messages about your appointment. Reply STOP to stop.</p>';
+    const check = checkTerms(page({ html }));
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+    expect(check.detail).toMatch(/how many messages they get varies/);
+    expect(check.detail).toMatch(/message and data rates may apply/);
+    expect(check.detail).toMatch(/HELP/);
+    expect(check.detail).toMatch(/how to reach you/);
+    expect(check.detail).not.toMatch(/STOP stops/);
+  });
+
+  it('finds nothing missing from the texting section we offer to copy', () => {
+    const terms = termsOfService({ name: 'Go Biz Help', phone: '(512) 555-0100' });
+    const section = terms.sections.find((x) => x.heading === 'Text messages')!;
+    expect(termsGaps(pageText(section.paragraphs.join(' ')))).toEqual([]);
+  });
+
+  it('warns about terms that never mention texting', () => {
+    const check = checkTerms(page());
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+  });
+
+  it('blocks terms that do not open, or that were never given', () => {
+    expect(checkTerms(page({ status: 404, html: '' }))).toMatchObject({
+      ok: false,
+      severity: 'blocker',
+    });
+    expect(checkTerms(null).ok).toBe(false);
+  });
+
+  it('says what our terms tell a customer about STOP, HELP and the carriers', () => {
+    const text = policyAsText(
+      termsOfService({ name: 'Lone Star HVAC', phone: '(512) 555-0100', offers: true }),
+    );
+    expect(text).toMatch(/Reply STOP at any time/);
+    expect(text).toMatch(/call us at \(512\) 555-0100/);
+    expect(text).toMatch(/not liable for delayed or undelivered/);
+    expect(text).toMatch(/separate box/);
+  });
 });
 
 describe('the page where customers agree', () => {
-  const consentHtml =
-    '<form><input type="checkbox" id="c"><label for="c">Text me, Lone Star HVAC</label>' +
-    '<p>Agreeing is not a condition of buying anything. Reply STOP to stop.</p></form>';
+  /** The box as our own public form draws it: core's words, the privacy policy and the terms. */
+  const words = smsConsentWords('Lone Star HVAC', 'form', '/legal/lone-star/privacy');
+  const consentHtml = (box = '<input type="checkbox" id="c">', links = true) =>
+    '<form><label>Your name <input type="text" required></label>' +
+    `${box}<label for="c">${words.title}</label>` +
+    `<p>${words.detail} ` +
+    (links
+      ? '<a href="/legal/lone-star/privacy">Privacy policy</a> · <a href="/legal/lone-star/terms">Terms</a>'
+      : '') +
+    '</p></form>';
 
   it('passes a page with the box and the wording on it', () => {
-    expect(showsConsentBox(consentHtml)).toBe(true);
-    expect(checkOptInSurface(page({ html: consentHtml }), 'hosted').ok).toBe(true);
+    expect(showsConsentBox(consentHtml())).toBe(true);
+    expect(checkOptInSurface(page({ html: consentHtml() }), 'hosted', ['Lone Star HVAC']).ok).toBe(
+      true,
+    );
   });
 
   it('fails a page with the wording but no box to tick', () => {
@@ -123,18 +203,79 @@ describe('the page where customers agree', () => {
     expect(showsConsentBox('<input type="checkbox"><label>Sign up</label>')).toBe(false);
   });
 
+  it('blocks a box that starts ticked, or that must be ticked to send the form', () => {
+    const ticked = checkOptInSurface(
+      page({ html: consentHtml('<input type="checkbox" id="c" checked>') }),
+      'own_site',
+    );
+    expect(ticked).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(ticked.detail).toMatch(/already ticked/);
+    const required = checkOptInSurface(
+      page({ html: consentHtml('<input type="checkbox" id="c" required>') }),
+      'own_site',
+    );
+    expect(required).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(required.detail).toMatch(/not required/);
+  });
+
+  it('names what is missing from beside the box', () => {
+    const html =
+      '<form><input type="checkbox" id="c"><label for="c">Text me</label>' +
+      '<p>Reply STOP to stop.</p></form>';
+    const check = checkOptInSurface(page({ html }), 'own_site', ['Lone Star HVAC']);
+    expect(check).toMatchObject({ ok: false, severity: 'blocker' });
+    for (const missing of [
+      'business name',
+      'HELP',
+      'rates may apply',
+      'how often',
+      'privacy policy',
+    ])
+      expect(check.detail).toContain(missing);
+  });
+
+  it('only warns when the terms are not linked anywhere on the page', () => {
+    const html = consentHtml('<input type="checkbox" id="c">', false).replace(
+      '</p>',
+      ' <a href="/privacy">Privacy policy</a></p>',
+    );
+    expect(checkOptInSurface(page({ html }), 'own_site')).toMatchObject({
+      ok: false,
+      severity: 'warning',
+    });
+  });
+
+  it('reads the box beside the words about texting, not the other boxes on the form', () => {
+    const services =
+      '<p>Which services?</p>' +
+      ['seo', 'ads', 'web']
+        .map((v) => `<input type="checkbox" name="s" value="${v}" checked>`)
+        .join('');
+    const reading = readConsentBox(services + consentHtml(), ['Lone Star HVAC']);
+    expect(reading).toMatchObject({ found: true, preTicked: false, required: false, missing: [] });
+  });
+
   it('tells a hosted business to go back and press the button', () => {
     expect(checkOptInSurface(null, 'hosted').detail).toMatch(/Set this up for me/);
   });
 
-  it('does not block a business that takes permission in person', () => {
-    const check = checkOptInSurface(null, 'in_person');
-    expect(check.severity).toBe('warning');
-    expect(check.ok).toBe(true);
+  it('asks a business that takes permission in person for something to show', () => {
+    const none = checkOptInSurface(null, 'in_person');
+    expect(none).toMatchObject({ ok: false, severity: 'blocker' });
+    const shown = checkOptInSurface(page({ html: '<img src="sheet.jpg">' }), 'in_person');
+    expect(shown).toMatchObject({ ok: true, severity: 'warning' });
+  });
+
+  it('refuses proof that asks the reviewer to sign in', () => {
+    const html =
+      '<form><input type="email"><input type="password"></form><p>Sign in to continue</p>';
+    const check = checkOptInSurface(page({ html }), 'in_person');
+    expect(check.ok).toBe(false);
+    expect(check.detail).toMatch(/Anyone with the link/);
   });
 
   it('blocks a claimed page that does not load, whichever way it was set up', () => {
-    for (const path of ['hosted', 'own_site'] as const) {
+    for (const path of ['hosted', 'own_site', 'in_person'] as const) {
       const check = checkOptInSurface(page({ status: 500, html: '' }), path);
       expect(check.severity).toBe('blocker');
       expect(check.ok).toBe(false);
@@ -146,10 +287,7 @@ describe('what stops a submit', () => {
   it('is any failed blocker, and never a failed warning', () => {
     expect(preflightBlocked([checkWebsite(null)])).toBe(true);
     expect(
-      preflightBlocked([
-        checkWebsite(page()),
-        { ...checkOptInSurface(null, 'in_person'), ok: false },
-      ]),
+      preflightBlocked([checkWebsite(page()), checkWebsite(page(), ['Somebody Else Plumbing'])]),
     ).toBe(false);
   });
 });

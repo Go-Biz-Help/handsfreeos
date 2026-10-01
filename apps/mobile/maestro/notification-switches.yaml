@@ -3,7 +3,7 @@ name: The notification switches save through HandsFreeOS
 tags:
   - ci
 # Settings → Notifications: a push switch beside each email switch, as on the web. Turning "Urgent items" push off saves
-# all six push switches through the API; it stays off when the screen opens again (from Dale's profile, synced back);
+# every push switch through the API; it stays off when the screen opens again (from Dale's profile, synced back);
 # turning it on again saves again. This phone says whether it gets notifications. Seed accounts
 # (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
 env:

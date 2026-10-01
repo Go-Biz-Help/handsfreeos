@@ -97,7 +97,11 @@ import {
   phoneNumberSetRouting,
   phoneUpdateSettings,
 } from './phone';
-import { registrationSubmit, registrationUpdateStatus } from './registration';
+import {
+  registrationSaveDraft,
+  registrationSubmit,
+  registrationUpdateStatus,
+} from './registration';
 import { brandedDomainCommands } from './branded-domain';
 import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
@@ -438,6 +442,7 @@ export {
   phoneNumberSetRouting,
   phoneUpdateSettings,
   registrationSubmit,
+  registrationSaveDraft,
   registrationUpdateStatus,
   callAttachRecording,
   callAttachTranscript,
@@ -659,6 +664,7 @@ export const commands: readonly CommandDef[] = [
   phoneNumberFail,
   phoneNumberMarkReleased,
   registrationSubmit,
+  registrationSaveDraft,
   registrationUpdateStatus,
   conversationOpen,
   conversationMarkRead,

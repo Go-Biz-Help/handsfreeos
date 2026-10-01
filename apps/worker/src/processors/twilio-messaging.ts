@@ -111,6 +111,8 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
       // A tap comes with the button's words as its body; a phone that leaves it out still says what it chose.
       body: p.Body || (tapped ? (p.ButtonText ?? '') : ''),
       mediaCount,
+      // Advanced Opt-Out names the keyword it already answered; the default handling says nothing.
+      keywordAnswered: !!p.OptOutType,
       ...(ctx.reminderOverrideMs ? { reminderAfterMs: ctx.reminderOverrideMs } : {}),
     },
     systemActor(scope),

@@ -8,6 +8,8 @@
  * - **Neither waits on a phone** (online), a repeat with the same command id runs once, and no token reaches an
  *   event, the audit log or the stored answer.
  * - **pushSwitchOn** reads a switch exactly as the database's private.push_on does.
+ * - **A push to support people** (a new ticket) belongs to no business and opens the desk; every other push opens its
+ *   own business. Its words say which ticket, who wrote and about what.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -19,7 +21,15 @@ import type { z } from 'zod';
 import { HfosError } from '../src/errors';
 import { executeCommand } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
-import { PUSH_SWITCHES, pushSwitchesOf, pushSwitchOn } from '../src/push';
+import {
+  isStaffPush,
+  PUSH_CATEGORY_IDS,
+  PUSH_SWITCHES,
+  PushData,
+  pushSwitchesOf,
+  pushSwitchOn,
+  supportTicketPushWords,
+} from '../src/push';
 import { pushDeviceRegister, pushDeviceRemove } from '../src/server';
 
 const api = () => testDbs().api.db;
@@ -299,6 +309,79 @@ describe('pushSwitchOn', () => {
       connections: true,
       // Real Estate step 5: an add-on's alerts.
       addons: true,
+      // Only support people see it, and for them it is on until turned off.
+      supportTickets: true,
     });
+  });
+});
+
+describe('what a push carries', () => {
+  const ws = randomUUID();
+  const ticket = randomUUID();
+  const base = {
+    v: 1,
+    notificationId: randomUUID(),
+    sentAt: new Date().toISOString(),
+    refs: {},
+    commandIds: {},
+  };
+  const business = {
+    ...base,
+    category: 'booking',
+    workspaceId: ws,
+    business: 'Lone Star HVAC & Roofing',
+    path: `/app/w/${ws}/calendar`,
+  };
+  const support = {
+    ...base,
+    category: 'support_ticket',
+    workspaceId: null,
+    business: '',
+    path: `/admin/tickets/${ticket}`,
+    refs: { ticketId: ticket },
+  };
+
+  it('has a business and opens under it, except a push to support people, which has none and opens the desk', () => {
+    expect(PushData.safeParse(business).success).toBe(true);
+    expect(PushData.safeParse(support).success).toBe(true);
+    expect(PUSH_CATEGORY_IDS.filter(isStaffPush)).toEqual(['support_ticket']);
+    for (const wrong of [
+      { ...business, workspaceId: null },
+      { ...business, path: `/admin/tickets/${ticket}` },
+      { ...support, workspaceId: ws },
+      { ...support, path: `/app/w/${ws}/inbox` },
+      { ...support, path: 'https://example.com/admin/tickets' },
+      { ...business, path: '/i/abc' },
+    ])
+      expect(PushData.safeParse(wrong).success, JSON.stringify(wrong)).toBe(false);
+  });
+
+  it('names the ticket, who wrote and their business, and quotes the start of what they wrote', () => {
+    expect(
+      supportTicketPushWords({
+        number: 1042,
+        subject: '  Reminders   stopped going out ',
+        preview: 'They went out on Monday\nand not since.',
+        requester: 'Dana Reed',
+        business: 'Reed Plumbing',
+      }),
+    ).toEqual({
+      title: 'New support ticket #1042',
+      about: 'Dana Reed · Reed Plumbing',
+      body: 'Reminders stopped going out: “They went out on Monday and not since.”',
+    });
+    // No business known yet, nothing written: the address and the subject alone.
+    expect(
+      supportTicketPushWords({ number: 7, subject: '', requester: 'dana@example.com' }),
+    ).toEqual({ title: 'New support ticket #7', about: 'dana@example.com', body: 'No subject' });
+    // However long, the quote still closes inside what a phone shows.
+    const long = supportTicketPushWords({
+      number: 8,
+      subject: 'S'.repeat(300),
+      preview: 'w '.repeat(300),
+      requester: 'Dana',
+    });
+    expect(long.body.length).toBeLessThanOrEqual(180);
+    expect(long.body.endsWith('…”')).toBe(true);
   });
 });

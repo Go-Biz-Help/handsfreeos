@@ -8,7 +8,7 @@ What the worker sends, and what the phone app (M10 step 11) does with it. The li
 - **iPhone:** a normal alert push. `title`, `subtitle` and `body` show on the lock screen, `categoryId` is the category, and `data` carries the rest. `sound: default`; the urgent kinds are `interruptionLevel: time-sensitive` (the app needs the time-sensitive entitlement, or they arrive as ordinary ones).
 - **Android:** a **data-only, high-priority** push. Nothing is drawn by the system: the app shows a local notification itself, with the category's buttons, from `data.title`, `data.subtitle` and `data.body`.
 - **One notification per conversation:** a push about a conversation carries `data.collapseId` (`conversation-<id>`) and replaces that conversation's earlier notification. On an iPhone it is also the push's `collapseId` and `threadId`; on Android the app gives its local notification that id. A push with `data.quiet: true` is an update: an iPhone takes it in `interruptionLevel: passive` with no sound, and the app on Android replaces its notification without alerting again (only alert once).
-- Kept for a phone that's off: 12 hours for a customer's message, a missed call and the urgent kinds, 24 hours for the rest.
+- Kept for a phone that's off: 12 hours for a customer's message, a missed call, the urgent kinds, a visit to mark and a new support ticket; 24 hours for the rest.
 - A push is never sent twice to one phone, and a phone that Expo says is gone (`DeviceNotRegistered`) is turned off (`disabled_reason = 'not_registered'`) until the app registers it again.
 
 ## Registering a phone
@@ -22,7 +22,9 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 
 ## The switches
 
-`users.settings.push`, one per kind, read with `pushSwitchOn(settings, key)` (the database's `private.push_on`). Each is on unless turned off, except `payment`, which is off until turned on. Save all seven at once: `user.update_profile` with `{ settings: { push: { customerWaiting, missedCall, urgent, approval, booking, assigned, payment } } }` (`pushSwitchesOf(settings)` fills in the defaults). The email switches in `settings.notifications` are separate. Kinds added since have their own switch too: `wallet`, `jobs`, `connections`, and `addons` for an add-on's alerts (Real Estate step 5, with its email switch `addonEmail`).
+`users.settings.push`, one per kind, read with `pushSwitchOn(settings, key)` (the database's `private.push_on`, which refuses a name it doesn't know). Each is on unless turned off, except `payment`, which is off until turned on. Save all twelve at once: `user.update_profile` with `{ settings: { push: { customerWaiting, missedCall, urgent, approval, booking, assigned, payment, wallet, jobs, connections, addons, supportTickets } } }` (`pushSwitchesOf(settings)` fills in the defaults, in `PushSwitches`' order). The email switches in `settings.notifications` are separate. `addons` is for an add-on's alerts (Real Estate step 5), with its email switch `addonEmail`.
+
+`supportTickets` is for HandsFreeOS's own support people. Settings → Notifications shows its row, New support tickets, only to someone `platform.me` says answers support (the web's Settings → Account and the phone's alike); everyone's save carries it anyway, since a save sends every switch.
 
 ## Kinds of push
 
@@ -41,6 +43,7 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 | `assigned`               | Open                                        | `assigned`        | A lead, conversation or task is assigned, or a Home item on its own (an appointment's or approval's)                                                                                                                                                        | The new assignee                                                                                                                                                                                                                            | Lead `/app/w/<ws>/leads/<leadId>`; conversation `/app/w/<ws>/inbox/<conversationId>`; task `/app/w/<ws>/tasks`; item `/app/w/<ws>?item=<itemId>`           |
 | `payment`                | Open                                        | `payment`         | An invoice is paid in full                                                                                                                                                                                                                                  | The business's own owners and admins, and whoever the invoice is on                                                                                                                                                                         | `/app/w/<ws>/money/invoices/<invoiceId>`                                                                                                                   |
 | `addon_alert`            | Open                                        | `addons`          | An add-on raises an alert that is news (new, back after being cleared, or saying something new), except `info` ones: critical at once, the rest while the business is open (`addon_alert.notify`, apps/worker/src/addons/alerts.ts). Once per thing it says | Everyone holding the alert's permission, or its audience when it names one, who can see its record (a private deal)                                                                                                                         | The add-on's page, `/app/w/<ws>/a/<addon>/…`, with `refs.recordId`; the phone opens its own screen for it once it has one (`ui.phone`), the web until then |
+| `support_ticket`         | Open                                        | `supportTickets`  | Someone writes to HandsFreeOS support and starts a new ticket: from inside the app, or by mail to support@ (see "A new support ticket")                                                                                                                     | Every active support person with the switch on, except whoever wrote in                                                                                                                                                                     | `/admin/tickets/<ticketId>`: the phone's Support desk, `/app/admin/tickets/<ticketId>`                                                                     |
 
 ### A customer's new message
 
@@ -53,27 +56,41 @@ On each inbound text, email or website chat, as it arrives:
 
 **Someone's own mail (M19)** is a `customer_message_no_ai` too, on the same switch, since its Reply and Call work on it and every app build knows the category. It goes to that person alone, when new mail lands in their own Inbox (`email.filed` with `private: true`). Their own mail never waits on a reply, so there is no burst: each message replaces the thread's last notification. The team's Other mail and Spam push nobody.
 
-The AI teammate "can take" a conversation when it is on, answers that conversation's channel, and isn't answering it already. Whoever did the thing (booked, assigned, recorded the payment) is never told about it. Paths are the web's, as the emails link: the app maps `/app/w/<ws>/…` to its own screens. Tapping the notification itself opens `data.path`.
+### A new support ticket
 
-Words, as on the canvas: the title names who or what ("Hot lead · Maria Lopez", "Mike Johnson", "Customer waiting · Mike Johnson", "Approval · Angela Brooks", "New booking · Mike Johnson", "Assigned to you · Rosa Delgado", "Paid · Bayou Bistro"); the subtitle names the business, after the channel for a customer's message ("Text · Lone Star HVAC & Roofing"); the body is at most 180 characters. Nothing secret goes in: no links (customer links carry codes), tokens or provider ids.
+HandsFreeOS's own support desk tells its support people on their phones when someone new needs them. It is the one kind of push that belongs to no business.
+
+- **When:** a ticket starts, either way in. Asking from inside the app (`support.request.create`, its `support_ticket.opened` event), or mail to support@ that starts something new (the worker's support mail, which files it directly). A customer's answer on a ticket that's already there, reopening it or not, pushes nobody: the desk's queue shows it.
+- **Who:** every active support person (`platform.staff`, not suspended, account not deleted) with `supportTickets` on and a phone on, except a support person who wrote in themselves. Nobody's business matters, and nobody in a business hears of it.
+- **Words:** "New support ticket #1042"; the subtitle is who wrote and the business it's about when known ("Dana Reed · Reed Plumbing", or their address); the body is the subject and the start of what they wrote ("Reminders stopped going out: “They went out on Monday and not since.”"). `supportTicketPushWords` in core makes them.
+- **What it carries:** `workspaceId: null`, `business: ''`, `path: /admin/tickets/<ticketId>`, `refs.ticketId`, `collapseId: ticket-<ticketId>`, and no command ids: Open, and a tap, open the ticket on the phone's Support desk (the route map sends `/admin/…` to `/app/admin/…`, which asks the API whether the person answers support).
+- **How the worker sends it:** queued in the transaction that files the ticket (`queueStaffPush`, one job per ticket, `push:support_ticket:<ticketId>`), in a savepoint, so a push that can't be queued never costs the ticket. The job holds no business. Its phones, and turning off the ones Expo says are gone, go through two functions only the worker may call, `private.staff_push_devices` and `private.turn_off_staff_push_devices`: from a business's scope the worker sees only that business's people's phones. Everything else is the business path's: sent once per phone, 100 to a request, the switch checked again as it sends.
+- **On the phone:** shown (Android) only when the person signed in answers support, from the answer to `platform.me` the app keeps (asked as it opens). A support push naming a business, or a business's push opening the desk, doesn't parse.
+- **Older app builds** don't know the kind, and a push with no business doesn't parse for them: Android shows nothing, and an iPhone shows it (iOS draws it) with no Open button, and a tap only opens the app. `v` stays `1`: nothing a build already reads has changed, and a new version would have made them drop every push. A support person needs a build that has it.
+
+### Where each opens, and what it says
+
+The AI teammate "can take" a conversation when it is on, answers that conversation's channel, and isn't answering it already. Whoever did the thing (booked, assigned, recorded the payment) is never told about it. Paths are the web's, as the emails link: the app maps `/app/w/<ws>/…` to its own screens, and the support desk's `/admin/…` to its Support desk. Tapping the notification itself opens `data.path`.
+
+Words, as on the canvas: the title names who or what ("Hot lead · Maria Lopez", "Mike Johnson", "Customer waiting · Mike Johnson", "Approval · Angela Brooks", "New booking · Mike Johnson", "Assigned to you · Rosa Delgado", "Paid · Bayou Bistro", "New support ticket #1042"); the subtitle names the business, after the channel for a customer's message ("Text · Lone Star HVAC & Roofing"), or, for a new support ticket, who wrote and their business; the body is at most 180 characters. Nothing secret goes in: no links (customer links carry codes), tokens or provider ids.
 
 ## What every push carries
 
 `data`, parsed with `PushData`:
 
-| Field                       | What                                                                                                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `v`                         | `1`                                                                                                                                                                                    |
-| `notificationId`            | A UUID, one per moment, the same on every phone it reaches                                                                                                                             |
-| `category`                  | One of the categories above                                                                                                                                                            |
-| `workspaceId`, `business`   | The business, by id and name                                                                                                                                                           |
-| `path`                      | Where it opens                                                                                                                                                                         |
-| `sentAt`                    | When the moment was queued (ISO)                                                                                                                                                       |
-| `refs`                      | The records it is about: `conversationId` and `channel`, `messageId`, `personId`, `leadId`, `itemId`, `approvalId`, `draftId`, `appointmentId`, `taskId`, `invoiceId`, whichever apply |
-| `commandIds`                | A UUID for each button that runs a command (`reply`, `let_ai_handle`, `let_handle`, `snooze`, `approve`)                                                                               |
-| `collapseId`                | When present: the notification this one replaces (`conversation-<id>`)                                                                                                                 |
-| `quiet`                     | When `true`: an update to a notification already showing, shown without a sound or a buzz                                                                                              |
-| `title`, `subtitle`, `body` | Android only: the words to show                                                                                                                                                        |
+| Field                       | What                                                                                                                                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v`                         | `1`                                                                                                                                                                                                |
+| `notificationId`            | A UUID, one per moment, the same on every phone it reaches                                                                                                                                         |
+| `category`                  | One of the categories above                                                                                                                                                                        |
+| `workspaceId`, `business`   | The business, by id and name; `null` and `''` for a new support ticket, which is about no business                                                                                                 |
+| `path`                      | Where it opens: under `/app/w/<ws>/`, or the support desk's `/admin/…` for a new support ticket. Any other pairing of the two doesn't parse                                                        |
+| `sentAt`                    | When the moment was queued (ISO)                                                                                                                                                                   |
+| `refs`                      | The records it is about: `conversationId` and `channel`, `messageId`, `personId`, `leadId`, `itemId`, `approvalId`, `draftId`, `appointmentId`, `taskId`, `invoiceId`, `ticketId`, whichever apply |
+| `commandIds`                | A UUID for each button that runs a command (`reply`, `let_ai_handle`, `let_handle`, `snooze`, `approve`)                                                                                           |
+| `collapseId`                | When present: the notification this one replaces (`conversation-<id>`, or `ticket-<id>` for a new support ticket)                                                                                  |
+| `quiet`                     | When `true`: an update to a notification already showing, shown without a sound or a buzz                                                                                                          |
+| `title`, `subtitle`, `body` | Android only: the words to show                                                                                                                                                                    |
 
 ## The buttons
 
@@ -96,6 +113,6 @@ Every button command waits on a phone like the same command from a screen: Reply
 ## Trying it locally
 
 - `PUSH_PROVIDER=fake` is the default outside production. The stand-in keeps every message it was handed. A token with `Gone` in it gets `DeviceNotRegistered` in its receipt; one with `Dead` in it, on its ticket.
-- `GET /test/push/sent?workspaceId=<id>` lists what the stand-in was handed for a business: each message's `to`, `platform`, words, `categoryId` and `data`.
+- `GET /test/push/sent?workspaceId=<id>` lists what the stand-in was handed for a business: each message's `to`, `platform`, words, `categoryId` and `data`. A new support ticket's push has no business, so it isn't listed there; the worker's own tests read the stand-in (`apps/worker/test/support-push.test.ts`).
 - `POST /test/push/run-due { workspaceId }` runs the business's waiting push jobs now, the receipt checks (15 minutes out) included.
 - Pushes are queued by the worker's own loop, so read `sent` again until what you expect is there.

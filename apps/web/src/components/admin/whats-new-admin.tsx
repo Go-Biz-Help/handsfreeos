@@ -1,7 +1,9 @@
 'use client';
 import {
   IDEA_STATUS_WORDS,
+  IDEAS_WORDS,
   WHATS_NEW_KIND_WORDS,
+  WHATS_NEW_TEAM_WORDS,
   type IdeaStatus,
   type WhatsNewKind,
 } from '@hfos/core';
@@ -121,7 +123,7 @@ export function WhatsNewAdmin({
           areaId: draft.areaId || null,
           ideaIds: draft.ideas.map((i) => i.id),
         }),
-      'Saved as a draft.',
+      WHATS_NEW_TEAM_WORDS.savedDraft,
     );
     if (ok) {
       setDraft(null);
@@ -131,15 +133,11 @@ export function WhatsNewAdmin({
 
   const publish = (e: WhatsNewEntry) => {
     const linked = e.ideas.filter((i) => i.status !== 'done').length;
-    const words =
-      linked && markDone
-        ? `Publish “${e.title}”? ${linked === 1 ? 'Its idea' : `Its ${linked} ideas`} become Done and everybody following ${linked === 1 ? 'it' : 'them'} is emailed.`
-        : `Publish “${e.title}” for every business to read?`;
-    if (!window.confirm(words)) return;
+    if (!window.confirm(WHATS_NEW_TEAM_WORDS.publishQuestion(e.title, linked, markDone))) return;
     void run(
       `publish-${e.id}`,
       () => command('/v1/commands/whats_new.publish', { id: e.id, markIdeasDone: markDone }),
-      'Published.',
+      WHATS_NEW_TEAM_WORDS.publishedToast,
     );
   };
 
@@ -150,19 +148,17 @@ export function WhatsNewAdmin({
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2 hover:text-text"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-        Ideas
+        {IDEAS_WORDS.title}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">What’s new</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">{IDEAS_WORDS.tabs.whatsNew}</h1>
         {canManage && !draft ? (
           <Button onClick={() => setDraft(blank)} data-testid="whats-new-add">
-            Write an entry
+            {WHATS_NEW_TEAM_WORDS.write}
           </Button>
         ) : null}
       </div>
-      <p className="mt-1 text-[13px] text-text-3">
-        Every business reads these under Ideas → What’s new, with a dot in their menu until they do.
-      </p>
+      <p className="mt-1 text-[13px] text-text-3">{WHATS_NEW_TEAM_WORDS.intro}</p>
       {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
 
       {draft ? (
@@ -171,36 +167,40 @@ export function WhatsNewAdmin({
           className="mt-4 flex flex-col gap-4 rounded-card border border-border bg-card p-5"
           data-testid="whats-new-editor"
         >
-          <Field label="Title" htmlFor="wn-title">
+          <Field label={WHATS_NEW_TEAM_WORDS.titleLabel} htmlFor="wn-title">
             <Input
               id="wn-title"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               maxLength={140}
-              placeholder="Photos on estimates and invoices"
+              placeholder={WHATS_NEW_TEAM_WORDS.titlePlaceholder}
               data-testid="wn-title"
             />
           </Field>
           <div className="flex flex-wrap gap-4">
             <div>
-              <p className="mb-1.5 text-[13px] font-medium">What it is</p>
+              <p className="mb-1.5 text-[13px] font-medium">{WHATS_NEW_TEAM_WORDS.kindLabel}</p>
               <Segmented
                 value={draft.kind}
                 onChange={(kind) => setDraft({ ...draft, kind })}
-                ariaLabel="What it is"
+                ariaLabel={WHATS_NEW_TEAM_WORDS.kindLabel}
                 options={(['new', 'improved', 'fixed'] as const).map((k) => ({
                   value: k,
                   label: WHATS_NEW_KIND_WORDS[k],
                 }))}
               />
             </div>
-            <Field label="Part of HandsFreeOS" htmlFor="wn-area" className="min-w-[220px] flex-1">
+            <Field
+              label={WHATS_NEW_TEAM_WORDS.areaLabel}
+              htmlFor="wn-area"
+              className="min-w-[220px] flex-1"
+            >
               <Select
                 id="wn-area"
                 value={draft.areaId}
                 onChange={(e) => setDraft({ ...draft, areaId: e.target.value })}
               >
-                <option value="">None in particular</option>
+                <option value="">{WHATS_NEW_TEAM_WORDS.noArea}</option>
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -210,9 +210,9 @@ export function WhatsNewAdmin({
             </Field>
           </div>
           <Field
-            label="What changed"
+            label={WHATS_NEW_TEAM_WORDS.bodyLabel}
             htmlFor="wn-body"
-            hint="Plain words. A blank line starts a new paragraph; lines that start with “- ” make a list."
+            hint={WHATS_NEW_TEAM_WORDS.bodyHint}
           >
             <Textarea
               id="wn-body"
@@ -224,10 +224,8 @@ export function WhatsNewAdmin({
             />
           </Field>
           <div>
-            <p className="text-[13px] font-medium">The ideas it delivers</p>
-            <p className="text-xs text-text-3">
-              Their followers are emailed when this is published, and the ideas show it.
-            </p>
+            <p className="text-[13px] font-medium">{WHATS_NEW_TEAM_WORDS.ideasLabel}</p>
+            <p className="text-xs text-text-3">{WHATS_NEW_TEAM_WORDS.ideasHint}</p>
             {draft.ideas.length ? (
               <ul className="mt-2 flex flex-wrap gap-2">
                 {draft.ideas.map((i) => (
@@ -238,7 +236,7 @@ export function WhatsNewAdmin({
                     #{i.number} {i.title}
                     <button
                       type="button"
-                      aria-label={`Remove #${i.number}`}
+                      aria-label={WHATS_NEW_TEAM_WORDS.removeIdea(i.number)}
                       className="rounded-full p-0.5 text-text-3 hover:bg-card-3 hover:text-text"
                       onClick={() =>
                         setDraft({ ...draft, ideas: draft.ideas.filter((x) => x.id !== i.id) })
@@ -255,8 +253,8 @@ export function WhatsNewAdmin({
               inputSize="sm"
               value={find}
               onChange={(e) => setFind(e.target.value)}
-              placeholder="Find an idea to link"
-              aria-label="Find an idea to link"
+              placeholder={WHATS_NEW_TEAM_WORDS.findIdea}
+              aria-label={WHATS_NEW_TEAM_WORDS.findIdea}
               data-testid="wn-find"
             />
             {found.length ? (
@@ -283,10 +281,10 @@ export function WhatsNewAdmin({
           </div>
           <div className="flex gap-2">
             <Button type="submit" loading={busy === 'save'} data-testid="wn-save">
-              Save draft
+              {WHATS_NEW_TEAM_WORDS.saveDraft}
             </Button>
             <Button variant="ghost" onClick={() => setDraft(null)}>
-              Cancel
+              {WHATS_NEW_TEAM_WORDS.cancel}
             </Button>
           </div>
         </form>
@@ -295,7 +293,7 @@ export function WhatsNewAdmin({
       {canManage ? (
         <Checkbox
           className="mt-4"
-          label="Publishing marks the ideas an entry delivers Done, and emails their followers"
+          label={WHATS_NEW_TEAM_WORDS.markDone}
           checked={markDone}
           onChange={(e) => setMarkDone(e.target.checked)}
         />
@@ -311,10 +309,10 @@ export function WhatsNewAdmin({
             <div className="flex flex-wrap items-center gap-2 text-[13px] text-text-3">
               <KindPill kind={e.kind} />
               {e.publishedAt ? (
-                <span>Published {dayWords(e.publishedAt)}</span>
+                <span>{WHATS_NEW_TEAM_WORDS.published(dayWords(e.publishedAt))}</span>
               ) : (
                 <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
-                  Draft
+                  {WHATS_NEW_TEAM_WORDS.draft}
                 </span>
               )}
               {e.areaId ? <span>· {names.get(e.areaId) ?? e.areaId}</span> : null}
@@ -323,7 +321,7 @@ export function WhatsNewAdmin({
             {e.body ? <PlainText text={e.body} className="mt-1 text-[14px]" /> : null}
             {e.ideas.length ? (
               <p className="mt-3 text-[13px] text-text-2">
-                Delivers:{' '}
+                {WHATS_NEW_TEAM_WORDS.delivers}{' '}
                 {e.ideas.map((i, n) => (
                   <span key={i.id}>
                     {n ? ', ' : ''}
@@ -338,7 +336,7 @@ export function WhatsNewAdmin({
             {canManage ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => edit(e)}>
-                  Edit
+                  {WHATS_NEW_TEAM_WORDS.edit}
                 </Button>
                 {e.publishedAt ? (
                   <Button
@@ -349,11 +347,11 @@ export function WhatsNewAdmin({
                       void run(
                         `unpublish-${e.id}`,
                         () => command('/v1/commands/whats_new.unpublish', { id: e.id }),
-                        'Back to a draft.',
+                        WHATS_NEW_TEAM_WORDS.unpublished,
                       )
                     }
                   >
-                    Unpublish
+                    {WHATS_NEW_TEAM_WORDS.unpublish}
                   </Button>
                 ) : (
                   <>
@@ -363,22 +361,22 @@ export function WhatsNewAdmin({
                       onClick={() => publish(e)}
                       data-testid="wn-publish"
                     >
-                      Publish
+                      {WHATS_NEW_TEAM_WORDS.publish}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       loading={busy === `delete-${e.id}`}
                       onClick={() => {
-                        if (window.confirm(`Delete the draft “${e.title}”?`))
+                        if (window.confirm(WHATS_NEW_TEAM_WORDS.deleteQuestion(e.title)))
                           void run(
                             `delete-${e.id}`,
                             () => command('/v1/commands/whats_new.delete', { id: e.id }),
-                            'Deleted.',
+                            WHATS_NEW_TEAM_WORDS.deleted,
                           );
                       }}
                     >
-                      Delete
+                      {WHATS_NEW_TEAM_WORDS.delete}
                     </Button>
                   </>
                 )}

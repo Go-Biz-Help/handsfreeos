@@ -14,6 +14,7 @@
  * - **A call nobody took** (`missedCall`): an inbound call that went unanswered, and the voicemail if one was left,
  *   to the conversation's assignee, else the owners and admins.
  * - **A customer's new message** (`customerWaiting`): arrival.ts.
+ * - **A new support ticket** (`supportTickets`), to HandsFreeOS's support people about no business: support/push.ts.
  *
  * Whoever did it gets nothing about it. A push is a second channel: a handler runs in a savepoint, and a failure is
  * logged without holding up anything else the event does.

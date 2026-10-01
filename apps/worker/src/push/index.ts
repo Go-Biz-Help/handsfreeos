@@ -16,8 +16,11 @@ export {
   pushAudience,
   pushJobKey,
   queuePush,
+  queueStaffPush,
+  staffPushAudience,
   type PushMoment,
   type PushSendPayload,
+  type StaffPushMoment,
 } from './queue';
 
 export interface PushServices {

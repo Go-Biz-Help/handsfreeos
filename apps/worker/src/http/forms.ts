@@ -22,7 +22,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
-import type { HttpDeps } from './common';
+import { offersBoxFor, type HttpDeps } from './common';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
 
@@ -72,6 +72,7 @@ const SubmitBody = z.object({
   token: z.string().min(10).max(200),
   answers: Answers,
   smsConsent: z.boolean().default(false),
+  offersConsent: z.boolean().default(false),
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
 });
@@ -133,8 +134,12 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             new Date(definition.settings.closesAt).getTime() <= Date.now()) ||
           (definition.settings.closesAfter !== null &&
             row.response_count >= definition.settings.closesAfter);
+        const name = row.site_name ?? row.form_name;
+        const offers = await worker(scope, (tx) => offersBoxFor(tx, row.workspace_id, name));
         return {
-          business: { name: row.site_name ?? row.form_name, timeZone: row.timezone },
+          business: { name, timeZone: row.timezone },
+          // The separate box for offers, under the first, for a business that sends them.
+          offersConsent: offers,
           form: {
             formId: row.form_id,
             slug: row.form_slug,
@@ -245,6 +250,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             token: body.token,
             answers: body.answers,
             smsConsent: body.smsConsent,
+            offersConsent: body.offersConsent,
           },
           { type: 'system', ...scope },
           meta(),

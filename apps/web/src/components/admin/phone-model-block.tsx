@@ -1,5 +1,10 @@
 'use client';
-import { PHONE_MODEL_LABELS, PHONE_MODELS, type PhoneModel } from '@hfos/core';
+import {
+  DESK_PHONE_MODEL_WORDS,
+  PHONE_MODEL_LABELS,
+  PHONE_MODELS,
+  type PhoneModel,
+} from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Segmented } from '@/components/ui/segmented';
@@ -49,19 +54,20 @@ export function PhoneModelBlock({
       className="mt-5 rounded-card border border-border bg-card p-4"
       data-testid="admin-phone-model"
     >
-      <h2 className="text-sm font-semibold">AI on their calls</h2>
-      <p className="mt-1 text-[13px] text-text-3">
-        The model their AI teammate thinks with on phone calls and in test calls. Default is the
-        worker’s VOICE_MODEL. It changes from the next call.
-      </p>
+      <h2 className="text-sm font-semibold">{DESK_PHONE_MODEL_WORDS.title}</h2>
+      <p className="mt-1 text-[13px] text-text-3">{DESK_PHONE_MODEL_WORDS.explain}</p>
       <div className="mt-3">
         {canChange ? (
           <Segmented<Choice>
-            ariaLabel="Model on their calls"
+            ariaLabel={DESK_PHONE_MODEL_WORDS.label}
             value={value}
             onChange={(v) => void pick(v)}
             options={[
-              { value: 'default', label: 'Default', testId: 'admin-phone-model-default' },
+              {
+                value: 'default',
+                label: DESK_PHONE_MODEL_WORDS.default,
+                testId: 'admin-phone-model-default',
+              },
               ...PHONE_MODELS.map((m) => ({
                 value: m,
                 label: PHONE_MODEL_LABELS[m],
@@ -71,7 +77,9 @@ export function PhoneModelBlock({
             ]}
           />
         ) : (
-          <p className="text-[13px]">{phoneModel ? PHONE_MODEL_LABELS[phoneModel] : 'Default'}</p>
+          <p className="text-[13px]">
+            {phoneModel ? PHONE_MODEL_LABELS[phoneModel] : DESK_PHONE_MODEL_WORDS.default}
+          </p>
         )}
       </div>
       {error ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}

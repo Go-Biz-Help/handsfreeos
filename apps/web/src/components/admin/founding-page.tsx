@@ -16,6 +16,23 @@
  * earlier offer says when a later one has taken its place on the website. The page only reports this — the
  * switch happens in the database, in the same transaction as the approval that crossed the line.
  */
+import {
+  deskCountHeading,
+  FOUNDING_ANOTHER,
+  FOUNDING_WORDS,
+  foundingApplicationLine,
+  foundingBusinessLabel,
+  foundingClaimPath,
+  foundingFirstChoice,
+  foundingGivenBackLine,
+  foundingOfferCard,
+  foundingOfferPriceLine,
+  foundingQueueParts,
+  foundingSeatLine,
+  foundingSeatProblem,
+  foundingTheirBusinesses,
+  type FoundingPickable,
+} from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -32,11 +49,6 @@ type Queue = Ok<'/v1/queries/platform.founding'>;
 type Offer = Queue['offers'][number];
 type Application = Queue['applications'][number];
 type Grant = Queue['grants'][number];
-
-const when = (iso: string | null): string =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
-
-const price = (cents: number): string => (cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)}`);
 
 export function FoundingPage({ queue }: { queue: Queue }) {
   const router = useRouter();
@@ -70,15 +82,11 @@ export function FoundingPage({ queue }: { queue: Queue }) {
     }
   };
 
-  const pending = queue.applications.filter(
-    (a) => a.status === 'pending' || a.status === 'waitlisted',
-  );
-  const held = queue.grants.filter((g) => g.status === 'reserved' || g.status === 'active');
-  const gone = queue.grants.filter((g) => g.status === 'revoked' || g.status === 'expired');
+  const { pending, held, gone } = foundingQueueParts(queue);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <h1 className="text-xl font-semibold md:text-2xl">Founding offers</h1>
+      <h1 className="text-xl font-semibold md:text-2xl">{FOUNDING_WORDS.title}</h1>
       {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -103,10 +111,10 @@ export function FoundingPage({ queue }: { queue: Queue }) {
       </div>
 
       <h2 className="mt-8 text-base font-semibold">
-        Waiting on you{pending.length ? ` · ${pending.length}` : ''}
+        {deskCountHeading(FOUNDING_WORDS.waiting, pending.length)}
       </h2>
       {pending.length === 0 ? (
-        <p className="mt-2 text-[13px] text-text-3">Nothing to read. Applications land here.</p>
+        <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.noneWaiting}</p>
       ) : (
         <ul className="mt-3 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
           {pending.map((a) => (
@@ -116,18 +124,14 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                   <p className="truncate text-sm font-semibold">
                     {a.businessName}
                     {a.status === 'waitlisted' ? (
-                      <span className="text-text-3"> · waitlisted</span>
+                      <span className="text-text-3">{FOUNDING_WORDS.waitlistedTag}</span>
                     ) : null}
                   </p>
-                  <p className="truncate text-[13px] text-text-3">
-                    {a.contactName} · {a.email}
-                    {a.phone ? ` · ${a.phone}` : ''}
-                    {a.industry ? ` · ${a.industry}` : ''} · {when(a.createdAt)}
-                  </p>
+                  <p className="truncate text-[13px] text-text-3">{foundingApplicationLine(a)}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => setApproving(a)}>
-                    Approve
+                    {FOUNDING_WORDS.approve}
                   </Button>
                   <Button
                     size="sm"
@@ -139,7 +143,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                       )
                     }
                   >
-                    Decline
+                    {FOUNDING_WORDS.decline}
                   </Button>
                 </div>
               </div>
@@ -155,10 +159,10 @@ export function FoundingPage({ queue }: { queue: Queue }) {
       )}
 
       <h2 className="mt-8 text-base font-semibold">
-        Seats out{held.length ? ` · ${held.length}` : ''}
+        {deskCountHeading(FOUNDING_WORDS.seatsOut, held.length)}
       </h2>
       {held.length === 0 ? (
-        <p className="mt-2 text-[13px] text-text-3">Nobody holds a seat yet.</p>
+        <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.noSeatsOut}</p>
       ) : (
         <ul className="mt-3 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
           {held.map((g) => (
@@ -167,23 +171,14 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                 <p className="truncate text-sm font-semibold">
                   {g.organizationName ?? g.organizationId}
                 </p>
-                <p className="truncate text-[13px] text-text-3">
-                  {g.offerId} ·{' '}
-                  {g.status === 'reserved'
-                    ? `approved ${when(g.reservedAt)}, not taken up — expires ${when(g.expiresAt)}`
-                    : `using it since ${when(g.activatedAt)}`}
-                  {g.status === 'reserved' &&
-                  (g.checkoutStatus === 'pending' || g.checkoutStatus === 'open')
-                    ? ' · paying now'
-                    : ''}
-                </p>
-                {g.checkoutStatus === 'paid' && g.checkoutProblem ? (
+                <p className="truncate text-[13px] text-text-3">{foundingSeatLine(g)}</p>
+                {foundingSeatProblem(g) ? (
                   // Money in, no seat on: somebody has to refund it at Stripe or find them a seat.
-                  <p className="mt-1 text-[13px] text-danger-text">{g.checkoutProblem}</p>
+                  <p className="mt-1 text-[13px] text-danger-text">{foundingSeatProblem(g)}</p>
                 ) : null}
               </div>
               <Button size="sm" variant="secondary" onClick={() => setRevoking(g)}>
-                Revoke
+                {FOUNDING_WORDS.revoke}
               </Button>
             </li>
           ))}
@@ -192,7 +187,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
 
       {gone.length > 0 ? (
         <>
-          <h2 className="mt-8 text-base font-semibold">Seats given back</h2>
+          <h2 className="mt-8 text-base font-semibold">{FOUNDING_WORDS.givenBack}</h2>
           <ul className="mt-3 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
             {gone.map((g) => (
               <li
@@ -203,14 +198,9 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                   <p className="truncate text-sm font-semibold">
                     {g.organizationName ?? g.organizationId}
                   </p>
-                  <p className="truncate text-[13px] text-text-3">
-                    {g.status === 'expired'
-                      ? `never taken up · expired ${when(g.expiresAt)}`
-                      : `revoked ${when(g.revokedAt)} · ${g.revokeReason}`}
-                    {g.graceEndsAt ? ` · still working until ${when(g.graceEndsAt)}` : ''}
-                  </p>
-                  {g.checkoutStatus === 'paid' && g.checkoutProblem ? (
-                    <p className="mt-1 text-[13px] text-danger-text">{g.checkoutProblem}</p>
+                  <p className="truncate text-[13px] text-text-3">{foundingGivenBackLine(g)}</p>
+                  {foundingSeatProblem(g) ? (
+                    <p className="mt-1 text-[13px] text-danger-text">{foundingSeatProblem(g)}</p>
                   ) : null}
                 </div>
                 {g.status === 'revoked' ? (
@@ -224,7 +214,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                       )
                     }
                   >
-                    Undo
+                    {FOUNDING_WORDS.undo}
                   </Button>
                 ) : null}
               </li>
@@ -252,7 +242,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
             setApproving(null);
             setIssued({
               business: approving.businessName,
-              link: `${window.location.origin}/founding/${made.claimToken}`,
+              link: `${window.location.origin}${foundingClaimPath(made.claimToken)}`,
               until: made.expiresAt,
             });
           }}
@@ -262,20 +252,18 @@ export function FoundingPage({ queue }: { queue: Queue }) {
       {issued ? (
         <Dialog open onOpenChange={() => setIssued(null)}>
           <DialogContent
-            title={`Send ${issued.business} their link`}
-            description="This is the only time it is shown. Copy it into an email to them now — once this closes, it cannot be seen again, and a new one means approving again."
+            title={FOUNDING_WORDS.issuedTitle(issued.business)}
+            description={FOUNDING_WORDS.issuedDescription}
           >
             <CopyField
               className="mt-4"
               value={issued.link}
-              label="Copy the claim link"
-              copied="Copied the claim link"
+              label={FOUNDING_WORDS.copyLink}
+              copied={FOUNDING_WORDS.copiedLink}
             />
-            <p className="mt-3 text-[13px] text-text-3">
-              It works once, for an owner or admin of their business, until {when(issued.until)}.
-            </p>
+            <p className="mt-3 text-[13px] text-text-3">{FOUNDING_WORDS.linkWorks(issued.until)}</p>
             <div className="mt-5 flex justify-end">
-              <Button onClick={() => setIssued(null)}>I’ve sent it</Button>
+              <Button onClick={() => setIssued(null)}>{FOUNDING_WORDS.sentIt}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -312,35 +300,25 @@ function OfferCard({
   onStatus: (status: 'draft' | 'open' | 'closed') => void;
 }) {
   const [cap, setCap] = useState(String(offer.seatCap));
-  const pct = offer.seatCap > 0 ? Math.min(100, (offer.claimed / offer.seatCap) * 100) : 0;
-  const monthly = offer.billing === 'monthly';
-  const after = offers.find((o) => o.offerId === offer.opensAfterOfferId);
-  // The same rule as the view's `superseded`: a later founding offer is open, so this one is off the website.
-  const replacedBy = offers.find(
-    (o) => o.opensAfterOfferId === offer.offerId && o.billing === 'once' && o.status !== 'draft',
-  );
-  const line = after ? (offer.opensAfterCount ?? after.seatCap) : null;
+  const { monthly, pct, opens, opened, replaced, paid, action } = foundingOfferCard(offer, offers);
 
   return (
     <Card className="p-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">{offer.name}</h2>
-        <span className="text-[13px] text-text-3">
-          {price(offer.priceCents)}
-          {monthly ? '/month' : ''} · {offer.status}
-        </span>
+        <span className="text-[13px] text-text-3">{foundingOfferPriceLine(offer)}</span>
       </div>
 
       {monthly ? (
         // No seats and no cap: this card is the switch for whether the website sells the plan.
-        <p className="mt-3 text-[13px] text-text-2">
-          The website shows this plan while it is open. No seat limit.
-        </p>
+        <p className="mt-3 text-[13px] text-text-2">{FOUNDING_WORDS.monthlyNote}</p>
       ) : (
         <>
           <p className="mt-3 text-2xl font-semibold">
             {offer.remaining}
-            <span className="text-base font-normal text-text-3"> of {offer.seatCap} left</span>
+            <span className="text-base font-normal text-text-3">
+              {FOUNDING_WORDS.ofLeft(offer.seatCap)}
+            </span>
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-card-2">
             <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
@@ -348,34 +326,20 @@ function OfferCard({
         </>
       )}
 
-      {offer.status === 'draft' && after && line !== null ? (
-        <p className="mt-3 text-[13px] text-text-2">
-          Opens by itself when {after.name}{' '}
-          {offer.opensAfterCount === null ? 'is full' : `has ${line} seats out`} —{' '}
-          {Math.min(after.claimed, line)} of {line} now.
-        </p>
-      ) : offer.openedAt ? (
-        <p className="mt-3 text-[13px] text-text-3">Opened {when(offer.openedAt)}.</p>
+      {opens ? (
+        <p className="mt-3 text-[13px] text-text-2">{opens}</p>
+      ) : opened ? (
+        <p className="mt-3 text-[13px] text-text-3">{opened}</p>
       ) : null}
 
-      {replacedBy ? (
-        <p className="mt-2 text-[13px] text-text-3">
-          Off the website since {replacedBy.name} opened. A seat that frees up here is for somebody
-          already waiting — approve them below.
-        </p>
-      ) : null}
+      {replaced ? <p className="mt-2 text-[13px] text-text-3">{replaced}</p> : null}
 
-      {!monthly && offer.priceCents > 0 ? (
-        <p className="mt-2 text-[13px] text-text-3">
-          Paid for at Stripe Checkout from the claim link. The seat turns on when Stripe says the
-          money is in.
-        </p>
-      ) : null}
+      {paid ? <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.paidNote}</p> : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-2">
         {monthly ? null : (
           <>
-            <Field label="Seats" htmlFor={`cap-${offer.offerId}`} className="w-24">
+            <Field label={FOUNDING_WORDS.seats} htmlFor={`cap-${offer.offerId}`} className="w-24">
               <Input
                 id={`cap-${offer.offerId}`}
                 value={cap}
@@ -392,7 +356,7 @@ function OfferCard({
                 if (Number.isInteger(n) && n >= 0) onCap(n);
               }}
             >
-              Save
+              {FOUNDING_WORDS.save}
             </Button>
           </>
         )}
@@ -400,32 +364,17 @@ function OfferCard({
           size="sm"
           variant="secondary"
           disabled={busy === `status:${offer.offerId}`}
-          onClick={() => onStatus(offer.status === 'open' ? 'closed' : 'open')}
+          onClick={() => onStatus(action.status)}
         >
-          {offer.status === 'open'
-            ? 'Close'
-            : offer.status === 'draft' && after
-              ? 'Open now'
-              : 'Open'}
+          {action.label}
         </Button>
       </div>
       {monthly ? null : (
-        <p className="mt-2 text-[12px] text-text-3">
-          Raising this opens seats at once. It cannot go below the {offer.claimed} already out.
-        </p>
+        <p className="mt-2 text-[12px] text-text-3">{FOUNDING_WORDS.capHint(offer.claimed)}</p>
       )}
     </Card>
   );
 }
-
-/** Where a seat can go: a workspace, standing for the business it belongs to. A seat is the business's. */
-type Pickable = { workspaceId: string; organizationId: string; label: string };
-
-/** "Search for another business" in the dropdown: for somebody who signed up with a different email. */
-const ANOTHER = 'another';
-
-const businessLabel = (workspace: string, business: string): string =>
-  business && business !== workspace ? `${workspace} · in ${business}` : workspace;
 
 function ApproveDialog({
   application,
@@ -439,23 +388,17 @@ function ApproveDialog({
   onApprove: (organizationId: string, note: string) => void;
 }) {
   // Matched on the email they applied with, owners and admins only: the people who can take the seat up.
-  const theirs: Pickable[] = application.theirBusinesses.map((b) => ({
-    workspaceId: b.workspaceId,
-    organizationId: b.organizationId,
-    label: `${businessLabel(b.workspaceName, b.organizationName)} · ${b.role}`,
-  }));
+  const theirs = foundingTheirBusinesses(application);
   // A founder with one business is the usual case, so that one is picked for you.
-  const [choice, setChoice] = useState(
-    theirs.length === 1 ? (theirs[0]?.workspaceId ?? '') : theirs.length ? '' : ANOTHER,
-  );
+  const [choice, setChoice] = useState(foundingFirstChoice(theirs));
   const [term, setTerm] = useState('');
-  const [found, setFound] = useState<Pickable[] | null>(null);
+  const [found, setFound] = useState<FoundingPickable[] | null>(null);
   const [foundChoice, setFoundChoice] = useState('');
   const [note, setNote] = useState('');
 
   useEffect(() => {
     const search = term.trim();
-    if (choice !== ANOTHER || search.length < 2) {
+    if (choice !== FOUNDING_ANOTHER || search.length < 2) {
       setFound(null);
       return;
     }
@@ -472,7 +415,7 @@ function ApproveDialog({
           out.businesses.map((b) => ({
             workspaceId: b.workspaceId,
             organizationId: b.organizationId,
-            label: businessLabel(b.name, b.organizationName),
+            label: foundingBusinessLabel(b.name, b.organizationName),
           })),
         );
         setFoundChoice('');
@@ -487,24 +430,24 @@ function ApproveDialog({
   }, [choice, term]);
 
   const picked =
-    choice === ANOTHER
+    choice === FOUNDING_ANOTHER
       ? found?.find((b) => b.workspaceId === foundChoice)
       : theirs.find((b) => b.workspaceId === choice);
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent
-        title={`Approve ${application.businessName}`}
-        description="This takes a seat straight away and holds it for them. You get a claim link back — it is shown once and never again, so send it before you close this."
+        title={FOUNDING_WORDS.approveTitle(application.businessName)}
+        description={FOUNDING_WORDS.approveDescription}
       >
         <div className="mt-4 flex flex-col gap-3">
           <Field
-            label="Their business"
+            label={FOUNDING_WORDS.theirBusiness}
             htmlFor="founding-approve-business"
             hint={
               theirs.length
-                ? `The businesses ${application.email} runs here.`
-                : `Nobody who signed up with ${application.email} runs a business here yet. Ask them to sign up with that email, or search for their business.`
+                ? FOUNDING_WORDS.theirsHint(application.email)
+                : FOUNDING_WORDS.noneTheirsHint(application.email)
             }
           >
             <select
@@ -515,7 +458,7 @@ function ApproveDialog({
             >
               {theirs.length > 1 ? (
                 <option value="" disabled>
-                  Pick one
+                  {FOUNDING_WORDS.pickOne}
                 </option>
               ) : null}
               {theirs.map((b) => (
@@ -523,30 +466,30 @@ function ApproveDialog({
                   {b.label}
                 </option>
               ))}
-              <option value={ANOTHER}>Search for another business…</option>
+              <option value={FOUNDING_ANOTHER}>{FOUNDING_WORDS.another}</option>
             </select>
           </Field>
-          {choice === ANOTHER ? (
+          {choice === FOUNDING_ANOTHER ? (
             <>
-              <Field label="Search businesses" htmlFor="founding-approve-search">
+              <Field label={FOUNDING_WORDS.searchBusinesses} htmlFor="founding-approve-search">
                 <Input
                   id="founding-approve-search"
                   value={term}
                   onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Type a business or workspace name"
+                  placeholder={FOUNDING_WORDS.searchPlaceholder}
                   autoComplete="off"
                 />
               </Field>
               {found === null ? null : found.length === 0 ? (
-                <p className="text-[13px] text-text-3">No business has that name.</p>
+                <p className="text-[13px] text-text-3">{FOUNDING_WORDS.noBusiness}</p>
               ) : (
                 <Field
-                  label="Business"
+                  label={FOUNDING_WORDS.business}
                   htmlFor="founding-approve-found"
                   hint={
                     theirs.some((b) => b.workspaceId === foundChoice)
                       ? undefined
-                      : `Nobody there signed up with ${application.email}, so make sure it’s theirs.`
+                      : FOUNDING_WORDS.notTheirsHint(application.email)
                   }
                 >
                   <select
@@ -556,7 +499,7 @@ function ApproveDialog({
                     className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
                   >
                     <option value="" disabled>
-                      Pick one
+                      {FOUNDING_WORDS.pickOne}
                     </option>
                     {found.map((b) => (
                       <option key={b.workspaceId} value={b.workspaceId}>
@@ -568,7 +511,11 @@ function ApproveDialog({
               )}
             </>
           ) : null}
-          <Field label="Why them" htmlFor="founding-approve-note" hint="Only we ever see this.">
+          <Field
+            label={FOUNDING_WORDS.whyThem}
+            htmlFor="founding-approve-note"
+            hint={FOUNDING_WORDS.whyThemHint}
+          >
             <Textarea
               id="founding-approve-note"
               value={note}
@@ -579,13 +526,13 @@ function ApproveDialog({
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {FOUNDING_WORDS.cancel}
           </Button>
           <Button
             disabled={busy || !picked}
             onClick={() => picked && onApprove(picked.organizationId, note)}
           >
-            {busy ? 'Taking a seat…' : 'Approve and hold a seat'}
+            {busy ? FOUNDING_WORDS.approving : FOUNDING_WORDS.approveAndHold}
           </Button>
         </div>
       </DialogContent>
@@ -608,14 +555,14 @@ function RevokeDialog({
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent
-        title={`Take the seat back from ${grant.organizationName ?? 'this business'}`}
-        description="The seat frees up immediately and you can approve somebody else today. They keep working normally through their notice period, and are told when it ends."
+        title={FOUNDING_WORDS.revokeTitle(grant.organizationName)}
+        description={FOUNDING_WORDS.revokeDescription}
       >
         <div className="mt-4">
           <Field
-            label="Why"
+            label={FOUNDING_WORDS.why}
             htmlFor="founding-revoke-reason"
-            hint="Kept forever. Write it for whoever has to explain this later."
+            hint={FOUNDING_WORDS.whyHint}
           >
             <Textarea
               id="founding-revoke-reason"
@@ -627,10 +574,10 @@ function RevokeDialog({
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {FOUNDING_WORDS.cancel}
           </Button>
           <Button disabled={busy || reason.trim() === ''} onClick={() => onRevoke(reason.trim())}>
-            {busy ? 'Revoking…' : 'Revoke the seat'}
+            {busy ? FOUNDING_WORDS.revoking : FOUNDING_WORDS.revokeSeat}
           </Button>
         </div>
       </DialogContent>

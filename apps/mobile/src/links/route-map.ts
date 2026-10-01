@@ -14,6 +14,10 @@
  *   members and invitations, and agency pages) opens the web.
  * - **An add-on's pages** (`/a/<id>/…`, which its alerts open) go by what the add-on declares the phone draws
  *   (`ui.phone`): its screen once this build has it (./addon-screens.ts), the web until then and for the rest.
+ * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
+ *   notification links to `/admin/tickets/<id>`. Its pages open the phone's Support desk (/app/admin), which asks
+ *   HandsFreeOS whether the person works there. The phones don't claim /admin in app.json, so an email's /admin link
+ *   still opens the browser.
  */
 import { BUILT_ADDONS } from '@hfos/core';
 import { ADDON_SCREENS } from './addon-screens';
@@ -240,11 +244,59 @@ function addonTarget(
   return { kind: 'web', path: pathAndQuery, businessId };
 }
 
+/** The support desk's pages the phone has, under /admin: a section, or one ticket, business or idea. */
+const DESK_PAGES = [
+  'tickets',
+  'tickets/:id',
+  'ideas',
+  'ideas/:id',
+  'ideas/whats-new',
+  'ideas/areas',
+  'add-ons',
+  'businesses',
+  'businesses/:id',
+  'getting-started',
+  'health',
+  'rates',
+  'founding',
+  'replies',
+  'staff',
+];
+
+/** Where one of the support desk's web paths opens: the phone's Support desk, or the web for a page it hasn't got. */
+function deskRoute(rest: readonly string[], query: Readonly<Record<string, string>>): LinkTarget {
+  const known =
+    rest.length === 0 ||
+    DESK_PAGES.some((page) => {
+      const pattern = segments(page);
+      return (
+        pattern.length === rest.length &&
+        pattern.every((p, i) => (p === ':id' ? UUID.test(rest[i]!) : p === rest[i]))
+      );
+    });
+  // The page's own settings go with it (Health's `?hours=`, the directory's `?sort=&q=`), as the screens read them.
+  const search = Object.entries(query)
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join('&');
+  const tail = `${rest.length ? `/${rest.map(encodeURIComponent).join('/')}` : ''}${search ? `?${search}` : ''}`;
+  // A desk page the phone hasn't got opens the web's own, at /admin, whichever address the link used.
+  if (!known) return { kind: 'web', path: `/admin${tail}`, businessId: null };
+  return {
+    kind: 'screen',
+    href: `/app/admin${tail}`,
+    businessId: null,
+    later: null,
+    params: query,
+  };
+}
+
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
   const { path, query } = splitQuery(pathAndQuery);
   const parts = segments(path);
+  if (parts[0] === 'admin') return deskRoute(parts.slice(1), query);
   if (parts[0] !== 'app') return { kind: 'none' };
+  if (parts[1] === 'admin') return deskRoute(parts.slice(2), query);
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
   // An email about an idea (`/app/ideas/<id>`) names no business, since the board is every business's: it opens in

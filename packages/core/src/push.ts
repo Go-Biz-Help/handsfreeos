@@ -8,14 +8,18 @@
  *   one exactly as `private.push_on` does. A save sends them all: `user.update_profile` replaces a top-level key
  *   whole. `customerWaiting` is a new message nobody has answered yet, as it arrives; `missedCall` is a call nobody
  *   took, and the voicemail if one was left; `urgent` is what can't wait, a customer left waiting past the reply
- *   threshold among it.
+ *   threshold among it. `supportTickets` is for HandsFreeOS's own support people alone: a new support ticket.
  * - **Categories and buttons:** what each kind of push offers. The buttons that reach a customer or approve
  *   something (Reply, Let AI handle, Let HandsFreeOS handle, Approve) need the phone unlocked first; Snooze 1 hour
  *   doesn't; Call, Review and Open open the app.
  * - **What every push carries** (`PushData`, version 1): the business, where it opens, the ids its buttons act on,
  *   and a command id for each button that runs a command, so a button pressed twice, or on two phones, does it once.
+ * - **Pushes about no business** (`STAFF_PUSH_CATEGORIES`): HandsFreeOS's support desk tells its own people about a
+ *   new ticket. Such a push has no workspace and opens the desk (`/admin/…`); every other push has a business and
+ *   opens under `/app/w/<business>/`.
  */
 import { z } from 'zod';
+import { clipLine } from './attention/wording';
 
 // ---------- the switches ----------
 
@@ -35,6 +39,8 @@ export const PUSH_SWITCHES = [
   'connections',
   /** What an add-on the business uses needs this person to see (Real Estate step 5): a duty late, a deal at risk. */
   'addons',
+  /** HandsFreeOS's support desk: someone wrote to support. Only its own support people ever get these. */
+  'supportTickets',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -48,7 +54,7 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All eleven switches, as a save sends them (`settings: { push: … }`). */
+/** Every switch, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
   missedCall: z.boolean(),
@@ -61,10 +67,11 @@ export const PushSwitches = z.object({
   jobs: z.boolean(),
   connections: z.boolean(),
   addons: z.boolean(),
+  supportTickets: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's eleven switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -178,12 +185,25 @@ export const PUSH_CATEGORIES = {
    * this build has one (the add-on's `ui.phone`), and the web until then.
    */
   addon_alert: { switch: 'addons', buttons: ['open'] },
+  /**
+   * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
+   * no business; Open goes to the ticket on the support desk.
+   */
+  support_ticket: { switch: 'supportTickets', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }
 >;
 export type PushCategory = keyof typeof PUSH_CATEGORIES;
 export const PUSH_CATEGORY_IDS = Object.keys(PUSH_CATEGORIES) as [PushCategory, ...PushCategory[]];
+
+/**
+ * The kinds sent to HandsFreeOS's own support people rather than to a business's: they carry no workspace, open the
+ * support desk (`/admin/…`), and go to active support staff with the kind's switch on.
+ */
+export const STAFF_PUSH_CATEGORIES: readonly PushCategory[] = ['support_ticket'];
+export const isStaffPush = (category: PushCategory): boolean =>
+  STAFF_PUSH_CATEGORIES.includes(category);
 
 /** The buttons of a category that run a command: the ones a push carries a command id for. */
 export const commandButtonsOf = (category: PushCategory): PushButton[] =>
@@ -215,36 +235,90 @@ export const PushRefs = z.object({
   alertId: z.uuid().optional(),
   /** The record an add-on's alert is about (a deal): its screen on the phone finds its notifications by it. */
   recordId: z.uuid().optional(),
+  /** A support ticket (`support_ticket`). */
+  ticketId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 
 /**
  * A push's `data`. iPhones show the title, subtitle and body from the notification itself; Android pushes are
  * data-only and the app draws them, so theirs carry the words too.
+ *
+ * A push about a business names it and opens under `/app/w/<business>/`. One of the staff kinds (`support_ticket`)
+ * belongs to no business: `workspaceId` is null, `business` is empty, and it opens the support desk (`/admin/…`).
+ * Anything else is refused, so a business push can never open the desk, nor a desk push a business.
  */
-export const PushData = z.object({
-  v: z.literal(PUSH_DATA_VERSION),
-  /** One per moment, the same on every phone it reaches. */
-  notificationId: z.uuid(),
-  category: z.enum(PUSH_CATEGORY_IDS),
-  workspaceId: z.uuid(),
-  /** The business's name, for people who work in more than one. */
-  business: z.string(),
-  /** Where it opens: a web path under /app/w/<business>/, as the emails link. */
-  path: z.string().startsWith('/app/w/'),
-  sentAt: z.iso.datetime(),
-  refs: PushRefs,
-  /** The command id each button that runs a command uses (`x-hfos-command-id`). */
-  commandIds: z.partialRecord(z.enum(PUSH_BUTTON_IDS), z.uuid()),
-  /**
-   * The notification this one replaces, where one about the same thing may already be showing (a conversation's:
-   * `conversation-<id>`). iPhones get it as the collapse and thread id; Android's app replaces its own.
-   */
-  collapseId: z.string().max(64).optional(),
-  /** An update to a notification already showing (a burst of messages): replace it without a sound or a buzz. */
-  quiet: z.boolean().optional(),
-  title: z.string().optional(),
-  subtitle: z.string().nullable().optional(),
-  body: z.string().optional(),
-});
+export const PushData = z
+  .object({
+    v: z.literal(PUSH_DATA_VERSION),
+    /** One per moment, the same on every phone it reaches. */
+    notificationId: z.uuid(),
+    category: z.enum(PUSH_CATEGORY_IDS),
+    /** The business; null only for a push to HandsFreeOS's support people. */
+    workspaceId: z.uuid().nullable(),
+    /** The business's name, for people who work in more than one; empty when it is about no business. */
+    business: z.string(),
+    /** Where it opens: a web path under /app/w/<business>/, as the emails link, or the support desk's /admin/…. */
+    path: z.string().regex(/^\/(app\/w|admin)\//),
+    sentAt: z.iso.datetime(),
+    refs: PushRefs,
+    /** The command id each button that runs a command uses (`x-hfos-command-id`). */
+    commandIds: z.partialRecord(z.enum(PUSH_BUTTON_IDS), z.uuid()),
+    /**
+     * The notification this one replaces, where one about the same thing may already be showing (a conversation's:
+     * `conversation-<id>`). iPhones get it as the collapse and thread id; Android's app replaces its own.
+     */
+    collapseId: z.string().max(64).optional(),
+    /** An update to a notification already showing (a burst of messages): replace it without a sound or a buzz. */
+    quiet: z.boolean().optional(),
+    title: z.string().optional(),
+    subtitle: z.string().nullable().optional(),
+    body: z.string().optional(),
+  })
+  .refine(
+    (d) =>
+      isStaffPush(d.category)
+        ? d.workspaceId === null && d.path.startsWith('/admin/')
+        : d.workspaceId !== null && d.path.startsWith('/app/w/'),
+    {
+      error: 'A push opens its own business, or the support desk for a push to support people.',
+      path: ['path'],
+    },
+  );
 export type PushData = z.infer<typeof PushData>;
+
+// ---------- the words of a staff push ----------
+
+/** What a lock screen shows before it cuts off: the worker clips every push to these (push/payload.ts). */
+export const PUSH_TEXT_MAX = { title: 64, subtitle: 64, body: 180 } as const;
+
+/**
+ * A new support ticket's notification, for HandsFreeOS's support people: "New support ticket #1042", who wrote and
+ * about which business ("Dana Reed · Reed Plumbing"), and the subject with the start of what they wrote. The same
+ * words wherever a new ticket is announced.
+ */
+export function supportTicketPushWords(ticket: {
+  readonly number: number;
+  readonly subject: string;
+  /** What they wrote first; nothing when there is nothing yet. */
+  readonly preview?: string | null;
+  /** Their name, else their email address. */
+  readonly requester: string;
+  /** The business the ticket is about, when it is known. */
+  readonly business?: string | null;
+}): { title: string; about: string; body: string } {
+  const subject = clipLine(ticket.subject, 80) || 'No subject';
+  // The closing quote survives the phone's cut: the preview is shortened to what fits after the subject, which
+  // leaves it at least 96 characters.
+  const room = PUSH_TEXT_MAX.body - subject.length - 4;
+  const preview = clipLine(ticket.preview ?? '', room);
+  const body = preview ? `${subject}: “${preview}”` : subject;
+  return {
+    title: `New support ticket #${ticket.number}`,
+    about: [ticket.requester, ticket.business]
+      .map((p) => p?.trim())
+      .filter((p): p is string => !!p)
+      .join(' · '),
+    body,
+  };
+}

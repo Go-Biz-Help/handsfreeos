@@ -874,6 +874,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   jobs: 'A job you were on is over',
   connections: 'A connection stops working',
   addons: 'An add-on needs you',
+  supportTickets: 'New support tickets',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {

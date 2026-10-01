@@ -72,6 +72,7 @@ import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
 import { brandedDomainGet } from './branded-domain';
 import { numberPortList } from './port';
+import { registrationGetDraft } from './registration';
 import { numberImportList, twilioConnectionList } from './number-import';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
@@ -141,6 +142,7 @@ export {
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  registrationGetDraft,
   brandedDomainGet,
   assistantThreadGet,
   assistantThreadList,
@@ -247,6 +249,7 @@ export const queries: readonly QueryDef[] = [
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  registrationGetDraft,
   numberImportList,
   twilioConnectionList,
   brandedDomainGet,

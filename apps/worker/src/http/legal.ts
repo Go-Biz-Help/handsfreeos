@@ -16,7 +16,13 @@
  * convenient, because a policy that disagrees with the registration beside it is worse than no policy.
  */
 import rateLimit from '@fastify/rate-limit';
-import { privacyPolicy, termsOfService, type PolicyBusiness } from '@hfos/core';
+import {
+  formatPhone,
+  privacyPolicy,
+  sendsOffers,
+  termsOfService,
+  type PolicyBusiness,
+} from '@hfos/core';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import type { HttpDeps } from './common';
@@ -30,6 +36,11 @@ type Submission = {
   legalName?: string;
   /** Set when the business pointed us at a policy of its own instead of the one we generate. */
   policyUrl?: string | null;
+  /** The same for its terms. */
+  termsUrl?: string | null;
+  useCase?: string;
+  /** The number the registration is for: the one customers text, and call for help. */
+  forNumber?: string;
   website?: string;
   contact?: { email?: string };
   address?: { line1?: string; city?: string; state?: string; postalCode?: string };
@@ -70,14 +81,18 @@ export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps):
             );
             const s = latest?.submission ?? {};
             // A business using its own policy still links here, so this is where the two are reconciled:
-            // the agreement box has one address, and it lands on whichever document is really theirs.
-            if (s.policyUrl?.trim()) return { redirectTo: s.policyUrl.trim() };
+            // the agreement box has one address, and it lands on whichever document is really theirs. Each
+            // page goes to its own kind: their privacy policy never stands in for terms, or the other way.
+            const own = kind === 'privacy' ? s.policyUrl?.trim() : s.termsUrl?.trim();
+            if (own) return { redirectTo: own };
             const business: PolicyBusiness = {
               name: route.site_name ?? workspace?.name ?? 'This business',
               legalName: s.legalName,
               website: s.website,
               email: s.contact?.email,
               address: s.address,
+              phone: s.forNumber ? formatPhone(s.forNumber) : undefined,
+              offers: sendsOffers(s.useCase),
             };
             return {
               policy: kind === 'privacy' ? privacyPolicy(business) : termsOfService(business),

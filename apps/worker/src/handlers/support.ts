@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm';
 import { staffInvitations } from '@hfos/db/schema';
 import { queueSupportDraft as queueDraft } from '../support/inbound';
 import { acknowledgeTicket, sendTicketReply, staffInvitationEmail } from '../support/mail';
+import { queueNewTicketPush } from '../support/push';
 import { recordSystemEvent } from '../system-event';
 import type { EventHandler } from './types';
 
@@ -23,7 +24,10 @@ function mintToken(): { token: string; hash: Buffer } {
   return { token, hash: createHash('sha256').update(token).digest() };
 }
 
-/** A ticket that just arrived: say we have it, and ask the AI for something to work from. */
+/**
+ * A ticket that just arrived: say we have it, ask the AI for something to work from, and tell the support people's
+ * phones. Asked from inside the app, the event holds the requester's business, so its name is readable here.
+ */
 export const onSupportTicketOpened: EventHandler = async (ctx) => {
   const ticketId = ctx.event.entityId;
   if (!ticketId) return;
@@ -31,6 +35,7 @@ export const onSupportTicketOpened: EventHandler = async (ctx) => {
   // Someone who asked from inside the app watched it land; only mail needs an answer saying it arrived.
   if (channel !== 'in_app') await acknowledgeTicket(ctx, ticketId);
   await queueDraft(ctx, ticketId);
+  await queueNewTicketPush(ctx.tx, ctx.log, ticketId);
 };
 
 /** A person's answer, on its way out. Notes stay put; sendTicketReply knows the difference. */

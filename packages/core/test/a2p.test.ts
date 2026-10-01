@@ -14,9 +14,11 @@ import {
   checkSample,
   hasBlockers,
   issuesFor,
+  readsPromotional,
   sampleHasOptOut,
   sampleNamesBusiness,
   sampleSuggestions,
+  sensitiveFlags,
   type A2pDraft,
 } from '../src/messaging/a2p';
 import { optInDescriptionFor, liveSurfaces } from '../src/messaging/consent';
@@ -36,6 +38,7 @@ const good: A2pDraft = {
   ],
   optInDescription: optInDescriptionFor(BUSINESS, 'hosted'),
   optInPath: 'hosted',
+  sensitiveTopics: [],
   monthlyVolume: 'under_1000',
 };
 
@@ -200,5 +203,95 @@ describe('the sentence the carrier reads describes the box it will look for', ()
     expect(liveSurfaces({ chatUrl: '', formUrl: null, bookingUrl: 'https://b' })).toEqual([
       'https://b',
     ]);
+  });
+});
+
+describe('where customers agree, when it is not our page', () => {
+  it('needs the page with the box when the business uses its own site', () => {
+    const issues = checkDraft({ ...good, optInPath: 'own_site', optInUrl: '' }, BUSINESS);
+    expect(issuesFor(issues, 'optInUrl')[0]).toMatchObject({ severity: 'blocker' });
+    const fine = checkDraft(
+      { ...good, optInPath: 'own_site', optInUrl: 'gobizhelp.com/contact' },
+      BUSINESS,
+    );
+    expect(issuesFor(fine, 'optInUrl')).toEqual([]);
+  });
+
+  it('refuses a page address nobody could open', () => {
+    const issues = checkDraft(
+      { ...good, optInPath: 'own_site', optInUrl: 'contact page' },
+      BUSINESS,
+    );
+    expect(issuesFor(issues, 'optInUrl')[0]?.severity).toBe('blocker');
+  });
+
+  it('needs something to show when permission is taken in person', () => {
+    const none = checkDraft({ ...good, optInPath: 'in_person', optInProofUrl: '' }, BUSINESS);
+    expect(issuesFor(none, 'optInProofUrl')[0]?.severity).toBe('blocker');
+    const shown = checkDraft(
+      { ...good, optInPath: 'in_person', optInProofUrl: 'https://drive.google.com/file/d/abc' },
+      BUSINESS,
+    );
+    expect(issuesFor(shown, 'optInProofUrl')).toEqual([]);
+  });
+});
+
+describe('what the texts are about', () => {
+  it('asks before it lets the business go on', () => {
+    const issues = checkDraft({ ...good, sensitiveTopics: null }, BUSINESS);
+    expect(issuesFor(issues, 'sensitiveTopics')[0]?.severity).toBe('blocker');
+  });
+
+  it('stops a topic the carriers refuse, and names it', () => {
+    const issues = issuesFor(
+      checkDraft({ ...good, sensitiveTopics: ['cannabis'] }, BUSINESS),
+      'sensitiveTopics',
+    );
+    expect(issues[0]?.severity).toBe('blocker');
+    expect(issues[0]?.message).toMatch(/cannabis/i);
+  });
+
+  it('lets lending and age-checked topics through with a word of warning, and flags them', () => {
+    const issues = checkDraft({ ...good, sensitiveTopics: ['lending', 'alcohol'] }, BUSINESS);
+    expect(hasBlockers(issues)).toBe(false);
+    expect(issuesFor(issues, 'sensitiveTopics').map((i) => i.severity)).toEqual([
+      'warning',
+      'warning',
+    ]);
+    expect(sensitiveFlags(['lending', 'alcohol'])).toEqual({ ageGated: true, directLending: true });
+    expect(sensitiveFlags([])).toEqual({ ageGated: false, directLending: false });
+  });
+});
+
+describe('a campaign that sends offers as well', () => {
+  const mixed = { ...good, useCase: 'mixed' };
+
+  it('wants one example of each kind', () => {
+    const care = issuesFor(checkDraft(mixed, BUSINESS), 'messageSamples');
+    expect(care.some((i) => /offer/i.test(i.message))).toBe(true);
+    const both = checkDraft(
+      {
+        ...mixed,
+        messageSamples: [
+          good.messageSamples![0]!,
+          'Lone Star HVAC: spring special, $20 off a tune-up booked this month. Reply STOP to stop texts.',
+        ],
+      },
+      BUSINESS,
+    );
+    expect(issuesFor(both, 'messageSamples')).toEqual([]);
+  });
+
+  it('reads money off and specials as offers, and an appointment as not', () => {
+    expect(readsPromotional('$20 off a tune-up this month')).toBe(true);
+    expect(readsPromotional('Our spring special is back')).toBe(true);
+    expect(readsPromotional('Your appointment is confirmed for [Date].')).toBe(false);
+  });
+
+  it('suggests an offer among its examples, with the parts that change in brackets', () => {
+    const suggestions = sampleSuggestions(BUSINESS, 'mixed');
+    expect(suggestions.some(readsPromotional)).toBe(true);
+    expect(suggestions.some((x) => !readsPromotional(x))).toBe(true);
+    expect(suggestions.join(' ')).toMatch(/\[First Name\]/);
   });
 });

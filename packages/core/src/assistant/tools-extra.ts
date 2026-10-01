@@ -70,7 +70,7 @@ const QuestionInput = z.object({
 });
 
 const PUSH_WORDS =
-  'customerWaiting: a new message nobody has answered; missedCall: a call nobody took; urgent: something that can’t wait; approval: a draft or workflow step waiting for an OK; booking: one of their appointments booked, moved or cancelled; assigned: something given to them; payment: a customer pays; wallet: the balance runs out; jobs: a visit they were on is over; connections: something connected stops working';
+  'customerWaiting: a new message nobody has answered; missedCall: a call nobody took; urgent: something that can’t wait; approval: a draft or workflow step waiting for an OK; booking: one of their appointments booked, moved or cancelled; assigned: something given to them; payment: a customer pays; wallet: the balance runs out; jobs: a visit they were on is over; connections: something connected stops working; supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)';
 
 export const extraTools: readonly AssistantTool[] = [
   // ---------- the AI teammate's finer rules ----------
@@ -235,8 +235,8 @@ export const extraTools: readonly AssistantTool[] = [
     name: 'update_my_alerts',
     description: `Turn the person’s own phone (push) alerts on or off, one kind at a time, and the daily agency digest email. Theirs alone. Kinds: ${PUSH_WORDS}. Other emails and appearance are update_my_account.`,
     input: z.object({
-      turnOn: z.array(z.enum(PUSH_SWITCHES)).max(10).optional(),
-      turnOff: z.array(z.enum(PUSH_SWITCHES)).max(10).optional(),
+      turnOn: z.array(z.enum(PUSH_SWITCHES)).max(PUSH_SWITCHES.length).optional(),
+      turnOff: z.array(z.enum(PUSH_SWITCHES)).max(PUSH_SWITCHES.length).optional(),
       agencyDigestEmail: z
         .boolean()
         .optional()

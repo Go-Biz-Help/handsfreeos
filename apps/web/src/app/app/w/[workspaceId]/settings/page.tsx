@@ -22,7 +22,7 @@ export default async function SettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [me, devices, cell, deletion, phone] = await Promise.all([
+  const [me, devices, cell, deletion, phone, platform] = await Promise.all([
     getMe(),
     api.POST('/v1/queries/push_device.list', { body: {} }).then(unwrap),
     api.POST('/v1/queries/user_phone.get', { body: {} }).then(unwrap),
@@ -30,6 +30,11 @@ export default async function SettingsPage({
     // The business number the cell's calls come from; someone without the inbox has none to show.
     api
       .POST('/v1/queries/phone.setup_status', { body: { workspaceId } })
+      .then(unwrap)
+      .catch(() => null),
+    // Whether they answer HandsFreeOS support: only then is New support tickets a row of theirs.
+    api
+      .POST('/v1/queries/platform.me', { body: {} })
       .then(unwrap)
       .catch(() => null),
   ]);
@@ -91,6 +96,7 @@ export default async function SettingsPage({
         <Card className="p-6 max-md:p-5" id="notifications">
           <NotificationsSection
             agency={agency}
+            staff={Boolean(platform?.staff)}
             phones={devices.devices.length}
             initial={{
               email: {

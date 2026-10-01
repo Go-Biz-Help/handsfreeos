@@ -166,8 +166,12 @@ export function registrationPreflight(input: {
   workspaceId: string;
   website?: string;
   policyUrl?: string | null;
+  termsUrl?: string | null;
   optInPath: 'hosted' | 'own_site' | 'in_person';
   optInUrl?: string | null;
+  optInProofUrl?: string | null;
+  /** The ways the business is known, looked for on the website and beside the box. */
+  names?: string[];
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }

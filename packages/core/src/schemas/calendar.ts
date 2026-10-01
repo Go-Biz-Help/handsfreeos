@@ -1057,6 +1057,8 @@ export const AppointmentBookOnlineInput = z.object({
   customer: OnlineCustomer,
   /** The unticked-by-default "Text me about this booking" box. */
   smsConsent: z.boolean().default(false),
+  /** The separate box for offers, shown when the business sends them. Starts unticked too. */
+  offersConsent: z.boolean().default(false),
   intake: IntakeAnswers.default(() => ({})),
   notes: z.string().trim().max(2000).nullable().optional(),
   /** The page's idempotency key: a retried submit books once. */

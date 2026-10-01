@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
+import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
 import { isoDateTime, uuid } from './common';
 import { RcsSenderOut } from './rcs-sender';
 
@@ -221,7 +222,7 @@ export const BusinessProfile = z
       .string()
       .trim()
       .min(40, 'Explain how customers agree to get texts.')
-      .max(1000),
+      .max(1500, 'Keep how customers agree under 1,500 characters.'),
     monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
     /**
      * How the business collects consent, as the wizard settled it. Optional because registrations
@@ -233,11 +234,55 @@ export const BusinessProfile = z
      * business's own when it already has one that mentions texting.
      */
     policyUrl: z.url().max(200).nullable().optional(),
+    /** The business's own terms, when it has some; otherwise the ones HandsFreeOS hosts. Like `policyUrl`. */
+    termsUrl: z.url().max(200).nullable().optional(),
+    /**
+     * The addresses the reviewer is given, whoever hosts them: the privacy policy and the terms (ours at
+     * `/legal/<site>/…`, or the business's own). Sent to the carriers beside the campaign.
+     */
+    privacyPageUrl: z.url().max(300).nullable().optional(),
+    termsPageUrl: z.url().max(300).nullable().optional(),
+    /** The page carrying the tick box: the business's own for `own_site`, our form for `hosted`. */
+    optInUrl: z
+      .url({ error: 'Enter the full address of the page with your tick box.' })
+      .max(300)
+      .nullable()
+      .optional(),
+    /** A link anyone can open showing what customers see or hear before they agree (`in_person`). */
+    optInProofUrl: z
+      .url({ error: 'Enter the full link, starting with https://.' })
+      .max(500)
+      .nullable()
+      .optional(),
+    /** The name customers know the business by, which its replies to HELP carry. */
+    displayName: z.string().trim().max(120).optional(),
+    /** Topics the carriers treat differently (core's SENSITIVE_TOPICS); `[]` when none apply. */
+    sensitiveTopics: z.array(z.enum(SENSITIVE_TOPIC_IDS)).max(20).optional(),
   })
   .refine((b) => b.businessType === 'sole_proprietor' || !!b.ein, {
     path: ['ein'],
     error: 'Enter the EIN.',
-  });
+  })
+  .refine((b) => b.optInPath !== 'own_site' || !!b.optInUrl, {
+    path: ['optInUrl'],
+    error: 'Enter the address of the page with your tick box, like https://yoursite.com/contact.',
+  })
+  .refine((b) => b.optInPath !== 'in_person' || !!b.optInProofUrl, {
+    path: ['optInProofUrl'],
+    error:
+      'Add a link to a photo of your sign-up sheet, or of the words you say on the phone, that anyone can open.',
+  })
+  .refine(
+    (b) =>
+      !(b.sensitiveTopics ?? []).some(
+        (t) => SENSITIVE_TOPICS.find((x) => x.id === t)?.kind === 'refused',
+      ),
+    {
+      path: ['sensitiveTopics'],
+      error:
+        'The carriers don’t approve texting about one of the topics you picked on a registration like this. Untick it if your texts won’t be about it.',
+    },
+  );
 export type BusinessProfile = z.infer<typeof BusinessProfile>;
 
 export const RegistrationSubmitInput = z
@@ -252,6 +297,24 @@ export const RegistrationSubmitInput = z
     error: 'Local numbers need at least two example texts.',
   });
 export const RegistrationSubmitOutput = z.object({ registrationIds: z.array(uuid) });
+
+/**
+ * The registration wizard's answers as the business types them, saved as it goes. Loose on purpose: a half-typed
+ * form is not a registration, and `registration.submit` checks the real thing.
+ */
+const draftAnswers = z
+  .record(z.string(), z.unknown())
+  .refine((v) => JSON.stringify(v).length <= 30_000, {
+    error: 'These answers are too long to save. Shorten the longest one and try again.',
+  });
+export const RegistrationSaveDraftInput = z.object({ workspaceId: uuid, answers: draftAnswers });
+export const RegistrationSaveDraftOutput = z.object({ savedAt: isoDateTime });
+export const RegistrationGetDraftInput = z.object({ workspaceId: uuid });
+export const RegistrationGetDraftOutput = z.object({
+  /** Null when nothing is saved: the wizard starts from the last registration sent, or from nothing. */
+  answers: z.record(z.string(), z.unknown()).nullable(),
+  savedAt: isoDateTime.nullable(),
+});
 export const RegistrationUpdateStatusInput = z.object({
   workspaceId: uuid,
   registrationId: uuid,

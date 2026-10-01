@@ -8317,6 +8317,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/registration.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the texting registration’s answers while they are being filled in, so a refresh or coming back later picks up where it was left. Nothing goes to the carriers until it is sent.
+         * @description Risk level 1. Requires channels.manage. Emits .
+         */
+        post: operations["command_registration_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/registration.submit": {
         parameters: {
             query?: never;
@@ -13751,6 +13771,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_tours"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/registration.get_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The texting registration’s answers saved while it was being filled in, or nothing when none are saved.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_registration_get_draft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24253,6 +24293,8 @@ export interface operations {
                     inReplyToMessageId?: string;
                     /** @default false */
                     keepConversationStatus?: boolean;
+                    /** @default false */
+                    keywordReply?: boolean;
                     /** Format: uuid */
                     mailboxConnectionId?: string;
                     /** Format: uuid */
@@ -32420,6 +32462,39 @@ export interface operations {
             };
         };
     };
+    command_registration_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        savedAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_registration_submit: {
         parameters: {
             query?: never;
@@ -32451,6 +32526,7 @@ export interface operations {
                             lastName: string;
                             phone: string;
                         };
+                        displayName?: string;
                         ein?: string | null;
                         legalName: string;
                         messageSamples: string[];
@@ -32459,7 +32535,13 @@ export interface operations {
                         optInDescription: string;
                         /** @enum {string} */
                         optInPath?: "hosted" | "own_site" | "in_person";
+                        optInProofUrl?: string | null;
+                        optInUrl?: string | null;
                         policyUrl?: string | null;
+                        privacyPageUrl?: string | null;
+                        sensitiveTopics?: ("lending" | "debt" | "lead_selling" | "cannabis" | "gambling" | "alcohol" | "tobacco" | "firearms")[];
+                        termsPageUrl?: string | null;
+                        termsUrl?: string | null;
                         /** @enum {string} */
                         useCase: "customer_care" | "mixed" | "marketing";
                         /** Format: uri */
@@ -49389,6 +49471,38 @@ export interface operations {
                                 visitedAt: string | null;
                             }[];
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_registration_get_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            [key: string]: unknown;
+                        } | null;
+                        savedAt: string | null;
                     };
                 };
             };

@@ -91,9 +91,15 @@ describe('the widget’s settings', () => {
       // The path is spelled out rather than built with core's helper, so that changing where policies live
       // fails here instead of agreeing with itself.
       smsConsent: {
-        ...chatSmsConsent('chat-routes Booking HVAC', `/legal/${w.site}/privacy`),
+        ...chatSmsConsent(
+          'chat-routes Booking HVAC',
+          `/legal/${w.site}/privacy`,
+          `/legal/${w.site}/terms`,
+        ),
         text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
       },
+      // No texting registration that includes offers, so no second box.
+      offersConsent: null,
       humanCheck: null,
       paused: false,
       maxMessageLength: 1000,

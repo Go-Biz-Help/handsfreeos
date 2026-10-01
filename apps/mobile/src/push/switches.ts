@@ -6,8 +6,8 @@ import type { Me } from '@/lib/businesses';
  * Settings → Notifications on the phone (design/m10/More.dc.html, "Notifications: push beside email"): a push switch
  * for each moment beside today's email switches, the same switches as the web's Settings → Account. They belong to the
  * person, not the phone: push goes to every phone they're signed in on. A change saves the whole group it's in, as the
- * web does: `user.update_profile` with all seven push switches (`settings.push`), or all seven email ones
- * (`settings.notifications`).
+ * web does: `user.update_profile` with every push switch (`settings.push`), or all seven email ones
+ * (`settings.notifications`). New support tickets is a row only for people who answer HandsFreeOS support.
  */
 
 /** The email switches, as the web names them (apps/web/src/components/settings/notifications-section.tsx). */
@@ -33,6 +33,8 @@ export interface NotificationRow {
   readonly email: EmailSwitch | 'always' | null;
   /** Only for owners and admins of an agency. */
   readonly agencyOnly?: boolean;
+  /** Only for people who answer HandsFreeOS support (`platform.me`, admin/staff.ts). */
+  readonly staffOnly?: boolean;
 }
 
 /** The moments, in the canvas's words. */
@@ -103,6 +105,13 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     push: 'addons',
     email: 'addonEmail',
   },
+  {
+    title: 'New support tickets',
+    detail: 'When someone writes to HandsFreeOS support. Only people who answer support get these.',
+    push: 'supportTickets',
+    email: null,
+    staffOnly: true,
+  },
 ];
 
 /** The moments that only email. */
@@ -150,7 +159,7 @@ export function settingsOf(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
 }
 
-/** The six push switches, defaults filled in (payments off until turned on). */
+/** Every push switch, defaults filled in (payments off until turned on). */
 export function pushSwitchesFrom(settings: unknown): PushSwitches {
   return pushSwitchesOf(settingsOf(settings));
 }

@@ -37,6 +37,8 @@ interface Row {
   readonly email: EmailKey | 'always' | null;
   /** Shown only to organization owners and admins. */
   readonly agencyOnly?: boolean;
+  /** Shown only to people who answer HandsFreeOS support. */
+  readonly staffOnly?: boolean;
 }
 
 /** The moments, push beside email (design/m10/Web.dc.html). */
@@ -116,6 +118,14 @@ const ROWS: readonly Row[] = [
     email: 'addonEmail',
   },
   {
+    title: 'New support tickets',
+    description:
+      'When someone writes to HandsFreeOS support, in the app or by email. Only people who answer support get these.',
+    push: 'supportTickets',
+    email: null,
+    staffOnly: true,
+  },
+  {
     title: 'Morning summary',
     description:
       'One email at 7 AM with today’s jobs, who to call, and what needs your attention, urgent first.',
@@ -151,24 +161,27 @@ const Faint = ({ children }: { children: string }) => (
 
 /**
  * Per-person notification choices, saved to the account so every business and every phone follows them: push
- * beside today's email switches. Settings save a whole top-level key at a time, so a push change sends all six push
- * switches (`settings.push`) and an email change all six email ones (`settings.notifications`).
+ * beside today's email switches. Settings save a whole top-level key at a time, so a push change sends every push
+ * switch (`settings.push`) and an email change every email one (`settings.notifications`).
  */
 export function NotificationsSection({
   initial,
   agency,
+  staff = false,
   phones,
 }: {
   initial: { readonly email: NotificationPrefs; readonly push: PushSwitches };
   /** An owner or admin of an organization: the agency digest's row shows. */
   agency: boolean;
+  /** Someone who answers HandsFreeOS support: the new support tickets row shows. */
+  staff?: boolean;
   /** How many phones the person gets push on now. */
   phones: number;
 }) {
   const [email, setEmail] = useState(initial.email);
   const [push, setPush] = useState(initial.push);
   const [saving, setSaving] = useState(false);
-  const rows = ROWS.filter((row) => agency || !row.agencyOnly);
+  const rows = ROWS.filter((row) => (agency || !row.agencyOnly) && (staff || !row.staffOnly));
 
   async function save(
     change: { push: PushSwitches } | { notifications: NotificationPrefs },

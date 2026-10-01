@@ -10,7 +10,16 @@ import {
 import { TAP } from '../buttons';
 import { PressRunner, type FollowUp, type PressDeps } from '../press';
 
-import { approval, COMMAND_IDS, CONVERSATION, customerMessage, ITEM, urgentLead } from './fixtures';
+import {
+  approval,
+  COMMAND_IDS,
+  CONVERSATION,
+  customerMessage,
+  ITEM,
+  supportTicket,
+  TICKET,
+  urgentLead,
+} from './fixtures';
 
 /**
  * A press on a notification runs its command through `change()` under the command id the notification carries, then
@@ -398,6 +407,23 @@ describe('what a press leaves behind', () => {
     await r.handle({ data: lead, actionId: 'call', typed: null, identifier: 'lead' });
     expect(calls).toHaveLength(2);
     // The call itself isn't a change the press makes: the call sheet runs it, with signal.
+    expect(p.api.sent()).toEqual([]);
+  });
+
+  it('opens a new support ticket on the support desk, whatever businesses the person is in', async () => {
+    const p = phone();
+    const { r, opened } = runner(p, { ready: async () => ({ userId: DALE, businessIds: [] }) });
+    const ticket = { data: supportTicket(), typed: null, identifier: `ticket-${TICKET}` };
+    await expect(r.handle({ ...ticket, actionId: TAP })).resolves.toEqual({
+      kind: 'opened',
+      path: `/admin/tickets/${TICKET}`,
+    });
+    await expect(r.handle({ ...ticket, actionId: 'open' })).resolves.toEqual({
+      kind: 'opened',
+      path: `/admin/tickets/${TICKET}`,
+    });
+    // The route map takes the web's /admin/tickets/<id> to the phone's Support desk (links/route-map.ts).
+    expect(opened).toEqual([`/admin/tickets/${TICKET}`, `/admin/tickets/${TICKET}`]);
     expect(p.api.sent()).toEqual([]);
   });
 

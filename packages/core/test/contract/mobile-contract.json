@@ -3637,6 +3637,10 @@
             "default": false,
             "type": "boolean"
           },
+          "keywordReply": {
+            "default": false,
+            "type": "boolean"
+          },
           "campaignRecipientId": {
             "type": "string",
             "format": "uuid"

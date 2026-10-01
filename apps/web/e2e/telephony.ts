@@ -183,7 +183,9 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   await page.getByLabel('Phone', { exact: true }).fill('(713) 555-0161');
   await next.click();
 
-  // 4. What they text about: appointments and customer care is already chosen.
+  // 4. What they text about: appointments and customer care is already chosen, and none of the topics the
+  //    carriers treat differently.
+  await page.getByTestId('a2p-sensitive-none').check();
   await next.click();
 
   // 5. Two texts they would really send. Taken from the wizard's own suggestions rather than typed: the
@@ -195,18 +197,23 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   await expect(page.locator('#a2p-sample-1')).not.toHaveValue('');
   await next.click();
 
-  // 6. How customers agree. In person, so the test does not stand up a chat widget and a public form.
+  // 6. How customers agree. In person, so the test does not stand up a chat widget and a public form. In person
+  //    needs something a reviewer can open to see it: a page on the fixture site stands in for the photo.
   await page.getByTestId('optin-in_person').click();
+  await page.getByTestId('a2p-optin-proof').fill(`${KNOWLEDGE_SITE}/contact`);
   await next.click();
 
-  // 7. The privacy policy. The fixture site has one written properly, so this takes the "I already have
-  //    my own" branch — which is also the branch pre-flight has to fetch and read.
+  // 7. The privacy policy and terms. The fixture site has a policy written properly, so this takes the "I
+  //    already have my own" branch — which is also the branch pre-flight has to fetch and read. It has no
+  //    separate terms; its policy covers texting, which is what the terms check reads for.
   await page.getByTestId('policy-own').click();
   await page.getByLabel('Where your privacy policy is').fill(`${KNOWLEDGE_SITE}/privacy`);
+  await page.getByTestId('terms-own').click();
+  await page.getByLabel('Where your terms are').fill(`${KNOWLEDGE_SITE}/privacy`);
   await next.click();
 
-  // The review opens the website, the policy and (for in-person consent, nothing else) before it will let
-  // the registration go. Nothing is submitted until all three have been looked at.
+  // The review opens the website, the policy, the terms and (for in-person consent) the proof before it will
+  // let the registration go. Nothing is submitted until all four have been looked at.
   await expect(page.getByText('Your privacy policy mentions texting')).toBeVisible({
     timeout: 30_000,
   });
