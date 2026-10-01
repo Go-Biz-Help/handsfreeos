@@ -37,6 +37,10 @@ import {
   descriptionSaved,
   listingAsked,
   listingPasted,
+  OPEN_HOUSE_FOLLOW_UP,
+  openHouseFollowedUp,
+  openHouseFollowUpJob,
+  openHousePlanned,
   postSaved,
   postsRequested,
 } from './listing';
@@ -222,8 +226,15 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.listing.asked': listingAsked,
     'realestate.listing.posts_requested': postsRequested,
     'realestate.listing.post_saved': postSaved,
+    'realestate.open_house.planned': openHousePlanned,
+    'realestate.open_house.followed_up': openHouseFollowedUp,
   },
-  jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob, [OFFER_CLOCK]: offerClockJob },
+  jobs: {
+    [SWEEP]: runSweep,
+    [MEMORY_JOB]: memoryJob,
+    [OFFER_CLOCK]: offerClockJob,
+    [OPEN_HOUSE_FOLLOW_UP]: openHouseFollowUpJob,
+  },
   onEnable: async (ctx) => {
     await armSweep(ctx);
     await armOfferClocks(ctx);

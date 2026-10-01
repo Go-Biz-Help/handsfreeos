@@ -2528,3 +2528,116 @@ export const ListingPostCheckedInput = z.object({
   flags: z.array(FlagOut).max(50),
 });
 export const ListingPostOutput = z.object({ postId: uuid, flags: z.array(FlagOut) });
+
+// ---------- open houses (round three, step 7) ----------
+
+export const OpenHousePlanInput = z.object({
+  ...inDeal,
+  startsAt: isoDateTime,
+  durationMinutes: z
+    .number()
+    .int()
+    .min(30, 'An open house is at least half an hour.')
+    .max(720)
+    .default(180),
+  /** Who hosts it; the person planning it when left out. */
+  hostUserId: uuid.optional(),
+  /** The calendar it goes on: the one tours go on (Settings → Real Estate) when left out. */
+  calendarId: uuid.optional(),
+  acknowledgeWarnings: z.boolean().default(false),
+});
+export const OpenHousePlanOutput = z.object({
+  openHouseId: uuid,
+  appointmentId: uuid,
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  warnings: z.array(z.object({ code: z.string(), message: z.string() })),
+});
+export const OpenHouseCancelInput = z.object({
+  workspaceId: uuid,
+  openHouseId: uuid,
+  reason: z.string().trim().max(500).optional(),
+});
+export const OpenHouseChangeOutput = z.object({
+  openHouseId: uuid,
+  state: z.enum(['planned', 'cancelled']),
+});
+export const OpenHouseFollowUpInput = z.object({
+  workspaceId: uuid,
+  visitorId: uuid,
+  note: z.string().trim().max(500).optional(),
+});
+export const OpenHouseFollowUpOutput = z.object({ visitorId: uuid, followedUpAt: isoDateTime });
+
+export const OpenHousesOutput = z.object({
+  dealId: uuid,
+  /** Live on the MLS: the sign-in page opens only once it is. */
+  live: z.boolean(),
+  openHouses: z.array(
+    z.object({
+      id: uuid,
+      startsAt: isoDateTime,
+      endsAt: isoDateTime,
+      state: z.enum(['planned', 'cancelled']),
+      host: z.object({ id: uuid, fullName: z.string() }).nullable(),
+      /** The sign-in page under the business's site, once it has a public address and the listing is live. */
+      signInPath: z.string().nullable(),
+      visitors: z.array(
+        z.object({
+          id: uuid,
+          firstName: z.string(),
+          lastName: z.string().nullable(),
+          email: z.string().nullable(),
+          phone: z.string().nullable(),
+          withAgent: z.boolean(),
+          agentName: z.string().nullable(),
+          smsConsent: z.boolean(),
+          signedInAt: isoDateTime,
+          personId: uuid.nullable(),
+          followedUpAt: isoDateTime.nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export const PublicOpenHouseInput = z.object({
+  workspaceId: uuid,
+  slug: z.string().trim().max(80),
+  openHouseId: uuid,
+});
+export const PublicOpenHouseOutput = z.object({
+  street: z.string(),
+  cityLine: z.string().nullable(),
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  hostName: z.string().nullable(),
+  /** Sign-in is open from an hour before to an hour after. */
+  opensAt: isoDateTime,
+  closesAt: isoDateTime,
+  open: z.boolean(),
+  cancelled: z.boolean(),
+  photo: z.object({ publicFileId: uuid }).nullable(),
+});
+export const PublicOpenHouseSignInInput = z
+  .object({
+    workspaceId: uuid,
+    slug: z.string().trim().max(80),
+    openHouseId: uuid,
+    firstName: z.string().trim().min(1, 'Enter your first name.').max(80),
+    lastName: z.string().trim().max(80).default(''),
+    email: z.string().trim().max(254).email('That doesn’t look like an email address.').optional(),
+    phone: z.string().trim().max(40).optional(),
+    withAgent: z.boolean().default(false),
+    agentName: z.string().trim().max(160).optional(),
+    /** They ticked "Text me about this home and others like it". */
+    smsConsent: z.boolean().default(false),
+  })
+  .refine((i) => !!i.email || !!i.phone, {
+    error: 'Leave an email or a phone number.',
+    path: ['email'],
+  });
+export const PublicOpenHouseSignInOutput = z.object({
+  signedIn: z.literal(true),
+  firstName: z.string(),
+});

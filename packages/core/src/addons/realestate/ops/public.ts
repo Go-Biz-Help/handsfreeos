@@ -9,7 +9,7 @@
  *   business's forms would, keeps their yes to texts with where it came from, and puts their question on their
  *   timeline. The agent hears about it (the worker's alert).
  */
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, gte } from 'drizzle-orm';
 import { signUpFromPage, SIGN_UP_EVENTS } from '../../../crm/signup';
 import { HfosError } from '../../../errors';
 import { requirePublic } from '../../../kernel/actor';
@@ -23,7 +23,7 @@ import {
   PublicListingInput,
   PublicListingOutput,
 } from '../schemas';
-import { listings } from '../tables';
+import { listings, openHouses } from '../tables';
 import { inWorkspace, loadDeal, userNames, type Ctx } from './common';
 import { listingAddress, listPriceOf } from './listing';
 import { descriptionInUse, factLines, publicPhotos } from './marketing';
@@ -54,6 +54,31 @@ async function publishedListing(ctx: Ctx, slug: string) {
   return { l, deal, status, address };
 }
 
+/** A listing's open houses still to come (or on now), and whether sign-in is open for each. */
+async function upcomingOpenHouses(ctx: Ctx, dealId: string) {
+  const now = Date.now();
+  const list = await ctx.tx
+    .select({ id: openHouses.id, startsAt: openHouses.startsAt, endsAt: openHouses.endsAt })
+    .from(openHouses)
+    .where(
+      and(
+        eq(openHouses.dealRecordId, dealId),
+        eq(openHouses.state, 'planned'),
+        gte(openHouses.endsAt, new Date(now - HOUR)),
+      ),
+    )
+    .orderBy(asc(openHouses.startsAt))
+    .limit(5);
+  return list.map((o) => ({
+    id: o.id,
+    startsAt: o.startsAt.toISOString(),
+    endsAt: o.endsAt.toISOString(),
+    signInOpen: now >= o.startsAt.getTime() - HOUR && now <= o.endsAt.getTime() + HOUR,
+  }));
+}
+
+const HOUR = 3_600_000;
+
 export const publicListing = defineAddonQuery(realestateAddon, {
   name: 'realestate.public.listing',
   description:
@@ -79,7 +104,7 @@ export const publicListing = defineAddonQuery(realestateAddon, {
         publicFileId: p.fileId,
         caption: p.caption,
       })),
-      openHouses: [],
+      openHouses: await upcomingOpenHouses(ctx, deal.recordId),
       agentName: deal.ownerUserId ? (names.get(deal.ownerUserId) ?? null) : null,
       mlsNumber: l.mlsNumber!,
     };

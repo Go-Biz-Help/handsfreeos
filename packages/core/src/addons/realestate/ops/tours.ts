@@ -201,7 +201,7 @@ async function clientsOf(ctx: Ctx, dealId: string): Promise<ReadonlyMap<string, 
  * The calendar the tour goes on: the one asked for, else the business's tour calendar (Settings → Real Estate),
  * else the one active calendar the agent is on.
  */
-async function tourCalendar(
+export async function tourCalendar(
   ctx: Ctx,
   asked: string | undefined,
   agentId: string,

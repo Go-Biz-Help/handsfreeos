@@ -222,6 +222,8 @@ export const realestateAddon = defineAddon({
     'seller_questionnaires',
     'listing_descriptions',
     'listing_posts',
+    'open_houses',
+    'open_house_visitors',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -328,6 +330,10 @@ export const realestateAddon = defineAddon({
       'realestate.listing.posts_requested',
       'realestate.listing.posts_ready',
       'realestate.listing.post_saved',
+      'realestate.open_house.planned',
+      'realestate.open_house.cancelled',
+      'realestate.open_house.followed_up',
+      'realestate.open_house.signed_in',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -356,6 +362,9 @@ export const realestateAddon = defineAddon({
       // Social posts: drafted, and every version of their words checked.
       'realestate.listing.posts_requested',
       'realestate.listing.post_saved',
+      // Open houses: the next morning's reminder to follow up, cleared once everyone is.
+      'realestate.open_house.planned',
+      'realestate.open_house.followed_up',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',
@@ -374,7 +383,12 @@ export const realestateAddon = defineAddon({
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
-  jobs: ['realestate.sweep', 'realestate.memory_suggest', 'realestate.offer_clock'],
+  jobs: [
+    'realestate.sweep',
+    'realestate.memory_suggest',
+    'realestate.offer_clock',
+    'realestate.open_house_follow_up',
+  ],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
@@ -442,7 +456,10 @@ export const realestateAddon = defineAddon({
       },
     ],
     // Round three: a listing's page, for anyone with the link (`/a/<site>/realestate/<slug>`).
-    public: [{ path: ':slug', query: 'realestate.public.listing' }],
+    public: [
+      { path: ':slug', query: 'realestate.public.listing' },
+      { path: ':slug/open-house/:openHouseId', query: 'realestate.public.open_house' },
+    ],
   },
   ai: {
     directory:

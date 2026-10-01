@@ -1470,3 +1470,68 @@ export const listingPosts = addonRealestate.table(
     }).onDelete('cascade'),
   ],
 );
+
+/** A listing's open house: when, who hosts it, and its appointment (round three, step 7). */
+export const openHouses = addonRealestate.table(
+  'open_houses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    startsAt: ts('starts_at').notNull(),
+    endsAt: ts('ends_at').notNull(),
+    hostUserId: userRef('host_user_id'),
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
+    calendarId: uuid('calendar_id').references(() => calendars.id, { onDelete: 'set null' }),
+    state: text('state').notNull().default('planned').$type<'planned' | 'cancelled'>(),
+    cancelledAt: ts('cancelled_at'),
+    cancelledReason: text('cancelled_reason'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Someone who signed in at an open house. */
+export const openHouseVisitors = addonRealestate.table(
+  'open_house_visitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    openHouseId: uuid('open_house_id').notNull(),
+    personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+    leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    firstName: text('first_name').notNull(),
+    lastName: text('last_name'),
+    email: text('email'),
+    phone: text('phone'),
+    withAgent: boolean('with_agent').notNull().default(false),
+    agentName: text('agent_name'),
+    smsConsent: boolean('sms_consent').notNull().default(false),
+    signedInAt: ts('signed_in_at').notNull().defaultNow(),
+    followedUpAt: ts('followed_up_at'),
+    followedUpBy: userRef('followed_up_by'),
+    followUpNote: text('follow_up_note'),
+  },
+  (t) => [
+    unique().on(t.openHouseId, t.personId),
+    foreignKey({
+      columns: [t.workspaceId, t.openHouseId],
+      foreignColumns: [openHouses.workspaceId, openHouses.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);

@@ -8037,6 +8037,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.open_house.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a planned open house: its appointment comes off the calendar and its sign-in page closes.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.cancelled, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.follow_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an open house visitor followed up, with a note. When everyone is, the reminder clears; it’s proof for S-39.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.followed_up, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_follow_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan an open house for a listing: it goes on the host’s calendar, the seller sees it in their portal, and its sign-in page opens an hour before it starts once the listing is live on the MLS.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.planned, realestate.deal.facts_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.party.add": {
         parameters: {
             query?: never;
@@ -13991,6 +14051,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_offers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.open_houses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s open houses: when, who hosts, the sign-in page, and who signed in, with whether they’re working with an agent, agreed to texts and have been followed up.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_open_houses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32046,6 +32126,128 @@ export interface operations {
                         status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
                         /** @default 0 */
                         termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    openHouseId: string;
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        openHouseId: string;
+                        /** @enum {string} */
+                        state: "planned" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_follow_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** Format: uuid */
+                    visitorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        followedUpAt: string;
+                        /** Format: uuid */
+                        visitorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default 180 */
+                    durationMinutes?: number;
+                    /** Format: uuid */
+                    hostUserId?: string;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: uuid */
+                        openHouseId: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        warnings: {
+                            code: string;
+                            message: string;
+                        }[];
                     };
                 };
             };
@@ -50334,6 +50536,70 @@ export interface operations {
                                 sellerCreditCents: number;
                                 /** @enum {string} */
                                 side: "us" | "them";
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_open_houses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        live: boolean;
+                        openHouses: {
+                            /** Format: date-time */
+                            endsAt: string;
+                            host: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            signInPath: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            state: "planned" | "cancelled";
+                            visitors: {
+                                agentName: string | null;
+                                email: string | null;
+                                firstName: string;
+                                followedUpAt: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lastName: string | null;
+                                personId: string | null;
+                                phone: string | null;
+                                /** Format: date-time */
+                                signedInAt: string;
+                                smsConsent: boolean;
+                                withAgent: boolean;
                             }[];
                         }[];
                     };

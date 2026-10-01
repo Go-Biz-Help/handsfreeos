@@ -45,8 +45,10 @@ import {
 import { executeCommand, money } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
-import { raiseAddonAlert } from '../alerts';
-import type { AddonEventContext } from '../types';
+import { addDays, localDateOf, localInstant } from '@hfos/core/server';
+import { clearAddonAlert, raiseAddonAlert } from '../alerts';
+import { scheduleAddonJob } from '../queue';
+import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
 import { modelCheck } from './client-updates';
 
 const COULD_NOT_READ =
@@ -368,4 +370,90 @@ export async function postSaved(ctx: AddonEventContext): Promise<void> {
     ctx.actor,
     ctx.meta,
   );
+}
+
+// ---------- open houses: the next morning's reminder ----------
+
+export const OPEN_HOUSE_FOLLOW_UP = 'realestate.open_house_follow_up';
+export const openHouseAlertKey = (openHouseId: string) => `open_house:${openHouseId}`;
+
+/** `realestate.open_house.planned`: a reminder at 9 the next morning, the business's time, after it ends. */
+export async function openHousePlanned(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const openHouseId = typeof p['openHouseId'] === 'string' ? p['openHouseId'] : null;
+  const endsAt = typeof p['endsAt'] === 'string' ? Date.parse(p['endsAt']) : NaN;
+  if (!openHouseId || Number.isNaN(endsAt) || !ctx.event.entityId) return;
+  const dealId = ctx.event.entityId;
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    const [ws] = await rows<{ timezone: string | null }>(
+      tx,
+      sql`select timezone from app.workspaces where id = ${ctx.scope.workspaceId}`,
+    );
+    const tz = ws?.timezone || 'UTC';
+    const runAt = localInstant(addDays(localDateOf(endsAt, tz), 1), '09:00', tz);
+    await scheduleAddonJob(
+      tx,
+      { id: ctx.manifest.id, generation: ctx.generation },
+      {
+        kind: OPEN_HOUSE_FOLLOW_UP,
+        dedupeKey: `${OPEN_HOUSE_FOLLOW_UP}:${openHouseId}`,
+        runAt: new Date(runAt),
+        payload: {
+          openHouseId,
+          dealId,
+          hostUserId: typeof p['hostUserId'] === 'string' ? p['hostUserId'] : null,
+          street: typeof p['street'] === 'string' ? p['street'] : 'the listing',
+        },
+        workspaceId: ctx.scope.workspaceId,
+        organizationId: ctx.scope.organizationId,
+      },
+    );
+  });
+}
+
+/** Visitors on their own not yet followed up, at a planned open house. */
+async function notFollowedUp(ctx: AddonScopeContext, openHouseId: string): Promise<number> {
+  const [r] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ n: number }>(
+      tx,
+      sql`select count(*)::int as n from addon_realestate.open_house_visitors v
+          join addon_realestate.open_houses o on o.id = v.open_house_id and o.state = 'planned'
+          where v.open_house_id = ${openHouseId} and not v.with_agent and v.followed_up_at is null`,
+    ),
+  );
+  return r?.n ?? 0;
+}
+
+/** `realestate.open_house_follow_up`: the host's card, if anyone is still waiting to hear from them. */
+export async function openHouseFollowUpJob(ctx: AddonJobContext): Promise<void> {
+  const p = ctx.job.payload as Record<string, unknown>;
+  const openHouseId = typeof p['openHouseId'] === 'string' ? p['openHouseId'] : null;
+  const dealId = typeof p['dealId'] === 'string' ? p['dealId'] : null;
+  if (!openHouseId || !dealId) return;
+  const n = await notFollowedUp(ctx, openHouseId);
+  if (!n) return;
+  const host = typeof p['hostUserId'] === 'string' ? p['hostUserId'] : null;
+  await raiseAddonAlert(ctx, {
+    key: openHouseAlertKey(openHouseId),
+    severity: 'attention',
+    title:
+      `${n} open house ${n === 1 ? 'visitor' : 'visitors'} to follow up at ${String(p['street'] ?? 'the listing')}`.slice(
+        0,
+        200,
+      ),
+    detail: 'Call or write to each, then mark them followed up on the open house.',
+    href: `/a/realestate/deals/${dealId}/open-houses`,
+    permission: 'realestate.use',
+    customRecordId: dealId,
+    audienceUserIds: host ? [host] : [],
+    assigneeUserId: host,
+  });
+}
+
+/** `realestate.open_house.followed_up`: the card goes once everyone is. */
+export async function openHouseFollowedUp(ctx: AddonEventContext): Promise<void> {
+  const openHouseId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['openHouseId'];
+  if (typeof openHouseId !== 'string') return;
+  if ((await notFollowedUp(ctx, openHouseId)) === 0)
+    await clearAddonAlert(ctx, openHouseAlertKey(openHouseId), 'done');
 }

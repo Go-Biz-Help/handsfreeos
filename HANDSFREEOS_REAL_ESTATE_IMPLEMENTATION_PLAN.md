@@ -1389,16 +1389,24 @@ boards; the server steps go ahead meanwhile.
 - Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts` and `addon-public.test.ts` (the
   page and a question through the public doors).
 
-### Step 7: open houses
+### Step 7: open houses (server built, 2026-10-01)
 
-- `open_houses` (when, who hosts, and its appointment on the host's calendar, made as a tour's is) and
-  `open_house_visitors` (who, whether they're working with an agent, whether they agreed to texts, and whether
-  they've been followed up).
-- Planning one sets the deal's `open_house` fact, so S-36 to S-39 open.
-- The sign-in page (`/a/<site>/realestate/<slug>/open-house/<id>`) opens an hour before and closes an hour after. A
-  ticked box records text consent from "Open house: 418 Maple Ave".
-- A sign-in sheet with the QR code prints from the open house. The next morning the host is alerted to visitors not
-  yet followed up (S-39).
+**As built** (`20261020000400_realestate_open_houses.sql`; `ops/open-houses.ts`):
+
+- `open_houses` and `open_house_visitors`. `realestate.open_house.plan` puts it on the host's calendar as a tour is
+  (the tours' calendar, else the host's only one; a private deal's shows only as busy), with no message to anyone;
+  it sets the deal's `open_house` fact (S-36 to S-39 open) and is S-36's proof. `cancel` takes it off the calendar
+  and closes sign-in. The seller sees their open houses in the portal.
+- The sign-in page (`ui.public` `:slug/open-house/:openHouseId`, `realestate.public.open_house`) needs the listing
+  live on the MLS, and is open from an hour before to an hour after. `realestate.public.open_house.sign_in`: on
+  their own, a customer with a lead for the host and their yes to texts from "Open house: 2207 Juniper Trail";
+  signing in again is one visit; with another agent, only their name, how to reach them and their agent's name. It's
+  S-38's proof. The listing's page lists the open houses still to come.
+- `realestate.open_houses` is the staff page's look-up, with the sign-in page's address once the business has one.
+  `follow_up` marks a visitor followed up (S-39's proof). The worker reminds the host at 9 the next morning, the
+  business's time, about anyone not followed up (`realestate.open_house_follow_up`), and clears the card once
+  everyone is.
+- Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts`.
 
 ### Step 8: offers side by side, with what the seller takes home
 

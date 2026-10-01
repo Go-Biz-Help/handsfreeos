@@ -26,6 +26,7 @@ import { listingCommands, listingQueries } from './ops/listing';
 import { descriptionCommands } from './ops/description';
 import { marketingCommands, marketingQueries } from './ops/marketing';
 import { publicCommands, publicQueries } from './ops/public';
+import { openHouseCommands, openHouseQueries } from './ops/open-houses';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -55,6 +56,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...descriptionCommands,
     ...marketingCommands,
     ...publicCommands,
+    ...openHouseCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -74,5 +76,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...listingQueries,
     ...marketingQueries,
     ...publicQueries,
+    ...openHouseQueries,
   ],
 };

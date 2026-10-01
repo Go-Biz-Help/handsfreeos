@@ -25,6 +25,7 @@ import {
   portalAccessGive,
   portalCheckCode,
   portalSendCode,
+  scheduleSet,
   tagCreate,
   type CommandDef,
   type CustomerActor,
@@ -33,6 +34,7 @@ import {
   type QueryDef,
   type RequestMeta,
 } from '../../src/server';
+import { makeCalendar, type Team } from '../calendar-helpers';
 import { realestateBusiness } from './realestate-fixture';
 
 describe('a listing’s facts, pure', () => {
@@ -821,5 +823,146 @@ describe('social posts', () => {
       edited: true,
       checked: { words: true, model: false },
     });
+  });
+});
+
+// ---------- open houses (step 7) ----------
+
+describe('open houses', () => {
+  let openHouseId: string;
+
+  it('go on the host’s calendar, say the listing has open houses, and are proof for S-36', async () => {
+    await executeCommand(
+      api(),
+      scheduleSet,
+      {
+        workspaceId: ws,
+        ownerId: agent.id,
+        weekly: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
+      },
+      human(owner),
+      meta(),
+    );
+    const team = {
+      owner,
+      wsId: ws,
+      scope: { workspaceId: ws, organizationId: org },
+    } as unknown as Team;
+    await makeCalendar(team, 'Showings', { team: { members: [{ userId: agent.id }] } });
+    const quarter = 15 * 60_000;
+    const startsAt = new Date(
+      Math.ceil((Date.now() + 30 * 60_000) / quarter) * quarter,
+    ).toISOString();
+    const planned = await run(agent, 'realestate.open_house.plan', {
+      dealId: listing,
+      startsAt,
+      durationMinutes: 120,
+      acknowledgeWarnings: true,
+    });
+    openHouseId = planned.openHouseId;
+    const [appt] = await rows<{ title: string }>(
+      admin(),
+      sql`select title from app.appointments where id = ${planned.appointmentId}`,
+    );
+    expect(appt!.title).toBe('Open house: 2207 Juniper Trail');
+    const [deal] = await rows<{ facts: string[] }>(
+      admin(),
+      sql`select facts from addon_realestate.deals where record_id = ${listing}`,
+    );
+    expect(deal!.facts).toContain('open_house');
+    const proof = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.appointment_id = ${planned.appointmentId}`,
+    );
+    expect(proof.map((p) => p.key)).toEqual(['S-36']);
+    const page = await asVisitor('realestate.public.listing', { slug: '2207-juniper-trail' });
+    expect(page.openHouses).toEqual([
+      expect.objectContaining({ id: openHouseId, signInOpen: true }),
+    ]);
+  });
+
+  it('sign a visitor in: on their own a customer with a lead; with an agent, only recorded', async () => {
+    const page = await asVisitor('realestate.public.open_house', {
+      slug: '2207-juniper-trail',
+      openHouseId,
+    });
+    expect(page).toMatchObject({
+      street: '2207 Juniper Trail',
+      open: true,
+      cancelled: false,
+      hostName: 'Dana Reyes',
+    });
+    const kayla = {
+      slug: '2207-juniper-trail',
+      openHouseId,
+      firstName: 'Kayla',
+      lastName: 'Brooks',
+      phone: '+15125550187',
+      smsConsent: true,
+    };
+    await asVisitor('realestate.public.open_house.sign_in', kayla);
+    // Signing in again is the same visit.
+    await asVisitor('realestate.public.open_house.sign_in', kayla);
+    await asVisitor('realestate.public.open_house.sign_in', {
+      slug: '2207-juniper-trail',
+      openHouseId,
+      firstName: 'Sofia',
+      email: 'sofia.r@example.com',
+      withAgent: true,
+      agentName: 'Kim Ortiz, Oakwood Realty',
+      smsConsent: true,
+    });
+    const { openHouses } = await ask(agent, 'realestate.open_houses', { dealId: listing });
+    const visitors = openHouses[0].visitors;
+    expect(
+      visitors.map((v: Any) => [v.firstName, v.withAgent, v.smsConsent, !!v.personId]),
+    ).toEqual([
+      ['Kayla', false, true, true],
+      ['Sofia', true, false, false],
+    ]);
+    expect(openHouses[0].signInPath).toMatch(
+      /\/a\/.+\/realestate\/2207-juniper-trail\/open-house\//,
+    );
+    const [person] = await rows<{ sms_consent_source: string }>(
+      admin(),
+      sql`select sms_consent_source from app.people where id = ${visitors[0].personId}`,
+    );
+    // Kayla asked on the page earlier: her yes then still stands, with where it came from.
+    expect(person!.sms_consent_source).toMatch(/2207 Juniper Trail/);
+    const [sofia] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.people where workspace_id = ${ws} and first_name = 'Sofia'`,
+    );
+    expect(sofia!.n).toBe(0);
+  });
+
+  it('mark a visitor followed up, as proof for S-39, and close sign-in when cancelled', async () => {
+    const { openHouses } = await ask(agent, 'realestate.open_houses', { dealId: listing });
+    const kayla = openHouses[0].visitors[0];
+    const done = await run(agent, 'realestate.open_house.follow_up', {
+      visitorId: kayla.id,
+      note: 'Called; she’ll come back Saturday.',
+    });
+    expect(done.followedUpAt).toBeTruthy();
+    const [proof] = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = 'open_house_visitor' and e.ref_id = ${kayla.id}`,
+    );
+    expect(proof!.key).toBe('S-39');
+    await run(agent, 'realestate.open_house.cancel', { openHouseId, reason: 'Rain' });
+    expect(
+      await refused(
+        asVisitor('realestate.public.open_house.sign_in', {
+          slug: '2207-juniper-trail',
+          openHouseId,
+          firstName: 'Late',
+          phone: '+15125550111',
+        }),
+      ),
+    ).toBe('realestate_open_house_cancelled');
   });
 });

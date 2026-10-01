@@ -6,6 +6,8 @@
 import { randomUUID } from 'node:crypto';
 import {
   ADDON_SERVER_MODULES,
+  scheduleSet,
+  type PublicActor,
   executeCommand,
   executeQuery,
   personCreate,
@@ -18,6 +20,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { realestateBusiness } from '../../../packages/core/test/addons/realestate-fixture';
+import { makeCalendar, type Team } from '../../../packages/core/test/calendar-helpers';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { scriptedAi, scriptedListingFacts } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
@@ -217,5 +220,90 @@ describe('a listing’s social posts', () => {
           where deal_record_id = ${listing} and state = 'ready' and model is not null`,
     );
     expect(proof!.n).toBe(3);
+  });
+});
+
+describe('an open house’s next morning', () => {
+  it('reminds the host about visitors not followed up, and clears once they are', async () => {
+    await executeCommand(
+      api(),
+      scheduleSet,
+      {
+        workspaceId: ws,
+        ownerId: agent.id,
+        weekly: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
+      },
+      human(agent),
+      meta(),
+    );
+    const [w] = await rows<{ org: string }>(
+      admin(),
+      sql`select organization_id as org from app.workspaces where id = ${ws}`,
+    );
+    const team = {
+      owner: agent,
+      wsId: ws,
+      scope: { workspaceId: ws, organizationId: w!.org },
+    } as unknown as Team;
+    await makeCalendar(team, 'Showings', { team: { members: [{ userId: agent.id }] } });
+    await run('realestate.listing.mark_live', {
+      dealId: listing,
+      mlsNumber: '4821937',
+      liveOn: new Date().toISOString().slice(0, 10),
+    });
+    await rows(
+      admin(),
+      sql`update addon_realestate.listings set slug = '2207-juniper-trail' where deal_record_id = ${listing}`,
+    );
+    const quarter = 15 * 60_000;
+    const { openHouseId } = await run('realestate.open_house.plan', {
+      dealId: listing,
+      startsAt: new Date(Math.ceil((Date.now() + 30 * 60_000) / quarter) * quarter).toISOString(),
+      acknowledgeWarnings: true,
+    });
+    const visitor: PublicActor = {
+      type: 'public',
+      workspaceId: ws,
+      organizationId: w!.org,
+      site: 'x',
+      visitor: 'hmac',
+    };
+    await executeCommand(
+      testDbs().worker.db,
+      op('realestate.public.open_house.sign_in') as CommandDef,
+      {
+        workspaceId: ws,
+        slug: '2207-juniper-trail',
+        openHouseId,
+        firstName: 'Marcus',
+        phone: '+17375550110',
+      },
+      visitor,
+      { correlationId: randomUUID(), channel: 'booking_page' },
+    );
+    await drain();
+    // The next morning comes now.
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now()
+          where workspace_id = ${ws} and kind = 'realestate.open_house_follow_up' and status = 'pending'`,
+    );
+    await drain();
+    const alert = async () =>
+      (
+        await rows<{ title: string; cleared: boolean }>(
+          admin(),
+          sql`select title, cleared_at is not null as cleared from app.addon_alerts
+              where workspace_id = ${ws} and key = ${`open_house:${openHouseId}`}`,
+        )
+      )[0];
+    expect(await alert()).toEqual({
+      title: '1 open house visitor to follow up at 2207 Juniper Trail',
+      cleared: false,
+    });
+    const { openHouses } = await ask('realestate.open_houses', { dealId: listing });
+    await run('realestate.open_house.follow_up', { visitorId: openHouses[0].visitors[0].id });
+    await drain();
+    expect((await alert())!.cleared).toBe(true);
   });
 });
