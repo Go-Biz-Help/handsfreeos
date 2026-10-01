@@ -1,8 +1,8 @@
 import type { MediaShape } from '@hfos/core';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Sharing from 'expo-sharing';
 import * as React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { MediaThumb } from '@/components/inbox/thread-items';
 
@@ -87,4 +87,122 @@ test('a file that isn’t a photo still opens with the phone', async () => {
 
   await waitFor(() => expect(openURL).toHaveBeenCalledWith('https://files.test/ws/p/estimate.pdf'));
   expect(screen.queryByTestId('photo-viewer')).toBeNull();
+});
+
+describe('on Android, where the photo follows the fingers itself', () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+  });
+
+  // What the responder system hands a gesture: where each finger is now, and where it was a moment ago.
+  let clock = 0;
+  const fingers = (now: [number, number][], before: [number, number][] = now) => {
+    clock += 16;
+    return {
+      nativeEvent: { touches: now.map(([pageX, pageY]) => ({ pageX, pageY })) },
+      touchHistory: {
+        numberActiveTouches: now.length,
+        indexOfSingleActiveTouch: 0,
+        mostRecentTimeStamp: clock,
+        touchBank: now.map(([x, y], i) => ({
+          touchActive: true,
+          startPageX: before[i]![0],
+          startPageY: before[i]![1],
+          startTimeStamp: clock - 16,
+          currentPageX: x,
+          currentPageY: y,
+          currentTimeStamp: clock,
+          previousPageX: before[i]![0],
+          previousPageY: before[i]![1],
+          previousTimeStamp: clock - 16,
+        })),
+      },
+    };
+  };
+
+  async function openPhoto() {
+    await render(<MediaThumb media={photo} />);
+    await fireEvent.press(screen.getByTestId('media-thumb'));
+    const area = await screen.findByTestId('photo-viewer-photo');
+    await fireEvent(area, 'layout', { nativeEvent: { layout: { width: 400, height: 800 } } });
+    return area;
+  }
+  const scaleNow = () => {
+    const style = [screen.getByTestId('photo-viewer-zoom').props.style].flat(9);
+    const transform = style.find((s) => s?.transform)?.transform as Record<string, number>[];
+    return transform.find((t) => 'scale' in t)!.scale;
+  };
+
+  test('two fingers spreading zoom the photo in', async () => {
+    const area = await openPhoto();
+    expect(scaleNow()).toBe(1);
+    await fireEvent(
+      area,
+      'responderGrant',
+      fingers([
+        [150, 400],
+        [250, 400],
+      ]),
+    );
+    await fireEvent(
+      area,
+      'responderMove',
+      fingers(
+        [
+          [100, 400],
+          [300, 400],
+        ],
+        [
+          [150, 400],
+          [250, 400],
+        ],
+      ),
+    );
+    expect(scaleNow()).toBe(2);
+    await fireEvent(area, 'responderRelease', fingers([]));
+    expect(scaleNow()).toBe(2);
+  });
+
+  // Longer than a single tap waits to be sure it isn't a double one, and than the zoom and swipe animations.
+  const settle = () => act(() => new Promise<void>((done) => setTimeout(done, 450)));
+  const tap = async (area: ReturnType<typeof screen.getByTestId>) => {
+    await fireEvent(area, 'responderGrant', fingers([[200, 300]]));
+    await fireEvent(area, 'responderRelease', fingers([]));
+  };
+  const dragDown = async (area: ReturnType<typeof screen.getByTestId>) => {
+    await fireEvent(area, 'responderGrant', fingers([[200, 300]]));
+    await fireEvent(area, 'responderMove', fingers([[200, 340]], [[200, 300]]));
+    await fireEvent(area, 'responderMove', fingers([[200, 560]], [[200, 340]]));
+    await fireEvent(area, 'responderRelease', fingers([]));
+    await settle();
+  };
+
+  test('a single tap hides the buttons', async () => {
+    const area = await openPhoto();
+    await tap(area);
+    await settle();
+    expect(screen.queryByTestId('photo-viewer-close')).toBeNull();
+  });
+
+  test('dragging an unzoomed photo down puts it away', async () => {
+    await dragDown(await openPhoto());
+    expect(screen.queryByTestId('photo-viewer')).toBeNull();
+  });
+
+  test('a double tap zooms in, so a drag looks round the photo; another double tap zooms back out', async () => {
+    const area = await openPhoto();
+    await tap(area);
+    await tap(area);
+    await settle();
+    // Two taps zoom rather than hiding the buttons.
+    expect(screen.getByTestId('photo-viewer-close')).toBeTruthy();
+    await dragDown(area);
+    expect(screen.getByTestId('photo-viewer')).toBeTruthy();
+
+    await tap(area);
+    await tap(area);
+    await settle();
+    await dragDown(area);
+    expect(screen.queryByTestId('photo-viewer')).toBeNull();
+  });
 });
