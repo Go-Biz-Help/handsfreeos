@@ -59,7 +59,7 @@ In order, because some need the one before.
    `preview`, `production`) and `runtimeVersion` is `{ "policy": "fingerprint" }`, so an update only reaches builds
    whose native side matches it — the right policy here, because this app has native modules of its own. Two things
    are still open for the automation that rides on this, both in "Phone Part 4" of `docs/operations.md`: the Expo
-   GitHub App has to be linked to `gobizhelp/handsfreeos` with base directory `apps/mobile`, and GitHub needs an
+   GitHub App has to be linked to `Go-Biz-Help/handsfreeos` with base directory `apps/mobile`, and GitHub needs an
    `EXPO_TOKEN` repository secret. Adding the `updates` key changed the fingerprint, so the next build on each
    platform is a fresh native build — once.
 6. **The push key and Firebase**, if push is to work on real builds — not checked here. `eas credentials` sets both

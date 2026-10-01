@@ -41,6 +41,7 @@ import {
   type TenantScope,
   type WorkerServices,
 } from '../services';
+import { chargeCampaignMonths, chargeRegistrationSent } from '../money/registration-fees';
 import { ensureAccount, loadAccount, webhookUrls } from '../telephony/accounts';
 import { contentTemplateFor } from '../telephony/rcs-content';
 import { errorMessage } from '../outbox';
@@ -256,6 +257,15 @@ export async function advanceRegistrations(
         // The version the carrier now has: people sending again later makes this differ.
         carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
       });
+      // What the carrier charged us for taking it, passed on from the business's balance at cost.
+      await chargeRegistrationSent(services.wallet, scope, {
+        kind,
+        providerSid: state.providerSid,
+        again: Boolean(reg.providerSid) && reg.providerSid === state.providerSid,
+        monthlyVolume:
+          typeof submission['monthlyVolume'] === 'string' ? submission['monthlyVolume'] : null,
+        registrationId: reg.id,
+      });
       if (state.status === 'approved') {
         usable[kind] = state.providerSid;
         continue;
@@ -322,6 +332,9 @@ export const onRegistrationSubmitted: EventHandler = async (ctx) => {
 export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const p = ctx.event.payload as { kind?: string; to?: string };
+  // An approved campaign's first month, charged now; the daily sweep charges the months after it.
+  if (p.kind === 'a2p_campaign' && p.to === 'approved')
+    await chargeCampaignMonths(ctx.wallet, scope, Date.now(), true);
   const final = p.kind === 'toll_free_verification' || p.kind === 'a2p_campaign';
   if (!(p.to === 'rejected' || (p.to === 'approved' && final))) return;
   const [ws] = await ctx.tx

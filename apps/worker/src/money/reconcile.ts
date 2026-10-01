@@ -78,11 +78,9 @@ export const CARRIER_CATEGORIES: Readonly<Record<string, readonly UsageKey[]>> =
   'mms-outbound': ['mms.outbound.message'],
   'mms-inbound': ['mms.inbound.message'],
   'calls-outbound': ['voice.outbound.minute'],
+  // Every inbound call, to local and toll-free numbers alike. Its parts (`calls-inbound-local` and the rest) are
+  // in COUNTED_ELSEWHERE: comparing them too would charge an inbound call's shortfall twice.
   'calls-inbound': ['voice.inbound.local.minute', 'voice.inbound.tollfree.minute'],
-  'calls-inbound-local': ['voice.inbound.local.minute'],
-  'calls-inbound-tollfree': ['voice.inbound.tollfree.minute'],
-  'phonenumbers-local': ['number.local.month'],
-  'phonenumbers-tollfree': ['number.tollfree.month'],
   // Priced at nothing today, on purpose: transcription is bundled into the plan (2.2) and recording is folded
   // into the minute. If either ever costs more than it is worth, this is where it shows up first.
   recordings: [],
@@ -91,8 +89,37 @@ export const CARRIER_CATEGORIES: Readonly<Record<string, readonly UsageKey[]>> =
   // A browser leg. Not on the card, and named here so its cost is charged rather than quietly absorbed.
   'calls-client': [],
   calleridlookups: [],
-  'carrier-fees': [],
 };
+
+/**
+ * Twilio's categories that are already inside another line, so comparing them on their own would charge for
+ * them twice. The parts of `calls-inbound`, which Twilio reports beside it. And the carriers' per-message fees:
+ * the card's price for a text or picture already includes the carrier's pass-through (`sms.outbound.segment`
+ * is Twilio's $0.0079 plus about $0.003 of it), so a fee line charged again here would be the same money twice.
+ * Known, so not reported as unknown.
+ */
+export const COUNTED_ELSEWHERE: ReadonlySet<string> = new Set([
+  'calls-inbound-local',
+  'calls-inbound-tollfree',
+  'calls-inbound-mobile',
+  'carrier-fees',
+  'sms-messages-carrierfees',
+  'mms-messages-carrierfees',
+]);
+
+/**
+ * Twilio's categories for things we charge on our own schedule and never compare day by day, because Twilio dates
+ * them by its own clock. Texting registration fees (money/registration-fees.ts): a review when the reviewer gets
+ * to it, a campaign's month on its anniversary. Phone numbers (money/number-months.ts): Twilio charges each on the
+ * day of the month it was bought, and we charge by the calendar month. A day-by-day comparison would see our
+ * charge on one day and Twilio's on another and charge the business twice, so these are known and left alone
+ * rather than reported as unknown.
+ */
+export const CHARGED_WHEN_THEY_HAPPEN: ReadonlySet<string> = new Set([
+  'a2p-registration-fees',
+  'phonenumbers-local',
+  'phonenumbers-tollfree',
+]);
 
 /** The day a pass covers, in UTC, because that is how the carrier dates its records. */
 export const dayToReconcile = (now: number): string =>
@@ -110,10 +137,11 @@ export const planReconcile: JobHandler = async (ctx) => {
   const day = dayToReconcile(ctx.now);
   const from = new Date(ctx.now).toISOString();
   await asWorker(ctx.db, {}, async (tx) => {
+    // Through a function: the worker's own policy on telephony_accounts shows only the business in scope, and
+    // here there is none, so reading the table directly found nobody and no business was ever checked.
     const list = await rows<{ workspace_id: string; organization_id: string }>(
       tx,
-      sql`select t.workspace_id, w.organization_id
-          from app.telephony_accounts t join app.workspaces w on w.id = t.workspace_id`,
+      sql`select workspace_id, organization_id from private.telephony_accounts_open()`,
     );
     for (let i = 0; i < list.length; i += PLAN_CHUNK)
       for (const b of list.slice(i, i + PLAN_CHUNK))
@@ -195,6 +223,8 @@ export async function reconcileDay(
   for (const line of theirs) {
     const theirCostCents = roundHalfUp(line.costMicros / 10_000);
     if (theirCostCents <= 0) continue;
+    if (CHARGED_WHEN_THEY_HAPPEN.has(line.category) || COUNTED_ELSEWHERE.has(line.category))
+      continue;
     if (!(line.category in CARRIER_CATEGORIES)) {
       unknown.push(line.category);
       continue;

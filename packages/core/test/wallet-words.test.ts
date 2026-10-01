@@ -10,6 +10,7 @@ import {
   cardLine,
   MIN_TOPUP_CENTS,
   topUpCapLine,
+  registrationFeesLine,
   usageQuantityWords,
   type WalletShown,
 } from '../src/money/wallet-words';
@@ -111,5 +112,35 @@ describe('how much a statement line was for', () => {
     expect(usageQuantityWords(1, 'minute')).toBe('1 minute');
     expect(usageQuantityWords(3, 'segment')).toBe('3 segments');
     expect(usageQuantityWords(1, 'month')).toBe('1 month');
+    expect(usageQuantityWords(1, 'fee')).toBe('once');
+    expect(usageQuantityWords(2, 'fee')).toBe('2 times');
+  });
+});
+
+describe('registrationFeesLine', () => {
+  const prices = [
+    { key: 'a2p.brand.registration', cents: 450 },
+    { key: 'a2p.campaign.vetting', cents: 1500 },
+    { key: 'a2p.campaign.month', cents: 1000 },
+    { key: 'a2p.brand.vetting', cents: 4150 },
+    { key: null, cents: 2 },
+  ];
+
+  it('says what sending costs, from today’s prices', () => {
+    const line = registrationFeesLine(prices, false);
+    expect(line).toContain('at cost');
+    expect(line).toContain('$4.50 once');
+    expect(line).toContain('$15 each time');
+    expect(line).toContain('$10 a month');
+    expect(line).not.toContain('$41.50');
+  });
+
+  it('adds the extra check for a business sending over 1,000 texts a month', () => {
+    expect(registrationFeesLine(prices, true)).toContain('$41.50');
+  });
+
+  it('says where the fees are when it can’t see the prices', () => {
+    expect(registrationFeesLine(null, true)).toContain('Usage & balance');
+    expect(registrationFeesLine([], false)).not.toContain('$');
   });
 });

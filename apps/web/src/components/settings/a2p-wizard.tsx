@@ -26,6 +26,7 @@ import {
   ownSiteBoxText,
   privacyPolicy,
   preflightBlocked,
+  registrationFeesLine,
   sampleSuggestions,
   SENSITIVE_TOPICS,
   sendsOffers,
@@ -955,6 +956,26 @@ export function A2pWizard({
     else setChecks(null);
   }, [step.key, runPreflight]);
 
+  // The carriers' fees for a local number, from today's card, so the last step can say what sending costs.
+  // Toll-free verification has no fee. A person who can't see the balance still gets the sentence, without
+  // the amounts.
+  const [prices, setPrices] = useState<readonly { key: string | null; cents: number }[] | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!local || step.key !== 'review' || prices) return;
+    let live = true;
+    void apiBrowser()
+      .POST('/v1/queries/usage.prices', { body: { workspaceId } })
+      .then((res) => {
+        if (live && res.data) setPrices(res.data.items);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [local, step.key, prices, workspaceId]);
+
   async function submit() {
     setBusy(true);
     setServerErrors([]);
@@ -1269,6 +1290,7 @@ export function A2pWizard({
       {step.key === 'review' ? (
         <ReviewStep
           form={form}
+          fees={local ? registrationFeesLine(prices, form.volume !== 'under_1000') : null}
           issues={issues}
           serverErrors={serverErrors}
           checks={checks}
@@ -1565,6 +1587,7 @@ function Row({ label, value, onJump }: { label: string; value: ReactNode; onJump
 
 function ReviewStep({
   form,
+  fees,
   issues,
   serverErrors,
   checks,
@@ -1575,6 +1598,8 @@ function ReviewStep({
   onJump,
 }: {
   form: WizardForm;
+  /** What sending takes from the balance, for a local number. Null for toll-free, which has no fee. */
+  fees: string | null;
   issues: readonly A2pIssue[];
   serverErrors: readonly string[];
   /** What a reviewer would find, or null while it has not been looked at. */
@@ -1766,6 +1791,12 @@ function ReviewStep({
           onJump={() => onJump('policy')}
         />
       </div>
+
+      {fees ? (
+        <p className="text-[13px] text-text-2" data-testid="registration-fees">
+          {fees}
+        </p>
+      ) : null}
 
       <Checkbox
         className="text-[13px]"

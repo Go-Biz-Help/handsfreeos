@@ -83,6 +83,12 @@ import {
   SPEECH_CHARGE_KEY,
   SPEECH_JOBS,
 } from './money/speech-usage';
+import {
+  CAMPAIGN_MONTHS_KEY,
+  REGISTRATION_FEE_JOBS,
+  runCampaignMonths,
+} from './money/registration-fees';
+import { NUMBER_MONTH_JOBS, NUMBER_MONTHS_KEY, runNumberMonths } from './money/number-months';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
 import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
@@ -538,6 +544,10 @@ export const jobs: JobMap = {
   ...RECHARGE_JOB_HANDLERS,
   // The AI's hearing and voice, billed from its running totals every quarter of an hour.
   [SPEECH_JOBS.charge]: runSpeechCharge,
+  // The carriers' monthly fee for a business's texting registration, at cost, once a day.
+  [REGISTRATION_FEE_JOBS.months]: runCampaignMonths,
+  // Each phone number's month, once per calendar month where the business is, checked daily.
+  [NUMBER_MONTH_JOBS.charge]: runNumberMonths,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
@@ -671,6 +681,26 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: SPEECH_JOBS.charge,
       dedupeKey: SPEECH_CHARGE_KEY,
       runAt: nextSpeechChargeAt(Date.now()),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Texting registration (A2P 10DLC), once a day: each approved campaign's monthly carrier fee, passed on at
+    // cost on the day of the month it was approved. With the wallet off it does nothing.
+    await scheduleJob(tx, {
+      kind: REGISTRATION_FEE_JOBS.months,
+      dedupeKey: CAMPAIGN_MONTHS_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Phone numbers, once a day: each number's month charged once, by the calendar month where the business is.
+    // With the wallet off it does nothing.
+    await scheduleJob(tx, {
+      kind: NUMBER_MONTH_JOBS.charge,
+      dedupeKey: NUMBER_MONTHS_KEY,
+      runAt,
       payload: {},
       workspaceId: null,
       organizationId: null,

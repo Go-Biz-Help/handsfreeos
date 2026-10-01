@@ -10,7 +10,7 @@ name: Preview update
 # in app.json, and it is what stops a JavaScript update from meeting native code it was never written against. When
 # that happens, label the pull request `mobile-build` and preview-build.yml makes an installable build instead.
 #
-# Requires the Expo GitHub App on gobizhelp/handsfreeos with base directory apps/mobile. Without it EAS never hears
+# Requires the Expo GitHub App on Go-Biz-Help/handsfreeos with base directory apps/mobile. Without it EAS never hears
 # about the push and nothing here runs. See "Phone Part 4" in docs/operations.md.
 
 on:

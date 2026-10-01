@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MARKUP_FLOOR_BP,
+  PASS_THROUGH_KEYS,
   SEED_CARD,
   SEED_RATES,
   USAGE_KEYS,
@@ -145,8 +146,8 @@ describe('the seeded card', () => {
     }
   });
 
-  it('charges at least one and a half times cost for one of each thing', () => {
-    for (const key of USAGE_KEYS) {
+  it('charges at least one and a half times cost for one of each thing, but the fees passed on at cost', () => {
+    for (const key of USAGE_KEYS.filter((k) => !PASS_THROUGH_KEYS.includes(k))) {
       // Compared in micros: a tenth of a cent in floating point is not a tenth of a cent.
       const chargedMicros = priceOf(SEED_CARD, key, 1).amountCents * 10_000;
       expect(chargedMicros, key).toBeGreaterThanOrEqual(SEED_CARD.rates[key].costMicros * 1.5);
@@ -177,7 +178,28 @@ describe('the seeded card', () => {
       'speech.recording.minute': 1,
       'speech.voice.kchar': 5,
       'ai.unknown.mtok': 2250,
+      // The carriers' texting registration fees, at exactly what Twilio charges us.
+      'a2p.brand.registration': 450,
+      'a2p.brand.vetting': 4150,
+      'a2p.campaign.vetting': 1500,
+      'a2p.campaign.month': 1000,
     });
+  });
+
+  it('passes the carriers’ texting registration fees on at cost, and nothing else', () => {
+    expect([...PASS_THROUGH_KEYS].sort()).toEqual([
+      'a2p.brand.registration',
+      'a2p.brand.vetting',
+      'a2p.campaign.month',
+      'a2p.campaign.vetting',
+    ]);
+    for (const key of PASS_THROUGH_KEYS) {
+      expect(SEED_CARD.rates[key].markupBp, key).toBe(MARKUP_FLOOR_BP);
+      const priced = priceOf(SEED_CARD, key, 1);
+      expect(priced.amountCents, key).toBe(priced.costCents);
+    }
+    expect(SEED_CARD.rates['a2p.campaign.month'].unit).toBe('month');
+    expect(SEED_CARD.rates['a2p.brand.registration'].unit).toBe('fee');
   });
 
   it('charges speech one and a half times what Deepgram charges, over a running total', () => {
