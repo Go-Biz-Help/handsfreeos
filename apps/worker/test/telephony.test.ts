@@ -49,7 +49,7 @@ import { processors } from '../src/processors/index';
 import { jobs, unansweredCheck } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
 import { twilioSignature, verifyTwilioSignature } from '../src/telephony/signature';
-import { TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
+import { payTextingFee, TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
 
 const env = testEnv();
 const WORKER_ID = `vitest-telephony-${process.pid}`;
@@ -1028,12 +1028,18 @@ describe('local numbers (10DLC)', () => {
     await submit(
       'Hi Mike, your estimate is ready. Accept or reject it here, or reply STOP to opt out.',
     );
+    // Nothing goes to the carriers until the registration's fees are paid (0105): $4.50 for the brand and $15
+    // for the campaign's review, on a page that keeps the card.
+    await drain();
+    expect(s.telephony.registrations.length).toBe(before);
+    await payTextingFee(s, { workspaceId, organizationId });
     await drain({
       until: async () => (await campaign())?.status === 'rejected',
       timeoutMs: 15_000,
     });
     const turnedDown = (await campaign())!;
-    // Fix and send again: only the campaign goes back, as a new one in place of the old.
+    // Fix and send again: only the campaign goes back, as a new one in place of the old. Its review is $15 again,
+    // charged to the card kept from the first payment, so it goes without a page.
     await submit(fixedSample);
     await drain({
       until: async () => (await campaign())?.status === 'approved',

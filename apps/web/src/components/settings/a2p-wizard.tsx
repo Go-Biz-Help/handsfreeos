@@ -22,22 +22,26 @@ import {
   checkDraft,
   hasBlockers,
   issuesFor,
+  money,
   optInDescriptionFor,
   ownSiteBoxText,
   privacyPolicy,
   preflightBlocked,
-  registrationFeesLine,
   sampleSuggestions,
   SENSITIVE_TOPICS,
   sendsOffers,
   TERMS_TEXTING_ITEMS,
   termsOfService,
+  TEXTING_CAMPAIGN_MONTH_CENTS,
+  textingFeeLines,
+  textingFeeTotal,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type OptInPath,
   type PreflightCheck,
   type SensitiveTopicId,
+  type TextingFeesPaidFor,
 } from '@hfos/core';
 import {
   ArrowLeft,
@@ -803,6 +807,7 @@ export function A2pWizard({
   initial,
   draft = null,
   surfaces: initialSurfaces = EMPTY_SURFACES,
+  feesPaidFor = null,
   onBack,
   onSubmitted,
 }: {
@@ -819,8 +824,14 @@ export function A2pWizard({
   /** The answers as they were left last time (`registration.get_draft`), which win over `initial`. */
   draft?: Record<string, unknown> | null;
   surfaces?: HostedSurfaces;
+  /**
+   * What the business already sent or paid for (`textingFees.paidFor`), so the last step shows what sending a
+   * local registration costs before anything is sent (0105). Left out, no price is shown.
+   */
+  feesPaidFor?: TextingFeesPaidFor | null;
   onBack?: () => void;
-  onSubmitted: () => void;
+  /** Sent. `fee` is what it costs when anything: it goes to the carriers once that is paid. */
+  onSubmitted: (fee: { id: string; amountCents: number } | null) => void;
 }) {
   const [form, setForm] = useState<WizardForm>(() =>
     withDraft(wizardFormFrom(initial, businessName, me), draft),
@@ -892,6 +903,12 @@ export function A2pWizard({
   }, [form, at, workspaceId]);
 
   const local = !number || number.numberType === 'local';
+  // What sending it costs: the carriers' fees, from what is already sent or paid for and the volume picked.
+  const feeLines =
+    local && feesPaidFor
+      ? textingFeeLines({ ...feesPaidFor, monthlyVolume: form.volume || 'under_1000' })
+      : [];
+  const feeTotal = textingFeeTotal(feeLines);
   const issues = useMemo(() => checkDraft(draftOf(form), businessName), [form, businessName]);
   const step = STEPS[at]!;
 
@@ -961,33 +978,13 @@ export function A2pWizard({
     else setChecks(null);
   }, [step.key, runPreflight]);
 
-  // The carriers' fees for a local number, from today's card, so the last step can say what sending costs.
-  // Toll-free verification has no fee. A person who can't see the balance still gets the sentence, without
-  // the amounts.
-  const [prices, setPrices] = useState<readonly { key: string | null; cents: number }[] | null>(
-    null,
-  );
-  useEffect(() => {
-    if (!local || step.key !== 'review' || prices) return;
-    let live = true;
-    void apiBrowser()
-      .POST('/v1/queries/usage.prices', { body: { workspaceId } })
-      .then((res) => {
-        if (live && res.data) setPrices(res.data.items);
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [local, step.key, prices, workspaceId]);
-
   async function submit() {
     setBusy(true);
     setServerErrors([]);
     try {
       // A save still on its way lands first, so the send's clearing of the draft is the last word.
       await saving.current;
-      unwrap(
+      const done = unwrap(
         await apiBrowser().POST('/v1/commands/registration.submit', {
           body: {
             workspaceId,
@@ -1028,8 +1025,10 @@ export function A2pWizard({
         }),
       );
       sent.current = true;
-      toast.success('Sent to the carriers');
-      onSubmitted();
+      toast.success(
+        done.fee ? 'Saved. Pay the carriers’ fees to send it.' : 'Sent to the carriers',
+      );
+      onSubmitted(done.fee);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)) {
         const details = err.details as { path?: string; message?: string }[];
@@ -1295,7 +1294,6 @@ export function A2pWizard({
       {step.key === 'review' ? (
         <ReviewStep
           form={form}
-          fees={local ? registrationFeesLine(prices, form.volume !== 'under_1000') : null}
           issues={issues}
           serverErrors={serverErrors}
           checks={checks}
@@ -1305,6 +1303,36 @@ export function A2pWizard({
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
         />
+      ) : null}
+
+      {step.key === 'review' && feeTotal > 0 ? (
+        <div className="mt-5 flex flex-col gap-1.5" data-testid="registration-fees">
+          <span className="text-[13px] font-medium">What the carriers charge</span>
+          <div className="overflow-hidden rounded-[10px] border border-border">
+            <ul className="divide-y divide-border">
+              {feeLines.map((l) => (
+                <li key={l.key} className="flex items-start justify-between gap-3 px-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-medium">{l.name}</span>
+                    <span className="block text-xs text-text-3">{l.detail}</span>
+                  </span>
+                  <span className="whitespace-nowrap text-[13px] font-medium">
+                    {money(l.cents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-between gap-3 bg-card-2 px-3 py-2.5 text-[13px] font-semibold">
+              <span>Now</span>
+              <span data-testid="registration-fees-total">{money(feeTotal)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-text-3">
+            Passed on at cost from The Campaign Registry and the carriers, with nothing added. Once
+            they approve it, the campaign is {money(TEXTING_CAMPAIGN_MONTH_CENTS)} a month, charged
+            to the same card.
+          </p>
+        </div>
       ) : null}
 
       <div className="mt-6 flex items-center justify-between gap-3">
@@ -1332,7 +1360,11 @@ export function A2pWizard({
             data-testid="submit-registration"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {busy ? 'Sending…' : 'Send to the carriers'}
+            {busy
+              ? 'Sending…'
+              : feeTotal > 0
+                ? `Pay ${money(feeTotal)} and send`
+                : 'Send to the carriers'}
           </Button>
         ) : (
           <Button
@@ -1592,7 +1624,6 @@ function Row({ label, value, onJump }: { label: string; value: ReactNode; onJump
 
 function ReviewStep({
   form,
-  fees,
   issues,
   serverErrors,
   checks,
@@ -1603,8 +1634,6 @@ function ReviewStep({
   onJump,
 }: {
   form: WizardForm;
-  /** What sending takes from the balance, for a local number. Null for toll-free, which has no fee. */
-  fees: string | null;
   issues: readonly A2pIssue[];
   serverErrors: readonly string[];
   /** What a reviewer would find, or null while it has not been looked at. */
@@ -1796,12 +1825,6 @@ function ReviewStep({
           onJump={() => onJump('policy')}
         />
       </div>
-
-      {fees ? (
-        <p className="text-[13px] text-text-2" data-testid="registration-fees">
-          {fees}
-        </p>
-      ) : null}
 
       <Checkbox
         className="text-[13px]"

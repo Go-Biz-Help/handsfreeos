@@ -29,7 +29,7 @@ import { handlers } from '../src/handlers/index';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
-import { testServices, type TestServices } from './helpers';
+import { payTextingFee, testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-registration-ahead-${process.pid}`;
 const actor = (u: TestUser): HumanActor => ({
@@ -135,6 +135,9 @@ describe('a texting registration sent before the number is here', () => {
       actor(owner),
       meta(),
     );
+    // Its fees are paid first (0105); then it goes.
+    await drain(workspaceId);
+    await payTextingFee(s, { workspaceId, organizationId: org.organizationId });
     await drain(workspaceId, {
       until: async () => (await registrationsOf(workspaceId)).every((r) => r.status === 'approved'),
     });

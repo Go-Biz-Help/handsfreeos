@@ -76,36 +76,6 @@ export function usageQuantityWords(quantity: number, unit: string): string {
   }
 }
 
-/**
- * What sending a texting registration for a local number takes from the balance, for the registration's last
- * step, so nobody finds the carriers' fees on a statement first. Read from `usage.prices`, so it says what the
- * card says today. Without the prices (a person who can't see the balance), it says where to find them.
- */
-export function registrationFeesLine(
-  prices: readonly { readonly key: string | null; readonly cents: number }[] | null,
-  overThousand: boolean,
-): string {
-  const cents = (key: string) => prices?.find((p) => p.key === key)?.cents;
-  const brand = cents('a2p.brand.registration');
-  const review = cents('a2p.campaign.vetting');
-  const month = cents('a2p.campaign.month');
-  const check = cents('a2p.brand.vetting');
-  if (brand === undefined || review === undefined || month === undefined)
-    return (
-      'The carriers charge to register you, and we pass that on from your usage balance at cost. ' +
-      'Settings → Usage & balance lists the fees.'
-    );
-  const extra =
-    overThousand && check !== undefined
-      ? ` Sending over 1,000 texts a month adds a one-time check of ${money(check)}.`
-      : '';
-  return (
-    `The carriers charge to register you, and we pass that on from your usage balance at cost: ` +
-    `${money(brand)} once, ${money(review)} each time they review your texts, and ${money(month)} a month ` +
-    `once approved.${extra}`
-  );
-}
-
 /** "Visa ending 4242 · expires 04/28", or "Card ending ••••" where the provider told us less. */
 export function cardLine(card: {
   readonly brand: string | null;

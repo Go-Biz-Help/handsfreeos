@@ -408,6 +408,17 @@ function describeAction(e: AuditEntry): string {
       return rcsRequestSentence(e);
     case 'rcs_request.submit':
       return `asked for an RCS sender showing ${s(e.after?.name)}: ${s(e.after?.firstYear)} for the first year, then ${s(e.after?.yearly)} a year`;
+    // 0105: what registering for texting costs, passed on.
+    case 'texting_fee.pay':
+      return `asked to pay ${s(e.after?.paying)} for texting with another card`;
+    case 'texting_fee.record_outcome':
+      return e.after?.paid
+        ? `paid ${s(e.after.paid)} for texting`
+        : e.after?.waived
+          ? `let ${s(e.after.waived)} of texting fees through uncharged: paying online is off`
+          : `couldn’t take ${s(e.after?.unpaid)} for texting: ${s(e.after?.reason)}`;
+    case 'texting_fee.charge_month':
+      return `owes ${s(e.after?.owed)} for this month’s texting campaign`;
     case 'rcs_request.pay_renewal':
       return `asked to pay RCS’s ${s(e.after?.renewal)} renewal with another card`;
     case 'rcs_request.record_closed':
@@ -415,6 +426,9 @@ function describeAction(e: AuditEntry): string {
         ? 'found the RCS payment page ran out unpaid'
         : 'found the RCS payment didn’t go through';
     case 'registration.submit':
+      // 0105: sending a local registration also writes what the carriers charge for it.
+      if (e.entityType === 'texting_fee')
+        return `owes ${s(e.after?.owed)} for ${s(e.after?.for)}, passed on from the carriers`;
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
       return registrationSentence(e);
@@ -1788,6 +1802,7 @@ export function auditCategory(action: string): AuditCategory {
       'number_port.',
       'rcs_sender.',
       'rcs_request.',
+      'texting_fee.',
       'email.',
       'email_domain.',
       'email_address.',

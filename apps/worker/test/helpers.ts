@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
@@ -270,4 +270,40 @@ export async function drainUntilWritten(input: {
              and category = any(${list}::text[])`,
     );
   }
+}
+
+/**
+ * Pays a business's open texting fee (0105) on the stand-in Stripe, the way the page's signed event would record
+ * it: the fake takes the card and keeps it, and the outcome goes through the worker's own command. For suites
+ * about what happens after paying (the registration chain), with no webhook route of their own.
+ */
+export async function payTextingFee(
+  s: TestServices,
+  scope: { workspaceId: string; organizationId: string },
+  opts: { instrument?: string } = {},
+): Promise<void> {
+  const { executeCommand, textingFeeRecordOutcome } = await import('@hfos/core/server');
+  const [fee] = await rows<{ id: string; session_ref: string | null }>(
+    testDbs().admin.db,
+    sql`select id, session_ref from app.texting_fees
+        where workspace_id = ${scope.workspaceId} and status = 'open' order by created_at desc limit 1`,
+  );
+  if (!fee?.session_ref) throw new Error('no texting fee page is waiting to be paid');
+  const page = await s.payments.fake.payCheckout(fee.session_ref, opts);
+  if (!page || page.status !== 'complete') throw new Error('the stand-in page was not paid');
+  await executeCommand(
+    testDbs().worker.db,
+    textingFeeRecordOutcome,
+    {
+      workspaceId: scope.workspaceId,
+      textingFeeId: fee.id,
+      status: 'paid',
+      paymentRef: page.paymentRef,
+      paidCents: page.amountCents,
+      customerRef: page.customerRef,
+      cardRef: page.cardRef,
+    },
+    { type: 'system', workspaceId: scope.workspaceId, organizationId: scope.organizationId },
+    { correlationId: randomUUID(), channel: 'test' },
+  );
 }
