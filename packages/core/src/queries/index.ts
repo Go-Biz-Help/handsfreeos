@@ -1,4 +1,5 @@
 import type { QueryDef } from '../kernel/types';
+import { portalAccessGet } from '../commands/portal-access';
 import { formQueries } from './form';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
@@ -205,6 +206,7 @@ export { addonRoadmapQueries, ADDON_NEWS_DAYS } from './addon-roadmap';
 
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
+  portalAccessGet,
   ...supportQueries,
   ...platformQueries,
   ...foundingQueries,

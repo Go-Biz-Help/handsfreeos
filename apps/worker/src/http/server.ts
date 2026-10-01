@@ -37,6 +37,7 @@ import { registerBookingRoutes } from './booking';
 import { registerUnsubscribeRoutes } from './unsubscribe';
 import { registerAiCallRoutes } from './ai-calls';
 import { registerChatRoutes } from './chat';
+import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerFoundingRoutes } from './founding';
@@ -261,6 +262,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerNumberImportRoutes(app, deps);
   registerWalletCardRoutes(app, deps);
   await registerChatRoutes(app, deps);
+  // A customer's own portal: their private link, the code emailed to them, and the device it signs in.
+  await registerPortalRoutes(app, deps);
   await registerFormRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);

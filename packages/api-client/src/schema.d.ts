@@ -5937,6 +5937,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/portal_access.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lets a customer into their portal and emails them the private link; for someone already in, emails the link again.
+         * @description Risk level 2. Requires records.write. Emits portal.access_given.
+         */
+        post: operations["command_portal_access_give"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/portal_access.revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turns a customer’s portal off: every device they signed in on is signed out, and every link sent stops working.
+         * @description Risk level 2. Requires records.write. Emits portal.access_revoked.
+         */
+        post: operations["command_portal_access_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/product.archive": {
         parameters: {
             query?: never;
@@ -12191,6 +12231,26 @@ export interface paths {
          * @description Requires platform.businesses.read.
          */
         post: operations["query_platform_wallet_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/portal_access.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether a customer is in the portal: when and by whom they were let in, when they last used it, and the devices signed in now.
+         * @description Requires records.read.
+         */
+        post: operations["query_portal_access_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26152,6 +26212,74 @@ export interface operations {
             };
         };
     };
+    command_portal_access_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accessId: string;
+                        resent: boolean;
+                        sentTo: string;
+                    };
+                };
+            };
+        };
+    };
+    command_portal_access_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accessId: string;
+                        /** Format: date-time */
+                        revokedAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_product_archive: {
         parameters: {
             query?: never;
@@ -36485,7 +36613,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "portal" | "test";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -44119,6 +44247,60 @@ export interface operations {
                         suspendedReason: string | null;
                         toppedUp30dCents: number;
                         topupCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_portal_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access: {
+                            /** Format: uuid */
+                            accessId: string;
+                            devices: {
+                                device: string | null;
+                                /** Format: date-time */
+                                lastSeenAt: string;
+                                /** Format: uuid */
+                                sessionId: string;
+                                /** Format: date-time */
+                                signedInAt: string;
+                            }[];
+                            /** Format: date-time */
+                            givenAt: string;
+                            givenBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            lastUsedAt: string | null;
+                            on: boolean;
+                            revokedAt: string | null;
+                        } | null;
+                        email: string | null;
                     };
                 };
             };

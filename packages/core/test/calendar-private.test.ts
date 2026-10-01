@@ -52,10 +52,11 @@ beforeAll(async () => {
     );
   for (const u of [owner, agent, member])
     await run(scheduleSet, { workspaceId: wsId, ownerId: u.id, weekly: WEEKDAYS }, owner);
-  const [{ org }] = await rows<{ org: string }>(
+  const [w] = await rows<{ org: string }>(
     admin(),
     sql`select organization_id as org from app.workspaces where id = ${wsId}`,
   );
+  const org = w!.org;
   const team = {
     owner,
     wsId,

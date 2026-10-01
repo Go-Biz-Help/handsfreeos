@@ -38,6 +38,8 @@ const VIA: Record<RequestChannel, string | null> = {
   mobile: null,
   // The AI keeping customers' tags and details up to date (0107): its name leads the row, its reason is below.
   contact_ai: null,
+  // A client in their own portal (Real Estate round two, core).
+  portal: 'via client portal',
 };
 
 /**

@@ -14,6 +14,7 @@ import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { UnsubscribeLinks } from './email/unsubscribe';
 import type { MoneyLinks } from './money/links';
+import type { PortalLinks } from './portal/links';
 import type { WalletDeps } from './money/wallet';
 import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
@@ -99,6 +100,8 @@ export interface WorkerServices {
   readonly bookingLinks: BookingLinks;
   /** Signs and checks customers' estimate and invoice links, `/e/…` and `/i/…` (money/links.ts). */
   readonly moneyLinks: MoneyLinks;
+  /** Signs and checks a client's portal link, `/c/…` (portal/links.ts). */
+  readonly portalLinks: PortalLinks;
   /** Signs and checks the unsubscribe link every campaign email carries (email/unsubscribe.ts). */
   readonly unsubscribeLinks: UnsubscribeLinks;
   /**

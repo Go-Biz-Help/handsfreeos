@@ -13,6 +13,7 @@ import { fakeMailboxServices, type MailboxServices } from '../src/mailbox/index'
 import { createSmtpMailer } from '../src/mailer';
 import { createUnsubscribeLinks } from '../src/email/unsubscribe';
 import { createMoneyLinks } from '../src/money/links';
+import { createPortalLinks } from '../src/portal/links';
 import type { FakePayments } from '../src/payments/fake';
 import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
 import type { FakePush } from '../src/push/fake';
@@ -132,6 +133,10 @@ export function testServices(
       key: randomBytes(32).toString('base64'),
     }),
     moneyLinks: createMoneyLinks({
+      webUrl: 'http://localhost:3000',
+      key: randomBytes(32).toString('base64'),
+    }),
+    portalLinks: createPortalLinks({
       webUrl: 'http://localhost:3000',
       key: randomBytes(32).toString('base64'),
     }),

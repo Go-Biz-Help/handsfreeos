@@ -250,6 +250,14 @@ import {
 } from './knowledge';
 import { offerArchive, offerCreate, offerUpdate } from './offer';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
+import {
+  portalAccessGive,
+  portalAccessRevoke,
+  portalCheckCode,
+  portalSendCode,
+  portalSessionEnd,
+  portalSessionSeen,
+} from './portal-access';
 import { jobAddVisit, jobSetStatus } from './job';
 import {
   aiTeammateCreate,
@@ -823,6 +831,12 @@ export const commands: readonly CommandDef[] = [
   subscriptionStartForCustomer,
   chatSendCodeForCustomer,
   chatCheckCodeForCustomer,
+  portalAccessGive,
+  portalAccessRevoke,
+  portalSendCode,
+  portalCheckCode,
+  portalSessionSeen,
+  portalSessionEnd,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -966,6 +980,7 @@ export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';
 export * from './chat-verify';
+export * from './portal-access';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

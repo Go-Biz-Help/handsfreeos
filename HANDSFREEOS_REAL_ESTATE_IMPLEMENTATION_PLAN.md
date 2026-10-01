@@ -833,6 +833,32 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Phones: business_v1's appointments and their customers send only `sealed = false` rows, in place. The people on
   a deal get its appointments back on the phone with the deal screens (round six).
 
+### Step 2: the portal's sign-in (server built, 2026-10-01)
+
+**As built** (`20261014000200_client_portal_sign_in.sql`):
+
+- `app.portal_access`: one per person a business lets in, with the link's `public_ref` and `link_version`. The link
+  is `/c/<public_ref><code>`, the code an HMAC the worker signs (`apps/worker/src/portal/links.ts`, purpose
+  `hfos:portal-links:v1`), so nothing secret is kept. Turning it off raises the version, and so does letting them
+  back in: a link sent before says it was replaced (`portal_link_stale`) or that the portal is off
+  (`portal_access_off`). A trigger keeps the version going up only.
+- `app.portal_codes`: the six-digit code, kept as a hash. Ten minutes, three an hour, five tries; the code logic is
+  shared with website chat's (`packages/core/src/verify/code.ts`). It goes only to the email on file.
+- `app.portal_sessions`: a signed-in device. The worker makes a random bearer, keeps only its sha256, and hands the
+  bearer to the browser once. It lasts 30 days from its last use and 90 at most, and every one ends when access is
+  turned off or the link changes.
+- Everyone in the business sees who has access and their devices, never a hash or a code. Only people who may
+  change customers (`records.write`) let someone in or turn it off. Codes and the lookups are the worker's.
+- Commands: `portal_access.give` (also sends the link again), `portal_access.revoke`, `portal_access.get`, and the
+  worker's `portal.send_code`, `portal.check_code`, `portal_session.seen` and `portal_session.end`. Without an
+  email on file, giving access is refused as `portal_no_email`.
+- The invite goes out from the business through `message.send` on `portal.access_given`, so it sits in the
+  client's conversation. The code email comes from HandsFreeOS, like other sign-in codes.
+- Worker routes: `GET /public/portal/:token`, `POST …/code`, `POST …/verify` and `POST …/sign-out`, with a honeypot,
+  per-address limits, and `no-store` answers. Audit rows say "via client portal".
+- Waiting for the boards: the web's `/c/<token>` page, the customer page's "Client portal" card and the browser
+  test.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

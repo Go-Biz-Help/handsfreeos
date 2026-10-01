@@ -39,6 +39,7 @@ import { createSafeFetch } from '../src/http/safe-fetch';
 import { createSmtpMailer } from '../src/mailer';
 import { createUnsubscribeLinks } from '../src/email/unsubscribe';
 import { createMoneyLinks } from '../src/money/links';
+import { createPortalLinks } from '../src/portal/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
@@ -250,6 +251,10 @@ async function main(): Promise<void> {
       key,
     }),
     moneyLinks: createMoneyLinks({
+      webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      key,
+    }),
+    portalLinks: createPortalLinks({
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
       key,
     }),

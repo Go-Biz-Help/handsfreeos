@@ -3023,6 +3023,60 @@ export const chatVerificationCodes = app.table('chat_verification_codes', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/** A client let into their portal (Real Estate round two, core): the link's reference and version (0109). */
+export const portalAccess = app.table('portal_access', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** 8 random base62 characters, unique and not secret: the start of the link (/c/...). */
+  publicRef: text('public_ref')
+    .notNull()
+    .unique()
+    .default(sql`private.new_public_ref()`),
+  linkVersion: integer('link_version').notNull().default(1),
+  givenBy: userRef('given_by'),
+  givenAt: ts('given_at').notNull().defaultNow(),
+  revokedAt: ts('revoked_at'),
+  revokedBy: userRef('revoked_by'),
+  lastUsedAt: ts('last_used_at'),
+  ...timestamps(),
+});
+
+/** A 6-digit code emailed to a client signing in on a new device; only its hash is kept. */
+export const portalCodes = app.table('portal_codes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accessId: uuid('access_id')
+    .notNull()
+    .references(() => portalAccess.id, { onDelete: 'cascade' }),
+  codeHash: bytea('code_hash').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  usedAt: ts('used_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** A client's signed-in device: the hash of its bearer, 30 days from last use and 90 at most. */
+export const portalSessions = app.table('portal_sessions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accessId: uuid('access_id')
+    .notNull()
+    .references(() => portalAccess.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  device: text('device'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  endedAt: ts('ended_at'),
+  endedReason: text('ended_reason'),
+});
+
 /** "Typing", for a few seconds; the worker's alone. */
 export const chatSignals = app.table(
   'chat_signals',

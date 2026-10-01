@@ -4,6 +4,7 @@ import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
+import { onPortalAccessGiven } from '../portal/invite';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
@@ -316,6 +317,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'knowledge_pack.pushed': onPackPushed,
     // The AI's pass over the whole customer list: its job starts at once (contact-ai/sweep.ts).
     'contact_ai.sweep_started': onSweepStarted,
+    // A client let into their portal, or sent the link again: the email with the signed link (portal/invite.ts).
+    'portal.access_given': onPortalAccessGiven,
   }),
 );
 

@@ -1235,6 +1235,28 @@ export function chatCodeEmail(input: {
 export const chatCodeText = (business: string, code: string, minutes: number): string =>
   `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;
 
+/** The code a client types to sign in to their portal on a new device (Real Estate round two). */
+export function portalCodeEmail(input: {
+  business: string;
+  firstName: string;
+  code: string;
+  minutes: number;
+}): EmailContent {
+  const subject = `Your ${input.business} code: ${input.code}`;
+  const hi = input.firstName ? `Hi ${input.firstName}, your` : 'Your';
+  const text = `${hi} code to open your ${input.business} portal is ${input.code}. It expires in ${input.minutes} minutes.\n\nIf you didn’t ask for it, ignore this email: nobody can open your portal without it.`;
+  const html = shell(
+    preheader(`Your code is ${input.code}`) +
+      para(
+        `${escapeHtml(hi)} code to open your <strong>${escapeHtml(input.business)}</strong> portal is:`,
+      ) +
+      `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
+      para(`It expires in ${input.minutes} minutes.`) +
+      small('If you didn’t ask for it, ignore this email: nobody can open your portal without it.'),
+  );
+  return { subject, text, html };
+}
+
 // ---- Ideas, the roadmap and What's new (0102) ----
 
 const IDEA_FOOT =
