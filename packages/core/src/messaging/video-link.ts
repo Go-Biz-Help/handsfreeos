@@ -5,6 +5,7 @@
  *
  * What the web, the phone and the worker all need to agree on lives here: the limits, the address, and the words.
  */
+import { intlTimeZone } from '../intl/engine-zones';
 
 /** A link lasts a week. */
 export const VIDEO_LINK_DAYS = 7;
@@ -27,6 +28,14 @@ export const VIDEO_LINK_TYPES: Readonly<Record<string, string>> = {
 
 /** Where the customer opens it, on the app's own address. */
 export const videoLinkPath = (token: string): string => `/v/${token}`;
+
+/** "September 20": the day a link ran out, where the business is. */
+export const videoLinkDay = (at: Date, timeZone: string): string =>
+  at.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    timeZone: intlTimeZone(timeZone),
+  });
 
 /** The size of a file the way a person reads it: "180 MB", "900 KB". */
 export function videoSize(bytes: number): string {

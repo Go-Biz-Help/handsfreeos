@@ -18,6 +18,7 @@ import {
   VIDEO_LINK_MAX_UPLOADS,
   VIDEO_LINK_TYPES,
   VIDEO_LINK_WORDS,
+  videoLinkDay,
   videoLinkPath,
   videoSize,
 } from '../messaging/video-link';
@@ -52,9 +53,10 @@ export const videoLinkTokenHash = (token: string): Buffer =>
 export const videoUploadPath = (workspaceId: string, uploadId: string, contentType: string) =>
   `${workspaceId}/messages/${uploadId}/video.${VIDEO_LINK_TYPES[contentType] ?? 'mp4'}`;
 
-/** The business's name, for the customer's page and its refusals. */
-async function businessName(ctx: CommandContext): Promise<string> {
-  return (await workspaceMessaging(ctx.tx, ctx.scope.workspaceId!)).name;
+/** The business's name and time zone, for the customer's page and its refusals. */
+async function businessOf(ctx: CommandContext): Promise<{ name: string; timezone: string }> {
+  const { name, timezone } = await workspaceMessaging(ctx.tx, ctx.scope.workspaceId!);
+  return { name, timezone };
 }
 
 /** The link, locked for the change about to be made to it. */
@@ -67,9 +69,6 @@ async function lockedLink(ctx: CommandContext, videoLinkId: string) {
   if (!link) throw HfosError.rule('link_not_found', 404, VIDEO_LINK_WORDS.notFound);
   return link;
 }
-
-const shortDate = (at: Date) =>
-  at.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
 
 export const videoLinkCreate = defineCommand({
   name: 'video_link.create',
@@ -152,12 +151,12 @@ export const videoLinkStartUpload = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const link = await lockedLink(ctx, input.videoLinkId);
-    const business = await businessName(ctx);
+    const { name: business, timezone } = await businessOf(ctx);
     if (link.expiresAt.getTime() <= Date.now())
       throw HfosError.rule(
         'link_expired',
         410,
-        VIDEO_LINK_WORDS.expired(business, shortDate(link.expiresAt)),
+        VIDEO_LINK_WORDS.expired(business, videoLinkDay(link.expiresAt, timezone)),
       );
     if (link.uploadsReceived >= link.maxUploads)
       throw HfosError.rule('link_full', 409, VIDEO_LINK_WORDS.full(business, link.maxUploads));
@@ -207,7 +206,7 @@ export const videoLinkReceiveUpload = defineCommand({
     // Only the folder this upload was given: the page can't name another message's video as its own.
     if (!input.objectPath.startsWith(`${workspaceId}/messages/${input.uploadId}/`))
       throw HfosError.rule('wrong_place', 400, VIDEO_LINK_WORDS.notArrived);
-    const business = await businessName(ctx);
+    const { name: business } = await businessOf(ctx);
     if (link.uploadsReceived >= link.maxUploads)
       throw HfosError.rule('link_full', 409, VIDEO_LINK_WORDS.full(business, link.maxUploads));
     if (!VIDEO_LINK_TYPES[input.contentType])
