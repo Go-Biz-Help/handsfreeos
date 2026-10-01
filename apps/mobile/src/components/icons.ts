@@ -126,6 +126,7 @@ export { default as ScanFace } from 'lucide-react-native/icons/scan-face';
 export { default as Search } from 'lucide-react-native/icons/search';
 export { default as Send } from 'lucide-react-native/icons/send';
 export { default as Settings2 } from 'lucide-react-native/icons/settings-2';
+export { default as Share } from 'lucide-react-native/icons/share';
 export { default as ShieldAlert } from 'lucide-react-native/icons/shield-alert';
 export { default as ShieldCheck } from 'lucide-react-native/icons/shield-check';
 export { default as Signpost } from 'lucide-react-native/icons/signpost';

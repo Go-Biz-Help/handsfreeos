@@ -79,6 +79,13 @@ test('texting: set up, send, receive live, assign, snooze, close and STOP', asyn
   await expect(watcher.getByTestId('media-thumb')).toBeVisible();
   await expect(badge).toHaveCount(0);
 
+  // The photo opens full size over the thread, not in a new tab, and Escape puts it away.
+  await watcher.getByTestId('media-thumb').click();
+  await expect(watcher.getByTestId('photo-viewer').getByRole('img')).toBeVisible();
+  expect(watcher.context().pages()).toHaveLength(1);
+  await watcher.keyboard.press('Escape');
+  await expect(watcher.getByTestId('photo-viewer')).toHaveCount(0);
+
   // Assign, snooze, unsnooze and close.
   await watcher.getByTestId('assign-menu').click();
   await watcher.getByRole('menuitem', { name: /\(you\)/ }).click();
