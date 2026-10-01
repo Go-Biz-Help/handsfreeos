@@ -2063,6 +2063,8 @@ export const appointments = app.table('appointments', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate round two): others see only that its staff are busy. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
 });
 
 /** M18: the work a customer waits on — one visit or several — with a status they hear about. */
@@ -2145,6 +2147,8 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   cancelledAt: ts('cancelled_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** On a sealed appointment: seen only by the people who see its record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
   /** 8 random base62 characters, unique and not secret: the start of the change-or-cancel link (/m/...). */
   publicRef: text('public_ref')
     .notNull()

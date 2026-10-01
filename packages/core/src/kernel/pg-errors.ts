@@ -510,6 +510,11 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'That person isn’t on this record, so they can’t be given its task. Put them on it first.',
   },
+  appointment_staff_not_on_record: {
+    status: 409,
+    message:
+      'That person isn’t on this record, so they can’t work its appointment. Put them on the record first, or pick someone who is.',
+  },
   support_access_needs_look: {
     status: 403,
     message: 'Open this business from its page in /admin first, then ask from there.',

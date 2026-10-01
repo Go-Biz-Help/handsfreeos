@@ -813,6 +813,26 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - **Step 14:** the staff screens. **Step 15:** the portal's screens, the Assistant's tools, the docs, the browser
   test and a short video.
 
+### Step 1: a private record's appointments show only as busy (built, 2026-10-01)
+
+**As built** (`20261014000100_private_appointments_show_busy.sql`):
+
+- `app.appointments.sealed` and `app.appointment_attendees.sealed`, kept by triggers from the record's privacy, like
+  tasks and files. Their policies add "not sealed, or the caller sees the record", asked once per query
+  (`private.unseen_private_records()`, `private.unseen_sealed_appointments()`).
+- Who works an appointment and when (`appointment_staff`, `appointment_resources`) stays visible: it says nothing
+  about the deal. Availability reads it with a left join, so a hidden tour still blocks its people's time, and a
+  booking over it is refused as `slot_taken`.
+- `private.private_busy()` gives `schedule.team` each person's `privateBusy` times: only for the appointments the
+  caller can't open. The web calendar draws them as plain "Busy" blocks.
+- Someone on a sealed appointment's staff must see its record (`appointment_staff_not_on_record`), and a Home card
+  about it is sealed with it.
+- Chosen differently from the first sketch: the appointment row isn't split into a busy copy and a hidden copy.
+  Hiding the row keeps every writer and every reader as it was; the worker, which tells the client about their
+  tour, reads it whole as before.
+- Phones: business_v1's appointments and their customers send only `sealed = false` rows, in place. The people on
+  a deal get its appointments back on the phone with the deal screens (round six).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

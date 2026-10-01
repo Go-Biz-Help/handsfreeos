@@ -50,6 +50,10 @@
 #     20261013002300); an old build ignores it. **Step 5** narrows the same two attention queries once more, in the
 #     same change: `kind != 'addon_alert'`. An add-on's alert (20261013002500) is seen only by holders of the
 #     add-on's permission, which a stream can't check, and the phone draws no add-on's page; its push opens the web.
+#     **Real Estate round two narrows appointments the same way, in place.** A tour on a private deal is an
+#     appointment on it (20261014000100): business_v1's appointments and their customers now send only
+#     `sealed = false` rows. Its staff rows still go (who is busy when, nothing about the deal). The people on a
+#     deal get its appointments back on the phone with the deal screens.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
 # agency_v1 1 per agency they belong to. business_v1 has five arms: `access` matches everyone who can open
@@ -157,10 +161,10 @@ streams:
       - SELECT id, workspace_id, owner_kind, owner_id, timezone, weekly, created_at, updated_at FROM app.schedules WHERE workspace_id IN access
       - SELECT id, workspace_id, schedule_id, kind, starts_at, ends_at, all_day, note, created_at, updated_at FROM app.schedule_exceptions WHERE workspace_id IN access
       # Appointments from 90 days back, with who comes and who works them.
-      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, job_id, created_by, created_at, updated_at FROM app.appointments WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, job_id, created_by, created_at, updated_at FROM app.appointments WHERE workspace_id IN access AND sync_window = true AND sealed = false
       # Open jobs (M18): what a tech moves along from the visit screen (On my way, started, done).
       - SELECT id, workspace_id, person_id, title, status, customer_note, status_changed_at, eta_at, created_at, updated_at FROM app.jobs WHERE workspace_id IN access AND open = true
-      - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE workspace_id IN access AND sync_window = true AND sealed = false
       - SELECT appointment_id || ':' || user_id AS id, workspace_id, appointment_id, user_id, role, active, created_at FROM app.appointment_staff WHERE workspace_id IN access AND sync_window = true
       # The catalogue, for whoever may see money.
       - SELECT id, workspace_id, name, description, sku, kind, unit_price_cents, unit_label, taxable, service_id, archived_at, created_at, updated_at FROM app.products WHERE workspace_id IN reads_money

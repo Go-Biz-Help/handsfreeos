@@ -45632,6 +45632,12 @@ export interface operations {
                                 /** Format: date-time */
                                 startsAt: string;
                             }[];
+                            privateBusy: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
                             scheduleId: string | null;
                             timeOff: {
                                 allDay: boolean;

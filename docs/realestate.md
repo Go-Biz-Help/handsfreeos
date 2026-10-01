@@ -51,6 +51,9 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
 - **A deal is private to the people on it.** Its main agent and team see it; owners, admins and anyone given **See
   every deal** (`realestate.all_deals`) see them all. What hangs off a deal (its duties, dates, documents, files,
   tasks, timeline lines, Home cards) follows it, in row security, never in the app. Properties are shared.
+- **A deal's appointments are its own too** (a tour, round two). Someone off the deal doesn't see them or who
+  they're with, only that the people on them are busy then, in the calendar and in every open time it offers; only
+  people on the deal work them (`appointment_staff_not_on_record`). Phones get them back with the deal screens.
 - **Only the main agent, owners and admins change who's on a deal.**
 - **Duties stay in the add-on**, not in Tasks, so a proof rule can't be skipped elsewhere.
 - **A duty is done only with its proof** (`duty_needs_proof`, saying what's missing). Owners and admins
