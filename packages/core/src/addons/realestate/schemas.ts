@@ -1371,8 +1371,8 @@ const CompAdjustmentIn = z.object({
 
 export const CmaStartInput = z.object({
   ...inDeal,
-  /** One of the deal's homes. */
-  homeId: uuid,
+  /** One of a buyer deal's homes; on a listing, left out (the CMA is for the listing's own home). */
+  homeId: uuid.optional(),
   /** Start from another CMA's comps on the deal ("another CMA"). */
   fromCmaId: uuid.optional(),
 });
@@ -1880,6 +1880,20 @@ export const RepairAnswerInput = z.object({
   respondBy: isoDateTime.nullable().optional(),
   at: isoDateTime.optional(),
   note: z.string().trim().max(1000).optional(),
+  /** The signed answer (a repair agreement or an amendment), one of the deal's documents. */
+  documentId: uuid.optional(),
+});
+/** On a listing: the buyers' repair request, as it came in. */
+export const RepairReceiveInput = z.object({
+  ...inDeal,
+  words: z.string().trim().min(1, 'Write what the buyers ask for.').max(4000),
+  /** A credit they ask for instead of, or as well as, repairs. */
+  creditCents: z.int().min(0).max(100_000_000_000).optional(),
+  respondBy: isoDateTime.nullable().optional(),
+  at: isoDateTime.optional(),
+  note: z.string().trim().max(1000).optional(),
+  /** Their request as a document on the deal. */
+  documentId: uuid.optional(),
 });
 export const RepairChangeOutput = z.object({
   dealId: uuid,

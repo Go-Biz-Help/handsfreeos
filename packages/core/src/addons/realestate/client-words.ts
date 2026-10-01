@@ -85,10 +85,14 @@ export const ALL_CLIENT_TASK_KIND_KEYS = Object.keys(CLIENT_TASK_KINDS) as [
   ...ClientTaskKind[],
 ];
 
-/** The tasks an agent gives most often, ready to add. `{agent}` is the deal's main agent's first name. */
+/**
+ * The tasks an agent gives most often, ready to add, for the side of the deal they fit. `{agent}` is the deal's main
+ * agent's first name.
+ */
 export const CLIENT_TASK_PRESETS = {
   preapproval: {
     kind: 'upload',
+    sides: ['buyer'],
     title: 'Upload your preapproval letter',
     detail:
       'The letter from your lender saying how much you’re preapproved for. A photo or a PDF is fine.',
@@ -96,12 +100,14 @@ export const CLIENT_TASK_PRESETS = {
   },
   buyer_agreement: {
     kind: 'upload',
+    sides: ['buyer'],
     title: 'Upload your signed buyer agreement',
     detail: 'Once you’ve signed it, upload a copy here.',
     documentKind: 'buyer_agreement',
   },
   photo_id: {
     kind: 'upload',
+    sides: ['buyer', 'listing'],
     title: 'Upload your photo ID',
     detail:
       'A driver’s license or passport, for the title company. A clear photo of the front is enough.',
@@ -109,6 +115,7 @@ export const CLIENT_TASK_PRESETS = {
   },
   repair_sign_off: {
     kind: 'sign_off',
+    sides: ['buyer'],
     title: 'Sign off on the repair request',
     detail: 'Read the repair request, then sign off so {agent} can send it.',
     signOffWords: 'We’ve read the repair request and want {agent} to send it.',
@@ -116,17 +123,76 @@ export const CLIENT_TASK_PRESETS = {
   },
   closing_items: {
     kind: 'do',
+    sides: ['buyer'],
     title: 'Bring your photo ID to closing',
     detail:
       'Bring the same ID you uploaded. If you’re bringing a check, it must be a cashier’s check.',
     documentKind: null,
   },
-} as const;
+  // Round three: selling.
+  listing_agreement: {
+    kind: 'upload',
+    sides: ['listing'],
+    title: 'Upload your signed listing agreement',
+    detail: 'Once you’ve signed it, upload a copy here.',
+    documentKind: 'listing_agreement',
+  },
+  seller_disclosure: {
+    kind: 'upload',
+    sides: ['listing'],
+    title: 'Upload your seller’s disclosure',
+    detail:
+      'Fill in the disclosure form {agent} sent you, as fully as you can, sign it and upload it here.',
+    documentKind: 'seller_disclosure',
+  },
+  mortgage_payoff: {
+    kind: 'upload',
+    sides: ['listing'],
+    title: 'Upload your latest mortgage statement',
+    detail:
+      'So {agent} can estimate what you’ll take home and the title company can ask for the payoff. A photo or a PDF is fine.',
+    documentKind: 'payoff_statement',
+  },
+  repair_answer_sign_off: {
+    kind: 'sign_off',
+    sides: ['listing'],
+    title: 'Sign off on our answer to the repair request',
+    detail: 'Read the buyers’ repair request and our answer, then sign off so {agent} can send it.',
+    signOffWords: 'We’ve read the buyers’ repair request and want {agent} to send our answer.',
+    documentKind: null,
+  },
+  keys_at_closing: {
+    kind: 'do',
+    sides: ['listing'],
+    title: 'Leave the keys, openers and manuals',
+    detail:
+      'Leave every key, the garage and gate openers, and the appliances’ manuals where {agent} says, for the buyers.',
+    documentKind: null,
+  },
+} as const satisfies Readonly<
+  Record<
+    string,
+    {
+      readonly sides: readonly ('buyer' | 'listing')[];
+      readonly kind: ClientTaskKind;
+      readonly title: string;
+      readonly detail: string;
+      readonly signOffWords?: string;
+      readonly documentKind: string | null;
+    }
+  >
+>;
 export type ClientTaskPreset = keyof typeof CLIENT_TASK_PRESETS;
 export const CLIENT_TASK_PRESET_KEYS = Object.keys(CLIENT_TASK_PRESETS) as [
   ClientTaskPreset,
   ...ClientTaskPreset[],
 ];
+
+/** The presets that fit a side of a deal, in order. */
+export const presetsFor = (side: 'buyer' | 'listing'): ClientTaskPreset[] =>
+  CLIENT_TASK_PRESET_KEYS.filter((k) =>
+    (CLIENT_TASK_PRESETS[k].sides as readonly string[]).includes(side),
+  );
 
 /** Puts the agent's first name in a preset's words. */
 export const withAgent = (words: string, agentFirstName: string): string =>

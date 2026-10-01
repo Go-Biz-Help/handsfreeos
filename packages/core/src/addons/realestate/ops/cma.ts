@@ -69,6 +69,7 @@ import {
 } from './common';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 import { loadHome, requireBuyerSide } from './homes';
+import { listingAddress, listingOf, listPriceOf } from './listing';
 
 type Cma = typeof cmas.$inferSelect;
 type CompRow = typeof cmaComps.$inferSelect;
@@ -224,12 +225,68 @@ function shareBlock(cma: Cma, checks: readonly Check[]): { rule: string; words: 
   return null;
 }
 
+/**
+ * The home a new CMA is for, and its facts as the deal has them: one of a buyer deal's homes (its price is what it's
+ * listed at), or a listing's own home, with its confirmed facts and its list price if it has one yet (S-06).
+ */
+async function subjectFor(
+  ctx: Ctx,
+  deal: Deal,
+  homeId: string | undefined,
+): Promise<{
+  homeId: string | null;
+  address: string;
+  facts: Record<string, unknown>;
+  priceCents: number | null;
+}> {
+  if (deal.side === 'listing') {
+    if (homeId)
+      throw HfosError.rule(
+        'realestate_cma_listing_home',
+        409,
+        `A CMA on ${deal.name} is for the listing’s own home. Start it without picking a home.`,
+      );
+    const address = await listingAddress(ctx, deal);
+    if (!address)
+      throw HfosError.rule(
+        'realestate_no_address',
+        409,
+        `${deal.name} has no home’s address yet. Set the property on the deal, then start its CMA.`,
+      );
+    const l = await listingOf(ctx, deal.recordId);
+    return {
+      homeId: null,
+      address,
+      facts: (l?.facts ?? {}) as Record<string, unknown>,
+      priceCents: await listPriceOf(ctx, deal.recordId),
+    };
+  }
+  requireBuyerSide(deal);
+  if (!homeId)
+    throw HfosError.validation(
+      [{ path: 'homeId', message: 'Pick one of the deal’s homes.' }],
+      'Pick which of the buyer’s homes the CMA is for.',
+    );
+  const home = await loadHome(ctx, homeId);
+  if (home.dealRecordId !== deal.recordId || home.status === 'removed')
+    throw HfosError.notFound(
+      `That home isn’t on ${deal.name}. Add it to the deal’s homes first, then start its CMA.`,
+    );
+  const facts = home.facts as Record<string, unknown>;
+  return {
+    homeId: home.id,
+    address: home.address,
+    facts,
+    priceCents: typeof facts['price_cents'] === 'number' ? (facts['price_cents'] as number) : null,
+  };
+}
+
 // ---------- commands ----------
 
 export const cmaStart = defineAddonCommand(realestateAddon, {
   name: 'realestate.cma.start',
   description:
-    'Start a CMA for one of a buyer deal’s homes, with its facts as the deal has them; or another CMA from an earlier one’s comps.',
+    'Start a CMA for one of a buyer deal’s homes or a listing’s own home, with its facts as the deal has them; or another CMA from an earlier one’s comps.',
   risk: 1,
   input: CmaStartInput,
   output: CmaStartOutput,
@@ -237,18 +294,14 @@ export const cmaStart = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_start_cma',
-    description: 'Start a CMA (comparable sales) for one of a buyer deal’s homes.',
+    description:
+      'Start a CMA (comparable sales) for one of a buyer deal’s homes, or for a listing’s own home (leave out the home).',
   },
   emits: ['realestate.cma.started'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
-    requireBuyerSide(deal);
-    const home = await loadHome(ctx, input.homeId);
-    if (home.dealRecordId !== deal.recordId || home.status === 'removed')
-      throw HfosError.notFound(
-        `That home isn’t on ${deal.name}. Add it to the deal’s homes first, then start its CMA.`,
-      );
+    const subject = await subjectFor(ctx, deal, input.homeId);
     const from = input.fromCmaId ? (await loadCma(ctx, input.fromCmaId)).cma : null;
     if (from && from.dealRecordId !== deal.recordId)
       throw HfosError.notFound(
@@ -259,7 +312,7 @@ export const cmaStart = defineAddonCommand(realestateAddon, {
       .from(cmas)
       .where(eq(cmas.dealRecordId, deal.recordId));
     const number = (last?.n ?? 0) + 1;
-    const facts = home.facts as Record<string, unknown>;
+    const facts = subject.facts;
     const factNum = (k: string) => (typeof facts[k] === 'number' ? (facts[k] as number) : null);
     const tz = await timeZoneOf(ctx);
     const [cma] = await ctx.tx
@@ -267,12 +320,12 @@ export const cmaStart = defineAddonCommand(realestateAddon, {
       .values({
         workspaceId: deal.workspaceId,
         dealRecordId: deal.recordId,
-        homeId: home.id,
-        subjectAddress: home.address,
+        homeId: subject.homeId,
+        subjectAddress: subject.address,
         subjectBeds: factNum('beds'),
         subjectBaths: factNum('baths')?.toString() ?? null,
         subjectSqft: factNum('sqft'),
-        subjectListPriceCents: factNum('price_cents'),
+        subjectListPriceCents: subject.priceCents,
         subjectYearBuilt: factNum('year_built'),
         number,
         method: CMA_METHOD,
@@ -308,12 +361,12 @@ export const cmaStart = defineAddonCommand(realestateAddon, {
         );
       copied = list.length;
     }
-    await historyLine(ctx, deal, 'cma_started', { after: { number, address: home.address } });
+    await historyLine(ctx, deal, 'cma_started', { after: { number, address: subject.address } });
     await ctx.emit({
       type: 'realestate.cma.started',
       entityType: 'realestate_deal',
       entityId: deal.recordId,
-      payload: { cmaId: cma!.id, number, homeId: home.id, fromCmaId: from?.id ?? null },
+      payload: { cmaId: cma!.id, number, homeId: subject.homeId, fromCmaId: from?.id ?? null },
     });
     return { cmaId: cma!.id, number, comps: copied };
   },
@@ -557,11 +610,11 @@ export const cmaFinalize = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'cma_finalized', {
       after: { number: cma.number, address: cma.subjectAddress, range: rangeWords(result.range) },
     });
-    // B-10 "Research and create CMA" (B-15 for another): linked to it.
+    // B-10 "Research and create CMA" (B-15 for another), or S-06 "Create seller CMA": linked to it.
     await addProof(
       ctx,
       deal,
-      { keys: ['B-10', 'B-15'] },
+      { keys: deal.side === 'listing' ? ['S-06'] : ['B-10', 'B-15'] },
       {
         kind: 'record',
         refKind: 'cma',
@@ -845,7 +898,7 @@ export const cmaShare = defineAddonCommand(realestateAddon, {
     description:
       'Share a final, checked CMA with the deal’s client in their portal. Always asks the person first.',
   },
-  emits: ['realestate.cma.shared'],
+  emits: ['realestate.cma.shared', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { cma, deal } = await loadCma(ctx, input.cmaId, true);
     requireOpen(deal);
@@ -867,6 +920,14 @@ export const cmaShare = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'cma_shared', {
       after: { number: cma.number, address: cma.subjectAddress, range: rangeWords(range) },
     });
+    // S-07 "Recommend listing price": the range the seller was shown, as a note; the talk is the agent's.
+    if (deal.side === 'listing')
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['S-07'] },
+        { kind: 'note', body: `CMA ${cma.number} shared with the seller: ${rangeWords(range)}` },
+      );
     const eventId = await ctx.emit({
       type: 'realestate.cma.shared',
       entityType: 'realestate_deal',

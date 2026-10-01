@@ -29,6 +29,7 @@ export default async function RealestateClientTasksPage({
         workspaceId={workspaceId}
         dealId={dealId}
         dealName={deal.deal.name}
+        side={deal.deal.side}
         agentName={deal.team.find((t) => t.main)?.name ?? null}
         data={data}
         files={files.files.map((f) => ({ id: f.id, name: f.name }))}

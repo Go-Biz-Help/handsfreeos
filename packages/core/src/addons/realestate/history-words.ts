@@ -145,6 +145,10 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `Canceled the ${inspectionKind(a.kind)}`;
     case 'repair_requested':
       return Number(a.number) > 1 ? 'Sent a new repair request' : 'Sent the repair request';
+    case 'repair_received':
+      return Number(a.number) > 1
+        ? 'The buyers sent a new repair request'
+        : 'The buyers’ repair request came in';
     case 'repair_answered':
       return a.outcome === 'agreed'
         ? 'The seller agreed to the repairs'

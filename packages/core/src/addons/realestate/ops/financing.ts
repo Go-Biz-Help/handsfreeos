@@ -36,7 +36,7 @@ import {
   type StepProof,
 } from '../schemas';
 import { documents, financing, financingSteps } from '../tables';
-import { moneyOf, termsNow, type TermKey } from '../terms';
+import { moneyOf, termOnSide, termsNow, type TermKey } from '../terms';
 import {
   actorKind,
   actorUserId,
@@ -51,9 +51,8 @@ import {
   type Deal,
 } from './common';
 import { termEntriesOf } from './engine';
-import { requireBuyerSide } from './homes';
 import { termEnter } from './terms';
-import { documentProof, PROOF_EVENTS } from './proof-hooks';
+import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 import type { z } from 'zod';
 
 type Step = typeof financingSteps.$inferSelect;
@@ -149,7 +148,8 @@ async function enterDate(
   key: TermKey,
   date: string | null,
 ): Promise<number> {
-  if (!date) return 0;
+  // A buyer's lender dates belong to the buyer deal; on a listing, the buyer's loan keeps them on its steps only.
+  if (!date || !termOnSide(key, deal.side)) return 0;
   const now = termsNow(await termEntriesOf(ctx, deal.recordId)).get(key);
   if (now?.current?.valueDate === date) return 0;
   await executeCommandWithin(ctx, termEnter, {
@@ -167,7 +167,8 @@ async function enterDate(
 
 export const financingSetLender = defineAddonCommand(realestateAddon, {
   name: 'realestate.financing.set_lender',
-  description: 'Set a buyer deal’s lender, loan officer and loan.',
+  description:
+    'Set a deal’s lender, loan officer and loan: the buyer’s, on a buyer deal or a listing.',
   risk: 1,
   input: FinancingSetLenderInput,
   output: FinancingChangeOutput,
@@ -177,7 +178,6 @@ export const financingSetLender = defineAddonCommand(realestateAddon, {
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
-    requireBuyerSide(deal);
     const values = {
       ...(input.lenderName !== undefined ? { lenderName: input.lenderName } : {}),
       ...(input.officerName !== undefined ? { officerName: input.officerName } : {}),
@@ -214,13 +214,12 @@ export const financingUpdateStep = defineAddonCommand(realestateAddon, {
   ai: {
     tool: 'realestate_update_financing',
     description:
-      'Note where a buyer’s financing step stands (dates, amount, rate). It doesn’t mark it done.',
+      'Note where a buyer’s financing step stands (dates, amount, rate), on a buyer deal or the buyer’s loan on a listing. It doesn’t mark it done.',
   },
   emits: ['realestate.financing.changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
-    requireBuyerSide(deal);
     const was = await stepOf(ctx, deal.recordId, input.step);
     await putStep(ctx, deal, input.step, {
       ...fieldsOf(input),
@@ -253,7 +252,6 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
       );
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
-    requireBuyerSide(deal);
     const proof = await proofLabel(ctx, deal, input.proof);
     if (!proof)
       throw HfosError.rule(
@@ -283,8 +281,20 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
     if (input.step === 'closing_disclosure')
       termsEntered += await enterDate(ctx, deal, 'cd_received', doneOn);
     await historyLine(ctx, deal, 'financing_step_done', { after: { step: input.step, proof } });
-    // A lender's document counts for the duties that name its kind (B-02's preapproval, the rate lock…).
+    // A lender's document counts for the duties that name its kind (B-02's preapproval, the rate lock, and on a
+    // listing S-59's appraisal and S-61's approval).
     if (input.proof.kind === 'document') await documentProof(ctx, deal, input.proof.id);
+    // S-61 "Monitor buyer financing": on a listing, the buyer's lender's word that it's approved or clear to close.
+    else if (
+      deal.side === 'listing' &&
+      (input.step === 'conditional_approval' || input.step === 'clear_to_close')
+    )
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['S-61'] },
+        { kind: 'note', body: `${label(input.step)}: ${proof}` },
+      );
     await ctx.emit({
       type: 'realestate.financing.step_done',
       entityType: 'realestate_deal',

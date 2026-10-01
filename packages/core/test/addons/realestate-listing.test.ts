@@ -1247,3 +1247,186 @@ describe('offers on a listing', () => {
     ).toBe('realestate_offer_ended');
   });
 });
+
+// ---------- the CMA, the inspection and the buyer's loan on a listing (step 9) ----------
+
+describe('the CMA, the inspection and the buyer’s loan on a listing', () => {
+  const proofOn = (key: string, deal = listing) =>
+    rows<{ kind: string; body: string | null }>(
+      admin(),
+      sql`select e.kind, e.body from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where d.deal_record_id = ${deal} and d.duty_key = ${key} order by e.added_at`,
+    );
+
+  it('a CMA is for the listing’s own home, with its confirmed facts', async () => {
+    const { cmaId } = await run(agent, 'realestate.cma.start', { dealId: listing });
+    const { cma } = await ask(agent, 'realestate.cma', { cmaId });
+    expect(cma.subject).toMatchObject({
+      address: '2207 Juniper Trail, Austin, TX 78745',
+      beds: 4,
+      baths: 3,
+      sqft: 2340,
+      yearBuilt: 2004,
+    });
+    expect(cma.homeId).toBeNull();
+    expect(
+      await refused(run(agent, 'realestate.cma.start', { dealId: listing, homeId: randomUUID() })),
+    ).toBe('realestate_cma_listing_home');
+    expect(await refused(run(agent, 'realestate.cma.start', { dealId: buyerDeal }))).toBe(
+      'validation',
+    );
+  });
+
+  it('a seller’s CMA is proof for S-06 once final, and for S-07 once shared', async () => {
+    const okafor = (
+      await run(agent, 'realestate.deal.open', {
+        side: 'listing',
+        name: 'Okafor listing',
+        stage: 'consultation',
+        newPropertyAddress: '88 Bluebonnet Ln, Austin, TX 78704',
+      })
+    ).dealId;
+    const { cmaId } = await run(agent, 'realestate.cma.start', { dealId: okafor });
+    await run(agent, 'realestate.cma.set_subject', {
+      cmaId,
+      beds: 3,
+      baths: 2,
+      sqft: 1800,
+      listPriceCents: null,
+      yearBuilt: 1998,
+    });
+    for (const c of [
+      { address: '90 Bluebonnet Ln', priceCents: 61_000_000, soldOn: '2026-09-10', sqft: 1750 },
+      { address: '12 Primrose St', priceCents: 63_500_000, soldOn: '2026-08-28', sqft: 1900 },
+    ])
+      await run(agent, 'realestate.cma.add_comp', {
+        cmaId,
+        beds: 3,
+        baths: 2,
+        distanceMiles: 0.3,
+        ...c,
+      });
+    await run(agent, 'realestate.cma.finalize', { cmaId });
+    expect((await proofOn('S-06', okafor)).map((e) => e.kind)).toEqual(['record']);
+    await run(agent, 'realestate.cma.save_summary', {
+      cmaId,
+      summary: 'Two nearby sales put 88 Bluebonnet between $610,000 and $635,000.',
+    });
+    const { cma } = await ask(agent, 'realestate.cma', { cmaId });
+    await system('realestate.cma.summary_checked', {
+      cmaId,
+      textHash: textHashOf(null, cma.summary.text),
+      version: 'test-model',
+      status: 'passed',
+      flags: [],
+    });
+    await run(agent, 'realestate.cma.share', { cmaId });
+    const s07 = await proofOn('S-07', okafor);
+    expect(s07).toHaveLength(1);
+    expect(s07[0]!.body).toMatch(/^CMA 1 shared with the seller: \$/);
+  });
+
+  it('the buyer’s inspection at the home is S-52’s appointment', async () => {
+    const [entry] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_realestate.term_entries
+          where deal_record_id = ${listing} and key = 'inspection_end' and confirmed_at is null`,
+    );
+    await run(agent, 'realestate.term.confirm', { dealId: listing, entryId: entry!.id });
+    await run(agent, 'realestate.inspection.add', {
+      dealId: listing,
+      kind: 'general',
+      inspector: 'Lone Star Inspections',
+      scheduledAt: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    });
+    const s52 = await proofOn('S-52');
+    expect(s52.map((e) => e.kind)).toEqual(['appointment']);
+    expect(s52[0]!.body).toMatch(/with Lone Star Inspections$/);
+  });
+
+  it('the buyers ask for repairs and the seller answers: S-53 and S-54, and agreed brings S-55', async () => {
+    expect(
+      await refused(run(agent, 'realestate.repair.send', { dealId: listing, words: 'Fix it.' })),
+    ).toBe('realestate_repair_listing');
+    expect(
+      await refused(
+        run(agent, 'realestate.repair.record_answer', {
+          dealId: listing,
+          outcome: 'agreed',
+          words: 'We’ll fix it.',
+        }),
+      ),
+    ).toBe('realestate_no_repair_request');
+    const asked = await run(agent, 'realestate.repair.receive', {
+      dealId: listing,
+      words: 'Replace the water heater and service the HVAC, or a $2,500 credit.',
+      creditCents: 250_000,
+      respondBy: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+    });
+    expect(asked.dutiesCreated).toBeGreaterThan(0);
+    expect((await proofOn('S-53')).map((e) => e.body)).toEqual([
+      'Replace the water heater and service the HVAC, or a $2,500 credit.',
+    ]);
+    expect(
+      await refused(run(agent, 'realestate.repair.receive', { dealId: buyerDeal, words: 'x' })),
+    ).toBe('realestate_listing_only');
+    const answered = await run(agent, 'realestate.repair.record_answer', {
+      dealId: listing,
+      outcome: 'agreed',
+      words: 'The sellers will give a $2,000 credit at closing.',
+      creditCents: 200_000,
+    });
+    expect(answered.dutiesCreated).toBeGreaterThan(0);
+    expect((await proofOn('S-54')).map((e) => e.body)).toEqual([
+      'Our answer: The sellers will give a $2,000 credit at closing.',
+    ]);
+    const [s55] = await rows<{ status: string }>(
+      admin(),
+      sql`select status from addon_realestate.duties where deal_record_id = ${listing} and duty_key = 'S-55'`,
+    );
+    expect(s55).toBeTruthy();
+    const { repairs } = await ask(agent, 'realestate.inspections', { dealId: listing });
+    expect(repairs.map((r: Any) => [r.side, r.outcome, r.creditCents])).toEqual([
+      ['them', null, 250_000],
+      ['us', 'agreed', 200_000],
+    ]);
+  });
+
+  it('the buyer’s loan is tracked on the listing, as proof for S-61, without the buyer’s own dates', async () => {
+    const [d] = await rows<{ facts: string[] }>(
+      admin(),
+      sql`select facts from addon_realestate.deals where record_id = ${listing}`,
+    );
+    await run(agent, 'realestate.deal.set_facts', {
+      dealId: listing,
+      facts: [...d!.facts, 'financed'],
+    });
+    await run(agent, 'realestate.term.enter', {
+      dealId: listing,
+      key: 'financing_end',
+      date: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
+    });
+    await run(agent, 'realestate.financing.set_lender', {
+      dealId: listing,
+      lenderName: 'Summit Lending',
+      officerName: 'Jo Park',
+    });
+    const pre = await run(agent, 'realestate.financing.mark_done', {
+      dealId: listing,
+      step: 'preapproval',
+      proof: { kind: 'file', id: await upload('chen-preapproval.pdf', 'application/pdf') },
+      expiresOn: '2026-12-31',
+    });
+    // A buyer's preapproval end is the buyer deal's date, not the listing's.
+    expect(pre.termsEntered).toBe(0);
+    await run(agent, 'realestate.financing.mark_done', {
+      dealId: listing,
+      step: 'conditional_approval',
+      proof: { kind: 'file', id: await upload('approval-letter.pdf', 'application/pdf') },
+    });
+    expect((await proofOn('S-61')).map((e) => e.body)).toEqual([
+      'Conditional approval: approval-letter.pdf',
+    ]);
+  });
+});

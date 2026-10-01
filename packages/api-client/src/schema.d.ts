@@ -6428,7 +6428,7 @@ export interface paths {
         put?: never;
         /**
          * Share a final CMA with the deal’s client: its range and summary go in their portal as a one-page summary. Refused until its summary has been checked and any fair-housing flag is fixed or kept with a reason.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.cma.shared.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.cma.shared, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_cma_share"];
         delete?: never;
@@ -6447,7 +6447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start a CMA for one of a buyer deal’s homes, with its facts as the deal has them; or another CMA from an earlier one’s comps.
+         * Start a CMA for one of a buyer deal’s homes or a listing’s own home, with its facts as the deal has them; or another CMA from an earlier one’s comps.
          * @description Risk level 1. Requires realestate.use. Emits realestate.cma.started.
          */
         post: operations["command_realestate_cma_start"];
@@ -7287,7 +7287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Set a buyer deal’s lender, loan officer and loan.
+         * Set a deal’s lender, loan officer and loan: the buyer’s, on a buyer deal or a listing.
          * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
          */
         post: operations["command_realestate_financing_set_lender"];
@@ -7447,7 +7447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add an inspection on a buyer deal: its kind, the inspector, when, and when the report is expected.
+         * Add an inspection on a deal: its kind, the inspector, when, and when the report is expected. On a listing, it’s the buyer’s inspection at the home.
          * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_inspection_add"];
@@ -8171,6 +8171,26 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.party.removed.
          */
         post: operations["command_realestate_party_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * On a listing, keep the buyers’ repair request as it came in: its words, any credit asked for, and when it must be answered by. It brings the duties for answering it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.repair.received, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_repair_receive"];
         delete?: never;
         options?: never;
         head?: never;
@@ -28477,7 +28497,7 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "upload" | "sign_off" | "do";
                     /** @enum {string} */
-                    preset?: "preapproval" | "buyer_agreement" | "photo_id" | "repair_sign_off" | "closing_items";
+                    preset?: "preapproval" | "buyer_agreement" | "photo_id" | "repair_sign_off" | "closing_items" | "listing_agreement" | "seller_disclosure" | "mortgage_payoff" | "repair_answer_sign_off" | "keys_at_closing";
                     signOffWords?: string;
                     title?: string;
                     /** Format: uuid */
@@ -28923,7 +28943,7 @@ export interface operations {
                     /** Format: uuid */
                     fromCmaId?: string;
                     /** Format: uuid */
-                    homeId: string;
+                    homeId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -32501,6 +32521,51 @@ export interface operations {
             };
         };
     };
+    command_realestate_repair_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    creditCents?: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    note?: string;
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_repair_record_answer: {
         parameters: {
             query?: never;
@@ -32516,6 +32581,8 @@ export interface operations {
                     creditCents?: number;
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
                     note?: string;
                     /** @enum {string} */
                     outcome: "agreed" | "countered" | "refused";

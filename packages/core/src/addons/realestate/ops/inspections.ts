@@ -7,8 +7,11 @@
  *   would like, skip) and what to ask for (repair, replace, a credit) are kept with each.
  * - **The repair request** is drafted from the findings (pure `repairDraft`), edited by the agent and kept as sent;
  *   each answer of the seller's is kept too. Agreed, it's the moment "repairs are agreed", with its duties.
+ * - **On a listing** (round three, step 9) it's the other way round: the buyer's inspector comes to the home (S-52's
+ *   appointment), the buyers' request comes in (`realestate.repair.receive`, the moment "a repair request was made",
+ *   S-53's proof), and our seller's answer goes out (S-54's), agreed bringing S-55.
  */
-import { and, asc, eq, inArray, max } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, max } from 'drizzle-orm';
 import { fmtAt } from '../../../calendar/when';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
@@ -34,6 +37,7 @@ import {
   InspectionUpdateInput,
   RepairAnswerInput,
   RepairChangeOutput,
+  RepairReceiveInput,
   RepairSendInput,
 } from '../schemas';
 import { documents, inspectionFindings, inspections, repairRequests } from '../tables';
@@ -52,7 +56,7 @@ import {
 } from './common';
 import { dealRecordEvent } from './deals';
 import { termEntriesOf } from './engine';
-import { requireBuyerSide } from './homes';
+import { requireListingSide } from './listing';
 import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 
 type Inspection = typeof inspections.$inferSelect;
@@ -86,6 +90,18 @@ async function loadFinding(ctx: Ctx, id: string): Promise<Finding> {
   if (!f)
     throw HfosError.notFound('That finding isn’t there anymore. Refresh the deal’s inspections.');
   return f;
+}
+
+/** A document on the deal: a repair request or the signed answer. */
+async function requireDealDocument(ctx: Ctx, deal: Deal, documentId: string): Promise<void> {
+  const [doc] = await ctx.tx
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.id, documentId), eq(documents.dealRecordId, deal.recordId)));
+  if (!doc)
+    throw HfosError.notFound(
+      `That document isn’t on ${deal.name}. Upload it to the deal’s documents first, then pick it.`,
+    );
 }
 
 function requireNotCanceled(i: Inspection): void {
@@ -138,7 +154,10 @@ async function liveFindings(ctx: Ctx, dealId: string): Promise<Finding[]> {
   return list.filter((x) => x.status !== 'canceled').map((x) => x.f);
 }
 
-/** B-19 "Schedule inspections" (and B-22 for a specialist's): an inspection on the calendar is its appointment. */
+/**
+ * B-19 "Schedule inspections" (and B-22 for a specialist's): an inspection on the calendar is its appointment. On a
+ * listing, it's S-52 "Coordinate buyer inspection access".
+ */
 async function inspectionProof(
   ctx: CommandContext,
   deal: Deal,
@@ -150,7 +169,9 @@ async function inspectionProof(
   await addProof(
     ctx,
     deal,
-    { keys: kind === 'general' ? ['B-19'] : ['B-19', 'B-22'] },
+    {
+      keys: deal.side === 'listing' ? ['S-52'] : kind === 'general' ? ['B-19'] : ['B-19', 'B-22'],
+    },
     {
       kind: 'appointment',
       body: `${kindLabel(kind)} on ${when}${inspector ? ` with ${inspector}` : ''}`,
@@ -163,7 +184,7 @@ async function inspectionProof(
 export const inspectionAdd = defineAddonCommand(realestateAddon, {
   name: 'realestate.inspection.add',
   description:
-    'Add an inspection on a buyer deal: its kind, the inspector, when, and when the report is expected.',
+    'Add an inspection on a deal: its kind, the inspector, when, and when the report is expected. On a listing, it’s the buyer’s inspection at the home.',
   risk: 1,
   input: InspectionAddInput,
   output: InspectionAddOutput,
@@ -171,13 +192,13 @@ export const inspectionAdd = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_add_inspection',
-    description: 'Add an inspection to a buyer deal, with the inspector and when.',
+    description:
+      'Add an inspection to a deal, with the inspector and when (on a listing, the buyer’s inspection at the home).',
   },
   emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
-    requireBuyerSide(deal);
     const [row] = await ctx.tx
       .insert(inspections)
       .values({
@@ -475,7 +496,12 @@ export const repairSend = defineAddonCommand(realestateAddon, {
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
-    requireBuyerSide(deal);
+    if (deal.side === 'listing')
+      throw HfosError.rule(
+        'realestate_repair_listing',
+        409,
+        `On ${deal.name} the buyers ask for repairs and your seller answers. Keep their request as it came in, then your seller’s answer.`,
+      );
     const all = await liveFindings(ctx, deal.recordId);
     const chosen = input.findingIds ? all.filter((f) => input.findingIds!.includes(f.id)) : all;
     if (input.findingIds && chosen.length !== new Set(input.findingIds).size)
@@ -545,17 +571,28 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
+    const listing = deal.side === 'listing';
+    // The request is ours on a buyer deal, the buyers' on a listing; the answer is the other side's.
     const [asked] = await ctx.tx
       .select({ id: repairRequests.id })
       .from(repairRequests)
-      .where(and(eq(repairRequests.dealRecordId, deal.recordId), eq(repairRequests.side, 'us')))
+      .where(
+        and(
+          eq(repairRequests.dealRecordId, deal.recordId),
+          eq(repairRequests.side, listing ? 'them' : 'us'),
+          isNull(repairRequests.outcome),
+        ),
+      )
       .limit(1);
     if (!asked)
       throw HfosError.rule(
         'realestate_no_repair_request',
         409,
-        `There’s no repair request on ${deal.name} yet. Keep the request you sent first, then the seller’s answer.`,
+        listing
+          ? `There’s no repair request on ${deal.name} yet. Keep the buyers’ request as it came in first, then your seller’s answer.`
+          : `There’s no repair request on ${deal.name} yet. Keep the request you sent first, then the seller’s answer.`,
       );
+    if (input.documentId) await requireDealDocument(ctx, deal, input.documentId);
     const number = await nextRepairNumber(ctx, deal.recordId);
     const [row] = await ctx.tx
       .insert(repairRequests)
@@ -563,7 +600,7 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
         workspaceId: deal.workspaceId,
         dealRecordId: deal.recordId,
         number,
-        side: 'them',
+        side: listing ? 'us' : 'them',
         at: input.at ? new Date(input.at) : changeMoment(ctx.meta),
         words: input.words,
         creditCents: input.creditCents ?? 0,
@@ -574,6 +611,15 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
       })
       .returning({ id: repairRequests.id });
     await historyLine(ctx, deal, 'repair_answered', { after: { number, outcome: input.outcome } });
+    // On a listing, S-54 "Develop seller repair response": the answer, and its signed document.
+    if (listing)
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['S-54'] },
+        { kind: 'note', body: `Our answer: ${input.words}` },
+      );
+    if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await addProof(
       ctx,
       deal,
@@ -594,6 +640,62 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
       entityType: 'realestate_deal',
       entityId: deal.recordId,
       payload: { repairId: row!.id, number, outcome: input.outcome },
+    });
+    return { dealId: deal.recordId, repairId: row!.id, number, dutiesCreated };
+  },
+});
+
+export const repairReceive = defineAddonCommand(realestateAddon, {
+  name: 'realestate.repair.receive',
+  description:
+    'On a listing, keep the buyers’ repair request as it came in: its words, any credit asked for, and when it must be answered by. It brings the duties for answering it.',
+  risk: 1,
+  input: RepairReceiveInput,
+  output: RepairChangeOutput,
+  permission: 'realestate.use',
+  scope: inWorkspace,
+  ai: {
+    tool: 'realestate_receive_repair_request',
+    description: 'Keep the buyers’ repair request on a listing, as it came in.',
+  },
+  emits: ['realestate.repair.received', ...PROOF_EVENTS],
+  async handler(ctx, input) {
+    const deal = await loadDeal(ctx, input.dealId, { lock: true });
+    requireOpen(deal);
+    requireListingSide(deal);
+    if (input.documentId) await requireDealDocument(ctx, deal, input.documentId);
+    const number = await nextRepairNumber(ctx, deal.recordId);
+    const [row] = await ctx.tx
+      .insert(repairRequests)
+      .values({
+        workspaceId: deal.workspaceId,
+        dealRecordId: deal.recordId,
+        number,
+        side: 'them',
+        at: input.at ? new Date(input.at) : changeMoment(ctx.meta),
+        words: input.words,
+        creditCents: input.creditCents ?? 0,
+        respondBy: input.respondBy ? new Date(input.respondBy) : null,
+        note: input.note ?? null,
+        createdBy: actorUserId(ctx),
+      })
+      .returning({ id: repairRequests.id });
+    await historyLine(ctx, deal, 'repair_received', { after: { number } });
+    // S-53 to S-56 open with the first; a later one (after a counter) adds to them.
+    const dutiesCreated = await moment(
+      ctx,
+      deal,
+      'repair_request',
+      'The buyers’ repair request came in.',
+    );
+    // S-53 "Review inspection request": the request is its note, and its document when there is one.
+    await addProof(ctx, deal, { keys: ['S-53'] }, { kind: 'note', body: input.words });
+    if (input.documentId) await documentProof(ctx, deal, input.documentId);
+    await ctx.emit({
+      type: 'realestate.repair.received',
+      entityType: 'realestate_deal',
+      entityId: deal.recordId,
+      payload: { repairId: row!.id, number, respondBy: input.respondBy ?? null },
     });
     return { dealId: deal.recordId, repairId: row!.id, number, dutiesCreated };
   },
@@ -706,5 +808,6 @@ export const inspectionCommands = [
   findingRemove,
   repairSend,
   repairAnswer,
+  repairReceive,
 ] as const;
 export const inspectionQueries = [inspectionsList] as const;

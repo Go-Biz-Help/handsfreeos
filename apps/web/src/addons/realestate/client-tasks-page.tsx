@@ -10,8 +10,8 @@ import { fmtMonthDay } from '@hfos/core';
 import {
   CLIENT_TASK_KIND_KEYS,
   CLIENT_TASK_KINDS,
-  CLIENT_TASK_PRESET_KEYS,
   CLIENT_TASK_PRESETS,
+  presetsFor,
   withAgent,
   type ClientTaskPreset,
 } from '@hfos/core/addons/realestate/client-words';
@@ -53,6 +53,7 @@ export function ClientTasksPage({
   workspaceId,
   dealId,
   dealName,
+  side,
   agentName,
   data,
   files,
@@ -61,6 +62,7 @@ export function ClientTasksPage({
   workspaceId: string;
   dealId: string;
   dealName: string;
+  side: 'buyer' | 'listing';
   agentName: string | null;
   data: ClientTaskList;
   files: readonly { readonly id: string; readonly name: string }[];
@@ -255,6 +257,7 @@ export function ClientTasksPage({
           onClose={() => setAdding(false)}
           workspaceId={workspaceId}
           dealId={dealId}
+          side={side}
           clients={clients}
           agentName={agentName}
         />
@@ -416,17 +419,20 @@ function AddTaskDialog({
   onClose,
   workspaceId,
   dealId,
+  side,
   clients,
   agentName,
 }: {
   onClose: () => void;
   workspaceId: string;
   dealId: string;
+  side: 'buyer' | 'listing';
   clients: readonly DealClient[];
   agentName: string | null;
 }) {
   const agent = agentName ? firstNames([agentName]) : 'your agent';
-  const [preset, setPreset] = useState<ClientTaskPreset | ''>('preapproval');
+  const presets = presetsFor(side);
+  const [preset, setPreset] = useState<ClientTaskPreset | ''>(presets[0] ?? '');
   const p = preset ? CLIENT_TASK_PRESETS[preset] : null;
   const [kind, setKind] = useState<AddableKind>('upload');
   const [title, setTitle] = useState(p?.title ?? '');
@@ -483,7 +489,7 @@ function AddTaskDialog({
               value={preset}
               onChange={(e) => pick(e.target.value as ClientTaskPreset | '')}
             >
-              {CLIENT_TASK_PRESET_KEYS.map((x) => (
+              {presets.map((x) => (
                 <option key={x} value={x}>
                   {CLIENT_TASK_PRESETS[x].title}
                 </option>

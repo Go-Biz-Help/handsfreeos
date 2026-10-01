@@ -57164,7 +57164,7 @@
     "/v1/commands/realestate.cma.start": {
       "post": {
         "operationId": "command_realestate_cma_start",
-        "summary": "Start a CMA for one of a buyer deal’s homes, with its facts as the deal has them; or another CMA from an earlier one’s comps.",
+        "summary": "Start a CMA for one of a buyer deal’s homes or a listing’s own home, with its facts as the deal has them; or another CMA from an earlier one’s comps.",
         "tags": [
           "commands"
         ],
@@ -57199,8 +57199,7 @@
                 },
                 "required": [
                   "workspaceId",
-                  "dealId",
-                  "homeId"
+                  "dealId"
                 ]
               }
             }
@@ -58201,7 +58200,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.cma.shared.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.cma.shared, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59302,7 +59301,7 @@
     "/v1/commands/realestate.financing.set_lender": {
       "post": {
         "operationId": "command_realestate_financing_set_lender",
-        "summary": "Set a buyer deal’s lender, loan officer and loan.",
+        "summary": "Set a deal’s lender, loan officer and loan: the buyer’s, on a buyer deal or a listing.",
         "tags": [
           "commands"
         ],
@@ -59944,7 +59943,7 @@
     "/v1/commands/realestate.inspection.add": {
       "post": {
         "operationId": "command_realestate_inspection_add",
-        "summary": "Add an inspection on a buyer deal: its kind, the inspector, when, and when the report is expected.",
+        "summary": "Add an inspection on a deal: its kind, the inspector, when, and when the report is expected. On a listing, it’s the buyer’s inspection at the home.",
         "tags": [
           "commands"
         ],
@@ -60827,12 +60826,132 @@
                   "note": {
                     "type": "string",
                     "maxLength": 1000
+                  },
+                  "documentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
                   "workspaceId",
                   "dealId",
                   "outcome",
+                  "words"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "repairId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dutiesCreated": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "repairId",
+                    "number",
+                    "dutiesCreated"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.repair.receive": {
+      "post": {
+        "operationId": "command_realestate_repair_receive",
+        "summary": "On a listing, keep the buyers’ repair request as it came in: its words, any credit asked for, and when it must be answered by. It brings the duties for answering it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.repair.received, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "words": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "creditCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000000
+                  },
+                  "respondBy": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "documentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
                   "words"
                 ]
               }
@@ -60915,7 +61034,12 @@
                       "buyer_agreement",
                       "photo_id",
                       "repair_sign_off",
-                      "closing_items"
+                      "closing_items",
+                      "listing_agreement",
+                      "seller_disclosure",
+                      "mortgage_payoff",
+                      "repair_answer_sign_off",
+                      "keys_at_closing"
                     ]
                   },
                   "kind": {

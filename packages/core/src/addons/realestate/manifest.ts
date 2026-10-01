@@ -311,6 +311,7 @@ export const realestateAddon = defineAddon({
       'realestate.inspection.report_in',
       'realestate.repair.sent',
       'realestate.repair.answered',
+      'realestate.repair.received',
       'realestate.client_task.added',
       'realestate.client_task.changed',
       'realestate.client_task.done',

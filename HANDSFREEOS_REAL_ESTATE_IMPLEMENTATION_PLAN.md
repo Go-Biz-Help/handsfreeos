@@ -1430,12 +1430,28 @@ boards; the server steps go ahead meanwhile.
 - Tests: `realestate-listing.test.ts` (the estimate, pure, then on the database), the worker's
   `realestate-listing.test.ts`.
 
-### Step 9: the CMA, the inspection and the buyer's loan on a listing
+### Step 9: the CMA, the inspection and the buyer's loan on a listing (server built, 2026-10-01)
 
-- A CMA on the listing's own facts prices it (S-06, S-07).
-- The buyer's inspection: their repair request comes in and the seller's answer goes out (S-52 to S-56).
-- The financing tracker follows the buyer's loan (S-59, S-61).
-- The client's task presets and words read right for a seller (`client-words.ts`).
+**As built** (`20261020000600_realestate_listing_repairs.sql`; `ops/cma.ts`, `ops/inspections.ts`,
+`ops/financing.ts`, `client-words.ts`):
+
+- `realestate.cma.start` on a listing takes no home: it's for the listing's own home, with its confirmed facts and
+  its list price once there is one. Finalized it's S-06's proof; shared with the seller, S-07's note with the range.
+  The summary's prompt now says never to tell the client what to list at, as well as what to offer or accept.
+- An inspection on a listing is the buyer's inspector at the home: scheduled, it's S-52's appointment.
+- On a listing the buyers ask and our seller answers. `realestate.repair.receive` keeps their request as it came in
+  (the moment "a repair request was made": S-53, S-54 and S-56 open), with S-53's note and its document's proof.
+  `realestate.repair.record_answer` then keeps the seller's answer (S-54's note, and its signed document), agreed
+  bringing S-55. `repair.send` is refused on a listing (`realestate_repair_listing`), and an answer needs a request
+  without one yet. The migration drops the check that tied "them" to the answer, since on a listing "them" asks.
+- The financing tracker follows the buyer's loan on a listing. The buyer's own dates (preapproval and rate lock
+  ending, the Closing Disclosure received) stay on its steps, not the listing's key dates. Conditional approval or
+  clear to close marked done with a letter or email is S-61's note; an appraisal or approval document counts for
+  S-59 and S-61 by its kind.
+- The client's task presets say which side they fit (`presetsFor`): a seller's are the listing agreement, the
+  seller's disclosure, the latest mortgage statement, signing off our answer to the repair request, and leaving the
+  keys. The add-a-task dialog offers only the deal's side's.
+- Tests: `realestate-listing.test.ts`.
 
 ### Step 10: price changes
 
