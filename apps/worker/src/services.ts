@@ -25,6 +25,7 @@ import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
+import type { VideoConverter } from './telephony/video';
 import type { SpeechServices } from './voice-agent/speech';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
@@ -50,6 +51,8 @@ export interface WorkerServices {
   readonly telephony: TelephonyProvider;
   /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
   readonly transcriber: Transcriber;
+  /** Turns a video texted to a business into an MP4 that plays in a browser and on a phone (telephony/video.ts). */
+  readonly video: VideoConverter;
   /** Where an address is, for distance and drawn service areas (M18); `off` without a key. */
   readonly geocoder: Geocoder;
   /** How long a drive takes, for On my way's arrival time (M18). */

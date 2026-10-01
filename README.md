@@ -24,10 +24,10 @@ The operating system for running the customer side of a small business with as l
 
 ## Run it locally
 
-You need Node 22 (see `.nvmrc`), pnpm 12, Docker and the Supabase CLI.
+You need Node 22 (see `.nvmrc`), pnpm 12, Docker, the Supabase CLI and ffmpeg (the worker turns texted videos into MP4s with it, and its test converts one).
 
 ```bash
-brew install pnpm supabase/tap/supabase
+brew install pnpm supabase/tap/supabase ffmpeg
 ```
 
 ```bash

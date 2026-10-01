@@ -47,6 +47,7 @@ import { roughDriveTimer } from '../src/geo/driving';
 import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber } from '../src/telephony/fake-transcriber';
+import { createFakeVideoConverter } from '../src/telephony/video';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
 import { seedAiTeam } from './seed-ai-team';
 import { seedAssistant } from './seed-assistant';
@@ -202,6 +203,7 @@ async function main(): Promise<void> {
     // The seed never reaches a carrier: the fake stands in, and sealed tokens use the dev worker's key.
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
     transcriber: createFakeTranscriber({ log }),
+    video: createFakeVideoConverter(),
     geocoder: createFakeGeocoder(),
     driving: roughDriveTimer,
     speech: createFakeSpeech(),

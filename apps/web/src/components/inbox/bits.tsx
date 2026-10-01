@@ -1,12 +1,12 @@
 'use client';
 import { segmentCounterLabel, unreadLabel, waitingFor, type WordPart } from '@hfos/core';
-import { Clock, Globe, Image as ImageIcon, Moon, Phone } from 'lucide-react';
+import { Clock, Globe, Image as ImageIcon, Moon, Phone, Play } from 'lucide-react';
 import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
-import { PhotoViewer } from './photo-viewer';
+import { MediaViewer } from './media-viewer';
 
 export type IconType = ComponentType<{ className?: string; strokeWidth?: number }>;
 
@@ -199,7 +199,10 @@ export function useSignedUrl(bucket: string, path: string): string | null {
   return url;
 }
 
-/** A photo in a message: the image once its link is ready, a quiet tile until then. Opens full size over the thread. */
+/**
+ * A photo or a video in a message: the picture (or the video's first frame, with a play mark) once its link is
+ * ready, a quiet tile until then. Opens full size over the thread.
+ */
 export function MediaThumb({
   bucket,
   objectPath,
@@ -215,13 +218,14 @@ export function MediaThumb({
 }) {
   const url = useSignedUrl(bucket, objectPath);
   const image = contentType.startsWith('image/');
+  const video = contentType.startsWith('video/');
   const [viewing, setViewing] = useState(false);
   const tile = cn(
     'relative flex h-[150px] w-[200px] items-center justify-center overflow-hidden rounded-[14px] border border-border bg-[linear-gradient(135deg,var(--card-3),var(--card-2))] text-text-3 max-md:h-[136px] max-md:w-[180px]',
     className,
   );
-  // A file that isn't a photo (a PDF, a contact card) opens the way the browser opens that kind of file.
-  if (!image)
+  // A file that's neither (a PDF, a contact card) opens the way the browser opens that kind of file.
+  if (!image && !video)
     return (
       <a
         href={url ?? undefined}
@@ -240,24 +244,43 @@ export function MediaThumb({
         <button
           type="button"
           disabled={!url}
-          aria-label={`Open ${name}`}
+          aria-label={`${video ? 'Play' : 'Open'} ${name}`}
           data-testid="media-thumb"
-          className={cn(tile, url && 'cursor-zoom-in')}
+          className={cn(tile, url && (video ? 'cursor-pointer' : 'cursor-zoom-in'))}
         >
-          {url ? (
+          {url && image ? (
             // A signed Storage link: plain <img>, nothing for an image optimizer to cache.
             <img src={url} alt={name} className="h-full w-full object-cover" />
+          ) : url && video ? (
+            // Its first frame: `#t=0.1` makes Safari draw one, and a carrier's 3GP that won't play stays dark.
+            <video
+              src={`${url}#t=0.1`}
+              preload="metadata"
+              muted
+              playsInline
+              tabIndex={-1}
+              aria-hidden
+              className="h-full w-full bg-black object-cover"
+            />
           ) : (
             <ImageIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
           )}
+          {video ? (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white">
+                <Play className="ml-0.5 h-5 w-5 fill-current" strokeWidth={1.5} />
+              </span>
+            </span>
+          ) : null}
         </button>
       </DialogTrigger>
       {url ? (
-        <PhotoViewer
+        <MediaViewer
           url={url}
           bucket={bucket}
           objectPath={objectPath}
           name={name}
+          video={video}
           onClose={() => setViewing(false)}
         />
       ) : null}

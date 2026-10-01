@@ -1,7 +1,7 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
  * storage, the documents folder, the microphone and speaker, signal, Face ID, safe areas, random bytes, taking and
- * shrinking photos, the backups and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
+ * shrinking photos, playing videos, the backups and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
  * stand-in database, and the queue's on Node's own SQLite; PowerSync's own `@powersync/common` is real). Each keeps state
  * in memory so a test can read what the app wrote.
  */
@@ -154,6 +154,55 @@ jest.mock('expo-audio', () => {
     setAudioModeAsync: jest.fn(async () => undefined),
     __recorder: recorder,
     __played: played,
+  };
+});
+
+// Playing a video (the inbox's viewer): a player that plays whatever it's given, or, with `__videos.playable` false,
+// one that can't (an iPhone handed a carrier's 3GP). `__videos.played` is every video asked to play.
+jest.mock('expo-video', () => {
+  const React = jest.requireActual('react') as {
+    useState: <T>(init: () => T) => [T, unknown];
+    createElement: (type: unknown, props: object) => unknown;
+  };
+  const { View } = jest.requireActual('react-native') as { View: unknown };
+  const videos = { playable: true, played: [] as string[] };
+  type MockStatusListener = (mockEvent: { status: string }) => void;
+  class Player {
+    status = 'loading';
+    private readonly listeners = new Set<MockStatusListener>();
+    readonly source: string;
+    constructor(mockSource: string) {
+      this.source = mockSource;
+    }
+    addListener(_event: string, fn: MockStatusListener) {
+      this.listeners.add(fn);
+      return { remove: () => this.listeners.delete(fn) };
+    }
+    play() {
+      videos.played.push(this.source);
+      setTimeout(() => {
+        this.status = videos.playable ? 'readyToPlay' : 'error';
+        for (const fn of [...this.listeners]) fn({ status: this.status });
+      }, 5);
+    }
+    pause() {}
+    release() {}
+  }
+  return {
+    useVideoPlayer: (mockSource: string, setup?: (player: Player) => void) => {
+      const [player] = React.useState(() => {
+        const made = new Player(mockSource);
+        setup?.(made);
+        return made;
+      });
+      return player;
+    },
+    VideoView: (props: { testID?: string; accessibilityLabel?: string }) =>
+      React.createElement(View, {
+        testID: props.testID,
+        accessibilityLabel: props.accessibilityLabel,
+      }),
+    __videos: videos,
   };
 });
 

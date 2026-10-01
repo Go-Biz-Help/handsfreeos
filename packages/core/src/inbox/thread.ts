@@ -184,6 +184,13 @@ export const THREAD_WORDS = {
   photoWontLoad: 'This photo didn’t load. Check your signal and try again.',
   photoWontDownload: 'That photo couldn’t be downloaded. Try again in a minute.',
   photoWontShare: 'That photo couldn’t be shared. Check your signal and try again.',
+  /** A video played in the same viewer: the buttons say the same, and these are its own troubles. */
+  videoWontLoad: 'This video didn’t load. Check your signal and try again.',
+  /** The web has Download at the top; the phone has Share, which hands it to an app that can play it. */
+  videoWontPlayDownload: 'This video can’t play here. Download it to watch it.',
+  videoWontPlayShare: 'This video can’t play here. Tap Share to open it in another app.',
+  videoWontDownload: 'That video couldn’t be downloaded. Try again in a minute.',
+  videoWontShare: 'That video couldn’t be shared. Check your signal and try again.',
 } as const;
 
 /** When an RCS message was read, beside "Read": "Read Tue 2:14 PM". */

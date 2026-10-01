@@ -7,8 +7,9 @@ import { Linking, Platform } from 'react-native';
 import { MediaThumb } from '@/components/inbox/thread-items';
 
 /**
- * A photo in a text opens full screen inside the app, as the phone's Messages app shows one, rather than going out to
- * the browser. Share passes it to the share sheet (Save Image); a file that isn't a photo still opens with the phone.
+ * A photo or a video in a text opens full screen inside the app, as the phone's Messages app shows one, rather than
+ * going out to the browser. Share passes it to the share sheet (Save Image, Save Video); a file that's neither still
+ * opens with the phone.
  */
 
 // Pictures load through signed links: here, one made up from where the picture is kept.
@@ -87,6 +88,62 @@ test('a file that isn’t a photo still opens with the phone', async () => {
 
   await waitFor(() => expect(openURL).toHaveBeenCalledWith('https://files.test/ws/p/estimate.pdf'));
   expect(screen.queryByTestId('photo-viewer')).toBeNull();
+});
+
+describe('a video', () => {
+  const clip: MediaShape = {
+    ...photo,
+    objectPath: 'ws/p/video-1.mp4',
+    contentType: 'video/mp4',
+    name: 'video-1.mp4',
+  };
+  const videos = (
+    jest.requireMock('expo-video') as {
+      __videos: { playable: boolean; played: string[] };
+    }
+  ).__videos;
+  afterEach(() => {
+    videos.playable = true;
+  });
+
+  test('plays full screen in the app with the phone’s own controls, not in the browser', async () => {
+    await render(<MediaThumb media={clip} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Play video-1.mp4' }));
+
+    expect(await screen.findByTestId('video-viewer')).toBeTruthy();
+    expect(screen.getByTestId('video-viewer-player')).toBeTruthy();
+    expect(videos.played).toContain('https://files.test/ws/p/video-1.mp4');
+    expect(openURL).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId('video-viewer-close'));
+    await waitFor(() => expect(screen.queryByTestId('video-viewer')).toBeNull());
+  });
+
+  test('one the phone can’t play says so, and Share still hands it to an app that can', async () => {
+    videos.playable = false;
+    await render(
+      <MediaThumb
+        media={{
+          ...clip,
+          objectPath: 'ws/p/video-1.3gp',
+          contentType: 'video/3gpp',
+          name: 'video-1.3gp',
+        }}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('media-thumb'));
+
+    expect(await screen.findByTestId('video-viewer-unplayable')).toHaveTextContent(
+      'This video can’t play here. Tap Share to open it in another app.',
+    );
+    await fireEvent.press(screen.getByTestId('video-viewer-share'));
+    await waitFor(() =>
+      expect(Sharing.shareAsync).toHaveBeenCalledWith(
+        'file:///cache/video-1.3gp',
+        expect.objectContaining({ mimeType: 'video/3gpp' }),
+      ),
+    );
+  });
 });
 
 describe('on Android, where the photo follows the fingers itself', () => {
