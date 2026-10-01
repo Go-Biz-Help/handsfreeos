@@ -8800,7 +8800,7 @@ The last step of the registration on the web says what sending will take from th
 **Usage & balance** lists the four prices. The nightly reconciliation leaves Twilio's `a2p-registration-fees`
 category alone: Twilio dates these by its own clock, so a day-by-day comparison would charge twice. The $11
 brand appeal isn't charged; it only happens when support asks Twilio for one. With `WALLET_MODE` off nothing is
-charged. Needs `20261016000200_a_fee_is_a_unit.sql` and `20261016000300_texting_registration_on_the_wallet.sql`.
+charged. Needs `20261017000100_a_fee_is_a_unit.sql` and `20261017000200_texting_registration_on_the_wallet.sql`.
 To change a price when Twilio does, publish a new card at `/admin/rates` as for any other line.
 
 **Phone numbers are charged once per calendar month.** Each number a business held during a month is one
@@ -8811,7 +8811,7 @@ once. A number given back mid-month has already paid for that month, the same as
 day of the month a number was bought, so the nightly reconciliation leaves `phonenumbers-local` and
 `phonenumbers-tollfree` alone, as it does the registration fees. Before October 2026 nothing charged numbers at
 all, and the nightly reconciliation never ran: its plan read the carrier accounts with no business in scope and
-found none. Both need `20261016000400_numbers_on_the_wallet.sql`. Once that's applied, expect the first
+found none. Both need `20261017000300_numbers_on_the_wallet.sql`. Once that's applied, expect the first
 reconciliation adjustments ("Carrier charge for recordings on …") to show up on statements: that's the true-up
 doing the job it was built for. It never compares a line that's already inside another, so the same money is
 never charged twice. One such line is the parts of `calls-inbound` (`calls-inbound-local` and the rest). The
