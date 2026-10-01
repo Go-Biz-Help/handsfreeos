@@ -113,8 +113,11 @@ export async function registerAddonPublicRoutes(
     const byId = new Map(found.map((f) => [f.id, f]));
     for (const f of named) {
       const file = byId.get(String(f['publicFileId']));
+      // A file that isn't the business's, or isn't in storage any more, gets no link: the page still opens.
       f['url'] = file
-        ? await deps.store.signedUrl(file.bucket, file.object_path, PUBLIC_FILE_SECONDS)
+        ? await deps.store
+            .signedUrl(file.bucket, file.object_path, PUBLIC_FILE_SECONDS)
+            .catch(() => null)
         : null;
     }
   }

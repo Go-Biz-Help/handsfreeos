@@ -7517,6 +7517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.listing.campaign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tell the business’s contacts about a live listing by email or text: a campaign with exact words from its signed-off description and a link to its page, to the tags or stages picked. It waits in Campaigns for someone to approve it.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.campaign_started, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.listing.confirm_facts": {
         parameters: {
             query?: never;
@@ -7637,6 +7657,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.listing.mark_live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a listing live on the MLS, with its MLS number and the day it went live, and the MLS page as proof if there is one. Until then nothing about it is shared outside the office. A listing before Active moves there.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.live, realestate.deal.stage_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_mark_live"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.page_publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a listing’s public page up, under the business’s site: its confirmed facts, the photos marked for it, its signed-off description and its open houses. Refused before it’s live on the MLS.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.page_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_page_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.page_take_down": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a listing’s public page down. Its address stays the same if it goes up again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.page_changed.
+         */
+        post: operations["command_realestate_listing_page_take_down"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.listing.paste": {
         parameters: {
             query?: never;
@@ -7711,6 +7791,46 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed.
          */
         post: operations["command_realestate_listing_photos_arrange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.post_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for one of a listing’s social posts. The fixed list reads them at once and the model a moment later.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.post_saved.
+         */
+        post: operations["command_realestate_listing_post_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.posts_request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI for three social posts about a listing, from its confirmed facts, price, signed-off description and open houses, each read by both fair housing checks. Nothing is posted: the agent copies them once it’s live on the MLS.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.posts_requested.
+         */
+        post: operations["command_realestate_listing_posts_request"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13791,6 +13911,46 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.flyer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a listing’s printable flyer shows: its first photos, price, confirmed facts, signed-off description, its agent and the QR code to its page. Refused before it’s live on the MLS.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_flyer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.marketing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s marketing: whether it’s live on the MLS (and the hold until it is), its public page, what’s still missing, and its social post drafts with their checks.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_marketing"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30804,6 +30964,50 @@ export interface operations {
             };
         };
     };
+    command_realestate_listing_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    /** @enum {string} */
+                    channel: "sms" | "email";
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uri */
+                    pageUrl: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        recipients: number;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_listing_confirm_facts: {
         parameters: {
             query?: never;
@@ -31072,6 +31276,119 @@ export interface operations {
             };
         };
     };
+    command_realestate_listing_mark_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: date */
+                    liveOn: string;
+                    mlsNumber: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        liveOn: string;
+                        movedTo: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_page_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        path: string | null;
+                        site: string | null;
+                        slug: string | null;
+                        /** @enum {string} */
+                        state: "none" | "published" | "down";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_page_take_down: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        path: string | null;
+                        site: string | null;
+                        slug: string | null;
+                        /** @enum {string} */
+                        state: "none" | "published" | "down";
+                    };
+                };
+            };
+        };
+    };
     command_realestate_listing_paste: {
         parameters: {
             query?: never;
@@ -31213,6 +31530,81 @@ export interface operations {
                         /** Format: uuid */
                         dealId: string;
                         photos: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_post_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** Format: uuid */
+                        postId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_posts_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: number;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed";
                     };
                 };
             };
@@ -49660,6 +50052,130 @@ export interface operations {
                                 updates: string | null;
                             };
                             street: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_flyer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agentName: string | null;
+                        cityLine: string | null;
+                        description: string;
+                        facts: {
+                            label: string;
+                            words: string;
+                        }[];
+                        mlsNumber: string;
+                        page: {
+                            path: string;
+                            site: string;
+                            slug: string;
+                        } | null;
+                        photos: {
+                            caption: string | null;
+                            /** Format: uuid */
+                            fileId: string;
+                        }[];
+                        priceCents: number | null;
+                        street: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_marketing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        hold: string | null;
+                        mls: {
+                            liveOn: string;
+                            number: string;
+                        } | null;
+                        page: {
+                            /** Format: uuid */
+                            dealId: string;
+                            path: string | null;
+                            site: string | null;
+                            slug: string | null;
+                            /** @enum {string} */
+                            state: "none" | "published" | "down";
+                        };
+                        posts: {
+                            failure: string | null;
+                            items: {
+                                checked: {
+                                    model: boolean;
+                                    words: boolean;
+                                };
+                                edited: boolean;
+                                flags: {
+                                    /** @enum {string} */
+                                    category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                    phrase: string;
+                                    reason: string;
+                                    safer: string;
+                                }[];
+                                /** Format: uuid */
+                                id: string;
+                                position: number;
+                                words: string | null;
+                            }[];
+                            /** @enum {string} */
+                            state: "none" | "drafting" | "ready" | "failed";
+                        };
+                        ready: {
+                            description: boolean;
+                            facts: boolean;
+                            photos: number;
                         };
                     };
                 };

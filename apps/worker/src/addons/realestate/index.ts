@@ -32,7 +32,14 @@ import {
   milestoneReached,
 } from './client-updates';
 import { homeAdded } from './homes';
-import { descriptionRequested, descriptionSaved, listingPasted } from './listing';
+import {
+  descriptionRequested,
+  descriptionSaved,
+  listingAsked,
+  listingPasted,
+  postSaved,
+  postsRequested,
+} from './listing';
 import {
   clientSpoke,
   MEMORY_JOB,
@@ -212,6 +219,9 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.listing.pasted': listingPasted,
     'realestate.listing.description_requested': descriptionRequested,
     'realestate.listing.description_saved': descriptionSaved,
+    'realestate.listing.asked': listingAsked,
+    'realestate.listing.posts_requested': postsRequested,
+    'realestate.listing.post_saved': postSaved,
   },
   jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob, [OFFER_CLOCK]: offerClockJob },
   onEnable: async (ctx) => {

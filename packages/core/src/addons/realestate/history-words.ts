@@ -85,6 +85,18 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return a.how === 'let_through'
         ? `Put the description (version ${str(a.version)}) in use without the seller’s sign-off in the portal`
         : `The seller signed off the description (version ${str(a.version)})`;
+    case 'listing_live':
+      return b.mlsNumber
+        ? `Changed the MLS listing to #${str(a.mlsNumber)}, live since ${str(a.liveOn)}`
+        : `Marked it live on the MLS: #${str(a.mlsNumber)}, since ${str(a.liveOn)}`;
+    case 'page_published':
+      return 'Put the listing’s page up';
+    case 'page_taken_down':
+      return 'Took the listing’s page down';
+    case 'listing_campaign':
+      return a.channel === 'email'
+        ? `Started an email about the listing to ${str(a.recipients)} contacts`
+        : `Started a text about the listing to ${str(a.recipients)} contacts`;
     case 'listing_facts':
       return `Confirmed ${Number(a.count)} ${Number(a.count) === 1 ? 'fact' : 'facts'} about ${str(a.address)}`;
     case 'memory_confirmed':

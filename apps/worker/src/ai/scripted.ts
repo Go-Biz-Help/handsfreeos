@@ -1319,7 +1319,46 @@ export function scriptedListingDescription(message: string): { description: stri
   return { description: lines.join(' ') };
 }
 
+interface ScriptedPostsFacts {
+  readonly street?: string;
+  readonly city?: string | null;
+  readonly price?: string | null;
+  readonly facts?: Readonly<Record<string, string>>;
+  readonly openHouses?: readonly string[];
+}
+
+/** Three posts written only from the <listing_facts>: the home, its rooms, and an open house or its price. */
+export function scriptedListingPosts(message: string): { posts: string[] } {
+  let f: ScriptedPostsFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'listing_facts') ?? '{}')) as ScriptedPostsFacts;
+  } catch {
+    // Unreadable facts: short, general posts.
+  }
+  const street = f.street ?? 'this home';
+  const where = f.city ? ` in ${f.city.split(',')[0]}` : '';
+  const facts = f.facts ?? {};
+  const rooms = [
+    facts['Bedrooms'] && `${facts['Bedrooms']} beds`,
+    facts['Bathrooms'] && `${facts['Bathrooms']} baths`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return {
+    posts: [
+      `Just listed${where}: ${street}.${f.price ? ` ${f.price}.` : ''}`,
+      rooms
+        ? `${street}: ${rooms}${facts['Square feet'] ? `, ${facts['Square feet']} sq ft` : ''}.`
+        : `Take a look at ${street}.`,
+      f.openHouses?.[0]
+        ? `Open house at ${street}: ${f.openHouses[0]}.`
+        : `${street} is on the market${f.price ? ` at ${f.price}` : ''}.`,
+    ],
+  };
+}
+
 export const LISTING_RULES: readonly ScriptRule[] = [
+  { when: /Write the social posts\.$/, json: (message) => scriptedListingPosts(message) },
   {
     when: /Write the listing description\.$/,
     json: (message) => scriptedListingDescription(message),

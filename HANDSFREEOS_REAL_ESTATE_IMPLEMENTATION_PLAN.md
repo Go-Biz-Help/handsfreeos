@@ -1354,27 +1354,40 @@ boards; the server steps go ahead meanwhile.
 - The fair housing word list (`fh-words-2`) adds "growing family" and "perfect for / great for / ideal for a family".
 - Tests: `realestate-listing.test.ts` (the seller signing in her portal), the worker's `realestate-listing.test.ts`.
 
-### Step 5: live on the MLS, and the hold
+### Step 5: live on the MLS, and the hold (server built, 2026-10-01)
 
-- `listing.mark_live`: the MLS number, the day it went live, and the MLS page as proof if there is one (S-20). It
-  moves the deal to Active if it's earlier.
-- Until then, publishing the page, the flyer, the email or text to contacts, the social posts, the open house sign-in
-  and matching are all refused (`realestate_not_on_mls`): "418 Maple Ave isn’t live on the MLS yet, so it can’t be
-  shared outside your office. Mark it live on the listing page once it is."
-- The page says "Under contract" or "Sold" when the deal gets there, and comes down if the listing is withdrawn,
-  expires or is cancelled.
+**As built** (`ops/marketing.ts`):
 
-### Step 6: marketing
+- `realestate.listing.mark_live`: the MLS number and the day (never a day still to come), with the MLS page as
+  proof if it's on the deal (S-20). A listing before Active moves there (`realestate.deal.move_stage` within).
+- `requireOnMls` refuses the page, the flyer and the email or text to contacts with `realestate_not_on_mls`, in
+  the board's words. Nothing lets it through. The social posts can be drafted before it; the screens offer Copy only
+  once it's live.
+- The page's status follows the deal (`publicStatus`): for sale, under contract or sold; withdrawn, expired or
+  cancelled is "no page here".
 
-- **The public page** (`/a/<site>/realestate/<slug>`): the photos, price and facts, the signed-off description, the
-  open houses, the agent, the brokerage's name and the Equal Housing Opportunity words, and "Ask about this home",
-  which makes a lead for the listing agent through the sign-up helper and alerts them.
-- **The flyer:** a staff page that prints, with a QR code to the public page.
-- **Email or text to contacts:** the agent picks tags or stages, and the add-on starts a campaign with words made
-  from the signed-off description, read by `checkWords` first. The agent approves it in Campaigns.
-- **Social posts:** the worker drafts three (`realestate.social_draft`), with both checks; the agent edits and copies
-  them. Nothing is posted for them.
-- Proof: S-21, S-22.
+### Step 6: marketing (server built, 2026-10-01)
+
+**As built** (`20261020000300_realestate_listing_posts.sql`; `ops/marketing.ts`, `ops/public.ts`):
+
+- `realestate.listing.page_publish` needs it live, its facts confirmed and a signed-off description; it gives the
+  page the street for its address (`2207-juniper-trail`, then `-2`), under the business's public name. A business
+  without a public name gets one from the first page, which only someone who may name it (owners and admins) can
+  put up: anyone else is told to ask (`realestate_no_public_name`). `page_take_down` takes it down. S-22's proof.
+- `realestate.public.listing` (the visitor's look-up, `ui.public` `:slug`) shows only what's published: confirmed
+  facts in words, the photos marked for the page (the worker signs each for an hour), the signed-off words, the
+  agent's name and the MLS number. `realestate.public.ask` makes a customer and a lead for the listing's agent
+  through core's sign-up, keeps a yes to texts from "Listing page: 2207 Juniper Trail", puts the question on their
+  timeline, and the worker alerts the agent.
+- `realestate.listing.flyer`: what the printable flyer shows, refused before the MLS.
+- `realestate.listing.campaign`: an email (`listingEmailWords`) or a text (`listingTextWords`) to the tags or stages
+  picked, with exact words from the signed-off description and the page's link, read by the fair housing list
+  first, started as a core campaign that waits in Campaigns for approval. S-22 and S-23's proof.
+- Social posts (`listing_posts`): `posts_request` drafts three from the home's public facts, each read by the list
+  and the model (S-21's proof); `post_save` is the agent's words, read again. `realestate.listing.marketing` is the
+  marketing page's look-up: the MLS, the hold, the page, what's missing, and the posts with their checks.
+- Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts` and `addon-public.test.ts` (the
+  page and a question through the public doors).
 
 ### Step 7: open houses
 

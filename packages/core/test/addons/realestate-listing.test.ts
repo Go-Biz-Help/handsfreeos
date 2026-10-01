@@ -25,9 +25,11 @@ import {
   portalAccessGive,
   portalCheckCode,
   portalSendCode,
+  tagCreate,
   type CommandDef,
   type CustomerActor,
   type HumanActor,
+  type PublicActor,
   type QueryDef,
   type RequestMeta,
 } from '../../src/server';
@@ -567,5 +569,257 @@ describe('the description', () => {
     });
     // The one before it is set aside.
     expect(d.history.find((h: Any) => h.version === 2).state).toBe('replaced');
+  });
+});
+
+// ---------- live on the MLS, the hold and marketing (steps 5 and 6) ----------
+
+const visitor = (): PublicActor => ({
+  type: 'public',
+  workspaceId: ws,
+  organizationId: org,
+  site: 'listing-realty',
+  visitor: 'hmac',
+});
+const asVisitor = (name: string, input: Record<string, unknown>): Promise<Any> => {
+  const found = [
+    ...(realestateAddonServer.commands ?? []),
+    ...(realestateAddonServer.queries ?? []),
+  ].find((x) => x.name === name)!;
+  return found.kind === 'command'
+    ? executeCommand(
+        worker(),
+        found as CommandDef,
+        { workspaceId: ws, ...input },
+        visitor(),
+        meta('booking_page'),
+      ).then((r) => r.output)
+    : executeQuery(
+        worker(),
+        found as QueryDef,
+        { workspaceId: ws, ...input },
+        visitor(),
+        meta('booking_page'),
+      );
+};
+
+describe('before the MLS', () => {
+  it('holds everything public: the page, the flyer and an email or text to contacts', async () => {
+    const hold =
+      '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.';
+    const m = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
+    expect(m.mls).toBeNull();
+    expect(m.hold).toBe(hold);
+    expect(await refused(run(agent, 'realestate.listing.page_publish', { dealId: listing }))).toBe(
+      'realestate_not_on_mls',
+    );
+    expect(await refused(ask(agent, 'realestate.listing.flyer', { dealId: listing }))).toBe(
+      'realestate_not_on_mls',
+    );
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.campaign', {
+          dealId: listing,
+          channel: 'sms',
+          audience: { tagIds: [randomUUID()] },
+          pageUrl: 'http://localhost:3000/a/x/realestate/y',
+        }),
+      ),
+    ).toBe('realestate_not_on_mls');
+  });
+
+  it('lifts once the agent marks it live, which moves it to Active and is proof for S-20', async () => {
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.mark_live', {
+          dealId: listing,
+          mlsNumber: '4821937',
+          liveOn: '2999-01-01',
+        }),
+      ),
+    ).toBe('validation');
+    const live = await run(agent, 'realestate.listing.mark_live', {
+      dealId: listing,
+      mlsNumber: '4821937',
+      liveOn: new Date().toISOString().slice(0, 10),
+    });
+    expect(live.movedTo).toBe('active');
+    const m = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
+    expect(m.mls).toMatchObject({ number: '4821937' });
+    expect(m.hold).toBeNull();
+    const proof = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = 'listing_mls' and e.ref_id = ${listing}`,
+    );
+    expect(proof.map((p) => p.key)).toEqual(['S-20']);
+  });
+});
+
+describe('the public page', () => {
+  let path: string;
+
+  it('goes up under the business’s site with the street for its address', async () => {
+    // The business has no public address yet: a member can't give it one.
+    expect(await refused(run(agent, 'realestate.listing.page_publish', { dealId: listing }))).toBe(
+      'realestate_no_public_name',
+    );
+    const page = await run(owner, 'realestate.listing.page_publish', { dealId: listing });
+    expect(page).toMatchObject({ state: 'published', slug: '2207-juniper-trail' });
+    expect(page.site).toBeTruthy();
+    path = page.path;
+    expect(path).toBe(`/a/${page.site}/realestate/2207-juniper-trail`);
+  });
+
+  it('shows a visitor only what was published: confirmed facts, the photos for the page, the signed words', async () => {
+    const p = await asVisitor('realestate.public.listing', { slug: '2207-juniper-trail' });
+    expect(p).toMatchObject({
+      street: '2207 Juniper Trail',
+      cityLine: 'Austin, TX 78745',
+      status: 'for_sale',
+      mlsNumber: '4821937',
+      agentName: 'Dana Reyes',
+    });
+    expect(p.description).toContain('Plenty of room');
+    expect(p.facts.map((f: Any) => f.label)).toContain('Bedrooms');
+    // The yard photo is kept for the agent and the seller.
+    expect(p.photos).toHaveLength(1);
+    expect(p.photos[0].caption).toBe('The 2021 kitchen');
+    expect(await refused(asVisitor('realestate.public.listing', { slug: 'nope' }))).toBe(
+      'not_found',
+    );
+  });
+
+  it('takes a visitor’s question as a lead for the agent, with their yes to texts', async () => {
+    expect(
+      await refused(
+        asVisitor('realestate.public.ask', {
+          slug: '2207-juniper-trail',
+          firstName: 'Kayla',
+          question: 'Is the garage wired for a car charger?',
+        }),
+      ),
+    ).toBe('validation');
+    await asVisitor('realestate.public.ask', {
+      slug: '2207-juniper-trail',
+      firstName: 'Kayla',
+      lastName: 'Brooks',
+      phone: '+15125550187',
+      question: 'Is the garage wired for a car charger?',
+      smsConsent: true,
+    });
+    const [p] = await rows<{ id: string; sms_consent: string; sms_consent_source: string }>(
+      admin(),
+      sql`select id, sms_consent::text, sms_consent_source from app.people
+          where workspace_id = ${ws} and first_name = 'Kayla'`,
+    );
+    expect(p).toMatchObject({
+      sms_consent: 'opted_in',
+      sms_consent_source: 'Listing page: 2207 Juniper Trail',
+    });
+    const [lead] = await rows<{ title: string; assignee_user_id: string }>(
+      admin(),
+      sql`select title, assignee_user_id from app.leads where person_id = ${p!.id}`,
+    );
+    expect(lead).toEqual({ title: 'Asked about 2207 Juniper Trail', assignee_user_id: agent.id });
+  });
+
+  it('feeds the flyer and a text to contacts with exact, checked words', async () => {
+    const f = await ask(agent, 'realestate.listing.flyer', { dealId: listing });
+    expect(f).toMatchObject({ street: '2207 Juniper Trail', mlsNumber: '4821937' });
+    expect(f.page.path).toBe(path);
+    const { tagId } = (
+      await executeCommand(
+        api(),
+        tagCreate,
+        { workspaceId: ws, name: 'Past clients' },
+        human(owner),
+        meta(),
+      )
+    ).output;
+    const [lucy] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, phone_e164, sms_consent)
+          values (${ws}, 'Lucy', 'Past', '+15125550199', 'opted_in') returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+          values (${ws}, ${tagId}, 'person', ${lucy!.id})`,
+    );
+    expect(
+      await refused(
+        run(owner, 'realestate.listing.campaign', {
+          dealId: listing,
+          channel: 'sms',
+          audience: { tagIds: [tagId] },
+          pageUrl: 'http://localhost:3000/somewhere/else',
+        }),
+      ),
+    ).toBe('validation');
+    const made = await run(owner, 'realestate.listing.campaign', {
+      dealId: listing,
+      channel: 'sms',
+      audience: { tagIds: [tagId] },
+      pageUrl: `http://localhost:3000${path}`,
+    });
+    expect(made.recipients).toBe(1);
+    const [r] = await rows<{ draft: string; status: string }>(
+      admin(),
+      sql`select draft, status from app.campaign_recipients where campaign_id = ${made.campaignId}`,
+    );
+    expect(r!.status).toBe('ready');
+    expect(r!.draft).toBe(
+      `Just listed: 2207 Juniper Trail. 4 beds, 3 baths. Photos: http://localhost:3000${path}`,
+    );
+  });
+
+  it('comes down when taken down', async () => {
+    await run(agent, 'realestate.listing.page_take_down', { dealId: listing });
+    expect(
+      await refused(asVisitor('realestate.public.listing', { slug: '2207-juniper-trail' })),
+    ).toBe('not_found');
+    await run(agent, 'realestate.listing.page_publish', { dealId: listing });
+  });
+});
+
+describe('social posts', () => {
+  it('are drafted in threes, each checked, and an edit is read again', async () => {
+    const asked = await run(agent, 'realestate.listing.posts_request', { dealId: listing });
+    expect(asked).toMatchObject({ batch: 1, state: 'drafting' });
+    await system('realestate.listing.posts_drafted', {
+      dealId: listing,
+      batch: 1,
+      model: 'stand-in',
+      posts: [
+        'Just listed: 2207 Juniper Trail.',
+        'Four bedrooms and a 2021 kitchen.',
+        'Open house Sunday.',
+      ].map((words) => ({
+        words,
+        checks: [
+          { source: 'words', version: FAIR_HOUSING_WORDS_VERSION, status: 'passed', flags: [] },
+          { source: 'model', version: 'stand-in', status: 'passed', flags: [] },
+        ],
+      })),
+    });
+    const m = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
+    expect(m.posts.state).toBe('ready');
+    expect(m.posts.items.map((p: Any) => [p.words, p.checked])).toEqual([
+      ['Just listed: 2207 Juniper Trail.', { words: true, model: true }],
+      ['Four bedrooms and a 2021 kitchen.', { words: true, model: true }],
+      ['Open house Sunday.', { words: true, model: true }],
+    ]);
+    const saved = await run(agent, 'realestate.listing.post_save', {
+      postId: m.posts.items[2].id,
+      words: 'Open house Sunday. Perfect for a growing family.',
+    });
+    expect(saved.flags.map((f: Any) => f.phrase.toLowerCase())).toEqual(['growing family']);
+    const after = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
+    expect(after.posts.items[2]).toMatchObject({
+      edited: true,
+      checked: { words: true, model: false },
+    });
   });
 });

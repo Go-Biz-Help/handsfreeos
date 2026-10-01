@@ -3,6 +3,7 @@
  * every answer's shape. Browser-safe.
  */
 import { z } from 'zod';
+import { CampaignAudience } from '../../schemas/campaign';
 import { isoDateTime, uuid } from '../../schemas/common';
 import {
   DEAL_FACTS,
@@ -2369,3 +2370,161 @@ export const ListingDescriptionOutput = z.object({
   /** What the fixed list found in the words, at once. */
   flags: z.array(FlagOut).default([]),
 });
+
+// ---------- live on the MLS, and marketing (round three, steps 5 and 6) ----------
+
+export const ListingMarkLiveInput = z.object({
+  ...inDeal,
+  mlsNumber: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9-]{1,30}$/, 'Enter the MLS number as the MLS shows it, like 4821937.'),
+  liveOn: localDate,
+  /** The MLS page, uploaded to the deal's documents: proof for "Enter listing into MLS". */
+  documentId: uuid.optional(),
+});
+export const ListingMarkLiveOutput = z.object({
+  dealId: uuid,
+  liveOn: z.string(),
+  /** The stage it moved to, if it was before Active. */
+  movedTo: z.string().nullable(),
+});
+
+export const ListingPageOutput = z.object({
+  dealId: uuid,
+  state: z.enum(['none', 'published', 'down']),
+  site: z.string().nullable(),
+  slug: z.string().nullable(),
+  /** `/a/<site>/realestate/<slug>`, on HandsFreeOS's address or the business's own. */
+  path: z.string().nullable(),
+});
+
+const FactWordsOut = z.object({ label: z.string(), words: z.string() });
+export const ListingFlyerOutput = z.object({
+  street: z.string(),
+  cityLine: z.string().nullable(),
+  priceCents: z.number().int().nullable(),
+  facts: z.array(FactWordsOut),
+  description: z.string(),
+  photos: z.array(z.object({ fileId: uuid, caption: z.string().nullable() })),
+  agentName: z.string().nullable(),
+  mlsNumber: z.string(),
+  /** The public page, for the flyer's QR code, once it's published. */
+  page: z.object({ site: z.string(), slug: z.string(), path: z.string() }).nullable(),
+});
+
+export const ListingCampaignInput = z.object({
+  ...inDeal,
+  channel: z.enum(['sms', 'email']),
+  audience: CampaignAudience,
+  /** The listing's public page as the person sees it (their address for it), for the words to link to. */
+  pageUrl: z.string().trim().max(500).url('That isn’t a link.'),
+});
+export const ListingCampaignOutput = z.object({
+  campaignId: uuid,
+  recipients: z.number().int(),
+  skipped: z.number().int(),
+});
+
+// ---------- the public page (round three, step 6) ----------
+
+export const PublicListingInput = z.object({ workspaceId: uuid, slug: z.string().trim().max(80) });
+export const PublicListingOutput = z.object({
+  slug: z.string(),
+  street: z.string(),
+  cityLine: z.string().nullable(),
+  status: z.enum(['for_sale', 'under_contract', 'sold']),
+  priceCents: z.number().int().nullable(),
+  facts: z.array(FactWordsOut),
+  description: z.string().nullable(),
+  /** The worker adds each photo's `url`, good for an hour. */
+  photos: z.array(z.object({ publicFileId: uuid, caption: z.string().nullable() })),
+  openHouses: z.array(
+    z.object({ id: uuid, startsAt: isoDateTime, endsAt: isoDateTime, signInOpen: z.boolean() }),
+  ),
+  agentName: z.string().nullable(),
+  mlsNumber: z.string(),
+});
+
+export const PublicListingAskInput = z
+  .object({
+    workspaceId: uuid,
+    slug: z.string().trim().max(80),
+    firstName: z.string().trim().min(1, 'Enter your first name.').max(80),
+    lastName: z.string().trim().max(80).default(''),
+    email: z.string().trim().max(254).email('That doesn’t look like an email address.').optional(),
+    phone: z.string().trim().max(40).optional(),
+    question: z
+      .string()
+      .trim()
+      .min(2, 'Ask your question.')
+      .max(1000, 'Keep it under 1,000 characters.'),
+    /** They ticked "Text me about this home and others like it". */
+    smsConsent: z.boolean().default(false),
+  })
+  .refine((i) => !!i.email || !!i.phone, {
+    error: 'Leave an email or a phone number, so the agent can answer.',
+    path: ['email'],
+  });
+export const PublicListingAskOutput = z.object({ sent: z.literal(true) });
+
+// ---------- the marketing page, and social posts (round three, step 6) ----------
+
+const PostOut = z.object({
+  id: uuid,
+  position: z.number().int(),
+  words: z.string().nullable(),
+  flags: z.array(FlagOut),
+  checked: z.object({ words: z.boolean(), model: z.boolean() }),
+  edited: z.boolean(),
+});
+export const ListingMarketingOutput = z.object({
+  dealId: uuid,
+  /** Live on the MLS; until then, why nothing public goes (the hold). */
+  mls: z.object({ number: z.string(), liveOn: z.string() }).nullable(),
+  hold: z.string().nullable(),
+  page: ListingPageOutput,
+  /** What's still missing before the page, the flyer or a campaign can go. */
+  ready: z.object({ facts: z.boolean(), description: z.boolean(), photos: z.number().int() }),
+  posts: z.object({
+    state: z.enum(['none', 'drafting', 'ready', 'failed']),
+    failure: z.string().nullable(),
+    items: z.array(PostOut),
+  }),
+});
+
+export const ListingPostsRequestInput = z.object({ ...inDeal });
+export const ListingPostsOutput = z.object({
+  dealId: uuid,
+  batch: z.number().int(),
+  state: z.enum(['drafting', 'ready', 'failed']),
+});
+export const ListingPostsDraftedInput = z.object({
+  workspaceId: uuid,
+  dealId: uuid,
+  batch: z.number().int().min(1),
+  posts: z
+    .array(z.object({ words: z.string().max(1000), checks: z.array(CheckIn).max(2) }))
+    .max(3)
+    .default([]),
+  model: z.string().max(100).optional(),
+  failure: z.string().max(2000).optional(),
+});
+export const ListingPostSaveInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  words: z
+    .string()
+    .trim()
+    .min(1, 'Write the post.')
+    .max(1000, 'Keep a post under 1,000 characters.'),
+});
+export const ListingPostCheckedInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  textHash: z.string().regex(/^[0-9a-f]{64}$/),
+  version: z.string().min(1).max(100),
+  status: z.enum(['passed', 'flagged', 'unavailable']),
+  flags: z.array(FlagOut).max(50),
+});
+export const ListingPostOutput = z.object({ postId: uuid, flags: z.array(FlagOut) });

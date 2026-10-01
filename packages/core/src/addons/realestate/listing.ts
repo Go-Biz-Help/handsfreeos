@@ -130,3 +130,64 @@ export const streetOf = (address: string): string => (address.split(',')[0] ?? a
 export function notOnMlsWords(address: string): string {
   return `${streetOf(address)} isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.`;
 }
+
+/** A listing's public page, under the business's site: `/a/<site>/realestate/<slug>`. Browser-safe. */
+export const listingPagePath = (site: string, slug: string): string =>
+  `/a/${site}/realestate/${slug}`;
+
+/** What the public page says about where the listing stands, from the deal's stage; null takes it down. */
+export function publicStatus(stage: string): 'for_sale' | 'under_contract' | 'sold' | null {
+  if (['active', 'showings', 'offers', 'negotiation', 'coming_soon'].includes(stage))
+    return 'for_sale';
+  if (['under_contract', 'inspection', 'appraisal', 'financing_title', 'closing'].includes(stage))
+    return 'under_contract';
+  if (['sold', 'past_client'].includes(stage)) return 'sold';
+  return null;
+}
+
+export const PUBLIC_STATUS_WORDS = {
+  for_sale: 'For sale',
+  under_contract: 'Under contract',
+  sold: 'Sold',
+} as const;
+
+/** The words a listing's email to the business's contacts says, from its signed-off description. */
+export function listingEmailWords(input: {
+  readonly street: string;
+  readonly priceWords: string | null;
+  readonly description: string;
+  readonly pageUrl: string;
+}): { subject: string; body: string } {
+  const sentences = input.description.match(/[^.!?]+[.!?]+/g) ?? [input.description];
+  const lead = sentences.slice(0, 2).join(' ').replace(/\s+/g, ' ').trim();
+  return {
+    subject: `Just listed: ${input.street}${input.priceWords ? `, ${input.priceWords}` : ''}`.slice(
+      0,
+      150,
+    ),
+    body: [
+      'Hi {first_name},',
+      '',
+      lead,
+      '',
+      `See the photos and the open house times: ${input.pageUrl}`,
+    ].join('\n'),
+  };
+}
+
+/** The text a listing's text to the business's contacts says. */
+export function listingTextWords(input: {
+  readonly street: string;
+  readonly priceWords: string | null;
+  readonly rooms: string | null;
+  readonly pageUrl: string;
+}): string {
+  return [
+    `Just listed: ${input.street}${input.priceWords ? `, ${input.priceWords}` : ''}.`,
+    input.rooms ? `${input.rooms}.` : null,
+    `Photos: ${input.pageUrl}`,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 480);
+}

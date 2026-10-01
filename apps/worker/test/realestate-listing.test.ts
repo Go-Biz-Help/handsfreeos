@@ -201,3 +201,21 @@ describe('a listing’s description', () => {
     });
   });
 });
+
+describe('a listing’s social posts', () => {
+  it('are drafted three at a time from the home’s facts, each read by both checks', async () => {
+    await run('realestate.listing.posts_request', { dealId: listing });
+    await drain();
+    const m = await ask('realestate.listing.marketing', { dealId: listing });
+    expect(m.posts.state).toBe('ready');
+    expect(m.posts.items).toHaveLength(3);
+    expect(m.posts.items[0].words).toContain('2207 Juniper Trail');
+    expect(m.posts.items.every((p: Any) => p.checked.words && p.checked.model)).toBe(true);
+    const [proof] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from addon_realestate.listing_posts
+          where deal_record_id = ${listing} and state = 'ready' and model is not null`,
+    );
+    expect(proof!.n).toBe(3);
+  });
+});

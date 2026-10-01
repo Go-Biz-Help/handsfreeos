@@ -22,6 +22,10 @@ import {
 } from '@hfos/core/addons/realestate/ops/description';
 import { listingFillFacts } from '@hfos/core/addons/realestate/ops/listing';
 import {
+  listingPostChecked,
+  listingPostsDrafted,
+} from '@hfos/core/addons/realestate/ops/marketing';
+import {
   checkedListingFacts,
   LISTING_DESCRIPTION_SCHEMA,
   LISTING_DESCRIPTION_SYSTEM,
@@ -31,11 +35,17 @@ import {
   listingDescriptionPrompt,
   ListingFactsAnswer,
   listingFactsPrompt,
+  LISTING_POSTS_SCHEMA,
+  LISTING_POSTS_SYSTEM,
+  ListingPostsAnswer,
+  listingPostsPrompt,
   type ListingDescriptionFacts,
+  type ListingPostsFacts,
 } from '@hfos/core/addons/realestate/prompts';
-import { executeCommand } from '@hfos/core/server';
+import { executeCommand, money } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
+import { raiseAddonAlert } from '../alerts';
 import type { AddonEventContext } from '../types';
 import { modelCheck } from './client-updates';
 
@@ -202,6 +212,155 @@ export async function descriptionSaved(ctx: AddonEventContext): Promise<void> {
       workspaceId: ctx.scope.workspaceId,
       descriptionId,
       textHash: textHashOf(null, d.words),
+      version: check.version,
+      status: check.status,
+      flags: check.flags,
+    },
+    ctx.actor,
+    ctx.meta,
+  );
+}
+
+// ---------- a visitor asked ----------
+
+/** `realestate.listing.asked`: the listing's agent hears that someone asked about it on its page. */
+export async function listingAsked(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const dealId = ctx.event.entityId;
+  const personId = typeof p['personId'] === 'string' ? p['personId'] : null;
+  if (!dealId || !personId) return;
+  const owner = typeof p['ownerUserId'] === 'string' ? p['ownerUserId'] : null;
+  const street = typeof p['street'] === 'string' ? p['street'] : 'your listing';
+  const name = typeof p['name'] === 'string' && p['name'] ? p['name'] : 'Someone';
+  await raiseAddonAlert(ctx, {
+    key: `asked:${dealId}:${personId}`,
+    severity: 'attention',
+    title: `${name} asked about ${street}`.slice(0, 200),
+    detail: 'On the listing’s page. Their question is on their timeline, with a lead for you.',
+    href: `/a/realestate/deals/${dealId}/marketing`,
+    permission: 'realestate.use',
+    customRecordId: dealId,
+    personId,
+    audienceUserIds: owner ? [owner] : [],
+    assigneeUserId: owner,
+  });
+}
+
+// ---------- social posts ----------
+
+/** `realestate.listing.posts_requested`: three posts from the home's public facts, each read by both checks. */
+export async function postsRequested(ctx: AddonEventContext): Promise<void> {
+  const dealId = ctx.event.entityId;
+  const batch = Number(((ctx.event.payload ?? {}) as Record<string, unknown>)['batch'] ?? 0);
+  if (!dealId || !batch) return;
+  const facts = await asWorker(ctx.db, ctx.scope, async (tx): Promise<ListingPostsFacts | null> => {
+    const [waiting] = await rows<{ n: number }>(
+      tx,
+      sql`select count(*)::int as n from addon_realestate.listing_posts
+          where deal_record_id = ${dealId} and batch = ${batch} and state = 'drafting'`,
+    );
+    if (!waiting?.n) return null;
+    const [l] = await rows<{
+      facts: Record<string, unknown>;
+      address: string | null;
+      price: number | null;
+      description: string | null;
+    }>(
+      tx,
+      sql`select l.facts,
+            (select pr.name from app.relationships rel
+               join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_property_of'
+               join app.custom_records pr on pr.id = rel.b_custom_record_id
+              where rel.a_custom_record_id = l.deal_record_id order by rel.created_at desc limit 1) as address,
+            (select t.value_cents::float8 from addon_realestate.term_entries t
+              where t.deal_record_id = l.deal_record_id and t.key = 'list_price'
+                and t.superseded_at is null and t.rejected_at is null
+              order by t.confirmed_at is null, t.entered_at desc limit 1) as price,
+            (select d.words from addon_realestate.listing_descriptions d
+              where d.deal_record_id = l.deal_record_id and d.state = 'signed') as description
+          from addon_realestate.listings l
+          where l.workspace_id = ${ctx.scope.workspaceId} and l.deal_record_id = ${dealId}`,
+    );
+    if (!l) return null;
+    const words: Record<string, string> = {};
+    for (const key of LISTING_HOME_FACT_KEYS) {
+      const v = l.facts[key];
+      if (v !== undefined && v !== null) words[LISTING_FACTS[key].label] = factWords(key, v);
+    }
+    const address = l.address ?? '';
+    return {
+      street: streetOf(address) || 'The home',
+      city: address.split(',').slice(1).join(',').trim() || null,
+      price: l.price ? money(l.price) : null,
+      facts: words,
+      description: l.description,
+      openHouses: [],
+    };
+  });
+  if (!facts) return;
+  const done = (input: Record<string, unknown>) =>
+    executeCommand(
+      ctx.db,
+      listingPostsDrafted,
+      { workspaceId: ctx.scope.workspaceId, dealId, batch, ...input },
+      ctx.actor,
+      ctx.meta,
+    );
+  let written: { posts: string[]; model: string };
+  try {
+    const { value, model } = await askStructured(ctx, ctx.scope, {
+      system: LISTING_POSTS_SYSTEM,
+      messages: [{ role: 'user', content: listingPostsPrompt(facts) }],
+      schema: LISTING_POSTS_SCHEMA,
+      zod: ListingPostsAnswer,
+      maxTokens: 700,
+      usage: { source: 'addon', addonId: ctx.manifest.id },
+    });
+    written = { posts: value.posts, model };
+  } catch (e) {
+    if (!(e instanceof AiAskError)) throw e;
+    if (e.retryable && ctx.attempt < 3) throw e;
+    await done({ failure: e.message });
+    return;
+  }
+  const posts = [];
+  for (const words of written.posts.slice(0, 3)) {
+    const flags = checkWords(words);
+    posts.push({
+      words,
+      checks: [
+        {
+          source: 'words',
+          version: FAIR_HOUSING_WORDS_VERSION,
+          status: flags.length ? 'flagged' : 'passed',
+          flags,
+        },
+        await modelCheck(ctx, `Social post about ${facts.street}`, words),
+      ],
+    });
+  }
+  await done({ posts, model: written.model });
+}
+
+/** `realestate.listing.post_saved`: the model reads the agent's own words for a post. */
+export async function postSaved(ctx: AddonEventContext): Promise<void> {
+  const postId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['postId'];
+  if (typeof postId !== 'string') return;
+  const [p] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ state: string; words: string | null }>(
+      tx,
+      sql`select state, words from addon_realestate.listing_posts where id = ${postId}`,
+    ),
+  );
+  if (!p || p.state !== 'ready' || !p.words) return;
+  const check = await modelCheck(ctx, 'Social post', p.words);
+  await executeCommand(
+    ctx.db,
+    listingPostChecked,
+    {
+      workspaceId: ctx.scope.workspaceId,
+      postId,
+      textHash: textHashOf(null, p.words),
       version: check.version,
       status: check.status,
       flags: check.flags,

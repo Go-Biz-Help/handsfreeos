@@ -221,6 +221,7 @@ export const realestateAddon = defineAddon({
     'listing_photos',
     'seller_questionnaires',
     'listing_descriptions',
+    'listing_posts',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -320,6 +321,13 @@ export const realestateAddon = defineAddon({
       'realestate.listing.description_flags_kept',
       'realestate.listing.description_sent',
       'realestate.listing.description_signed',
+      'realestate.listing.live',
+      'realestate.listing.page_changed',
+      'realestate.listing.campaign_started',
+      'realestate.listing.asked',
+      'realestate.listing.posts_requested',
+      'realestate.listing.posts_ready',
+      'realestate.listing.post_saved',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -343,6 +351,11 @@ export const realestateAddon = defineAddon({
       // A listing's description: drafted, and every version of its words checked.
       'realestate.listing.description_requested',
       'realestate.listing.description_saved',
+      // A visitor asked about a listing on its page: its agent hears.
+      'realestate.listing.asked',
+      // Social posts: drafted, and every version of their words checked.
+      'realestate.listing.posts_requested',
+      'realestate.listing.post_saved',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',
@@ -428,6 +441,8 @@ export const realestateAddon = defineAddon({
         query: 'realestate.portal.deal',
       },
     ],
+    // Round three: a listing's page, for anyone with the link (`/a/<site>/realestate/<slug>`).
+    public: [{ path: ':slug', query: 'realestate.public.listing' }],
   },
   ai: {
     directory:

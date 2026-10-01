@@ -1423,3 +1423,50 @@ export const listingDescriptions = addonRealestate.table(
     }).onDelete('cascade'),
   ],
 );
+
+/** Both fair housing checks of a post's words as they are now. */
+export interface PostChecks {
+  readonly hash?: string;
+  readonly words?: { readonly version: string; readonly flags: readonly unknown[] };
+  readonly model?: {
+    readonly version: string;
+    readonly status: 'passed' | 'flagged' | 'unavailable';
+    readonly flags: readonly unknown[];
+  };
+}
+
+/** A draft of one of a listing's social posts, in its batch (round three, step 6). */
+export const listingPosts = addonRealestate.table(
+  'listing_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    batch: integer('batch').notNull(),
+    position: smallint('position').notNull(),
+    words: text('words'),
+    state: text('state')
+      .notNull()
+      .default('drafting')
+      .$type<'drafting' | 'ready' | 'failed' | 'replaced'>(),
+    model: text('model'),
+    failure: text('failure'),
+    checks: jsonb('checks')
+      .$type<PostChecks>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    editedBy: userRef('edited_by'),
+    editedAt: ts('edited_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.dealRecordId, t.batch, t.position),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
