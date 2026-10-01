@@ -190,8 +190,6 @@ export function homeFit(profile: FitProfile, facts: ListingFacts, address: strin
  */
 export function suggestsListing(fit: Fit): boolean {
   return (
-    fit.missed === 0 &&
-    fit.met >= 2 &&
-    fit.lines.some((l) => l.key === 'budget' && l.met === true)
+    fit.missed === 0 && fit.met >= 2 && fit.lines.some((l) => l.key === 'budget' && l.met === true)
   );
 }
