@@ -425,7 +425,7 @@ export interface CheckoutInput {
    * What is being paid for, which is the metadata key the id goes out under (`founding_checkout_id`,
    * `rcs_request_id`) and so how its events find their way back. A founding seat when left out.
    */
-  readonly kind?: 'founding_checkout' | 'rcs_request';
+  readonly kind?: 'founding_checkout' | 'rcs_request' | 'texting_fee';
   /** Ours. Stamped on the page and on its payment, so every event about it finds its way back. */
   readonly checkoutId: string;
   readonly amountCents: number;
@@ -476,6 +476,8 @@ export interface CheckoutEvent {
   readonly rcsRequestId: string | null;
   /** On an RCS renewal paid with another card: the `paid_through` it renews. Null on a first payment. */
   readonly renewalFor: string | null;
+  /** A texting fee (0105), from the page's metadata. Null on any other page. */
+  readonly textingFeeId: string | null;
   /** The provider's customer the page made (`cus_…`). */
   readonly customerRef: string | null;
   /** `paid`, `unpaid` or `no_payment_required`. Only `paid` means the money is in. */

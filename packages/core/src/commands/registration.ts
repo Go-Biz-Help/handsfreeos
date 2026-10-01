@@ -1,5 +1,10 @@
 import { and, eq } from 'drizzle-orm';
-import { registrationDrafts, telephonyRegistrations, workspaces } from '@hfos/db/schema';
+import {
+  registrationDrafts,
+  telephonyRegistrations,
+  textingFees,
+  workspaces,
+} from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -12,7 +17,11 @@ import {
   latestByKind,
   defaultNumber,
   loadRegistrations,
+  textingFeesPaidFor,
+  unsettledTextingFee,
 } from '../messaging/store';
+import { money } from '../money/format';
+import { textingFeeLines, textingFeeTotal } from '../money/texting-fees';
 import {
   RegistrationSaveDraftInput,
   RegistrationSaveDraftOutput,
@@ -30,13 +39,13 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 export const registrationSubmit = defineCommand({
   name: 'registration.submit',
   description:
-    'Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number.',
+    'Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number. A local registration costs what the carriers charge for it (the brand’s fees once, the campaign’s review each time it is sent), and its steps wait until that is paid: the output’s fee says how much, and phone.setup_status where to pay it.',
   risk: 3,
   input: RegistrationSubmitInput,
   output: RegistrationSubmitOutput,
   permission: 'channels.manage',
   scope: inWorkspace,
-  emits: ['registration.submitted'],
+  emits: ['registration.submitted', 'texting_fee.due'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const number = await defaultNumber(ctx.tx, workspaceId);
@@ -92,6 +101,23 @@ export const registrationSubmit = defineCommand({
           : 'Texting is already approved for this business, so there’s nothing more to send. Its numbers can text as soon as they’re here.',
       );
 
+    /*
+     * **What sending it costs (0105), worked out before anything changes**, from what was sent and paid for
+     * before: the brand's fees until it has gone, the campaign's review when it is new, was turned down, or an
+     * unpaid earlier send already owes it. The 10DLC steps wait in the worker until it is paid.
+     */
+    const owed =
+      input.kind === 'a2p_10dlc'
+        ? await unsettledTextingFee(ctx.tx, workspaceId, 'registration')
+        : null;
+    const feeLines =
+      input.kind === 'a2p_10dlc'
+        ? textingFeeLines({
+            ...(await textingFeesPaidFor(ctx.tx, workspaceId)),
+            monthlyVolume: input.business.monthlyVolume,
+          })
+        : [];
+
     // The kind of business goes with it, for the carrier's industry: the workspace already knows it, and
     // asking again on the form would only give it a second answer to disagree with.
     const [ws] = await ctx.tx
@@ -145,6 +171,47 @@ export const registrationSubmit = defineCommand({
     }
     // What was being typed is now what was sent; the wizard starts from the submission next time.
     await ctx.tx.delete(registrationDrafts).where(eq(registrationDrafts.workspaceId, workspaceId));
+
+    // What it costs. An earlier send's unpaid fee with the same lines stays, page and all; one this send changes
+    // (a vetting added by a bigger volume, say) is put aside, and the new fee carries its lines.
+    let fee: { id: string; amountCents: number } | null = null;
+    const amountCents = textingFeeTotal(feeLines);
+    const sameLines =
+      !!owed &&
+      owed.amountCents === amountCents &&
+      owed.lines.map((l) => l.key).join() === feeLines.map((l) => l.key).join();
+    if (owed && sameLines) fee = { id: owed.id, amountCents: owed.amountCents };
+    else {
+      if (owed)
+        await ctx.tx
+          .update(textingFees)
+          .set({ status: 'cancelled', closedAt: now })
+          .where(eq(textingFees.id, owed.id));
+      if (feeLines.length) {
+        const [made] = await ctx.tx
+          .insert(textingFees)
+          .values({
+            workspaceId,
+            purpose: 'registration',
+            lines: feeLines.map(({ key, name, cents }) => ({ key, name, cents })),
+            amountCents,
+            requestedBy: userIdOf(ctx.actor),
+          })
+          .returning({ id: textingFees.id });
+        if (!made) throw HfosError.forbidden();
+        fee = { id: made.id, amountCents };
+        await ctx.emit({
+          type: 'texting_fee.due',
+          entityType: 'texting_fee',
+          entityId: made.id,
+          payload: { textingFeeId: made.id, amountCents, purpose: 'registration' },
+          after: {
+            owed: money(amountCents),
+            for: feeLines.map((l) => l.name).join(', '),
+          },
+        });
+      }
+    }
     await ctx.emit({
       type: 'registration.submitted',
       entityType: 'registration',
@@ -158,7 +225,7 @@ export const registrationSubmit = defineCommand({
         ...(forNumber ? { number: formatPhone(forNumber) } : {}),
       },
     });
-    return { registrationIds: ids };
+    return { registrationIds: ids, fee };
   },
 });
 

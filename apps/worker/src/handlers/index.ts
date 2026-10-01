@@ -87,6 +87,12 @@ import {
   onRcsRequestSubmitted,
 } from '../telephony/rcs-billing';
 import {
+  onTextingFeeDue,
+  onTextingFeeFailed,
+  onTextingFeePageRequested,
+  onTextingFeePaid,
+} from '../telephony/texting-fees';
+import {
   onBrandedDomainAdded,
   onBrandedDomainCheckRequested,
   onBrandedDomainRemoved,
@@ -163,6 +169,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'rcs_request.renewed': onRcsBilled,
     'rcs_request.renewal_failed': onRcsBilled,
     'rcs_request.renewal_page_requested': onRcsRenewalPageRequested,
+    // What registering for texting costs, passed on (0105): collecting a fee is a job; paying it lets the
+    // registration go to the carriers; a card that says no is told to the owners (telephony/texting-fees.ts).
+    'texting_fee.due': onTextingFeeDue,
+    'texting_fee.page_requested': onTextingFeePageRequested,
+    'texting_fee.paid': onTextingFeePaid,
+    'texting_fee.failed': onTextingFeeFailed,
     // A business's own domain on its forms, payment links and booking page (hosting/domains.ts).
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,

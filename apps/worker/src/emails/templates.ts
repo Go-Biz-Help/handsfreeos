@@ -545,6 +545,39 @@ See RCS in Settings: ${input.link}`;
   return { subject, text, html };
 }
 
+/**
+ * A texting fee the card didn't pay (0105): a registration's fees, which hold it back from the carriers, or a month
+ * of the campaign. Either way, there is a page to pay it on with another card.
+ */
+export function textingFeeFailedEmail(input: {
+  business: string;
+  amount: string;
+  /** The registration's fees, or a month of the campaign. */
+  month: boolean;
+  reason: string;
+  link: string;
+}): EmailContent {
+  const subject = input.month
+    ? `This month’s texting campaign fee for ${input.business} didn’t go through`
+    : `Your texting registration for ${input.business} is waiting on payment`;
+  const lines = input.month
+    ? [
+        `We couldn’t take this month’s ${input.amount} for your texting campaign: ${input.reason}`,
+        'Your texts keep going out. Pay it with another card in Settings, which keeps that card for the months after.',
+      ]
+    : [
+        `We couldn’t take the ${input.amount} the carriers charge for your texting registration: ${input.reason}`,
+        'Nothing goes to the carriers until it’s paid. Pay it with another card in Settings and it goes straight away.',
+      ];
+  const text = `${lines.join('\n\n')}\n\nPay in Settings: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Pay in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
 /** A business paid for RCS (0104): what happens next, and when it renews. */
 export function rcsPaidEmail(input: {
   business: string;

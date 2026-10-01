@@ -7,6 +7,7 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
+import { money } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -303,6 +304,15 @@ const submitCarrierRegistration: SettingsConfirmTool = {
             kind: 'note',
             text: 'The carriers review this, which takes a few days. Texting turns on once they approve it.',
           },
+          // 0105: a local registration's carrier fees are the business's, paid before it goes.
+          ...((str(args['kind']) ?? 'a2p_10dlc') === 'a2p_10dlc'
+            ? [
+                {
+                  kind: 'note' as const,
+                  text: 'A local-number registration has carrier fees, passed on at cost. You pay them in Settings → Texting & calls, and it goes to the carriers once they’re paid.',
+                },
+              ]
+            : []),
         ],
       }),
       result: { waiting: true },
@@ -310,9 +320,17 @@ const submitCarrierRegistration: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
-    await command(db, ctx, 'registration.submit', registrationInput(args));
+    const sent = await command<{ fee: { amountCents: number } | null }>(
+      db,
+      ctx,
+      'registration.submit',
+      registrationInput(args),
+    );
     return {
-      outcome: 'Sent to the carriers',
+      // With fees to pay, it waits for them: say where, rather than that it went.
+      outcome: sent.fee
+        ? `Saved. Pay ${money(sent.fee.amountCents)} in Settings → Texting & calls to send it to the carriers`
+        : 'Sent to the carriers',
       href: `/app/w/${ctx.workspaceId}/settings/texting`,
       command: 'registration.submit',
     };

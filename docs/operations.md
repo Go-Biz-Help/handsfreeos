@@ -4149,7 +4149,7 @@ A client moving its own local number here (a carrier port, or a transfer from Tw
 - **Local (10DLC) only.** Toll-free verification is for one toll-free number, and Twilio asks for that number, so it still waits for it (rule `no_number`). The card isn't shown when the number on its way is toll-free; sending a 10DLC registration then is refused with `registration_kind_mismatch`.
 - **Sending it makes the subaccount and messaging service**, the way a first purchase would (below), because the campaign is registered on the messaging service.
 - **The registration names the number on its way** when there is one (its HELP reply and the hosted privacy page give it). With nothing on its way, they leave the number out.
-- **The campaign's $10 a month starts when the carriers approve it**, which can be before the number lands.
+- **The campaign's $10 a month starts when the carriers approve it**, which can be before the number lands. The business pays it (see "Paying the carriers' fees").
 - Toll-free verification sent while its number is still being set up now goes the moment the number starts working (`phone_number.purchased`, `phone_number.ported_in` and `phone_number.imported` walk the registration again). It used to wait until someone sent it again.
 
 The first purchase creates these in order: the subaccount `HandsFreeOS <workspace name> <tag>`, the messaging service `HandsFreeOS <tag>`, and an API key and a TwiML app both named `HandsFreeOS calls <tag>`. The `<tag>` is the first 8 characters of the workspace id. Each step is saved as it finishes, so a failure part-way picks up where it stopped. To see them in the Twilio console, open the master account's list of subaccounts and click the subaccount's name. The list is at `https://www.twilio.com/console/project/subaccounts`; in the new console it is under **Settings** → **Account settings** → **Subaccount management**. If neither works, search the console for `Subaccounts`. To return to the master account, use the account menu at the top left.
@@ -4182,6 +4182,30 @@ What HandsFreeOS sends besides their answers:
 #### STOP, START and HELP
 
 Twilio answers STOP and START itself, in its standard words, before HandsFreeOS sees the text. Nothing else can be sent to a number after it says STOP, so HandsFreeOS can't send its own STOP reply, and the registration declares Twilio's. HandsFreeOS answers HELP and INFO itself with the reply above, at any hour, and never to someone who texted STOP. If you turn on **Advanced Opt-Out** for a client's messaging service in the Twilio console (it can only be turned off by Twilio support), Twilio answers these keywords instead and HandsFreeOS stays quiet; set its STOP, START and HELP replies to the ones the registration declared, or the carriers will find two different answers.
+
+#### Paying the carriers' fees
+
+A local number's registration costs money at The Campaign Registry and the carriers, and the business pays it, at cost, with nothing added (`packages/core/src/money/texting-fees.ts`). Toll-free verification costs nothing and has no fees.
+
+| Fee                | Amount      | When the business pays it                                                  |
+| ------------------ | ----------- | -------------------------------------------------------------------------- |
+| Brand registration | $4.50       | Once, until the brand has gone to The Campaign Registry                    |
+| Brand vetting      | $41.50      | Once, with the brand, when the business picked 1,000 or more texts a month |
+| Campaign review    | $15         | Each time the campaign goes to the carriers, a resubmission included       |
+| Texting campaign   | $10 a month | From the month the carriers approve the campaign, on that day each month   |
+
+So a first registration is $19.50, or $61 for a business that texts 1,000 or more a month, and a campaign sent again after the carriers turn it down is $15.
+
+- **The last step of the registration shows the fees** and its button reads **Pay $19.50 and send**. Sending writes the registration as before and what it costs (`app.texting_fees`, `registration.submit`'s `fee`). **Nothing goes to the carriers until it's paid**: the worker holds the 10DLC steps back while a registration fee waits.
+- **Paying.** The first time, the page shows "Making your payment page…" and then sends the person to a Stripe Checkout page in our own account, with the fees as its lines. It is the same Stripe setup as the founding seats and RCS: `STRIPE_PLATFORM_WEBHOOK_SECRET` and the same four events at `/webhooks/stripe/platform`. The page keeps the card. Later fees (a resubmission's $15, each month) are charged to that card without a page.
+- **A card that says no** is not tried again. The owners and admins get "Your texting registration … is waiting on payment" or "This month’s texting campaign fee … didn’t go through", and Settings → Texting & calls shows **Pay $… with another card** (`texting_fee.pay`). The card paid with is the one charged from then on. While a month waits on the business, no further months are charged; once it's paid, the missed months are charged one an hour.
+- **The month** is charged by an hourly sweep (`texting_fee.months`) for each business whose newest campaign is approved, whose Twilio account is open, and that has paid a texting fee by card here. A business registered before this has no card on file, so it is never charged for months it didn't agree to. Charge those by hand if you want to.
+- **Paying online switched off** (no `STRIPE_PLATFORM_WEBHOOK_SECRET` on the worker) never strands a registration: its fee is marked waived, the worker logs a warning, and the registration goes to the carriers uncharged.
+- The Assistant's **Send your texting registration** card says there are carrier fees, and after sending it says where to pay.
+- **Not on the usage balance**, so nothing is charged twice. The balance charged them for a short while in October 2026, while it only recorded charges, so no money moved (see "Usage balances: what businesses pay us").
+- Needs `20261018000200_texting_fees_passed_on.sql` (see "Apply new migrations").
+
+Locally and in tests the stand-in Stripe takes the payment. A card paid with `4000000000000341` is refused when the month is charged.
 
 #### Carrier review and how long it takes
 
@@ -4328,7 +4352,7 @@ Carrier fees on local-number texts, added to the prices above:
 
 Twilio's registration-fee help article still says only T-Mobile charges on received texts. The pricing page is the newer source.
 
-Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers. HandsFreeOS passes the first four on to the business's usage balance at cost, when they happen (see "Usage balances: what businesses pay us"). On Twilio's bill they all appear under one category, `a2p-registration-fees` ("Messaging A2P Brand Registration Fee" and the like).
+Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers, and the business pays the first four by card, at cost (see "Paying the carriers' fees"). On Twilio's bill they all appear under one category, `a2p-registration-fees` ("Messaging A2P Brand Registration Fee" and the like).
 
 | Fee                  | Price                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -8827,23 +8851,13 @@ rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A bu
 `20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
 made by Twilio (the fallback without a Deepgram key) are not on the balance.
 
-**The carriers' fees for texting from a local number are on the balance too, at cost.** Registering a business to
-text from a local number (A2P 10DLC) costs fees that Twilio passes on to us, and the balance passes them on with
-no markup. Four lines on the rate card, each at markup 10000:
-
-| Line                     | Price           | Charged when                                                                                                                  |
-| ------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `a2p.brand.registration` | $4.50 once      | The brand is first sent. Sending a turned-down brand again is free, at Twilio and here.                                       |
-| `a2p.brand.vetting`      | $41.50 once     | The brand is first sent, unless the business picked **Under 1,000** texts a month.                                            |
-| `a2p.campaign.vetting`   | $15 each time   | A campaign is sent. A turned-down campaign is replaced by a new one, and Twilio charges the review again.                     |
-| `a2p.campaign.month`     | $10 every month | The campaign is approved, then on the same day each month while the account is open (the daily `wallet.campaign_months` job). |
-
-The last step of the registration on the web says what sending will take from the balance. **Settings** →
-**Usage & balance** lists the four prices. The nightly reconciliation leaves Twilio's `a2p-registration-fees`
-category alone: Twilio dates these by its own clock, so a day-by-day comparison would charge twice. The $11
-brand appeal isn't charged; it only happens when support asks Twilio for one. With `WALLET_MODE` off nothing is
-charged. Needs `20261017000100_a_fee_is_a_unit.sql` and `20261017000200_texting_registration_on_the_wallet.sql`.
-To change a price when Twilio does, publish a new card at `/admin/rates` as for any other line.
+**The carriers' fees for texting from a local number are not on the balance.** The business pays them by card,
+at cost, before its registration goes to the carriers (see "Paying the carriers' fees"). The rate card still has
+their four lines (`a2p.brand.registration`, `a2p.brand.vetting`, `a2p.campaign.vetting`, `a2p.campaign.month`, at
+markup 10000, from `20261017000100_a_fee_is_a_unit.sql` and `20261017000200_texting_registration_on_the_wallet.sql`),
+but nothing charges them; **Usage & balance** doesn't list them. The nightly reconciliation leaves Twilio's
+`a2p-registration-fees` category alone, so the card's charge is the only one. A `wallet.campaign_months` job left
+over from before finishes once and doesn't come back.
 
 **Phone numbers are charged once per calendar month.** Each number a business held during a month is one
 statement line, "Phone number (512) 555-0134, October 2026", at the card's price ($2 local, $3.50 toll-free).

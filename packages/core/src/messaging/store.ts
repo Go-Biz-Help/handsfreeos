@@ -10,6 +10,7 @@ import {
   rcsRequests,
   rcsSenders,
   telephonyRegistrations,
+  textingFees,
   workspaces,
 } from '@hfos/db/schema';
 import { hasPhone, mainPhoneFirst } from '../crm/matching';
@@ -627,6 +628,65 @@ export async function currentRcsSender(tx: Tx, workspaceId: string) {
     .orderBy(desc(rcsSenders.createdAt))
     .limit(1);
   return s ?? null;
+}
+
+/**
+ * A texting fee waiting on the business (0105): a registration's fees not paid yet (the 10DLC steps wait for
+ * them), or a month of the campaign the card didn't pay. At most one registration fee, by
+ * `texting_fees_one_unsettled_registration`.
+ */
+export async function unsettledTextingFee(
+  tx: Tx,
+  workspaceId: string,
+  purpose: 'registration' | 'month',
+) {
+  const [f] = await tx
+    .select()
+    .from(textingFees)
+    .where(
+      and(
+        eq(textingFees.workspaceId, workspaceId),
+        eq(textingFees.purpose, purpose),
+        inArray(textingFees.status, ['pending', 'open', 'failed']),
+      ),
+    )
+    .orderBy(desc(textingFees.createdAt))
+    .limit(1);
+  return f ?? null;
+}
+
+/**
+ * What the business has already sent or paid for (0105), which decides what sending its local registration costs
+ * now (core's textingFeeLines). The brand counts as behind it once it reached the carriers or its fee was paid; the
+ * campaign's review is covered unless the campaign is new, was turned down (it goes again), or an unpaid fee
+ * already lists it.
+ */
+export async function textingFeesPaidFor(tx: Tx, workspaceId: string) {
+  const latest = latestByKind(await loadRegistrations(tx, workspaceId));
+  const brand = latest.get('a2p_brand');
+  const campaign = latest.get('a2p_campaign');
+  const settled = await tx
+    .select({ lines: textingFees.lines })
+    .from(textingFees)
+    .where(
+      and(
+        eq(textingFees.workspaceId, workspaceId),
+        eq(textingFees.purpose, 'registration'),
+        inArray(textingFees.status, ['paid', 'waived']),
+      ),
+    );
+  const paid = (key: string) => settled.some((f) => f.lines.some((l) => l.key === key));
+  const unpaid = await unsettledTextingFee(tx, workspaceId, 'registration');
+  return {
+    brandSent: !!brand?.providerSid,
+    brandPaid: paid('brand'),
+    vettingPaid: paid('secondary_vetting'),
+    campaignCovered:
+      !!campaign &&
+      campaign.status !== 'rejected' &&
+      campaign.status !== 'failed' &&
+      !unpaid?.lines.some((l) => l.key === 'campaign_vetting'),
+  };
 }
 
 /**

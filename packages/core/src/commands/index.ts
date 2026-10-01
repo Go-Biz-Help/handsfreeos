@@ -114,6 +114,7 @@ import { twilioConnectionCommands } from './twilio-connection';
 import { telephonyAccountCommands } from './telephony-account';
 import { rcsCommands } from './rcs';
 import { rcsRequestCommands } from './rcs-request';
+import { textingFeeCommands } from './texting-fee';
 import {
   emailAddressCreate,
   emailAddressReassign,
@@ -901,6 +902,7 @@ export const commands: readonly CommandDef[] = [
   // A business's RCS sender: connected, paused, looked at again and let go (0103).
   ...rcsCommands,
   ...rcsRequestCommands,
+  ...textingFeeCommands,
   // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
   addonInstall,
   addonEnable,
@@ -980,6 +982,7 @@ export * from './support-staff';
 export * from './port';
 export * from './rcs';
 export * from './rcs-request';
+export * from './texting-fee';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
