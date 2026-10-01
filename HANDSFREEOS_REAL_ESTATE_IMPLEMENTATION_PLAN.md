@@ -1299,12 +1299,18 @@ boards; the server steps go ahead meanwhile.
   and a turned-off add-on, the record, the sign-up and its consent, the rules), `apps/worker/test/addon-public.test.ts`
   (the doors' refusals; Real Estate's pages are tested through them in step 6), `branded-paths.test.ts`.
 
-### Step 2: campaigns from exact words (core)
+### Step 2: campaigns from exact words (built, 2026-10-01)
 
-- `campaign.create` takes `words`: a text, or an email's subject and body. With them the worker puts those words in
-  every draft instead of asking the AI to write one. Approval, consent, unsubscribes, the business's postal address
-  and the 500-person limit stay as they are; an AI call can't take `words`.
-- An add-on starts one through `executeCommandWithin`, as the person who clicked.
+**As built** (no migration):
+
+- `campaign.create` takes `words`: `{ text }` for texts, `{ subject, body }` for an email. A text's words are every
+  picked person's draft at once, ready for review; an email's are the campaign's email, which the worker's drafting
+  already keeps when it's there. The AI writes nothing for either, and the drafting job moves it straight to review.
+  An AI call refuses words, and words missing their part are refused, each saying what to write.
+- Who it picks and leaves out, the postal address, the 500 limit, approval and every consent rule are unchanged.
+- An add-on starts one through `executeCommandWithin`, as the person who clicked, so it needs their Workflows
+  permission like any campaign.
+- Tests: `campaigns.test.ts`, `email-campaigns.test.ts`, the worker's `automations-email-campaigns.test.ts`.
 
 ### Step 3: the listing and its facts
 

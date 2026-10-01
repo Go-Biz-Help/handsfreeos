@@ -17968,6 +17968,12 @@ export interface operations {
                     offerId?: string | null;
                     /** @default 20 */
                     perHour?: number;
+                    /** @default null */
+                    words?: {
+                        body?: string;
+                        subject?: string;
+                        text?: string;
+                    } | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };

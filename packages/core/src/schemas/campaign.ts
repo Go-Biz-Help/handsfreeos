@@ -101,6 +101,23 @@ export const CampaignCreateInput = z.object({
   offerId: uuid.nullable().default(null),
   /** Texts (the default), one email, or calls. */
   channel: campaignChannel.default('sms'),
+  /**
+   * The exact words to send instead of the AI writing them (Real Estate round three: a listing's words, already read
+   * for fair housing): the text everyone gets, or the email's subject and body. Never for calls.
+   */
+  words: z
+    .object({
+      text: z.string().trim().min(1, 'Write the text.').max(CAMPAIGN_DRAFT_MAX).optional(),
+      subject: z
+        .string()
+        .trim()
+        .min(1, 'Write a subject.')
+        .max(CAMPAIGN_EMAIL_SUBJECT_MAX)
+        .optional(),
+      body: z.string().trim().min(1, 'Write something.').max(CAMPAIGN_EMAIL_BODY_MAX).optional(),
+    })
+    .nullable()
+    .default(null),
 });
 export const CampaignCreateOutput = z.object({
   campaignId: uuid,

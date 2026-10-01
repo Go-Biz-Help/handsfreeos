@@ -127,6 +127,26 @@ export const campaignCreate = defineCommand({
       }
     }
     const email = input.channel === 'email';
+    // Exact words the caller already has: the one text, or the email's subject and body.
+    const words = input.words;
+    if (words) {
+      const missing =
+        input.channel === 'call'
+          ? {
+              path: 'words',
+              message:
+                'A call is always worded on the line. Leave the words out, or send texts or an email.',
+            }
+          : email && (!words.subject || !words.body)
+            ? {
+                path: words.subject ? 'words.body' : 'words.subject',
+                message: 'An email needs its subject and its words.',
+              }
+            : !email && !words.text
+              ? { path: 'words.text', message: 'Write the text everyone gets.' }
+              : null;
+      if (missing) throw HfosError.validation([missing], missing.message);
+    }
     if (email && !(await businessPostalAddress(ctx.tx, ws)))
       throw HfosError.rule(
         'no_postal_address',
@@ -159,14 +179,22 @@ export const campaignCreate = defineCommand({
         offerId: input.offerId,
         channel: input.channel,
         createdBy: me,
+        // An email's own words stand, and nothing is asked of the AI for them.
+        ...(email && words ? { emailSubject: words.subject, emailBody: words.body } : {}),
       })
       .returning({ id: campaigns.id });
     if (!c) throw HfosError.forbidden();
+    const text = !email && words?.text ? words.text : null;
     await rows(
       ctx.tx,
-      sql`insert into app.campaign_recipients (workspace_id, campaign_id, person_id, status, skip_reason)
+      // A text's own words are everyone's draft at once, ready for review: the AI writes nothing.
+      sql`insert into app.campaign_recipients (workspace_id, campaign_id, person_id, status, skip_reason, draft)
           select ${ws}, ${c.id}, x.person_id,
-            case when x.reason is null then 'drafting' else 'skipped' end, x.reason
+            case when x.reason is not null then 'skipped'
+                 when ${text}::text is not null then 'ready'
+                 else 'drafting' end,
+            x.reason,
+            case when x.reason is null then ${text}::text end
           from unnest(array[${sql.join(
             people.map((p) => sql`${p.personId}`),
             sql`, `,
