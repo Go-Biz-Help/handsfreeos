@@ -12,7 +12,9 @@ import {
   foreignKey,
   integer,
   jsonb,
+  numeric,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -31,6 +33,9 @@ import {
 import type { DealRole, DealLinkKind } from './words';
 
 export const addonRealestate = pgSchema('addon_realestate');
+
+/** Who did something, as the add-on's history says: a person, HandsFreeOS, the AI, or the client in their portal. */
+export type HistoryActor = 'person' | 'system' | 'ai' | 'client';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const workspaceRef = () =>
@@ -143,7 +148,7 @@ export const dealHistory = addonRealestate.table(
     workspaceId: workspaceRef(),
     dealRecordId: uuid('deal_record_id').notNull(),
     at: ts('at').notNull().defaultNow(),
-    actorType: text('actor_type').notNull().$type<'person' | 'system' | 'ai'>(),
+    actorType: text('actor_type').notNull().$type<HistoryActor>(),
     actorUserId: userRef('actor_user_id'),
     what: text('what').notNull(),
     before: jsonb('before').$type<Record<string, unknown>>(),
@@ -398,6 +403,9 @@ export const dutyEvidence = addonRealestate.table(
       onDelete: 'set null',
     }),
     messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    /** One of the add-on's own rows the proof is (kind `record`): a home, a tour, an offer (round two). */
+    refKind: text('ref_kind'),
+    refId: uuid('ref_id'),
     body: text('body'),
     addedBy: userRef('added_by'),
     addedAt: ts('added_at').notNull().defaultNow(),
@@ -422,7 +430,7 @@ export const dutyLog = addonRealestate.table(
     dealRecordId: uuid('deal_record_id').notNull(),
     dutyId: uuid('duty_id').notNull(),
     at: ts('at').notNull().defaultNow(),
-    actorType: text('actor_type').notNull().$type<'person' | 'system' | 'ai'>(),
+    actorType: text('actor_type').notNull().$type<HistoryActor>(),
     actorUserId: userRef('actor_user_id'),
     what: text('what').notNull(),
     before: jsonb('before').$type<Record<string, unknown>>(),
@@ -510,6 +518,147 @@ export const fairHousingChecks = addonRealestate.table(
   ],
 );
 
+/** What the buyer wants, one per buyer deal (round two). */
+export const buyerProfiles = addonRealestate.table(
+  'buyer_profiles',
+  {
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    budgetMinCents: cents('budget_min_cents'),
+    budgetMaxCents: cents('budget_max_cents'),
+    areas: text('areas')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    homeTypes: text('home_types')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    bedsMin: integer('beds_min'),
+    bathsMin: numeric('baths_min', { precision: 3, scale: 1 }),
+    sqftMin: integer('sqft_min'),
+    moveBy: date('move_by', { mode: 'string' }),
+    mustHaves: text('must_haves')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    dealBreakers: text('deal_breakers')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    version: integer('version').notNull().default(1),
+    updatedBy: userRef('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.dealRecordId] }),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each save of a buyer's profile, as it was. Append-only. */
+export const buyerProfileVersions = addonRealestate.table(
+  'buyer_profile_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    version: integer('version').notNull(),
+    profile: jsonb('profile').$type<Record<string, unknown>>().notNull(),
+    actorType: text('actor_type').notNull().$type<HistoryActor>(),
+    savedBy: userRef('saved_by'),
+    savedAt: ts('saved_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.dealRecordId, t.version),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A home on a buyer deal, with its facts and where each came from (round two). */
+export const homes = addonRealestate.table(
+  'homes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    address: text('address').notNull(),
+    addressKey: text('address_key').notNull(),
+    source: text('source').notNull().$type<'agent' | 'client' | 'mls'>(),
+    link: text('link'),
+    pastedText: text('pasted_text'),
+    facts: jsonb('facts')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    factSources: jsonb('fact_sources')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    factsState: text('facts_state')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'filling' | 'suggested' | 'confirmed' | 'failed'>(),
+    factsModel: text('facts_model'),
+    factsFailure: text('facts_failure'),
+    factsConfirmedBy: userRef('facts_confirmed_by'),
+    factsConfirmedAt: ts('facts_confirmed_at'),
+    status: text('status')
+      .notNull()
+      .default('saved')
+      .$type<'saved' | 'shortlisted' | 'toured' | 'offered' | 'passed' | 'removed'>(),
+    statusNote: text('status_note'),
+    addedBy: userRef('added_by'),
+    addedByPersonId: uuid('added_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each client's own save or pass on a home. */
+export const homeReactions = addonRealestate.table(
+  'home_reactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    homeId: uuid('home_id').notNull(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull().$type<'saved' | 'passed'>(),
+    note: text('note'),
+    reactedAt: ts('reacted_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.homeId, t.personId),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -528,4 +677,8 @@ export const REALESTATE_TABLES = {
   dutyLog,
   drafts,
   fairHousingChecks,
+  buyerProfiles,
+  buyerProfileVersions,
+  homes,
+  homeReactions,
 } as const;

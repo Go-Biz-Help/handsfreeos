@@ -4,6 +4,7 @@
  * it (the screen adds that). Browser-safe and pure: the web, the phone and the Assistant say the same thing.
  */
 import { DOCUMENT_KINDS } from './catalog/types';
+import { HOME_STATUSES, type HomeStatus } from './homes';
 import { KEY_DATES } from './dates/key-dates';
 import { STAGE_LABELS, DUTY_STATUS_LABELS, type DealStage, type DutyStatus } from './states';
 import { DEAL_ROLE_LABELS, EVENT_WORDS, PARTY_ROLES, type DealRole, type PartyRole } from './words';
@@ -14,6 +15,7 @@ type Bag = Readonly<Record<string, unknown>> | null | undefined;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const stage = (v: unknown) => STAGE_LABELS[str(v) as DealStage] ?? str(v);
+const homeStatus = (v: unknown) => HOME_STATUSES[str(v) as HomeStatus]?.toLowerCase() ?? str(v);
 const termName = (k: unknown) => {
   const key = str(k);
   const all: Readonly<Record<string, { label: string }>> = {
@@ -56,6 +58,17 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `Reopened the deal at ${stage(a.stage)}`;
     case 'facts':
       return 'Changed what’s true about the deal';
+    // Round two: the buyer's profile and their homes.
+    case 'buyer_profile':
+      return 'Saved what the buyer wants';
+    case 'home_added':
+      return a.source === 'client'
+        ? `The client added ${str(a.address)}`
+        : `Added ${str(a.address)} to the homes`;
+    case 'home_facts':
+      return `Confirmed the facts for ${str(a.address)}`;
+    case 'home_status':
+      return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
     case 'team':
       if (a.added)
         return `Added someone to the deal as ${DEAL_ROLE_LABELS[str(a.role) as DealRole]?.toLowerCase() ?? 'a teammate'}`;

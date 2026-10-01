@@ -196,6 +196,11 @@ export const realestateAddon = defineAddon({
     'duty_log',
     'drafts',
     'fair_housing_checks',
+    // Round two: the buyer's profile and their homes.
+    'buyer_profiles',
+    'buyer_profile_versions',
+    'homes',
+    'home_reactions',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -247,6 +252,12 @@ export const realestateAddon = defineAddon({
       'realestate.status_email.flags_acknowledged',
       'realestate.status_email.sent',
       'realestate.status_email.discarded',
+      // Round two: the buyer's profile and their homes.
+      'realestate.buyer_profile.saved',
+      'realestate.home.added',
+      'realestate.home.facts_filled',
+      'realestate.home.facts_confirmed',
+      'realestate.home.status_changed',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -263,6 +274,8 @@ export const realestateAddon = defineAddon({
       'realestate.deal.stage_changed',
       'realestate.deal.event_recorded',
       'realestate.deal.closed',
+      // A home with a listing's pasted words: the AI reads them for its facts.
+      'realestate.home.added',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.

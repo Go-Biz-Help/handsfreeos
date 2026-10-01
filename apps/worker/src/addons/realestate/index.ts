@@ -31,6 +31,7 @@ import {
   draftSaved,
   milestoneReached,
 } from './client-updates';
+import { homeAdded } from './homes';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -173,6 +174,8 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.deal.stage_changed': milestoneReached,
     'realestate.deal.event_recorded': milestoneReached,
     'realestate.deal.closed': milestoneReached,
+    // Round two: a home's facts, read from its pasted listing words.
+    'realestate.home.added': homeAdded,
   },
   jobs: { [SWEEP]: runSweep },
   onEnable: armSweep,

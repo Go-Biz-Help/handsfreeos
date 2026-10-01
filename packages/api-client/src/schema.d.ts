@@ -6177,6 +6177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.buyer_profile.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save what a buyer wants: their price range, areas, kinds of home, bedrooms, baths, size, when they need to move, must-haves and deal-breakers. Each save is kept. Words about who lives in an area, rather than the home, are refused.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved.
+         */
+        post: operations["command_realestate_buyer_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.add_person": {
         parameters: {
             query?: never;
@@ -6931,6 +6951,66 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_duty_withdraw_evidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a home to a buyer deal: its address, a listing’s link (kept for people to open, never read) and, if there is one, the listing’s pasted words, which the AI reads for the home’s facts for the agent to confirm.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added.
+         */
+        post: operations["command_realestate_home_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.confirm_facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a home’s facts as the agent checked them against the listing. The AI suggests them; only a person confirms.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.facts_confirmed.
+         */
+        post: operations["command_realestate_home_confirm_facts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where a home stands for the buyer: saved, shortlisted, toured, offer made, passed, or removed from the deal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.status_changed.
+         */
+        post: operations["command_realestate_home_set_status"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12317,6 +12397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.buyer_profile.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a buyer wants, as last saved on their deal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_buyer_profile_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.deal.for": {
         parameters: {
             query?: never;
@@ -12471,6 +12571,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_duty_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.homes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s homes: each one’s facts (and where the AI found them, until confirmed), where it stands, how it fits what the buyer wants, and what each client said about it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_homes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26691,6 +26811,62 @@ export interface operations {
             };
         };
     };
+    command_realestate_buyer_profile_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    profile: {
+                        /** @default [] */
+                        areas?: string[];
+                        /** @default null */
+                        bathsMin?: number | null;
+                        /** @default null */
+                        bedsMin?: number | null;
+                        /** @default null */
+                        budgetMaxCents?: number | null;
+                        /** @default null */
+                        budgetMinCents?: number | null;
+                        /** @default [] */
+                        dealBreakers?: string[];
+                        /** @default [] */
+                        homeTypes?: ("single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land")[];
+                        /** @default null */
+                        moveBy?: string | null;
+                        /** @default [] */
+                        mustHaves?: string[];
+                        /** @default null */
+                        sqftMin?: number | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_deal_add_person: {
         parameters: {
             query?: never;
@@ -28232,6 +28408,127 @@ export interface operations {
                         /** Format: uuid */
                         evidenceId: string;
                         missing: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    link?: string;
+                    note?: string;
+                    pastedText?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        filling: boolean;
+                        /** Format: uuid */
+                        homeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_confirm_facts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    facts: {
+                        baths?: number;
+                        beds?: number;
+                        garage_spaces?: number;
+                        hoa_monthly_cents?: number;
+                        lot_sqft?: number;
+                        price_cents?: number;
+                        /** @enum {string} */
+                        property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                        sqft?: number;
+                        year_built?: number;
+                    };
+                    /** Format: uuid */
+                    homeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        confirmedAt: string;
+                        /** Format: uuid */
+                        homeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    homeId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        homeId: string;
+                        /** @enum {string} */
+                        status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
                     };
                 };
             };
@@ -44455,6 +44752,56 @@ export interface operations {
             };
         };
     };
+    query_realestate_buyer_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        profile: {
+                            areas: string[];
+                            bathsMin: number | null;
+                            bedsMin: number | null;
+                            budgetMaxCents: number | null;
+                            budgetMinCents: number | null;
+                            dealBreakers: string[];
+                            homeTypes: string[];
+                            moveBy: string | null;
+                            mustHaves: string[];
+                            sqftMin: number | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            updatedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            version: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     query_realestate_deal_for: {
         parameters: {
             query?: never;
@@ -44733,7 +45080,7 @@ export interface operations {
                                 userId: string;
                             } | null;
                             /** @enum {string} */
-                            actorType: "person" | "system" | "ai";
+                            actorType: "person" | "system" | "ai" | "client";
                             after: {
                                 [key: string]: unknown;
                             } | null;
@@ -45061,7 +45408,7 @@ export interface operations {
                                 userId: string;
                             } | null;
                             /** @enum {string} */
-                            actorType: "person" | "system" | "ai";
+                            actorType: "person" | "system" | "ai" | "client";
                             after: {
                                 [key: string]: unknown;
                             } | null;
@@ -45137,6 +45484,101 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
                             title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_homes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeRemoved?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homes: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            addedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            addedByClient: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            address: string;
+                            facts: {
+                                baths?: number;
+                                beds?: number;
+                                garage_spaces?: number;
+                                hoa_monthly_cents?: number;
+                                lot_sqft?: number;
+                                price_cents?: number;
+                                /** @enum {string} */
+                                property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                sqft?: number;
+                                year_built?: number;
+                            };
+                            factsFailure: string | null;
+                            factSources: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            factsState: "none" | "filling" | "suggested" | "confirmed" | "failed";
+                            fit: {
+                                lines: {
+                                    /** @enum {string} */
+                                    key: "budget" | "area" | "type" | "beds" | "baths" | "sqft";
+                                    met: boolean | null;
+                                    words: string;
+                                }[];
+                                met: number;
+                                missed: number;
+                                unknown: number;
+                            };
+                            hasPastedText: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            link: string | null;
+                            reactions: {
+                                /** Format: date-time */
+                                at: string;
+                                name: string;
+                                note: string | null;
+                                /** Format: uuid */
+                                personId: string;
+                                /** @enum {string} */
+                                reaction: "saved" | "passed";
+                            }[];
+                            /** @enum {string} */
+                            source: "agent" | "client" | "mls";
+                            /** @enum {string} */
+                            status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                            statusNote: string | null;
                         }[];
                     };
                 };

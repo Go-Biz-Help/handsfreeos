@@ -18,6 +18,7 @@ import { RUNGS } from './ladder';
 import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
+import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { TERM_KEYS } from './terms';
 
@@ -423,7 +424,7 @@ export const DealHistoryOutput = z.object({
     z.object({
       at: isoDateTime,
       what: z.string(),
-      actorType: z.enum(['person', 'system', 'ai']),
+      actorType: z.enum(['person', 'system', 'ai', 'client']),
       actor: z.object({ userId: uuid, name: z.string() }).nullable(),
       before: z.record(z.string(), z.unknown()).nullable(),
       after: z.record(z.string(), z.unknown()).nullable(),
@@ -679,7 +680,7 @@ export const DutyGetOutput = z.object({
     z.object({
       at: isoDateTime,
       what: z.string(),
-      actorType: z.enum(['person', 'system', 'ai']),
+      actorType: z.enum(['person', 'system', 'ai', 'client']),
       actor: z.object({ userId: uuid, name: z.string() }).nullable(),
       before: z.record(z.string(), z.unknown()).nullable(),
       after: z.record(z.string(), z.unknown()).nullable(),
@@ -926,3 +927,180 @@ export const StatusEmailGetOutput = z.object({
     }),
   ),
 });
+
+// ---------- round two: the buyer's profile and their homes ----------
+
+const shortList = (max: number, words: number) =>
+  z
+    .array(z.string().trim().min(1).max(words, `Keep each one under ${words} characters.`))
+    .max(max, `Keep it to ${max}.`)
+    .default([]);
+
+/** What the buyer wants. Every field is optional: a profile fills in as the agent learns it. */
+export const BuyerProfileFields = z
+  .object({
+    budgetMinCents: cents.nullable().default(null),
+    budgetMaxCents: cents.nullable().default(null),
+    /** Towns, ZIP codes or neighborhoods, as the client named them. */
+    areas: shortList(20, 80),
+    homeTypes: z.array(z.enum(HOME_TYPE_KEYS)).max(6).default([]),
+    bedsMin: z.number().int().min(0).max(20).nullable().default(null),
+    bathsMin: z
+      .number()
+      .min(0)
+      .max(20)
+      .refine((n) => Number.isInteger(n * 2), 'Baths go in halves, like 2.5.')
+      .nullable()
+      .default(null),
+    sqftMin: z.number().int().min(0).max(100_000).nullable().default(null),
+    moveBy: localDate.nullable().default(null),
+    mustHaves: shortList(20, 120),
+    dealBreakers: shortList(20, 120),
+  })
+  .refine(
+    (p) =>
+      p.budgetMinCents === null ||
+      p.budgetMaxCents === null ||
+      p.budgetMinCents <= p.budgetMaxCents,
+    { path: ['budgetMinCents'], error: 'The lowest price is more than the highest.' },
+  );
+export const BuyerProfileSaveInput = z.object({ ...inDeal, profile: BuyerProfileFields });
+export const BuyerProfileOut = z.object({
+  budgetMinCents: z.number().nullable(),
+  budgetMaxCents: z.number().nullable(),
+  areas: z.array(z.string()),
+  homeTypes: z.array(z.string()),
+  bedsMin: z.number().nullable(),
+  bathsMin: z.number().nullable(),
+  sqftMin: z.number().nullable(),
+  moveBy: z.string().nullable(),
+  mustHaves: z.array(z.string()),
+  dealBreakers: z.array(z.string()),
+  version: z.number().int(),
+  updatedAt: isoDateTime,
+  updatedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+});
+export const BuyerProfileSaveOutput = z.object({
+  dealId: uuid,
+  version: z.number().int(),
+  changed: z.boolean(),
+});
+export const BuyerProfileGetInput = z.object({ ...inDeal });
+export const BuyerProfileGetOutput = z.object({ profile: BuyerProfileOut.nullable() });
+
+/** A home's facts, as a person confirms them (money in cents). */
+export const ListingFactsIn = z.object({
+  price_cents: cents.optional(),
+  beds: z.number().int().min(0).max(100).optional(),
+  baths: z
+    .number()
+    .min(0)
+    .max(100)
+    .refine((n) => Number.isInteger(n * 2), 'Baths go in halves, like 2.5.')
+    .optional(),
+  sqft: z.number().int().min(0).max(10_000_000).optional(),
+  lot_sqft: z.number().int().min(0).max(1_000_000_000).optional(),
+  year_built: z.number().int().min(1700).max(2100).optional(),
+  hoa_monthly_cents: cents.optional(),
+  property_type: z.enum(HOME_TYPE_KEYS).optional(),
+  garage_spaces: z.number().int().min(0).max(100).optional(),
+});
+
+export const HomeAddInput = z.object({
+  ...inDeal,
+  address: z.string().trim().min(3, 'Enter the home’s address.').max(300),
+  /** A listing's link: kept for people to open, never read by HandsFreeOS. */
+  link: z
+    .string()
+    .trim()
+    .max(2000)
+    .regex(/^https?:\/\//i, 'A link starts with https://.')
+    .optional(),
+  /** The listing's words, pasted: the AI fills in the home's facts from them, for the agent to confirm. */
+  pastedText: z
+    .string()
+    .trim()
+    .max(20_000, 'Paste up to 20,000 characters of the listing.')
+    .optional(),
+  note: optionalNote,
+});
+export const HomeAddOutput = z.object({
+  homeId: uuid,
+  /** The AI is reading the pasted text for its facts. */
+  filling: z.boolean(),
+});
+
+export const HomeFillFactsInput = z.object({
+  workspaceId: uuid,
+  homeId: uuid,
+  facts: ListingFactsIn.default({}),
+  /** Each fact's words in the pasted text. */
+  sources: z.record(z.string(), z.string().max(300)).default({}),
+  dropped: z.number().int().min(0).default(0),
+  model: z.string().max(100).optional(),
+  /** Why it couldn't be read, instead. */
+  failure: z.string().max(500).optional(),
+});
+export const HomeFillFactsOutput = z.object({
+  homeId: uuid,
+  state: z.enum(['suggested', 'failed', 'skipped']),
+});
+
+export const HomeConfirmFactsInput = z.object({
+  workspaceId: uuid,
+  homeId: uuid,
+  facts: ListingFactsIn,
+});
+export const HomeConfirmFactsOutput = z.object({ homeId: uuid, confirmedAt: isoDateTime });
+
+export const HomeSetStatusInput = z.object({
+  workspaceId: uuid,
+  homeId: uuid,
+  status: z.enum(HOME_STATUS_KEYS),
+  note: z.string().trim().max(500).optional(),
+});
+export const HomeSetStatusOutput = z.object({
+  homeId: uuid,
+  status: z.enum(HOME_STATUS_KEYS),
+  changed: z.boolean(),
+});
+
+export const FitLineOut = z.object({
+  key: z.enum(['budget', 'area', 'type', 'beds', 'baths', 'sqft']),
+  met: z.boolean().nullable(),
+  words: z.string(),
+});
+export const HomeOut = z.object({
+  id: uuid,
+  address: z.string(),
+  source: z.enum(['agent', 'client', 'mls']),
+  link: z.string().nullable(),
+  status: z.enum(HOME_STATUS_KEYS),
+  statusNote: z.string().nullable(),
+  facts: ListingFactsIn,
+  /** Each suggested fact's words in the pasted text, while the agent checks them. */
+  factSources: z.record(z.string(), z.string()),
+  factsState: z.enum(['none', 'filling', 'suggested', 'confirmed', 'failed']),
+  factsFailure: z.string().nullable(),
+  hasPastedText: z.boolean(),
+  fit: z.object({
+    lines: z.array(FitLineOut),
+    met: z.number().int(),
+    missed: z.number().int(),
+    unknown: z.number().int(),
+  }),
+  reactions: z.array(
+    z.object({
+      personId: uuid,
+      name: z.string(),
+      reaction: z.enum(['saved', 'passed']),
+      note: z.string().nullable(),
+      at: isoDateTime,
+    }),
+  ),
+  addedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  addedByClient: z.object({ id: uuid, name: z.string() }).nullable(),
+  addedAt: isoDateTime,
+});
+export const HomesInput = z.object({ ...inDeal, includeRemoved: z.boolean().default(false) });
+export const HomesOutput = z.object({ homes: z.array(HomeOut) });

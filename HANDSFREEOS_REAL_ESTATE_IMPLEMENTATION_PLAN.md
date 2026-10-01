@@ -947,6 +947,32 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   and "Client portal". The boards' finished look comes with the staff screens.
 - Chosen differently from the plan's names: `portal.message_send` (the client sends; the plan said `message_receive`).
 
+### Step 6: homes and the buyer's profile (server built, 2026-10-01)
+
+**As built** (`20261014000800_realestate_homes.sql`):
+
+- `buyer_profiles` (one per buyer deal) and `buyer_profile_versions` (each save as it was, append-only): price range,
+  areas, kinds of home, bedrooms, baths, size, move-by date, must-haves, deal-breakers.
+  `realestate.buyer_profile.save` saves it whole, and an unchanged save changes nothing. Areas, must-haves and
+  deal-breakers go through the fair-housing word list, and a phrase on it is refused with what to say instead
+  (`realestate_fair_housing`).
+- `homes`: address (one per address on a deal, compared loosely), who added it (the agent, the client or later the
+  MLS), a listing's link (kept, never read), the pasted listing words, facts with the words each came from, the
+  facts' state, and where the agent has it. `home_reactions`: each client's own save or pass. Both open to the
+  client's portal for their deal (`addon_portal_policies`), without the pasted words or the sources.
+- `realestate.home.add` (the AI may add one on its own: risk 1). With pasted words, the worker asks the model for
+  the facts (`LISTING_FACTS`). `checkedListingFacts` keeps a fact only when its quote is word for word in the
+  listing (`quoteFoundIn`, now shared with contact AI) and its number is in its quote. Then
+  `realestate.home.fill_facts` (the worker's) leaves them suggested. A model that can't be asked leaves the agent a
+  note to type them in.
+- `realestate.home.confirm_facts`: only a person, never the Assistant. `realestate.home.set_status`: saved,
+  shortlisted, toured, offer made, passed, removed.
+- `realestate.homes` gives each home with its fit (pure `homes.ts`): budget, area, kind, beds, baths and size, each
+  met, missed or not known yet. Must-haves are the agent's to judge.
+- History gains `client` as an actor, and duty proof can be one of the add-on's own rows (`ref_kind`, `ref_id`) for
+  step 13.
+- The stand-in model reads listings the plain way (`scriptedListingFacts`).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

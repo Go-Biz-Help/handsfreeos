@@ -1152,12 +1152,53 @@ export const CLIENT_UPDATE_RULES: readonly ScriptRule[] = [
   { when: /Check this email for fair housing risk\.$/, json: () => ({ flags: [] }) },
 ];
 
+// ---- Real Estate's listing facts ("Find the listing’s facts.") ----
+
+type ScriptedFact = { key: string; value: number | string; quote: string };
+
+/**
+ * A listing's facts read the plain way from its <listing> words: a price ("$525,000"), beds, baths, square feet, the
+ * year it was built, an HOA and the kind of home, each quoted as it's written. What isn't written isn't returned.
+ */
+export function scriptedListingFacts(message: string): { facts: ScriptedFact[] } {
+  const text = unquote(quotedBlock(message, 'listing') ?? '');
+  const facts: ScriptedFact[] = [];
+  const num = (s: string) => Number(s.replace(/,/g, ''));
+  const take = (key: string, re: RegExp, value: (m: RegExpExecArray) => number | string | null) => {
+    const m = re.exec(text);
+    const v = m ? value(m) : null;
+    if (m && v !== null) facts.push({ key, value: v, quote: m[0].trim() });
+  };
+  take('price_cents', /\$\s?(\d[\d,]*)(?!\s*\/\s*mo)(?![\d,]*\s*(?:a|per)\s+month)/i, (m) =>
+    num(m[1]!),
+  );
+  take('beds', /(\d+)\s*(?:bed(?:room)?s?|bd|br)\b/i, (m) => num(m[1]!));
+  take('baths', /(\d+(?:\.5)?)\s*(?:bath(?:room)?s?|ba)\b/i, (m) => num(m[1]!));
+  take('sqft', /(\d[\d,]*)\s*(?:sq\.?\s*ft\.?|square feet|sqft)/i, (m) => num(m[1]!));
+  take('year_built', /built in (\d{4})|year built:?\s*(\d{4})/i, (m) => num(m[1] ?? m[2]!));
+  take('hoa_monthly_cents', /HOA[^$\n]{0,20}\$\s?(\d[\d,]*)/i, (m) => num(m[1]!));
+  take(
+    'property_type',
+    /\b(single[- ]family|condo|townhome|townhouse|multi[- ]family|duplex|manufactured)\b/i,
+    (m) => {
+      const w = m[1]!.toLowerCase().replace(/[\s-]+/g, '_');
+      return w === 'townhome' ? 'townhouse' : w === 'duplex' ? 'multi_family' : w;
+    },
+  );
+  return { facts };
+}
+
+export const LISTING_RULES: readonly ScriptRule[] = [
+  { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
   ...AUTOMATION_RULES,
   ...WORKFLOW_RULES,
   ...BUILDER_RULES,
   ...CLIENT_UPDATE_RULES,
+  ...LISTING_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

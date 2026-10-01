@@ -139,9 +139,13 @@ export function requireOpen(deal: Deal): void {
 
 export const stageWords = (stage: DealStage) => STAGE_LABELS[stage] ?? stage;
 
-/** Who did it, as the add-on's history says: a person, HandsFreeOS, or the AI (the Assistant or the teammate). */
-export function actorKind(ctx: Ctx): 'person' | 'system' | 'ai' {
+/**
+ * Who did it, as the add-on's history says: a person, HandsFreeOS, the AI (the Assistant or the teammate), or the
+ * client in their portal (round two).
+ */
+export function actorKind(ctx: Ctx): 'person' | 'system' | 'ai' | 'client' {
   if (ctx.actor.type === 'ai_employee') return 'ai';
+  if (ctx.actor.type === 'customer') return 'client';
   if (ctx.actor.type === 'human')
     return ctx.meta.channel === 'assistant' || ctx.meta.channel === 'contact_ai' ? 'ai' : 'person';
   return 'system';
