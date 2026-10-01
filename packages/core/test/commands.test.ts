@@ -634,6 +634,11 @@ describe('registry', () => {
       'rcs_request.record_paid',
       'rcs_request.record_renewal',
       'rcs_request.record_renewal_page',
+      // What registering for texting costs, passed on (0105).
+      'texting_fee.pay',
+      'texting_fee.record_page',
+      'texting_fee.record_outcome',
+      'texting_fee.charge_month',
       // Add-ons (0108).
       'addon.install',
       'addon.enable',

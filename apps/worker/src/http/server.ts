@@ -270,7 +270,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerWalletCardRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerFormRoutes(app, deps);
-  // A customer sending a video at full quality through a link the business texted them (20261018000200).
+  // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);

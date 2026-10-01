@@ -109,8 +109,8 @@ export const COUNTED_ELSEWHERE: ReadonlySet<string> = new Set([
 
 /**
  * Twilio's categories for things we charge on our own schedule and never compare day by day, because Twilio dates
- * them by its own clock. Texting registration fees (money/registration-fees.ts): a review when the reviewer gets
- * to it, a campaign's month on its anniversary. Phone numbers (money/number-months.ts): Twilio charges each on the
+ * them by its own clock. Texting registration fees, which the business pays by card and not from the balance
+ * (telephony/texting-fees.ts): a review when the reviewer gets to it, a campaign's month on its anniversary. Phone numbers (money/number-months.ts): Twilio charges each on the
  * day of the month it was bought, and we charge by the calendar month. A day-by-day comparison would see our
  * charge on one day and Twilio's on another and charge the business twice, so these are known and left alone
  * rather than reported as unknown.

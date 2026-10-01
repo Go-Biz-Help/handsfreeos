@@ -613,6 +613,8 @@ describe('the carrier registration', () => {
     expect(card.fields.find((f) => f.label === 'Texts are for')!.value).toBe('Answering customers');
     expect(card.fields.find((f) => f.label === 'Examples')!.value).toBe('2 example texts');
     expect(card.warnings[0]!.text).toContain('few days');
+    // A local registration's carrier fees are the business's (0105), and the card says so before it goes.
+    expect(card.warnings[1]!.text).toContain('carrier fees, passed on at cost');
     expect(AssistantCard.safeParse(card).success).toBe(true);
   });
 });

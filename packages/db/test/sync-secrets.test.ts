@@ -97,7 +97,7 @@ const SECRET_TABLES = [
   'telephony_accounts',
   // A Twilio account a business connected to bring its numbers in: its auth token or API key secret, sealed.
   'twilio_connections',
-  // 20261018000200: a link for a customer to send a video is kept only as its token's hash.
+  // 20261018000300: a link for a customer to send a video is kept only as its token's hash.
   'video_links',
   'workflow_webhooks',
 ];

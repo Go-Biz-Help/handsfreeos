@@ -6227,8 +6227,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number.
-         * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number. A local registration costs what the carriers charge for it (the brand’s fees once, the campaign’s review each time it is sent), and its steps wait until that is paid: the output’s fee says how much, and phone.setup_status where to pay it.
+         * @description Risk level 3. Requires channels.manage. Emits registration.submitted, texting_fee.due.
          */
         post: operations["command_registration_submit"];
         delete?: never;
@@ -7631,6 +7631,26 @@ export interface paths {
          * @description Risk level 1. Requires calendars.manage. Emits territory.updated.
          */
         post: operations["command_territory_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/texting_fee.pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.
+         * @description Risk level 3. Requires channels.manage. Emits texting_fee.page_requested.
+         */
+        post: operations["command_texting_fee_pay"];
         delete?: never;
         options?: never;
         head?: never;
@@ -25365,6 +25385,11 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        fee: {
+                            amountCents: number;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
                         registrationIds: string[];
                     };
                 };
@@ -28005,6 +28030,39 @@ export interface operations {
                         /** Format: uuid */
                         territoryId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_texting_fee_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    textingFeeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        textingFeeId: string;
                     };
                 };
             };
@@ -39536,6 +39594,50 @@ export interface operations {
                             };
                             unansweredReminderMinutes: number;
                         };
+                        textingFees: {
+                            card: boolean;
+                            due: {
+                                amountCents: number;
+                                checkoutUrl: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    name: string;
+                                }[];
+                                periodStart: string | null;
+                                problem: string | null;
+                                /** @enum {string} */
+                                purpose: "registration" | "month";
+                                /** @enum {string} */
+                                status: "pending" | "open" | "paid" | "failed" | "cancelled" | "waived";
+                            } | null;
+                            month: {
+                                amountCents: number;
+                                checkoutUrl: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    name: string;
+                                }[];
+                                periodStart: string | null;
+                                problem: string | null;
+                                /** @enum {string} */
+                                purpose: "registration" | "month";
+                                /** @enum {string} */
+                                status: "pending" | "open" | "paid" | "failed" | "cancelled" | "waived";
+                            } | null;
+                            monthlyCents: number | null;
+                            paidFor: {
+                                brandPaid: boolean;
+                                brandSent: boolean;
+                                campaignCovered: boolean;
+                                vettingPaid: boolean;
+                            };
+                        } | null;
                         timezone: string;
                         voiceReady: boolean;
                     };

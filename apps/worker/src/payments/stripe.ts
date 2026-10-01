@@ -173,15 +173,17 @@ export function readStripeCheckoutEvent(rawBody: string): CheckoutEvent | null {
   const intent = session['payment_intent'];
   const metadata = obj(session['metadata']);
   const rcsRequestId = str(metadata['rcs_request_id']);
+  const textingFeeId = str(metadata['texting_fee_id']);
   return {
     id,
     type,
     sessionRef,
-    // An RCS page carries its own id; only a founding page may fall back to the reference.
+    // An RCS or texting page carries its own id; only a founding page may fall back to the reference.
     checkoutId:
       str(metadata['founding_checkout_id']) ??
-      (rcsRequestId ? null : str(session['client_reference_id'])),
+      (rcsRequestId || textingFeeId ? null : str(session['client_reference_id'])),
     rcsRequestId,
+    textingFeeId,
     renewalFor: rcsRequestId ? str(metadata['rcs_renewal_for']) : null,
     customerRef: typeof session['customer'] === 'string' ? str(session['customer']) : null,
     paymentStatus: str(session['payment_status']),

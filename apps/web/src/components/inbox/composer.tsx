@@ -270,7 +270,7 @@ export function Composer({
   const [fromKey, setFromKey] = useState<string | null>(null);
   /** Buttons, a card or a carousel going with the text (0103), while the editor is open. */
   const [rich, setRich] = useState<RichDraft | null>(null);
-  /** Making a video link (20261018000200): the button waits for it. */
+  /** Making a video link (20261018000300): the button waits for it. */
   const [askingVideo, setAskingVideo] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);

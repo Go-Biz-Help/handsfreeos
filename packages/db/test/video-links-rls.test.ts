@@ -1,5 +1,5 @@
 /**
- * 20261018000200: a video link is the conversation's, and its key is the worker's.
+ * 20261018000300: a video link is the conversation's, and its key is the worker's.
  * - A member who can open the thread sees its links and may make one, in their own name and fresh; someone in
  *   another business sees none and can make none.
  * - Nobody but the worker reads the token's hash, changes a link's counts, or deletes one.

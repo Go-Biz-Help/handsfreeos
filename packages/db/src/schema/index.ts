@@ -707,6 +707,17 @@ export const rcsRequestStatus = app.enum('rcs_request_status', [
   'cancelled',
 ]);
 export type RcsRequestStatus = (typeof rcsRequestStatus.enumValues)[number];
+/** 0105: what registering a local number for texting costs a business, passed on at cost. */
+export const textingFeePurpose = app.enum('texting_fee_purpose', ['registration', 'month']);
+export const textingFeeStatus = app.enum('texting_fee_status', [
+  'pending',
+  'open',
+  'paid',
+  'failed',
+  'cancelled',
+  'waived',
+]);
+export type TextingFeeStatus = (typeof textingFeeStatus.enumValues)[number];
 export const callStatus = app.enum('call_status', [
   'initiated',
   'ringing',
@@ -1171,7 +1182,7 @@ export const rcsRequests = app.table('rcs_requests', {
 });
 
 /**
- * A link texted to a customer to send a video at full quality (20261018000200): the token's hash, never the token,
+ * A link texted to a customer to send a video at full quality (20261018000300): the token's hash, never the token,
  * and how many videos it has taken. Each one arrives as an inbound message on the conversation.
  */
 export const videoLinks = app.table('video_links', {
@@ -1191,6 +1202,39 @@ export const videoLinks = app.table('video_links', {
   uploadsStarted: smallint('uploads_started').notNull().default(0),
   uploadsReceived: smallint('uploads_received').notNull().default(0),
   lastUploadAt: ts('last_upload_at'),
+  ...timestamps(),
+});
+
+/**
+ * What registering a local number for texting costs a business (0105): a registration's one-time fees, paid
+ * before the worker sends it to the carriers, and each month of the approved campaign. What Stripe says is the
+ * worker's to write (`private.guard_texting_fee_update`).
+ */
+export const textingFees = app.table('texting_fees', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  purpose: textingFeePurpose('purpose').notNull(),
+  status: textingFeeStatus('status').notNull().default('pending'),
+  /** [{ key, name, cents }] from core's TEXTING_FEES. */
+  lines: jsonb('lines').$type<{ key: string; name: string; cents: number }[]>().notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  /** A month's fee: the campaign, which month since approval, and when that month starts. */
+  registrationId: uuid('registration_id').references(() => telephonyRegistrations.id, {
+    onDelete: 'set null',
+  }),
+  monthIndex: integer('month_index'),
+  periodStart: ts('period_start'),
+  sessionRef: text('session_ref').unique(),
+  sessionUrl: text('session_url'),
+  sessionExpiresAt: ts('session_expires_at'),
+  paymentRef: text('payment_ref'),
+  paidCents: integer('paid_cents'),
+  customerRef: text('customer_ref'),
+  cardRef: text('card_ref'),
+  paidAt: ts('paid_at'),
+  problem: text('problem').notNull().default(''),
+  requestedBy: userRef('requested_by'),
+  closedAt: ts('closed_at'),
   ...timestamps(),
 });
 

@@ -31,7 +31,7 @@ import {
 import { customerOptedOut } from './message';
 
 /**
- * Asking a customer for a video (20261018000200): a person makes a link and texts it from the reply box, the
+ * Asking a customer for a video (20261018000300): a person makes a link and texts it from the reply box, the
  * customer's page starts an upload and the video goes up, and it lands in the conversation as their reply.
  *
  * The link is a key: the token goes to the person once, to send, and only its hash is kept. The page's two writes

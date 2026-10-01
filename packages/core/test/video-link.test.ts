@@ -1,5 +1,5 @@
 /**
- * Asking a customer for a video (20261018000200), on the local database:
+ * Asking a customer for a video (20261018000300), on the local database:
  * - A person who can open the texts makes a link: a token shown once, kept only as its hash, a week long and three
  *   videos deep. Someone outside the business can't, and nobody can ask a customer who texted STOP.
  * - The worker's page starts an upload only for a video of a size the link takes, while the link lasts and has room,
