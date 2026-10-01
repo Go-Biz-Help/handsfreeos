@@ -29,6 +29,7 @@ import {
   sampleSuggestions,
   SENSITIVE_TOPICS,
   sendsOffers,
+  TERMS_TEXTING_ITEMS,
   termsOfService,
   type A2pDraft,
   type A2pField,
@@ -1365,6 +1366,7 @@ function PolicyStep({
   };
   const policy = privacyPolicy(business);
   const terms = termsOfService(business);
+  const termsTexting = terms.sections.find((s) => /text messages/i.test(s.heading));
   const clause = policy.sections.find((s) => /text messages/i.test(s.heading))?.paragraphs.at(-1);
 
   return (
@@ -1462,14 +1464,41 @@ function PolicyStep({
           />
         </div>
         {ownTerms ? (
-          <Field label="Where your terms are" htmlFor="a2p-terms-url">
-            <Input
-              id="a2p-terms-url"
-              value={form.ownTermsUrl}
-              onChange={(e) => set('ownTermsUrl', e.target.value)}
-              placeholder="https://example.com/terms"
-            />
-          </Field>
+          <>
+            <Field label="Where your terms are" htmlFor="a2p-terms-url">
+              <Input
+                id="a2p-terms-url"
+                value={form.ownTermsUrl}
+                onChange={(e) => set('ownTermsUrl', e.target.value)}
+                placeholder="https://example.com/terms"
+              />
+            </Field>
+            <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
+              <p className="text-[13.5px] font-semibold">What they have to say about texts</p>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[13px] text-text-2">
+                {TERMS_TEXTING_ITEMS.map((item) => (
+                  <li key={item.label}>{item.label[0]!.toUpperCase() + item.label.slice(1)}</li>
+                ))}
+              </ul>
+              {termsTexting ? (
+                <>
+                  <div className="mb-1.5 mt-3 flex items-center justify-between">
+                    <p className="text-[13.5px] font-semibold">Or add this section, as it is</p>
+                    <CopyButton text={termsTexting.paragraphs.join('\n\n')} />
+                  </div>
+                  <div className="space-y-2 rounded-menu bg-card p-3 text-[13px] leading-relaxed text-text-2">
+                    {termsTexting.paragraphs.map((paragraph, i) => (
+                      <p key={i}>{paragraph}</p>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              <p className="mt-1.5 text-[13px] text-text-3">
+                The reviewer opens your terms from the registration. We check them for each of these
+                before you send it.
+              </p>
+            </div>
+          </>
         ) : (
           <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
             <p className="text-[13.5px] font-semibold">{terms.title}</p>

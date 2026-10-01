@@ -322,6 +322,33 @@ export function checkPolicy(page: FetchedPage | null): PreflightCheck {
   };
 }
 
+/**
+ * What a business's own terms have to say about its texts, in the words the wizard lists them. One copy, so
+ * the checklist a business reads before it points us at its terms is the one the check reads them against.
+ */
+export const TERMS_TEXTING_ITEMS: readonly { readonly label: string; readonly test: RegExp }[] = [
+  { label: 'what you text customers about', test: /\b(text messag|sms|texts? (you|customers))/ },
+  {
+    label: 'that how many messages they get varies',
+    test: /(frequency|\bvar(y|ies)\b|how many (messages|texts)|up to \d+ (messages|msgs|texts))/,
+  },
+  {
+    label: 'that message and data rates may apply',
+    test: /(rates may apply|data rates|msg\s*(&|and)\s*data|message\s*(&|and)\s*data)/,
+  },
+  { label: 'that replying STOP stops the texts', test: /\bstop\b/ },
+  { label: 'that replying HELP gets help', test: /\bhelp\b/ },
+  {
+    label: 'how to reach you (a phone number or email)',
+    test: /(\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/,
+  },
+];
+
+/** The items from `TERMS_TEXTING_ITEMS` a page's words don't cover. */
+export function termsGaps(text: string): string[] {
+  return TERMS_TEXTING_ITEMS.filter((item) => !item.test.test(text)).map((item) => item.label);
+}
+
 /** Do the terms open, and do they cover the texts? */
 export function checkTerms(page: FetchedPage | null): PreflightCheck {
   const base = {
@@ -334,7 +361,7 @@ export function checkTerms(page: FetchedPage | null): PreflightCheck {
       ...base,
       ok: false,
       detail:
-        'No terms were found. Let us host them, or give us the address of yours in the privacy policy step.',
+        'No terms were given to check. In the “Your privacy policy and terms” step, choose “Use the terms we write for you”, or give the address of yours.',
       url: null,
     };
   if (page.status === null || page.status >= 400)
@@ -351,7 +378,16 @@ export function checkTerms(page: FetchedPage | null): PreflightCheck {
       severity: 'warning',
       ok: false,
       detail:
-        'Your terms open but never mention text messages. Add a short section on them: what you text about, that how many varies, that rates may apply, and STOP and HELP.',
+        'Your terms open but never mention text messages. Add a section on them, or copy ours from the “Your privacy policy and terms” step: what you text about, that how many messages varies, that rates may apply, STOP and HELP, and how to reach you.',
+      url: page.finalUrl ?? page.url,
+    };
+  const gaps = termsGaps(text);
+  if (gaps.length)
+    return {
+      ...base,
+      severity: 'warning',
+      ok: false,
+      detail: `Your terms mention texting, but we couldn’t find ${listOf(gaps)}. Add ${gaps.length === 1 ? 'it' : 'them'} to the section on text messages.`,
       url: page.finalUrl ?? page.url,
     };
   return {

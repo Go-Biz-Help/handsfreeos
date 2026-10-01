@@ -19,6 +19,7 @@ import {
   promisesNotToShare,
   readConsentBox,
   showsConsentBox,
+  termsGaps,
   type FetchedPage,
 } from '../src/messaging/preflight';
 import { smsConsentWords } from '../src/messaging/consent';
@@ -129,6 +130,24 @@ describe('the terms', () => {
   it('passes the ones we write ourselves', () => {
     const html = `<html><body>${policyAsText(termsOfService({ name: 'Lone Star HVAC', phone: '(512) 555-0100' }))}</body></html>`;
     expect(checkTerms(page({ html })).ok).toBe(true);
+  });
+
+  it('names what terms that mention texting leave out, without blocking', () => {
+    const html =
+      '<h1>Terms</h1><p>We may send you text messages about your appointment. Reply STOP to stop.</p>';
+    const check = checkTerms(page({ html }));
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+    expect(check.detail).toMatch(/how many messages they get varies/);
+    expect(check.detail).toMatch(/message and data rates may apply/);
+    expect(check.detail).toMatch(/HELP/);
+    expect(check.detail).toMatch(/how to reach you/);
+    expect(check.detail).not.toMatch(/STOP stops/);
+  });
+
+  it('finds nothing missing from the texting section we offer to copy', () => {
+    const terms = termsOfService({ name: 'Go Biz Help', phone: '(512) 555-0100' });
+    const section = terms.sections.find((x) => x.heading === 'Text messages')!;
+    expect(termsGaps(pageText(section.paragraphs.join(' ')))).toEqual([]);
   });
 
   it('warns about terms that never mention texting', () => {
