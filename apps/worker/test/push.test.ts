@@ -63,6 +63,7 @@ import {
   type PushMessage,
   type PushNotice,
 } from '../src/push/index';
+import { refusalLog, REFUSALS_LOGGED } from '../src/push/send';
 import { aiCanTake } from '../src/push/urgent';
 import { jobs } from '../src/scheduled';
 import { systemActor } from '../src/services';
@@ -327,6 +328,42 @@ describe('what a push carries', () => {
       refused: false,
     });
     expect(fake.sent).toHaveLength(4);
+  });
+
+  it('logs Expo’s own words for a refused push, with no token in them', () => {
+    const deviceId = randomUUID();
+    const apns = 'a1'.repeat(32);
+    const fcm = `cK3x:APA91b${'Z_-9'.repeat(30)}`;
+    const log = refusalLog([
+      {
+        deviceId,
+        platform: 'ios',
+        error: 'DeveloperError',
+        message: `"ExponentPushToken[abc-123]" got BadDeviceToken from Apple for device ${apns}`,
+      },
+      { deviceId, error: null, message: `FCM said the token ${fcm} is not for this project` },
+      ...Array.from({ length: REFUSALS_LOGGED }, () => ({
+        deviceId,
+        error: 'DeveloperError',
+        message: 'Far too long. '.repeat(100),
+      })),
+    ]);
+    expect(log.errors).toEqual({ DeveloperError: 1 + REFUSALS_LOGGED, unknown: 1 });
+    expect(log.phones).toHaveLength(REFUSALS_LOGGED);
+    expect(log.phones[0]).toEqual({
+      deviceId,
+      platform: 'ios',
+      error: 'DeveloperError',
+      said: '"[token]" got BadDeviceToken from Apple for device [token]',
+    });
+    expect(log.phones[1]).toMatchObject({
+      platform: null,
+      error: 'unknown',
+      said: 'FCM said the token [token] is not for this project',
+    });
+    expect(log.phones[2]!.said.length).toBeLessThanOrEqual(300);
+    const text = JSON.stringify(log);
+    for (const secret of ['abc-123', apns, fcm]) expect(text).not.toContain(secret);
   });
 });
 
