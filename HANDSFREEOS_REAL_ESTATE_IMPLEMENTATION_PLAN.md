@@ -850,7 +850,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Everyone in the business sees who has access and their devices, never a hash or a code. Only people who may
   change customers (`records.write`) let someone in or turn it off. Codes and the lookups are the worker's.
 - Commands: `portal_access.give` (also sends the link again), `portal_access.revoke`, `portal_access.get`, and the
-  worker's `portal.send_code`, `portal.check_code`, `portal_session.seen` and `portal_session.end`. Without an
+  worker's `portal_code.send`, `portal_code.check`, `portal_session.seen` and `portal_session.end`. Without an
   email on file, giving access is refused as `portal_no_email`.
 - The invite goes out from the business through `message.send` on `portal.access_given`, so it sits in the
   client's conversation. The code email comes from HandsFreeOS, like other sign-in codes.
@@ -858,6 +858,39 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   per-address limits, and `no-store` answers. Audit rows say "via client portal".
 - Waiting for the boards: the web's `/c/<token>` page, the customer page's "Client portal" card and the browser
   test.
+
+### Step 3: the customer actor and add-ons' portal pages (server built, 2026-10-01)
+
+**As built** (`20261014000300_customer_actor.sql`, `20261014000400_customer_portal_reads.sql`):
+
+- `actor_type` gains `customer`, in a file of its own. The kernel's `CustomerActor` (person, device session, business)
+  runs only operations that list `'customer'` alone. Those are named `portal.*` (core's) or `<id>.portal.*` (an
+  add-on's), ask no permission, have no `ai`, and are risk 2 at most. A registry test and `customerOperationIssues`
+  hold every operation to that.
+- Look-ups run as a new role, `portal_actor`, which only the worker can become (`asCustomer`). It reaches `app` and a
+  small schema of its own, `portal`, never `private`. The database works out who is asking from the device's session
+  alone, and only while it's still signed in. Then it shows them:
+  - themselves, in a few columns;
+  - the business's name;
+  - the records they're on through a relationship type marked `portal_visible`, while its add-on runs;
+  - an add-on's rows about those records, through `private.addon_portal_policies(table, record column, columns)`
+    (select only, the columns named).
+- Changes run as the service actor in their business, as booking, invoices and chat already do, so each handler checks
+  the record is theirs (`private.portal_records_for`). History records the customer as `actor_type` `customer`, with
+  the person as `actor_id`, on channel `portal`. The session is checked again in the same transaction, so a device
+  signed out a moment ago gets `portal_signed_out`.
+- Only an add-on's own types can show records in a portal, between a customer and one of its kinds (a check). The
+  worker sets the flag from the manifest on every install. Real Estate's `realestate_client` has `portal: true`.
+- Manifest: `relationshipTypes[].portal` and `ui.portal` pages (path, title, the customer query shown), checked by
+  `manifestIssues` and `addonModuleIssues`.
+- Core's first customer query is `portal.home`: the business, the customer's name, and the add-ons with portal pages
+  for records they're on.
+- Worker: `POST /public/portal/op/:name` for a signed-in device, 120 a minute per device. The business comes from the
+  device, never the body. None of this is in the API or its OpenAPI.
+- Chosen differently: the worker's own code commands are `portal_code.send` and `portal_code.check`, so that only
+  customer operations are named `portal.*`.
+- Waiting for the boards: the web's `app/c/[token]/a/<id>/…` pages and their `portalPage` gate. They come with the
+  portal screens in step 15.
 
 ## Not in round two
 

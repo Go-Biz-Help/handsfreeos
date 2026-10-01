@@ -103,8 +103,37 @@ export function addonModuleIssues(
         if (tools.has(op.ai.tool)) issues.push(`AI tool "${op.ai.tool}" is declared twice`);
         tools.add(op.ai.tool);
       }
+      issues.push(...customerOperationIssues(op, `${m.id}.portal.`));
+    }
+    for (const page of m.ui?.portal ?? []) {
+      const q = queries.find((op) => op.name === page.query);
+      if (!q?.actors?.includes('customer'))
+        issues.push(
+          `portal page "${page.path}" shows ${page.query}, which isn't one of its customer queries`,
+        );
     }
   }
+  return issues;
+}
+
+/**
+ * What a customer may run (Real Estate round two): only operations named for the portal (`portal.*` for core's,
+ * `<id>.portal.*` for an add-on's), for nobody else, asking no permission (a customer holds none), never offered to the
+ * AI, and never a change above risk 2. And nothing named for the portal is for anyone else.
+ */
+export function customerOperationIssues(op: CommandDef | QueryDef, prefix: string): string[] {
+  const forCustomer = op.actors?.includes('customer') ?? false;
+  const named = op.name.startsWith(prefix);
+  if (!forCustomer && !named) return [];
+  const issues: string[] = [];
+  if (!named) issues.push(`${op.name} is for customers, so it must be named "${prefix}…"`);
+  if (!forCustomer) issues.push(`${op.name} is named for the portal, so it's for customers`);
+  if ((op.actors ?? ['human']).some((a) => a !== 'customer'))
+    issues.push(`${op.name} is for customers alone`);
+  if (op.permission) issues.push(`${op.name} is for customers, who hold no permissions`);
+  if (op.ai) issues.push(`${op.name} is for customers, so it isn't offered to the AI`);
+  if (op.kind === 'command' && op.risk > 2)
+    issues.push(`${op.name} is for customers, so its risk is 2 at most`);
   return issues;
 }
 

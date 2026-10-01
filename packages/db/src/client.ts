@@ -4,8 +4,8 @@
  * The API connects as `hfos_api`, a NOINHERIT login role that can do nothing until a transaction
  * runs `SET LOCAL ROLE authenticated` with the user's verified JWT claims (`asUser`). The worker
  * connects as `hfos_worker` and switches to `service_actor`, whose policies are bounded by the
- * tenant scope set for the job (`asWorker`). Both settings are transaction-local, so a pooled
- * connection carries nothing into the next request.
+ * tenant scope set for the job (`asWorker`), or to `portal_actor` for a customer signed in to their portal
+ * (`asCustomer`). Every setting is transaction-local, so a pooled connection carries nothing into the next request.
  */
 import { sql } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -101,6 +101,27 @@ export async function asWorker<T>(
       sql`select set_config('role', 'service_actor', true),
             set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true),
             set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
+    );
+    return fn(tx);
+  });
+}
+
+/**
+ * Runs `fn` in one transaction as a customer signed in to their portal (Real Estate round two): the worker switches
+ * to `portal_actor`, whose policies read only that customer's own rows, and only while the device's session is still
+ * signed in. The database finds who it is from the session; nothing else the worker says is taken on trust.
+ */
+export async function asCustomer<T>(
+  db: Db,
+  sessionId: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('role', 'portal_actor', true),
+            set_config('app.portal.session_id', ${sessionId}, true),
+            set_config('statement_timeout', ${USER_STATEMENT_TIMEOUT}, true),
+            set_config('idle_in_transaction_session_timeout', ${USER_IDLE_IN_TRANSACTION_TIMEOUT}, true)`,
     );
     return fn(tx);
   });

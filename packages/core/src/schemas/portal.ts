@@ -81,3 +81,18 @@ export const PortalSessionEndOutput = z.object({ ended: z.boolean() });
 
 export const PortalSessionSeenInput = z.object({ ...inWorkspace, sessionId: uuid });
 export const PortalSessionSeenOutput = z.object({ lastSeenAt: isoDateTime });
+
+// ---------- the customer's own, in their portal ----------
+
+export const PortalHomeInput = z.object({ ...inWorkspace });
+export const PortalHomePage = z.object({
+  /** Relative to the add-on's portal pages: '' for its first. */
+  path: z.string(),
+  title: z.string(),
+});
+export const PortalHomeOutput = z.object({
+  business: z.object({ name: z.string() }),
+  person: z.object({ firstName: z.string(), lastName: z.string() }),
+  /** The add-ons with pages for them: on in the business, and with records they're on. */
+  addons: z.array(z.object({ id: z.string(), name: z.string(), pages: z.array(PortalHomePage) })),
+});

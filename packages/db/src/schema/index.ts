@@ -35,6 +35,8 @@ export const actorType = app.enum('actor_type', [
   'ai_employee',
   'api',
   'integration',
+  // A customer signed in to their portal (Real Estate round two, 20261014000300).
+  'customer',
 ]);
 export const outboxStatus = app.enum('outbox_status', ['pending', 'done', 'failed']);
 
@@ -5683,6 +5685,8 @@ export const relationshipTypes = app.table('relationship_types', {
   /** The add-on that manages this type (0108), and its key in the add-on's manifest. */
   addonId: text('addon_id'),
   addonKey: text('addon_key'),
+  /** The customer at the person end sees the record in their portal (20261014000400). */
+  portalVisible: boolean('portal_visible').notNull().default(false),
   ...timestamps(),
 });
 

@@ -1,13 +1,25 @@
 import { HfosError } from '../errors';
-import type { Actor, AiEmployeeActor, HumanActor, MachineActor } from './types';
+import type { Actor, AiEmployeeActor, CustomerActor, HumanActor, MachineActor } from './types';
 
 /**
  * The system, a workflow or the AI teammate: nobody signed in behind the request. The kernel runs them as
  * root within their own workspace (the service_actor policies) with no permission check, and they can never
- * give a person's say-so (confirming a text in quiet hours).
+ * give a person's say-so (confirming a text in quiet hours). A customer in their portal is not one.
  */
 export function isMachine(actor: Actor): actor is MachineActor {
-  return actor.type !== 'human';
+  return actor.type === 'system' || actor.type === 'workflow' || actor.type === 'ai_employee';
+}
+
+/** The customer in their portal, when it's them acting. */
+export function customerOf(actor: Actor): CustomerActor | null {
+  return actor.type === 'customer' ? actor : null;
+}
+
+/** For handlers only a customer in their portal runs (`portal.*`). */
+export function requireCustomer(ctx: { readonly actor: Actor }): CustomerActor {
+  if (ctx.actor.type !== 'customer')
+    throw HfosError.forbidden('Only a customer in their own portal can do this.');
+  return ctx.actor;
 }
 
 /**

@@ -164,6 +164,8 @@ export const realestateAddon = defineAddon({
       aLabel: 'Client',
       b: { kind: 'record', recordKind: 'realestate_deal' },
       bLabel: 'Deal',
+      // A client sees their deals in their portal (round two).
+      portal: true,
     },
     personOnDeal('loan_officer', 'Loan officer', 'loan officer'),
     personOnDeal('other_agent', 'Other side’s agent', 'other side’s agent'),

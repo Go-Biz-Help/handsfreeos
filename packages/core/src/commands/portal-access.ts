@@ -6,7 +6,7 @@
  *   it off (`portal_access.revoke`, which signs every device out and retires every link sent). The worker emails
  *   the link when it hears `portal.access_given`, because the link is signed with the worker's key.
  * - **The worker, for the customer** on the portal's public pages: sends a code to the email on file
- *   (`portal.send_code`), checks the one typed back and signs the device in (`portal.check_code`), notes a device
+ *   (`portal_code.send`), checks the one typed back and signs the device in (`portal_code.check`), notes a device
  *   still in use (`portal_session.seen`) and signs one out (`portal_session.end`).
  *
  * Codes and devices keep only hashes (`verify/code.ts`, and the bearer's sha256 that the worker passes in).
@@ -256,7 +256,7 @@ export const portalAccessGet = defineQuery({
 // ---------- the worker's, for the customer on the portal's public pages ----------
 
 export const portalSendCode = defineCommand({
-  name: 'portal.send_code',
+  name: 'portal_code.send',
   description:
     'Makes a six-digit code for a customer signing in to their portal on a new device, for the worker to email to the address on file.',
   risk: 1,
@@ -317,7 +317,7 @@ export const portalSendCode = defineCommand({
 });
 
 export const portalCheckCode = defineCommand({
-  name: 'portal.check_code',
+  name: 'portal_code.check',
   description:
     'Checks the code a customer typed on their portal. The right one, in time, signs their device in.',
   risk: 1,

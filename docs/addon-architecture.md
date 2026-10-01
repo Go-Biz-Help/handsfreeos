@@ -99,6 +99,21 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   an add-on names the pages the phone draws in its manifest (`ui.phone`), and the phone's build lists the screens it
   has (`apps/mobile/src/links/addon-screens.ts`), so no link changes when a screen arrives. Turning the add-on off
   clears its alerts (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
+- **A customer's portal** (Real Estate round two, steps 2–3). Core signs customers in: a business lets one in
+  (`portal_access.give`), the worker emails a private link, and each new device types a six-digit code emailed to
+  the address on file. A signed-in device is a `customer` actor. An add-on shows a customer its records like this:
+  - A relationship type with `portal: true` (person ↔ one of its kinds) shows each record to the customer on it,
+    while the add-on runs (`portal.records()`).
+  - Operations for customers list `actors: ['customer']` alone, are named `<id>.portal.*`, ask no permission,
+    carry no `ai` and are risk 2 at most (`customerOperationIssues`). The worker serves them at
+    `POST /public/portal/op/<name>` for a signed-in device; they're never in the API.
+  - A customer's look-up runs as `portal_actor` under row security. That role reaches only `app` and its own
+    schema, `portal`, never `private`. Their change runs as the service actor, so its
+    handler checks the record is theirs (`private.portal_records_for(workspace, person)`); history records it as the
+    customer, on channel `portal`. Either way the device must still be signed in.
+  - Its own table opens to customers with `private.addon_portal_policies(table, record column, columns)`, select only,
+    and only the columns named.
+  - Its portal pages go in the manifest (`ui.portal`: a path, a title and the customer query it shows).
 
 ## The lifecycle
 

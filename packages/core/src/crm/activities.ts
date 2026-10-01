@@ -34,8 +34,9 @@ export interface ChannelActivityInput {
 /**
  * What a timeline entry records about who wrote it, when that isn't a person: whose request the system
  * fulfilled (`onBehalfOf`, shown as "Import"), which workflow run did it (`workflow`, shown as
- * "Workflow: <name>" and linking to the run), or the AI teammate (`aiTeammate`, shown as "Ava (AI)", with
- * "approved by Chris" when a person's OK sent it). People's own entries carry nothing extra.
+ * "Workflow: <name>" and linking to the run), the AI teammate (`aiTeammate`, shown as "Ava (AI)", with
+ * "approved by Chris" when a person's OK sent it), or the customer in their portal (`portal`). People's own entries
+ * carry nothing extra.
  */
 export function actorMeta(actor: Actor): Record<string, unknown> {
   switch (actor.type) {
@@ -58,6 +59,9 @@ export function actorMeta(actor: Actor): Record<string, unknown> {
           approvedBy: actor.approvedBy,
         },
       };
+    // The customer, in their own portal: their name leads the line.
+    case 'customer':
+      return { portal: { personId: actor.personId } };
     default:
       return {};
   }

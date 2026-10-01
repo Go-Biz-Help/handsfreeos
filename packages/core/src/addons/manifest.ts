@@ -155,6 +155,11 @@ export interface AddonRelationshipType {
   readonly b: AddonRelationshipEnd;
   readonly bLabel: string;
   readonly cardinality?: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
+  /**
+   * The customer at the person end sees the record in their portal, while the add-on is on (Real Estate round two):
+   * a client and their deals. Only between a customer and one of the add-on's own kinds of record.
+   */
+  readonly portal?: true;
 }
 
 /** The places in core screens an add-on can put a panel. The app decides where each one sits. */
@@ -191,6 +196,19 @@ export interface AddonPhonePage {
   readonly path: string;
   /** The query parameters the screen reads too (`duty`), kept on its address. */
   readonly query?: readonly string[];
+}
+
+/**
+ * One of the add-on's pages in a customer's portal (`/c/<link>/a/<id>/<path>`), for the records they're on through a
+ * portal relationship. It shows what one of the add-on's customer queries (`<id>.portal.*`) answers, and nothing else.
+ */
+export interface AddonPortalPage {
+  /** Relative to the add-on's portal pages: '' for its first, `deals/:dealId` with `:name` for an id. */
+  readonly path: string;
+  /** Its heading and its place in the portal's menu ("Your home search"). */
+  readonly title: string;
+  /** The customer query it shows. */
+  readonly query: string;
 }
 
 export interface AddonSettingsDeclaration {
@@ -267,6 +285,8 @@ export interface AddonManifest {
     readonly slots?: readonly { readonly slot: AddonSlotName; readonly permission?: string }[];
     /** The pages the phone draws too. Anything else of the add-on's opens the web there. */
     readonly phone?: readonly AddonPhonePage[];
+    /** Its pages in a customer's portal. They need a relationship type with `portal`. */
+    readonly portal?: readonly AddonPortalPage[];
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
@@ -382,6 +402,13 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
         say(
           `relationship type "${t.key}" names record kind "${end.recordKind}", which isn't declared`,
         );
+    if (t.portal) {
+      const ends = [t.a.kind, t.b.kind].sort().join('+');
+      if (ends !== 'person+record')
+        say(
+          `relationship type "${t.key}" shows a record in a portal, so it joins a customer and a record`,
+        );
+    }
   }
   unique(
     'relationship type',
@@ -425,6 +452,26 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       if (!/^[a-z][A-Za-z0-9_]{0,39}$/.test(q))
         say(`phone page "${page.path}" reads "${q}", which isn't a query key`);
   }
+  const portalShapes = new Set<string>();
+  for (const page of m.ui?.portal ?? []) {
+    const parts = page.path.split('/');
+    if (
+      page.path !== '' &&
+      !parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p))
+    )
+      say(`portal page "${page.path}" must be a path, with ":name" for an id`);
+    if (!page.title.trim() || page.title.length > 40)
+      say(`portal page "${page.path}"'s title must be 1–40 characters`);
+    if (!page.query.startsWith(`${m.id}.portal.`))
+      say(
+        `portal page "${page.path}" shows "${page.query}", which must be one of "${m.id}.portal.*"`,
+      );
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (portalShapes.has(shape)) say(`portal page "${page.path}" is declared twice`);
+    portalShapes.add(shape);
+  }
+  if ((m.ui?.portal ?? []).length > 0 && !(m.relationshipTypes ?? []).some((t) => t.portal))
+    say('portal pages need a relationship type with "portal", so a customer has records to see');
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {
     // `deals/:dealId` and `deals/:id` are the same page.

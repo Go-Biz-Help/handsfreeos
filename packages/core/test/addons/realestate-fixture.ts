@@ -54,10 +54,10 @@ export async function realestateBusiness(u: TestUser, name: string): Promise<str
     await rows(
       admin(),
       sql`insert into app.relationship_types (workspace_id, a_end, a_record_type_id, a_label, b_end,
-            b_record_type_id, b_label, cardinality, position, addon_id, addon_key)
+            b_record_type_id, b_label, cardinality, position, addon_id, addon_key, portal_visible)
           values (${id}, ${a.end}::app.relationship_end, ${a.kind}, ${t.aLabel}, ${b.end}::app.relationship_end,
             ${b.kind}, ${t.bLabel}, ${t.cardinality ?? 'many_to_many'}::app.relationship_cardinality, ${900 + i},
-            'realestate', ${t.key})`,
+            'realestate', ${t.key}, ${t.portal === true})`,
     );
   }
   return id;

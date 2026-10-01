@@ -241,12 +241,14 @@ async function seedRecordKinds(tx: Tx, run: Run, m: AddonManifest): Promise<void
     const b = end(t.b);
     await tx.execute(
       sql`insert into app.relationship_types (workspace_id, a_end, a_record_type_id, a_label, b_end,
-            b_record_type_id, b_label, cardinality, position, addon_id, addon_key)
+            b_record_type_id, b_label, cardinality, position, addon_id, addon_key, portal_visible)
           values (${run.scope.workspaceId}, ${a.end}::app.relationship_end, ${a.kind}, ${t.aLabel},
             ${b.end}::app.relationship_end, ${b.kind}, ${t.bLabel},
             ${t.cardinality ?? 'many_to_many'}::app.relationship_cardinality, ${MANAGED_POSITION + i}, ${m.id},
-            ${t.key})
-          on conflict (workspace_id, addon_key) where addon_key is not null do nothing`,
+            ${t.key}, ${t.portal === true})
+          on conflict (workspace_id, addon_key) where addon_key is not null
+            -- Whether its customers see it in their portal is the add-on's to say, and may change with a version.
+            do update set portal_visible = excluded.portal_visible`,
     );
   }
 }

@@ -8,6 +8,9 @@
  * - `POST …/verify`: the code typed back. The right one signs this device in: the worker makes a random bearer,
  *   keeps only its sha256, and hands the bearer to the browser once. It lasts 30 days from its last use, 90 at most.
  * - `POST …/sign-out`: signs this device out.
+ * - `POST /public/portal/op/:name`: the one door for what a signed-in customer does (step 3): any operation that lists
+ *   'customer' (`portal.*`, `<addon>.portal.*`), run by the kernel as them, in their business. The body is its input;
+ *   the business comes from the device, never from the body. Nothing here is in the API or its OpenAPI.
  *
  * As the money pages do: everything that acts is a POST (mail scanners open links), every answer is `no-store` and
  * `no-referrer`, a honeypot refuses bots, and each address has its limits. Everything runs as the system actor in
@@ -18,11 +21,14 @@ import rateLimit from '@fastify/rate-limit';
 import {
   CODE_MINUTES,
   executeCommand,
+  executeQuery,
   HfosError,
   portalCheckCode,
   portalSendCode,
   portalSessionEnd,
   portalSessionSeen,
+  registry,
+  type CustomerActor,
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -40,20 +46,37 @@ export interface PortalLimits {
   readonly read: { readonly max: number; readonly timeWindow: number };
   readonly code: { readonly max: number; readonly timeWindow: number };
   readonly verify: { readonly max: number; readonly timeWindow: number };
+  readonly op: { readonly max: number; readonly timeWindow: number };
 }
 
-/** Per address: pages 60 a minute, codes 10 an hour (each link gets 3), tries 30 an hour (each code gets 5). */
+/**
+ * Per address: pages 60 a minute, codes 10 an hour (each link gets 3), tries 30 an hour (each code gets 5). A signed-in
+ * device's operations, 120 a minute per device.
+ */
 export const PORTAL_LIMITS: PortalLimits = {
   read: { max: 60, timeWindow: MIN },
   code: { max: 10, timeWindow: HOUR },
   verify: { max: 30, timeWindow: HOUR },
+  op: { max: 120, timeWindow: MIN },
 };
 
-const meta = (): RequestMeta => ({
+const meta = (req?: FastifyRequest): RequestMeta => ({
   correlationId: randomUUID(),
   causationId: null,
   channel: 'portal',
+  ...(req ? { ip: req.ip, userAgent: header(req, 'user-agent')?.slice(0, 300) ?? null } : {}),
 });
+
+const signedOut = () =>
+  new HfosError(
+    'unauthenticated',
+    401,
+    'You’re not signed in on this device. Open the link in your email to sign in.',
+    undefined,
+    'portal_signed_out',
+  );
+
+const OpBody = z.record(z.string(), z.unknown());
 
 const notALink = () =>
   HfosError.notFound(
@@ -278,6 +301,47 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
         return output.verified
           ? { verified: true as const, bearer, expiresAt: output.expiresAt }
           : { verified: false as const, triesLeft: output.triesLeft };
+      },
+    );
+
+    pub.post<{ Params: { name: string } }>(
+      '/public/portal/op/:name',
+      {
+        config: {
+          rateLimit: {
+            ...limit(PORTAL_LIMITS.op),
+            // Per device; a request without one is held to its address.
+            keyGenerator: (req: FastifyRequest) => {
+              const b = bearerOf(req);
+              return b ? `portal:${sha256(b).toString('hex')}` : `ip:${req.ip}`;
+            },
+          },
+        },
+      },
+      async (req) => {
+        const session = await portalSessionOf(deps, req);
+        if (!session) throw signedOut();
+        const name = req.params.name;
+        const cmd = registry.command(name);
+        const query = cmd ? undefined : registry.query(name);
+        const op = cmd ?? query;
+        if (!op?.actors?.includes('customer'))
+          throw HfosError.notFound(
+            'That isn’t something your portal does. Refresh the page and try again.',
+          );
+        const actor: CustomerActor = {
+          type: 'customer',
+          workspaceId: session.scope.workspaceId,
+          organizationId: session.scope.organizationId,
+          personId: session.personId,
+          sessionId: session.sessionId,
+        };
+        const input = {
+          ...parseBody(OpBody, req.body ?? {}),
+          workspaceId: session.scope.workspaceId,
+        };
+        if (cmd) return (await executeCommand(deps.httpDb, cmd, input, actor, meta(req))).output;
+        return executeQuery(deps.httpDb, query!, input, actor, meta(req));
       },
     );
 

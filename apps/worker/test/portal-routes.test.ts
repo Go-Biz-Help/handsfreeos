@@ -161,6 +161,28 @@ describe('signing in on a new device', () => {
     expect((other.json() as { signedIn: boolean }).signedIn).toBe(false);
   });
 
+  it('lets the device run what customers may, as them, in their own business', async () => {
+    const home = await call('POST', '/public/portal/op/portal.home', {
+      bearer,
+      // A business named in the body is ignored: the device says whose it is.
+      body: { workspaceId: randomUUID() },
+    });
+    expect(home.statusCode, home.body).toBe(200);
+    expect(home.json()).toEqual({
+      business: { name: business },
+      person: { firstName: 'Linh', lastName: 'Nguyen' },
+      addons: [],
+    });
+    const nobody = await call('POST', '/public/portal/op/portal.home');
+    expect(nobody.statusCode).toBe(401);
+    expect(errorOf(nobody).rule).toBe('portal_signed_out');
+    // Nothing that isn't made for customers, staff's or the worker's own.
+    for (const name of ['person.get', 'portal_code.send', 'portal_access.give', 'nothing.here']) {
+      const res = await call('POST', `/public/portal/op/${name}`, { bearer });
+      expect(res.statusCode, name).toBe(404);
+    }
+  });
+
   it('keeps a device in use signed in, and signs out one left alone for 30 days', async () => {
     await rows(
       admin(),

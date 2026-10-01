@@ -1,5 +1,6 @@
 import type { QueryDef } from '../kernel/types';
 import { portalAccessGet } from '../commands/portal-access';
+import { portalQueries } from './portal';
 import { formQueries } from './form';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
@@ -207,6 +208,8 @@ export { addonRoadmapQueries, ADDON_NEWS_DAYS } from './addon-roadmap';
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   portalAccessGet,
+  // A customer's own, in their portal (Real Estate round two).
+  ...portalQueries,
   ...supportQueries,
   ...platformQueries,
   ...foundingQueries,
@@ -382,6 +385,7 @@ export {
 };
 
 export * from './form';
+export * from './portal';
 export * from './campaign';
 export * from './contact-ai';
 export * from './maintenance';
