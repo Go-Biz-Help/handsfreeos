@@ -138,11 +138,19 @@ export function yesWord(body: string): boolean {
   return wordOf(body) === 'YES';
 }
 
-/** One line for the inbox list: the text itself, or what was attached. */
-export function messagePreview(body: string | null | undefined, mediaCount = 0): string {
+/**
+ * One line for the inbox list: the text itself, or what was attached. `videos` says how many of the attachments are
+ * videos: when they all are, it says videos rather than photos.
+ */
+export function messagePreview(
+  body: string | null | undefined,
+  mediaCount = 0,
+  videos = 0,
+): string {
   const text = (body ?? '').replace(/\s+/g, ' ').trim();
   if (text) return text.length > 140 ? `${text.slice(0, 139)}…` : text;
-  if (mediaCount > 1) return `Sent ${mediaCount} photos`;
-  if (mediaCount === 1) return 'Sent a photo';
+  const kind = mediaCount > 0 && videos >= mediaCount ? 'video' : 'photo';
+  if (mediaCount > 1) return `Sent ${mediaCount} ${kind}s`;
+  if (mediaCount === 1) return `Sent a ${kind}`;
   return '';
 }

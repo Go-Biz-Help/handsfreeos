@@ -539,6 +539,8 @@ export interface MediaShape {
   readonly sizeBytes: number;
   readonly name: string;
   readonly fileId?: string;
+  /** A video the customer sent through a video link we texted them (20261018000200). */
+  readonly via?: 'video_link';
 }
 
 /** A thread item from a phone's copy: the API's ThreadItem, less what the copy doesn't hold (an email's HTML). */

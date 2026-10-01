@@ -16,6 +16,7 @@ import {
   THREAD_WORDS,
   type MediaShape,
   type ThreadItemShape,
+  VIDEO_LINK_WORDS,
 } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
@@ -262,6 +263,11 @@ export function MessageBubble({
               {item.media.map((m) => (
                 <MediaThumb key={m.objectPath} media={m} />
               ))}
+              {item.media.some((m) => m.via === 'video_link') ? (
+                <Text className="px-1 text-xs text-text-3" testID="came-by-video-link">
+                  {VIDEO_LINK_WORDS.cameByLink}
+                </Text>
+              ) : null}
               {item.body ? (
                 <Bubble out={out} tone={failed ? 'failed' : 'plain'}>
                   {item.body}

@@ -14,6 +14,7 @@ import {
   type RichCheck,
   type RichDraft,
   type WordPart,
+  VIDEO_LINK_WORDS,
 } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
@@ -29,6 +30,7 @@ import {
   Paperclip,
   Phone,
   RectangleEllipsis,
+  Video,
   Send,
   Sparkles,
   X,
@@ -141,6 +143,9 @@ export function Composer({
   canRich = false,
   canCarousel = false,
   onCardPhoto,
+  canAskVideo = false,
+  askingVideo = false,
+  onAskVideo,
 }: {
   userId: string;
   mode: ComposerMode;
@@ -184,6 +189,10 @@ export function Composer({
   /** A carousel's pictures go to the customer's files, so it needs a customer. */
   canCarousel?: boolean;
   onCardPhoto?: (cardKey: string, source: 'camera' | 'library') => void;
+  /** "Ask for a video" (20261018000200): a link to send a full-quality video, put into the box. Texts only. */
+  canAskVideo?: boolean;
+  askingVideo?: boolean;
+  onAskVideo?: () => void;
 }) {
   const colors = useColors();
   const [choosing, setChoosing] = React.useState(false);
@@ -367,6 +376,22 @@ export function Composer({
               as={RectangleEllipsis}
               className={cn('size-5', richOn ? 'text-accent-text' : 'text-text-2')}
             />
+          </Pressable>
+        ) : null}
+        {canAskVideo && !off && onAskVideo ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={VIDEO_LINK_WORDS.button}
+            accessibilityState={{ busy: askingVideo, disabled: askingVideo }}
+            disabled={askingVideo}
+            onPress={onAskVideo}
+            className={cn(
+              'size-11 items-center justify-center rounded-full active:bg-card-2',
+              askingVideo && 'opacity-50',
+            )}
+            testID="composer-ask-video"
+          >
+            <Icon as={Video} className="size-5 text-text-2" />
           </Pressable>
         ) : null}
         <View

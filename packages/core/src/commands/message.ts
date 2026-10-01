@@ -193,10 +193,7 @@ async function resolveSmsConversation(
 }
 
 /** STOP from their number, or a customer marked opted out: either way nothing is texted to them. */
-export async function customerOptedOut(
-  ctx: CommandContext,
-  conv: Conversation,
-): Promise<boolean> {
+export async function customerOptedOut(ctx: CommandContext, conv: Conversation): Promise<boolean> {
   if (await isOptedOut(ctx.tx, ctx.scope.workspaceId!, conv.counterpart)) return true;
   if (!conv.personId) return false;
   const [p] = await ctx.tx
