@@ -23,7 +23,10 @@ let deps: WalletDeps;
 let scope: TenantScope;
 let accountId: string;
 
-const e164 = () => `+1512${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`;
+// A real US exchange starts with 2–9; one starting 0 or 1 isn't formatted as "(512) 555-1234", so the subject check
+// below would fail at random.
+const e164 = () =>
+  `+1512${2 + Math.floor(Math.random() * 8)}${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`;
 
 async function number(input: {
   type?: 'local' | 'toll_free';
