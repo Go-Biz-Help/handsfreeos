@@ -67,6 +67,7 @@ import {
   AttendeeRescheduleOnlineOutput,
 } from '../schemas/calendar';
 import { announceBooked } from './appointment';
+import { recordOffersConsent } from '../messaging/offers';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -343,6 +344,9 @@ export const appointmentBookOnline = defineCommand({
         .update(people)
         .set({ smsConsent: 'opted_in', smsConsentAt: new Date(), smsConsentSource: 'booking_page' })
         .where(eq(people.id, personId));
+    // The separate box for offers: kept the same way, a new customer's yes, with a number and no STOP.
+    if (created && input.offersConsent && !!phone && !stopped)
+      await recordOffersConsent(ctx.tx, personId, 'booking_page');
     const attendee: AttendeeDraft = {
       personId,
       seats: input.partySize,

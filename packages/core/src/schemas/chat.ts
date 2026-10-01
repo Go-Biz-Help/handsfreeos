@@ -274,6 +274,8 @@ export const ChatIdentifyInput = z.object({
   email: optionalEmail,
   /** They ticked the box to get texts (the booking page's wording). Never overrides a STOP. */
   smsConsent: z.boolean().default(false),
+  /** The separate box for offers, shown when the business sends them. Never overrides a STOP. */
+  offersConsent: z.boolean().default(false),
 });
 /** Ids and flags only: nothing about a matched customer ever goes back to the visitor. */
 export const ChatIdentifyOutput = z.object({

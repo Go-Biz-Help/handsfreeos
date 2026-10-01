@@ -37,6 +37,9 @@ export type A2pField =
   | 'messageSamples'
   | 'optInDescription'
   | 'optInPath'
+  | 'optInUrl'
+  | 'optInProofUrl'
+  | 'sensitiveTopics'
   | 'monthlyVolume';
 
 export interface A2pIssue {
@@ -58,7 +61,60 @@ export interface A2pDraft {
   readonly messageSamples?: readonly string[];
   readonly optInDescription?: string;
   readonly optInPath?: OptInPath;
+  /** The business's own page carrying the box, for `own_site`. */
+  readonly optInUrl?: string | null;
+  /** A link anyone can open showing what customers see or hear before they agree (`in_person`). */
+  readonly optInProofUrl?: string | null;
+  /** The answer to "do your texts touch any of these?": the ids picked, `[]` for none, null before answering. */
+  readonly sensitiveTopics?: readonly string[] | null;
   readonly monthlyVolume?: string;
+}
+
+// ---------- what the business does ----------
+
+/**
+ * Topics the carriers treat differently, asked about once so nobody finds out from a rejection.
+ *
+ * - `refused`: not approved on an ordinary business registration. The wizard stops, and says so.
+ * - `age`: allowed only when customers' ages are checked before they sign up; the campaign is marked age-gated.
+ * - `lending`: allowed, looked at harder; the campaign is marked as direct lending.
+ */
+export const SENSITIVE_TOPICS = [
+  { id: 'lending', label: 'Loans or credit you give customers yourself', kind: 'lending' },
+  {
+    id: 'debt',
+    label: 'Payday loans, debt relief, debt collection or credit repair',
+    kind: 'refused',
+  },
+  { id: 'lead_selling', label: 'Buying or selling leads for other businesses', kind: 'refused' },
+  {
+    id: 'cannabis',
+    label: 'Cannabis, CBD, kratom or other controlled substances',
+    kind: 'refused',
+  },
+  { id: 'gambling', label: 'Gambling, betting or sweepstakes', kind: 'refused' },
+  { id: 'alcohol', label: 'Alcohol', kind: 'age' },
+  { id: 'tobacco', label: 'Tobacco or vaping', kind: 'age' },
+  { id: 'firearms', label: 'Firearms or ammunition', kind: 'age' },
+] as const;
+export type SensitiveTopicId = (typeof SENSITIVE_TOPICS)[number]['id'];
+export const SENSITIVE_TOPIC_IDS = SENSITIVE_TOPICS.map((t) => t.id) as [
+  SensitiveTopicId,
+  ...SensitiveTopicId[],
+];
+
+const topicKind = (id: string) => SENSITIVE_TOPICS.find((t) => t.id === id)?.kind ?? null;
+
+/** The carriers' two flags, read off the answer: age-gated content, and direct lending. */
+export function sensitiveFlags(topics: readonly string[] | null | undefined): {
+  ageGated: boolean;
+  directLending: boolean;
+} {
+  const list = topics ?? [];
+  return {
+    ageGated: list.some((t) => topicKind(t) === 'age'),
+    directLending: list.some((t) => topicKind(t) === 'lending'),
+  };
 }
 
 // ---------- example texts ----------
@@ -97,6 +153,15 @@ const SHORTENERS = [
 ];
 
 const lower = (s: string) => s.toLowerCase();
+
+/** Does this text read as an offer? Money off, a sale, a deal: the words a reviewer reads as promotion. */
+export function readsPromotional(sample: string): boolean {
+  const text = lower(sample);
+  return (
+    PROMOTIONAL.some((w) => text.includes(w)) ||
+    /\$\s?\d+\s*off\b|\bsave \$?\d+|\b(special|specials|offer)\b/.test(text)
+  );
+}
 
 /** Does this sample name the business? A reviewer has to see who is texting, in the text itself. */
 export function sampleNamesBusiness(sample: string, business: string): boolean {
@@ -167,17 +232,36 @@ export function checkSample(sample: string, business: string): A2pIssue[] {
 export function sampleSuggestions(business: string, useCase: string): string[] {
   const who = business.trim() || 'Lone Star HVAC';
   const care = [
-    `${who}: your appointment is confirmed for Thursday at 10am. Reply STOP to stop texts.`,
-    `Hi, it's ${who}. Your estimate is ready — reply here and we'll send it over.`,
-    `${who}: our technician is on the way and should be with you in about 20 minutes.`,
+    `${who}: hi [First Name], your appointment is confirmed for [Date] at [Time]. Reply STOP to stop texts.`,
+    `Hi [First Name], it's ${who}. Your estimate is ready — reply here and we'll send it over.`,
+    `${who}: [Technician] is on the way and should be with you in about [Minutes] minutes.`,
   ];
   const marketing = [
-    `${who}: we have two service slots left this week. Reply here to take one. Reply STOP to stop texts.`,
-    `Hi, it's ${who}. It's been six months since your last service — would you like us to book the next one?`,
+    `${who}: spring special — $[Amount] off a tune-up booked this month. Reply here to book. Reply STOP to stop texts.`,
+    `Hi [First Name], it's ${who}. It's been six months since your last service — would you like us to book the next one?`,
   ];
   if (useCase === 'marketing') return marketing;
-  if (useCase === 'mixed') return [care[0]!, marketing[1]!, care[2]!];
+  if (useCase === 'mixed') return [care[0]!, marketing[0]!, care[2]!];
   return care;
+}
+
+/**
+ * A mixed campaign's examples have to show both kinds of text: at least one offer, and at least one about a
+ * customer's own work. A reviewer approves what the examples show and nothing more.
+ */
+function mixedSamplesIssue(samples: readonly string[], useCase: string): A2pIssue | null {
+  if (useCase !== 'mixed' || samples.length < 2) return null;
+  const offers = samples.filter(readsPromotional).length;
+  if (offers > 0 && offers < samples.length) return null;
+  return {
+    field: 'messageSamples',
+    severity: 'warning',
+    message:
+      offers === 0
+        ? 'Make one example an offer, like "$20 off a tune-up this month", and keep the other about a customer’s own job.'
+        : 'Make one example about a customer’s own job, like an appointment reminder, and keep the other an offer.',
+    why: 'You picked customer care and the odd promotion, so the carrier checks your examples show both. A kind of text with no example is a kind of text the campaign isn’t approved for.',
+  };
 }
 
 /** Does this set of samples read like the use case the business ticked? */
@@ -266,6 +350,10 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
     });
   const mismatch = useCaseMismatch(samples, draft.useCase ?? '');
   if (mismatch) issues.push(mismatch);
+  const mixed = mixedSamplesIssue(samples, draft.useCase ?? '');
+  if (mixed) issues.push(mixed);
+
+  issues.push(...sensitiveIssues(draft.sensitiveTopics));
 
   if (!draft.optInPath)
     issues.push({
@@ -274,6 +362,43 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
       message: 'Choose how customers agree to get texts.',
       why: 'This is the part of the form that is checked hardest. The reviewer opens your website looking for the box you describe here.',
     });
+
+  if (draft.optInPath === 'own_site') {
+    const page = (draft.optInUrl ?? '').trim();
+    if (!page)
+      issues.push({
+        field: 'optInUrl',
+        severity: 'blocker',
+        message: 'Enter the address of the page with your tick box, like yoursite.com/contact.',
+        why: 'The reviewer opens this exact page looking for the box. Your home page only counts if the box is on it.',
+      });
+    else if (!looksLikeWebAddress(page))
+      issues.push({
+        field: 'optInUrl',
+        severity: 'blocker',
+        message: 'Enter the page’s full web address, like yoursite.com/contact.',
+        why: 'The reviewer has to be able to open it, so it has to be a real address on your website.',
+      });
+  }
+
+  if (draft.optInPath === 'in_person') {
+    const proof = (draft.optInProofUrl ?? '').trim();
+    if (!proof)
+      issues.push({
+        field: 'optInProofUrl',
+        severity: 'blocker',
+        message:
+          'Add a link to a photo of your sign-up sheet, or of the words you say on the phone, that anyone can open.',
+        why: 'The reviewer can’t watch you ask in person, so they ask to see what customers see or hear. A shared Google Drive or Dropbox link works, as long as it opens without signing in.',
+      });
+    else if (!looksLikeWebAddress(proof))
+      issues.push({
+        field: 'optInProofUrl',
+        severity: 'blocker',
+        message: 'Enter the full link, starting with https://.',
+        why: 'The reviewer opens it from the registration, so it has to be a link that works.',
+      });
+  }
 
   const optIn = (draft.optInDescription ?? '').trim();
   if (optIn.length < 40)
@@ -284,6 +409,55 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
       why: 'A short answer here reads as a business that has not set consent up at all, which is the most common reason these are turned down.',
     });
 
+  return issues;
+}
+
+/** A web address someone could open: a dot in the host, and nothing a browser would refuse. */
+function looksLikeWebAddress(raw: string): boolean {
+  const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.includes('.') && !/\s/.test(raw);
+  } catch {
+    return false;
+  }
+}
+
+/** What the answer to the sensitive-topics question means for the registration. */
+function sensitiveIssues(topics: readonly string[] | null | undefined): A2pIssue[] {
+  if (topics == null)
+    return [
+      {
+        field: 'sensitiveTopics',
+        severity: 'blocker',
+        message: 'Tell us whether your texts are about any of these, or pick “None of these”.',
+        why: 'The carriers handle some kinds of business differently. Saying so now is better than finding out from a rejection.',
+      },
+    ];
+  const issues: A2pIssue[] = [];
+  const refused = SENSITIVE_TOPICS.filter((t) => t.kind === 'refused' && topics.includes(t.id));
+  if (refused.length)
+    issues.push({
+      field: 'sensitiveTopics',
+      severity: 'blocker',
+      message: `The carriers don’t approve texting about ${refused.map((t) => t.label.toLowerCase()).join(' or ')} on a business registration like this one. If your texts won’t be about it, untick it.`,
+      why: 'These are on the carriers’ list of restricted or forbidden kinds of texting. A registration that includes them is turned down, and a number caught sending them is shut off.',
+    });
+  const aged = SENSITIVE_TOPICS.filter((t) => t.kind === 'age' && topics.includes(t.id));
+  if (aged.length)
+    issues.push({
+      field: 'sensitiveTopics',
+      severity: 'warning',
+      message: `Texts about ${aged.map((t) => t.label.toLowerCase()).join(' or ')} are only allowed to people whose age you have checked. Ask for it before they agree, or leave these out of your texts.`,
+      why: 'We tell the carriers these texts are age-gated. They check the page where people agree for an age question, and they look harder at the whole registration.',
+    });
+  if (topics.includes('lending'))
+    issues.push({
+      field: 'sensitiveTopics',
+      severity: 'warning',
+      message: 'Lending is allowed, but expect extra questions and a slower answer.',
+      why: 'We tell the carriers your texts are about loans you make yourself. They check lenders more closely than other businesses.',
+    });
   return issues;
 }
 

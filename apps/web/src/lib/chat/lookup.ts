@@ -34,7 +34,10 @@ export interface ChatConfig {
     readonly text: string;
     readonly detail: string | null;
     readonly policyUrl: string | null;
+    readonly termsUrl: string | null;
   } | null;
+  /** The separate box for offers under it, for a business that sends them; null otherwise. */
+  readonly offersConsent: { readonly title: string; readonly detail: string } | null;
   /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
   readonly humanCheck: { readonly siteKey: string | null } | null;
   readonly paused: boolean;
@@ -67,6 +70,15 @@ const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !
 const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
 
 /** The worker's answer, read defensively: anything it doesn't say falls back to the widget defaults. */
+
+/** The offers box's words, when the worker sent both; anything else means no box. */
+function offersOf(raw: unknown): { title: string; detail: string } | null {
+  if (!isObj(raw)) return null;
+  const title = text(raw.title);
+  const detail = text(raw.detail);
+  return title && detail ? { title, detail } : null;
+}
+
 export function parseChatConfig(raw: unknown): ChatConfig | null {
   if (!isObj(raw) || !isObj(raw.business) || !isObj(raw.look)) return null;
   const look = raw.look;
@@ -97,8 +109,10 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
           text: consent,
           detail: consent,
           policyUrl: consentRaw ? text(consentRaw.policyUrl) : null,
+          termsUrl: consentRaw ? text(consentRaw.termsUrl) : null,
         }
       : null,
+    offersConsent: offersOf(raw.offersConsent),
     humanCheck: check ? { siteKey: text(check.siteKey) } : null,
     paused: raw.paused === true,
     maxMessageLength: Math.max(1, Math.min(1000, Math.floor(max))),

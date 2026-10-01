@@ -3,6 +3,7 @@ import formbody from '@fastify/formbody';
 import {
   checkOptInSurface,
   checkPolicy,
+  checkTerms,
   checkWebsite,
   dispositionOf,
   formatPhone,
@@ -143,7 +144,7 @@ const RcsSendersInput = z.strictObject({ workspaceId: z.uuid() });
 const TelephonyAccountInput = z.strictObject({ workspaceId: z.uuid() });
 
 /**
- * What the registration wizard asks for before it lets a business submit: the three things a carrier's
+ * What the registration wizard asks for before it lets a business submit: the four things a carrier's
  * reviewer goes and looks at. Core decides what each page means; this only fetches them.
  */
 const PreflightInput = z.strictObject({
@@ -152,8 +153,14 @@ const PreflightInput = z.strictObject({
   /** The privacy policy a reviewer will open: the business's own, or the one we host. */
   policyUrl: z.string().trim().max(300).nullable().optional(),
   optInPath: z.enum(['hosted', 'own_site', 'in_person']),
+  /** The terms a reviewer will open: the business's own, or the ones we host. */
+  termsUrl: z.string().trim().max(300).nullable().optional(),
   /** The page carrying the agreement box, when the chosen path claims one. */
   optInUrl: z.string().trim().max(300).nullable().optional(),
+  /** In person: a link to a photo of the sign-up sheet or the words said on the phone. */
+  optInProofUrl: z.string().trim().max(500).nullable().optional(),
+  /** The ways the business is known (its name and legal name), looked for on the website and beside the box. */
+  names: z.array(z.string().trim().max(120)).max(4).default([]),
 });
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
@@ -367,19 +374,22 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       }
     };
 
-    // Fetched together: three sequential round trips would have the business watching a spinner for
+    // Fetched together: four sequential round trips would have the business watching a spinner for
     // the better part of half a minute.
-    const [website, policy, optIn] = await Promise.all([
+    const names = input.names.filter(Boolean);
+    const [website, policy, terms, optIn] = await Promise.all([
       open(input.website),
       open(input.policyUrl),
-      input.optInPath === 'in_person' ? Promise.resolve(null) : open(input.optInUrl),
+      open(input.termsUrl),
+      open(input.optInPath === 'in_person' ? input.optInProofUrl : input.optInUrl),
     ]);
 
     return {
       checks: [
-        checkWebsite(website),
+        checkWebsite(website, names),
         checkPolicy(policy),
-        checkOptInSurface(optIn, input.optInPath),
+        checkTerms(terms),
+        checkOptInSurface(optIn, input.optInPath, names),
       ],
     };
   });

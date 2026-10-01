@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { telephonyRegistrations } from '@hfos/db/schema';
+import { registrationDrafts, telephonyRegistrations, workspaces } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -13,6 +13,8 @@ import {
   loadRegistrations,
 } from '../messaging/store';
 import {
+  RegistrationSaveDraftInput,
+  RegistrationSaveDraftOutput,
   RegistrationSubmitInput,
   RegistrationSubmitOutput,
   RegistrationUpdateStatusInput,
@@ -74,7 +76,17 @@ export const registrationSubmit = defineCommand({
         `Texting is already approved for ${formatPhone(number.e164)}, so there’s nothing more to send.`,
       );
 
-    const submission = { ...input.business, forNumber: number.e164 };
+    // The kind of business goes with it, for the carrier's industry: the workspace already knows it, and
+    // asking again on the form would only give it a second answer to disagree with.
+    const [ws] = await ctx.tx
+      .select({ industry: workspaces.industry })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId));
+    const submission = {
+      ...input.business,
+      forNumber: number.e164,
+      industry: ws?.industry ?? null,
+    };
     const now = new Date();
     const ids: string[] = [];
     let previous: string | null = null;
@@ -114,6 +126,8 @@ export const registrationSubmit = defineCommand({
       ids.push(row.id);
       previous = row.id;
     }
+    // What was being typed is now what was sent; the wizard starts from the submission next time.
+    await ctx.tx.delete(registrationDrafts).where(eq(registrationDrafts.workspaceId, workspaceId));
     await ctx.emit({
       type: 'registration.submitted',
       entityType: 'registration',
@@ -128,6 +142,30 @@ export const registrationSubmit = defineCommand({
       },
     });
     return { registrationIds: ids };
+  },
+});
+
+export const registrationSaveDraft = defineCommand({
+  name: 'registration.save_draft',
+  description:
+    'Keep the texting registration’s answers while they are being filled in, so a refresh or coming back later picks up where it was left. Nothing goes to the carriers until it is sent.',
+  risk: 1,
+  input: RegistrationSaveDraftInput,
+  output: RegistrationSaveDraftOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const now = new Date();
+    await ctx.tx
+      .insert(registrationDrafts)
+      .values({ workspaceId, answers: input.answers, updatedBy: userIdOf(ctx.actor) })
+      .onConflictDoUpdate({
+        target: registrationDrafts.workspaceId,
+        set: { answers: input.answers, updatedBy: userIdOf(ctx.actor), updatedAt: now },
+      });
+    return { savedAt: now.toISOString() };
   },
 });
 

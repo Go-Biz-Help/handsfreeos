@@ -1,6 +1,13 @@
 import type { SessionTimings } from '../voice-agent/session';
-import { bearerToken, HfosError, type HumanActor, type TokenVerifier } from '@hfos/core/server';
-import { asWorker, rows, sql, type Db } from '@hfos/db/client';
+import {
+  bearerToken,
+  HfosError,
+  offersConsentWords,
+  sendsOffers,
+  type HumanActor,
+  type TokenVerifier,
+} from '@hfos/core/server';
+import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import type { AssistantServices } from '../assistant/routes';
@@ -43,6 +50,26 @@ export interface HttpDeps extends WorkerServices {
   readonly testRoutes?: TestRoutes | null;
   /** Reading the CRM a business is leaving (M11): the sign-in routes need the adapter to build its URL. */
   readonly migrationAdapters?: MigrationAdapters | null;
+}
+
+/**
+ * The separate box for offers a public page shows, or null when the business doesn't send offers: its texting
+ * registration (the latest one sent) is for customer care and the odd promotion, or mostly promotions. The
+ * carriers check those businesses for a page where a customer can say yes to one and no to the other.
+ */
+export async function offersBoxFor(
+  tx: Tx,
+  workspaceId: string,
+  business: string,
+): Promise<{ title: string; detail: string } | null> {
+  const [row] = await rows<{ use_case: string | null }>(
+    tx,
+    sql`select submission->>'useCase' as use_case from app.telephony_registrations
+        where workspace_id = ${workspaceId} and submission is not null and submitted_at is not null
+        order by submitted_at desc, created_at desc
+        limit 1`,
+  );
+  return sendsOffers(row?.use_case) ? offersConsentWords(business) : null;
 }
 
 export const header = (req: FastifyRequest, name: string): string | undefined => {

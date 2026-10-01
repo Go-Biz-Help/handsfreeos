@@ -25,6 +25,8 @@ export interface PublicFormPage {
   readonly redirected: string | null;
   /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
   readonly botCheck: { readonly siteKey: string | null } | null;
+  /** The separate box for offers, under "Text me", for a business that sends them. */
+  readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
 }
 
 export interface StartedSheet {
@@ -124,6 +126,7 @@ export const sendSheet = (
     token: string;
     answers: Record<string, unknown>;
     smsConsent: boolean;
+    offersConsent?: boolean;
     website?: string;
     turnstileToken?: string;
   },

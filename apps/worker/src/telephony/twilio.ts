@@ -2,7 +2,16 @@
  * Twilio over plain HTTPS (no SDK): the master account creates one subaccount per workspace, and each
  * workspace's numbers, messages and registrations live in its subaccount.
  */
-import { HELP_KEYWORDS, rcsSenderIdOf, START_KEYWORDS, STOP_KEYWORDS } from '@hfos/core';
+import {
+  findIndustry,
+  formatPhone,
+  HELP_KEYWORDS,
+  keywordReplies,
+  rcsSenderIdOf,
+  sensitiveFlags,
+  START_KEYWORDS,
+  STOP_KEYWORDS,
+} from '@hfos/core';
 import {
   ProviderError,
   type AvailableNumber,
@@ -277,7 +286,88 @@ interface Business {
   messageSamples: string[];
   optInDescription: string;
   monthlyVolume: string;
+  /** How customers agree (wizard answer); absent on registrations sent before the wizard asked. */
+  optInPath?: 'hosted' | 'own_site' | 'in_person';
+  /** The page with the tick box, and a picture or page of what customers see or hear. */
+  optInUrl?: string | null;
+  optInProofUrl?: string | null;
+  /** The privacy policy and terms the reviewer opens, whoever hosts them. */
+  privacyPageUrl?: string | null;
+  termsPageUrl?: string | null;
+  /** The name customers know it by, which its HELP reply carries. */
+  displayName?: string;
+  /** The workspace's kind of business (core's industries), added when it was sent. */
+  industry?: string | null;
+  sensitiveTopics?: string[];
+  /** The number it was sent for. */
+  forNumber?: string;
 }
+
+/**
+ * The carrier's industry for a kind of business (core's industries). Trades are CONSTRUCTION, as every brand
+ * was before the kind was sent along; anything we can't place is CONSUMER rather than a guess that reads wrong.
+ */
+const INDUSTRY_BY_GROUP: Record<string, string> = {
+  'Home services & trades': 'CONSTRUCTION',
+  'Real estate & property': 'REAL_ESTATE',
+  'Health & care': 'HEALTHCARE',
+  'Beauty & fitness': 'CONSUMER',
+  Pets: 'CONSUMER',
+  'Auto & vehicles': 'AUTOMOTIVE',
+  'Finance, legal & insurance': 'FINANCIAL',
+  'Education & childcare': 'EDUCATION',
+  'Events, food & hospitality': 'HOSPITALITY',
+  'Rentals & equipment': 'CONSUMER',
+  'Professional services': 'PROFESSIONAL_SERVICES',
+  Retail: 'RETAIL',
+  Community: 'NOT_FOR_PROFIT',
+};
+const INDUSTRY_BY_KIND: Record<string, string> = {
+  moving: 'TRANSPORTATION',
+  towing: 'TRANSPORTATION',
+  mortgage: 'FINANCIAL',
+  law_firm: 'LEGAL',
+  insurance: 'INSURANCE',
+  restaurant: 'FOOD_AND_BEVERAGE',
+  catering: 'FOOD_AND_BEVERAGE',
+  food_truck: 'FOOD_AND_BEVERAGE',
+  bakery: 'FOOD_AND_BEVERAGE',
+  travel: 'TRAVEL',
+  marketing_agency: 'MEDIA',
+  printing_signs: 'MEDIA',
+  it_services: 'TECHNOLOGY',
+  online_store: 'ONLINE',
+  church: 'RELIGION',
+};
+export function carrierIndustry(industry: string | null | undefined): string {
+  if (!industry) return 'CONSTRUCTION';
+  const kind = findIndustry(industry);
+  if (!kind) return 'CONSUMER';
+  return INDUSTRY_BY_KIND[kind.id] ?? INDUSTRY_BY_GROUP[kind.group] ?? 'CONSUMER';
+}
+
+/** How a toll-free verification names the way customers agree, from the wizard's answer. */
+const tollFreeOptInType = (b: Business): string =>
+  b.optInPath === 'hosted' || b.optInPath === 'own_site' ? 'WEB_FORM' : 'VERBAL';
+
+/**
+ * What the reviewer is pointed at to see customers agree: the picture or page of what they see, the page
+ * with the box, and only when neither was given (registrations from before the wizard asked) the website.
+ */
+const optInEvidence = (b: Business): string[] => {
+  const urls = [b.optInProofUrl, b.optInUrl].filter((u): u is string => !!u?.trim());
+  return urls.length ? urls : [b.website];
+};
+
+/** The HELP reply the carriers are told about: the one HandsFreeOS really sends (handlers/help-reply.ts). */
+const helpReplyOf = (b: Business): string =>
+  keywordReplies(b.displayName || b.legalName, b.forNumber ? formatPhone(b.forNumber) : '').help;
+
+/** The privacy policy and terms, when the registration says where they are. Twilio refuses an empty URL. */
+const policyLinks = (b: Business): Params => ({
+  ...(b.privacyPageUrl ? { PrivacyPolicyUrl: b.privacyPageUrl } : {}),
+  ...(b.termsPageUrl ? { TermsAndConditionsUrl: b.termsPageUrl } : {}),
+});
 
 // ---------- carrier registration ----------
 
@@ -346,7 +436,24 @@ const OPT_OUT_SENTENCE =
 
 /** The use case the carriers approve: a 10DLC campaign's Description and a toll-free UseCaseSummary. */
 function useCaseDescription(b: Business): string {
-  return `${b.legalName} sends ${USE_CASE_TEXTS[b.useCase] ?? AUTOMATED_CARE}. ${OPT_OUT_SENTENCE}`;
+  const how = consentSentence(b);
+  return `${b.legalName} sends ${USE_CASE_TEXTS[b.useCase] ?? AUTOMATED_CARE}.${how ? ` ${how}` : ''} ${OPT_OUT_SENTENCE}`;
+}
+
+/**
+ * How the recipients agreed, in one sentence, so the description names the sender, the recipients, the
+ * purpose and the consent together. The full story is the MessageFlow; this is its headline.
+ */
+function consentSentence(b: Business): string {
+  switch (b.optInPath) {
+    case 'hosted':
+    case 'own_site':
+      return `Recipients agree by ticking an unticked, optional box on the business's website form${b.optInUrl ? ` (${b.optInUrl})` : ''}.`;
+    case 'in_person':
+      return 'Recipients agree in person or on the phone when they ask for work, and each agreement is recorded.';
+    default:
+      return '';
+  }
 }
 
 /** The carrier's reason in one line, from whichever field this resource uses. */
@@ -511,8 +618,11 @@ function tollFreeDetails(request: RegistrationRequest, b: Business): Params {
     UseCaseCategories: USE_CASES[b.useCase] ?? USE_CASES['customer_care'],
     UseCaseSummary: useCaseDescription(b),
     ProductionMessageSample: b.messageSamples.join('\n\n'),
-    OptInImageUrls: [b.website],
-    OptInType: 'VERBAL',
+    OptInImageUrls: optInEvidence(b),
+    OptInType: tollFreeOptInType(b),
+    ...policyLinks(b),
+    AgeGatedContent: String(sensitiveFlags(b.sensitiveTopics).ageGated),
+    HelpMessageSample: helpReplyOf(b),
     MessageVolume: MESSAGE_VOLUME[b.monthlyVolume] ?? '1,000',
     BusinessStreetAddress: b.address.line1,
     BusinessCity: b.address.city,
@@ -566,7 +676,7 @@ async function submitCustomerProfile(
       business_name: b.legalName,
       business_type: A2P_BUSINESS_TYPE[b.businessType] ?? 'Limited Liability Corporation',
       // Home-services businesses (HVAC, plumbing, roofing, electrical).
-      business_industry: 'CONSTRUCTION',
+      business_industry: carrierIndustry(b.industry),
       business_registration_identifier: 'EIN',
       business_registration_number: b.ein.replace('-', ''),
       business_regions_of_operation: 'USA_AND_CANADA',
@@ -688,28 +798,15 @@ async function submitCampaign(
       true,
     );
   /**
-   * The three messages a campaign declares, built from the business's own name.
-   *
-   * Kept short on purpose: every one of them is a real text somebody's phone will show, and a carrier reads
-   * them looking for the business's name, the way out, and that rates may apply. 160 characters is one
-   * segment, so none of these costs the business two.
+   * The replies a campaign declares to STOP, START and HELP: **the ones customers really get**. Twilio's own
+   * opt-out handling answers STOP and START in its standard words before we see the text; HandsFreeOS answers
+   * HELP with the business's name and number (core's keywordReplies, one copy for both).
    */
-  const shortName = (b: Business) => b.legalName.slice(0, 40);
-  const optInMessage = (b: Business) =>
-    `${shortName(b)}: you're signed up for texts. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to stop.`.slice(
-      0,
-      320,
-    );
-  const optOutMessage = (b: Business) =>
-    `${shortName(b)}: you're unsubscribed and will get no more texts. Reply START to start again.`.slice(
-      0,
-      320,
-    );
-  const helpMessage = (b: Business) =>
-    `${shortName(b)}: reply STOP to stop texts. Msg & data rates may apply. Contact us at ${b.contact.email}.`.slice(
-      0,
-      320,
-    );
+  const replies = keywordReplies(
+    b.displayName || b.legalName,
+    b.forNumber ? formatPhone(b.forNumber) : '',
+  );
+  const flags = sensitiveFlags(b.sensitiveTopics);
 
   // A campaign the carriers turned down is replaced (Twilio's edit in place is still a private beta); the new
   // one may be charged the vetting fee again.
@@ -734,11 +831,14 @@ async function submitCampaign(
       // than optional, and **the keyword lists come from core** so what we declare is what the code does
       // (packages/core/src/messaging/sms.ts) rather than a second copy that drifts.
       OptInKeywords: [...START_KEYWORDS],
-      OptInMessage: optInMessage(b),
+      OptInMessage: replies.start,
       OptOutKeywords: [...STOP_KEYWORDS],
-      OptOutMessage: optOutMessage(b),
+      OptOutMessage: replies.stop,
       HelpKeywords: [...HELP_KEYWORDS],
-      HelpMessage: helpMessage(b),
+      HelpMessage: replies.help,
+      ...policyLinks(b),
+      AgeGated: String(flags.ageGated),
+      DirectLending: String(flags.directLending),
     },
   );
   return stateOf(res.sid, res.campaign_status ?? 'PENDING', CAMPAIGN_STATUS, res);

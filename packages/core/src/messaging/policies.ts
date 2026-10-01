@@ -25,6 +25,8 @@ export interface PolicyBusiness {
   readonly website?: string;
   readonly email?: string;
   readonly phone?: string;
+  /** The business also texts offers, with a separate box for them, so the policy and terms say so. */
+  readonly offers?: boolean;
   readonly address?: {
     readonly line1?: string;
     readonly city?: string;
@@ -110,7 +112,12 @@ export function privacyPolicy(business: PolicyBusiness, on: Date = new Date()): 
         heading: 'Text messages',
         paragraphs: [
           `If you give ${who} permission to text you, we use your mobile number to send you messages about ` +
-            'your appointments, estimates and the work we are doing for you. Agreeing is never a condition ' +
+            'your appointments, estimates and the work we are doing for you.' +
+            (business.offers
+              ? ' If you also tick the separate box for offers, we text you now and then about offers and ' +
+                'services that are due.'
+              : '') +
+            ' Agreeing is never a condition ' +
             "of buying anything from us. How many messages you get varies, and your carrier's message and " +
             'data rates may apply.',
           'You can stop the messages at any time by replying STOP, and get help by replying HELP.',
@@ -167,8 +174,19 @@ export function termsOfService(business: PolicyBusiness, on: Date = new Date()):
         heading: 'Text messages',
         paragraphs: [
           `By giving ${who} permission to text you, you agree to receive messages about your appointments, ` +
-            'estimates and work. Agreeing is not a condition of buying anything. Message frequency varies ' +
-            "and your carrier's message and data rates may apply. Reply STOP to stop and HELP for help.",
+            'estimates and work' +
+            (business.offers
+              ? ', and, if you also tick the separate box for them, about offers and services that are due'
+              : '') +
+            '. Agreeing is not a condition of buying anything. Message frequency varies ' +
+            "and your carrier's message and data rates may apply.",
+          'Reply STOP at any time to stop the messages; we will send one text to confirm, and none after ' +
+            'it. Reply START to get them again. Reply HELP for help' +
+            (business.phone?.trim() ? `, or call us at ${business.phone.trim()}` : '') +
+            (business.email?.trim() ? `, or email ${business.email.trim()}` : '') +
+            '.',
+          'Mobile carriers are not liable for delayed or undelivered messages. How we handle your number ' +
+            'is set out in our privacy policy: we never share or sell it for anyone else’s marketing.',
         ],
       },
       {

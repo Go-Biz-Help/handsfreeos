@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TWILIO_STOP_REPLY } from '@hfos/core';
 import {
   ProviderError,
   type ProviderAccount,
   type RegistrationKind,
   type RegistrationRequest,
 } from '../src/telephony/provider';
-import { createTwilioTelephony } from '../src/telephony/twilio';
+import { carrierIndustry, createTwilioTelephony } from '../src/telephony/twilio';
 
 /**
  * The Twilio provider against a recorded fetch: which host, path, credentials and form fields each call uses.
@@ -1457,5 +1458,102 @@ describe('bringing a number that is already in Twilio (20261010000900)', () => {
       'VoiceFallbackUrl',
     ])
       expect(body.get(cleared)).toBe('');
+  });
+});
+
+describe('what the wizard settled goes to the carriers', () => {
+  const wizard = {
+    ...business,
+    optInPath: 'own_site',
+    optInUrl: 'https://lonestarhvac.com/contact',
+    privacyPageUrl: 'https://lonestarhvac.com/privacy',
+    termsPageUrl: 'https://app.handsfreeos.test/legal/lone-star/terms',
+    displayName: 'Lone Star HVAC',
+    forNumber: '+15125550100',
+    sensitiveTopics: ['alcohol'],
+    industry: 'marketing_agency',
+  };
+
+  it('tells toll-free review the box is on a web form, where it is, and where the policies are', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHwizardtest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).submitRegistration(
+      account,
+      request('toll_free_verification', {}, wizard),
+    );
+    const body = seen[0]!.body;
+    expect(Object.fromEntries(body)).toMatchObject({
+      OptInType: 'WEB_FORM',
+      PrivacyPolicyUrl: 'https://lonestarhvac.com/privacy',
+      TermsAndConditionsUrl: 'https://app.handsfreeos.test/legal/lone-star/terms',
+      AgeGatedContent: 'true',
+    });
+    expect(body.getAll('OptInImageUrls')).toEqual(['https://lonestarhvac.com/contact']);
+    expect(body.get('HelpMessageSample')).toMatch(/^Lone Star HVAC: .*\(512\) 555-0100/);
+  });
+
+  it('says in-person agreement is verbal, and shows the proof', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHpersontest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).submitRegistration(
+      account,
+      request(
+        'toll_free_verification',
+        {},
+        {
+          ...wizard,
+          optInPath: 'in_person',
+          optInUrl: null,
+          optInProofUrl: 'https://drive.test/sheet',
+        },
+      ),
+    );
+    expect(seen[0]!.body.get('OptInType')).toBe('VERBAL');
+    expect(seen[0]!.body.getAll('OptInImageUrls')).toEqual(['https://drive.test/sheet']);
+  });
+
+  it('declares the STOP reply customers really get, our HELP, the links and the flags on a campaign', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p$/,
+        () => ({ status: 201, json: { sid: 'QEwizardtest', campaign_status: 'PENDING' } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).submitRegistration(
+      account,
+      request('a2p_campaign', { a2p_brand: 'BNbrandtest' }, wizard),
+    );
+    const body = Object.fromEntries(seen[0]!.body);
+    expect(body).toMatchObject({
+      OptOutMessage: TWILIO_STOP_REPLY,
+      PrivacyPolicyUrl: 'https://lonestarhvac.com/privacy',
+      TermsAndConditionsUrl: 'https://app.handsfreeos.test/legal/lone-star/terms',
+      AgeGated: 'true',
+      DirectLending: 'false',
+    });
+    expect(body['HelpMessage']).toMatch(
+      /^Lone Star HVAC: for help, call or text us at \(512\) 555-0100/,
+    );
+    // The description names how people agree, beside who sends what.
+    expect(body['Description']).toContain(
+      "Recipients agree by ticking an unticked, optional box on the business's website form (https://lonestarhvac.com/contact).",
+    );
+  });
+
+  it('names the carrier industry from the kind of business', () => {
+    expect(carrierIndustry('hvac')).toBe('CONSTRUCTION');
+    expect(carrierIndustry('marketing_agency')).toBe('MEDIA');
+    expect(carrierIndustry('dental')).toBe('HEALTHCARE');
+    expect(carrierIndustry('church')).toBe('RELIGION');
+    expect(carrierIndustry(null)).toBe('CONSTRUCTION');
+    expect(carrierIndustry('not_a_kind')).toBe('CONSUMER');
   });
 });

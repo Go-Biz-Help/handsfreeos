@@ -42,6 +42,8 @@ export interface SmsConsentWords {
    * has to retype is not findable.
    */
   readonly policyUrl: string | null;
+  /** Where the terms are, when the page knows. A link beside the policy's, for the same reason. */
+  readonly termsUrl: string | null;
 }
 
 /**
@@ -54,6 +56,7 @@ export function smsConsentWords(
   business: string,
   place: ConsentPlace,
   policyUrl: string | null = null,
+  termsUrl: string | null = null,
 ): SmsConsentWords {
   const who = business.trim() || 'this business';
   return {
@@ -63,7 +66,48 @@ export function smsConsentWords(
       'How many messages you get varies, and message and data rates may apply. ' +
       'Reply STOP to stop and HELP for help.',
     policyUrl: policyUrl?.trim() || null,
+    termsUrl: termsUrl?.trim() || null,
   };
+}
+
+/**
+ * The second, separate box a business that also sends offers shows under the first (M17).
+ *
+ * **Offers get their own box because the carriers want the two kept apart.** Agreeing to hear about the job
+ * you asked for is not agreeing to hear about a spring special, so a campaign registered for "customer care
+ * and occasional promotions" is checked for a page where a customer can say yes to one and no to the other.
+ * Never ticked for them and never required, like the first.
+ */
+export function offersConsentWords(business: string): { title: string; detail: string } {
+  const who = business.trim() || 'this business';
+  return {
+    title: `Also text me offers from ${who}`,
+    detail:
+      `${who} may also text you now and then about offers and services that are due. This is separate ` +
+      'from the box above and never required. How many messages you get varies, and message and data ' +
+      'rates may apply. Reply STOP to stop and HELP for help.',
+  };
+}
+
+/** True when this use case has the business sending offers as well as customer care, so it needs the second box. */
+export const sendsOffers = (useCase: string | null | undefined): boolean =>
+  useCase === 'mixed' || useCase === 'marketing';
+
+/**
+ * What a business adding the box to its own website puts beside it: the same words our own pages show,
+ * as plain text to copy, with the offers box under it when the business sends offers.
+ */
+export function ownSiteBoxText(business: string, offers: boolean): string {
+  const care = smsConsentWords(business, 'form');
+  const parts = [
+    `☐ ${care.title}`,
+    `${care.detail} Privacy policy · Terms (link both to your own pages).`,
+  ];
+  if (offers) {
+    const extra = offersConsentWords(business);
+    parts.push('', `☐ ${extra.title}`, extra.detail);
+  }
+  return parts.join('\n');
 }
 
 /**
@@ -74,6 +118,9 @@ export function smsConsentWords(
  * and a business that later changes where its policy lives does not leave old boxes pointing at nothing.
  */
 export const consentPolicyPath = (siteSlug: string): string => `/legal/${siteSlug}/privacy`;
+
+/** The terms beside it, on the same terms: ours, redirecting to the business's own when it has some. */
+export const consentTermsPath = (siteSlug: string): string => `/legal/${siteSlug}/terms`;
 
 /**
  * The same thing said backwards, for the carrier: how this business collects consent.
@@ -130,14 +177,30 @@ function listUrls(urls: readonly string[]): string {
   return `${urls.slice(0, -1).join(', ')} and ${urls[urls.length - 1]}`;
 }
 
-/** What the six disclosures say, as one clause. Every path's description ends with this. */
+/** What the six disclosures say, as one clause. Every web path's description ends with this. */
 function disclosureClause(who: string): string {
   return (
     `Beside the box they are told that ${who} will be texting them and what about, that agreeing is not a ` +
     'condition of buying anything, that how many messages they get varies, that message and data rates may ' +
-    'apply, and that they can reply STOP to stop or HELP for help. The box is never ticked for them and is ' +
-    'never required. The date and time of each agreement is kept against that customer.'
+    'apply, and that they can reply STOP to stop or HELP for help, with links to the privacy policy and the ' +
+    'terms. The box is never ticked for them and is never required. The date and time of each agreement is ' +
+    'kept against that customer.'
   );
+}
+
+/** The offers box, said to the carrier, for a business that sends offers as well. */
+const offersClause = (who: string): string =>
+  `Offers from ${who} have a second, separate box that is also never ticked for them or required, so a ` +
+  'customer can agree to texts about their own work without agreeing to offers.';
+
+/** What the description can say beyond the path and the surfaces. */
+export interface OptInDetails {
+  /** The business's own page carrying the box (`own_site`). */
+  readonly pageUrl?: string | null;
+  /** A picture or page showing what customers see or hear before they agree (`in_person`, mostly). */
+  readonly proofUrl?: string | null;
+  /** The business sends offers too, so there is a second box for them. */
+  readonly offers?: boolean;
 }
 
 /**
@@ -152,9 +215,14 @@ export function optInDescriptionFor(
   business: string,
   path: OptInPath,
   surfaces: OptInSurfaces = {},
+  details: OptInDetails = {},
 ): string {
   const who = business.trim() || 'The business';
   const urls = liveSurfaces(surfaces);
+  const page = details.pageUrl?.trim() || null;
+  const proof = details.proofUrl?.trim() || null;
+  const offers = details.offers ? ` ${offersClause(who)}` : '';
+  const shown = proof ? ` What they see is shown at ${proof}.` : '';
   switch (path) {
     case 'hosted': {
       const where = urls.length
@@ -162,15 +230,22 @@ export function optInDescriptionFor(
         : "on the business's own public contact form and website chat";
       return (
         `Customers tick a box giving ${who} permission to text them, ${where}. ` +
-        disclosureClause(who)
+        disclosureClause(who) +
+        offers
       );
     }
     case 'own_site': {
-      const where = urls.length ? `at ${listUrls(urls)}` : `on ${who}'s own website`;
+      const where = page
+        ? `at ${page}`
+        : urls.length
+          ? `at ${listUrls(urls)}`
+          : `on ${who}'s own website`;
       return (
         `Customers tick a box giving ${who} permission to text them, on the contact and enquiry forms ` +
         `${where}. ` +
-        disclosureClause(who)
+        disclosureClause(who) +
+        offers +
+        shown
       );
     }
     case 'in_person':
@@ -179,7 +254,11 @@ export function optInDescriptionFor(
         `to be done. They are told that ${who} will be texting them and what about, that agreeing is not a ` +
         'condition of buying anything, that how many messages they get varies, that message and data rates ' +
         'may apply, and that they can reply STOP to stop or HELP for help. Whoever takes the permission ' +
-        'records it against that customer, with the date and time.'
+        'records it against that customer, with the date and time.' +
+        (details.offers
+          ? ' Offers are asked about separately, and only customers who say yes to them get them.'
+          : '') +
+        (proof ? ` The sign-up sheet or the words used are shown at ${proof}.` : '')
       );
   }
 }

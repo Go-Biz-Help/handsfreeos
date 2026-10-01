@@ -6,6 +6,7 @@ import {
   isWebAddress,
   money,
   consentPolicyPath,
+  consentTermsPath,
   smsConsentWords,
   type AnswerSheet,
   type AnswerValue,
@@ -38,6 +39,7 @@ export function PublicForm({
   closed,
   closedMessage,
   botCheck,
+  offers = null,
   resumed,
 }: {
   site: string;
@@ -49,6 +51,8 @@ export function PublicForm({
   closedMessage: string;
   /** The "are you a person" check before sending, as on the booking page; null when it's off. */
   botCheck: { siteKey: string | null } | null;
+  /** The separate box for offers, for a business that sends them (core's offersConsentWords). */
+  offers?: { title: string; detail: string } | null;
   resumed: { responseId: string; token: string; answers: AnswerSheet } | null;
 }) {
   const [answers, setAnswers] = useState<AnswerSheet>(resumed?.answers ?? {});
@@ -60,9 +64,15 @@ export function PublicForm({
   const [sent, setSent] = useState<SentForm | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
-  // The box links to the business's privacy policy: that the terms are findable is one of the six
+  const [offersConsent, setOffersConsent] = useState(false);
+  // The box links to the business's privacy policy and terms: that they are findable is one of the six
   // things a compliant opt-in has to say, and a link is the only way of saying it that works.
-  const consentWords = smsConsentWords(business, 'form', consentPolicyPath(site));
+  const consentWords = smsConsentWords(
+    business,
+    'form',
+    consentPolicyPath(site),
+    consentTermsPath(site),
+  );
   /** The honeypot: hidden from people, irresistible to robots. */
   const [website, setWebsite] = useState('');
   const botSiteKey = botCheck ? (botCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
@@ -127,6 +137,7 @@ export function PublicForm({
         token: open.token,
         answers: state.answers as Record<string, unknown>,
         smsConsent: consent,
+        offersConsent: offers ? offersConsent : false,
         website,
         turnstileToken: botToken ?? undefined,
       });
@@ -272,7 +283,34 @@ export function PublicForm({
                     Privacy policy
                   </a>
                 ) : null}
+                {consentWords.termsUrl ? (
+                  <>
+                    {' · '}
+                    <a
+                      className="underline"
+                      href={consentWords.termsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Terms
+                    </a>
+                  </>
+                ) : null}
               </p>
+              {/* Offers have their own box, never ticked for them: agreeing to hear about the job they asked
+                  for is not agreeing to hear about a special (core's offersConsentWords). */}
+              {offers ? (
+                <>
+                  <Checkbox
+                    className="mt-3 text-[13px] font-medium"
+                    label={offers.title}
+                    checked={offersConsent}
+                    onChange={(e) => setOffersConsent(e.target.checked)}
+                    data-testid="form-offers-consent"
+                  />
+                  <p className="ml-[26px] mt-1 text-xs text-text-3">{offers.detail}</p>
+                </>
+              ) : null}
             </div>
           ) : null}
 

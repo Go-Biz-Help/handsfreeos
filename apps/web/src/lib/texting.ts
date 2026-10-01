@@ -12,7 +12,7 @@ export async function loadTexting(
   api: ApiClient,
   workspaceId: string,
 ): Promise<ComponentProps<typeof TextingPage> | null> {
-  const [got, status, me, members, ports, site, widgets, forms, imports, twilio] =
+  const [got, status, me, members, ports, site, widgets, forms, imports, twilio, draft] =
     await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } }).then(unwrapPage),
@@ -34,6 +34,8 @@ export async function loadTexting(
         })
         .then(unwrapPage),
       api.POST('/v1/queries/twilio_connection.list', { body: { workspaceId } }).then(unwrapPage),
+      // The registration's answers as they were left, so the wizard picks up where it stopped.
+      api.POST('/v1/queries/registration.get_draft', { body: { workspaceId } }).then(unwrapPage),
     ]);
   if (!can(got.workspace.permissions, 'channels.manage')) return null;
   // Everyone who works the inbox — by first name for the "these browsers ring" line, and with their ids
@@ -61,6 +63,7 @@ export async function loadTexting(
     importsFromMigration: imports.fromMigration,
     twilio,
     inboxPerPerson: got.workspace.inboxPerPerson,
+    registrationDraft: draft.answers,
     surfaces: {
       siteSlug: site.site?.slug ?? null,
       chatPublicKey: liveWidget?.publicKey ?? null,

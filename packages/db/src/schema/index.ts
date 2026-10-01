@@ -454,6 +454,10 @@ export const people = app.table('people', {
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
   smsConsentAt: ts('sms_consent_at'),
   smsConsentSource: text('sms_consent_source'),
+  /** The separate, optional box for offers (20261015000200). STOP on `smsConsent` still stops everything. */
+  offersConsent: smsConsent('offers_consent').notNull().default('unknown'),
+  offersConsentAt: ts('offers_consent_at'),
+  offersConsentSource: text('offers_consent_source'),
   /** AI outbound calls: written consent to calls (campaign calls need it), and where it is. */
   callConsent: smsConsent('call_consent').notNull().default('unknown'),
   callConsentAt: ts('call_consent_at'),
@@ -931,6 +935,19 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
   /** The submitted_at of the details the carrier last received; a different submitted_at is not sent yet. */
   carrierSubmittedAt: ts('carrier_submitted_at'),
   createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * The texting registration as the business fills it in (20261015000100): the wizard's answers, one row per
+ * business, until it is sent. `registration.submit` deletes it.
+ */
+export const registrationDrafts = app.table('registration_drafts', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  answers: jsonb('answers').$type<Json>().notNull().default({}),
+  updatedBy: userRef('updated_by'),
   ...timestamps(),
 });
 
@@ -6359,6 +6376,7 @@ export const tables = {
   telephonyAccounts,
   phoneNumbers,
   telephonyRegistrations,
+  registrationDrafts,
   numberPorts,
   twilioConnections,
   numberImports,

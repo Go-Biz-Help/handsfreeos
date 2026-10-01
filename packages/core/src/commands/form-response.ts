@@ -55,6 +55,7 @@ import { invoiceCreate } from './invoice';
 import { leadCreate } from './lead.create';
 import { personUpdate } from './person.update';
 import { taskCreate } from './task';
+import { recordOffersConsent } from '../messaging/offers';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -621,6 +622,8 @@ export const formResponseSubmit = defineCommand({
           smsConsentSource: `Form: ${form.name}`,
         })
         .where(and(eq(people.id, personId), dsql`sms_consent <> 'opted_out'`));
+    if (personId && input.offersConsent)
+      await recordOffersConsent(ctx.tx, personId, `Form: ${form.name}`.slice(0, 80));
 
     await ctx.emit({
       type: 'form.submitted',
@@ -818,6 +821,8 @@ export const formResponseRecord = defineCommand({
       responseId,
       answers: input.answers,
       smsConsent: input.smsConsent,
+      // The phone's own form has no offers box: a person asks in person, and offers are asked separately.
+      offersConsent: false,
     });
   },
 });
