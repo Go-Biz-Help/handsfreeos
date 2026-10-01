@@ -3990,6 +3990,8 @@ You should see **Enable** selected under **Enforce HTTP Auth on Media URLs** on 
 
 This breaks nothing. The worker always signs in with the client subaccount's credentials to download a voicemail or picture. It copies the file into the Supabase Storage bucket `telephony`, then deletes Twilio's copy. A voicemail is deleted from Twilio once its transcript arrives, or at once if it is 2 seconds or shorter.
 
+**Videos.** A video texted by MMS is whatever the customer's phone and carrier squeezed it into, often a 3GP well under 1 MB, so it looks blurry, and nothing here can bring back what the carrier threw away. Sharper videos come over RCS (see "RCS: branded texts with buttons"). As the worker copies a video that isn't an MP4, it turns it into one (H.264 and AAC) with ffmpeg, so it plays in the inbox on the web and on both phones. ffmpeg is installed in the worker's image (`apps/worker/Dockerfile`). When a video can't be converted (unreadable, over 25 MB, or more than 90 seconds of work), it is kept as it came and the worker logs `a texted video could not be converted; kept as it came`. Videos that arrived before this are kept as they were: an iPhone can't play a 3GP, so the app offers **Share** instead, and the web offers **Download**.
+
 #### Balance and auto-recharge
 
 Client subaccounts have no balance of their own. They all draw on the master account's balance, so an empty balance can stop calls and texts for every client at once.

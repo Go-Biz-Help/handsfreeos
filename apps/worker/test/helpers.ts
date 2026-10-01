@@ -28,6 +28,7 @@ import { roughDriveTimer } from '../src/geo/driving';
 import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
+import { createFakeVideoConverter } from '../src/telephony/video';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
 export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
@@ -36,6 +37,7 @@ export type TestServices = WorkerServices & {
   readonly reviews: ReviewServices & { readonly fake: FakeReviews };
   readonly telephony: FakeTelephony;
   readonly transcriber: FakeTranscriber;
+  readonly video: ReturnType<typeof createFakeVideoConverter>;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
   readonly payments: PaymentServices & { readonly fake: FakePayments };
@@ -85,6 +87,7 @@ export function testServices(
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
     transcriber: createFakeTranscriber({ log }),
+    video: createFakeVideoConverter(),
     geocoder: createFakeGeocoder(),
     driving: roughDriveTimer,
     speech: createFakeSpeech(),

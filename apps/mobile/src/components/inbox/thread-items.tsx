@@ -33,6 +33,7 @@ import {
   PhoneIncoming,
   PhoneMissed,
   PhoneOutgoing,
+  Play,
   Sparkles,
   Voicemail,
 } from '@/components/icons';
@@ -42,7 +43,7 @@ import { toast } from '@/components/ui/toast';
 import { signedUrl, useSignedUrl } from '@/inbox/storage';
 import { cn } from '@/lib/utils';
 
-import { PhotoViewer } from './photo-viewer';
+import { MediaViewer } from './media-viewer';
 import { ButtonReplyNote, PlainFace, RichContent, TransportTag } from './rich-message';
 import { VoicemailPlayer } from './voicemail-player';
 
@@ -66,11 +67,13 @@ export function SystemLine({ icon, children }: { icon: LucideIcon; children: str
 }
 
 /**
- * A photo in a message: the picture once its link is ready (with signal), a quiet tile until then. A tap opens it full
- * screen over the thread; a file that isn't a photo opens in whatever the phone opens that kind of file with.
+ * A photo or a video in a message: the picture once its link is ready (with signal), a dark tile with a play mark for
+ * a video, a quiet tile until then. A tap opens it full screen over the thread; a file that's neither opens in
+ * whatever the phone opens that kind of file with.
  */
 export function MediaThumb({ media }: { media: MediaShape }) {
   const image = media.contentType.startsWith('image/');
+  const video = media.contentType.startsWith('video/');
   const url = useSignedUrl(image ? media.bucket : null, image ? media.objectPath : null);
   // Each opening gets a new key, so it starts unzoomed; closing keeps it mounted long enough to fade out.
   const [viewer, setViewer] = React.useState<{ url: string; key: number; open: boolean } | null>(
@@ -80,19 +83,23 @@ export function MediaThumb({ media }: { media: MediaShape }) {
     const link = url ?? (await signedUrl(media.bucket, media.objectPath).catch(() => null));
     if (!link) {
       if (image) toast.error(THREAD_WORDS.photoWontLoad);
+      else if (video) toast.error(THREAD_WORDS.videoWontLoad);
       return;
     }
-    if (!image) return void Linking.openURL(link);
+    if (!image && !video) return void Linking.openURL(link);
     setViewer((was) => ({ url: link, key: (was?.key ?? 0) + 1, open: true }));
   }
   return (
     <>
       <Pressable
         role="button"
-        accessibilityLabel={`Open ${media.name}`}
+        accessibilityLabel={`${video ? 'Play' : 'Open'} ${media.name}`}
         testID="media-thumb"
         onPress={() => void open()}
-        className="h-[136px] w-[180px] items-center justify-center overflow-hidden rounded-[14px] border border-border bg-card-2"
+        className={cn(
+          'h-[136px] w-[180px] items-center justify-center overflow-hidden rounded-[14px] border border-border',
+          video ? 'bg-black' : 'bg-card-2',
+        )}
       >
         {url && image ? (
           <Image
@@ -101,12 +108,16 @@ export function MediaThumb({ media }: { media: MediaShape }) {
             className="size-full"
             resizeMode="cover"
           />
+        ) : video ? (
+          <View className="size-11 items-center justify-center rounded-full bg-white/20">
+            <Icon as={Play} className="ml-0.5 size-5 text-white" fill="white" />
+          </View>
         ) : (
           <Icon as={image ? ImageIcon : FileText} className="size-[18px] text-text-3" />
         )}
       </Pressable>
       {viewer ? (
-        <PhotoViewer
+        <MediaViewer
           key={viewer.key}
           media={media}
           url={viewer.url}

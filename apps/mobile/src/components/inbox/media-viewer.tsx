@@ -2,8 +2,11 @@ import { THREAD_WORDS, type MediaShape } from '@hfos/core';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
+import { useEvent } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as React from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Image,
   Modal,
@@ -51,17 +54,19 @@ interface Swipe {
 }
 
 /**
- * A photo from a message, full screen over the thread, as the phone's own Messages app shows one: black all round,
- * the photo fitted to the screen, Close and Share at the top. Pinch or double-tap to zoom, tap to hide or show the
- * buttons, and drag it up or down to put it away. Share hands the photo to the phone's share sheet, where Save Image
- * puts it in Photos without the app asking for the photo library.
+ * A photo or a video from a message, full screen over the thread, as the phone's own Messages app shows one: black
+ * all round, fitted to the screen, Close and Share at the top. Share hands it to the phone's share sheet, where Save
+ * Image or Save Video puts it in Photos without the app asking for the photo library.
  *
- * An iPhone's scroll view zooms natively; Android's can't, so there the photo follows the fingers itself.
+ * A photo: pinch or double-tap to zoom, tap to hide or show the buttons, and drag it up or down to put it away. An
+ * iPhone's scroll view zooms natively; Android's can't, so there the photo follows the fingers itself.
+ *
+ * A video plays straight away with the phone's own controls (expo-video), under the buttons rather than behind them.
  *
  * Kept mounted while it closes, so it fades out; whoever shows it gives it a new `key` each time it opens, so every
- * opening starts unzoomed and in place.
+ * opening starts unzoomed, in place and from the beginning.
  */
-export function PhotoViewer({
+export function MediaViewer({
   media,
   url,
   open,
@@ -74,6 +79,8 @@ export function PhotoViewer({
 }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const video = media.contentType.startsWith('video/');
+  const kind = video ? 'video' : 'photo';
   const [buttons, setButtons] = React.useState(true);
   const [sharing, setSharing] = React.useState(false);
   const drag = React.useRef(new Animated.Value(0)).current;
@@ -104,9 +111,9 @@ export function PhotoViewer({
   async function share() {
     setSharing(true);
     try {
-      await sharePhoto(media, url);
+      await shareMedia(media, url);
     } catch {
-      toast.error(THREAD_WORDS.photoWontShare);
+      toast.error(video ? THREAD_WORDS.videoWontShare : THREAD_WORDS.photoWontShare);
     } finally {
       setSharing(false);
     }
@@ -124,6 +131,39 @@ export function PhotoViewer({
     extrapolate: 'clamp',
   });
 
+  const bar = (
+    <>
+      <Pressable
+        role="button"
+        accessibilityLabel={THREAD_WORDS.closePhoto}
+        onPress={onClose}
+        hitSlop={6}
+        className="size-11 items-center justify-center"
+        testID={`${kind}-viewer-close`}
+      >
+        <Icon as={X} className="size-6 text-white" />
+      </Pressable>
+      <Text numberOfLines={1} className="flex-1 text-center text-[15px] font-semibold text-white">
+        {media.name}
+      </Text>
+      <Pressable
+        role="button"
+        accessibilityLabel={THREAD_WORDS.sharePhoto}
+        accessibilityState={{ busy: sharing }}
+        disabled={sharing}
+        onPress={() => void share()}
+        hitSlop={6}
+        className="size-11 items-center justify-center"
+        testID={`${kind}-viewer-share`}
+      >
+        <Icon
+          as={Share}
+          className={sharing ? 'size-[22px] text-white/50' : 'size-[22px] text-white'}
+        />
+      </Pressable>
+    </>
+  );
+
   const Photo = Platform.OS === 'ios' ? ScrollZoomPhoto : TouchZoomPhoto;
   return (
     <Modal
@@ -137,51 +177,71 @@ export function PhotoViewer({
     >
       <StatusBar style="light" hidden={!buttons} />
       <Animated.View className="absolute inset-0 bg-black" style={{ opacity: backdrop }} />
-      <View className="flex-1" accessibilityViewIsModal testID="photo-viewer">
-        <Animated.View className="flex-1" style={{ transform: [{ translateY: drag }] }}>
-          <Photo url={url} name={media.name} swipe={swipe} onTap={toggleButtons} />
-        </Animated.View>
-        {buttons ? (
-          <Animated.View
-            className="absolute left-0 right-0 top-0 flex-row items-center gap-1 bg-black/50 px-1.5 pb-1.5"
-            style={{ paddingTop: insets.top + 4, opacity: barFade }}
-          >
-            <Pressable
-              role="button"
-              accessibilityLabel={THREAD_WORDS.closePhoto}
-              onPress={onClose}
-              hitSlop={6}
-              className="size-11 items-center justify-center"
-              testID="photo-viewer-close"
+      <View className="flex-1" accessibilityViewIsModal testID={`${kind}-viewer`}>
+        {video ? (
+          // The phone's own controls take the video's taps and drags, so it has no swipe or tap of ours: the
+          // buttons sit above it, and Close or the back button puts it away.
+          <View className="flex-1" style={{ paddingBottom: insets.bottom }}>
+            <View
+              className="flex-row items-center gap-1 px-1.5 pb-1.5"
+              style={{ paddingTop: insets.top + 4 }}
             >
-              <Icon as={X} className="size-6 text-white" />
-            </Pressable>
-            <Text
-              numberOfLines={1}
-              className="flex-1 text-center text-[15px] font-semibold text-white"
-            >
-              {media.name}
-            </Text>
-            <Pressable
-              role="button"
-              accessibilityLabel={THREAD_WORDS.sharePhoto}
-              accessibilityState={{ busy: sharing }}
-              disabled={sharing}
-              onPress={() => void share()}
-              hitSlop={6}
-              className="size-11 items-center justify-center"
-              testID="photo-viewer-share"
-            >
-              <Icon
-                as={Share}
-                className={sharing ? 'size-[22px] text-white/50' : 'size-[22px] text-white'}
-              />
-            </Pressable>
-          </Animated.View>
-        ) : null}
+              {bar}
+            </View>
+            <PlayingVideo url={url} name={media.name} />
+          </View>
+        ) : (
+          <>
+            <Animated.View className="flex-1" style={{ transform: [{ translateY: drag }] }}>
+              <Photo url={url} name={media.name} swipe={swipe} onTap={toggleButtons} />
+            </Animated.View>
+            {buttons ? (
+              <Animated.View
+                className="absolute left-0 right-0 top-0 flex-row items-center gap-1 bg-black/50 px-1.5 pb-1.5"
+                style={{ paddingTop: insets.top + 4, opacity: barFade }}
+              >
+                {bar}
+              </Animated.View>
+            ) : null}
+          </>
+        )}
         <ToastLayer />
       </View>
     </Modal>
+  );
+}
+
+/**
+ * The video, playing from the start with the phone's own controls. One the phone can't play (an iPhone with a
+ * carrier's 3GP from before they were kept as MP4s) says so, and Share still hands it to an app that can.
+ */
+function PlayingVideo({ url, name }: { url: string; name: string }) {
+  const player = useVideoPlayer(url, (p) => p.play());
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  if (status === 'error')
+    return (
+      <View className="flex-1 items-center justify-center px-8">
+        <Text className="text-center text-[15px] text-white/80" testID="video-viewer-unplayable">
+          {THREAD_WORDS.videoWontPlayShare}
+        </Text>
+      </View>
+    );
+  return (
+    <View className="flex-1">
+      <VideoView
+        player={player}
+        nativeControls
+        contentFit="contain"
+        accessibilityLabel={name}
+        style={{ flex: 1 }}
+        testID="video-viewer-player"
+      />
+      {status === 'loading' ? (
+        <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
+          <ActivityIndicator color="white" />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -424,10 +484,10 @@ function TouchZoomPhoto({ url, name, swipe, onTap }: PhotoProps) {
 }
 
 /**
- * The photo into the phone's cache and on to its share sheet: Save Image, Messages, Mail, Files, a printer. Nothing is
- * kept; the cache is the phone's to clear, and sharing the same photo again writes over it.
+ * The photo or video into the phone's cache and on to its share sheet: Save Image or Save Video, Messages, Mail, Files.
+ * Nothing is kept; the cache is the phone's to clear, and sharing the same one again writes over it.
  */
-async function sharePhoto(media: MediaShape, url: string): Promise<void> {
+async function shareMedia(media: MediaShape, url: string): Promise<void> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('This phone can’t save or share files.');
   const base = media.name.replace(/[^\w.-]+/g, '-').replace(/^[-.]+/, '') || 'photo';
   const name = /\.\w+$/.test(base) ? base : `${base}.${media.contentType.split('/')[1] || 'jpg'}`;
