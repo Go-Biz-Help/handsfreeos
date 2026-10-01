@@ -348,6 +348,7 @@ export const realestateAddon = defineAddon({
       'realestate.listing.price_withdrawn',
       'realestate.listing.suggested',
       'realestate.suggestion.decided',
+      'realestate.listing.questionnaire_sent',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -388,6 +389,9 @@ export const realestateAddon = defineAddon({
       'realestate.buyer_profile.saved',
       'realestate.suggestion.decided',
       'realestate.listing.suggested',
+      // The seller sent their answers about the home: their agent hears, until the facts are confirmed.
+      'realestate.listing.questionnaire_sent',
+      'realestate.listing.facts_confirmed',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',

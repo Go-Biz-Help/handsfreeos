@@ -248,6 +248,33 @@ export async function listingAsked(ctx: AddonEventContext): Promise<void> {
   });
 }
 
+// ---------- the seller's questionnaire ----------
+
+/** `realestate.listing.questionnaire_sent`: the seller sent their answers; their agent checks and confirms the facts. */
+export async function questionnaireSent(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const dealId = ctx.event.entityId;
+  if (!dealId) return;
+  const owner = typeof p['ownerUserId'] === 'string' ? p['ownerUserId'] : null;
+  const name = typeof p['name'] === 'string' && p['name'] ? p['name'] : 'The seller';
+  await raiseAddonAlert(ctx, {
+    key: `questionnaire:${dealId}`,
+    severity: 'attention',
+    title: `${name} sent their answers about the home`.slice(0, 200),
+    detail: 'Check them against the old listing, then confirm the facts on the listing’s page.',
+    href: `/a/realestate/deals/${dealId}/listing`,
+    permission: 'realestate.use',
+    customRecordId: dealId,
+    audienceUserIds: owner ? [owner] : [],
+    assigneeUserId: owner,
+  });
+}
+
+/** `realestate.listing.facts_confirmed`: the answers are checked, so the reminder goes. */
+export async function factsConfirmed(ctx: AddonEventContext): Promise<void> {
+  if (ctx.event.entityId) await clearAddonAlert(ctx, `questionnaire:${ctx.event.entityId}`);
+}
+
 // ---------- the price ----------
 
 /**

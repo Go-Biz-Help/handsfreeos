@@ -119,6 +119,8 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `Planned an open house for ${str(a.when)}, hosted by ${str(a.host)}`;
     case 'open_house_cancelled':
       return `Cancelled the open house on ${str(a.when)}`;
+    case 'questionnaire_sent':
+      return `${str(a.name)} sent their answers about the home`;
     case 'listing_facts':
       return `Confirmed ${Number(a.count)} ${Number(a.count) === 1 ? 'fact' : 'facts'} about ${str(a.address)}`;
     case 'memory_confirmed':

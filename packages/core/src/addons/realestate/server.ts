@@ -30,6 +30,7 @@ import { openHouseCommands, openHouseQueries } from './ops/open-houses';
 import { offerCompareCommands, offerCompareQueries } from './ops/offer-compare';
 import { priceCommands, priceQueries } from './ops/price';
 import { matchingCommands, matchingQueries } from './ops/matching';
+import { sellerPortalCommands, sellerPortalQueries } from './ops/seller-portal';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -63,6 +64,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...offerCompareCommands,
     ...priceCommands,
     ...matchingCommands,
+    ...sellerPortalCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -86,5 +88,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...offerCompareQueries,
     ...priceQueries,
     ...matchingQueries,
+    ...sellerPortalQueries,
   ],
 };

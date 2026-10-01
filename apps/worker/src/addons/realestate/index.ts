@@ -36,6 +36,7 @@ import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from '.
 import {
   descriptionRequested,
   descriptionSaved,
+  factsConfirmed,
   listingAsked,
   listingPasted,
   OPEN_HOUSE_FOLLOW_UP,
@@ -45,6 +46,7 @@ import {
   postSaved,
   postsRequested,
   priceChanged,
+  questionnaireSent,
   sellerChose,
 } from './listing';
 import {
@@ -241,6 +243,9 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.buyer_profile.saved': matchBuyer,
     'realestate.suggestion.decided': suggestionDecided,
     'realestate.listing.suggested': listingSuggested,
+    // The seller's questionnaire: their agent hears, until the facts are confirmed (./listing.ts).
+    'realestate.listing.questionnaire_sent': questionnaireSent,
+    'realestate.listing.facts_confirmed': factsConfirmed,
   },
   jobs: {
     [SWEEP]: runSweep,

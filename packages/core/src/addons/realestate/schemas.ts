@@ -2863,3 +2863,76 @@ export const SuggestionChangeOutput = z.object({
   state: z.enum(['new', 'added', 'not_a_fit', 'gone']),
   homeId: uuid.nullable(),
 });
+
+// ---------- round three, step 12: the seller's own listing in the portal ----------
+
+export const PortalListingOutput = z.object({
+  dealId: uuid,
+  address: z.string().nullable(),
+  street: z.string().nullable(),
+  /** The list price as it stands. */
+  priceCents: z.number().int().nullable(),
+  /** Each change asked of them, newest first, and how it ended. */
+  priceChanges: z.array(
+    z.object({
+      id: uuid,
+      fromCents: z.number().int(),
+      toCents: z.number().int(),
+      words: z.string(),
+      state: z.enum(['waiting', 'applied', 'withdrawn']),
+      appliedAt: isoDateTime.nullable(),
+      proposedAt: isoDateTime,
+    }),
+  ),
+  mls: z.object({ number: z.string(), liveOn: z.string() }).nullable(),
+  /** Its public page, once it's up: "/a/hill-country-realty/realestate/2207-juniper-trail". */
+  pagePath: z.string().nullable(),
+  facts: z.record(z.string(), z.unknown()),
+  /** The description in use: the words they signed off. */
+  description: z.object({ words: z.string(), signedAt: isoDateTime.nullable() }).nullable(),
+  openHouses: z.array(z.object({ id: uuid, startsAt: isoDateTime, endsAt: isoDateTime })),
+  questionnaire: z.object({
+    state: z.enum(['none', 'asked', 'draft', 'submitted']),
+    taskId: uuid.nullable(),
+    answers: z.object({
+      facts: z.record(z.string(), z.unknown()),
+      updates: z.string().nullable(),
+      loves: z.string().nullable(),
+    }),
+    savedAt: isoDateTime.nullable(),
+    submittedAt: isoDateTime.nullable(),
+  }),
+  /** The offers side by side, as their agent last shared them. */
+  comparison: z
+    .object({
+      id: uuid,
+      sharedAt: isoDateTime,
+      address: z.string(),
+      rows: z.array(CompareRow),
+      /** It's an estimate, and says so. */
+      note: z.string(),
+      myChoices: z.array(
+        z.object({
+          offerId: uuid,
+          choice: z.enum(SELLER_CHOICE_KEYS),
+          words: z.string().nullable(),
+          at: isoDateTime,
+        }),
+      ),
+    })
+    .nullable(),
+});
+export const PortalQuestionnaireSaveInput = z.object({
+  workspaceId: uuid,
+  dealId: uuid,
+  facts: ListingHomeFactsIn.default({}),
+  updates: z.string().trim().max(2000, 'Keep it under 2,000 characters.').optional(),
+  loves: z.string().trim().max(2000, 'Keep it under 2,000 characters.').optional(),
+});
+export const PortalQuestionnaireSubmitInput = z.object({ workspaceId: uuid, dealId: uuid });
+export const PortalQuestionnaireOutput = z.object({
+  dealId: uuid,
+  state: z.enum(['draft', 'submitted']),
+  savedAt: isoDateTime.nullable(),
+  submittedAt: isoDateTime.nullable(),
+});

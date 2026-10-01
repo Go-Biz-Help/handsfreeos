@@ -1718,3 +1718,138 @@ describe('the CMA, the inspection and the buyer’s loan on a listing', () => {
     ]);
   });
 });
+
+// ---------- the seller's portal (step 12) ----------
+
+describe('the seller’s portal', () => {
+  const asMaria = async (
+    name: string,
+    input: Record<string, unknown>,
+    kind: 'query' | 'command',
+  ) => {
+    const who = await mariaSignsIn();
+    return kind === 'query'
+      ? executeQuery(
+          worker(),
+          op('queries', name) as QueryDef,
+          { workspaceId: ws, ...input },
+          who,
+          meta('portal'),
+        )
+      : executeCommand(
+          worker(),
+          op('commands', name) as CommandDef,
+          { workspaceId: ws, ...input },
+          who,
+          meta('portal'),
+        ).then((r) => r.output);
+  };
+
+  it('shows her listing: its price and the changes she was asked, its facts, signed words and the offers she saw', async () => {
+    const mine = (await asMaria('realestate.portal.listing', { dealId: listing }, 'query')) as Any;
+    expect(mine).toMatchObject({
+      address: '2207 Juniper Trail, Austin, TX 78745',
+      street: '2207 Juniper Trail',
+      priceCents: 47_900_000,
+      mls: { number: expect.any(String) },
+      facts: { beds: 4, baths: 3, sqft: 2340 },
+      description: { words: expect.stringContaining('2207 Juniper Trail') },
+      questionnaire: { state: 'submitted' },
+    });
+    expect(mine.priceChanges.map((p: Any) => [p.toCents, p.state])).toEqual([
+      [46_900_000, 'withdrawn'],
+      [47_900_000, 'applied'],
+      [48_900_000, 'applied'],
+    ]);
+    // Its page, up again (it says under contract now).
+    expect(mine.pagePath).toMatch(/^\/a\/[a-z0-9-]+\/realestate\/2207-juniper-trail$/);
+    expect(mine.comparison.rows.map((r: Any) => r.buyers)).toEqual([
+      'Wei and Lin Chen',
+      'Priya Patel',
+    ]);
+    expect(mine.comparison.note).toMatch(/^An estimate/);
+    expect(mine.comparison.myChoices).toEqual([
+      expect.objectContaining({ choice: 'accept', words: 'Cash and the 20th works for us.' }),
+    ]);
+    // A buyer deal isn't a listing.
+    expect(
+      await refused(asMaria('realestate.portal.listing', { dealId: buyerDeal }, 'query')),
+    ).toBe('not_found');
+  });
+
+  it('takes her answers about the home as she goes, then sends them once, which finishes the task', async () => {
+    const condo = (
+      await run(agent, 'realestate.deal.open', {
+        side: 'listing',
+        name: 'Alvarez condo',
+        stage: 'signed',
+        clientPersonId: maria,
+        newPropertyAddress: '600 Congress Ave #12, Austin, TX 78701',
+      })
+    ).dealId;
+    expect(
+      await refused(
+        asMaria(
+          'realestate.portal.questionnaire.save',
+          { dealId: condo, facts: { beds: 2 } },
+          'command',
+        ),
+      ),
+    ).toBe('realestate_questionnaire_not_asked');
+    const { taskId } = await run(agent, 'realestate.listing.request_questionnaire', {
+      dealId: condo,
+    });
+    expect(
+      await refused(
+        asMaria('realestate.portal.questionnaire.submit', { dealId: condo }, 'command'),
+      ),
+    ).toBe('realestate_questionnaire_empty');
+    await asMaria(
+      'realestate.portal.questionnaire.save',
+      { dealId: condo, facts: { beds: 2, baths: 2 }, updates: 'New floors in 2023.' },
+      'command',
+    );
+    const saved = (await asMaria(
+      'realestate.portal.questionnaire.save',
+      { dealId: condo, facts: { sqft: 1150 }, loves: 'The view of the Capitol.' },
+      'command',
+    )) as Any;
+    expect(saved.state).toBe('draft');
+    const sent = (await asMaria(
+      'realestate.portal.questionnaire.submit',
+      { dealId: condo },
+      'command',
+    )) as Any;
+    expect(sent.state).toBe('submitted');
+    expect(
+      await refused(
+        asMaria(
+          'realestate.portal.questionnaire.save',
+          { dealId: condo, loves: 'More.' },
+          'command',
+        ),
+      ),
+    ).toBe('realestate_questionnaire_sent');
+    const [task] = await rows<{ status: string }>(
+      admin(),
+      sql`select status from addon_realestate.client_tasks where id = ${taskId}`,
+    );
+    expect(task!.status).toBe('done');
+    // Her agent reads them beside the old listing's, to confirm.
+    const { listing: l } = await ask(agent, 'realestate.listing', { dealId: condo });
+    expect(l.questionnaire).toMatchObject({
+      state: 'submitted',
+      updates: 'New floors in 2023.',
+      loves: 'The view of the Capitol.',
+    });
+    expect(
+      l.choices
+        .filter((c: Any) => c.candidates.length)
+        .map((c: Any) => [c.key, c.candidates[0].value]),
+    ).toEqual([
+      ['beds', 2],
+      ['baths', 2],
+      ['sqft', 1150],
+    ]);
+  });
+});

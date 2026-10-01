@@ -43,11 +43,11 @@ import { completeTask, loadTask, SIGN_OFF_EVENTS } from './client-tasks';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 import { feedbackWords } from './tours';
 
-const notYours = () =>
+export const notYours = () =>
   HfosError.notFound('That isn’t in your portal. Go back to your deals and pick it there.');
 
 /** A deal the signed-in client is on, for their changes; not there otherwise. */
-async function clientDeal(ctx: CommandContext, dealId: string): Promise<Deal> {
+export async function clientDeal(ctx: CommandContext, dealId: string): Promise<Deal> {
   const me = requireCustomer(ctx);
   const [r] = await rows<{ ok: boolean }>(
     ctx.tx,

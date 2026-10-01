@@ -1494,12 +1494,23 @@ boards; the server steps go ahead meanwhile.
   `matches`), counted by the worker, never who.
 - Tests: `realestate-listing.test.ts` (the rule, pure, then on the database), the worker's `realestate-listing.test.ts`.
 
-### Step 12: the seller's portal
+### Step 12: the seller's portal (server built, 2026-10-01)
 
-- A listing in the portal: where it stands in the seller's words, the key dates, the price and its history, what's
-  waiting for their sign-off, the public page once it's live, the open houses, and the offers once shared.
-- `portal.questionnaire.save` and `submit`, and `portal.offer_choice`. The manifest's `ui.portal` gains
-  `deals/:dealId/questionnaire` and `deals/:dealId/offers`.
+**As built** (`20261020000900_realestate_seller_portal.sql`; `ops/seller-portal.ts`):
+
+- Where it stands in the seller's words, the key dates and their to-do (sign-offs among them) are round two's
+  `realestate.portal.deal`, which already reads a listing. `realestate.portal.listing` adds the rest, read as the
+  customer: the address and price as it stands, each price change asked of them, the MLS number, the page's address
+  once it's up, the home's facts, the description they signed, the open houses to come, their questionnaire, and
+  the offers side by side as last shared, with what they said about each.
+- The portal never reads the deal's amounts (round two), so `portal.listing_facts()` gives a seller, for their own
+  listings only, the address, the list price and where the page is.
+- `realestate.portal.questionnaire.save` keeps their answers as they go (facts merged, words replaced);
+  `submit` sends them once, finishes the questionnaire task, and the worker alerts the agent until they confirm the
+  facts. Refused before they're asked (`realestate_questionnaire_not_asked`), empty, or a second time.
+  `realestate.portal.offer_choice` is step 8's.
+- The `ui.portal` pages (the listing, the questionnaire, the offers) come with their screens in step 14.
+- Tests: `realestate-listing.test.ts`.
 
 ### Step 13: staff screens
 
