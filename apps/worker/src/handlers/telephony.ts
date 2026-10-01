@@ -171,7 +171,7 @@ export async function advanceRegistrations(
   causation: { correlationId?: string | null; causationId?: string | null } = {},
 ): Promise<void> {
   const run = <T>(fn: (tx: Tx) => Promise<T>) => asWorker(services.db, scope, fn);
-  const [regs, numbers, account] = await run(
+  const [regs, numbers, loaded] = await run(
     async (tx) =>
       [
         await tx
@@ -183,12 +183,18 @@ export async function advanceRegistrations(
         await loadAccount(tx, scope.workspaceId, services.sealer),
       ] as const,
   );
-  // Nothing can be registered against a number the carrier has not finished giving us, and a workspace that
-  // has no live number yet may legitimately have no carrier account either — so this stays ahead of the
-  // account check, exactly as the single-number version did.
-  if (!numbers.some((n) => n.status === 'active')) return;
-  if (!account) throw new Error('no telephony account for this workspace');
   const latest = latestByKind(regs);
+  /**
+   * **A local (10DLC) registration goes ahead with no number at all.** Its four steps register the business and
+   * how it texts, and the campaign sits on the messaging service rather than on a number, so a business moving
+   * its own number here registers while it travels; the number joins the service when it lands and texts that
+   * day. That needs the subaccount and messaging service first, which a number would otherwise have made, so a
+   * 10DLC chain makes them here. Toll-free verification is for one number, and still waits for it.
+   */
+  const tenDlc = FAMILY_KINDS.a2p_10dlc.some((k) => latest.has(k));
+  if (!tenDlc && !numbers.some((n) => n.status === 'active')) return;
+  const account = loaded ?? (tenDlc ? await ensureAccount(services, scope) : null);
+  if (!account) throw new Error('no telephony account for this workspace');
   const meta = workerMeta(causation.correlationId, causation.causationId);
   const update = (input: Record<string, unknown>) =>
     executeCommand(
@@ -202,7 +208,7 @@ export async function advanceRegistrations(
   /** One family's chain, walked in order against the number that family is for. */
   const advanceFamily = async (
     family: RegistrationFamily,
-    number: (typeof numbers)[number],
+    number: (typeof numbers)[number] | null,
   ): Promise<void> => {
     // Provider ids of the steps later ones may build on.
     const usable: Partial<Record<RegistrationKind, string>> = {};
@@ -231,8 +237,8 @@ export async function advanceRegistrations(
         state = await services.telephony.submitRegistration(account, {
           kind,
           submission,
-          phoneNumberSid: number.providerSid,
-          phoneNumberE164: number.e164,
+          phoneNumberSid: number?.providerSid ?? null,
+          phoneNumberE164: number?.e164 ?? null,
           previous: { ...usable },
           messagingServiceSid: account.messagingServiceSid,
           notifyEmail: contact.email ?? '',
@@ -291,9 +297,10 @@ export async function advanceRegistrations(
     if (!kinds.some((k) => latest.has(k))) continue;
     // `numbersOf` is ordered `is_default desc, created_at desc`, so this is the business's own preference,
     // and it never returns a released one. `active` because a number still provisioning has no carrier sid
-    // to register against yet — the purchase finishing calls this again.
-    const number = numbers.find((n) => n.status === 'active' && familyFor(n.numberType) === family);
-    if (!number) continue;
+    // to register against yet — a number arriving (bought, ported or transferred) calls this again.
+    const number =
+      numbers.find((n) => n.status === 'active' && familyFor(n.numberType) === family) ?? null;
+    if (!number && family !== 'a2p_10dlc') continue;
     await advanceFamily(family, number);
   }
 }
@@ -318,6 +325,26 @@ export const onRegistrationSubmitted: EventHandler = async (ctx) => {
   });
 };
 
+/**
+ * A number started working here: bought, ported in or transferred from another Twilio account. A registration
+ * sent while it was on its way (toll-free verification waits for its number) goes now, rather than sitting
+ * until somebody sends it again. Nothing to do for a business with no registration, which `advanceRegistrations`
+ * finds for itself.
+ */
+export const onNumberArrived: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const [any] = await ctx.tx
+    .select({ id: telephonyRegistrations.id })
+    .from(telephonyRegistrations)
+    .where(eq(telephonyRegistrations.workspaceId, scope.workspaceId))
+    .limit(1);
+  if (!any) return;
+  await advanceRegistrations(ctx, scope, {
+    correlationId: ctx.event.correlationId,
+    causationId: ctx.event.id,
+  });
+};
+
 /** Owners and admins hear when texting turns on, or when the carriers want a change. */
 export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -332,12 +359,15 @@ export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const recipients = await managers(ctx.tx, scope.workspaceId);
   if (recipients.length === 0) return;
   let mail;
+  const number = await defaultNumber(ctx.tx, scope.workspaceId);
   if (p.to === 'approved') {
-    const number = await defaultNumber(ctx.tx, scope.workspaceId);
+    // Approved ahead of the number (it is still being moved here): the email says so, and points at Settings.
     mail = textingApprovedEmail({
       business,
-      number: number ? formatPhone(number.e164) : 'your business number',
-      link: `${ctx.webUrl}/app/w/${scope.workspaceId}/inbox`,
+      number: number ? formatPhone(number.e164) : null,
+      link: number
+        ? `${ctx.webUrl}/app/w/${scope.workspaceId}/inbox`
+        : `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/texting`,
     });
   } else {
     const [reg] = await ctx.tx
@@ -346,6 +376,7 @@ export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
       .where(eq(telephonyRegistrations.id, ctx.event.entityId!));
     mail = textingRejectedEmail({
       business,
+      calls: !!number,
       reason: reg?.reason ?? null,
       link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/texting`,
     });

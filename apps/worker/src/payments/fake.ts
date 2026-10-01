@@ -145,9 +145,11 @@ export interface FakeSubscription {
   cancelAt: string | null;
 }
 
-/** One of our own Checkout pages (0093): a founding seat being paid for. */
+/** One of our own Checkout pages: a founding seat (0093) or an RCS request (0104) being paid for. */
 export interface FakeCheckout {
   readonly sessionRef: string;
+  /** What it is for: the metadata key its id goes out under. */
+  readonly kind: 'founding_checkout' | 'rcs_request';
   readonly checkoutId: string;
   readonly amountCents: number;
   readonly productName: string;
@@ -159,6 +161,14 @@ export interface FakeCheckout {
   /** The payment behind a completed page, as Stripe's `payment_intent`. */
   paymentRef: string | null;
   readonly expiresAt: string;
+  /** Its lines, when it was more than one thing. */
+  readonly lines: readonly { name: string; amountCents: number }[];
+  /** What the page was made with, as Stripe hands it back on the event. */
+  readonly metadata: Readonly<Record<string, string>>;
+  /** The card is kept for later (`saveCard`): the customer and the card, once it is paid. */
+  readonly saveCard: boolean;
+  customerRef: string | null;
+  cardRef: string | null;
 }
 
 /** One webhook the stand-in posted back to us, kept so a spec can assert on it or replay it. */
@@ -202,8 +212,12 @@ export interface FakePayments {
   setDeliver(deliver: WebhookDeliver): void;
   /** Our own Checkout pages (0093), oldest first. */
   checkouts(): readonly FakeCheckout[];
-  /** The person pays on a Checkout page: `checkout.session.completed`, paid, posted to our own endpoint. */
-  payCheckout(sessionRef: string): Promise<FakeCheckout | null>;
+  /**
+   * The person pays on a Checkout page: `checkout.session.completed`, paid, posted to our own endpoint. The
+   * card they pay with is what a page that keeps it charges later (`FAKE_CARDS.failsOffSession` to see that
+   * refused); a card that goes through when left out.
+   */
+  payCheckout(sessionRef: string, opts?: { instrument?: string }): Promise<FakeCheckout | null>;
   /** A Checkout page lapses unpaid: `checkout.session.expired`. */
   expireCheckout(sessionRef: string): Promise<FakeCheckout | null>;
   /** Our own account's signing, for a spec that forges or replays one. */
@@ -377,7 +391,8 @@ export function createFakePayments(opts: {
           id: page.sessionRef,
           object: 'checkout.session',
           client_reference_id: page.checkoutId,
-          metadata: { founding_checkout_id: page.checkoutId },
+          metadata: { ...page.metadata, [`${page.kind}_id`]: page.checkoutId },
+          customer: page.customerRef,
           status: page.status,
           payment_status: page.status === 'complete' ? 'paid' : 'unpaid',
           payment_intent: page.paymentRef,
@@ -1040,6 +1055,7 @@ export function createFakePayments(opts: {
           );
           const page: FakeCheckout = again ?? {
             sessionRef: nextId('cs_test'),
+            kind: input.kind ?? 'founding_checkout',
             checkoutId: input.checkoutId,
             amountCents,
             productName: input.productName,
@@ -1050,6 +1066,11 @@ export function createFakePayments(opts: {
             status: 'open',
             paymentRef: null,
             expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+            lines: (input.lines ?? []).map((l) => ({ name: l.name, amountCents: l.amountCents })),
+            metadata: { ...input.metadata },
+            saveCard: !!input.saveCard,
+            customerRef: null,
+            cardRef: null,
           };
           checkoutPages.set(page.sessionRef, page);
           return {
@@ -1057,6 +1078,13 @@ export function createFakePayments(opts: {
             url: `${opts.publicUrl}/payments/fake/checkout/${encodeURIComponent(page.sessionRef)}`,
             expiresAt: page.expiresAt,
           };
+        },
+
+        async checkoutCard(sessionRef) {
+          requirePlatform(name);
+          const page = checkoutPages.get(sessionRef);
+          if (!page) throw new PaymentError('No checkout with that id.', 404, true);
+          return { customerRef: page.customerRef, cardRef: page.cardRef };
         },
 
         webhooks: {
@@ -1325,18 +1353,39 @@ export function createFakePayments(opts: {
 
     checkouts: () => [...checkoutPages.values()],
 
-    async payCheckout(sessionRef) {
+    async payCheckout(sessionRef, payOpts = {}) {
       const page = checkoutPages.get(sessionRef);
       if (!page || page.status !== 'open') return page ?? null;
+      const instrument = payOpts.instrument ?? FAKE_CARDS.succeeds;
+      // A page that keeps the card: a customer of ours with that card saved on it, as Stripe leaves it.
+      if (page.saveCard) {
+        const customerRef = nextId('cus_hfos');
+        const cardRef = mintToken({ instrument, method: 'card', saved: true });
+        customers.set(customerRef, {
+          name: null,
+          cards: [
+            {
+              token: cardRef,
+              kind: 'card',
+              brand: 'Visa',
+              last4: last4(instrument),
+              expiryMonth: 12,
+              expiryYear: new Date().getUTCFullYear() + 2,
+            },
+          ],
+        });
+        page.customerRef = customerRef;
+        page.cardRef = cardRef;
+      }
       // The money lands in our own account, like a top-up: a platform charge with no business's account on it.
       const c = record(PLATFORM_ACCOUNT, {
         amountCents: page.amountCents,
         method: 'card',
-        instrument: FAKE_CARDS.succeeds,
+        instrument,
         idempotencyKey: `checkout-${page.sessionRef}`,
         description: page.productName,
-        customerRef: null,
-        metadata: { founding_checkout_id: page.checkoutId },
+        customerRef: page.customerRef,
+        metadata: { [`${page.kind}_id`]: page.checkoutId },
         hold: false,
       });
       c.status = 'succeeded';

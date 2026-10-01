@@ -620,6 +620,15 @@ describe('registry', () => {
       'rcs_sender.refresh',
       'rcs_sender.disconnect',
       'rcs_sender.record_state',
+      // Asking for an RCS sender and paying for it (0104).
+      'rcs_request.submit',
+      'rcs_request.cancel',
+      'rcs_request.pay_renewal',
+      'rcs_request.record_opened',
+      'rcs_request.record_closed',
+      'rcs_request.record_paid',
+      'rcs_request.record_renewal',
+      'rcs_request.record_renewal_page',
       // Add-ons (0108).
       'addon.install',
       'addon.enable',

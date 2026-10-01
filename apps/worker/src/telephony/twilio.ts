@@ -596,7 +596,7 @@ async function submitTollFree(
   const res = await call<TwilioStatus>(creds, 'POST', url, {
     TollfreePhoneNumberSid: request.phoneNumberSid,
     ...tollFreeDetails(request, b),
-    ExternalReferenceId: request.phoneNumberE164,
+    ...(request.phoneNumberE164 ? { ExternalReferenceId: request.phoneNumberE164 } : {}),
   });
   return stateOf(res.sid, res.status ?? 'PENDING_REVIEW', TOLL_FREE_STATUS, res);
 }

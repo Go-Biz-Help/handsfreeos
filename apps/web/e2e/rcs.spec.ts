@@ -55,9 +55,13 @@ test('RCS: connect a sender, send buttons, see how each text went, and read the 
   await page.getByTestId('quiet-hours-switch').click();
   await expect(page.getByText('Quiet hours off')).toBeVisible();
 
-  // Settings → Texting & calls: the senders already in the business's Twilio account, one click to connect.
+  // Settings → Texting & calls: a business asks us to make its sender (0104), and pays; one that already has
+  // a sender connects it — the senders already in the business's Twilio account, one click to connect.
   const card = page.getByTestId('rcs-card');
   await expect(card.getByTestId('rcs-badge')).toHaveText('Off');
+  await expect(card.getByTestId('rcs-first-year')).toHaveText('$800');
+  await expect(card.getByTestId('rcs-yearly')).toHaveText('$215');
+  await card.getByTestId('rcs-connect-own').click();
   const accountSid = (await card.getByTestId('rcs-account').textContent())!.trim();
   expect(accountSid).toMatch(/^AC/);
   await card.getByTestId('rcs-found-sender').filter({ hasText: SENDER }).click();

@@ -5917,6 +5917,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/rcs_request.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give up on an RCS request that hasn’t been paid, or stop a paid one renewing: RCS stays on until the year paid for ends, nothing more is charged, and support is told so they can take the sender down then.
+         * @description Risk level 2. Requires channels.manage. Emits rcs_request.cancelled, rcs_request.stopped, support_ticket.opened.
+         */
+        post: operations["command_rcs_request_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_request.pay_renewal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay RCS’s yearly renewal with another card, after the card on file refused it. The worker makes the Stripe page; read its address from phone.setup_status (rcsRequest.renewalCheckoutUrl). The new card is the one charged from then on.
+         * @description Risk level 3. Requires channels.manage. Emits rcs_request.renewal_page_requested.
+         */
+        post: operations["command_rcs_request_pay_renewal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_request.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask HandsFreeOS to make this business’s RCS sender, and start paying for it: $800 for the first year (Carrier onboarding $500, passed on at cost; Brand vetting by Aegis $200, passed on at cost; Setup by HandsFreeOS $100), then $215 a year. The worker makes the Stripe page; read its address from phone.setup_status. Asking again while one is waiting to be paid picks that one back up.
+         * @description Risk level 3. Requires channels.manage. Emits rcs_request.submitted.
+         */
+        post: operations["command_rcs_request_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/rcs_sender.connect": {
         parameters: {
             query?: never;
@@ -6167,7 +6227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only.
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number.
          * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
          */
         post: operations["command_registration_submit"];
@@ -24553,6 +24613,120 @@ export interface operations {
             };
         };
     };
+    command_rcs_request_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_request_pay_renewal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_request_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    brand: {
+                        color: string;
+                        description: string;
+                        displayName: string;
+                        email: string;
+                        /** @default null */
+                        logoUrl?: string | null;
+                        /** @default  */
+                        notes?: string;
+                        phone: string;
+                        /** Format: uri */
+                        privacyUrl: string;
+                        /** Format: uri */
+                        termsUrl: string;
+                        /** Format: uri */
+                        website: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
     command_rcs_sender_connect: {
         parameters: {
             query?: never;
@@ -39014,6 +39188,8 @@ export interface operations {
                     "application/json": {
                         accountStatus: string | null;
                         canManage: boolean;
+                        /** @enum {string} */
+                        localRegistrationStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
                         messagingReady: boolean;
                         /** @enum {string} */
                         nextStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
@@ -39076,6 +39252,28 @@ export interface operations {
                             localTime: string;
                             quiet: boolean;
                         };
+                        rcsRequest: {
+                            brand: {
+                                [key: string]: unknown;
+                            };
+                            checkoutUrl: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            firstYearCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            paidAt: string | null;
+                            paidThrough: string | null;
+                            problem: string | null;
+                            renewalCheckoutUrl: string | null;
+                            renewalProblem: string | null;
+                            renews: boolean;
+                            /** @enum {string} */
+                            status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
+                            stoppedAt: string | null;
+                            ticketNumber: number | null;
+                            yearlyCents: number;
+                        } | null;
                         rcsSender: {
                             checkedAt: string | null;
                             connectedAt: string | null;

@@ -1,11 +1,13 @@
 /** Server-side messaging helpers shared by the commands and queries (numbers, readiness, conversations, jobs). */
-import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { sql, type Tx } from '@hfos/db/client';
 import {
   conversations,
+  numberImports,
   optOuts,
   people,
   phoneNumbers,
+  rcsRequests,
   rcsSenders,
   telephonyRegistrations,
   workspaces,
@@ -13,6 +15,7 @@ import {
 import { hasPhone, mainPhoneFirst } from '../crm/matching';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
+import { numberTypeOf } from './number-import';
 import {
   DEFAULT_TELEPHONY_SETTINGS,
   TelephonySettings,
@@ -69,6 +72,33 @@ export async function defaultNumber(tx: Tx, workspaceId: string) {
     .orderBy(desc(phoneNumbers.isDefault), desc(phoneNumbers.createdAt))
     .limit(1);
   return n ?? null;
+}
+
+/**
+ * The number a business is bringing here and doesn't have working yet: one with a carrier port under way, or
+ * one being transferred inside Twilio. Asked only when it has no number that can send, so a texting
+ * registration sent ahead of it can name the number it is for. Null when nothing is on its way.
+ */
+export async function arrivingNumber(
+  tx: Tx,
+  workspaceId: string,
+): Promise<{ id: string | null; e164: string; numberType: string } | null> {
+  const [ported] = await tx
+    .select({ id: phoneNumbers.id, e164: phoneNumbers.e164, numberType: phoneNumbers.numberType })
+    .from(phoneNumbers)
+    .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.status, 'porting')))
+    .orderBy(desc(phoneNumbers.isDefault), desc(phoneNumbers.createdAt))
+    .limit(1);
+  if (ported) return ported;
+  const [moving] = await tx
+    .select({ e164: numberImports.e164, numberType: numberImports.numberType })
+    .from(numberImports)
+    .where(and(eq(numberImports.workspaceId, workspaceId), eq(numberImports.status, 'waiting')))
+    .orderBy(desc(numberImports.createdAt))
+    .limit(1);
+  return moving
+    ? { id: null, e164: moving.e164, numberType: moving.numberType ?? numberTypeOf(moving.e164) }
+    : null;
 }
 
 /**
@@ -597,6 +627,43 @@ export async function currentRcsSender(tx: Tx, workspaceId: string) {
     .orderBy(desc(rcsSenders.createdAt))
     .limit(1);
   return s ?? null;
+}
+
+/**
+ * The RCS request a business is living with (0104): waiting to be paid, or paid and still renewing. At most one,
+ * by `rcs_requests_one_live_per_workspace`.
+ */
+export async function liveRcsRequest(tx: Tx, workspaceId: string) {
+  const [r] = await tx
+    .select()
+    .from(rcsRequests)
+    .where(
+      and(
+        eq(rcsRequests.workspaceId, workspaceId),
+        or(
+          inArray(rcsRequests.status, ['pending', 'open']),
+          and(eq(rcsRequests.status, 'paid'), isNull(rcsRequests.stoppedAt)),
+        ),
+      ),
+    )
+    .limit(1);
+  return r ?? null;
+}
+
+/**
+ * The request the RCS card is about: the live one, or else the newest one nobody gave up on — a page that ran
+ * out, or a paid year somebody stopped renewing, which the card still has something to say about.
+ */
+export async function currentRcsRequest(tx: Tx, workspaceId: string) {
+  const live = await liveRcsRequest(tx, workspaceId);
+  if (live) return live;
+  const [r] = await tx
+    .select()
+    .from(rcsRequests)
+    .where(and(eq(rcsRequests.workspaceId, workspaceId), ne(rcsRequests.status, 'cancelled')))
+    .orderBy(desc(rcsRequests.createdAt))
+    .limit(1);
+  return r ?? null;
 }
 
 /**

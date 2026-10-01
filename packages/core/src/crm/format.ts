@@ -46,6 +46,14 @@ export function formatDate(
   return opts.time ? `${withYear}, ${clock(d)}` : withYear;
 }
 
+/**
+ * "Oct 1, 2027": a moment's date in UTC, always with its year. For a date read the same everywhere it is shown —
+ * a renewal on a support ticket, in an email and on the card — rather than on one device's own clock.
+ */
+export function formatUtcDate(d: Date): string {
+  return `${MONTHS_SHORT[d.getUTCMonth()]!} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
 /** A date-only value ("2026-09-21") as "Sep 21", with the year when it isn't this one. */
 export function formatDateOnly(
   dateOnly: string | null | undefined,

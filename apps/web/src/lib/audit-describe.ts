@@ -391,6 +391,22 @@ function describeAction(e: AuditEntry): string {
       return 'disconnected RCS: texts go as SMS and MMS again';
     case 'rcs_sender.record_state':
       return rcsStateSentence(e);
+    // 0104: asking HandsFreeOS for an RCS sender, and paying for it. Paying, stopping and a refused renewal each
+    // open a support ticket too, which is a line of its own.
+    case 'rcs_request.cancel':
+    case 'rcs_request.record_paid':
+    case 'rcs_request.record_renewal':
+      if (e.entityType === 'support_ticket')
+        return `opened support ticket ${s(e.after?.ticket)} with HandsFreeOS`;
+      return rcsRequestSentence(e);
+    case 'rcs_request.submit':
+      return `asked for an RCS sender showing ${s(e.after?.name)}: ${s(e.after?.firstYear)} for the first year, then ${s(e.after?.yearly)} a year`;
+    case 'rcs_request.pay_renewal':
+      return `asked to pay RCS’s ${s(e.after?.renewal)} renewal with another card`;
+    case 'rcs_request.record_closed':
+      return s(e.after?.status) === 'expired'
+        ? 'found the RCS payment page ran out unpaid'
+        : 'found the RCS payment didn’t go through';
     case 'registration.submit':
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
@@ -1482,6 +1498,22 @@ function portStateSentence(e: AuditEntry): string {
   }
 }
 
+/** Paying for RCS, stopping it renewing, and its yearly renewal (0104). */
+function rcsRequestSentence(e: AuditEntry): string {
+  switch (e.action) {
+    case 'rcs_request.cancel':
+      return s(e.after?.renews) === 'no'
+        ? `stopped RCS renewing; it stays on until ${s(e.after?.until)}`
+        : 'gave up on the RCS request before paying';
+    case 'rcs_request.record_paid':
+      return `paid ${s(e.after?.paid)} for RCS; HandsFreeOS is making the sender (ticket ${s(e.after?.ticket)})`;
+    default:
+      return s(e.after?.renewal) === 'refused'
+        ? `couldn’t renew RCS: ${s(e.after?.reason)}`
+        : `renewed RCS for ${s(e.after?.paid)}, paid through ${s(e.after?.until)}`;
+  }
+}
+
 function rcsStateSentence(e: AuditEntry): string {
   // The same sender put on texting or taken off it (switched on or off in Settings), with no news from the carriers.
   if (typeof e.after?.inService === 'boolean' && !s(e.after?.status))
@@ -1746,6 +1778,7 @@ export function auditCategory(action: string): AuditCategory {
       'registration.',
       'number_port.',
       'rcs_sender.',
+      'rcs_request.',
       'email.',
       'email_domain.',
       'email_address.',

@@ -421,6 +421,11 @@ export interface PaymentProvider {
  * us, and the money lands in our own account — there is no seller's account anywhere in it.
  */
 export interface CheckoutInput {
+  /**
+   * What is being paid for, which is the metadata key the id goes out under (`founding_checkout_id`,
+   * `rcs_request_id`) and so how its events find their way back. A founding seat when left out.
+   */
+  readonly kind?: 'founding_checkout' | 'rcs_request';
   /** Ours. Stamped on the page and on its payment, so every event about it finds its way back. */
   readonly checkoutId: string;
   readonly amountCents: number;
@@ -435,6 +440,19 @@ export interface CheckoutInput {
   readonly metadata: Readonly<Record<string, string>>;
   /** Stable per checkout, so a retry makes the same page rather than a second one. */
   readonly idempotencyKey: string;
+  /**
+   * The page's lines, when it is more than one thing (RCS: the carriers' fee, the vetting, our setup). They add
+   * up to `amountCents`; left out, the page is one line named `productName`.
+   */
+  readonly lines?: readonly CheckoutLine[];
+  /** Keep the card on the customer for charging later without them there (a yearly renewal). */
+  readonly saveCard?: boolean;
+}
+
+export interface CheckoutLine {
+  readonly name: string;
+  readonly description: string | null;
+  readonly amountCents: number;
 }
 
 export interface CheckoutSession {
@@ -452,8 +470,14 @@ export interface CheckoutEvent {
   /** `checkout.session.completed`, `.expired`, `.async_payment_succeeded`, `.async_payment_failed`. */
   readonly type: string;
   readonly sessionRef: string;
-  /** Ours, from the page's metadata. Null on a page some other part of the account made. */
+  /** A founding seat's checkout, from the page's metadata. Null on a page some other part of the account made. */
   readonly checkoutId: string | null;
+  /** An RCS request (0104), from the page's metadata. Null on any other page. */
+  readonly rcsRequestId: string | null;
+  /** On an RCS renewal paid with another card: the `paid_through` it renews. Null on a first payment. */
+  readonly renewalFor: string | null;
+  /** The provider's customer the page made (`cus_…`). */
+  readonly customerRef: string | null;
   /** `paid`, `unpaid` or `no_payment_required`. Only `paid` means the money is in. */
   readonly paymentStatus: string | null;
   /** The payment behind it (`pi_…`): what a refund is made against. */
@@ -488,6 +512,11 @@ export interface PlatformPayments {
   charge(input: ChargeInput): Promise<PaymentResult>;
   /** A hosted page to pay us once. Square refuses, like everything else here. */
   createCheckout(input: CheckoutInput): Promise<CheckoutSession>;
+  /**
+   * The customer and the card a paid page kept (`saveCard`), read from the provider rather than from the event,
+   * which doesn't carry the card. Null where it kept none.
+   */
+  checkoutCard(sessionRef: string): Promise<{ customerRef: string | null; cardRef: string | null }>;
   /**
    * Our own account's events — Stripe's "Your account" destination, not the Connect one — signed with a secret
    * of their own. `configured` is false until that secret is on the server, and nothing verifies without it.
