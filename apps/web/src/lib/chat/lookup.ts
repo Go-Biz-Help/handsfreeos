@@ -34,6 +34,7 @@ export interface ChatConfig {
     readonly text: string;
     readonly detail: string | null;
     readonly policyUrl: string | null;
+    readonly termsUrl: string | null;
   } | null;
   /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
   readonly humanCheck: { readonly siteKey: string | null } | null;
@@ -97,6 +98,7 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
           text: consent,
           detail: consent,
           policyUrl: consentRaw ? text(consentRaw.policyUrl) : null,
+          termsUrl: consentRaw ? text(consentRaw.termsUrl) : null,
         }
       : null,
     humanCheck: check ? { siteKey: text(check.siteKey) } : null,

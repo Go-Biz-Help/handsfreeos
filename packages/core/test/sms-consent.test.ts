@@ -13,10 +13,15 @@ import { describe, expect, it } from 'vitest';
 import {
   HELP_KEYWORDS,
   STOP_KEYWORDS,
+  offersConsentWords,
   optInDescriptionDefault,
+  optInDescriptionFor,
+  ownSiteBoxText,
+  sendsOffers,
   smsConsentWords,
   type ConsentPlace,
 } from '../src/messaging/consent';
+import { keywordReplies, TWILIO_STOP_REPLY } from '../src/messaging/sms';
 
 const PLACES: readonly ConsentPlace[] = ['form', 'booking', 'chat'];
 const BUSINESS = 'Lone Star HVAC';
@@ -83,5 +88,87 @@ describe('what the carrier is told matches what the customer saw', () => {
     const description = optInDescriptionDefault(BUSINESS);
     expect(description.length).toBeGreaterThanOrEqual(40);
     expect(description.length).toBeLessThanOrEqual(1000);
+  });
+});
+
+describe('the terms are linked beside the policy', () => {
+  it('gives back both links, so the page renders both', () => {
+    const words = smsConsentWords('Lone Star HVAC', 'form', '/legal/x/privacy', '/legal/x/terms');
+    expect(words).toMatchObject({ policyUrl: '/legal/x/privacy', termsUrl: '/legal/x/terms' });
+    expect(smsConsentWords('Lone Star HVAC', 'form').termsUrl).toBeNull();
+  });
+});
+
+describe('offers have a box of their own', () => {
+  it('only for a business whose texts include offers', () => {
+    expect(sendsOffers('mixed')).toBe(true);
+    expect(sendsOffers('marketing')).toBe(true);
+    expect(sendsOffers('customer_care')).toBe(false);
+  });
+
+  it('names the business, says it is separate and optional, and keeps the disclosures', () => {
+    const words = offersConsentWords('Lone Star HVAC');
+    expect(words.title).toContain('Lone Star HVAC');
+    expect(words.detail).toMatch(/separate/);
+    expect(words.detail).toMatch(/never required/);
+    expect(words.detail).toMatch(/rates may apply/);
+    expect(words.detail).toMatch(/Reply STOP/);
+  });
+
+  it('gives a business with its own site the same words to copy, with the offers box when it sends offers', () => {
+    const care = ownSiteBoxText('Lone Star HVAC', false);
+    expect(care).toContain(smsConsentWords('Lone Star HVAC', 'form').detail);
+    expect(care).not.toMatch(/offers/i);
+    expect(ownSiteBoxText('Lone Star HVAC', true)).toContain(
+      offersConsentWords('Lone Star HVAC').title,
+    );
+  });
+});
+
+describe('the description names the pages a reviewer can open', () => {
+  it('points at the business’s own page with the box', () => {
+    const text = optInDescriptionFor(
+      'Go Biz Help',
+      'own_site',
+      {},
+      {
+        pageUrl: 'https://www.gobizhelp.com/contact',
+      },
+    );
+    expect(text).toContain('at https://www.gobizhelp.com/contact');
+    expect(text).toMatch(/links to the privacy policy and the terms/);
+  });
+
+  it('says offers have their own box, and where proof of in-person agreement is', () => {
+    expect(optInDescriptionFor('Go Biz Help', 'hosted', {}, { offers: true })).toMatch(
+      /second, separate box/,
+    );
+    expect(
+      optInDescriptionFor('Go Biz Help', 'in_person', {}, { proofUrl: 'https://drive.test/sheet' }),
+    ).toContain('https://drive.test/sheet');
+  });
+
+  it('stays under what the registration accepts', () => {
+    const urls = {
+      formUrl: 'https://app.handsfreeos.com/f/lone-star-hvac-and-roofing/contact-us',
+      bookingUrl: 'https://app.handsfreeos.com/book/lone-star-hvac-and-roofing',
+      chatUrl: 'https://app.handsfreeos.com/chat/cw_abcdefghijklmnopqrstuvwx',
+    };
+    const text = optInDescriptionFor('Lone Star HVAC & Roofing', 'hosted', urls, { offers: true });
+    expect(text.length).toBeLessThanOrEqual(1500);
+  });
+});
+
+describe('what STOP and HELP get back', () => {
+  it('declares Twilio’s own STOP reply, because that is the one customers get', () => {
+    expect(keywordReplies('Lone Star HVAC', '(512) 555-0100').stop).toBe(TWILIO_STOP_REPLY);
+  });
+
+  it('answers HELP with the business’s name and a number to reach it', () => {
+    const help = keywordReplies('Lone Star HVAC', '(512) 555-0100').help;
+    expect(help).toMatch(/^Lone Star HVAC:/);
+    expect(help).toContain('(512) 555-0100');
+    expect(help).toMatch(/Reply STOP/);
+    expect(help.length).toBeLessThanOrEqual(160);
   });
 });

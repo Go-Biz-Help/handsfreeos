@@ -5,6 +5,7 @@ import {
   conversationSnooze,
   createTokenVerifier,
   executeCommand,
+  formatPhone,
   messageRetry,
   messageSend,
   organizationCreate,
@@ -850,6 +851,40 @@ describe('texting', () => {
       subtype: 'inbound',
       body: 'Do you service Katy?',
     });
+  });
+
+  it('answers HELP with the business’s name and number, once, unless Twilio already did', async () => {
+    const helpReplies = () =>
+      s.telephony.sent.filter(
+        (m) => m.to === STRANGER && /for help, call or text us at/.test(m.body),
+      );
+    const before = helpReplies().length;
+    const sid = fakeSid('SM');
+    await postTwilio(INBOUND, {
+      AccountSid: accountSid,
+      MessageSid: sid,
+      From: STRANGER,
+      To: businessNumber,
+      Body: 'help',
+    });
+    await drain();
+    await drain();
+    const replies = helpReplies();
+    expect(replies).toHaveLength(before + 1);
+    expect(replies.at(-1)!.body).toContain(formatPhone(businessNumber));
+    expect(replies.at(-1)!.body).toMatch(/Reply STOP to stop texts\.$/);
+
+    // Advanced Opt-Out answered this one itself (it says so with OptOutType): no second answer.
+    await postTwilio(INBOUND, {
+      AccountSid: accountSid,
+      MessageSid: fakeSid('SM'),
+      From: STRANGER,
+      To: businessNumber,
+      Body: 'HELP',
+      OptOutType: 'HELP',
+    });
+    await drain();
+    expect(helpReplies()).toHaveLength(before + 1);
   });
 });
 

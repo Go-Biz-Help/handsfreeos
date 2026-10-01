@@ -60,6 +60,46 @@ export const STOP_KEYWORDS = [
 export const START_KEYWORDS = ['START', 'UNSTOP', 'YES', 'SUBSCRIBE', 'OPTIN'] as const;
 export const HELP_KEYWORDS = ['HELP', 'INFO'] as const;
 
+/**
+ * What a customer gets back when they text STOP, START or HELP, and so what the carriers are told they get.
+ *
+ * **A campaign's declared replies have to be the ones customers really receive.** STOP and START are
+ * answered by Twilio's own opt-out handling before HandsFreeOS sees the text, and once a number has said
+ * STOP nothing else may be sent to it, so those two are Twilio's standard wording, word for word. HELP is
+ * answered by HandsFreeOS (apps/worker/src/handlers/help-reply.ts), with the business's name and a number to
+ * reach it on, because that is what a reviewer texting HELP looks for.
+ *
+ * Twilio's Advanced Opt-Out (set up by hand in its console, for one business at a time) can change the STOP
+ * and START wording; a business that has it keeps these answers in step with what it set there.
+ */
+export interface KeywordReplies {
+  readonly stop: string;
+  readonly start: string;
+  readonly help: string;
+}
+
+export const TWILIO_STOP_REPLY =
+  'You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.';
+export const TWILIO_START_REPLY =
+  'You have successfully been re-subscribed to messages from this number. Reply HELP for help. Reply STOP to unsubscribe. Msg&Data Rates May Apply.';
+
+/**
+ * The replies for one business. `business` is the name its customers know it by; `contact` is how to reach
+ * it, already formatted ("(512) 555-0100").
+ */
+export function keywordReplies(business: string, contact: string): KeywordReplies {
+  const who = business.trim().slice(0, 60) || 'This business';
+  const reach = contact.trim();
+  return {
+    stop: TWILIO_STOP_REPLY,
+    start: TWILIO_START_REPLY,
+    help: (reach
+      ? `${who}: for help, call or text us at ${reach}. Msg & data rates may apply. Reply STOP to stop texts.`
+      : `${who}: for help, reply to this text and we'll get back to you. Msg & data rates may apply. Reply STOP to stop texts.`
+    ).slice(0, 320),
+  };
+}
+
 const STOP = new Set<string>(STOP_KEYWORDS);
 const START = new Set<string>(START_KEYWORDS);
 const HELP = new Set<string>(HELP_KEYWORDS);

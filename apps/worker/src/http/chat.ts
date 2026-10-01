@@ -38,6 +38,7 @@ import {
   type CommandDef,
   type RequestMeta,
   consentPolicyPath,
+  consentTermsPath,
   smsConsentWords,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -118,8 +119,11 @@ export const HUMAN_CHECK_EVERY = 50;
  * It comes from core now, like the public form's and the booking page's, so all three say the same thing
  * and a reviewer reading any of them reads the same six disclosures.
  */
-export const chatSmsConsent = (business: string, policyUrl: string | null) =>
-  smsConsentWords(business, 'chat', policyUrl);
+export const chatSmsConsent = (
+  business: string,
+  policyUrl: string | null,
+  termsUrl: string | null = null,
+) => smsConsentWords(business, 'chat', policyUrl, termsUrl);
 
 // ---- What the chat window gets ----
 
@@ -412,6 +416,7 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           const consentWords = chatSmsConsent(
             ws?.name ?? '',
             ws?.site_slug ? consentPolicyPath(ws.site_slug) : null,
+            ws?.site_slug ? consentTermsPath(ws.site_slug) : null,
           );
           const teammate = await answeringTeammate(tx, widget);
           const now = Date.now();

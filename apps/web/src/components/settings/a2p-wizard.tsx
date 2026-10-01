@@ -23,14 +23,19 @@ import {
   hasBlockers,
   issuesFor,
   optInDescriptionFor,
+  ownSiteBoxText,
   privacyPolicy,
   preflightBlocked,
   sampleSuggestions,
+  SENSITIVE_TOPICS,
+  sendsOffers,
+  termsOfService,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type OptInPath,
   type PreflightCheck,
+  type SensitiveTopicId,
 } from '@hfos/core';
 import {
   ArrowLeft,
@@ -44,7 +49,7 @@ import {
   MessageCircle,
   Sparkles,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Button } from '@/components/ui/button';
@@ -80,8 +85,16 @@ export interface WizardForm {
   optInPath: OptInPath | '';
   /** Filled in from the path once the surfaces are live; the business may still edit it. */
   optIn: string;
+  /** `own_site`: the page on the business's own website that carries the box. */
+  optInUrl: string;
+  /** `in_person`: a link anyone can open to a photo of the sign-up sheet or the words said on the phone. */
+  optInProofUrl: string;
   /** '' means "use the one we host for you". */
   ownPolicyUrl: string;
+  /** The same for the terms. */
+  ownTermsUrl: string;
+  /** Topics the carriers treat differently: the ids picked, [] for "None of these", null before answering. */
+  sensitive: string[] | null;
 }
 
 const BUSINESS_TYPES = [
@@ -136,7 +149,11 @@ export function wizardFormFrom(
     contact?: { firstName?: string; lastName?: string; email?: string; phone?: string };
     optInDescription?: string;
     optInPath?: OptInPath;
+    optInUrl?: string | null;
+    optInProofUrl?: string | null;
     policyUrl?: string | null;
+    termsUrl?: string | null;
+    sensitiveTopics?: string[];
     messageSamples?: string[];
     useCase?: string;
     monthlyVolume?: string;
@@ -160,8 +177,35 @@ export function wizardFormFrom(
     samples: [b.messageSamples?.[0] ?? '', b.messageSamples?.[1] ?? ''],
     optInPath: b.optInPath ?? '',
     optIn: b.optInDescription ?? '',
+    // Our own form's address is worked out again from what is live; only the business's own page is kept.
+    optInUrl: b.optInPath === 'own_site' ? (b.optInUrl ?? '') : '',
+    optInProofUrl: b.optInProofUrl ?? '',
     ownPolicyUrl: b.policyUrl ?? '',
+    ownTermsUrl: b.termsUrl ?? '',
+    sensitive: Array.isArray(b.sensitiveTopics) ? b.sensitiveTopics : null,
   };
+}
+
+/**
+ * The form as it was left, over what it would otherwise start from: each saved answer that still has the
+ * right shape. A draft saved by an older wizard, or edited by hand, can only fill in what it has.
+ */
+export function withDraft(base: WizardForm, draft: Record<string, unknown> | null): WizardForm {
+  if (!draft) return base;
+  const saved = (draft['form'] ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(base) as (keyof WizardForm)[]) {
+    const value = saved[key];
+    const was = base[key];
+    if (key === 'sensitive') {
+      if (value === null || (Array.isArray(value) && value.every((v) => typeof v === 'string')))
+        next[key] = value;
+    } else if (key === 'samples') {
+      if (Array.isArray(value) && value.every((v) => typeof v === 'string'))
+        next[key] = [value[0] ?? '', value[1] ?? ''];
+    } else if (typeof value === typeof was) next[key] = value;
+  }
+  return next as unknown as WizardForm;
 }
 
 /** The form as the checks read it. */
@@ -174,6 +218,9 @@ const draftOf = (f: WizardForm): A2pDraft => ({
   messageSamples: f.samples,
   optInDescription: f.optIn,
   optInPath: f.optInPath || undefined,
+  optInUrl: f.optInUrl,
+  optInProofUrl: f.optInProofUrl,
+  sensitiveTopics: f.sensitive,
   monthlyVolume: f.volume,
 });
 
@@ -217,7 +264,7 @@ const STEPS: readonly Step[] = [
     key: 'about',
     title: 'What you will text about',
     blurb: 'Pick the one that matches your week, not the one that sounds best.',
-    fields: ['useCase', 'monthlyVolume'],
+    fields: ['useCase', 'monthlyVolume', 'sensitiveTopics'],
   },
   {
     key: 'samples',
@@ -229,12 +276,12 @@ const STEPS: readonly Step[] = [
     key: 'optin',
     title: 'How customers agree to get texts',
     blurb: 'The part that is checked hardest — and the part we can do for you.',
-    fields: ['optInPath', 'optInDescription'],
+    fields: ['optInPath', 'optInUrl', 'optInProofUrl', 'optInDescription'],
   },
   {
     key: 'policy',
-    title: 'Your privacy policy',
-    blurb: 'The reviewer opens this looking for one particular sentence.',
+    title: 'Your privacy policy and terms',
+    blurb: 'The reviewer opens both, and reads the policy for one particular sentence.',
     fields: [],
   },
   {
@@ -364,6 +411,24 @@ function urlsOf(s: HostedSurfaces, origin: string) {
   };
 }
 
+/**
+ * The sentence for the carrier, from everything the form says about consent: the path, what is live, the
+ * business's own page or its proof, and whether it sends offers too.
+ */
+function describeFor(
+  businessName: string,
+  f: WizardForm,
+  s: HostedSurfaces,
+  origin: string,
+): string {
+  if (!f.optInPath) return f.optIn;
+  return optInDescriptionFor(businessName, f.optInPath, urlsOf(s, origin), {
+    pageUrl: f.optInPath === 'own_site' ? withScheme(f.optInUrl) || null : null,
+    proofUrl: withScheme(f.optInProofUrl) || null,
+    offers: sendsOffers(f.useCase),
+  });
+}
+
 const OPT_IN_PATHS: readonly {
   value: OptInPath;
   title: string;
@@ -484,9 +549,10 @@ function OptInStep({
   const urls = urlsOf(surfaces, origin);
   const hostedLive = Boolean(urls.formUrl || urls.chatUrl);
 
-  /** Rewrites the sentence from the path and whatever is live, unless the business has edited it itself. */
+  /** Rewrites the sentence from the path and whatever is live. */
   const describe = (path: OptInPath, s: HostedSurfaces) =>
-    set('optIn', optInDescriptionFor(businessName, path, urlsOf(s, origin)));
+    set('optIn', describeFor(businessName, { ...form, optInPath: path }, s, origin));
+  const offers = sendsOffers(form.useCase);
 
   async function turnOn() {
     setBusy(true);
@@ -513,6 +579,7 @@ function OptInStep({
     legalName: form.legalName,
     website: withScheme(form.website),
     email: form.contactEmail,
+    offers,
     address: {
       line1: form.line1,
       city: form.city,
@@ -590,6 +657,12 @@ function OptInStep({
               </span>
             </li>
           </ul>
+          {offers ? (
+            <p className="mt-2 text-[13px] text-text-2">
+              You send offers too, so each of these shows a second, separate box for them. Customers
+              can agree to texts about their own work without agreeing to offers.
+            </p>
+          ) : null}
           {hostedLive ? (
             <Callout tone="info" icon={Check} className="mt-3">
               This is live. The reviewer can open it, which is the whole point — a chat bubble on
@@ -625,13 +698,33 @@ function OptInStep({
             Do this before you send the registration. A reviewer who opens your site and finds no
             agreement box turns the whole thing down, and you wait out the week again.
           </Callout>
+          <Field label="The page with your tick box" htmlFor="a2p-optInUrl">
+            <Input
+              id="a2p-optInUrl"
+              value={form.optInUrl}
+              onChange={(e) => set('optInUrl', e.target.value)}
+              placeholder="yoursite.com/contact"
+              data-testid="a2p-optin-url"
+            />
+          </Field>
+          <Why>
+            The reviewer opens this exact page looking for the box, so give the page the form is on
+            — your contact page, say — rather than your home page, unless the box is on the home
+            page.
+          </Why>
+          <Issues issues={issuesFor(issues, 'optInUrl')} />
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <p className="text-[13.5px] font-semibold">Put this beside the tick box</p>
-              <CopyButton text={optInDescriptionFor(businessName, 'own_site')} />
+              <CopyButton text={ownSiteBoxText(businessName, offers)} />
             </div>
-            <p className="rounded-menu bg-card p-3 text-[13px] leading-relaxed text-text-2">
-              {optInDescriptionFor(businessName, 'own_site')}
+            <p className="whitespace-pre-line rounded-menu bg-card p-3 text-[13px] leading-relaxed text-text-2">
+              {ownSiteBoxText(businessName, offers)}
+            </p>
+            <p className="mt-1.5 text-[13px] text-text-3">
+              The box has to start empty and must not be required to send the form. Link
+              &ldquo;Privacy policy&rdquo; and &ldquo;Terms&rdquo; to your own pages.
+              {offers ? ' Offers get their own box, under the first.' : ''}
             </p>
           </div>
           {smsSection ? (
@@ -655,11 +748,28 @@ function OptInStep({
       ) : null}
 
       {form.optInPath === 'in_person' ? (
-        <Callout tone="warning" icon={CircleAlert}>
-          This can be approved, but there is no web page for the reviewer to check, so expect
-          questions and a longer wait. If you have a website at all, the first option is much
-          faster.
-        </Callout>
+        <div className="space-y-3 rounded-menu border border-border bg-card-2 p-4">
+          <Callout tone="warning" icon={CircleAlert}>
+            This can be approved, but there is no web page for the reviewer to check, so expect
+            questions and a longer wait. If you have a website at all, the first option is much
+            faster.
+          </Callout>
+          <Field label="A link to what customers see or hear" htmlFor="a2p-optInProofUrl">
+            <Input
+              id="a2p-optInProofUrl"
+              value={form.optInProofUrl}
+              onChange={(e) => set('optInProofUrl', e.target.value)}
+              placeholder="https://drive.google.com/…"
+              data-testid="a2p-optin-proof"
+            />
+          </Field>
+          <Why>
+            The reviewer can&rsquo;t watch you ask, so they ask to see it: a photo of your sign-up
+            sheet, or a page with the words you say on the phone. Put it in Google Drive or Dropbox
+            and share it so anyone with the link can open it. The reviewer never signs in.
+          </Why>
+          <Issues issues={issuesFor(issues, 'optInProofUrl')} />
+        </div>
       ) : null}
 
       {form.optInPath ? (
@@ -689,6 +799,7 @@ export function A2pWizard({
   number,
   me,
   initial,
+  draft = null,
   surfaces: initialSurfaces = EMPTY_SURFACES,
   onBack,
   onSubmitted,
@@ -698,25 +809,80 @@ export function A2pWizard({
   number: PhoneNumberInfo;
   me: { fullName: string; email: string };
   initial: Record<string, unknown> | null;
+  /** The answers as they were left last time (`registration.get_draft`), which win over `initial`. */
+  draft?: Record<string, unknown> | null;
   surfaces?: HostedSurfaces;
   onBack?: () => void;
   onSubmitted: () => void;
 }) {
-  const [form, setForm] = useState<WizardForm>(() => wizardFormFrom(initial, businessName, me));
+  const [form, setForm] = useState<WizardForm>(() =>
+    withDraft(wizardFormFrom(initial, businessName, me), draft),
+  );
   const [surfaces, setSurfaces] = useState<HostedSurfaces>(initialSurfaces);
-  const [at, setAt] = useState(0);
+  const [at, setAt] = useState(() => {
+    const step = typeof draft?.['at'] === 'number' ? Math.floor(draft['at']) : 0;
+    return Math.min(Math.max(step, 0), STEPS.length - 1);
+  });
   const [busy, setBusy] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   // The business says these details are true before they go to a carrier. Kept from the old form: it is
   // the record that somebody asserted it, which is what a carrier audit asks for.
   const [agreed, setAgreed] = useState(false);
   // What a reviewer would find. Run when the review step opens rather than on every keystroke: each one is
-  // three requests to somebody else's website, and the answers only change when an answer above them does.
+  // four requests to somebody else's website, and the answers only change when an answer above them does.
   const [checks, setChecks] = useState<PreflightCheck[] | null>(null);
   const [checking, setChecking] = useState(false);
 
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+
+  /**
+   * Changes one answer. The sentence for the carrier is written from the answers, so it follows them —
+   * the page, the proof, offers or not — until the business edits the sentence itself.
+   */
   const set = <K extends keyof WizardForm>(key: K, value: WizardForm[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (
+        key !== 'optIn' &&
+        f.optInPath &&
+        f.optIn === describeFor(businessName, f, surfaces, origin)
+      )
+        next.optIn = describeFor(businessName, next, surfaces, origin);
+      return next;
+    });
+
+  // ---- saved as it goes ----
+  // Every change is kept a moment after it is made, so a refresh or coming back tomorrow picks up here. The
+  // last thing saved is remembered so opening the wizard saves nothing, and a save still on its way is
+  // waited for before sending, so it can't bring back a draft the send has just cleared.
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
+    draft ? 'saved' : 'idle',
+  );
+  const lastSaved = useRef(JSON.stringify({ form, at }));
+  const saving = useRef<Promise<unknown> | null>(null);
+  const sent = useRef(false);
+  useEffect(() => {
+    const json = JSON.stringify({ form, at });
+    if (json === lastSaved.current || sent.current) return;
+    setSaveState('saving');
+    const timer = setTimeout(() => {
+      const run = (async () => {
+        try {
+          unwrap(
+            await apiBrowser().POST('/v1/commands/registration.save_draft', {
+              body: { workspaceId, answers: { form, at } },
+            }),
+          );
+          lastSaved.current = json;
+          setSaveState('saved');
+        } catch {
+          setSaveState('failed');
+        }
+      })();
+      saving.current = run;
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [form, at, workspaceId]);
 
   const local = number.numberType === 'local';
   const issues = useMemo(() => checkDraft(draftOf(form), businessName), [form, businessName]);
@@ -726,7 +892,6 @@ export function A2pWizard({
   const stepBlockers = step.fields.flatMap((field) =>
     issuesFor(issues, field).filter((i) => i.severity === 'blocker'),
   );
-  const origin = typeof window === 'undefined' ? '' : window.location.origin;
 
   const surfaceUrls = urlsOf(surfaces, origin);
   /** The page we are about to tell the carrier the agreement box is on. */
@@ -734,13 +899,19 @@ export function A2pWizard({
     form.optInPath === 'hosted'
       ? (surfaceUrls.formUrl ?? surfaceUrls.chatUrl)
       : form.optInPath === 'own_site'
-        ? withScheme(form.website)
+        ? withScheme(form.optInUrl) || null
         : null;
+  const proofUrl = withScheme(form.optInProofUrl) || null;
   /** Theirs when they gave us one, ours when we are hosting it, and nothing before a site exists. */
   const policyUrl = form.ownPolicyUrl.trim()
     ? withScheme(form.ownPolicyUrl)
     : surfaces.siteSlug
       ? `${origin}/legal/${surfaces.siteSlug}/privacy`
+      : null;
+  const termsUrl = form.ownTermsUrl.trim()
+    ? withScheme(form.ownTermsUrl)
+    : surfaces.siteSlug
+      ? `${origin}/legal/${surfaces.siteSlug}/terms`
       : null;
 
   const runPreflight = useCallback(async () => {
@@ -751,8 +922,11 @@ export function A2pWizard({
         workspaceId,
         website: withScheme(form.website),
         policyUrl,
+        termsUrl,
         optInPath: form.optInPath,
         optInUrl,
+        optInProofUrl: proofUrl,
+        names: [businessName, form.legalName].filter((n) => n.trim()),
       });
       setChecks(got);
     } catch (err) {
@@ -761,7 +935,17 @@ export function A2pWizard({
     } finally {
       setChecking(false);
     }
-  }, [workspaceId, form.website, form.optInPath, policyUrl, optInUrl]);
+  }, [
+    workspaceId,
+    businessName,
+    form.website,
+    form.legalName,
+    form.optInPath,
+    policyUrl,
+    termsUrl,
+    optInUrl,
+    proofUrl,
+  ]);
 
   // Opening the review runs them; going back and changing something throws the old answers away, so a
   // business never submits on the strength of a check of a website it has since corrected.
@@ -774,6 +958,8 @@ export function A2pWizard({
     setBusy(true);
     setServerErrors([]);
     try {
+      // A save still on its way lands first, so the send's clearing of the draft is the last word.
+      await saving.current;
       unwrap(
         await apiBrowser().POST('/v1/commands/registration.submit', {
           body: {
@@ -801,12 +987,20 @@ export function A2pWizard({
               messageSamples: form.samples.map((s) => s.trim()).filter(Boolean),
               optInDescription: form.optIn,
               optInPath: form.optInPath || undefined,
+              optInUrl,
+              optInProofUrl: proofUrl,
               policyUrl: form.ownPolicyUrl.trim() ? withScheme(form.ownPolicyUrl) : null,
+              termsUrl: form.ownTermsUrl.trim() ? withScheme(form.ownTermsUrl) : null,
+              privacyPageUrl: policyUrl,
+              termsPageUrl: termsUrl,
+              displayName: businessName,
+              sensitiveTopics: (form.sensitive ?? []) as SensitiveTopicId[],
               monthlyVolume: form.volume as 'under_1000',
             },
           },
         }),
       );
+      sent.current = true;
       toast.success('Sent to the carriers');
       onSubmitted();
     } catch (err) {
@@ -838,6 +1032,15 @@ export function A2pWizard({
   return (
     <div className="mx-auto max-w-[620px]" data-testid="business-step">
       <Progress current={at} total={STEPS.length} />
+      <p className="-mt-3 mb-4 text-right text-[12px] text-text-3" aria-live="polite">
+        {saveState === 'saving'
+          ? 'Saving…'
+          : saveState === 'saved'
+            ? 'Saved. You can come back to this later.'
+            : saveState === 'failed'
+              ? 'Couldn’t save just now. We’ll try again when you change something.'
+              : null}
+      </p>
       <h2 className="text-[19px] font-semibold">{step.title}</h2>
       <p className="mb-5 mt-1 text-[13.5px] text-text-2">{step.blurb}</p>
 
@@ -953,6 +1156,40 @@ export function A2pWizard({
               ))}
             </Select>
           </Field>
+          <fieldset className="space-y-2" data-testid="a2p-sensitive">
+            <legend className="mb-1.5 text-[13.5px] font-semibold">
+              Will any of your texts be about these?
+            </legend>
+            {SENSITIVE_TOPICS.map((topic) => (
+              <Checkbox
+                key={topic.id}
+                className="text-[13px]"
+                label={topic.label}
+                checked={form.sensitive?.includes(topic.id) ?? false}
+                onChange={(e) =>
+                  set(
+                    'sensitive',
+                    e.target.checked
+                      ? [...(form.sensitive ?? []).filter((t) => t !== topic.id), topic.id]
+                      : (form.sensitive ?? []).filter((t) => t !== topic.id),
+                  )
+                }
+              />
+            ))}
+            <Checkbox
+              className="text-[13px] font-medium"
+              label="None of these"
+              checked={form.sensitive !== null && form.sensitive.length === 0}
+              onChange={(e) => set('sensitive', e.target.checked ? [] : null)}
+              data-testid="a2p-sensitive-none"
+            />
+          </fieldset>
+          <Why>
+            The carriers handle some kinds of business differently: some they don&rsquo;t approve at
+            all, some only with an age check, and lenders they look at harder. Saying so now is
+            better than finding out from a rejection a week from now.
+          </Why>
+          <Issues issues={issuesFor(issues, 'sensitiveTopics')} />
         </div>
       ) : null}
 
@@ -961,7 +1198,8 @@ export function A2pWizard({
           <Callout tone="info">
             Write them as you would really send them. They are not examples of the style — the
             carrier reads them as the actual messages, and checks that your business name is in them
-            and that at least one says how to stop.
+            and that at least one says how to stop. Put the parts that change in brackets, like
+            [First Name] or [Date].
           </Callout>
           {form.samples.map((sample, i) => (
             <Field key={i} label={`Example ${i + 1}`} htmlFor={`a2p-sample-${i}`}>
@@ -1023,6 +1261,7 @@ export function A2pWizard({
           set={set}
           origin={origin}
           siteSlug={surfaces.siteSlug}
+          phone={number.display}
         />
       ) : null}
 
@@ -1096,27 +1335,36 @@ function PolicyStep({
   set,
   origin,
   siteSlug,
+  phone,
 }: {
   businessName: string;
   form: WizardForm;
   set: <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => void;
   origin: string;
   siteSlug: string | null;
+  /** The business number, which the terms give as the way to get help. */
+  phone: string;
 }) {
   const own = form.ownPolicyUrl.trim().length > 0;
+  const ownTerms = form.ownTermsUrl.trim().length > 0;
   const hostedUrl = siteSlug ? `${origin}/legal/${siteSlug}/privacy` : null;
-  const policy = privacyPolicy({
+  const hostedTermsUrl = siteSlug ? `${origin}/legal/${siteSlug}/terms` : null;
+  const business = {
     name: businessName,
     legalName: form.legalName,
     website: withScheme(form.website),
     email: form.contactEmail,
+    phone,
+    offers: sendsOffers(form.useCase),
     address: {
       line1: form.line1,
       city: form.city,
       state: form.state,
       postalCode: form.postalCode,
     },
-  });
+  };
+  const policy = privacyPolicy(business);
+  const terms = termsOfService(business);
   const clause = policy.sections.find((s) => /text messages/i.test(s.heading))?.paragraphs.at(-1);
 
   return (
@@ -1189,23 +1437,78 @@ function PolicyStep({
               {hostedUrl}
             </a>
           ) : null}
-          <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1">
-            {policy.sections.map((section) => (
-              <div key={section.heading}>
-                <p className="text-[13px] font-semibold">{section.heading}</p>
-                {section.paragraphs.map((paragraph, i) => (
-                  <p
-                    key={i}
-                    className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-text-2"
-                  >
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            ))}
-          </div>
+          <PolicyPreview sections={policy.sections} />
         </div>
       )}
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-2 text-[13.5px] font-semibold">Your terms</p>
+        <div role="radiogroup" aria-label="Terms" className="space-y-2.5">
+          <RadioCard
+            selected={!ownTerms}
+            onSelect={() => set('ownTermsUrl', '')}
+            testId="terms-hosted"
+            title="Use the terms we write for you"
+            description="Short terms that cover your texts the way the carriers expect: what you text about, how often, rates, STOP and HELP, and how to reach you."
+          />
+          <RadioCard
+            selected={ownTerms}
+            onSelect={() =>
+              set('ownTermsUrl', form.ownTermsUrl || `${withScheme(form.website)}/terms`)
+            }
+            testId="terms-own"
+            title="I already have my own"
+            description="Point us at them. They should have a section on text messages, and your tick box should link to them."
+          />
+        </div>
+        {ownTerms ? (
+          <Field label="Where your terms are" htmlFor="a2p-terms-url">
+            <Input
+              id="a2p-terms-url"
+              value={form.ownTermsUrl}
+              onChange={(e) => set('ownTermsUrl', e.target.value)}
+              placeholder="https://example.com/terms"
+            />
+          </Field>
+        ) : (
+          <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
+            <p className="text-[13.5px] font-semibold">{terms.title}</p>
+            {hostedTermsUrl ? (
+              <a
+                className="mt-1 block text-[13px] underline"
+                href={hostedTermsUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {hostedTermsUrl}
+              </a>
+            ) : null}
+            <PolicyPreview sections={terms.sections} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A generated policy's sections, in a box that scrolls. */
+function PolicyPreview({
+  sections,
+}: {
+  sections: readonly { heading: string; paragraphs: readonly string[] }[];
+}) {
+  return (
+    <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1">
+      {sections.map((section) => (
+        <div key={section.heading}>
+          <p className="text-[13px] font-semibold">{section.heading}</p>
+          {section.paragraphs.map((paragraph, i) => (
+            <p key={i} className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-text-2">
+              {paragraph}
+            </p>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1298,8 +1601,8 @@ function ReviewStep({
         </div>
         {checking && !checks ? (
           <p className="text-[13px] text-text-2">
-            Opening your website, your privacy policy and the page where customers agree — the same
-            three a carrier opens.
+            Opening your website, your privacy policy, your terms and the page where customers agree
+            — the same four a carrier opens.
           </p>
         ) : null}
         {checks?.map((check) => (
@@ -1395,10 +1698,42 @@ function ReviewStep({
           }
           onJump={() => onJump('samples')}
         />
+        <Row
+          label="Anything the carriers treat differently"
+          value={
+            form.sensitive === null
+              ? ''
+              : form.sensitive.length === 0
+                ? 'None of these'
+                : SENSITIVE_TOPICS.filter((t) => form.sensitive!.includes(t.id))
+                    .map((t) => t.label)
+                    .join('; ')
+          }
+          onJump={() => onJump('about')}
+        />
         <Row label="How people agree" value={pathLabel} onJump={() => onJump('optin')} />
+        {form.optInPath === 'own_site' ? (
+          <Row
+            label="The page with the tick box"
+            value={form.optInUrl}
+            onJump={() => onJump('optin')}
+          />
+        ) : null}
+        {form.optInPath === 'in_person' ? (
+          <Row
+            label="What customers see or hear"
+            value={form.optInProofUrl}
+            onJump={() => onJump('optin')}
+          />
+        ) : null}
         <Row
           label="Privacy policy"
           value={form.ownPolicyUrl.trim() || 'The one we write for you'}
+          onJump={() => onJump('policy')}
+        />
+        <Row
+          label="Terms"
+          value={form.ownTermsUrl.trim() || 'The ones we write for you'}
           onJump={() => onJump('policy')}
         />
       </div>

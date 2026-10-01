@@ -38,6 +38,7 @@ import { onConnectionBroke, onCorrection } from '../automations/health';
 import { onArmJobCheck, onStillGoing } from '../automations/job-check';
 import { onCallPromise, onMessagePromise } from '../automations/promises';
 import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
+import { onHelpKeyword } from './help-reply';
 import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
   onEmailDomainAdded,
@@ -268,7 +269,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     ],
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
-    'message.received': [onMessageReferral, onEngaged],
+    // A customer's HELP is answered with the business's name and number (handlers/help-reply.ts).
+    'message.received': [onHelpKeyword, onMessageReferral, onEngaged],
     'call.transcribed': [onCallReferral, onCallPromise],
     // Automations' "Hand-off nobody picked up" (automations/handoff.ts) and "Approvals about to expire"
     // (automations/expiring.ts): the rounds after a hand-off, and the warning before a decision runs out.

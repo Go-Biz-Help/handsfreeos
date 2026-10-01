@@ -935,6 +935,19 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
 });
 
 /**
+ * The texting registration as the business fills it in (20261013002200): the wizard's answers, one row per
+ * business, until it is sent. `registration.submit` deletes it.
+ */
+export const registrationDrafts = app.table('registration_drafts', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  answers: jsonb('answers').$type<Json>().notNull().default({}),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
+/**
  * Milestone 17: moving a number a business already owns to us (0080).
  *
  * Deliberately **not** `app.port_state` and **not** `app.migration_port_requests` — that pair belongs to the
@@ -6359,6 +6372,7 @@ export const tables = {
   telephonyAccounts,
   phoneNumbers,
   telephonyRegistrations,
+  registrationDrafts,
   numberPorts,
   twilioConnections,
   numberImports,

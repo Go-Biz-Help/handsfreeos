@@ -6,6 +6,7 @@ import {
   isWebAddress,
   money,
   consentPolicyPath,
+  consentTermsPath,
   smsConsentWords,
   type AnswerSheet,
   type AnswerValue,
@@ -60,9 +61,14 @@ export function PublicForm({
   const [sent, setSent] = useState<SentForm | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
-  // The box links to the business's privacy policy: that the terms are findable is one of the six
+  // The box links to the business's privacy policy and terms: that they are findable is one of the six
   // things a compliant opt-in has to say, and a link is the only way of saying it that works.
-  const consentWords = smsConsentWords(business, 'form', consentPolicyPath(site));
+  const consentWords = smsConsentWords(
+    business,
+    'form',
+    consentPolicyPath(site),
+    consentTermsPath(site),
+  );
   /** The honeypot: hidden from people, irresistible to robots. */
   const [website, setWebsite] = useState('');
   const botSiteKey = botCheck ? (botCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
@@ -271,6 +277,19 @@ export function PublicForm({
                   >
                     Privacy policy
                   </a>
+                ) : null}
+                {consentWords.termsUrl ? (
+                  <>
+                    {' · '}
+                    <a
+                      className="underline"
+                      href={consentWords.termsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Terms
+                    </a>
+                  </>
                 ) : null}
               </p>
             </div>

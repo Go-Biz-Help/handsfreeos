@@ -351,6 +351,8 @@ export interface DetailsFormProps {
   readonly consentText: string | null;
   /** The business's privacy policy, when it has a public site. Linked, never inside the label. */
   readonly consentPolicyUrl?: string | null;
+  /** Its terms, linked beside the policy. */
+  readonly consentTermsUrl?: string | null;
   /** The away form: "How can we help?" too. */
   readonly withMessage: boolean;
   readonly intro: string | null;
@@ -496,15 +498,20 @@ export function DetailsForm(p: DetailsFormProps) {
             <span>{p.consentText}</span>
           </label>
           {/* Outside the label on purpose: a link inside one toggles the box when it is followed. */}
-          {p.consentPolicyUrl ? (
-            <a
-              className="ml-[28px] text-xs underline text-text-3"
-              href={p.consentPolicyUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Privacy policy
-            </a>
+          {p.consentPolicyUrl || p.consentTermsUrl ? (
+            <span className="ml-[28px] text-xs text-text-3">
+              {p.consentPolicyUrl ? (
+                <a className="underline" href={p.consentPolicyUrl} target="_blank" rel="noreferrer">
+                  Privacy policy
+                </a>
+              ) : null}
+              {p.consentPolicyUrl && p.consentTermsUrl ? ' · ' : null}
+              {p.consentTermsUrl ? (
+                <a className="underline" href={p.consentTermsUrl} target="_blank" rel="noreferrer">
+                  Terms
+                </a>
+              ) : null}
+            </span>
           ) : null}
         </>
       ) : null}

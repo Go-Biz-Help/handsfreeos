@@ -1018,6 +1018,14 @@ export const messageSend = defineCommand({
           message: 'Only HandsFreeOS itself sends without reopening the conversation.',
         },
       ]);
+    // Only HandsFreeOS itself answers a customer's HELP, and only by text.
+    if (input.keywordReply && (ctx.actor.type !== 'system' || input.channel !== 'sms'))
+      throw HfosError.validation([
+        {
+          path: 'keywordReply',
+          message: 'Only HandsFreeOS itself answers a customer’s HELP.',
+        },
+      ]);
     // Only HandsFreeOS's own campaign sender marks an email as a campaign email.
     if (input.campaignRecipientId && (ctx.actor.type !== 'system' || input.channel !== 'email'))
       throw HfosError.validation([
@@ -1097,6 +1105,8 @@ export const messageSend = defineCommand({
     const claim = ai ? await assertAiMaySend(ctx, ai, conv, created) : false;
     const { number, quietHours, holdUntil } = await assertCanText(ctx, conv, {
       acknowledgeQuietHours: input.acknowledgeQuietHours,
+      // The answer to a HELP goes whatever the hour: the customer asked for it a moment ago.
+      skipQuietHours: input.keywordReply,
       sendAfterQuietHours: input.sendAfterQuietHours,
       inReplyToMessageId: input.inReplyToMessageId,
       created,
@@ -1800,6 +1810,8 @@ export const messageReceive = defineCommand({
         channel: 'sms',
         mediaCount,
         keyword,
+        // The carrier's Advanced Opt-Out already answered this keyword, so HandsFreeOS doesn't answer it too.
+        ...(input.keywordAnswered ? { keywordAnswered: true } : {}),
         reopened: !quietly && conv.status !== 'open',
         transport,
         ...(buttonReply

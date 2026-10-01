@@ -104,6 +104,7 @@ export function TextingPage({
   twilio,
   inboxPerPerson,
   surfaces,
+  registrationDraft = null,
   setup,
 }: {
   workspaceId: string;
@@ -135,6 +136,8 @@ export function TextingPage({
    * addresses a carrier can open into the sentence it sends.
    */
   surfaces: HostedSurfaces;
+  /** The registration's answers as they were left (`registration.get_draft`), for the wizard to pick up. */
+  registrationDraft?: Record<string, unknown> | null;
   /**
    * Shown inside the setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6): the kind of number its EIN
    * question picked, and none of the account's own settings, which aren't a first-day question.
@@ -344,6 +347,7 @@ export function TextingPage({
             number={status.number!}
             me={me}
             initial={fixing ? submission : null}
+            draft={registrationDraft}
             surfaces={surfaces}
             onBack={fixing ? () => setFixing(false) : undefined}
             onSubmitted={() => setFixing(false)}

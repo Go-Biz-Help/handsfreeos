@@ -9,6 +9,7 @@
 import {
   addDays,
   consentPolicyPath,
+  consentTermsPath,
   daysBetween,
   localDateOf,
   smsConsentWords,
@@ -274,6 +275,7 @@ function SmsConsent({
   phone,
   emailToo,
   policyPath,
+  termsPath,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -282,8 +284,10 @@ function SmsConsent({
   emailToo: boolean;
   /** Where the business's privacy policy is, so the box can link to it. */
   policyPath: string | null;
+  /** Where its terms are, linked beside the policy. */
+  termsPath?: string | null;
 }) {
-  const words = smsConsentWords(business, 'booking', policyPath);
+  const words = smsConsentWords(business, 'booking', policyPath, termsPath ?? null);
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -321,6 +325,14 @@ function SmsConsent({
           <a className="underline" href={words.policyUrl} target="_blank" rel="noreferrer">
             Privacy policy
           </a>
+        ) : null}
+        {words.termsUrl ? (
+          <>
+            {' · '}
+            <a className="underline" href={words.termsUrl} target="_blank" rel="noreferrer">
+              Terms
+            </a>
+          </>
         ) : null}
       </span>
     </div>
@@ -923,6 +935,7 @@ export function BookingFlow({
         phone={form.phone}
         emailToo={!!form.email.trim() || !form.phone.trim()}
         policyPath={consentPolicyPath(site)}
+        termsPath={consentTermsPath(site)}
       />
       <Honeypot value={website} onChange={setWebsite} />
       {botSiteKey ? (

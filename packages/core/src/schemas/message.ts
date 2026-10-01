@@ -53,6 +53,11 @@ export const MessageSendInput = z
      */
     keepConversationStatus: z.boolean().default(false),
     /**
+     * The answer to a customer's HELP (worker's handlers/help-reply.ts): goes whatever the hour, since the
+     * customer has just asked for it. HandsFreeOS itself only.
+     */
+    keywordReply: z.boolean().default(false),
+    /**
      * Email campaigns: the campaign email this is, so it goes with an unsubscribe link in its headers and on the
      * bulk stream. HandsFreeOS itself only.
      */
@@ -164,6 +169,11 @@ export const MessageReceiveInput = z.object({
   media: z.array(MediaRefSchema).max(10).default([]),
   /** Photos the provider still holds; the worker copies them and calls message.attach_media. */
   mediaCount: z.number().int().min(0).max(10).default(0),
+  /**
+   * The carrier already replied to this STOP, START or HELP (Twilio's Advanced Opt-Out, which says so with
+   * `OptOutType`), so HandsFreeOS sends no answer of its own.
+   */
+  keywordAnswered: z.boolean().default(false),
   /** Tests and demos shorten the reply reminder; otherwise the workspace setting decides. */
   reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
   occurredAt: isoDateTime.optional(),
