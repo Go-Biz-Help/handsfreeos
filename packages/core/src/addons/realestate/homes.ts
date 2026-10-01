@@ -111,7 +111,8 @@ export interface Fit {
   readonly unknown: number;
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many = `${one}s`) =>
+  `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
 /**
  * How a home fits what the buyer wants, one line per thing they asked for. Only what's known counts: a fact the home

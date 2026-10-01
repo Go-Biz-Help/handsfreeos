@@ -1149,6 +1149,29 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Links to the add-on's own rows are `record` proof (`ref_kind`, `ref_id`): shown on the duty, never enough on their
   own to meet a rule that asks for a document, note or appointment.
 
+### Step 14: staff screens (built, 2026-10-01)
+
+**As built** (`20261014001500_realestate_memory_dropped.sql`; the web in `apps/web/src/addons/realestate/`):
+
+- A buyer deal's page reads its buyer side too and adds boards 13's cards: What they want, Homes and Tours in the
+  main column; Buyer agreement, Financing, Client's to-do and Offers and CMA at the side. "Plan a tour" is in its
+  header, and its description names the clients and when they joined the portal (`client_tasks.clients[].portalSince`).
+- Pages under `deals/:dealId/`: `buyer` (What they want: the AI's suggestions to confirm, what's confirmed, the profile
+  and "Add one yourself"), `homes` (`?add=1` Add a home, `?home=<id>` one home), `tours` (`?plan=1` Plan a tour, with
+  `&home=<id>`), `cma/:cmaId`, `offers` (`?start=<homeId>` Make an offer), `offers/:offerId`,
+  `offers/:offerId/summary` (the one-page summary, to print or share), `financing`, `inspections` and
+  `client-tasks` (`?invite=1` Invite to the portal). Each is in the manifest's `ui.phone`.
+- Add a home waits for the worker to read the pasted text, then shows each fact with its words to tick and confirm
+  (or type in). A refused tour shows the rule's own words; an owner or admin gets the reason field and "Let it
+  through", and the calendar's warnings are shown to accept.
+- Buyer memory alerts open `deals/:dealId/buyer`. The deal keeps how many suggestions fair housing rules left out
+  (`deals.memory_protected_dropped`), a count only, and the page says so.
+- Settings → Real Estate → Alerts & dates picks the calendar tours go on (`tourCalendarId`).
+- Amounts the CMA works out read to the nearest $100 (`roundedMoney`), and fit's counts have their commas.
+- The calendar's "Busy" (step 1) and the Inbox's portal thread (step 5) were already built as their boards show.
+- Browser test: `apps/web/e2e/realestate-buyer.spec.ts` (a pasted listing read and confirmed, a tour refused then let
+  through, a member off the deal seeing only Busy). Step 15 adds the client's side to it.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

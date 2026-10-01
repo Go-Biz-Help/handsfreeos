@@ -5,6 +5,7 @@
  * Duties open in the drawer (board 5). What a person may do comes from the deal itself (`can`), so the page shows
  * only what works for them.
  */
+import { fmtMonthDay, localDayOf as dateOf } from '@hfos/core';
 import { dueWords, startedByWords } from '@hfos/core/addons/realestate/rule-words';
 import {
   BACK_EVENTS,
@@ -49,9 +50,18 @@ import {
   ReasonDialog,
   WireDialog,
 } from './deal-dialogs';
+import {
+  AgreementCard,
+  ClientTodoCard,
+  FinancingCard,
+  HomesCard,
+  OffersCmaCard,
+  ToursCard,
+  WhatTheyWantCard,
+} from './buyer-cards';
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
 import { DutyDrawer } from './duty-drawer';
-import type { DealDuty, DealGet, DealRisks, Draft, Teammate } from './types';
+import type { BuyerSide, DealDuty, DealGet, DealRisks, Draft, Teammate } from './types';
 import { useAct } from './use-act';
 
 type Dialog =
@@ -74,6 +84,7 @@ export function DealPage({
   drafts,
   members,
   canManage,
+  buyer,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -82,6 +93,8 @@ export function DealPage({
   drafts: readonly Draft[];
   members: readonly Teammate[];
   canManage: boolean;
+  /** A buyer deal's own side: what they want, homes, tours, financing, the client's to-do, offers. */
+  buyer?: BuyerSide | null;
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
@@ -137,13 +150,20 @@ export function DealPage({
 
   const main = deal.team.find((t) => t.main);
   const others = deal.team.filter((t) => !t.main);
+  const clients = buyer?.tasks.clients ?? [];
+  const inPortal = clients
+    .map((c) => c.portalSince)
+    .filter((x): x is string => !!x)
+    .sort()[0];
   const description = [
     `${sideWords(d.side)[0]!.toUpperCase()}${sideWords(d.side).slice(1)}`,
+    clients.length ? clientNames(clients.map((c) => c.name)) : null,
     main ? `${main.name} (main agent)` : null,
     ...others.map(
       (t) => `${t.name} (${(DEAL_ROLE_LABELS[t.role as DealRole] ?? t.role).toLowerCase()})`,
     ),
     ...deal.links.map((l) => `linked to ${l.name}`),
+    inPortal ? `in the portal since ${fmtMonthDay(dateOf(inPortal, timeZone), thisYear)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -172,6 +192,15 @@ export function DealPage({
             <ButtonLink href={dealHref(workspaceId, dealId, 'documents')} variant="secondary">
               Documents
             </ButtonLink>
+            {buyer && live ? (
+              <ButtonLink
+                href={dealHref(workspaceId, dealId, 'tours?plan=1')}
+                variant="secondary"
+                data-testid="deal-plan-tour"
+              >
+                Plan a tour
+              </ButtonLink>
+            ) : null}
             {live && atClosing ? (
               <Button variant="success" onClick={() => setDialog('close')} data-testid="deal-close">
                 Close the deal
@@ -341,6 +370,25 @@ export function DealPage({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-5">
         <div className="min-w-0 space-y-4 lg:space-y-5">
+          {buyer ? (
+            <>
+              <WhatTheyWantCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+              <HomesCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                timeZone={timeZone}
+                buyer={buyer}
+                live={live}
+              />
+              <ToursCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                timeZone={timeZone}
+                buyer={buyer}
+                live={live}
+              />
+            </>
+          ) : null}
           <RisksCard risks={risks} onOpen={openDuty} workspaceId={workspaceId} dealId={dealId} />
           <DutiesCard
             duties={deal.duties}
@@ -350,6 +398,14 @@ export function DealPage({
           />
         </div>
         <div className="space-y-4 lg:space-y-5">
+          {buyer ? (
+            <>
+              <AgreementCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+              <FinancingCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+              <ClientTodoCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+              <OffersCmaCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+            </>
+          ) : null}
           <KeyDatesCard workspaceId={workspaceId} deal={deal} />
           <PeopleCard workspaceId={workspaceId} deal={deal} members={members} />
           <CommissionCard workspaceId={workspaceId} deal={deal} />
@@ -490,6 +546,19 @@ export function DealPage({
       />
     </div>
   );
+}
+
+const thisYear = new Date().getFullYear();
+
+/** "Linh & Tuan Nguyen" when they share a last name; "Linh Nguyen and Sam Park" when they don't. */
+function clientNames(names: readonly string[]): string {
+  const parts = names.map((n) => n.trim().split(/\s+/));
+  const last = parts.map((p) => (p.length > 1 ? p.at(-1) : ''));
+  if (names.length > 1 && last[0] && last.every((l) => l === last[0]))
+    return `${parts.map((p) => p.slice(0, -1).join(' ')).join(' & ')} ${last[0]}`;
+  return names.length > 1
+    ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+    : (names[0] ?? '');
 }
 
 function RisksCard({

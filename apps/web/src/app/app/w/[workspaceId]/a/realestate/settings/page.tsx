@@ -25,7 +25,7 @@ export default async function RealestateSettingsPage({
     : 'duties';
   return addonPage(workspaceId, 'realestate', 'realestate.manage', async () => {
     const { api, userId } = await apiServer();
-    const [got, list, versions, settings, members, support] = await Promise.all([
+    const [got, list, versions, settings, members, support, calendars] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       tab === 'duties'
         ? api
@@ -48,6 +48,9 @@ export default async function RealestateSettingsPage({
       tab === 'support'
         ? api.POST('/v1/queries/support_access.list', { body: { workspaceId } }).then(unwrapPage)
         : null,
+      tab === 'alerts'
+        ? api.POST('/v1/queries/calendar.list', { body: { workspaceId } }).then(unwrapPage)
+        : null,
     ]);
     // Who may hear about critical alerts: owners, and people who see every deal.
     const candidates = (members?.members ?? [])
@@ -63,6 +66,9 @@ export default async function RealestateSettingsPage({
         versions={versions}
         settings={settings ? RealestateSettingsSchema.parse(settings.settings ?? {}) : null}
         members={candidates}
+        calendars={(calendars?.items ?? [])
+          .filter((c) => c.status === 'active')
+          .map((c) => ({ id: c.id, name: c.name }))}
         support={
           support
             ? {

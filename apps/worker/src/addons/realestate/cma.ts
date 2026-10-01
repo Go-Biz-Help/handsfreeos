@@ -20,6 +20,7 @@ import {
   cmaSummaryPrompt,
   type CmaSummaryFacts,
 } from '@hfos/core/addons/realestate/prompts';
+import { roundedMoney } from '@hfos/core/addons/realestate/cma';
 import { executeCommand, fmtDateLong, money } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
@@ -142,7 +143,7 @@ async function factsOf(ctx: AddonScopeContext, cmaId: string): Promise<CmaSummar
           baths: comp.baths,
           sqft: comp.sqft,
           milesAway: comp.distanceMiles,
-          valueForThisHome: v.valueCents === null ? null : money(v.valueCents),
+          valueForThisHome: v.valueCents === null ? null : roundedMoney(v.valueCents),
           adjustments: comp.adjustments.map(
             (a) => `${a.label}: ${a.cents >= 0 ? '+' : '−'}${money(Math.abs(a.cents))}`,
           ),

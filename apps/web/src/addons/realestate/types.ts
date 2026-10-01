@@ -30,3 +30,40 @@ export interface Teammate {
   readonly id: string;
   readonly fullName: string;
 }
+
+// Round two: the buyer's side.
+export type BuyerProfile = NonNullable<Ok<'/v1/queries/realestate.buyer_profile.get'>['profile']>;
+export type HomeList = Ok<'/v1/queries/realestate.homes'>;
+export type Home = HomeList['homes'][number];
+export type MemoryList = Ok<'/v1/queries/realestate.memory'>;
+export type MemoryItem = MemoryList['items'][number];
+export type TourList = Ok<'/v1/queries/realestate.tours'>;
+export type Tour = TourList['tours'][number];
+export type TourStop = Tour['stops'][number];
+export type CmaList = Ok<'/v1/queries/realestate.cmas'>;
+export type CmaRow = CmaList['cmas'][number];
+export type Cma = Ok<'/v1/queries/realestate.cma'>['cma'];
+export type CmaComp = Cma['comps'][number];
+export type OfferList = Ok<'/v1/queries/realestate.offers'>;
+export type Offer = OfferList['offers'][number];
+export type OfferVersion = Offer['versions'][number];
+export type Financing = Ok<'/v1/queries/realestate.financing'>;
+export type FinancingStep = Financing['steps'][number];
+export type Inspections = Ok<'/v1/queries/realestate.inspections'>;
+export type Inspection = Inspections['inspections'][number];
+export type Finding = Inspection['findings'][number];
+export type ClientTaskList = Ok<'/v1/queries/realestate.client_tasks'>;
+export type ClientTask = ClientTaskList['tasks'][number];
+export type DealClient = ClientTaskList['clients'][number];
+
+/** A buyer deal's own side, as the deal page reads it. */
+export interface BuyerSide {
+  readonly profile: BuyerProfile | null;
+  readonly memory: MemoryList;
+  readonly homes: readonly Home[];
+  readonly tours: TourList;
+  readonly financing: Financing;
+  readonly tasks: ClientTaskList;
+  readonly offers: readonly Offer[];
+  readonly cmas: readonly CmaRow[];
+}

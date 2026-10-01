@@ -177,8 +177,11 @@ export const rangeWords = (r: Pick<CmaRange, 'lowCents' | 'likelyCents' | 'highC
   `${money(r.lowCents)} to ${money(r.highCents)}, most likely ${money(r.likelyCents)}`;
 
 /** An adjustment as it reads: "+$4,100", "−$6,300". */
+/** An amount the CMA worked out, to the nearest $100: "$416,000", not "$416,023.26". */
+export const roundedMoney = (cents: number): string => money(Math.round(cents / 10_000) * 10_000);
+
 export const adjustmentWords = (cents: number): string =>
-  cents === 0 ? '$0' : `${cents > 0 ? '+' : '−'}${money(Math.abs(cents))}`;
+  Math.abs(cents) < 5_000 ? '$0' : `${cents > 0 ? '+' : '−'}${roundedMoney(Math.abs(cents))}`;
 
 const AMOUNT = /\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{2}))?\s?(k|K)?\b/g;
 

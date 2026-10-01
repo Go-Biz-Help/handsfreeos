@@ -288,7 +288,7 @@ export async function memoryWaitingChanged(ctx: AddonEventContext): Promise<void
     severity: 'info',
     title: `${waiting === 1 ? 'Something' : `${waiting} things`} the buyer said, to confirm`,
     detail: `${name}. Keep what’s right; nothing is remembered until you do.`,
-    href: `/a/realestate/deals/${dealId}?tab=buyer`,
+    href: `/a/realestate/deals/${dealId}/buyer`,
     permission: 'realestate.use',
     customRecordId: dealId,
     assigneeUserId: str(p['ownerUserId']),

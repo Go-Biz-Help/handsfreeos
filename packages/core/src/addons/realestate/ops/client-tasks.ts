@@ -387,9 +387,9 @@ export const clientTasksList = defineAddonQuery(realestateAddon, {
       parts.map((p) => p.recordedBy),
     );
     const access = clients.length
-      ? await rows<{ person_id: string; revoked: boolean; used: boolean }>(
+      ? await rows<{ person_id: string; revoked: boolean; used: boolean; given_at: Date }>(
           ctx.tx,
-          sql`select person_id, revoked_at is not null as revoked, last_used_at is not null as used
+          sql`select person_id, revoked_at is not null as revoked, last_used_at is not null as used, given_at
               from app.portal_access where workspace_id = ${deal.workspaceId}
                 and person_id = any(${`{${clients.map((c) => c.id).join(',')}}`}::uuid[])`,
         )
@@ -441,6 +441,7 @@ export const clientTasksList = defineAddonQuery(realestateAddon, {
               : a.used
                 ? ('signed_in' as const)
                 : ('invited' as const),
+          portalSince: a && !a.revoked ? new Date(a.given_at).toISOString() : null,
         };
       }),
     };

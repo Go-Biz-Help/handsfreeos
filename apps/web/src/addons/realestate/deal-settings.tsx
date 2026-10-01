@@ -43,6 +43,7 @@ export function DealSettings({
   versions,
   settings,
   members,
+  calendars = [],
   support,
 }: {
   workspaceId: string;
@@ -52,6 +53,8 @@ export function DealSettings({
   versions: TemplateVersions | null;
   settings: RealestateSettings | null;
   members: readonly (Teammate & { role: string })[];
+  /** The business's calendars, for where tours go. */
+  calendars?: readonly { readonly id: string; readonly name: string }[];
   support: ComponentProps<typeof SupportAccessCard> | null;
 }) {
   useLiveRefresh(['addon']);
@@ -148,6 +151,7 @@ export function DealSettings({
           timeZone={timeZone}
           settings={settings}
           members={members}
+          calendars={calendars}
         />
       ) : null}
       {tab === 'versions' && versions ? <Versions versions={versions} timeZone={timeZone} /> : null}
@@ -169,11 +173,13 @@ function AlertSettings({
   timeZone,
   settings,
   members,
+  calendars,
 }: {
   workspaceId: string;
   timeZone: string;
   settings: RealestateSettings;
   members: readonly (Teammate & { role: string })[];
+  calendars: readonly { readonly id: string; readonly name: string }[];
 }) {
   const router = useRouter();
   const [s, setS] = useState(settings);
@@ -321,6 +327,29 @@ function AlertSettings({
             </Button>
           </form>
         </div>
+      </Card>
+      <Card className="p-4 md:p-5">
+        <h2 className="text-[15px] font-semibold">Tours</h2>
+        <p className="mt-1 text-[13px] text-text-2">
+          A buyer’s tour goes on this calendar as one appointment, with its homes in order. Nothing
+          picked: the agent’s own calendar, when they’re on just one.
+        </p>
+        <Field label="Tours go on" htmlFor="tour-calendar" className="mt-3">
+          <Select
+            id="tour-calendar"
+            value={s.tourCalendarId ?? ''}
+            disabled={busy === 'save'}
+            onChange={(e) => void save({ ...s, tourCalendarId: e.target.value || null }, 'Saved.')}
+            data-testid="tour-calendar"
+          >
+            <option value="">The agent’s own calendar</option>
+            {calendars.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </Card>
       <Card className="p-4 md:p-5">
         <h2 className="text-[15px] font-semibold">Client updates</h2>

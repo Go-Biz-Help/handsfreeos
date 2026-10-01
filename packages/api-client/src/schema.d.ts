@@ -47577,6 +47577,7 @@ export interface operations {
                             personId: string;
                             /** @enum {string} */
                             portal: "none" | "invited" | "signed_in" | "revoked";
+                            portalSince: string | null;
                         }[];
                         tasks: {
                             completions: {
@@ -48774,6 +48775,7 @@ export interface operations {
                             suggestedBy: "ai" | "person";
                             words: string;
                         }[];
+                        protectedDropped: number;
                         waiting: number;
                     };
                 };

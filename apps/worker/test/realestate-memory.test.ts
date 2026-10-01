@@ -276,7 +276,7 @@ describe('what the buyer said, read for their deal', () => {
   it('puts a note on the agent’s Home while suggestions wait, gone when none do', async () => {
     expect(await alert()).toMatchObject({
       title: '4 things the buyer said, to confirm',
-      href: `/a/realestate/deals/${deal}?tab=buyer`,
+      href: `/a/realestate/deals/${deal}/buyer`,
       cleared: false,
       assignee_user_id: agent.id,
     });

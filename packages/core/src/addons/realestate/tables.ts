@@ -93,6 +93,8 @@ export const deals = addonRealestate.table(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     /** How far the AI has read the client's words for buyer memory (round two). */
     memoryReadThrough: ts('memory_read_through'),
+    /** How many of the AI's suggestions fair housing rules left out: a count, never the words. */
+    memoryProtectedDropped: integer('memory_protected_dropped').notNull().default(0),
   },
   (t) => [unique().on(t.workspaceId, t.recordId)],
 );

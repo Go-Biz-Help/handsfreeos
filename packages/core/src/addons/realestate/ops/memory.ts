@@ -5,7 +5,7 @@
  * Anything about who lives somewhere or a protected class is never kept: the worker drops it before it's suggested,
  * and a person's own words go through the same fair-housing list.
  */
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
@@ -245,7 +245,10 @@ export const memorySuggest = defineAddonCommand(realestateAddon, {
     }
     await ctx.tx
       .update(deals)
-      .set({ memoryReadThrough: new Date(input.readThrough) })
+      .set({
+        memoryReadThrough: new Date(input.readThrough),
+        memoryProtectedDropped: dsql`${deals.memoryProtectedDropped} + ${input.protectedDropped}`,
+      })
       .where(eq(deals.recordId, deal.recordId));
     const waiting = await waitingOn(ctx, deal.recordId);
     // Only how many were dropped, never what: nothing protected is written anywhere.
@@ -314,9 +317,14 @@ export const memoryList = defineAddonQuery(realestateAddon, {
       ctx,
       list.flatMap((i) => [i.createdBy, i.decidedBy]),
     );
+    const [counts] = await ctx.tx
+      .select({ dropped: deals.memoryProtectedDropped })
+      .from(deals)
+      .where(eq(deals.recordId, deal.recordId));
     return {
       items: list.map((i) => itemOut(i, names)),
       waiting: list.filter((i) => i.status === 'suggested').length,
+      protectedDropped: counts?.dropped ?? 0,
     };
   },
 });

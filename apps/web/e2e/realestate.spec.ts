@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { WORKER } from './booking-helpers';
 import { addTeammate } from './calendar';
 import { createBusiness, signUpAndConfirm } from './helpers';
+import { turnOnRealestate } from './realestate-helpers';
 
 /**
  * Real Estate Agent (HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md, step 11): HandsFreeOS staff hand the add-on in
@@ -18,20 +18,8 @@ test('staff hand Real Estate Agent to a business; a duty won’t finish without 
   const { email } = await signUpAndConfirm(page, 'realestate-owner');
   const workspaceId = await createBusiness(page, { name: business });
 
-  // HandsFreeOS staff let this business try it (the owner is made staff here to stand in for them).
-  const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
-  expect(((await made.json()) as { made: number }).made).toBe(1);
-  await page.goto(`/admin/businesses/${workspaceId}`);
-  const testing = page.getByTestId('admin-addon-testing');
-  await testing.getByTestId('admin-addon-testing-realestate').click();
-  await expect(testing).toContainText('they can add it');
-
-  // The owner adds it from the Add-ons page, where it's marked Testing.
-  await page.goto(`/app/w/${workspaceId}/add-ons`);
-  const card = page.getByTestId('addon-realestate');
-  await expect(card.getByTestId('addon-testing')).toBeVisible();
-  await page.getByTestId('addon-install-realestate').click();
-  await expect(card.getByTestId('addon-state')).toHaveText('On', { timeout: 90_000 });
+  // HandsFreeOS staff let this business try it, and the owner adds it from the Add-ons page.
+  await turnOnRealestate(page, email, workspaceId);
 
   // Deals is in the menu, with My duties and Deal settings.
   await page.goto(`/app/w/${workspaceId}`);

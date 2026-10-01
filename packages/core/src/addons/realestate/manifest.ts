@@ -381,6 +381,17 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/documents' },
       { path: 'deals/:dealId/history' },
       { path: 'deals/:dealId/updates/:draftId' },
+      // Round two: the buyer's side.
+      { path: 'deals/:dealId/buyer' },
+      { path: 'deals/:dealId/homes', query: ['add', 'home'] },
+      { path: 'deals/:dealId/tours', query: ['plan', 'home'] },
+      { path: 'deals/:dealId/cma/:cmaId' },
+      { path: 'deals/:dealId/offers', query: ['start'] },
+      { path: 'deals/:dealId/offers/:offerId' },
+      { path: 'deals/:dealId/offers/:offerId/summary' },
+      { path: 'deals/:dealId/financing' },
+      { path: 'deals/:dealId/inspections' },
+      { path: 'deals/:dealId/client-tasks', query: ['invite'] },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
     portal: [

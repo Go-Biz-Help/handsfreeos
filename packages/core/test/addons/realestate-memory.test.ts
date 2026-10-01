@@ -239,8 +239,9 @@ describe('buyer memory', () => {
       admin(),
       sql`select payload from app.events where event_type = 'realestate.memory.suggested' and entity_id = ${deal}`,
     );
-    // Only how many were dropped: never what.
+    // Only how many were dropped: never what. The page says how many, for the agent.
     expect(e!.payload).toMatchObject({ added: 1, protectedDropped: 1 });
+    expect((await ask('realestate.memory', { dealId: deal })).protectedDropped).toBe(1);
   });
 
   it('is decided by a person, never the AI', async () => {

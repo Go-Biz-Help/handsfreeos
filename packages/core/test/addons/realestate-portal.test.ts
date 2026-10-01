@@ -288,6 +288,8 @@ describe('the client’s tasks', () => {
       ['Linh Nguyen', 'signed_in'],
       ['Tuan Nguyen', 'signed_in'],
     ]);
+    // "In the portal since", on the deal page.
+    expect(staff.clients.every((c: { portalSince: string | null }) => !!c.portalSince)).toBe(true);
   });
 
   it('finish an upload with the client’s own file, which becomes one of the deal’s documents', async () => {

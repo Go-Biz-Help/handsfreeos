@@ -1191,6 +1191,8 @@ export const MemoryListInput = z.object({ ...inDeal, includeClosed: z.boolean().
 export const MemoryListOutput = z.object({
   items: z.array(MemoryItemOut),
   waiting: z.number().int(),
+  /** Suggestions fair housing rules left out (about who lives there, or a protected class): how many, never what. */
+  protectedDropped: z.number().int(),
 });
 
 // ---------- tours (round two) ----------
@@ -1983,6 +1985,8 @@ export const ClientTasksOutput = z.object({
       name: z.string(),
       email: z.string().nullable(),
       portal: z.enum(['none', 'invited', 'signed_in', 'revoked']),
+      /** When they were let in, while they're in. */
+      portalSince: isoDateTime.nullable(),
     }),
   ),
 });
