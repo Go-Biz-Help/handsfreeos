@@ -1408,19 +1408,27 @@ boards; the server steps go ahead meanwhile.
   everyone is.
 - Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts`.
 
-### Step 8: offers side by side, with what the seller takes home
+### Step 8: offers side by side, with what the seller takes home (server built, 2026-10-01)
 
-- Round two's offers work on a listing: an offer's home is optional, it names the buyers, their agent and brokerage,
-  and on a listing "them" is the buyer's offer and "us" the seller's counter.
-- The terms gain the down payment, a home-sale contingency, an escalation clause, possession, and what the buyer's
-  agent asks the seller to pay.
-- The figures for the seller's estimate (what's owed on the mortgage, the listing fee, title and escrow, transfer tax,
-  other costs) are kept on the listing, each change kept. A pure `net.ts` works out each offer's estimate, in whole
-  cents, with every line named. Proof: X-04.
-- `realestate.offers.compare` lines them up; "Share with the seller" puts it in the portal, where the seller can say
-  Accept, Counter, Decline or "Let's talk"; their words are kept and the agent is alerted.
-- The first offer starts S-40 to S-45; a second open one sets `multiple_offers`. The response clock and an accepted
-  offer's terms work as round two's do. Proof: S-40 to S-48.
+**As built** (`20261020000500_realestate_listing_offers.sql`; `ops/offers.ts`, `ops/offer-compare.ts`, pure
+`net.ts`):
+
+- `realestate.offer.start` on a listing takes no home, names the buyers, and starts at "Waiting on our answer". The
+  offer records the `offer_received` event (S-40 to S-45 open, S-40 and S-41's proof); a second open offer sets
+  `multiple_offers` first, so S-42 opens with it. Accepted moves the listing under contract from any stage between
+  Signed and Negotiation (an offer can come before the MLS) and is S-48's proof; the buyers withdrawing leaves the
+  listing on the market. The buyer's one-page summary is refused on a listing (`realestate_offer_summary_buyer`).
+- `net_sheets`: the figures, each save a new version (`realestate.net_sheet.save`, X-04's proof).
+  `realestate.offers.compare` lines up each open offer's newest version with its estimate, the best flagged, the
+  figures used and the ones before, what was last shared and what the seller said.
+- `realestate.offers.share_comparison` keeps what the seller sees as it is then (`offer_comparisons`) and is S-42
+  and S-43's proof. `realestate.portal.offer_choice` keeps the seller's Accept, Counter, Decline or "Let's talk" with
+  their words (`offer_choices`), only on an offer they were shown and still open; it accepts nothing, and the worker
+  alerts the listing's agent.
+- The words: `offer-words.ts` has a listing's statuses, the side-by-side labels and the estimate's note; history says
+  "Offer 2 came in from Priya Patel at $545,000" and "Maria said accept on offer 1".
+- Tests: `realestate-listing.test.ts` (the estimate, pure, then on the database), the worker's
+  `realestate-listing.test.ts`.
 
 ### Step 9: the CMA, the inspection and the buyer's loan on a listing
 

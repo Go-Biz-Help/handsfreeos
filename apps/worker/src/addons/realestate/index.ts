@@ -43,6 +43,7 @@ import {
   openHousePlanned,
   postSaved,
   postsRequested,
+  sellerChose,
 } from './listing';
 import {
   clientSpoke,
@@ -228,6 +229,7 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.listing.post_saved': postSaved,
     'realestate.open_house.planned': openHousePlanned,
     'realestate.open_house.followed_up': openHouseFollowedUp,
+    'realestate.offers.seller_chose': sellerChose,
   },
   jobs: {
     [SWEEP]: runSweep,

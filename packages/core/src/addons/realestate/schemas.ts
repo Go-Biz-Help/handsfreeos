@@ -34,6 +34,7 @@ import {
 } from './closing';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
 import { FACT_FROM_KEYS, LISTING_HOME_FACT_KEYS } from './listing';
+import { SELLER_CHOICE_KEYS } from './net';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
@@ -1573,10 +1574,23 @@ export const OfferTermsIn = z
       .max(2000, 'Keep it under 2,000 characters.')
       .nullable()
       .default(null),
+    // Round three: what a seller weighs.
+    downPaymentPct: z.number().min(0).max(100).nullable().default(null),
+    homeSaleContingency: z.boolean().nullable().default(null),
+    escalationCapCents: z.int().min(1).max(100_000_000_000).nullable().default(null),
+    escalationStepCents: z.int().min(1).max(100_000_000_000).nullable().default(null),
+    possession: z.string().trim().min(1).max(200).nullable().default(null),
+    /** What the buyer's agent asks the seller to pay: a share of the price (basis points), or an amount. */
+    buyerAgentFeeBp: z.int().min(0).max(10_000).nullable().default(null),
+    buyerAgentFeeCents: money0.nullable().default(null),
   })
   .refine((t) => t.loanType !== 'cash' || t.financingDays === null, {
     error: 'A cash offer has no financing days.',
     path: ['financingDays'],
+  })
+  .refine((t) => t.buyerAgentFeeBp === null || t.buyerAgentFeeCents === null, {
+    error: 'Give their agent’s fee as a share of the price or an amount, not both.',
+    path: ['buyerAgentFeeCents'],
   });
 
 const VersionIn = {
@@ -1592,7 +1606,10 @@ const VersionIn = {
 
 export const OfferStartInput = z.object({
   ...inDeal,
-  homeId: uuid,
+  /** One of a buyer's homes; on a listing, left out (the offer is on the listing itself). */
+  homeId: uuid.optional(),
+  /** On a listing: who the buyers are. */
+  buyerNames: z.string().trim().min(1).max(200).optional(),
   theirAgentName: z.string().trim().max(200).optional(),
   theirBrokerage: z.string().trim().max(200).optional(),
   theirEmail: z.email().max(320).optional(),
@@ -1663,6 +1680,13 @@ const OfferVersionOut = z.object({
   appraisalContingency: z.boolean().nullable(),
   closingDate: z.string().nullable(),
   otherTerms: z.string().nullable(),
+  downPaymentPct: z.number().nullable(),
+  homeSaleContingency: z.boolean().nullable(),
+  escalationCapCents: z.number().int().nullable(),
+  escalationStepCents: z.number().int().nullable(),
+  possession: z.string().nullable(),
+  buyerAgentFeeBp: z.number().int().nullable(),
+  buyerAgentFeeCents: z.number().int().nullable(),
   respondBy: isoDateTime.nullable(),
   note: z.string().nullable(),
   /** The uploaded document it is, as it stands now (its newest version). */
@@ -1673,7 +1697,8 @@ const OfferVersionOut = z.object({
 export const OfferOut = z.object({
   id: uuid,
   number: z.int(),
-  homeId: uuid,
+  homeId: uuid.nullable(),
+  buyerNames: z.string().nullable(),
   address: z.string(),
   status: z.enum(OFFER_STATUS_KEYS),
   theirAgentName: z.string().nullable(),
@@ -2641,3 +2666,94 @@ export const PublicOpenHouseSignInOutput = z.object({
   signedIn: z.literal(true),
   firstName: z.string(),
 });
+
+// ---------- offers on a listing, side by side (round three, step 8) ----------
+
+export const NetSheetSaveInput = z
+  .object({
+    ...inDeal,
+    payoffCents: money0.default(0),
+    /** The listing's fee: a share of the price (basis points), or an amount. */
+    listingFeeBp: z.int().min(0).max(10_000).nullable().default(null),
+    listingFeeCents: money0.nullable().default(null),
+    titleEscrowCents: money0.default(0),
+    transferTaxBp: z.int().min(0).max(10_000).default(0),
+    otherCents: money0.default(0),
+    otherNote: z.string().trim().max(300).nullable().default(null),
+    note: z.string().trim().max(500).nullable().default(null),
+  })
+  .refine((f) => f.listingFeeBp === null || f.listingFeeCents === null, {
+    error: 'Give the listing fee as a share of the price or an amount, not both.',
+    path: ['listingFeeCents'],
+  });
+const NetFiguresOut = z.object({
+  version: z.number().int(),
+  payoffCents: z.number().int(),
+  listingFeeBp: z.number().int().nullable(),
+  listingFeeCents: z.number().int().nullable(),
+  titleEscrowCents: z.number().int(),
+  transferTaxBp: z.number().int(),
+  otherCents: z.number().int(),
+  otherNote: z.string().nullable(),
+  note: z.string().nullable(),
+  savedAt: isoDateTime,
+  savedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+});
+export const NetSheetSaveOutput = z.object({ dealId: uuid, version: z.number().int() });
+const NetLineOut = z.object({ key: z.string(), label: z.string(), cents: z.number().int() });
+const CompareRow = z.object({
+  offerId: uuid,
+  number: z.number().int(),
+  buyers: z.string().nullable(),
+  agent: z.string().nullable(),
+  brokerage: z.string().nullable(),
+  status: z.enum(OFFER_STATUS_KEYS),
+  versionId: uuid,
+  versionNumber: z.number().int(),
+  priceCents: z.number().int(),
+  /** "Cash", "Conventional · 20% down". */
+  paying: z.string(),
+  emdCents: z.number().int().nullable(),
+  sellerCreditCents: z.number().int(),
+  buyerAgentFee: z.string().nullable(),
+  inspection: z.string().nullable(),
+  financing: z.string().nullable(),
+  homeSale: z.boolean().nullable(),
+  escalation: z.string().nullable(),
+  closingDate: z.string().nullable(),
+  possession: z.string().nullable(),
+  respondBy: isoDateTime.nullable(),
+  net: z.object({ lines: z.array(NetLineOut), netCents: z.number().int() }),
+  /** The most the seller would take home of these. */
+  best: z.boolean(),
+});
+export const OffersCompareOutput = z.object({
+  dealId: uuid,
+  figures: NetFiguresOut.nullable(),
+  /** The figures before, newest first. */
+  figureHistory: z.array(NetFiguresOut),
+  rows: z.array(CompareRow),
+  shared: z.object({ comparisonId: uuid, at: isoDateTime }).nullable(),
+  choices: z.array(
+    z.object({
+      offerId: uuid,
+      name: z.string(),
+      choice: z.enum(SELLER_CHOICE_KEYS),
+      words: z.string().nullable(),
+      at: isoDateTime,
+    }),
+  ),
+});
+export const OffersShareComparisonOutput = z.object({
+  comparisonId: uuid,
+  offers: z.number().int(),
+});
+export const PortalOfferChoiceInput = z.object({
+  workspaceId: uuid,
+  comparisonId: uuid,
+  offerId: uuid,
+  choice: z.enum(SELLER_CHOICE_KEYS),
+  words: z.string().trim().max(1000, 'Keep it under 1,000 characters.').optional(),
+});
+export const PortalOfferChoiceOutput = z.object({ choiceId: uuid });
+export type CompareRowOut = z.infer<typeof CompareRow>;

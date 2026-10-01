@@ -3,7 +3,7 @@
  * core"): a listing's facts read from its old listing's pasted words by the model (the stand-in here), from those
  * words alone and without the old price, waiting for a person to confirm them.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   ADDON_SERVER_MODULES,
   scheduleSet,
@@ -11,7 +11,11 @@ import {
   executeCommand,
   executeQuery,
   personCreate,
+  portalAccessGive,
+  portalCheckCode,
+  portalSendCode,
   type CommandDef,
+  type CustomerActor,
   type HumanActor,
   type QueryDef,
 } from '@hfos/core/server';
@@ -72,6 +76,7 @@ let s: TestServices;
 let agent: TestUser;
 let ws: string;
 let listing: string;
+let maria: string;
 
 async function drain() {
   for (let i = 0; i < 30; i++) {
@@ -110,11 +115,16 @@ beforeAll(async () => {
   s = testServices({ ai: { provider: scriptedAi(RULES), dailyTokens: 5_000_000 } });
   agent = await createTestUser('rel-worker-agent', { fullName: 'Dana Reyes' });
   ws = await realestateBusiness(agent, 'Listing Worker Realty');
-  const maria = (
+  maria = (
     await executeCommand(
       api(),
       personCreate,
-      { workspaceId: ws, firstName: 'Maria', lastName: 'Alvarez' },
+      {
+        workspaceId: ws,
+        firstName: 'Maria',
+        lastName: 'Alvarez',
+        email: `maria-${randomUUID().slice(0, 8)}@example.com`,
+      },
       human(agent),
       meta(),
     )
@@ -305,5 +315,78 @@ describe('an open house’s next morning', () => {
     await run('realestate.open_house.follow_up', { visitorId: openHouses[0].visitors[0].id });
     await drain();
     expect((await alert())!.cleared).toBe(true);
+  });
+});
+
+describe('a seller’s answer on an offer', () => {
+  it('tells the listing’s agent what she wants, without accepting anything', async () => {
+    const { offerId } = await run('realestate.offer.start', {
+      dealId: listing,
+      buyerNames: 'Wei and Lin Chen',
+      terms: { priceCents: 53_500_000, loanType: 'cash' },
+    });
+    const { comparisonId } = await run('realestate.offers.share_comparison', { dealId: listing });
+    const [w] = await rows<{ org: string }>(
+      admin(),
+      sql`select organization_id as org from app.workspaces where id = ${ws}`,
+    );
+    const sys = { type: 'system' as const, workspaceId: ws, organizationId: w!.org };
+    const { accessId } = (
+      await executeCommand(
+        api(),
+        portalAccessGive,
+        { workspaceId: ws, personId: maria },
+        human(agent),
+        meta(),
+      )
+    ).output;
+    const sent = (
+      await executeCommand(
+        testDbs().worker.db,
+        portalSendCode,
+        { workspaceId: ws, accessId },
+        sys,
+        meta(),
+      )
+    ).output;
+    const hit = (
+      await executeCommand(
+        testDbs().worker.db,
+        portalCheckCode,
+        {
+          workspaceId: ws,
+          accessId,
+          code: sent.code,
+          tokenHash: createHash('sha256').update(randomBytes(32)).digest('hex'),
+        },
+        sys,
+        meta(),
+      )
+    ).output;
+    const mariaOnPhone: CustomerActor = {
+      type: 'customer',
+      workspaceId: ws,
+      organizationId: w!.org,
+      personId: maria,
+      sessionId: hit.sessionId!,
+    };
+    await executeCommand(
+      testDbs().worker.db,
+      op('realestate.portal.offer_choice') as CommandDef,
+      { workspaceId: ws, comparisonId, offerId, choice: 'counter', words: 'Ask for the 20th.' },
+      mariaOnPhone,
+      { correlationId: randomUUID(), channel: 'portal' },
+    );
+    await drain();
+    const [alert] = await rows<{ title: string; href: string; assignee: string }>(
+      admin(),
+      sql`select title, href, assignee_user_id as assignee from app.addon_alerts
+          where workspace_id = ${ws} and key = ${`seller_chose:${listing}:${offerId}`}`,
+    );
+    expect(alert).toEqual({
+      title: 'Maria wants to counter offer 1 from Wei and Lin Chen',
+      href: `/a/realestate/deals/${listing}/offers`,
+      assignee: agent.id,
+    });
   });
 });

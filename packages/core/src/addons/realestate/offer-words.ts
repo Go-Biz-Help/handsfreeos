@@ -29,6 +29,44 @@ export type OfferStatus = keyof typeof OFFER_STATUSES;
 export const OFFER_STATUS_KEYS = Object.keys(OFFER_STATUSES) as [OfferStatus, ...OfferStatus[]];
 export const LIVE_OFFER_STATUSES: readonly OfferStatus[] = ['waiting_them', 'waiting_us'];
 
+/** On a listing it's the other way round: "them" are the buyers and "us" the seller and their agent. */
+export const LISTING_OFFER_STATUSES: Readonly<Record<OfferStatus, string>> = {
+  waiting_them: 'Waiting on the buyers',
+  waiting_us: 'Waiting on our answer',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
+  withdrawn: 'Withdrawn by the buyers',
+};
+
+/** An offer's status in words, for the side the deal is on. */
+export const offerStatusWords = (status: OfferStatus, side: 'buyer' | 'listing'): string =>
+  side === 'listing' ? LISTING_OFFER_STATUSES[status] : OFFER_STATUSES[status];
+
+/**
+ * The rows of a listing's offers side by side, in order, as the agent's page and the seller's portal label them.
+ * The last is the seller's estimate, and says so.
+ */
+export const COMPARE_LABELS = {
+  priceCents: 'Price',
+  paying: 'Paying',
+  emdCents: 'Earnest money',
+  sellerCreditCents: 'Seller credit',
+  buyerAgentFee: 'Their agent’s fee',
+  inspection: 'Inspection',
+  financing: 'Financing',
+  homeSale: 'Home to sell first',
+  escalation: 'Escalation',
+  closingDate: 'Closing',
+  possession: 'Possession',
+  respondBy: 'Answer by',
+  net: 'You’d take home (estimate)',
+} as const;
+
+/** What the seller is told beside the estimate, every time. */
+export const NET_NOTE =
+  'An estimate from the figures your agent entered, not a settlement statement. Your closing statement is what counts.';
+
 /** One version's terms, as stored. */
 export interface OfferTerms {
   readonly priceCents: number;

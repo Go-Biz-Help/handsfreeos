@@ -7917,6 +7917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.net_sheet.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the figures for a listing’s seller’s estimate: what’s owed on the mortgage, the listing fee, title and escrow, transfer tax and other costs. Each save is kept beside the estimates it made.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_net_sheet_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.offer.add_version": {
         parameters: {
             query?: never;
@@ -8007,8 +8027,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record an offer made on one of a buyer’s homes, as it was sent: its terms, who it’s with, and when the seller must answer by. The contract itself is uploaded as one of the deal’s documents.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * Record an offer as it was sent: on a buyer deal, one we made on one of their homes; on a listing, one a buyer made on it. Its terms, who it’s with, and when it must be answered by. The contract itself is uploaded as one of the deal’s documents.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.deal.event_recorded, realestate.deal.facts_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_start"];
         delete?: never;
@@ -8031,6 +8051,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offers.share_comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a listing’s open offers in the seller’s portal side by side, each with what they’d take home (an estimate), as they are now.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offers.shared, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offers_share_comparison"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14051,6 +14091,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_offers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.offers.compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s open offers side by side, newest version of each, with what the seller would take home from each, the figures used, what was last shared with the seller and what they said.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_offers_compare"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31834,6 +31894,55 @@ export interface operations {
             };
         };
     };
+    command_realestate_net_sheet_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default null */
+                    listingFeeBp?: number | null;
+                    /** @default null */
+                    listingFeeCents?: number | null;
+                    /** @default null */
+                    note?: string | null;
+                    /** @default 0 */
+                    otherCents?: number;
+                    /** @default null */
+                    otherNote?: string | null;
+                    /** @default 0 */
+                    payoffCents?: number;
+                    /** @default 0 */
+                    titleEscrowCents?: number;
+                    /** @default 0 */
+                    transferTaxBp?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_offer_add_version: {
         parameters: {
             query?: never;
@@ -31858,19 +31967,33 @@ export interface operations {
                         /** @default null */
                         appraisalContingency?: boolean | null;
                         /** @default null */
+                        buyerAgentFeeBp?: number | null;
+                        /** @default null */
+                        buyerAgentFeeCents?: number | null;
+                        /** @default null */
                         closingDate?: string | null;
+                        /** @default null */
+                        downPaymentPct?: number | null;
                         /** @default null */
                         emdCents?: number | null;
                         /** @default null */
                         emdDays?: number | null;
                         /** @default null */
+                        escalationCapCents?: number | null;
+                        /** @default null */
+                        escalationStepCents?: number | null;
+                        /** @default null */
                         financingDays?: number | null;
+                        /** @default null */
+                        homeSaleContingency?: boolean | null;
                         /** @default null */
                         inspectionDays?: number | null;
                         /** @default null */
                         loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
                         /** @default null */
                         otherTerms?: string | null;
+                        /** @default null */
+                        possession?: string | null;
                         priceCents: number;
                         /** @default 0 */
                         sellerCreditCents?: number;
@@ -32035,31 +32158,46 @@ export interface operations {
                 "application/json": {
                     /** Format: date-time */
                     at?: string;
+                    buyerNames?: string;
                     /** Format: uuid */
                     dealId: string;
                     /** Format: uuid */
                     documentId?: string;
                     /** Format: uuid */
-                    homeId: string;
+                    homeId?: string;
                     note?: string;
                     respondBy?: string | null;
                     terms: {
                         /** @default null */
                         appraisalContingency?: boolean | null;
                         /** @default null */
+                        buyerAgentFeeBp?: number | null;
+                        /** @default null */
+                        buyerAgentFeeCents?: number | null;
+                        /** @default null */
                         closingDate?: string | null;
+                        /** @default null */
+                        downPaymentPct?: number | null;
                         /** @default null */
                         emdCents?: number | null;
                         /** @default null */
                         emdDays?: number | null;
                         /** @default null */
+                        escalationCapCents?: number | null;
+                        /** @default null */
+                        escalationStepCents?: number | null;
+                        /** @default null */
                         financingDays?: number | null;
+                        /** @default null */
+                        homeSaleContingency?: boolean | null;
                         /** @default null */
                         inspectionDays?: number | null;
                         /** @default null */
                         loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
                         /** @default null */
                         otherTerms?: string | null;
+                        /** @default null */
+                        possession?: string | null;
                         priceCents: number;
                         /** @default 0 */
                         sellerCreditCents?: number;
@@ -32126,6 +32264,39 @@ export interface operations {
                         status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
                         /** @default 0 */
                         termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offers_share_comparison: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        comparisonId: string;
+                        offers: number;
                     };
                 };
             };
@@ -50474,6 +50645,7 @@ export interface operations {
                         offers: {
                             acceptedVersionId: string | null;
                             address: string;
+                            buyerNames: string | null;
                             clock: {
                                 respondBy: string | null;
                                 /** @enum {string} */
@@ -50482,8 +50654,7 @@ export interface operations {
                             } | null;
                             endedAt: string | null;
                             endedReason: string | null;
-                            /** Format: uuid */
-                            homeId: string;
+                            homeId: string | null;
                             /** Format: uuid */
                             id: string;
                             number: number;
@@ -50513,6 +50684,8 @@ export interface operations {
                                 appraisalContingency: boolean | null;
                                 /** Format: date-time */
                                 at: string;
+                                buyerAgentFeeBp: number | null;
+                                buyerAgentFeeCents: number | null;
                                 closingDate: string | null;
                                 document: {
                                     /** Format: uuid */
@@ -50521,9 +50694,13 @@ export interface operations {
                                     status: string;
                                     title: string;
                                 } | null;
+                                downPaymentPct: number | null;
                                 emdCents: number | null;
                                 emdDays: number | null;
+                                escalationCapCents: number | null;
+                                escalationStepCents: number | null;
                                 financingDays: number | null;
+                                homeSaleContingency: boolean | null;
                                 /** Format: uuid */
                                 id: string;
                                 inspectionDays: number | null;
@@ -50531,6 +50708,7 @@ export interface operations {
                                 note: string | null;
                                 number: number;
                                 otherTerms: string | null;
+                                possession: string | null;
                                 priceCents: number;
                                 respondBy: string | null;
                                 sellerCreditCents: number;
@@ -50538,6 +50716,124 @@ export interface operations {
                                 side: "us" | "them";
                             }[];
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_offers_compare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            choice: "accept" | "counter" | "decline" | "talk";
+                            name: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            words: string | null;
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                        figureHistory: {
+                            listingFeeBp: number | null;
+                            listingFeeCents: number | null;
+                            note: string | null;
+                            otherCents: number;
+                            otherNote: string | null;
+                            payoffCents: number;
+                            /** Format: date-time */
+                            savedAt: string;
+                            savedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            titleEscrowCents: number;
+                            transferTaxBp: number;
+                            version: number;
+                        }[];
+                        figures: {
+                            listingFeeBp: number | null;
+                            listingFeeCents: number | null;
+                            note: string | null;
+                            otherCents: number;
+                            otherNote: string | null;
+                            payoffCents: number;
+                            /** Format: date-time */
+                            savedAt: string;
+                            savedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            titleEscrowCents: number;
+                            transferTaxBp: number;
+                            version: number;
+                        } | null;
+                        rows: {
+                            agent: string | null;
+                            best: boolean;
+                            brokerage: string | null;
+                            buyerAgentFee: string | null;
+                            buyers: string | null;
+                            closingDate: string | null;
+                            emdCents: number | null;
+                            escalation: string | null;
+                            financing: string | null;
+                            homeSale: boolean | null;
+                            inspection: string | null;
+                            net: {
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    label: string;
+                                }[];
+                                netCents: number;
+                            };
+                            number: number;
+                            /** Format: uuid */
+                            offerId: string;
+                            paying: string;
+                            possession: string | null;
+                            priceCents: number;
+                            respondBy: string | null;
+                            sellerCreditCents: number;
+                            /** @enum {string} */
+                            status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                            /** Format: uuid */
+                            versionId: string;
+                            versionNumber: number;
+                        }[];
+                        shared: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            comparisonId: string;
+                        } | null;
                     };
                 };
             };

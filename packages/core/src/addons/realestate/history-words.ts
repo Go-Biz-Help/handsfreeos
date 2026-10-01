@@ -11,6 +11,7 @@ import {
   type InspectionKind,
 } from './closing';
 import { HOME_STATUSES, type HomeStatus } from './homes';
+import type { SellerChoice } from './net';
 import { KEY_DATES } from './dates/key-dates';
 import { STAGE_LABELS, DUTY_STATUS_LABELS, type DealStage, type DutyStatus } from './states';
 import { DEAL_ROLE_LABELS, EVENT_WORDS, PARTY_ROLES, type DealRole, type PartyRole } from './words';
@@ -20,7 +21,8 @@ import { money } from '../../money/format';
 
 type Bag = Readonly<Record<string, unknown>> | null | undefined;
 
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const str = (v: unknown): string =>
+  typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '';
 const stage = (v: unknown) => STAGE_LABELS[str(v) as DealStage] ?? str(v);
 const homeStatus = (v: unknown) => HOME_STATUSES[str(v) as HomeStatus]?.toLowerCase() ?? str(v);
 const termName = (k: unknown) => {
@@ -36,6 +38,12 @@ const financingStep = (v: unknown) =>
   FINANCING_STEPS[str(v) as FinancingStep]?.label.toLowerCase() ?? str(v);
 const inspectionKind = (v: unknown) =>
   INSPECTION_KINDS[str(v) as InspectionKind]?.toLowerCase() ?? 'inspection';
+const SELLER_CHOICE_SAID: Readonly<Record<SellerChoice, string>> = {
+  accept: 'accept',
+  counter: 'counter',
+  decline: 'decline',
+  talk: 'let’s talk',
+};
 const eventWords = (v: unknown) =>
   (Array.isArray(v) ? v : [])
     .map((e) => (EVENT_WORDS as Readonly<Record<string, string>>)[str(e)])
@@ -147,6 +155,10 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
     case 'offer_made':
       return `Made an offer of ${str(a.price)} on ${str(a.address)}`;
     case 'offer_countered':
+      if (a.listing)
+        return a.side === 'them'
+          ? `The buyers came back at ${str(a.price)} on offer ${str(a.number)}`
+          : `Countered offer ${str(a.number)} at ${str(a.price)}`;
       return a.side === 'them'
         ? `The seller countered at ${str(a.price)} on ${str(a.address)}`
         : `Countered at ${str(a.price)} on ${str(a.address)}`;
@@ -157,9 +169,24 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
           ? `The offer on ${str(a.address)} was declined`
           : a.outcome === 'expired'
             ? `The offer on ${str(a.address)} passed with no answer`
-            : `Withdrew the offer on ${str(a.address)}`;
+            : a.listing
+              ? `The buyers withdrew their offer on ${str(a.address)}`
+              : `Withdrew the offer on ${str(a.address)}`;
     case 'offer_shared':
       return `Shared the offer on ${str(a.address)} with the client`;
+    // Offers on a listing.
+    case 'offer_received':
+      return a.buyers
+        ? `Offer ${str(a.number)} came in from ${str(a.buyers)} at ${str(a.price)}`
+        : `Offer ${str(a.number)} came in at ${str(a.price)}`;
+    case 'net_sheet':
+      return `Saved the figures for the seller’s estimate (version ${str(a.version)})`;
+    case 'offers_shared':
+      return Number(a.count) === 1
+        ? 'Shared the offer with the seller, with their estimate'
+        : `Shared ${Number(a.count)} offers side by side with the seller, with their estimates`;
+    case 'seller_chose':
+      return `${str(a.name)} said ${SELLER_CHOICE_SAID[str(a.choice) as SellerChoice] ?? str(a.choice)} on offer ${str(a.number)}${a.buyers ? ` from ${str(a.buyers)}` : ''}`;
     // The CMA.
     case 'cma_started':
       return `Started CMA ${str(a.number)} for ${str(a.address)}`;

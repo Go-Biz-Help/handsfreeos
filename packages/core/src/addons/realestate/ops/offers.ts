@@ -43,7 +43,7 @@ import {
   OfferWithdrawInput,
   type OfferTermsIn,
 } from '../schemas';
-import { stageAfterEvent } from '../states';
+import { LISTING_STAGES, stageAfterEvent } from '../states';
 import { documents, homes, offers, offerVersions } from '../tables';
 import {
   actorUserId,
@@ -56,8 +56,9 @@ import {
   type Ctx,
   type Deal,
 } from './common';
-import { dealMoveStage, dealOfferLost } from './deals';
-import { loadHome, requireBuyerSide } from './homes';
+import { dealMoveStage, dealOfferLost, dealRecordEvent, dealSetFacts } from './deals';
+import { loadHome } from './homes';
+import { listingAddress } from './listing';
 import { termEnter } from './terms';
 import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 import type { z } from 'zod';
@@ -88,6 +89,12 @@ async function versionsOf(ctx: Ctx, offerIds: readonly string[]): Promise<Versio
     .from(offerVersions)
     .where(inArray(offerVersions.offerId, [...offerIds]))
     .orderBy(asc(offerVersions.number));
+}
+
+/** Where an offer is: one of a buyer's homes, or (round three) the listing itself. */
+async function placeOf(ctx: Ctx, o: Offer, deal: Deal): Promise<string> {
+  if (o.homeId) return (await loadHome(ctx, o.homeId)).address;
+  return (await listingAddress(ctx, deal)) ?? deal.name;
 }
 
 function requireLive(o: Offer, address: string): void {
@@ -144,6 +151,13 @@ async function insertVersion(
       appraisalContingency: t.appraisalContingency,
       closingDate: t.closingDate,
       otherTerms: t.otherTerms,
+      downPaymentPct: t.downPaymentPct === null ? null : String(t.downPaymentPct),
+      homeSaleContingency: t.homeSaleContingency,
+      escalationCapCents: t.escalationCapCents,
+      escalationStepCents: t.escalationStepCents,
+      possession: t.possession,
+      buyerAgentFeeBp: t.buyerAgentFeeBp,
+      buyerAgentFeeCents: t.buyerAgentFeeCents,
       respondBy: input.respondBy ? new Date(input.respondBy) : null,
       note: input.note ?? null,
       createdBy: actorUserId(ctx),
@@ -174,7 +188,7 @@ const clockPayload = (o: Offer, v: Version, deal: Deal, address: string) => ({
 export const offerStart = defineAddonCommand(realestateAddon, {
   name: 'realestate.offer.start',
   description:
-    'Record an offer made on one of a buyer’s homes, as it was sent: its terms, who it’s with, and when the seller must answer by. The contract itself is uploaded as one of the deal’s documents.',
+    'Record an offer as it was sent: on a buyer deal, one we made on one of their homes; on a listing, one a buyer made on it. Its terms, who it’s with, and when it must be answered by. The contract itself is uploaded as one of the deal’s documents.',
   risk: 1,
   input: OfferStartInput,
   output: OfferStartOutput,
@@ -182,28 +196,48 @@ export const offerStart = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_record_offer',
-    description: 'Record an offer sent on one of a buyer’s homes, with its terms and deadline.',
+    description:
+      'Record an offer: one sent on a buyer’s home, or one received on a listing, with its terms and deadline.',
   },
-  emits: ['realestate.offer.version_added', ...PROOF_EVENTS],
+  emits: [
+    'realestate.offer.version_added',
+    'realestate.deal.event_recorded',
+    'realestate.deal.facts_changed',
+    ...PROOF_EVENTS,
+  ],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
-    requireBuyerSide(deal);
-    const home = await loadHome(ctx, input.homeId);
-    if (home.dealRecordId !== deal.recordId || home.status === 'removed')
-      throw HfosError.notFound(
-        `That home isn’t on ${deal.name}. Add it to the deal’s homes first, then record the offer.`,
-      );
-    const [live] = await ctx.tx
-      .select({ id: offers.id })
-      .from(offers)
-      .where(and(eq(offers.homeId, home.id), inArray(offers.status, [...LIVE_OFFER_STATUSES])));
-    if (live)
-      throw HfosError.rule(
-        'realestate_offer_live',
-        409,
-        `There’s already an offer out on ${home.address}. Add the counter to it instead.`,
-      );
+    const listing = deal.side === 'listing';
+    let address: string;
+    let homeId: string | null = null;
+    if (listing) {
+      // A buyer's offer on our listing: it's on the listing itself.
+      address = (await listingAddress(ctx, deal)) ?? deal.name;
+    } else {
+      if (!input.homeId)
+        throw HfosError.validation(
+          [{ path: 'homeId', message: 'Pick the home the offer is on.' }],
+          'Pick the home the offer is on.',
+        );
+      const home = await loadHome(ctx, input.homeId);
+      if (home.dealRecordId !== deal.recordId || home.status === 'removed')
+        throw HfosError.notFound(
+          `That home isn’t on ${deal.name}. Add it to the deal’s homes first, then record the offer.`,
+        );
+      const [live] = await ctx.tx
+        .select({ id: offers.id })
+        .from(offers)
+        .where(and(eq(offers.homeId, home.id), inArray(offers.status, [...LIVE_OFFER_STATUSES])));
+      if (live)
+        throw HfosError.rule(
+          'realestate_offer_live',
+          409,
+          `There’s already an offer out on ${home.address}. Add the counter to it instead.`,
+        );
+      address = home.address;
+      homeId = home.id;
+    }
     if (input.documentId) await requireDealDocument(ctx, deal, input.documentId);
     const [last] = await ctx.tx
       .select({ n: max(offers.number) })
@@ -214,9 +248,11 @@ export const offerStart = defineAddonCommand(realestateAddon, {
       .values({
         workspaceId: deal.workspaceId,
         dealRecordId: deal.recordId,
-        homeId: home.id,
+        homeId,
         number: (last?.n ?? 0) + 1,
-        status: 'waiting_them',
+        buyerNames: listing ? (input.buyerNames ?? null) : null,
+        // Ours waits on them; theirs, on a listing, waits on us.
+        status: listing ? 'waiting_us' : 'waiting_them',
         theirAgentName: input.theirAgentName ?? null,
         theirBrokerage: input.theirBrokerage ?? null,
         theirEmail: input.theirEmail ?? null,
@@ -224,33 +260,77 @@ export const offerStart = defineAddonCommand(realestateAddon, {
         createdBy: actorUserId(ctx),
       })
       .returning();
-    const v = await insertVersion(ctx, offer!, 1, 'us', input);
-    if (home.status === 'saved' || home.status === 'shortlisted' || home.status === 'toured')
+    const v = await insertVersion(ctx, offer!, 1, listing ? 'them' : 'us', input);
+    if (homeId)
       await ctx.tx
         .update(homes)
         .set({ status: 'offered', updatedAt: new Date() })
-        .where(eq(homes.id, home.id));
-    await historyLine(ctx, deal, 'offer_made', {
-      after: { address: home.address, price: money(v.priceCents), number: offer!.number },
-    });
-    // B-11 "Write offer" (B-16 for another): linked to it; its signed document is the proof.
-    await addProof(
-      ctx,
-      deal,
-      { keys: ['B-11', 'B-16'] },
-      {
-        kind: 'record',
-        refKind: 'offer',
-        refId: offer!.id,
-        body: `Offer ${offer!.number} on ${home.address} at ${money(v.priceCents)}`,
+        .where(
+          and(eq(homes.id, homeId), inArray(homes.status, ['saved', 'shortlisted', 'toured'])),
+        );
+    await historyLine(ctx, deal, listing ? 'offer_received' : 'offer_made', {
+      after: {
+        address,
+        price: money(v.priceCents),
+        number: offer!.number,
+        buyers: input.buyerNames ?? null,
       },
-    );
+    });
+    if (listing) {
+      // Two or more out at once: the listing has multiple offers, said first so S-42 opens with this one.
+      const live = await ctx.tx
+        .select({ id: offers.id })
+        .from(offers)
+        .where(
+          and(
+            eq(offers.dealRecordId, deal.recordId),
+            inArray(offers.status, [...LIVE_OFFER_STATUSES]),
+          ),
+        );
+      const fresh = await loadDeal(ctx, deal.recordId);
+      if (live.length >= 2 && !fresh.facts.includes('multiple_offers'))
+        await executeCommandWithin(ctx, dealSetFacts, {
+          workspaceId: deal.workspaceId,
+          dealId: deal.recordId,
+          facts: [...fresh.facts, 'multiple_offers'],
+        });
+      // S-40 "Receive offer" and the rest of the offer duties open with each offer received.
+      await executeCommandWithin(ctx, dealRecordEvent, {
+        workspaceId: deal.workspaceId,
+        dealId: deal.recordId,
+        event: 'offer_received',
+        note: `Offer ${offer!.number}${input.buyerNames ? ` from ${input.buyerNames}` : ''} at ${money(v.priceCents)}`,
+      });
+      await addProof(
+        ctx,
+        await loadDeal(ctx, deal.recordId),
+        { keys: ['S-40', 'S-41'] },
+        {
+          kind: 'record',
+          refKind: 'offer',
+          refId: offer!.id,
+          body: `Offer ${offer!.number}${input.buyerNames ? ` from ${input.buyerNames}` : ''} at ${money(v.priceCents)}`,
+        },
+      );
+    } else
+      // B-11 "Write offer" (B-16 for another): linked to it; its signed document is the proof.
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['B-11', 'B-16'] },
+        {
+          kind: 'record',
+          refKind: 'offer',
+          refId: offer!.id,
+          body: `Offer ${offer!.number} on ${address} at ${money(v.priceCents)}`,
+        },
+      );
     if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await ctx.emit({
       type: 'realestate.offer.version_added',
       entityType: 'realestate_deal',
       entityId: deal.recordId,
-      payload: clockPayload(offer!, v, deal, home.address),
+      payload: clockPayload(offer!, v, deal, address),
     });
     return { offerId: offer!.id, versionId: v.id, number: offer!.number };
   },
@@ -275,8 +355,8 @@ export const offerAddVersion = defineAddonCommand(realestateAddon, {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId);
     requireOpen(deal);
-    const home = await loadHome(ctx, o.homeId);
-    requireLive(o, home.address);
+    const address = await placeOf(ctx, o, deal);
+    requireLive(o, address);
     if (input.documentId) await requireDealDocument(ctx, deal, input.documentId);
     const [last] = await ctx.tx
       .select({ n: max(offerVersions.number) })
@@ -286,14 +366,20 @@ export const offerAddVersion = defineAddonCommand(realestateAddon, {
     const status: OfferStatus = input.side === 'us' ? 'waiting_them' : 'waiting_us';
     await ctx.tx.update(offers).set({ status, updatedAt: new Date() }).where(eq(offers.id, o.id));
     await historyLine(ctx, deal, 'offer_countered', {
-      after: { address: home.address, price: money(v.priceCents), side: v.side, number: v.number },
+      after: {
+        address: address,
+        price: money(v.priceCents),
+        side: v.side,
+        number: v.number,
+        listing: deal.side === 'listing',
+      },
     });
     if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await ctx.emit({
       type: 'realestate.offer.version_added',
       entityType: 'realestate_deal',
       entityId: deal.recordId,
-      payload: clockPayload(o, v, deal, home.address),
+      payload: clockPayload(o, v, deal, address),
     });
     return { offerId: o.id, versionId: v.id, number: v.number, status };
   },
@@ -380,7 +466,11 @@ async function enterTerms(
   const base = {
     workspaceId: deal.workspaceId,
     dealId: deal.recordId,
-    source: v.side === 'us' ? ('contract' as const) : ('counter' as const),
+    // The offer itself is the contract's terms, a counter is a counter's: on a buyer deal ours are the offers, on a
+    // listing (round three) the buyer's first version is.
+    source: (deal.side === 'listing' ? v.number === 1 : v.side === 'us')
+      ? ('contract' as const)
+      : ('counter' as const),
     confirm: false,
     note: `From the accepted offer (version ${v.number}). Check it against the signed contract.`,
     ...(doc[0] ? { documentId: doc[0].id } : {}),
@@ -422,8 +512,8 @@ export const offerRecordResponse = defineAddonCommand(realestateAddon, {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId, { lock: true });
     requireOpen(deal);
-    const home = await loadHome(ctx, o.homeId);
-    requireLive(o, home.address);
+    const address = await placeOf(ctx, o, deal);
+    requireLive(o, address);
     const versions = await versionsOf(ctx, [o.id]);
     const v = input.versionId
       ? versions.find((x) => x.id === input.versionId)
@@ -446,42 +536,52 @@ export const offerRecordResponse = defineAddonCommand(realestateAddon, {
       .where(eq(offers.id, o.id));
     await historyLine(ctx, deal, 'offer_answered', {
       after: {
-        address: home.address,
+        address: address,
         outcome: input.outcome,
         price: money(v.priceCents),
         number: v.number,
       },
       note: input.note ?? null,
     });
+    const listing = deal.side === 'listing';
     if (input.outcome === 'accepted') {
       termsEntered = await enterTerms(ctx, deal, v, localDayOf(at.getTime(), tz));
       const fresh = await loadDeal(ctx, deal.recordId);
-      if (fresh.stage === 'offer' || fresh.stage === 'negotiation') {
+      // A listing's offer can be taken before it's on the market (coming soon, or sold before it's listed).
+      const where = (LISTING_STAGES as readonly string[]).indexOf(fresh.stage);
+      const beforeContract = listing
+        ? where >= LISTING_STAGES.indexOf('signed') &&
+          where < LISTING_STAGES.indexOf('under_contract')
+        : fresh.stage === 'offer' || fresh.stage === 'negotiation';
+      if (beforeContract) {
         const moved = await executeCommandWithin(ctx, dealMoveStage, {
           workspaceId: deal.workspaceId,
           dealId: deal.recordId,
           stage: 'under_contract',
-          note: `The offer on ${home.address} was accepted.`,
+          note: `The offer on ${address} was accepted.`,
         });
         dealStage = moved.output.stage;
       }
-      // B-17 "Ratify accepted offer": linked to it; the signed contract and confirmed acceptance are its proof.
+      // B-17 "Ratify accepted offer" (S-48 "Ratify contract" on a listing): linked to it; the signed contract and
+      // confirmed acceptance are its proof.
       await addProof(
         ctx,
-        deal,
-        { keys: ['B-17'] },
+        await loadDeal(ctx, deal.recordId),
+        { keys: listing ? ['S-48'] : ['B-17'] },
         {
           kind: 'record',
           refKind: 'offer',
           refId: o.id,
-          body: `Accepted: version ${v.number} on ${home.address} at ${money(v.priceCents)}`,
+          body: `Accepted: version ${v.number} on ${address} at ${money(v.priceCents)}`,
         },
       );
+    } else if (listing) {
+      // A listing stays on the market: another offer may come.
     } else {
       const why =
         input.outcome === 'declined'
-          ? `The seller declined the offer on ${home.address}.`
-          : `The offer on ${home.address} passed with no answer.`;
+          ? `The seller declined the offer on ${address}.`
+          : `The offer on ${address} passed with no answer.`;
       dealStage = await lostPath(ctx, o, deal, why);
       // B-13 "Record lost offer and outcome".
       await addProof(
@@ -518,8 +618,8 @@ export const offerWithdraw = defineAddonCommand(realestateAddon, {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId, { lock: true });
     requireOpen(deal);
-    const home = await loadHome(ctx, o.homeId);
-    requireLive(o, home.address);
+    const address = await placeOf(ctx, o, deal);
+    requireLive(o, address);
     await ctx.tx
       .update(offers)
       .set({
@@ -530,12 +630,14 @@ export const offerWithdraw = defineAddonCommand(realestateAddon, {
       })
       .where(eq(offers.id, o.id));
     await historyLine(ctx, deal, 'offer_answered', {
-      after: { address: home.address, outcome: 'withdrawn' },
+      after: { address: address, outcome: 'withdrawn', listing: deal.side === 'listing' },
       note: input.reason,
     });
-    const why = `The offer on ${home.address} was withdrawn: ${input.reason}`;
-    const dealStage = await lostPath(ctx, o, deal, why);
-    await addProof(ctx, deal, { keys: ['B-13'] }, { kind: 'note', body: why });
+    const why = `The offer on ${address} was withdrawn: ${input.reason}`;
+    // On a listing it's the buyer who withdrew theirs, and the listing stays on the market.
+    const dealStage = deal.side === 'listing' ? null : await lostPath(ctx, o, deal, why);
+    if (deal.side !== 'listing')
+      await addProof(ctx, deal, { keys: ['B-13'] }, { kind: 'note', body: why });
     await ctx.emit({
       type: 'realestate.offer.answered',
       entityType: 'realestate_deal',
@@ -565,7 +667,13 @@ export const offerShareSummary = defineAddonCommand(realestateAddon, {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId);
     requireOpen(deal);
-    const home = await loadHome(ctx, o.homeId);
+    if (deal.side === 'listing')
+      throw HfosError.rule(
+        'realestate_offer_summary_buyer',
+        409,
+        'A listing’s offers go to the seller side by side. Use Share with the seller on Offers.',
+      );
+    const address = await placeOf(ctx, o, deal);
     const versions = await versionsOf(ctx, [o.id]);
     const v =
       o.status === 'accepted'
@@ -579,7 +687,7 @@ export const offerShareSummary = defineAddonCommand(realestateAddon, {
       .set({ sharedVersionId: v.id, sharedBy: actorUserId(ctx), sharedAt: at, updatedAt: at })
       .where(eq(offers.id, o.id));
     await historyLine(ctx, deal, 'offer_shared', {
-      after: { address: home.address, number: v.number },
+      after: { address: address, number: v.number },
     });
     await ctx.emit({
       type: 'realestate.offer.shared',
@@ -609,12 +717,17 @@ export const offersList = defineAddonQuery(realestateAddon, {
     const deal = await loadDeal(ctx, input.dealId);
     const tz = await timeZoneOf(ctx);
     const now = Date.now();
-    const list = await ctx.tx
-      .select({ o: offers, address: homes.address })
+    const rowsOf = await ctx.tx
+      .select({ o: offers, homeAddress: homes.address })
       .from(offers)
-      .innerJoin(homes, eq(homes.id, offers.homeId))
+      .leftJoin(homes, eq(homes.id, offers.homeId))
       .where(eq(offers.dealRecordId, deal.recordId))
       .orderBy(desc(offers.number));
+    // A listing's offers are on the listing itself.
+    const listingAt = rowsOf.some((r) => !r.o.homeId)
+      ? ((await listingAddress(ctx, deal)) ?? deal.name)
+      : deal.name;
+    const list = rowsOf.map((r) => ({ o: r.o, address: r.homeAddress ?? listingAt }));
     const versions = await versionsOf(
       ctx,
       list.map((x) => x.o.id),
@@ -658,6 +771,7 @@ export const offersList = defineAddonQuery(realestateAddon, {
           id: o.id,
           number: o.number,
           homeId: o.homeId,
+          buyerNames: o.buyerNames,
           address,
           status: o.status,
           theirAgentName: o.theirAgentName,
@@ -679,6 +793,13 @@ export const offersList = defineAddonQuery(realestateAddon, {
             appraisalContingency: v.appraisalContingency,
             closingDate: v.closingDate,
             otherTerms: v.otherTerms,
+            downPaymentPct: v.downPaymentPct === null ? null : Number(v.downPaymentPct),
+            homeSaleContingency: v.homeSaleContingency,
+            escalationCapCents: v.escalationCapCents,
+            escalationStepCents: v.escalationStepCents,
+            possession: v.possession,
+            buyerAgentFeeBp: v.buyerAgentFeeBp,
+            buyerAgentFeeCents: v.buyerAgentFeeCents,
             respondBy: v.respondBy?.toISOString() ?? null,
             note: v.note,
             document: docOf(v.id),

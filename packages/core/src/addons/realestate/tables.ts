@@ -916,8 +916,11 @@ export const offers = addonRealestate.table(
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
     dealRecordId: uuid('deal_record_id').notNull(),
-    homeId: uuid('home_id').notNull(),
+    /** One of a buyer's homes; a listing's offers are on the listing itself (round three). */
+    homeId: uuid('home_id'),
     number: integer('number').notNull(),
+    /** On a listing: who the buyers are. */
+    buyerNames: text('buyer_names'),
     status: text('status')
       .notNull()
       .default('waiting_them')
@@ -971,6 +974,14 @@ export const offerVersions = addonRealestate.table(
     appraisalContingency: boolean('appraisal_contingency'),
     closingDate: date('closing_date', { mode: 'string' }),
     otherTerms: text('other_terms'),
+    // Round three: what a seller weighs.
+    downPaymentPct: numeric('down_payment_pct', { precision: 5, scale: 2 }),
+    homeSaleContingency: boolean('home_sale_contingency'),
+    escalationCapCents: cents('escalation_cap_cents'),
+    escalationStepCents: cents('escalation_step_cents'),
+    possession: text('possession'),
+    buyerAgentFeeBp: integer('buyer_agent_fee_bp'),
+    buyerAgentFeeCents: cents('buyer_agent_fee_cents'),
     respondBy: ts('respond_by'),
     note: text('note'),
     createdBy: userRef('created_by'),
@@ -1528,6 +1539,86 @@ export const openHouseVisitors = addonRealestate.table(
     foreignKey({
       columns: [t.workspaceId, t.openHouseId],
       foreignColumns: [openHouses.workspaceId, openHouses.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** The figures for a listing's seller's estimate, each save kept (round three, step 8). */
+export const netSheets = addonRealestate.table(
+  'net_sheets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    version: integer('version').notNull(),
+    payoffCents: cents('payoff_cents').notNull().default(0),
+    listingFeeBp: integer('listing_fee_bp'),
+    listingFeeCents: cents('listing_fee_cents'),
+    titleEscrowCents: cents('title_escrow_cents').notNull().default(0),
+    transferTaxBp: integer('transfer_tax_bp').notNull().default(0),
+    otherCents: cents('other_cents').notNull().default(0),
+    otherNote: text('other_note'),
+    note: text('note'),
+    savedBy: userRef('saved_by'),
+    savedAt: ts('saved_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.dealRecordId, t.version),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** What a seller was shown of their offers, as shown. */
+export const offerComparisons = addonRealestate.table(
+  'offer_comparisons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    shown: jsonb('shown').$type<Record<string, unknown>>().notNull(),
+    sharedBy: userRef('shared_by'),
+    sharedAt: ts('shared_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** What a seller said about an offer in their portal, in their words. */
+export const offerChoices = addonRealestate.table(
+  'offer_choices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    comparisonId: uuid('comparison_id').notNull(),
+    offerId: uuid('offer_id').notNull(),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    choice: text('choice').notNull().$type<'accept' | 'counter' | 'decline' | 'talk'>(),
+    words: text('words'),
+    at: ts('at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.comparisonId],
+      foreignColumns: [offerComparisons.workspaceId, offerComparisons.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.offerId],
+      foreignColumns: [offers.workspaceId, offers.id],
     }).onDelete('cascade'),
     foreignKey({
       columns: [t.workspaceId, t.dealRecordId],

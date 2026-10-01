@@ -15,6 +15,7 @@ import {
   notOnMlsWords,
   streetOf,
 } from '../../src/addons/realestate/listing';
+import { netEstimate, shareOf } from '../../src/addons/realestate/net';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realestate/fair-housing';
 import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
@@ -65,6 +66,75 @@ describe('a listing’s facts, pure', () => {
     expect(streetOf('2207 Juniper Trail, Austin, TX')).toBe('2207 Juniper Trail');
     expect(notOnMlsWords('2207 Juniper Trail, Austin, TX')).toBe(
       '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.',
+    );
+  });
+});
+
+describe('the seller’s estimate, pure', () => {
+  const figures = {
+    payoffCents: 21_240_000,
+    listingFeeBp: 300,
+    listingFeeCents: null,
+    titleEscrowCents: 385_000,
+    transferTaxBp: 0,
+    otherCents: 75_000,
+    otherNote: 'HOA transfer',
+  };
+
+  it('takes each cost from the price, every line labelled, in whole cents', () => {
+    // The Chens: cash at $535,000, their agent asking 2% of the seller.
+    const chen = netEstimate(
+      {
+        priceCents: 53_500_000,
+        sellerCreditCents: 0,
+        buyerAgentFeeBp: 200,
+        buyerAgentFeeCents: null,
+      },
+      figures,
+    );
+    expect(chen.lines.map((l) => [l.label, l.cents])).toEqual([
+      ['Price', 53_500_000],
+      ['Listing fee · 3%', -1_605_000],
+      ['Their agent’s fee · 2%', -1_070_000],
+      ['Seller credit', -0],
+      ['Mortgage payoff', -21_240_000],
+      ['Title and escrow', -385_000],
+      ['Transfer tax · 0%', -0],
+      ['Other costs · HOA transfer', -75_000],
+    ]);
+    expect(chen.netCents).toBe(29_125_000);
+    // The Patels: $10,000 more, with a credit and a bigger fee: they'd leave the seller less.
+    const patel = netEstimate(
+      {
+        priceCents: 54_500_000,
+        sellerCreditCents: 800_000,
+        buyerAgentFeeBp: 300,
+        buyerAgentFeeCents: null,
+      },
+      figures,
+    );
+    expect(patel.netCents).toBe(28_730_000);
+  });
+
+  it('takes a fee as an amount, and rounds a share to the nearest cent', () => {
+    expect(shareOf(33_333, 250)).toBe(833);
+    const flat = netEstimate(
+      {
+        priceCents: 40_000_000,
+        sellerCreditCents: 0,
+        buyerAgentFeeBp: null,
+        buyerAgentFeeCents: 500_000,
+      },
+      { ...figures, listingFeeBp: null, listingFeeCents: 1_000_000, transferTaxBp: 50 },
+    );
+    expect(flat.lines.find((l) => l.key === 'listing_fee')).toEqual({
+      key: 'listing_fee',
+      label: 'Listing fee',
+      cents: -1_000_000,
+    });
+    expect(flat.lines.find((l) => l.key === 'transfer_tax')!.cents).toBe(-200_000);
+    expect(flat.netCents).toBe(
+      40_000_000 - 1_000_000 - 500_000 - 21_240_000 - 385_000 - 200_000 - 75_000,
     );
   });
 });
@@ -964,5 +1034,216 @@ describe('open houses', () => {
         }),
       ),
     ).toBe('realestate_open_house_cancelled');
+  });
+});
+
+// ---------- offers on a listing (step 8) ----------
+
+describe('offers on a listing', () => {
+  let chen: string;
+  let patel: string;
+  const dealNow = async () =>
+    (
+      await rows<{ stage: string; facts: string[] }>(
+        admin(),
+        sql`select stage, facts from addon_realestate.deals where record_id = ${listing}`,
+      )
+    )[0]!;
+  const evidence = (refKind: string, refId: string) =>
+    rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = ${refKind} and e.ref_id = ${refId} order by 1`,
+    );
+
+  it('come in on the listing itself, and two at once mean multiple offers, as proof for S-40', async () => {
+    expect(await refused(ask(agent, 'realestate.offers.compare', { dealId: buyerDeal }))).toBe(
+      'realestate_listing_only',
+    );
+    chen = (
+      await run(agent, 'realestate.offer.start', {
+        dealId: listing,
+        buyerNames: 'Wei and Lin Chen',
+        theirAgentName: 'Sam Ortiz',
+        theirBrokerage: 'Hill Country Homes',
+        terms: {
+          priceCents: 53_500_000,
+          emdCents: 1_000_000,
+          loanType: 'cash',
+          inspectionDays: 7,
+          possession: 'At closing',
+          buyerAgentFeeBp: 200,
+          closingDate: '2026-11-20',
+        },
+        respondBy: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      })
+    ).offerId;
+    expect((await dealNow()).facts).not.toContain('multiple_offers');
+    patel = (
+      await run(agent, 'realestate.offer.start', {
+        dealId: listing,
+        buyerNames: 'Priya Patel',
+        theirAgentName: 'Jo Kim',
+        terms: {
+          priceCents: 54_500_000,
+          sellerCreditCents: 800_000,
+          loanType: 'conventional',
+          downPaymentPct: 20,
+          financingDays: 30,
+          appraisalContingency: true,
+          homeSaleContingency: true,
+          escalationCapCents: 55_500_000,
+          escalationStepCents: 250_000,
+          buyerAgentFeeBp: 300,
+        },
+        respondBy: new Date(Date.now() + 86_400_000).toISOString(),
+      })
+    ).offerId;
+    expect((await dealNow()).facts).toContain('multiple_offers');
+    expect((await evidence('offer', chen)).map((e) => e.key)).toContain('S-40');
+    const { offers } = await ask(agent, 'realestate.offers', { dealId: listing });
+    expect(offers.map((o: Any) => [o.number, o.buyerNames, o.status, o.address])).toEqual(
+      expect.arrayContaining([
+        [1, 'Wei and Lin Chen', 'waiting_us', '2207 Juniper Trail, Austin, TX 78745'],
+        [2, 'Priya Patel', 'waiting_us', '2207 Juniper Trail, Austin, TX 78745'],
+      ]),
+    );
+    // Their summary is for a buyer's client: a listing's offers are shared side by side instead.
+    expect(await refused(run(agent, 'realestate.offer.share_summary', { offerId: chen }))).toBe(
+      'realestate_offer_summary_buyer',
+    );
+  });
+
+  it('sit side by side with the seller’s estimate from kept figures, the best flagged, as proof for X-04', async () => {
+    const before = await ask(agent, 'realestate.offers.compare', { dealId: listing });
+    expect(before.figures).toBeNull();
+    // With no figures yet, only the fees the offers name come off.
+    expect(before.rows.find((r: Any) => r.offerId === chen).net.netCents).toBe(
+      53_500_000 - 1_070_000,
+    );
+    await run(agent, 'realestate.net_sheet.save', {
+      dealId: listing,
+      payoffCents: 21_000_000,
+      listingFeeBp: 300,
+      titleEscrowCents: 385_000,
+      otherCents: 75_000,
+    });
+    const saved = await run(agent, 'realestate.net_sheet.save', {
+      dealId: listing,
+      payoffCents: 21_240_000,
+      listingFeeBp: 300,
+      titleEscrowCents: 385_000,
+      otherCents: 75_000,
+      otherNote: 'HOA transfer',
+      note: 'Payoff from the lender’s letter',
+    });
+    expect(saved.version).toBe(2);
+    const c = await ask(agent, 'realestate.offers.compare', { dealId: listing });
+    expect(c.figures).toMatchObject({
+      version: 2,
+      payoffCents: 21_240_000,
+      savedBy: { fullName: 'Dana Reyes' },
+    });
+    expect(c.figureHistory.map((f: Any) => f.version)).toEqual([1]);
+    expect(c.rows.map((r: Any) => [r.buyers, r.net.netCents, r.best])).toEqual([
+      ['Wei and Lin Chen', 29_125_000, true],
+      ['Priya Patel', 28_730_000, false],
+    ]);
+    expect(c.rows[1]).toMatchObject({
+      paying: 'Conventional · 20% down',
+      buyerAgentFee: '3% · $16,350',
+      financing: '30 days · appraisal contingency',
+      homeSale: true,
+      escalation: 'Up to $555,000, by $2,500',
+    });
+    expect(c.rows[0]).toMatchObject({
+      paying: 'Cash',
+      financing: null,
+      inspection: '7 days',
+      possession: 'At closing',
+    });
+    expect((await evidence('net_sheet', listing)).map((e) => e.key)).toEqual(['X-04']);
+  });
+
+  it('are shared with the seller as they are, and her choice tells the agent and accepts nothing', async () => {
+    const shared = await run(agent, 'realestate.offers.share_comparison', { dealId: listing });
+    expect(shared.offers).toBe(2);
+    expect((await evidence('offer_comparison', shared.comparisonId)).map((e) => e.key)).toEqual(
+      expect.arrayContaining(['S-43']),
+    );
+    const mariaOnPhone = await mariaSignsIn();
+    const choose = (offerId: string, choice: string, words?: string) =>
+      executeCommand(
+        worker(),
+        op('commands', 'realestate.portal.offer_choice') as CommandDef,
+        { workspaceId: ws, comparisonId: shared.comparisonId, offerId, choice, words },
+        mariaOnPhone,
+        meta('portal'),
+      );
+    // Only an offer she was shown.
+    expect(await refused(choose(randomUUID(), 'accept'))).toBe('not_found');
+    await choose(chen, 'accept', 'Cash and the 20th works for us.');
+    const c = await ask(agent, 'realestate.offers.compare', { dealId: listing });
+    expect(c.shared.comparisonId).toBe(shared.comparisonId);
+    expect(c.choices).toEqual([
+      expect.objectContaining({
+        offerId: chen,
+        name: 'Maria',
+        choice: 'accept',
+        words: 'Cash and the 20th works for us.',
+      }),
+    ]);
+    // It's an instruction to her agent: the offer is still waiting on our answer.
+    expect(c.rows.find((r: Any) => r.offerId === chen).status).toBe('waiting_us');
+    const [line] = await rows<{ what: string; after: Any }>(
+      admin(),
+      sql`select what, after from addon_realestate.deal_history
+          where deal_record_id = ${listing} and what = 'seller_chose'`,
+    );
+    expect(line!.after).toMatchObject({ name: 'Maria', choice: 'accept', number: 1 });
+    const [event] = await rows<{ payload: Any }>(
+      admin(),
+      sql`select payload from app.events
+          where workspace_id = ${ws} and event_type = 'realestate.offers.seller_chose'`,
+    );
+    expect(event!.payload).toMatchObject({
+      offerId: chen,
+      choice: 'accept',
+      ownerUserId: agent.id,
+    });
+  });
+
+  it('withdrawn by the buyers leaves the listing on the market; accepted puts it under contract, as proof for S-48', async () => {
+    const out = await run(agent, 'realestate.offer.withdraw', {
+      offerId: patel,
+      reason: 'They bought another home.',
+    });
+    expect(out.dealStage).toBeNull();
+    const stage = (await dealNow()).stage;
+    const accepted = await run(agent, 'realestate.offer.record_response', {
+      offerId: chen,
+      outcome: 'accepted',
+    });
+    expect(stage).not.toBe('under_contract');
+    expect(accepted.dealStage).toBe('under_contract');
+    expect(accepted.termsEntered).toBeGreaterThan(0);
+    expect((await evidence('offer', chen)).map((e) => e.key)).toContain('S-48');
+    const mariaOnPhone = await mariaSignsIn();
+    const [cmp] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_realestate.offer_comparisons where deal_record_id = ${listing}`,
+    );
+    expect(
+      await refused(
+        executeCommand(
+          worker(),
+          op('commands', 'realestate.portal.offer_choice') as CommandDef,
+          { workspaceId: ws, comparisonId: cmp!.id, offerId: patel, choice: 'counter' },
+          mariaOnPhone,
+          meta('portal'),
+        ),
+      ),
+    ).toBe('realestate_offer_ended');
   });
 });

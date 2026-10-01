@@ -248,6 +248,42 @@ export async function listingAsked(ctx: AddonEventContext): Promise<void> {
   });
 }
 
+// ---------- offers ----------
+
+const CHOICE_TITLES: Readonly<Record<string, string>> = {
+  accept: 'wants to accept',
+  counter: 'wants to counter',
+  decline: 'wants to decline',
+  talk: 'wants to talk about',
+};
+
+/**
+ * `realestate.offers.seller_chose`: the seller said in their portal what they want about an offer. Their agent hears;
+ * nothing is accepted. A newer choice on the same offer replaces the alert.
+ */
+export async function sellerChose(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const dealId = ctx.event.entityId;
+  const offerId = typeof p['offerId'] === 'string' ? p['offerId'] : null;
+  if (!dealId || !offerId) return;
+  const owner = typeof p['ownerUserId'] === 'string' ? p['ownerUserId'] : null;
+  const name = typeof p['name'] === 'string' && p['name'] ? p['name'] : 'The seller';
+  const what = CHOICE_TITLES[String(p['choice'])] ?? 'answered';
+  const buyers = typeof p['buyers'] === 'string' && p['buyers'] ? ` from ${p['buyers']}` : '';
+  await raiseAddonAlert(ctx, {
+    key: `seller_chose:${dealId}:${offerId}`,
+    severity: 'attention',
+    title: `${name} ${what} offer ${String(p['number'] ?? '')}${buyers}`.slice(0, 200),
+    detail:
+      'In their portal. It tells you what they want; nothing is accepted until the contract is signed.',
+    href: `/a/realestate/deals/${dealId}/offers`,
+    permission: 'realestate.use',
+    customRecordId: dealId,
+    audienceUserIds: owner ? [owner] : [],
+    assigneeUserId: owner,
+  });
+}
+
 // ---------- social posts ----------
 
 /** `realestate.listing.posts_requested`: three posts from the home's public facts, each read by both checks. */
