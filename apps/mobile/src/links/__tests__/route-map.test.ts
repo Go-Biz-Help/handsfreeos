@@ -136,6 +136,8 @@ describe('the route map', () => {
       [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/leads/${ID}`],
       [`/app/w/${WS}/tasks`, `/app/w/${WS}/tasks`],
       [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money/invoices/${ID}`],
+      // A new support ticket, to the support people: the phone's Support desk.
+      [`/admin/tickets/${ID}`, `/app/admin/tickets/${ID}`],
     ];
     for (const [path, href] of opens)
       expect(routeFor(path)).toMatchObject({ kind: 'screen', href });
@@ -235,6 +237,55 @@ describe('the route map', () => {
       kind: 'web',
       path: '/app/ideas/not-an-id',
       businessId: null,
+    });
+  });
+
+  it('opens the support desk’s pages on the phone’s Support desk, which belongs to no business', () => {
+    // A new-ticket notification names the web's /admin/tickets/<id>; the phone's desk is /app/admin.
+    expect(routeFor(`/admin/tickets/${ID}`)).toEqual({
+      kind: 'screen',
+      href: `/app/admin/tickets/${ID}`,
+      businessId: null,
+      later: null,
+      params: {},
+    });
+    expect(decideLink(`/admin/tickets/${ID}`, { businessIds: [] })).toEqual({
+      kind: 'screen',
+      href: `/app/admin/tickets/${ID}`,
+      later: null,
+    });
+    expect(routeFor('/admin')).toMatchObject({ kind: 'screen', href: '/app/admin' });
+    expect(routeFor('/app/admin/health')).toMatchObject({ href: '/app/admin/health' });
+    expect(routeFor(`/admin/businesses/${ID}`)).toMatchObject({
+      href: `/app/admin/businesses/${ID}`,
+    });
+    expect(routeFor('/admin/ideas/whats-new')).toMatchObject({
+      href: '/app/admin/ideas/whats-new',
+    });
+    // A desk page the phone hasn't got, or a ticket that isn't an id, opens the web.
+    expect(routeFor('/admin/tickets/not-an-id')).toEqual({
+      kind: 'web',
+      path: '/admin/tickets/not-an-id',
+      businessId: null,
+    });
+    expect(routeFor('/admin/something-new')).toMatchObject({ kind: 'web' });
+    // The web's desk is at /admin, whichever address the link used.
+    expect(routeFor('/app/admin/something-new?x=1')).toEqual({
+      kind: 'web',
+      path: '/admin/something-new?x=1',
+      businessId: null,
+    });
+    // A page's own settings go with it, as the phone's screens read them.
+    expect(routeFor('/admin/health?hours=72')).toMatchObject({
+      href: '/app/admin/health?hours=72',
+      params: { hours: '72' },
+    });
+    expect(
+      decideLink('/admin/businesses?sort=quietest&q=bayou%20air', { businessIds: [] }),
+    ).toEqual({
+      kind: 'screen',
+      href: '/app/admin/businesses?sort=quietest&q=bayou%20air',
+      later: null,
     });
   });
 

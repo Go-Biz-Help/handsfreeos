@@ -12,7 +12,7 @@ import { notificationIdentifierOf, type PressEvent } from './payload';
  * of sight).
  *
  * - **A tap, Call, Review or Open** opens the push's `path` through the app's route map, once the person is signed in
- *   and the app unlocked.
+ *   and the app unlocked. A new support ticket opens on the Support desk (`/admin/tickets/<id>` → /app/admin/…).
  * - **A button that runs a command** makes its change through `change()` under `data.commandIds[button]`, then sends it
  *   straight away (the app may be locked, or woken without its sync connection). A second press, a replayed response or
  *   the same button on another of the person's phones gets the first answer back, so it's done once.
@@ -240,15 +240,17 @@ export class PressRunner {
     this.recentOpens.set(key, now);
     if (last !== undefined && now - last < 3_000) return { kind: 'opened', path };
     const about = followUpOf(followUp);
-    if (about?.kind === 'refused') {
-      this.deps.openLink(`/app/w/${press.data.workspaceId}/changes`);
-      return { kind: 'opened', path: `/app/w/${press.data.workspaceId}/changes` };
+    // A push about no business (a new support ticket) opens its own path: it has no Changes, and no one to call.
+    const { workspaceId } = press.data;
+    if (about?.kind === 'refused' && workspaceId) {
+      this.deps.openLink(`/app/w/${workspaceId}/changes`);
+      return { kind: 'opened', path: `/app/w/${workspaceId}/changes` };
     }
     this.deps.openLink(path);
-    if (press.actionId === 'call') {
+    if (press.actionId === 'call' && workspaceId) {
       const { conversationId, personId } = press.data.refs;
-      if (conversationId) this.deps.startCall?.({ conversationId }, press.data.workspaceId);
-      else if (personId) this.deps.startCall?.({ personId }, press.data.workspaceId);
+      if (conversationId) this.deps.startCall?.({ conversationId }, workspaceId);
+      else if (personId) this.deps.startCall?.({ personId }, workspaceId);
     }
     if (about?.kind === 'ask' && about.changeId) this.deps.askAbout(about.changeId);
     if (about?.kind === 'unlock' && this.pending()) this.deps.unlockToRun();
@@ -329,7 +331,7 @@ export class PressRunner {
 
     const person = await this.deps.ready();
     if (!person) return { kind: 'not-signed-in' };
-    if (!person.businessIds.includes(data.workspaceId))
+    if (data.workspaceId === null || !person.businessIds.includes(data.workspaceId))
       return { kind: 'nothing', reason: 'That notification is for a business you aren’t part of.' };
 
     let changeId: string;

@@ -12,6 +12,8 @@ import {
   DRAFT,
   ITEM,
   LONE_STAR,
+  supportTicket,
+  TICKET,
   urgentLead,
 } from './fixtures';
 
@@ -43,6 +45,7 @@ describe('the notification categories', () => {
       wallet: ['Open'],
       job_check: ['Done', 'Didn’t happen', 'Still there'],
       connection: ['Open'],
+      support_ticket: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });
@@ -250,6 +253,20 @@ describe('what a press does', () => {
     });
   });
 
+  it('opens a new support ticket on the support desk, for a tap and for Open, and runs nothing', () => {
+    const data = supportTicket();
+    for (const actionId of [TAP, 'open'])
+      expect(pressAction({ data, actionId, typed: null, pressedAt: PRESSED })).toEqual({
+        kind: 'open',
+        path: `/admin/tickets/${TICKET}`,
+        button: actionId === TAP ? null : 'open',
+      });
+    // It carries no business, so no button could run a command in one.
+    expect(pressAction({ data, actionId: 'reply', typed: 'Hi', pressedAt: PRESSED })).toMatchObject(
+      { kind: 'nothing' },
+    );
+  });
+
   it('does nothing for a button that isn’t on the notification, or one it carries no command id for', () => {
     expect(
       pressAction({
@@ -277,5 +294,6 @@ describe('what a press does', () => {
   it('keys a press by the moment and the button, the same on a second press', () => {
     expect(pressKey(customerMessage(), 'reply')).toBe('20000000-0000-4000-8000-000000000001:reply');
     expect(PushData.safeParse(customerMessage()).success).toBe(true);
+    expect(PushData.safeParse(supportTicket()).success).toBe(true);
   });
 });

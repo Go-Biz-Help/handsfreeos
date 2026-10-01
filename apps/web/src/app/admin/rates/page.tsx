@@ -1,3 +1,4 @@
+import { deskSectionLabel, RATES_WORDS } from '@hfos/core';
 import { RatesTable } from '@/components/admin/rates-table';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -20,10 +21,8 @@ export default async function RatesPage({
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">Rates</h1>
-        <p className="text-[13px] text-text-3">
-          Card version {card.version} · measured over the last {window} days
-        </p>
+        <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('rates')}</h1>
+        <p className="text-[13px] text-text-3">{RATES_WORDS.measured(card.version, window)}</p>
       </div>
       <RatesTable card={card} />
     </div>

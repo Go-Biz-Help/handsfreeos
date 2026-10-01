@@ -1,5 +1,13 @@
 'use client';
-import { IDEA_STATUS_WORDS, IDEA_STATUSES, relativeTimeAgo, type IdeaStatus } from '@hfos/core';
+import {
+  IDEA_STATUS_WORDS,
+  IDEA_STATUSES,
+  IDEAS_TEAM_WORDS,
+  IDEAS_WORDS,
+  ideaTeamUpdateLine,
+  relativeTimeAgo,
+  type IdeaStatus,
+} from '@hfos/core';
 import { ArrowLeft, ChevronUp, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -151,14 +159,14 @@ export function IdeaTeamViewPage({
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2 hover:text-text"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-        Ideas
+        {IDEAS_WORDS.title}
       </Link>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <div className="rounded-card border border-border bg-card p-5">
             {editing ? (
               <form onSubmit={saveWords} className="flex flex-col gap-4">
-                <Field label="Title" htmlFor="team-title">
+                <Field label={IDEAS_TEAM_WORDS.titleLabel} htmlFor="team-title">
                   <Input
                     id="team-title"
                     value={title}
@@ -166,7 +174,7 @@ export function IdeaTeamViewPage({
                     maxLength={140}
                   />
                 </Field>
-                <Field label="Details" htmlFor="team-body">
+                <Field label={IDEAS_TEAM_WORDS.detailsLabel} htmlFor="team-body">
                   <Textarea
                     id="team-body"
                     rows={6}
@@ -175,22 +183,22 @@ export function IdeaTeamViewPage({
                     maxLength={5000}
                   />
                 </Field>
-                <Field label="Area" htmlFor="team-area">
+                <Field label={IDEAS_TEAM_WORDS.areaLabel} htmlFor="team-area">
                   <Select id="team-area" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
                     {areas.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
-                        {a.archived ? ' (archived)' : ''}
+                        {a.archived ? IDEAS_TEAM_WORDS.archivedSuffix : ''}
                       </option>
                     ))}
                   </Select>
                 </Field>
                 <div className="flex gap-2">
                   <Button type="submit" loading={busy === 'edit'}>
-                    Save
+                    {IDEAS_TEAM_WORDS.save}
                   </Button>
                   <Button variant="ghost" onClick={() => setEditing(false)}>
-                    Cancel
+                    {IDEAS_TEAM_WORDS.cancel}
                   </Button>
                 </div>
               </form>
@@ -209,13 +217,13 @@ export function IdeaTeamViewPage({
                     <span suppressHydrationWarning>{relativeTimeAgo(idea.createdAt)}</span>
                     {idea.hidden ? (
                       <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
-                        Taken down
+                        {IDEAS_TEAM_WORDS.takenDown}
                       </span>
                     ) : null}
                   </div>
                   {idea.mergedInto ? (
                     <p className="mt-3 text-[13px]">
-                      Merged into{' '}
+                      {IDEAS_TEAM_WORDS.mergedInto}{' '}
                       <Link href={`/admin/ideas/${idea.mergedInto.id}`} className="underline">
                         #{idea.mergedInto.number} {idea.mergedInto.title}
                       </Link>
@@ -225,7 +233,7 @@ export function IdeaTeamViewPage({
                   {idea.body ? (
                     <PlainText text={idea.body} className="mt-4 text-[14.5px]" />
                   ) : (
-                    <p className="mt-4 text-[13px] text-text-3">No details.</p>
+                    <p className="mt-4 text-[13px] text-text-3">{IDEAS_TEAM_WORDS.noDetails}</p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
@@ -234,7 +242,7 @@ export function IdeaTeamViewPage({
                       className="-ml-2"
                       onClick={() => setEditing(true)}
                     >
-                      Tidy the words
+                      {IDEAS_TEAM_WORDS.tidy}
                     </Button>
                     <Button
                       variant="ghost"
@@ -243,7 +251,7 @@ export function IdeaTeamViewPage({
                       onClick={() => void setHidden(!idea.hidden)}
                       data-testid="idea-hide"
                     >
-                      {idea.hidden ? 'Put it back on the board' : 'Take it off the board'}
+                      {idea.hidden ? IDEAS_TEAM_WORDS.unhide : IDEAS_TEAM_WORDS.hide}
                     </Button>
                   </div>
                 </div>
@@ -255,19 +263,11 @@ export function IdeaTeamViewPage({
 
           {updates.length ? (
             <section className="mt-6">
-              <h2 className="text-sm font-semibold">What happened</h2>
+              <h2 className="text-sm font-semibold">{IDEAS_WORDS.whatHappened}</h2>
               <ol className="mt-2 flex flex-col gap-2 text-[13px]">
                 {updates.map((u) => (
                   <li key={u.id} className="rounded-control border border-border bg-card px-3 py-2">
-                    <span className="font-medium">
-                      {u.kind === 'status'
-                        ? u.fromStatus === u.toStatus
-                          ? `Update while ${IDEA_STATUS_WORDS[u.toStatus as IdeaStatus]}`
-                          : `${IDEA_STATUS_WORDS[u.fromStatus as IdeaStatus]} → ${IDEA_STATUS_WORDS[u.toStatus as IdeaStatus]}`
-                        : u.kind === 'merged'
-                          ? `Merged into #${u.other?.number ?? '?'}`
-                          : `#${u.other?.number ?? '?'} merged in`}
-                    </span>
+                    <span className="font-medium">{ideaTeamUpdateLine(u)}</span>
                     <span className="text-text-3">
                       {' '}
                       · {u.by} · {dayWords(u.createdAt)}
@@ -280,7 +280,7 @@ export function IdeaTeamViewPage({
           ) : null}
 
           <section className="mt-6">
-            <h2 className="text-sm font-semibold">Comments</h2>
+            <h2 className="text-sm font-semibold">{IDEAS_TEAM_WORDS.comments}</h2>
             {comments.length ? (
               <ul className="mt-2 flex flex-col gap-2">
                 {comments.map((c) => (
@@ -295,13 +295,15 @@ export function IdeaTeamViewPage({
                     )}
                   >
                     <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                      <span className="font-medium">{c.author.name || 'Someone'}</span>
+                      <span className="font-medium">{c.author.name || IDEAS_WORDS.someone}</span>
                       {c.author.team ? (
                         <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-white">
-                          Team
+                          {IDEAS_TEAM_WORDS.team}
                         </span>
                       ) : null}
-                      {c.hidden ? <span className="text-warning-text">Taken down</span> : null}
+                      {c.hidden ? (
+                        <span className="text-warning-text">{IDEAS_TEAM_WORDS.takenDown}</span>
+                      ) : null}
                       <span className="text-text-3" suppressHydrationWarning>
                         {relativeTimeAgo(c.createdAt)}
                       </span>
@@ -311,7 +313,7 @@ export function IdeaTeamViewPage({
                         disabled={busy === `comment-${c.id}`}
                         onClick={() => void setCommentHidden(c.id, !c.hidden)}
                       >
-                        {c.hidden ? 'Put back' : 'Take down'}
+                        {c.hidden ? IDEAS_TEAM_WORDS.putBack : IDEAS_TEAM_WORDS.takeDown}
                       </button>
                     </div>
                     <p className="mt-1 whitespace-pre-line text-[14px]">{c.body}</p>
@@ -319,19 +321,19 @@ export function IdeaTeamViewPage({
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-[13px] text-text-3">No comments yet.</p>
+              <p className="mt-2 text-[13px] text-text-3">{IDEAS_TEAM_WORDS.noComments}</p>
             )}
             {idea.mergedInto ? null : (
               <form onSubmit={sendAnswer} className="mt-3 flex flex-col gap-2">
                 <label htmlFor="team-answer" className="text-[13px] font-medium">
-                  Answer as the team
+                  {IDEAS_TEAM_WORDS.answer}
                 </label>
                 <Textarea
                   id="team-answer"
                   rows={3}
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="Everybody sees this with the HandsFreeOS badge, and whoever shared the idea is emailed."
+                  placeholder={IDEAS_TEAM_WORDS.answerPlaceholder}
                   data-testid="team-answer"
                 />
                 <div>
@@ -341,7 +343,7 @@ export function IdeaTeamViewPage({
                     loading={busy === 'answer'}
                     disabled={!answer.trim()}
                   >
-                    Post answer
+                    {IDEAS_TEAM_WORDS.postAnswer}
                   </Button>
                 </div>
               </form>
@@ -356,12 +358,12 @@ export function IdeaTeamViewPage({
               className="rounded-card border border-border bg-card p-4"
               data-testid="idea-status-form"
             >
-              <h2 className="text-sm font-semibold">Where it stands</h2>
+              <h2 className="text-sm font-semibold">{IDEAS_WORDS.whereItStands}</h2>
               <Select
                 className="mt-2"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as IdeaStatus)}
-                aria-label="Status"
+                aria-label={IDEAS_WORDS.statusLabel}
                 data-testid="idea-status-select"
               >
                 {IDEA_STATUSES.map((s) => (
@@ -377,16 +379,16 @@ export function IdeaTeamViewPage({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={
                   statusChanged
-                    ? 'A note for the people following it (optional)'
-                    : 'Or post an update without moving it'
+                    ? IDEAS_TEAM_WORDS.notePlaceholderMove
+                    : IDEAS_TEAM_WORDS.notePlaceholderUpdate
                 }
                 maxLength={2000}
-                aria-label="Note for followers"
+                aria-label={IDEAS_TEAM_WORDS.noteLabel}
                 data-testid="idea-status-note"
               />
               <Checkbox
                 className="mt-2"
-                label={`Email the ${team.followerCount === 1 ? 'one person' : `${team.followerCount} people`} following it`}
+                label={IDEAS_TEAM_WORDS.emailFollowers(team.followerCount)}
                 checked={notify}
                 onChange={(e) => setNotify(e.target.checked)}
               />
@@ -397,16 +399,16 @@ export function IdeaTeamViewPage({
                 disabled={!statusChanged && !note.trim()}
                 data-testid="idea-status-save"
               >
-                {statusChanged ? `Move to ${IDEA_STATUS_WORDS[status]}` : 'Post the update'}
+                {statusChanged ? IDEAS_TEAM_WORDS.moveTo(status) : IDEAS_TEAM_WORDS.postUpdate}
               </Button>
             </form>
           ) : null}
 
           <section className="rounded-card border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">Who is behind it</h2>
+            <h2 className="text-sm font-semibold">{IDEAS_TEAM_WORDS.whoIsBehind}</h2>
             {team.author ? (
               <p className="mt-2 text-[13px]">
-                Shared by{' '}
+                {IDEAS_TEAM_WORDS.sharedBy}{' '}
                 <span className="font-medium">{team.author.name || team.author.email}</span>
                 <br />
                 <span className="text-text-3">{team.author.email}</span>
@@ -424,12 +426,10 @@ export function IdeaTeamViewPage({
                 ) : null}
               </p>
             ) : (
-              <p className="mt-2 text-[13px] text-text-3">Shared by someone who has since left.</p>
+              <p className="mt-2 text-[13px] text-text-3">{IDEAS_TEAM_WORDS.authorLeft}</p>
             )}
             <p className="mt-3 text-[13px]">
-              {team.voters.length === 1 ? '1 vote' : `${team.voters.length} votes`} from{' '}
-              {team.businessCount === 1 ? '1 business' : `${team.businessCount} businesses`} ·{' '}
-              {team.followerCount} following
+              {IDEAS_TEAM_WORDS.support(team.voters.length, team.businessCount, team.followerCount)}
             </p>
             {team.voters.length ? (
               <ul className="mt-2 max-h-72 divide-y divide-border overflow-y-auto rounded-control border border-border text-[13px]">
@@ -437,7 +437,7 @@ export function IdeaTeamViewPage({
                   <li key={v.userId} className="px-3 py-2">
                     <span className="font-medium">{v.name || v.email}</span>
                     <span className="block truncate text-xs text-text-3">
-                      {v.business?.name ?? 'No business'} · {dayWords(v.votedAt)}
+                      {v.business?.name ?? IDEAS_TEAM_WORDS.noBusiness} · {dayWords(v.votedAt)}
                     </span>
                   </li>
                 ))}
@@ -447,18 +447,15 @@ export function IdeaTeamViewPage({
 
           {idea.mergedInto ? null : (
             <section className="rounded-card border border-border bg-card p-4">
-              <h2 className="text-sm font-semibold">Is it a duplicate?</h2>
-              <p className="mt-1 text-xs text-text-3">
-                Merging moves its votes and followers to the other idea and tells them where it
-                went.
-              </p>
+              <h2 className="text-sm font-semibold">{IDEAS_TEAM_WORDS.duplicate}</h2>
+              <p className="mt-1 text-xs text-text-3">{IDEAS_TEAM_WORDS.duplicateDetail}</p>
               <Input
                 className="mt-2"
                 inputSize="sm"
                 value={dupSearch}
                 onChange={(e) => setDupSearch(e.target.value)}
-                aria-label="Find the idea it repeats"
-                placeholder="Find the idea it repeats"
+                aria-label={IDEAS_TEAM_WORDS.findDuplicate}
+                placeholder={IDEAS_TEAM_WORDS.findDuplicate}
               />
               {matches.length ? (
                 <>
@@ -473,11 +470,13 @@ export function IdeaTeamViewPage({
                           variant="secondary"
                           loading={busy === 'merge'}
                           onClick={() => {
-                            if (window.confirm(`Merge #${idea.number} into #${m.number}?`))
+                            if (
+                              window.confirm(IDEAS_TEAM_WORDS.mergeQuestion(idea.number, m.number))
+                            )
                               void merge(m.id);
                           }}
                         >
-                          Merge into
+                          {IDEAS_TEAM_WORDS.mergeInto}
                         </Button>
                       </li>
                     ))}
@@ -487,12 +486,12 @@ export function IdeaTeamViewPage({
                     inputSize="sm"
                     value={mergeNote}
                     onChange={(e) => setMergeNote(e.target.value)}
-                    placeholder="A note for its followers (optional)"
-                    aria-label="Note for followers"
+                    placeholder={IDEAS_TEAM_WORDS.mergeNote}
+                    aria-label={IDEAS_TEAM_WORDS.noteLabel}
                   />
                 </>
               ) : (
-                <p className="mt-2 text-xs text-text-3">No other idea sounds like it.</p>
+                <p className="mt-2 text-xs text-text-3">{IDEAS_TEAM_WORDS.noDuplicates}</p>
               )}
             </section>
           )}

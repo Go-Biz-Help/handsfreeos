@@ -1,4 +1,4 @@
-import type { PushCategory, PushData } from '@hfos/core';
+import { isStaffPush, type PushCategory, type PushData } from '@hfos/core';
 
 import type { FollowUp } from './press';
 import { notificationIdentifierOf } from './payload';
@@ -13,7 +13,8 @@ import { notificationIdentifierOf } from './payload';
  * - **Quiet updates** (`quiet: true`, the next messages of a burst) replace the notification without a sound or a buzz.
  * - **iPhones** draw their pushes themselves. Test builds show the worker's stand-in pushes the same way on both
  *   phones, through this code: the words, the category's buttons, time-sensitive for the urgent kinds.
- * - A push for someone not signed in on this phone, or for a business they aren't part of, isn't shown.
+ * - A push for someone not signed in on this phone, or for a business they aren't part of, isn't shown. A push to
+ *   HandsFreeOS's support people (a new ticket) belongs to no business: it's shown only to someone who answers support.
  */
 
 /** The phone's one channel for HandsFreeOS notifications (Android). */
@@ -110,6 +111,23 @@ export function followUpNotificationOf(
     },
     trigger: platform === 'android' ? { channelId: CHANNEL_ID } : null,
   };
+}
+
+/** Who is signed in on this phone, as a push asks: their businesses, and whether they answer HandsFreeOS support. */
+export interface PhonePerson {
+  readonly businessIds: readonly string[];
+  /** The kept answer to `platform.me` (admin/staff.ts): a support person. */
+  readonly staff: boolean;
+}
+
+/**
+ * Whether a push is for the person signed in here: one of their businesses', or, for a push to support people (which
+ * has no business), someone who answers support. Nobody signed in: nothing is.
+ */
+export function pushIsFor(data: PushData, person: PhonePerson | null): boolean {
+  if (!person) return false;
+  if (isStaffPush(data.category)) return data.workspaceId === null && person.staff;
+  return data.workspaceId !== null && person.businessIds.includes(data.workspaceId);
 }
 
 export type PresentResult = 'shown' | 'already-shown' | 'not-for-this-phone' | 'no-words';

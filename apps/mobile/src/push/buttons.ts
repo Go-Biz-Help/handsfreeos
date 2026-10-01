@@ -49,6 +49,8 @@ function commandOf(
   pressedAt: number,
 ): ButtonCommand | string {
   const { workspaceId, refs } = data;
+  // Every button that runs a command acts in a business; a push to support people has none, and no such button.
+  if (!workspaceId) return 'This notification isn’t about a business.';
   switch (button) {
     case 'reply': {
       const body = typed?.trim() ?? '';

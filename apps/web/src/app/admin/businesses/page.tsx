@@ -1,9 +1,6 @@
+import { deskBusinessSort } from '@hfos/core';
 import { Businesses, type BusinessRow } from '@/components/admin/businesses';
 import { apiServer, unwrap } from '@/lib/api/server';
-
-/** The orders the page offers; anything else in the address is read as the default. */
-const SORTS = ['newest', 'busiest', 'quietest', 'name'] as const;
-type Sort = (typeof SORTS)[number];
 
 export default async function BusinessesPage({
   searchParams,
@@ -16,7 +13,8 @@ export default async function BusinessesPage({
     await api.POST('/v1/queries/platform.business.list', {
       body: {
         ...(q ? { search: q } : {}),
-        sort: SORTS.includes(sort as Sort) ? (sort as Sort) : 'newest',
+        // The orders the page offers; anything else in the address is read as the default.
+        sort: deskBusinessSort(sort),
         ...(cursor ? { cursor } : {}),
         limit: 25,
       },

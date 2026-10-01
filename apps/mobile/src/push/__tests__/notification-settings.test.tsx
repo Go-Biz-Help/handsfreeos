@@ -9,11 +9,13 @@ import { toast } from '@/components/ui/toast';
 import { change, ChangeError, NEEDS_SIGNAL } from '@/changes';
 import type { Me } from '@/lib/businesses';
 import type { RegistrationSnapshot } from '@/push/registration';
+import type { Staff } from '@/admin/staff';
 
 /**
- * Settings → Notifications: the seven push switches beside email, saved whole through `user.update_profile` as the web
- * saves them, online only ("This needs signal."), with a refusal putting the switch back; this phone's own permission,
- * with the way to its settings; and "On N phones".
+ * Settings → Notifications: the push switches beside email, saved whole through `user.update_profile` as the web saves
+ * them, online only ("This needs signal."), with a refusal putting the switch back; New support tickets only for
+ * someone who answers HandsFreeOS support; this phone's own permission, with the way to its settings; and
+ * "On N phones".
  */
 
 jest.mock('expo-router', () => ({
@@ -29,6 +31,11 @@ jest.mock('@/changes', () => {
   );
   return { change: jest.fn(), ChangeError: actual.ChangeError, NEEDS_SIGNAL: actual.NEEDS_SIGNAL };
 });
+
+let mockStaff: Staff | null = null;
+jest.mock('@/admin/staff', () => ({
+  useStaff: () => ({ staff: mockStaff, status: 'ready', error: null, reload: () => undefined }),
+}));
 
 let mockRegistration: RegistrationSnapshot;
 jest.mock('@/push/hooks', () => ({ usePushRegistration: () => mockRegistration }));
@@ -91,11 +98,13 @@ const ALL_ON = {
   wallet: true,
   jobs: true,
   connections: true,
+  supportTickets: true,
 };
 
 beforeEach(() => {
   settings = {};
   phones = 2;
+  mockStaff = null;
   mockRegistration = {
     status: 'registered',
     permission: 'granted',
@@ -118,8 +127,9 @@ describe('Settings → Notifications', () => {
     expect(screen.getByTestId('email-unansweredEmail')).toBeChecked();
     expect(screen.getByText('Always')).toBeTruthy();
     expect(screen.getByText('Morning summary')).toBeTruthy();
-    // Dale owns a business on its own, not an agency: no agency digest.
+    // Dale owns a business on its own, not an agency: no agency digest. Nor does he answer support.
     expect(screen.queryByText('Daily agency digest')).toBeNull();
+    expect(screen.queryByTestId('push-supportTickets')).toBeNull();
     expect(screen.getByText('On 2 phones')).toBeTruthy();
     expect(screen.getByTestId('this-phone-notifications')).toHaveTextContent('On');
   });
@@ -137,7 +147,7 @@ describe('Settings → Notifications', () => {
     expect(screen.getByText('On 1 phone')).toBeTruthy();
   });
 
-  it('saves all seven push switches through user.update_profile, and says so', async () => {
+  it('saves every push switch through user.update_profile, and says so', async () => {
     jest.mocked(change).mockResolvedValue({ id: 'c', queued: false, output: {} } as never);
     await show();
     await fireEvent.press(screen.getByTestId('push-urgent'));
@@ -193,6 +203,25 @@ describe('Settings → Notifications', () => {
       'This version of HandsFreeOS is too old. Update it to keep going.',
     );
     expect(screen.getByTestId('push-booking')).toBeChecked();
+  });
+
+  it('shows New support tickets to someone who answers HandsFreeOS support, on until turned off', async () => {
+    mockStaff = {
+      userId: DALE,
+      role: 'agent',
+      displayName: 'Dale',
+      permissions: ['support.read', 'support.reply'],
+      founder: false,
+    };
+    jest.mocked(change).mockResolvedValue({ id: 'c', queued: false, output: {} } as never);
+    await show();
+    expect(screen.getByText('New support tickets')).toBeTruthy();
+    expect(screen.getByTestId('push-supportTickets')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('push-supportTickets'));
+    expect(change).toHaveBeenCalledWith('user.update_profile', {
+      settings: { push: { ...ALL_ON, supportTickets: false } },
+    });
+    expect(toast.show).toHaveBeenCalledWith('New support tickets: push off');
   });
 
   it('shows the agency digest to an owner of an agency', async () => {
