@@ -8,7 +8,7 @@ name: Phone app on Android
 # whose Reply is pressed in the notification shade, links opening the app's screens, and the notification switches.
 # Its own workflow, so the 45-minute CI job keeps its room.
 # A run takes about 90 minutes of Actions time, so it runs only when started by hand, about once per step:
-# `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
+# `gh workflow run "Phone app on Android" --repo Go-Biz-Help/handsfreeos --ref main`.
 on:
   workflow_dispatch:
 

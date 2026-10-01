@@ -60,7 +60,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                                                                                      | "Connected mailboxes: Outlook and Gmail"    |
 | Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $40 a day per workspace. | "The Assistant: Anthropic"                  |
 | OpenAI (an OpenAI Platform organization, with prepaid credits)      | GPT, the backup that answers every AI feature while Claude is down                                                                                                                                      | Pay as you go from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. Businesses pay the same whichever AI answers.                                                                                                                     | "The backup AI: OpenAI"                     |
-| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                                                                                                                      | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
+| GitHub, organization `Go-Biz-Help` (already exists)                 | The repository `Go-Biz-Help/handsfreeos`, CI and the Deploy workflow                                                                                                                                    | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
 | Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                                                                                    | Several sections                            |
 | Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                                                                          | "The public website on Vercel"              |
 
@@ -2039,7 +2039,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 3. Store it in GitHub. `gh` asks you to paste the value. Paste it and press Return.
 
    ```bash
-   gh secret set FLY_API_TOKEN --repo gobizhelp/handsfreeos
+   gh secret set FLY_API_TOKEN --repo Go-Biz-Help/handsfreeos
    ```
 
    To do it in the browser instead, open the repository and go to **Settings** → **Secrets and variables** → **Actions**, click the **Secrets** tab, then **New repository secret**. Enter `FLY_API_TOKEN` as the **Name**, paste the token into **Secret**, and click **Add secret**.
@@ -2047,7 +2047,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 4. Check it.
 
    ```bash
-   gh secret list --repo gobizhelp/handsfreeos
+   gh secret list --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see `FLY_API_TOKEN` in the list.
@@ -2056,13 +2056,13 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 6. Run the Deploy workflow once to prove it works.
 
    ```bash
-   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+   gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 7. Watch the run until it ends. Pick the newest Deploy run and press Return. If `gh` says no runs are in progress, wait a few seconds and run it again.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its first job, **The API and the worker on Fly.io**, shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**. A second job, **The sync service on Fly.io**, follows it; until the sync service is set up, its steps note that they skipped (see Sync Part 8 in "Sync service: PowerSync on Fly").
@@ -2104,7 +2104,7 @@ After the redeploy:
 - To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run ships the newest commit on the branch you pick. It doesn't report to Vercel, so a web build waiting on its check still needs its own run re-run, or **Force Promote** in Vercel.
 
   ```bash
-  gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+  gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
   ```
 
 - To deploy from your Mac, start from a clean, up-to-date `main` (Fly Part 7, steps 1 and 2). Then run the same commands as GitHub, worker first:
@@ -2289,13 +2289,13 @@ Fly's docs describe no rollback command. Instead you redeploy an earlier image.
 11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job to report ("Make Vercel wait for the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
 
     ```bash
-    gh workflow disable Deploy --repo gobizhelp/handsfreeos
+    gh workflow disable Deploy --repo Go-Biz-Help/handsfreeos
     ```
 
 12. If you paused it, turn the workflow back on once the fix is on `main`.
 
     ```bash
-    gh workflow enable Deploy --repo gobizhelp/handsfreeos
+    gh workflow enable Deploy --repo Go-Biz-Help/handsfreeos
     ```
 
 What a rollback does not undo:
@@ -2925,13 +2925,13 @@ Run it once to prove it works:
 1. Start the workflow:
 
    ```bash
-   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+   gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 2. Watch it. Pick the newest Deploy run and press Return.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see the run end successfully. The first time, the steps **Deploy the sync service (one machine, never stopped)**, **Wait for a new sync config to finish copying** and **Keep the daily compaction machine in step** each get a check mark.
@@ -2951,13 +2951,13 @@ Its hourly runs start only once the repository variable `HFOS_SYNC_HEALTH` is `o
 1. Run it once now:
 
    ```bash
-   gh workflow run "Sync health" --repo gobizhelp/handsfreeos --ref main
+   gh workflow run "Sync health" --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 2. Watch it. Pick the newest Sync health run and press Return.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see the run end successfully, and `Healthy.` at the end of its step **Ask the sync service how it is**.
@@ -2965,10 +2965,10 @@ Its hourly runs start only once the repository variable `HFOS_SYNC_HEALTH` is `o
 3. Turn on the hourly runs.
 
    ```bash
-   gh variable set HFOS_SYNC_HEALTH --body on --repo gobizhelp/handsfreeos
+   gh variable set HFOS_SYNC_HEALTH --body on --repo Go-Biz-Help/handsfreeos
    ```
 
-   You should see `✓ Created variable HFOS_SYNC_HEALTH for gobizhelp/handsfreeos`. The next run starts at 23 minutes past the hour. To stop them again, `gh variable delete HFOS_SYNC_HEALTH --repo gobizhelp/handsfreeos`.
+   You should see `✓ Created variable HFOS_SYNC_HEALTH for Go-Biz-Help/handsfreeos`. The next run starts at 23 minutes past the hour. To stop them again, `gh variable delete HFOS_SYNC_HEALTH --repo Go-Biz-Help/handsfreeos`.
 
 4. Make sure its failures reach you. GitHub emails a scheduled workflow's failures to the person who last changed its `cron:` line, which is the account that committed the file. On GitHub, click your profile picture, then **Settings** → **Notifications**. Under **System**, set **Actions** to email you, for failed workflows only. If the page has moved, search GitHub's settings for "Actions notifications".
 
@@ -3212,21 +3212,21 @@ The trial ends after 14 days, or sooner if the team reaches the trial's usage li
 
 ### Create the project
 
-`gobizhelp` is a personal GitHub account, not a GitHub organization. Vercel's rule that every commit author must be a member of the Pro team applies only to private repositories owned by an organization, so it does not affect `gobizhelp/handsfreeos`. If the repository ever moves to a GitHub organization, each person who commits needs a Vercel account, linked to GitHub, that is a member of the Pro team. Otherwise their deployments fail with "Team access required to deploy." If the team uses **Manual Approval**, approve new members under the team's **Settings** → **Members**.
+The repository belongs to the GitHub organization `Go-Biz-Help`. It moved there from the personal account `gobizhelp` (see "If the repository moves" below). Vercel's rule that every commit author must be a member of the Pro team applies to private repositories owned by an organization, so it applies here: each person who commits needs a Vercel account, linked to GitHub, that is a member of the Pro team. Otherwise their deployments fail with "Team access required to deploy." If the team uses **Manual Approval**, approve new members under the team's **Settings** → **Members**.
 
 1. Make sure the Pro team is selected in the team switcher at the top left.
 2. Click **Add New…** and choose **Project**.
-3. Under **Import Git Repository**, click **Import** next to `gobizhelp/handsfreeos`.
+3. Under **Import Git Repository**, click **Import** next to `Go-Biz-Help/handsfreeos`.
 
-   If `gobizhelp/handsfreeos` is not listed:
-   1. Look below the list for a link to install or adjust the Vercel GitHub App, and click it. If there is none, open `https://github.com/settings/installations` while signed in to GitHub as `gobizhelp`.
+   If `Go-Biz-Help/handsfreeos` is not listed:
+   1. Look below the list for a link to install or adjust the Vercel GitHub App, and click it. If there is none, open `https://github.com/organizations/Go-Biz-Help/settings/installations` while signed in to GitHub as an owner of the organization.
    2. Click **Configure** next to **Vercel**.
    3. Under **Repository access**, choose **Only select repositories**.
    4. Add `handsfreeos` to the list.
    5. Click **Save**.
    6. Go back to Vercel and refresh the page.
 
-      You should see `gobizhelp/handsfreeos` with an **Import** button.
+      You should see `Go-Biz-Help/handsfreeos` with an **Import** button.
 
 4. Set **Project Name** to `handsfreeos-web`.
 5. Next to **Root Directory**, click **Edit**.
@@ -3395,6 +3395,20 @@ Next.js writes the `NEXT_PUBLIC_` values into the app while it builds. That cove
 
 A push to `main` also builds with the current settings.
 
+### If the repository moves
+
+Vercel and Expo stay linked to the old address when the repository is transferred on GitHub or renamed, and they don't follow it. Pushes stop deploying, and **Create Deployment** refuses a link to the new address with "The provided link points to a different repository than what is connected to the Vercel project." Relink each one:
+
+1. On GitHub, open the new owner's **Settings** → **GitHub Apps** (for an organization, `https://github.com/organizations/<name>/settings/installations`). Click **Configure** next to **Vercel** and add `handsfreeos` under **Repository access**. If Vercel isn't listed, install it from the Vercel project in step 2. Do the same for **Expo**.
+2. In Vercel, open `handsfreeos-web`, then **Settings** → **Git**. Click **Disconnect**, then **Connect Git Repository**, and pick the repository at its new address. Give the plain repository, never a link to a branch or folder: **Root Directory** (`apps/web`) is a separate setting and is kept.
+3. Do the same for `handsfreeos-site`, whose **Root Directory** stays `apps/site`.
+4. In Expo, open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github` and link the repository at its new address, with **Base directory** `apps/mobile`.
+5. Push a commit to `main`.
+
+   You should see a new deployment start in both Vercel projects.
+
+Domains, environment variables and build settings stay as they were. **Create Deployment** takes a branch or commit, such as `main` or `https://github.com/Go-Biz-Help/handsfreeos/tree/main`.
+
 ### Add app.handsfreeos.com
 
 1. In the project, click **Settings**, then **Domains**.
@@ -3551,7 +3565,7 @@ These are plain settings in files in the repository, not Fly.io secrets, so `fly
    git add apps/api/fly.toml apps/worker/fly.toml && git commit -m "Change the web address" && git push
    ```
 
-   You should see a new **CI** run for your commit at `https://github.com/gobizhelp/handsfreeos/actions`.
+   You should see a new **CI** run for your commit at `https://github.com/Go-Biz-Help/handsfreeos/actions`.
 
 9. Wait until the **CI** run shows a green check, and then the **Deploy** run that follows it. The Deploy workflow ships the worker and then the API. To run it by hand, open the repository on GitHub and click **Actions** → **Deploy** → **Run workflow**.
 10. Run the two `curl .../healthz` commands from "Before you start" in this section.
@@ -9785,7 +9799,7 @@ EAS keeps the build number itself — `appVersionSource` is `remote` and both pr
 Optional, and only worth it if you would rather not build from your Mac. EAS can build from a commit on GitHub instead.
 
 1. Open the project's GitHub settings: `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`.
-2. Install the Expo GitHub App, then link `gobizhelp/handsfreeos`. You need Owner or Admin on the Expo account.
+2. Install the Expo GitHub App, then link `Go-Biz-Help/handsfreeos`. You need Owner or Admin on the Expo account.
 3. Set **Base directory** to `apps/mobile`. Without it the build looks for the app in the repository root and finds a monorepo.
 
 Each profile you build this way also needs an `image` in `eas.json` — `preview` and `production` have `"image": "latest"` for both platforms. Leave it out and there is no error message: the build simply never dispatches.
@@ -9812,7 +9826,7 @@ This is also the rule that keeps an update honest: a phone is only ever offered 
 
 1. **Over-the-air updates turned on.** Done: `app.json` has `expo.updates.url` pointing at `https://u.expo.dev/22b0e923-de8b-4b67-9089-2c4bd440a956`, which is this project's id. Nothing else is needed, and `eas update:configure` does not have to be run. Adding it changed the fingerprint, so the first build after it is a new one on both phones — expected, and it only happens once.
 
-2. **The Expo GitHub App on the repository.** Everything above hangs off this: EAS hears about a push, a pull request or a label only through it. Open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`, install the app, link `gobizhelp/handsfreeos`, and set **Base directory** to `apps/mobile`. Without the base directory EAS looks for the app at the repository root and finds a monorepo. This is the same link Phone Part 3 asks for; doing it once covers both.
+2. **The Expo GitHub App on the repository.** Everything above hangs off this: EAS hears about a push, a pull request or a label only through it. Open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`, install the app, link `Go-Biz-Help/handsfreeos`, and set **Base directory** to `apps/mobile`. Without the base directory EAS looks for the app at the repository root and finds a monorepo. This is the same link Phone Part 3 asks for; doing it once covers both.
 
 3. **`EXPO_TOKEN` as a repository secret.** GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**, named `EXPO_TOKEN`. Use an access token for the robot user from Expo Part 1, not a personal one: it can be revoked without touching anyone's account. Until the secret exists `mobile-release.yml` notes that it skipped and passes, so `main` stays green.
 
@@ -9847,7 +9861,7 @@ One thing to be clear-eyed about: an over-the-air update to `production` reaches
 - **An EAS job fails with `Your repository working tree is dirty` and names `pnpm-lock.yaml`:** `requireCommit` is back on in `eas.json`. EAS's dependency install rewrites the lockfile on its machines, so every workflow update and build trips it. Take `requireCommit` out again.
 - **Settings → Notifications on the phone says "Not in this build":** that is push, not these settings. See "Push notifications: Expo", Part 4.
 - **`workflow:run` says `Failed to read workflow file` / `ENOENT`:** the path is wrong for where you are. The workflows live beside `eas.json`, so from `apps/mobile` the path is `.eas/workflows/deploy-production.yml`, and from the repository root it is `apps/mobile/.eas/workflows/deploy-production.yml`. A `.eas` folder at the repository root is never read: EAS looks under the GitHub App's base directory, which is `apps/mobile`.
-- **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `gobizhelp/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
+- **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `Go-Biz-Help/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
 - **`mobile-release.yml` says `EXPO_TOKEN is not set`:** the repository secret is missing. Phone Part 4, step 3. The job passes anyway on purpose, so `main` stays green before Expo's robot user exists.
 - **Testers' phones keep running old JavaScript although updates publish:** the updates are going to a build that isn't on the phones. On the phone, a crash's JavaScript stack names `main.jsbundle` from the build machine rather than an update. On the EAS website, **Builds** → the iOS build testers have → **Runtime version** differs from the runtime version of the latest update under **Updates** → `production`. The release that made the newer build failed after building it, so it never reached TestFlight. The next release after a failed one rebuilds by itself; to do it now, run **Phone app release** by hand under GitHub **Actions** with **rebuild** ticked (or `npx --yes eas-cli@latest build --platform ios --profile production --auto-submit` from `apps/mobile`, committed and pushed first). A release that outlived its 45-minute wait counts as finished even if EAS failed it later, so that one needs the hand run too.
 - **The production run builds every time, even for a one-line JavaScript change:** the fingerprint isn't matching. Usually the `fingerprint` job and the `production` build profile are reading different environments, so they hash different `EXPO_PUBLIC_` values — both must say `production`. Uncommitted native changes in a build from your Mac do it too, so commit before building.
@@ -10475,7 +10489,7 @@ These play phones with PowerSync's Node client against a local PowerSync Service
 
 #### The phone app
 
-The app in `apps/mobile` has its own checks, and its Maestro flows run on an Android emulator in the Phone app on Android workflow, which runs only when started by hand (about 46 minutes of GitHub Actions time a run). Run it with `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
+The app in `apps/mobile` has its own checks, and its Maestro flows run on an Android emulator in the Phone app on Android workflow, which runs only when started by hand (about 46 minutes of GitHub Actions time a run). Run it with `gh workflow run "Phone app on Android" --repo Go-Biz-Help/handsfreeos --ref main`.
 
 1. Run the app's checks.
 
@@ -11288,7 +11302,7 @@ You need:
   ```
 
 - The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, Google Cloud, Anthropic (for the Assistant), and OpenAI (the backup AI, optional).
-- Admin rights on the HandsFreeOS GitHub repository, `gobizhelp/handsfreeos`.
+- Admin rights on the HandsFreeOS GitHub repository, `Go-Biz-Help/handsfreeos`.
 - Your password manager, with the `HandsFreeOS` folder. Every secret goes there first, then only into the place named in "Your password manager folder" at the top of this guide. None of these values ever goes into the repository, a commit, a chat or a support ticket.
 - Access to the DNS settings for `handsfreeos.com` at Cloudflare.
 - A second Vercel project for `handsfreeos.com`. Stage 0 below deploys `apps/site` there, which is the home page, the pricing and phone-app pages, the privacy policy, the terms and the support page. Google's consent screen needs the privacy policy and terms, Microsoft's publisher verification needs the domain, Twilio checks that the site names the legal company, and Apple needs the support page.
@@ -11319,7 +11333,7 @@ Everything the site needs is already in `apps/site/src/content/site.ts`: the com
 - `company.mailingAddress` is the address the privacy policy and terms print. Twilio's A2P registration and Stripe's platform profile ask for an address too, and theirs must match the business registration — check which address that is rather than assuming it is this one.
 
 1. Sign in to Vercel and click **Add New** → **Project**.
-2. Import `gobizhelp/handsfreeos` again. The same repository can back several projects.
+2. Import `Go-Biz-Help/handsfreeos` again. The same repository can back several projects.
 3. Name the project `handsfreeos-site`.
 4. Set **Root Directory** to `apps/site`, and turn on **Include source files outside of the Root Directory**. The site is part of the pnpm workspace, so the build needs the repository root.
 5. Leave **Framework Preset** as **Next.js** with every override off, and add no environment variables. The site has none, and never should.
@@ -11408,7 +11422,7 @@ You should see, at the end:
    curl https://api.handsfreeos.com/healthz
    ```
 
-4. `FLY_API_TOKEN` in `gh secret list --repo gobizhelp/handsfreeos`, and a green Deploy run.
+4. `FLY_API_TOKEN` in `gh secret list --repo Go-Biz-Help/handsfreeos`, and a green Deploy run.
 
 Then set up the sync service, which the phone app reads through: do Sync Parts 1 to 9 in "Sync service: PowerSync on Fly". It needs the migrations through `20260921000700_mobile_grants.sql` on the hosted database first. The web app doesn't need it, so the stages after this one don't wait for it. You should see, at the end:
 
