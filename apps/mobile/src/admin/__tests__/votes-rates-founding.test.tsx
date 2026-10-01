@@ -180,7 +180,8 @@ const WS1 = '55555555-aaaa-4aaa-8aaa-000000000001';
 const WS2 = '55555555-aaaa-4aaa-8aaa-000000000002';
 const ORG1 = '66666666-aaaa-4aaa-8aaa-000000000001';
 const ORG2 = '66666666-aaaa-4aaa-8aaa-000000000002';
-const TOKEN = 'k3y-0f-the-seat-for-lone-star-hvac';
+// The seat's claim link, as the founding queue hands it back; a made-up one.
+const CLAIM = 'seat-for-lone-star-hvac';
 
 type Queue = Ok<'/v1/queries/platform.founding'>;
 
@@ -351,7 +352,7 @@ beforeEach(() => {
       grantId: G1,
       offerId: 'founding_partner',
       expiresAt: '2026-10-14T15:00:00.000Z',
-      claimToken: TOKEN,
+      claimToken: CLAIM,
       remaining: 0,
     },
     '/v1/commands/founding.decline': { applicationId: A1, status: 'declined' },
@@ -645,7 +646,7 @@ describe('Founding', () => {
         note: 'Early, and they’ll talk.',
       }),
     );
-    const link = `${config.webUrl}/founding/${TOKEN}`;
+    const link = `${config.webUrl}/founding/${CLAIM}`;
     expect(await screen.findByText('Send Lone Star HVAC their link')).toBeTruthy();
     expect(screen.getByTestId('founding-link')).toHaveTextContent(link);
     await waitFor(() => expect(sent('/v1/queries/platform.founding')).toHaveLength(2));
