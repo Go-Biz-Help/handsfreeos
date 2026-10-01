@@ -37,6 +37,7 @@ import { clientTaskCompletions, clientTasks, documents } from '../tables';
 import {
   actorKind,
   actorUserId,
+  dealClients,
   dealLine,
   historyLine,
   inWorkspace,
@@ -47,26 +48,15 @@ import {
   type Ctx,
   type Deal,
 } from './common';
+import { descriptionSignedOff } from './description';
 import { documentProof, PROOF_EVENTS } from './proof-hooks';
 
-type Task = typeof clientTasks.$inferSelect;
+export { dealClients };
 
-/** The deal's clients, by id, with their first names. */
-export async function dealClients(
-  ctx: Ctx,
-  dealId: string,
-): Promise<{ id: string; firstName: string; name: string; email: string | null }[]> {
-  return rows<{ id: string; firstName: string; name: string; email: string | null }>(
-    ctx.tx,
-    sql`select p.id, p.first_name as "firstName", btrim(concat_ws(' ', p.first_name, p.last_name)) as name,
-          p.email::text as email
-        from app.relationships rel
-        join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_client'
-        join app.people p on p.id = rel.a_person_id
-        where rel.b_custom_record_id = ${dealId}
-        order by rel.created_at`,
-  );
-}
+/** The events a sign-off can cause once it's done (round three): the description going in use. */
+export const SIGN_OFF_EVENTS = ['realestate.listing.description_signed'] as const;
+
+type Task = typeof clientTasks.$inferSelect;
 
 export async function loadTask(ctx: Ctx, taskId: string, lock = false): Promise<Task> {
   const q = ctx.tx
@@ -164,6 +154,9 @@ export async function completeTask(
       after: { title: task.title },
     });
     await dealLine(ctx, deal, `finished “${task.title}”`.slice(0, 300), { eventId, personId });
+    // A sign-off for one of the listing's own rows moves it on (round three): the description goes in use.
+    if (task.refKind === 'listing_description' && task.refId)
+      await descriptionSignedOff(ctx, deal, task.refId, personId);
   }
   return finished ? 'done' : 'open';
 }
@@ -299,6 +292,12 @@ export const clientTaskMarkDone = defineAddonCommand(realestateAddon, {
     requireOpen(deal);
     if (task.status !== 'open')
       throw HfosError.rule('realestate_task_settled', 409, `“${task.title}” isn’t open any more.`);
+    if (task.kind === 'questionnaire')
+      throw HfosError.rule(
+        'realestate_questionnaire_own',
+        409,
+        'The questionnaire is the seller’s own answers. Type the home’s facts in yourself on the listing’s Facts instead.',
+      );
     if (task.kind === 'sign_off')
       throw HfosError.rule(
         'realestate_sign_off_own',

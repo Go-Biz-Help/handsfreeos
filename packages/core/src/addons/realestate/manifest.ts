@@ -220,6 +220,7 @@ export const realestateAddon = defineAddon({
     'listings',
     'listing_photos',
     'seller_questionnaires',
+    'listing_descriptions',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -313,6 +314,12 @@ export const realestateAddon = defineAddon({
       'realestate.listing.facts_read',
       'realestate.listing.facts_confirmed',
       'realestate.listing.photos_changed',
+      'realestate.listing.description_requested',
+      'realestate.listing.description_ready',
+      'realestate.listing.description_saved',
+      'realestate.listing.description_flags_kept',
+      'realestate.listing.description_sent',
+      'realestate.listing.description_signed',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -333,6 +340,9 @@ export const realestateAddon = defineAddon({
       'realestate.home.added',
       // A listing's old words, pasted: the same read, for the listing's facts.
       'realestate.listing.pasted',
+      // A listing's description: drafted, and every version of its words checked.
+      'realestate.listing.description_requested',
+      'realestate.listing.description_saved',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',

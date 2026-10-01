@@ -4,7 +4,7 @@
  * the database: a listing's facts from the seller's questionnaire, the old listing's words and the agent, confirmed by
  * a person only; its photos in order; and a buyer deal refused all of it.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -16,11 +16,17 @@ import {
   streetOf,
 } from '../../src/addons/realestate/listing';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
+import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realestate/fair-housing';
+import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
 import {
   executeCommand,
   executeQuery,
   personCreate,
+  portalAccessGive,
+  portalCheckCode,
+  portalSendCode,
   type CommandDef,
+  type CustomerActor,
   type HumanActor,
   type QueryDef,
   type RequestMeta,
@@ -159,7 +165,12 @@ beforeAll(async () => {
     await executeCommand(
       api(),
       personCreate,
-      { workspaceId: ws, firstName: 'Maria', lastName: 'Alvarez' },
+      {
+        workspaceId: ws,
+        firstName: 'Maria',
+        lastName: 'Alvarez',
+        email: `maria-${randomUUID().slice(0, 8)}@example.com`,
+      },
       human(agent),
       meta(),
     )
@@ -372,5 +383,189 @@ describe('a listing’s photos', () => {
       ['kitchen.jpg', 0, 'The 2021 kitchen', true],
       ['yard.png', 1, null, false],
     ]);
+  });
+});
+
+// ---------- the description (step 4) ----------
+
+/** Maria, signed in to her portal on a device, as the worker signs her in. */
+async function mariaSignsIn(): Promise<CustomerActor> {
+  const { accessId } = (
+    await executeCommand(
+      api(),
+      portalAccessGive,
+      { workspaceId: ws, personId: maria },
+      human(agent),
+      meta(),
+    )
+  ).output;
+  const sys = { type: 'system' as const, workspaceId: ws, organizationId: org };
+  const sent = (
+    await executeCommand(worker(), portalSendCode, { workspaceId: ws, accessId }, sys, meta())
+  ).output;
+  const hit = (
+    await executeCommand(
+      worker(),
+      portalCheckCode,
+      {
+        workspaceId: ws,
+        accessId,
+        code: sent.code,
+        tokenHash: createHash('sha256').update(randomBytes(32)).digest('hex'),
+      },
+      sys,
+      meta(),
+    )
+  ).output;
+  return {
+    type: 'customer',
+    workspaceId: ws,
+    organizationId: org,
+    personId: maria,
+    sessionId: hit.sessionId!,
+  };
+}
+
+/** What the worker records once it has written a draft: the words and both checks. */
+const drafted = (descriptionId: string, words: string) =>
+  system('realestate.listing.description.drafted', {
+    descriptionId,
+    words,
+    model: 'stand-in',
+    checks: [
+      {
+        source: 'words',
+        version: FAIR_HOUSING_WORDS_VERSION,
+        status: checkWords(words).length ? 'flagged' : 'passed',
+        flags: checkWords(words),
+      },
+      { source: 'model', version: 'stand-in', status: 'passed', flags: [] },
+    ],
+  });
+
+const description = async () =>
+  (await ask(agent, 'realestate.listing', { dealId: listing })).listing.description;
+
+describe('the description', () => {
+  const flagged =
+    'Welcome to 2207 Juniper Trail. It has 4 bedrooms, 3 bathrooms and 2,340 square feet. Perfect for a growing family, with the patio under the oaks.';
+  const fixed =
+    'Welcome to 2207 Juniper Trail. It has 4 bedrooms, 3 bathrooms and 2,340 square feet. Room to spread out, with the patio under the oaks.';
+
+  it('waits for the home’s confirmed facts', async () => {
+    const bare = (
+      await run(agent, 'realestate.deal.open', { side: 'listing', name: 'Bare listing' })
+    ).dealId;
+    expect(
+      await refused(run(agent, 'realestate.listing.description.request', { dealId: bare })),
+    ).toBe('realestate_listing_no_facts');
+  });
+
+  it('is drafted by the AI, and a flagged draft can’t go to the seller', async () => {
+    const asked = await run(agent, 'realestate.listing.description.request', { dealId: listing });
+    expect(asked).toMatchObject({ version: 1, state: 'drafting' });
+    await drafted(asked.descriptionId, flagged);
+    const d = await description();
+    expect(d.inUse).toBeNull();
+    expect(d.working).toMatchObject({ version: 1, source: 'ai', state: 'ready' });
+    expect(d.working.flags.map((f: Any) => f.phrase.toLowerCase())).toEqual(['growing family']);
+    expect(d.working.blocked.rule).toBe('realestate_fair_housing_flags');
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.description.send', { descriptionId: asked.descriptionId }),
+      ),
+    ).toBe('realestate_fair_housing_flags');
+  });
+
+  it('is saved as the agent’s own version, read again by both checks, then sent with its exact words', async () => {
+    const saved = await run(agent, 'realestate.listing.description.save', {
+      dealId: listing,
+      words: fixed,
+    });
+    expect(saved).toMatchObject({ version: 2, state: 'ready', flags: [] });
+    // The model hasn't read these words yet.
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.description.send', { descriptionId: saved.descriptionId }),
+      ),
+    ).toBe('realestate_check_running');
+    await system('realestate.listing.description.checked', {
+      descriptionId: saved.descriptionId,
+      textHash: textHashOf(null, fixed),
+      version: 'stand-in',
+      status: 'passed',
+      flags: [],
+    });
+    const sent = await run(agent, 'realestate.listing.description.send', {
+      descriptionId: saved.descriptionId,
+    });
+    expect(sent.state).toBe('sent');
+    const d = await description();
+    expect(d.working).toMatchObject({ version: 2, state: 'sent' });
+    expect(d.history.map((h: Any) => [h.version, h.source, h.state])).toEqual([
+      [2, 'person', 'sent'],
+      [1, 'ai', 'replaced'],
+    ]);
+    const [task] = await rows<{ kind: string; sign_off_words: string; ref_kind: string }>(
+      admin(),
+      sql`select kind, sign_off_words, ref_kind from addon_realestate.client_tasks
+          where ref_id = ${saved.descriptionId}`,
+    );
+    expect(task).toEqual({
+      kind: 'sign_off',
+      sign_off_words: fixed,
+      ref_kind: 'listing_description',
+    });
+  });
+
+  it('goes in use once the seller signs it off in her portal, as proof for S-19', async () => {
+    const d0 = await description();
+    const [task] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_realestate.client_tasks where ref_id = ${d0.working.id}`,
+    );
+    const mariaOnPhone = await mariaSignsIn();
+    await executeCommand(
+      worker(),
+      op('commands', 'realestate.portal.task.complete') as CommandDef,
+      { workspaceId: ws, taskId: task!.id, signedWords: fixed },
+      mariaOnPhone,
+      meta('portal'),
+    );
+    const d = await description();
+    expect(d.inUse).toMatchObject({ version: 2, words: fixed, how: 'portal', reason: null });
+    expect(d.working).toBeNull();
+    const proof = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = 'listing_description' and e.ref_id = ${d.inUse.id}`,
+    );
+    expect(proof.map((p) => p.key)).toEqual(['S-19']);
+  });
+
+  it('can be let through without the portal by an owner or admin only, with a reason', async () => {
+    const asked = await run(agent, 'realestate.listing.description.request', { dealId: listing });
+    await drafted(asked.descriptionId, fixed.replace('Room to spread out', 'Plenty of room'));
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.description.let_through', {
+          descriptionId: asked.descriptionId,
+          reason: 'Maria signed it on paper.',
+        }),
+      ),
+    ).toBe('realestate_let_through_permission');
+    await run(owner, 'realestate.listing.description.let_through', {
+      descriptionId: asked.descriptionId,
+      reason: 'Maria signed it on paper at the office.',
+    });
+    const d = await description();
+    expect(d.inUse).toMatchObject({
+      version: 3,
+      how: 'let_through',
+      reason: 'Maria signed it on paper at the office.',
+    });
+    // The one before it is set aside.
+    expect(d.history.find((h: Any) => h.version === 2).state).toBe('replaced');
   });
 });

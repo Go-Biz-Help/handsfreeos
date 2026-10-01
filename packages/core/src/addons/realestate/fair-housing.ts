@@ -7,7 +7,7 @@
  * The model checks every draft as well (the worker). Browser-safe and pure: the editor marks the same words.
  */
 
-export const FAIR_HOUSING_WORDS_VERSION = 'fh-words-1';
+export const FAIR_HOUSING_WORDS_VERSION = 'fh-words-2';
 
 export const FAIR_HOUSING_CATEGORIES = {
   race_color: 'Race or color',
@@ -76,7 +76,17 @@ const RULES: readonly Rule[] = [
     'Describe the home itself: its size, its rooms, its features.',
   ),
   rule(
-    ['family-friendly', 'great for families', 'perfect for families', 'ideal for families'],
+    [
+      'family-friendly',
+      'great for families',
+      'perfect for families',
+      'ideal for families',
+      // Round three: how a listing's description tends to say it.
+      'growing family',
+      'perfect for a family',
+      'great for a family',
+      'ideal for a family',
+    ],
     'familial_status',
     'It can read as preferring households with children.',
     'Name what’s there instead: “a fenced yard”, “near a park”.',

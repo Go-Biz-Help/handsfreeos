@@ -154,3 +154,50 @@ describe('a listing’s facts from its old listing’s words', () => {
     expect(l.facts).toEqual({});
   });
 });
+
+describe('a listing’s description', () => {
+  it('is drafted from the confirmed facts and the seller’s own words, and both checks read it', async () => {
+    await run('realestate.listing.confirm_facts', {
+      dealId: listing,
+      facts: { beds: 4, baths: 3, sqft: 2340, year_built: 2004 },
+      sources: { beds: 'pasted', baths: 'pasted', sqft: 'pasted', year_built: 'pasted' },
+      highlights: 'The kitchen was redone in 2021',
+    });
+    await rows(
+      admin(),
+      sql`insert into addon_realestate.seller_questionnaires (workspace_id, deal_record_id, answers, state,
+            submitted_at)
+          values (${ws}, ${listing}, ${JSON.stringify({
+            loves: 'Perfect for a growing family, with the patio under the oaks',
+          })}::jsonb, 'submitted', now())`,
+    );
+    await run('realestate.listing.description.request', { dealId: listing });
+    await drain();
+    const { listing: l } = await ask('realestate.listing', { dealId: listing });
+    const w = l.description.working;
+    expect(w).toMatchObject({ version: 1, source: 'ai', state: 'ready' });
+    expect(w.words).toContain('2207 Juniper Trail');
+    expect(w.words).toContain('4 bedrooms');
+    expect(w.words).toContain('The kitchen was redone in 2021.');
+    expect(w.checked).toEqual({ words: true, model: true });
+    expect(w.flags.map((f: Any) => f.phrase.toLowerCase())).toContain('growing family');
+    expect(w.blocked.rule).toBe('realestate_fair_housing_flags');
+  });
+
+  it('reads the agent’s own words again with the model', async () => {
+    await run('realestate.listing.description.save', {
+      dealId: listing,
+      words:
+        'Welcome to 2207 Juniper Trail. It has 4 bedrooms and 3 bathrooms, with the patio under the oaks.',
+    });
+    await drain();
+    const { listing: l } = await ask('realestate.listing', { dealId: listing });
+    expect(l.description.working).toMatchObject({
+      version: 2,
+      source: 'person',
+      checked: { words: true, model: true },
+      flags: [],
+      blocked: null,
+    });
+  });
+});

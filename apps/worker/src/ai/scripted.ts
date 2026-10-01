@@ -1277,7 +1277,53 @@ export function scriptedCmaSummary(message: string): { summary: string } {
   return { summary: lines.join('\n') };
 }
 
+interface ScriptedListingFacts {
+  readonly street?: string;
+  readonly city?: string | null;
+  readonly facts?: Readonly<Record<string, string>>;
+  readonly agentNotes?: string | null;
+  readonly sellerUpdates?: string | null;
+  readonly sellerLoves?: string | null;
+}
+
+/**
+ * A listing's description written only from its <listing_facts>: the street, the rooms and size, then the agent's
+ * notes and the seller's own words as they gave them. A seller's words go in as written, so the fair housing checks
+ * have something real to read.
+ */
+export function scriptedListingDescription(message: string): { description: string } {
+  let f: ScriptedListingFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'listing_facts') ?? '{}')) as ScriptedListingFacts;
+  } catch {
+    // Unreadable facts: a short, general description.
+  }
+  const facts = f.facts ?? {};
+  const rooms = [
+    facts['Bedrooms'] ? `${facts['Bedrooms']} bedrooms` : null,
+    facts['Bathrooms'] ? `${facts['Bathrooms']} bathrooms` : null,
+    facts['Square feet'] ? `${facts['Square feet']} square feet` : null,
+  ].filter(Boolean);
+  const sentence = (t: string | null | undefined) => {
+    const v = (t ?? '').trim();
+    return v ? (/[.!?]$/.test(v) ? v : `${v}.`) : null;
+  };
+  const lines = [
+    `Welcome to ${f.street ?? 'this home'}${f.city ? ` in ${f.city.split(',')[0]}` : ''}.`,
+    rooms.length ? `It has ${rooms.join(', ')}.` : null,
+    facts['Year built'] ? `It was built in ${facts['Year built']}.` : null,
+    sentence(f.agentNotes),
+    sentence(f.sellerUpdates),
+    sentence(f.sellerLoves),
+  ].filter(Boolean);
+  return { description: lines.join(' ') };
+}
+
 export const LISTING_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the listing description\.$/,
+    json: (message) => scriptedListingDescription(message),
+  },
   { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
   { when: /Write the CMA summary\.$/, json: (message) => scriptedCmaSummary(message) },
   {

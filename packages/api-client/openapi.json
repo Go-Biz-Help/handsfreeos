@@ -61551,6 +61551,604 @@
         }
       }
     },
+    "/v1/commands/realestate.listing.description.request": {
+      "post": {
+        "operationId": "command_realestate_listing_description_request",
+        "summary": "Ask the AI to draft a listing’s description from its confirmed facts, the agent’s notes and the seller’s own words, for the agent to check and edit. Replaces the one being worked on.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.description_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "descriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "ready",
+                        "failed",
+                        "sent",
+                        "signed",
+                        "replaced"
+                      ]
+                    },
+                    "flags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "phrase": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "race_color",
+                              "national_origin",
+                              "religion",
+                              "sex",
+                              "disability",
+                              "familial_status",
+                              "steering"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "safer": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "phrase",
+                          "category",
+                          "reason",
+                          "safer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "descriptionId",
+                    "version",
+                    "state",
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.listing.description.save": {
+      "post": {
+        "operationId": "command_realestate_listing_description_save",
+        "summary": "Save the agent’s own words for a listing’s description as a new version. The fixed list reads them at once and the model a moment later; any flag kept on an earlier version doesn’t carry over.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.description_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "words": {
+                    "type": "string",
+                    "minLength": 40,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
+                  "words"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "descriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "ready",
+                        "failed",
+                        "sent",
+                        "signed",
+                        "replaced"
+                      ]
+                    },
+                    "flags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "phrase": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "race_color",
+                              "national_origin",
+                              "religion",
+                              "sex",
+                              "disability",
+                              "familial_status",
+                              "steering"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "safer": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "phrase",
+                          "category",
+                          "reason",
+                          "safer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "descriptionId",
+                    "version",
+                    "state",
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.listing.description.acknowledge_flags": {
+      "post": {
+        "operationId": "command_realestate_listing_description_acknowledge_flags",
+        "summary": "Keep a listing description’s fair housing flags as written, with the reason. Kept with that version; a new version asks again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.description_flags_kept.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "descriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "descriptionId",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "descriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "ready",
+                        "failed",
+                        "sent",
+                        "signed",
+                        "replaced"
+                      ]
+                    },
+                    "flags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "phrase": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "race_color",
+                              "national_origin",
+                              "religion",
+                              "sex",
+                              "disability",
+                              "familial_status",
+                              "steering"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "safer": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "phrase",
+                          "category",
+                          "reason",
+                          "safer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "descriptionId",
+                    "version",
+                    "state",
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.listing.description.send": {
+      "post": {
+        "operationId": "command_realestate_listing_description_send",
+        "summary": "Send a listing’s description to the seller to sign off in their portal, with its exact words. Refused until both fair housing checks have read it and every flag is fixed or kept with a reason.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.listing.description_sent, realestate.client_task.added.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "descriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "descriptionId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "descriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "ready",
+                        "failed",
+                        "sent",
+                        "signed",
+                        "replaced"
+                      ]
+                    },
+                    "flags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "phrase": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "race_color",
+                              "national_origin",
+                              "religion",
+                              "sex",
+                              "disability",
+                              "familial_status",
+                              "steering"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "safer": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "phrase",
+                          "category",
+                          "reason",
+                          "safer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "descriptionId",
+                    "version",
+                    "state",
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.listing.description.let_through": {
+      "post": {
+        "operationId": "command_realestate_listing_description_let_through",
+        "summary": "Put a checked listing description in use without the seller’s sign-off in the portal, with the reason (“signed on paper at the office”). Owners and admins only; kept on the deal’s history.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.listing.description_signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "descriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "descriptionId",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "descriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "ready",
+                        "failed",
+                        "sent",
+                        "signed",
+                        "replaced"
+                      ]
+                    },
+                    "flags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "phrase": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "race_color",
+                              "national_origin",
+                              "religion",
+                              "sex",
+                              "disability",
+                              "familial_status",
+                              "steering"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "safer": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "phrase",
+                          "category",
+                          "reason",
+                          "safer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "descriptionId",
+                    "version",
+                    "state",
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -120248,6 +120846,314 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "description": {
+                          "type": "object",
+                          "properties": {
+                            "inUse": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "words": {
+                                      "type": "string"
+                                    },
+                                    "signedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    "how": {
+                                      "type": "string",
+                                      "enum": [
+                                        "portal",
+                                        "let_through"
+                                      ]
+                                    },
+                                    "reason": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "version",
+                                    "words",
+                                    "signedAt",
+                                    "how",
+                                    "reason"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "working": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "words": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "source": {
+                                      "type": "string",
+                                      "enum": [
+                                        "ai",
+                                        "person"
+                                      ]
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "enum": [
+                                        "drafting",
+                                        "ready",
+                                        "failed",
+                                        "sent"
+                                      ]
+                                    },
+                                    "failure": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "flags": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "phrase": {
+                                            "type": "string",
+                                            "maxLength": 200
+                                          },
+                                          "category": {
+                                            "type": "string",
+                                            "enum": [
+                                              "race_color",
+                                              "national_origin",
+                                              "religion",
+                                              "sex",
+                                              "disability",
+                                              "familial_status",
+                                              "steering"
+                                            ]
+                                          },
+                                          "reason": {
+                                            "type": "string"
+                                          },
+                                          "safer": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "phrase",
+                                          "category",
+                                          "reason",
+                                          "safer"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "checked": {
+                                      "type": "object",
+                                      "properties": {
+                                        "words": {
+                                          "type": "boolean"
+                                        },
+                                        "model": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "words",
+                                        "model"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "acknowledged": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "reason": {
+                                              "type": "string"
+                                            },
+                                            "at": {
+                                              "type": "string",
+                                              "format": "date-time",
+                                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                            }
+                                          },
+                                          "required": [
+                                            "reason",
+                                            "at"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "sentAt": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "date-time",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "blocked": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "rule": {
+                                              "type": "string"
+                                            },
+                                            "words": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "rule",
+                                            "words"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "version",
+                                    "words",
+                                    "source",
+                                    "state",
+                                    "failure",
+                                    "flags",
+                                    "checked",
+                                    "acknowledged",
+                                    "sentAt",
+                                    "blocked"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "history": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "version": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ai",
+                                      "person"
+                                    ]
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "drafting",
+                                      "ready",
+                                      "failed",
+                                      "sent",
+                                      "signed",
+                                      "replaced"
+                                    ]
+                                  },
+                                  "words": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "version",
+                                  "source",
+                                  "state",
+                                  "words",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "inUse",
+                            "working",
+                            "history"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "can": {
+                          "type": "object",
+                          "properties": {
+                            "letThrough": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "letThrough"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -120264,7 +121170,9 @@
                         "photos",
                         "mls",
                         "page",
-                        "listPriceCents"
+                        "listPriceCents",
+                        "description",
+                        "can"
                       ],
                       "additionalProperties": false
                     }

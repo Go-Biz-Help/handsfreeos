@@ -60,6 +60,7 @@ import {
   type Ctx,
   type Deal,
 } from './common';
+import { descriptionView, mayLetThrough } from './description';
 import { propertyOf } from './people';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 
@@ -211,6 +212,8 @@ export async function listingView(ctx: Ctx, deal: Deal) {
       publishedAt: l?.pagePublishedAt?.toISOString() ?? null,
     },
     listPriceCents: await listPriceOf(ctx, deal.recordId),
+    description: await descriptionView(ctx, deal),
+    can: { letThrough: mayLetThrough(ctx) },
   };
 }
 

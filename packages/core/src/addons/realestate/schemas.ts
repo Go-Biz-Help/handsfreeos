@@ -2277,5 +2277,95 @@ export const ListingOut = z.object({
   }),
   /** The deal's list price now, if it has one. */
   listPriceCents: z.number().int().nullable(),
+  /** The description: the one signed off and in use, and the one being worked on. */
+  description: z.object({
+    inUse: z
+      .object({
+        id: uuid,
+        version: z.number().int(),
+        words: z.string(),
+        signedAt: isoDateTime,
+        /** Signed by the seller in their portal, or let through by an owner or admin with a reason. */
+        how: z.enum(['portal', 'let_through']),
+        reason: z.string().nullable(),
+      })
+      .nullable(),
+    working: z
+      .object({
+        id: uuid,
+        version: z.number().int(),
+        words: z.string().nullable(),
+        source: z.enum(['ai', 'person']),
+        state: z.enum(['drafting', 'ready', 'failed', 'sent']),
+        failure: z.string().nullable(),
+        flags: z.array(FlagOut),
+        checked: z.object({ words: z.boolean(), model: z.boolean() }),
+        acknowledged: z.object({ reason: z.string(), at: isoDateTime }).nullable(),
+        sentAt: isoDateTime.nullable(),
+        /** Why it can't be sent yet, in words; null when it can. */
+        blocked: z.object({ rule: z.string(), words: z.string() }).nullable(),
+      })
+      .nullable(),
+    /** Earlier versions, newest first: who wrote each and what became of it. */
+    history: z.array(
+      z.object({
+        id: uuid,
+        version: z.number().int(),
+        source: z.enum(['ai', 'person']),
+        state: z.enum(['drafting', 'ready', 'failed', 'sent', 'signed', 'replaced']),
+        words: z.string().nullable(),
+        at: isoDateTime,
+      }),
+    ),
+  }),
+  /** Whether this person may let a description or a price through without the seller's sign-off. */
+  can: z.object({ letThrough: z.boolean() }),
 });
 export const ListingOutput = z.object({ listing: ListingOut });
+
+// ---------- the listing's description (round three, step 4) ----------
+
+export const ListingDescriptionRequestInput = z.object({ ...inDeal });
+export const ListingDescriptionSaveInput = z.object({
+  ...inDeal,
+  words: z
+    .string()
+    .trim()
+    .min(40, 'Write at least a sentence or two.')
+    .max(2000, 'Keep it under 2,000 characters: the seller signs off these exact words.'),
+});
+export const ListingDescriptionRef = z.object({ workspaceId: uuid, descriptionId: uuid });
+export const ListingDescriptionAcknowledgeInput = z.object({
+  workspaceId: uuid,
+  descriptionId: uuid,
+  reason,
+});
+export const ListingDescriptionLetThroughInput = z.object({
+  workspaceId: uuid,
+  descriptionId: uuid,
+  /** Why the seller's sign-off in the portal isn't needed: "Maria signed it on paper at the office". */
+  reason,
+});
+export const ListingDescriptionDraftedInput = z.object({
+  workspaceId: uuid,
+  descriptionId: uuid,
+  words: z.string().max(6000).optional(),
+  model: z.string().max(100).optional(),
+  failure: z.string().max(2000).optional(),
+  checks: z.array(CheckIn).max(2).default([]),
+});
+export const ListingDescriptionCheckedInput = z.object({
+  workspaceId: uuid,
+  descriptionId: uuid,
+  textHash: z.string().regex(/^[0-9a-f]{64}$/),
+  version: z.string().min(1).max(100),
+  status: z.enum(['passed', 'flagged', 'unavailable']),
+  flags: z.array(FlagOut).max(50),
+});
+export const ListingDescriptionOutput = z.object({
+  descriptionId: uuid,
+  version: z.number().int(),
+  state: z.enum(['drafting', 'ready', 'failed', 'sent', 'signed', 'replaced']),
+  /** What the fixed list found in the words, at once. */
+  flags: z.array(FlagOut).default([]),
+});

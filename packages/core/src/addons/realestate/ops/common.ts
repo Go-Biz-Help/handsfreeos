@@ -326,3 +326,20 @@ export async function userNames(
   );
   return new Map(found.map((u) => [u.id, u.name]));
 }
+
+/** The deal's clients, by id, with their first names. */
+export async function dealClients(
+  ctx: Ctx,
+  dealId: string,
+): Promise<{ id: string; firstName: string; name: string; email: string | null }[]> {
+  return rows<{ id: string; firstName: string; name: string; email: string | null }>(
+    ctx.tx,
+    sql`select p.id, p.first_name as "firstName", btrim(concat_ws(' ', p.first_name, p.last_name)) as name,
+          p.email::text as email
+        from app.relationships rel
+        join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_client'
+        join app.people p on p.id = rel.a_person_id
+        where rel.b_custom_record_id = ${dealId}
+        order by rel.created_at`,
+  );
+}

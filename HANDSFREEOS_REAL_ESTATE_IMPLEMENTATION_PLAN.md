@@ -1333,14 +1333,26 @@ boards; the server steps go ahead meanwhile.
 - `client_tasks` gain `ref_kind`/`ref_id`, for a sign-off that moves a description or a price on (steps 4 and 10).
 - Tests: `packages/core/test/addons/realestate-listing.test.ts`, `apps/worker/test/realestate-listing.test.ts`.
 
-### Step 4: the description, and the seller's sign-off
+### Step 4: the description, and the seller's sign-off (server built, 2026-10-01)
 
-- `listing_descriptions`: each version, who wrote it, its fair housing check, and where it stands.
-- `fair_housing_checks.description_id`, and the check that exactly one thing is checked widened to it.
-- The worker drafts it (`realestate.description_draft`) as it drafts a CMA's summary: `askStructured`, then
-  `checkWords` and the model's own read, with a scripted stand-in. The agent's edits are checked again.
-- "Send to the seller" makes a sign-off task with the exact words; it's refused while a flag is open. An owner or
-  admin can let it through with a reason. Proof: S-19.
+**As built** (`20261020000200_realestate_listing_descriptions.sql`; `ops/description.ts`):
+
+- `listing_descriptions`: every draft and every save is its own version, kept as written (2,000 characters at
+  most: the seller signs off the exact words). The one being worked on replaces the one before it, taking back its
+  sign-off task; the one signed stays in use until a newer one is signed. `fair_housing_checks.description_id`,
+  with exactly one of a client update, a CMA or a description checked.
+- `realestate.listing.description.request` needs the home's confirmed facts (`realestate_listing_no_facts`); the
+  worker drafts it from those, the agent's notes and the seller's sent answers, and both checks read it
+  (`description.drafted`). `description.save` is the agent's own words as a new version, read by the list at once
+  and the model a moment later (`description.checked`). `acknowledge_flags` keeps a flag with a reason.
+- `description.send` is refused while a check is still reading or a flag is open, and without a seller on the deal;
+  it makes a sign-off task with the exact words (`ref_kind` `listing_description`). When the seller signs it in the
+  portal, the description is in use and is S-19's proof. `description.let_through` does the same without the portal,
+  for owners and admins (Approve exceptions) only, with a reason kept on the history; the checks still count.
+- A staff member can't mark a seller's sign-off or questionnaire done for them (`realestate_sign_off_own`,
+  `realestate_questionnaire_own`).
+- The fair housing word list (`fh-words-2`) adds "growing family" and "perfect for / great for / ideal for a family".
+- Tests: `realestate-listing.test.ts` (the seller signing in her portal), the worker's `realestate-listing.test.ts`.
 
 ### Step 5: live on the MLS, and the hold
 

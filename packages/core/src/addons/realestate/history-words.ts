@@ -79,6 +79,12 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
     case 'home_facts':
       return `Confirmed the facts for ${str(a.address)}`;
     // Round three: the listing.
+    case 'description_sent':
+      return `Sent the description (version ${str(a.version)}) to the seller to sign off`;
+    case 'description_signed':
+      return a.how === 'let_through'
+        ? `Put the description (version ${str(a.version)}) in use without the seller’s sign-off in the portal`
+        : `The seller signed off the description (version ${str(a.version)})`;
     case 'listing_facts':
       return `Confirmed ${Number(a.count)} ${Number(a.count) === 1 ? 'fact' : 'facts'} about ${str(a.address)}`;
     case 'memory_confirmed':

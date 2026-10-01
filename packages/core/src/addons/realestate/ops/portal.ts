@@ -39,7 +39,7 @@ import {
 import type { DealStage } from '../states';
 import { homeReactions, homes, tourFeedback, tourStops, tours } from '../tables';
 import { historyLine, inWorkspace, loadDeal, requireOpen, type Ctx, type Deal } from './common';
-import { completeTask, loadTask } from './client-tasks';
+import { completeTask, loadTask, SIGN_OFF_EVENTS } from './client-tasks';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 import { feedbackWords } from './tours';
 
@@ -658,7 +658,7 @@ export const portalTaskComplete = defineAddonCommand(realestateAddon, {
   permission: null,
   actors: ['customer'],
   scope: inWorkspace,
-  emits: ['realestate.client_task.done', ...PROOF_EVENTS],
+  emits: ['realestate.client_task.done', ...PROOF_EVENTS, ...SIGN_OFF_EVENTS],
   async handler(ctx, input) {
     const { me, task, deal } = await myTask(ctx, input.taskId);
     if (task.kind === 'questionnaire')

@@ -7537,6 +7537,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.listing.description.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a listing description’s fair housing flags as written, with the reason. Kept with that version; a new version asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_flags_kept.
+         */
+        post: operations["command_realestate_listing_description_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.let_through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a checked listing description in use without the seller’s sign-off in the portal, with the reason (“signed on paper at the office”). Owners and admins only; kept on the deal’s history.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.description_signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_description_let_through"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI to draft a listing’s description from its confirmed facts, the agent’s notes and the seller’s own words, for the agent to check and edit. Replaces the one being worked on.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_requested.
+         */
+        post: operations["command_realestate_listing_description_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for a listing’s description as a new version. The fixed list reads them at once and the model a moment later; any flag kept on an earlier version doesn’t carry over.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_saved.
+         */
+        post: operations["command_realestate_listing_description_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a listing’s description to the seller to sign off in their portal, with its exact words. Refused until both fair housing checks have read it and every flag is fixed or kept with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.description_sent, realestate.client_task.added.
+         */
+        post: operations["command_realestate_listing_description_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.listing.paste": {
         parameters: {
             query?: never;
@@ -30754,6 +30854,224 @@ export interface operations {
             };
         };
     };
+    command_realestate_listing_description_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_let_through: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_listing_paste: {
         parameters: {
             query?: never;
@@ -49206,6 +49524,9 @@ export interface operations {
                     "application/json": {
                         listing: {
                             address: string | null;
+                            can: {
+                                letThrough: boolean;
+                            };
                             choices: {
                                 candidates: {
                                     /** @enum {string} */
@@ -49228,6 +49549,63 @@ export interface operations {
                             }[];
                             /** Format: uuid */
                             dealId: string;
+                            description: {
+                                history: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @enum {string} */
+                                    source: "ai" | "person";
+                                    /** @enum {string} */
+                                    state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                                    version: number;
+                                    words: string | null;
+                                }[];
+                                inUse: {
+                                    /** @enum {string} */
+                                    how: "portal" | "let_through";
+                                    /** Format: uuid */
+                                    id: string;
+                                    reason: string | null;
+                                    /** Format: date-time */
+                                    signedAt: string;
+                                    version: number;
+                                    words: string;
+                                } | null;
+                                working: {
+                                    acknowledged: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        reason: string;
+                                    } | null;
+                                    blocked: {
+                                        rule: string;
+                                        words: string;
+                                    } | null;
+                                    checked: {
+                                        model: boolean;
+                                        words: boolean;
+                                    };
+                                    failure: string | null;
+                                    flags: {
+                                        /** @enum {string} */
+                                        category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                        phrase: string;
+                                        reason: string;
+                                        safer: string;
+                                    }[];
+                                    /** Format: uuid */
+                                    id: string;
+                                    sentAt: string | null;
+                                    /** @enum {string} */
+                                    source: "ai" | "person";
+                                    /** @enum {string} */
+                                    state: "drafting" | "ready" | "failed" | "sent";
+                                    version: number;
+                                    words: string | null;
+                                } | null;
+                            };
                             facts: {
                                 baths?: number;
                                 beds?: number;

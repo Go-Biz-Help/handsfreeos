@@ -504,9 +504,10 @@ export const fairHousingChecks = addonRealestate.table(
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
     dealRecordId: uuid('deal_record_id').notNull(),
-    /** A client update's words, or a CMA's summary (round two). */
+    /** A client update's words, a CMA's summary (round two), or a listing's description (round three). */
     draftId: uuid('draft_id'),
     cmaId: uuid('cma_id'),
+    descriptionId: uuid('description_id'),
     source: text('source').notNull().$type<'words' | 'model'>(),
     version: text('version').notNull(),
     status: text('status').notNull().$type<'passed' | 'flagged' | 'unavailable'>(),
@@ -1374,6 +1375,48 @@ export const sellerQuestionnaires = addonRealestate.table(
   },
   (t) => [
     primaryKey({ columns: [t.workspaceId, t.dealRecordId] }),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A listing's description, each version as written: the AI's draft or a person's words (round three, step 4). */
+export const listingDescriptions = addonRealestate.table(
+  'listing_descriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    version: integer('version').notNull(),
+    words: text('words'),
+    source: text('source').notNull().$type<'ai' | 'person'>(),
+    state: text('state')
+      .notNull()
+      .default('drafting')
+      .$type<'drafting' | 'ready' | 'failed' | 'sent' | 'signed' | 'replaced'>(),
+    model: text('model'),
+    failure: text('failure'),
+    flagsAcknowledgedBy: userRef('flags_acknowledged_by'),
+    flagsAcknowledgedAt: ts('flags_acknowledged_at'),
+    flagsAcknowledgedReason: text('flags_acknowledged_reason'),
+    clientTaskId: uuid('client_task_id'),
+    sentBy: userRef('sent_by'),
+    sentAt: ts('sent_at'),
+    signedAt: ts('signed_at'),
+    signedByPersonId: uuid('signed_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    overrideBy: userRef('override_by'),
+    overrideReason: text('override_reason'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.dealRecordId, t.version),
     foreignKey({
       columns: [t.workspaceId, t.dealRecordId],
       foreignColumns: [deals.workspaceId, deals.recordId],
