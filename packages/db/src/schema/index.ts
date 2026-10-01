@@ -454,6 +454,10 @@ export const people = app.table('people', {
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
   smsConsentAt: ts('sms_consent_at'),
   smsConsentSource: text('sms_consent_source'),
+  /** The separate, optional box for offers (20261013002300). STOP on `smsConsent` still stops everything. */
+  offersConsent: smsConsent('offers_consent').notNull().default('unknown'),
+  offersConsentAt: ts('offers_consent_at'),
+  offersConsentSource: text('offers_consent_source'),
   /** AI outbound calls: written consent to calls (campaign calls need it), and where it is. */
   callConsent: smsConsent('call_consent').notNull().default('unknown'),
   callConsentAt: ts('call_consent_at'),

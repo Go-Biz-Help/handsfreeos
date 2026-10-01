@@ -175,6 +175,64 @@ describe('filling it in', () => {
     expect(person!.sms_consent).toBe('opted_in');
   });
 
+  it('shows a separate box for offers once the business texts offers, and keeps that answer apart', async () => {
+    const offersOf = async () =>
+      ((await get(w, formUrl())).json() as { offersConsent: { title: string } | null })
+        .offersConsent;
+    expect(await offersOf()).toBeNull();
+    // A texting registration for customer care and the odd promotion: the carriers check for the second box.
+    await admin().execute(
+      sql`insert into app.telephony_registrations (workspace_id, kind, status, submission, submitted_at)
+          values (${w.workspaceId}, 'toll_free_verification', 'submitted',
+                  ${JSON.stringify({ useCase: 'mixed' })}::jsonb, now())`,
+    );
+    expect((await offersOf())?.title).toMatch(/offers/i);
+
+    const started = (await post(w, formUrl('/start'), {}).then((r) => r.json())) as {
+      responseId: string;
+      token: string;
+    };
+    const sent = await post(w, formUrl(`/${started.responseId}/submit`), {
+      token: started.token,
+      answers: { [qid('name')]: 'Lena Ortiz', [qid('phone')]: '(512) 555-0402' },
+      smsConsent: false,
+      offersConsent: true,
+    });
+    expect(sent.statusCode, sent.body).toBe(200);
+    const [person] = await rows<{ sms_consent: string; offers_consent: string; source: string }>(
+      admin(),
+      sql`select sms_consent, offers_consent, offers_consent_source as source from app.people
+          where workspace_id = ${w.workspaceId} and phone_e164 = '+15125550402'`,
+    );
+    // Offers yes, texts about their own job not asked: two answers, kept apart.
+    expect(person).toMatchObject({ sms_consent: 'unknown', offers_consent: 'opted_in' });
+    expect(person!.source).toMatch(/^Form: /);
+
+    // STOP wins: a customer who stopped texts isn't signed up for offers by ticking the box again.
+    await admin().execute(
+      sql`update app.people set sms_consent = 'opted_out', offers_consent = 'unknown'
+          where workspace_id = ${w.workspaceId} and phone_e164 = '+15125550402'`,
+    );
+    const again = (await post(w, formUrl('/start'), {}).then((r) => r.json())) as {
+      responseId: string;
+      token: string;
+    };
+    await post(w, formUrl(`/${again.responseId}/submit`), {
+      token: again.token,
+      answers: { [qid('name')]: 'Lena Ortiz', [qid('phone')]: '(512) 555-0402' },
+      offersConsent: true,
+    });
+    const after = await rows<{ offers_consent: string }>(
+      admin(),
+      sql`select offers_consent from app.people
+          where workspace_id = ${w.workspaceId} and phone_e164 = '+15125550402'`,
+    );
+    expect(after.map((p) => p.offers_consent)).not.toContain('opted_in');
+    await admin().execute(
+      sql`delete from app.telephony_registrations where workspace_id = ${w.workspaceId}`,
+    );
+  });
+
   it('refuses to write to a sheet without its key', async () => {
     const started = (await post(w, formUrl('/start'), {}).then((r) => r.json())) as {
       responseId: string;

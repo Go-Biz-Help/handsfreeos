@@ -83,6 +83,7 @@ export interface IdentifyInput {
   readonly phone?: string;
   readonly email?: string;
   readonly smsConsent: boolean;
+  readonly offersConsent?: boolean;
   readonly turnstileToken?: string;
   readonly honeypot?: string;
 }

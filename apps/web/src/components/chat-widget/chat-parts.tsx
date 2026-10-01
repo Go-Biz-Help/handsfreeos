@@ -353,6 +353,8 @@ export interface DetailsFormProps {
   readonly consentPolicyUrl?: string | null;
   /** Its terms, linked beside the policy. */
   readonly consentTermsUrl?: string | null;
+  /** The separate box for offers under it, for a business that sends them. */
+  readonly offers?: { readonly title: string; readonly detail: string } | null;
   /** The away form: "How can we help?" too. */
   readonly withMessage: boolean;
   readonly intro: string | null;
@@ -372,6 +374,7 @@ export function DetailsForm(p: DetailsFormProps) {
     phone: '',
     email: '',
     smsConsent: false,
+    offersConsent: false,
     message: '',
   });
   const [problems, setProblems] = useState<FieldProblems>({});
@@ -512,6 +515,21 @@ export function DetailsForm(p: DetailsFormProps) {
                 </a>
               ) : null}
             </span>
+          ) : null}
+          {/* Offers have their own box, never ticked for them (core's offersConsentWords). */}
+          {p.offers ? (
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[1.5] text-text-2">
+              <input
+                type="checkbox"
+                checked={!!values.offersConsent}
+                onChange={(e) => set({ offersConsent: e.target.checked })}
+                className="mt-0.5 h-[18px] w-[18px] flex-none cursor-pointer accent-[var(--wacc)]"
+                data-testid={`${p.testId}-offers`}
+              />
+              <span>
+                <span className="font-medium">{p.offers.title}</span>. {p.offers.detail}
+              </span>
+            </label>
           ) : null}
         </>
       ) : null}

@@ -98,6 +98,8 @@ describe('the widget’s settings', () => {
         ),
         text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
       },
+      // No texting registration that includes offers, so no second box.
+      offersConsent: null,
       humanCheck: null,
       paused: false,
       maxMessageLength: 1000,

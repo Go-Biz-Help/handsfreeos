@@ -83,7 +83,7 @@ import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
-import { parseBody, type HttpDeps } from './common';
+import { offersBoxFor, parseBody, type HttpDeps } from './common';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -164,6 +164,8 @@ export interface PublicBusiness {
   readonly name: string;
   readonly phone: string | null;
   readonly phoneDisplay: string | null;
+  /** The separate box for offers under "Text me", for a business that sends them; null otherwise. */
+  readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
 }
 
 const SLUG_RE = /^[A-Za-z0-9-]{1,80}$/;
@@ -349,6 +351,7 @@ async function businessIn(
     name,
     phone: phone?.e164 ?? null,
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
+    offersConsent: await offersBoxFor(tx, workspaceId, name),
   };
 }
 
@@ -596,6 +599,8 @@ const customerFields = {
   phone: z.string().trim().max(40).nullable().optional(),
   email: z.string().trim().max(254).nullable().optional(),
   smsConsent: z.boolean().default(false),
+  /** The separate box for offers, shown when the business sends them. */
+  offersConsent: z.boolean().default(false),
   /** The honeypot: people never see it, so it stays empty. */
   website: z.string().max(500).optional(),
   turnstileToken: z.string().max(2048).optional(),
@@ -1264,6 +1269,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
                 : null,
             customer: { ...splitName(body.name), phone, email: body.email || null },
             smsConsent: body.smsConsent,
+            offersConsent: body.offersConsent,
             intake: body.intake,
             notes: body.notes ?? null,
             clientId: body.clientId,
@@ -1327,6 +1333,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             seats: body.partySize,
             customer: { ...splitName(body.name), phone, email: body.email || null },
             smsConsent: body.smsConsent,
+            offersConsent: body.offersConsent,
           },
           systemActor(scope),
           meta(),

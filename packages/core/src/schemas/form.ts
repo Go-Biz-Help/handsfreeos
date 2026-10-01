@@ -188,6 +188,8 @@ export const FormSubmitInput = z.object({
   answers: AnswerSheetInput,
   /** Ticked to allow texts. The box starts unticked, as it does on the booking page. */
   smsConsent: z.boolean().default(false),
+  /** The separate box for offers, shown when the business sends them. Starts unticked too. */
+  offersConsent: z.boolean().default(false),
 });
 /**
  * A person filling one in themselves (M17), on a phone that may have no signal.

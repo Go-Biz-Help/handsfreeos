@@ -80,7 +80,7 @@ import {
   type WidgetRow,
 } from '../chat/store';
 import { systemActor, type TenantScope } from '../services';
-import { header, parseBody, type HttpDeps } from './common';
+import { header, offersBoxFor, parseBody, type HttpDeps } from './common';
 import { openStream } from './sse';
 
 // ---- Options ----
@@ -234,6 +234,7 @@ const IdentifyBody = z
     phone: z.string().max(40).optional(),
     email: z.string().max(320).optional(),
     smsConsent: z.boolean().default(false),
+    offersConsent: z.boolean().default(false),
     turnstileToken: z.string().max(2048).optional(),
     honeypot: z.string().max(500).optional(),
   })
@@ -438,6 +439,10 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
             },
             askFor: chatAskForOf(widget.askFor),
             smsConsent: widget.smsConsent ? { ...consentWords, text: consentWords.detail } : null,
+            // The separate box for offers, under the first, for a business that sends them.
+            offersConsent: widget.smsConsent
+              ? await offersBoxFor(tx, route.workspaceId, ws?.name ?? '')
+              : null,
             humanCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
             paused: widget.pausedAt !== null,
             maxMessageLength: CHAT_MESSAGE_MAX,
@@ -639,6 +644,7 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           ...(phone ? { phone } : {}),
           ...(email ? { email } : {}),
           smsConsent: body.smsConsent,
+          offersConsent: body.offersConsent,
         });
         if (verdict === 'pass')
           await run(v.scope, chatVisitorRecordSeen, {

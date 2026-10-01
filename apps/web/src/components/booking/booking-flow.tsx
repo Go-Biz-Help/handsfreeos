@@ -339,6 +339,45 @@ function SmsConsent({
   );
 }
 
+/**
+ * The separate box for offers, under "Text me", for a business that sends them. Starts unticked and is never
+ * required; agreeing to texts about this booking is not agreeing to offers (core's offersConsentWords).
+ */
+function OffersConsent({
+  checked,
+  onChange,
+  words,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  words: { title: string; detail: string };
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex min-h-11 items-start gap-2.5 py-1 text-left"
+      data-testid="booking-offers-consent"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 inline-flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[5px] border',
+          checked ? 'border-accent bg-accent text-white' : 'border-border-strong bg-card',
+        )}
+      >
+        {checked ? <Check size={13} strokeWidth={2.4} /> : null}
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[13px] font-medium">{words.title}</span>
+        <span className="text-xs text-text-3">{words.detail}</span>
+      </span>
+    </button>
+  );
+}
+
 /** People never see it, so it stays empty; bots fill it in and are turned away. */
 function Honeypot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -613,6 +652,7 @@ export function BookingFlow({
     address: '',
     notes: '',
     smsConsent: false,
+    offersConsent: false,
   });
   const set = (k: keyof typeof form) => (v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const [intake, setIntake] = useState<Record<string, Answer>>({});
@@ -710,6 +750,7 @@ export function BookingFlow({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         smsConsent: form.smsConsent,
+        offersConsent: business.offersConsent ? form.offersConsent : false,
         intake,
         notes: form.notes.trim() || null,
         website,
@@ -745,6 +786,7 @@ export function BookingFlow({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         smsConsent: form.smsConsent,
+        offersConsent: business.offersConsent ? form.offersConsent : false,
         website,
         turnstileToken: botToken ?? undefined,
       });
@@ -937,6 +979,13 @@ export function BookingFlow({
         policyPath={consentPolicyPath(site)}
         termsPath={consentTermsPath(site)}
       />
+      {business.offersConsent ? (
+        <OffersConsent
+          checked={form.offersConsent}
+          onChange={(v) => set('offersConsent')(v)}
+          words={business.offersConsent}
+        />
+      ) : null}
       <Honeypot value={website} onChange={setWebsite} />
       {botSiteKey ? (
         <Turnstile siteKey={botSiteKey} onToken={setBotToken} resetKey={botReset} />
