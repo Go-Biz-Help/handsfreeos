@@ -14,6 +14,7 @@ import {
   HfosError,
   VIDEO_LINK_MAX_STARTS,
   VIDEO_LINK_WORDS,
+  videoLinkDay,
   videoLinkReceiveUpload,
   videoLinkStartUpload,
   videoLinkTokenHash,
@@ -35,6 +36,7 @@ interface LinkRoute extends Record<string, unknown> {
 
 interface LinkState extends Record<string, unknown> {
   readonly business: string;
+  readonly timezone: string;
   readonly expires_at: Date | string;
   readonly max_uploads: number;
   readonly uploads_started: number;
@@ -57,16 +59,13 @@ const DoneBody = z.object({
 
 const notFound = () => HfosError.rule('link_not_found', 404, VIDEO_LINK_WORDS.notFound);
 
-const shortDate = (at: Date) =>
-  at.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
-
 /** Why the link takes nothing more right now, in the customer's words; null when it takes a video. */
 function problemOf(link: LinkState): { rule: string; message: string } | null {
   const expiresAt = new Date(link.expires_at);
   if (expiresAt.getTime() <= Date.now())
     return {
       rule: 'link_expired',
-      message: VIDEO_LINK_WORDS.expired(link.business, shortDate(expiresAt)),
+      message: VIDEO_LINK_WORDS.expired(link.business, videoLinkDay(expiresAt, link.timezone)),
     };
   if (link.uploads_received >= link.max_uploads)
     return { rule: 'link_full', message: VIDEO_LINK_WORDS.full(link.business, link.max_uploads) };
@@ -105,7 +104,7 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
     const [state] = await asWorker(deps.httpDb, scope, (tx) =>
       rows<LinkState>(
         tx,
-        sql`select w.name as business, l.expires_at, l.max_uploads, l.uploads_started, l.uploads_received
+        sql`select w.name as business, w.timezone, l.expires_at, l.max_uploads, l.uploads_started, l.uploads_received
             from app.video_links l join app.workspaces w on w.id = l.workspace_id
             where l.id = ${linkId}`,
       ),
