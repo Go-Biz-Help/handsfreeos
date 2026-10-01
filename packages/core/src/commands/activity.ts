@@ -5,7 +5,7 @@ import { actorMeta } from '../crm/activities';
 import { insertWithId, madeBefore } from '../crm/client-ids';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
-import { userIdOf } from '../kernel/actor';
+import { storedActorType, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import { requireCustomRecord } from '../relationships/store';
@@ -71,7 +71,7 @@ export const activityLog = defineCommand({
           leadId: input.leadId ?? null,
           customRecordId: input.customRecordId ?? null,
           authorUserId: userIdOf(ctx.actor),
-          actorType: ctx.actor.type,
+          actorType: storedActorType(ctx.actor),
           meta: actorMeta(ctx.actor),
         })
         .returning({ id: activities.id }),

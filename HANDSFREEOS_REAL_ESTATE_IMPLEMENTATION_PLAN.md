@@ -1268,20 +1268,36 @@ boards; the server steps go ahead meanwhile.
 - **Step 13:** the staff screens. **Step 14:** the portal's and public screens, the docs, the browser test and a short
   video.
 
-### Step 1: add-on public pages (core)
+### Step 1: add-on public pages (built, 2026-10-01)
 
-- A new kind of actor, the **public** visitor (`PublicActor { workspaceId, ipHash }`), may run only operations whose
-  `actors` include `'public'`: no permission, risk 0–1, no `ai`, and only where the add-on is on. They run as the
-  system actor in the business, as forms and booking pages do (`apps/worker/src/http/forms.ts`), on channel `web`.
-- The manifest's `ui.public` names the add-on's public pages, checked by `manifestIssues`.
-- The worker serves `POST /public/addon/:site/op/:name` (`apps/worker/src/http/addon-public.ts`): the booking site's
-  slug finds the business, with limits per address and a honeypot on commands. Files an operation names come back as
-  links that work for an hour, after a check that each is the business's own.
-- The web serves `/a/<site>/<addon>/…` (`apps/web/src/app/a/[site]/[addonId]/[[...path]]`) from the registry's
-  `public` entry, through `lib/api/public-addon.ts`. `/a/` is served on a business's own domain too
-  (`core/hosting/branded-paths.ts`).
-- One sign-up helper, taken out of `commands/form-response.ts`: find or make the person, open the lead, and record
-  text consent with where it came from. Forms and add-on pages record consent the same way.
+**As built** (no migration):
+
+- The kernel's new actor, `PublicActor { workspaceId, organizationId, site, visitor }` (`kernel/types.ts`), runs only
+  operations whose `actors` list `'public'`, and only in the business whose page it is. Its look-ups and changes run as
+  the service actor there, as forms and booking pages do, on the forms' channel (`booking_page`), and stop while the
+  add-on is off. It's recorded as the system with `actor_role` `public` and `_public: { site, visitor }` on the event;
+  `visitor` is an HMAC of the address under the chat's key, never the address. `storedActorType` is what an
+  activity row records for it.
+- `publicOperationIssues` (`addons/server.ts`): a public operation is named `<id>.public.*`, is for visitors alone,
+  asks no permission, isn't offered to the AI, and is risk 2 at most (a form's answers' own: it can make a customer
+  and a lead). Core has none.
+- The manifest's `ui.public` (`AddonPublicPage { path, query }`), checked by `manifestIssues`, and by
+  `addonModuleIssues` to show one of the add-on's public queries.
+- The worker's two doors (`apps/worker/src/http/addon-public.ts`): `POST /public/addon/:site/query/:name` and
+  `…/command/:name`. The booking site's name finds the business (`private.booking_route`); anything not made for
+  public pages, and a site that isn't one, is "There’s no page at this address". The forms' limits and bot check, a
+  honeypot on changes, and `no-store`. Every `{ publicFileId }` in an answer gets a `url` that works for an hour, once
+  the file is checked to be the business's own and ready.
+- The web's `/a/<site>/<addon>/<path>` (`apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx`): the path is matched
+  to the manifest's `ui.public` (`lib/addons/public-pages.ts`), its query read on the server once per request
+  (`lib/api/public-addon.ts`), and the registry's new `public` entry draws it. `/a/` is served on a business's own
+  domain too.
+- `crm/signup.ts`: `signUpFromPage` finds or makes the customer, opens a lead when the business's forms' Lead intake
+  would, and keeps a yes to texts with its source (`recordSmsConsent`, which `form_response.submit` now uses too).
+  A command that calls it lists `SIGN_UP_EVENTS` in its `emits`.
+- Tests: `packages/core/test/public-kernel.test.ts` (runs as the service actor, refused other operations, businesses
+  and a turned-off add-on, the record, the sign-up and its consent, the rules), `apps/worker/test/addon-public.test.ts`
+  (the doors' refusals; Real Estate's pages are tested through them in step 6), `branded-paths.test.ts`.
 
 ### Step 2: campaigns from exact words (core)
 

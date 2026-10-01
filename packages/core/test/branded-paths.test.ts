@@ -36,6 +36,9 @@ describe('brandedRoute', () => {
       '/hold/AbCd1234EfGh567890',
       '/chat/pk_live_abc',
       '/embed/v1/pk_live_abc.js',
+      // An add-on's public pages: a listing's page, an open house's sign-in.
+      '/a/lonestar/realestate/2207-juniper-trail',
+      '/a/lonestar/realestate/2207-juniper-trail/open-house/0b7a3f0e-0000-4000-8000-000000000001',
     ])
       expect(brandedRoute(SITE, path), path).toEqual({ kind: 'serve' });
   });
@@ -68,7 +71,7 @@ describe('brandedRoute', () => {
     // A route added later appears on our own address first, and on a business's domain only once somebody
     // has decided it should. Silence is the safe default here.
     expect(brandedRoute(SITE, '/quote/thanks')).toEqual({ kind: 'elsewhere' });
-    expect(brandedRoute(SITE, '/a/b/c')).toEqual({ kind: 'elsewhere' });
+    expect(brandedRoute(SITE, '/z/b/c')).toEqual({ kind: 'elsewhere' });
     expect(brandedRoute(SITE, '/-nope')).toEqual({ kind: 'elsewhere' });
     expect(brandedRoute(SITE, '/nope-')).toEqual({ kind: 'elsewhere' });
   });

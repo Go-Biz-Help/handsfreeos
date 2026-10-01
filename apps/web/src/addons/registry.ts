@@ -99,6 +99,30 @@ export interface AddonPortalUi {
 }
 
 /** What the web knows about one add-on. */
+/** What an add-on's public page is handed: where it is, and what its look-up answered. */
+export interface AddonPublicPageProps {
+  /** The booking site's name the page is under (`/a/<site>/…`). */
+  readonly site: string;
+  /** The manifest's page it is (`:slug/open-house/:openHouseId`), and what each `:name` was. */
+  readonly page: string;
+  readonly params: Readonly<Record<string, string>>;
+  /** What the page's public query answered: the add-on's own shape. */
+  readonly result: unknown;
+  readonly business: { readonly name: string; readonly timeZone: string };
+  readonly botCheck: { readonly siteKey: string | null } | null;
+}
+
+/**
+ * An add-on's public pages (`/a/<site>/<id>/<path>`, Real Estate round three): what anyone with the link sees. The
+ * web's server reads the public query the manifest's `ui.public` names for the path, and hands the answer to one
+ * component for all of them. Only the paths the manifest declares open; any other is the 404 page.
+ */
+export interface AddonPublicUi {
+  readonly pages: () => Promise<{ default: ComponentType<AddonPublicPageProps> }>;
+  /** The page's title in the browser tab, from the same answer. */
+  readonly title?: (props: AddonPublicPageProps) => string;
+}
+
 export interface AddonUi {
   /** Its places in the side menu, and its card on the Add-ons page. */
   readonly icon: AddonIcon;
@@ -110,6 +134,8 @@ export interface AddonUi {
   readonly settings?: SettingsLoader;
   /** Its pages in a customer's portal. */
   readonly portal?: AddonPortalUi;
+  /** Its public pages, for anyone with the link. */
+  readonly public?: AddonPublicUi;
 }
 
 /** Every add-on's UI, by add-on id. */

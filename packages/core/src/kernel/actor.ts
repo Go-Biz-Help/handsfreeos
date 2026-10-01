@@ -1,5 +1,12 @@
 import { HfosError } from '../errors';
-import type { Actor, AiEmployeeActor, CustomerActor, HumanActor, MachineActor } from './types';
+import type {
+  Actor,
+  AiEmployeeActor,
+  CustomerActor,
+  HumanActor,
+  MachineActor,
+  PublicActor,
+} from './types';
 
 /**
  * The system, a workflow or the AI teammate: nobody signed in behind the request. The kernel runs them as
@@ -19,6 +26,21 @@ export function customerOf(actor: Actor): CustomerActor | null {
 export function requireCustomer(ctx: { readonly actor: Actor }): CustomerActor {
   if (ctx.actor.type !== 'customer')
     throw HfosError.forbidden('Only a customer in their own portal can do this.');
+  return ctx.actor;
+}
+
+/**
+ * The kind of actor a row records (`actor_type`): a visitor to a public page is nobody we know, so they're the system,
+ * as a form's answers are. Every other kind is itself.
+ */
+export function storedActorType(actor: Actor): Exclude<Actor['type'], 'public'> {
+  return actor.type === 'public' ? 'system' : actor.type;
+}
+
+/** For handlers only a visitor to a public page runs (`<addon>.public.*`). */
+export function requirePublic(ctx: { readonly actor: Actor }): PublicActor {
+  if (ctx.actor.type !== 'public')
+    throw HfosError.forbidden('Only a visitor to a public page can do this.');
   return ctx.actor;
 }
 

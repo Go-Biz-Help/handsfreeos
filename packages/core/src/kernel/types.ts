@@ -164,9 +164,25 @@ export interface CustomerActor {
   /** The signed-in device (app.portal_sessions). */
   readonly sessionId: string;
 }
-/** Who runs in the worker's own transaction: machines, and a customer's changes. */
-export type WorkerActor = MachineActor | CustomerActor;
-export type Actor = HumanActor | MachineActor | CustomerActor;
+/**
+ * Someone on one of an add-on's public pages, signed in to nothing (Real Estate round three, core): a listing's page,
+ * an open house's sign-in. They may run only the operations that list 'public' (named `<addon>.public.*`), and only
+ * in the business whose page they're on, found from its booking site's name. Everything they do runs as the service
+ * actor in that business, as forms and booking pages do, so each operation's own handler keeps them to what the
+ * business has published. Recorded as the system with `_public` on the event: the site and a hash of their address.
+ */
+export interface PublicActor {
+  readonly type: 'public';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  /** The booking site's name the page is under (`/a/<site>/…`). */
+  readonly site: string;
+  /** A hash of the visitor's address, for the record; never the address itself. */
+  readonly visitor: string;
+}
+/** Who runs in the worker's own transaction: machines, a customer's changes, and a visitor to a public page. */
+export type WorkerActor = MachineActor | CustomerActor | PublicActor;
+export type Actor = HumanActor | MachineActor | CustomerActor | PublicActor;
 export type ActorKind = Actor['type'];
 
 export interface RequestMeta {

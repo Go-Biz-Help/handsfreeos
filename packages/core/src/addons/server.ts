@@ -104,12 +104,20 @@ export function addonModuleIssues(
         tools.add(op.ai.tool);
       }
       issues.push(...customerOperationIssues(op, `${m.id}.portal.`));
+      issues.push(...publicOperationIssues(op, `${m.id}.public.`));
     }
     for (const page of m.ui?.portal ?? []) {
       const q = queries.find((op) => op.name === page.query);
       if (!q?.actors?.includes('customer'))
         issues.push(
           `portal page "${page.path}" shows ${page.query}, which isn't one of its customer queries`,
+        );
+    }
+    for (const page of m.ui?.public ?? []) {
+      const q = queries.find((op) => op.name === page.query);
+      if (!q?.actors?.includes('public'))
+        issues.push(
+          `public page "${page.path}" shows ${page.query}, which isn't one of its public queries`,
         );
     }
   }
@@ -134,6 +142,28 @@ export function customerOperationIssues(op: CommandDef | QueryDef, prefix: strin
   if (op.ai) issues.push(`${op.name} is for customers, so it isn't offered to the AI`);
   if (op.kind === 'command' && op.risk > 2)
     issues.push(`${op.name} is for customers, so its risk is 2 at most`);
+  return issues;
+}
+
+/**
+ * What a visitor to a public page may run (Real Estate round three): only an add-on's operations named for its public
+ * pages (`<id>.public.*`), for nobody else, asking no permission (a visitor holds none), never offered to the AI, and
+ * never a change above risk 2, a form's answers' own (it can make a customer and a lead, and nothing more). And
+ * nothing named for the public pages is for anyone else.
+ */
+export function publicOperationIssues(op: CommandDef | QueryDef, prefix: string): string[] {
+  const forPublic = op.actors?.includes('public') ?? false;
+  const named = op.name.startsWith(prefix);
+  if (!forPublic && !named) return [];
+  const issues: string[] = [];
+  if (!named) issues.push(`${op.name} is for public pages, so it must be named "${prefix}…"`);
+  if (!forPublic) issues.push(`${op.name} is named for public pages, so it's for visitors`);
+  if ((op.actors ?? ['human']).some((a) => a !== 'public'))
+    issues.push(`${op.name} is for visitors alone`);
+  if (op.permission) issues.push(`${op.name} is for visitors, who hold no permissions`);
+  if (op.ai) issues.push(`${op.name} is for visitors, so it isn't offered to the AI`);
+  if (op.kind === 'command' && op.risk > 2)
+    issues.push(`${op.name} is for visitors, so its risk is 2 at most`);
   return issues;
 }
 

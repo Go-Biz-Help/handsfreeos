@@ -30,6 +30,7 @@ import type {
   CustomerActor,
   EmitInput,
   MachineActor,
+  PublicActor,
   QueryDef,
   RequestMeta,
   ResolvedScope,
@@ -157,10 +158,11 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
 }
 
 /**
- * A customer acts only in the business whose portal they're signed in to, and only through operations about it
- * (scoped to its workspace); anything else does not exist for them.
+ * A customer acts only in the business whose portal they're signed in to, and a visitor only in the business whose
+ * page they're on, each only through operations about it (scoped to its workspace); anything else does not exist for
+ * them.
  */
-function resolveCustomerScope(actor: CustomerActor, ref: ScopeRef): ResolvedScope {
+function resolveCustomerScope(actor: CustomerActor | PublicActor, ref: ScopeRef): ResolvedScope {
   if (ref.kind !== 'workspace' || ref.workspaceId !== actor.workspaceId) throw businessNotThere();
   return {
     workspaceId: actor.workspaceId,
@@ -170,9 +172,9 @@ function resolveCustomerScope(actor: CustomerActor, ref: ScopeRef): ResolvedScop
   };
 }
 
-/** The scope a worker-run actor works in: a machine's tenant, or a customer's business. */
+/** The scope a worker-run actor works in: a machine's tenant, or a customer's or a visitor's business. */
 function resolveWorkerScope(actor: WorkerActor, ref: ScopeRef): ResolvedScope {
-  return actor.type === 'customer'
+  return actor.type === 'customer' || actor.type === 'public'
     ? resolveCustomerScope(actor, ref)
     : resolveMachineScope(actor, ref);
 }
@@ -292,7 +294,7 @@ function actorRoleLabel(scope: ResolvedScope): string | null {
 }
 
 interface RecordedActor {
-  readonly actorType: ActorKind;
+  readonly actorType: Exclude<ActorKind, 'public'>;
   readonly actorId: string | null;
   readonly actorRole: string | null;
   /** What the kernel adds to every event payload for this actor. */
@@ -377,6 +379,14 @@ function recordedActor(actor: Actor, scope: ResolvedScope): RecordedActor {
         actorId: actor.personId,
         actorRole: 'customer',
         payload: { _portal: { personId: actor.personId, sessionId: actor.sessionId } },
+      };
+    // A visitor to a public page is nobody we know: the system, as a form's answers are, with the page they used.
+    case 'public':
+      return {
+        actorType: 'system',
+        actorId: null,
+        actorRole: 'public',
+        payload: { _public: { site: actor.site, visitor: actor.visitor } },
       };
   }
 }
@@ -535,6 +545,23 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
       throw translateDbError(e);
     }
   }
+  if (actor.type === 'public') {
+    try {
+      // The service actor in the business whose page it is, as forms and booking pages run: the command's own
+      // handler keeps a visitor to what the business has published.
+      const scope = resolveCustomerScope(actor, scopeRef);
+      return await asWorker(
+        db,
+        { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
+        async (tx) => {
+          await assertAddonRuns(tx, cmd.addon ?? null, scope.workspaceId, true);
+          return runCommand(tx, cmd, input, actor, scope, meta, cmd.addon ?? null);
+        },
+      );
+    } catch (e) {
+      throw translateDbError(e);
+    }
+  }
   const claim = receiptClaim(cmd, rawInput, actor, meta);
   // The business the receipt names: set once the person is found to work in it.
   let receiptWorkspace: string | null = null;
@@ -669,7 +696,7 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
   cmd: CommandDef<I, O>,
   rawInput: unknown,
 ): Promise<ExecuteResult<z.output<O>>> {
-  if (isMachine(ctx.actor) || ctx.actor.type === 'customer')
+  if (isMachine(ctx.actor) || ctx.actor.type === 'customer' || ctx.actor.type === 'public')
     return runMachineCommandIn(ctx.tx, cmd, rawInput, ctx.actor, ctx.meta, ctx.addon ?? null);
   assertActorAllowed(cmd, ctx.actor);
   const input = parseInput(cmd.input, rawInput);
@@ -737,6 +764,18 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
         }
         return run(tx, scope);
       });
+    }
+    if (actor.type === 'public') {
+      // As the service actor in the page's business; the query's own handler shows only what is published.
+      const scope = resolveCustomerScope(actor, scopeRef);
+      return await asWorker(
+        db,
+        { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
+        async (tx) => {
+          await assertAddonRuns(tx, query.addon ?? null, scope.workspaceId, false);
+          return run(tx, scope);
+        },
+      );
     }
     return await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);

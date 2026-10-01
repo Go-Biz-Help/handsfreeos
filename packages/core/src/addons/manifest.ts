@@ -211,6 +211,18 @@ export interface AddonPortalPage {
   readonly query: string;
 }
 
+/**
+ * One of the add-on's public pages (`/a/<site>/<id>/<path>`), open to anyone, signed in to nothing (Real Estate round
+ * three): a listing's page, an open house's sign-in. It shows what one of the add-on's public queries
+ * (`<id>.public.*`) answers, only while the add-on is on, and only what that query chooses to publish.
+ */
+export interface AddonPublicPage {
+  /** Relative to the add-on's public pages, with `:name` for a part of the address (`:slug/open-house/:openHouseId`). */
+  readonly path: string;
+  /** The public query it shows. */
+  readonly query: string;
+}
+
 export interface AddonSettingsDeclaration {
   /** The business's settings, checked on every save. Stored in `app.addon_installations.settings`. */
   readonly workspace?: z.ZodType;
@@ -287,6 +299,8 @@ export interface AddonManifest {
     readonly phone?: readonly AddonPhonePage[];
     /** Its pages in a customer's portal. They need a relationship type with `portal`. */
     readonly portal?: readonly AddonPortalPage[];
+    /** Its public pages, for anyone with the link. */
+    readonly public?: readonly AddonPublicPage[];
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
@@ -472,6 +486,19 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
   }
   if ((m.ui?.portal ?? []).length > 0 && !(m.relationshipTypes ?? []).some((t) => t.portal))
     say('portal pages need a relationship type with "portal", so a customer has records to see');
+  const publicShapes = new Set<string>();
+  for (const page of m.ui?.public ?? []) {
+    const parts = page.path.split('/');
+    if (!parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p)))
+      say(`public page "${page.path}" must be a path, with ":name" for a part of the address`);
+    if (!page.query.startsWith(`${m.id}.public.`))
+      say(
+        `public page "${page.path}" shows "${page.query}", which must be one of "${m.id}.public.*"`,
+      );
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (publicShapes.has(shape)) say(`public page "${page.path}" is declared twice`);
+    publicShapes.add(shape);
+  }
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {
     // `deals/:dealId` and `deals/:id` are the same page.
