@@ -34,6 +34,7 @@ describe('brandedRoute', () => {
       '/m/AbCd1234EfGh567890',
       '/w/AbCd1234EfGh567890',
       '/hold/AbCd1234EfGh567890',
+      '/v/q3dJ7mWx0Lk2sYb9Hn4uTc8eRf1aZp6v',
       '/chat/pk_live_abc',
       '/embed/v1/pk_live_abc.js',
     ])

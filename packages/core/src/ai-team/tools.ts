@@ -439,6 +439,14 @@ export const TEAMMATE_TOOLS = [
     skill: 'photos',
     autonomy: 'auto',
   }),
+  define({
+    name: 'ask_for_video',
+    description:
+      'When a video would show the problem better than words or a photo (a noise, a leak, something that moves or won’t start), send them a link to send one at full quality: a video sent by text comes through blurry. In your reply, say what to film and ask them to use the link. The link is added at the end of your reply for you, so never write one yourself.',
+    input: z.strictObject({}),
+    skill: 'photos',
+    autonomy: 'auto',
+  }),
 
   // ---------- discounts ----------
   define({
@@ -663,6 +671,9 @@ export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'check_verification_code',
 ]);
 
+/** Only in a conversation by text: the link to send a video goes by text (20261018000200). */
+export const TEXTING_ONLY: ReadonlySet<TeammateToolName> = new Set(['ask_for_video']);
+
 /** Only on a live phone call (M18 step 5). */
 export const PHONE_ONLY: ReadonlySet<TeammateToolName> = new Set(['end_call']);
 
@@ -688,6 +699,8 @@ export interface TeammateToolOptions {
   readonly unverifiedChat?: boolean;
   /** And its customer was on file already, not added by the chat. */
   readonly strangerInChat?: boolean;
+  /** It's answering a conversation by text. */
+  readonly texting?: boolean;
   /** It's answering a live phone call (M18 step 5). */
   readonly phone?: boolean;
   /** It placed this call itself, and why (AI outbound calls). */
@@ -729,6 +742,7 @@ export function teammateTools(
         (t.name !== 'confirm_visit' || opts.outbound === 'confirm_visit')
       );
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
+    if (TEXTING_ONLY.has(t.name)) return !!opts.texting && !opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
     if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
     if (opts.unverifiedChat && opts.strangerInChat && STRANGER_IN_CHAT_HIDDEN.has(t.name))

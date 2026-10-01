@@ -2,10 +2,12 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { sql } from '@hfos/db/client';
 import { conversations, messages, people, videoLinks } from '@hfos/db/schema';
+import { notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
+import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { loadConversation, scheduleJob, workspaceMessaging } from '../messaging/store';
@@ -30,8 +32,9 @@ import {
 import { customerOptedOut } from './message';
 
 /**
- * Asking a customer for a video (20261018000200): a person makes a link and texts it from the reply box, the
- * customer's page starts an upload and the video goes up, and it lands in the conversation as their reply.
+ * Asking a customer for a video (20261018000200): a person makes a link and texts it from the reply box (or the
+ * AI teammate adds one to its reply), the customer's page starts an upload and the video goes up, and it lands in
+ * the conversation as their reply.
  *
  * The link is a key: the token goes to the person once, to send, and only its hash is kept. The page's two writes
  * run as the system actor in the link's business, which the worker learns from private.video_link_lookup().
@@ -79,9 +82,16 @@ export const videoLinkCreate = defineCommand({
   scope: inWorkspace,
   emits: ['video_link.created'],
   shownOnce: ['token', 'path'],
+  actors: ['human', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const conv = await loadConversation(ctx, input.conversationId);
+    // The AI teammate, only in the conversation it's answering, and only while it has it.
+    const ai = aiEmployeeOf(ctx.actor);
+    if (ai) {
+      if (conv.id !== ai.conversationId) throw outsideItsConversation();
+      if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
+    }
     if (conv.channel !== 'sms')
       throw HfosError.rule(
         'channel_mismatch',
@@ -107,6 +117,7 @@ export const videoLinkCreate = defineCommand({
         conversationId: conv.id,
         tokenHash: videoLinkTokenHash(token),
         createdBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+        createdByTeammateId: ai?.teammateId ?? null,
         expiresAt,
         maxUploads: VIDEO_LINK_MAX_UPLOADS,
       })

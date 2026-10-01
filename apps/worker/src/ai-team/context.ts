@@ -120,10 +120,20 @@ function textOf(
   r: Pick<MessageRow, 'channel' | 'body_text' | 'media' | 'rich' | 'button_reply'>,
 ): string {
   const body = r.channel === 'email' ? stripQuoted(r.body_text ?? '') : (r.body_text ?? '').trim();
-  const photos = Array.isArray(r.media) ? r.media.length : 0;
-  const sent = photos === 1 ? 'a photo' : `${photos} photos`;
+  const media = Array.isArray(r.media) ? (r.media as unknown[]) : [];
+  // A video it can't watch is named as one, so it doesn't look for a photo that isn't there.
+  const videos = media.filter((m) =>
+    String((m as { contentType?: unknown } | null)?.contentType ?? '').startsWith('video/'),
+  ).length;
+  const photos = media.length - videos;
+  const sent = [
+    photos ? (photos === 1 ? 'a photo' : `${photos} photos`) : '',
+    videos ? (videos === 1 ? 'a video' : `${videos} videos`) : '',
+  ]
+    .filter(Boolean)
+    .join(' and ');
   // M18: a photo with words says so too, so the model knows there is one to look at.
-  let text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
+  let text = !media.length ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
   // A tap is the customer's answer, in the button's own words (0103); saying so tells the model it answers the
   // message that offered it rather than being something they typed out of the blue.
   if (r.button_reply)
