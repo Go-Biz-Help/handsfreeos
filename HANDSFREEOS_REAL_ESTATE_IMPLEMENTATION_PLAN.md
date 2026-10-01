@@ -1203,3 +1203,209 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Route planning and drive times between a tour's homes, and lockbox details.
 - The listing side (round three) and contract reading (round four).
 - Phone screens (round six); their links are ready.
+
+# Round three: Listing core
+
+The spec's **Listing core** release (§23): seller intake, preparing the home, the listing record, marketing with
+approvals, offer comparison and the seller's side from contract to close, plus the seller's own pages in the portal.
+Chris decided every question below on 2026-10-01, after watching round two's walkthrough.
+
+## Decisions (Chris, 2026-10-01)
+
+| Question                         | Answer                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The seller's portal              | **The same portal** the buyers use, showing the seller's listing.                                                                                                                    |
+| The home's facts                 | **Three ways:** the seller fills in a questionnaire in the portal, the agent pastes the home's old listing text (the AI reads it), or the agent types them. The agent confirms them. |
+| Showings                         | **Wait for the showing connector** (round five).                                                                                                                                     |
+| Showing feedback                 | **Waits with it.** When it comes, the seller sees the feedback after the agent has checked it.                                                                                       |
+| The listing description          | **The AI drafts it**, with both fair housing checks; the agent edits it; **the seller signs it off**.                                                                                |
+| Before the listing is on the MLS | **Everything public waits** until the listing is live on the MLS.                                                                                                                    |
+| Marketing                        | **A public page for the listing, a printable flyer, an email or text to the business's contacts, and drafts of social posts.**                                                       |
+| Open houses                      | **A sign-in page** that visitors open from a QR code.                                                                                                                                |
+| Offers on a listing              | **Side by side, with what the seller would take home** from each.                                                                                                                    |
+| Matching to buyers               | **Suggested to the buyer's agent:** a listing that fits one of the business's own buyers is suggested to the agent on that buyer's deal.                                             |
+| A price change                   | **The seller signs it off** before the new price is used.                                                                                                                            |
+
+Chosen for Chris, open to change:
+
+- Nothing lets a listing be marketed publicly before it's on the MLS. That's the MLS's rule, not the brokerage's.
+- An owner or admin (Approve exceptions) can let a description or price change through without the seller's sign-off
+  in the portal, with a reason that's kept ("signed on paper"), as tours were.
+- An open house needs no sign-off from the seller; the seller sees it in the portal.
+- A visitor who says they're working with another agent is recorded, but never made a lead or texted.
+- The seller's choice on an offer in the portal tells the agent what they want. It isn't an acceptance: the contract
+  is still signed elsewhere.
+- Matching looks only at the business's own buyer deals. The listing's side sees how many were suggested, never who.
+- What the seller takes home is an estimate, and says so, with the figures it used kept beside it.
+- Photos on the public page are links that work for an hour.
+
+## How it works
+
+- **Core first.** Two pieces any add-on can use: **public pages** (an add-on's pages anyone can open, signed out, run
+  only through operations that say so, as booking pages and forms are), and **campaigns from exact words** (an add-on
+  hands Campaigns the words to send, and Campaigns' approvals and consent rules apply as they are).
+- **The listing** is a record of its own beside the deal: the home's facts and where each came from, its photos, its
+  descriptions, its prices, and when it went live on the MLS. Everything public reads only what the seller signed off
+  and the agent published.
+- **The AI** reads pasted listing text for facts, drafts the description and the social posts, and every word it
+  writes goes through both fair housing checks before anyone can send it.
+- **Round two's buyer pieces** work on a listing too, from the other side: the CMA prices the listing, offers come in
+  from buyers and the seller counters, the buyer's inspection brings a repair request to answer, and the financing
+  tracker follows the buyer's loan.
+
+## Build order (round three)
+
+`main` moved past round two's numbers while this branch was open (it holds `20261016000100`), so round three's
+migrations start at `20261020000100`. Before anything goes live, rounds two and three's migrations are renumbered
+above whatever `main` holds then; none of them is on the hosted database. Screens wait for Chris to approve the
+boards; the server steps go ahead meanwhile.
+
+- **Step 0:** this part, and the boards in `design/realestate` (numbers 32 to 49).
+- **Steps 1–2 (core):** add-on public pages; campaigns from exact words.
+- **Steps 3–12 (Real Estate):** the listing and its facts; the description and its sign-off; live on the MLS, and the
+  hold; marketing; open houses; offers side by side; the CMA, inspections and the buyer's loan on a listing; price
+  changes; matching to buyers; the seller's portal.
+- **Step 13:** the staff screens. **Step 14:** the portal's and public screens, the docs, the browser test and a short
+  video.
+
+### Step 1: add-on public pages (core)
+
+- A new kind of actor, the **public** visitor (`PublicActor { workspaceId, ipHash }`), may run only operations whose
+  `actors` include `'public'`: no permission, risk 0–1, no `ai`, and only where the add-on is on. They run as the
+  system actor in the business, as forms and booking pages do (`apps/worker/src/http/forms.ts`), on channel `web`.
+- The manifest's `ui.public` names the add-on's public pages, checked by `manifestIssues`.
+- The worker serves `POST /public/addon/:site/op/:name` (`apps/worker/src/http/addon-public.ts`): the booking site's
+  slug finds the business, with limits per address and a honeypot on commands. Files an operation names come back as
+  links that work for an hour, after a check that each is the business's own.
+- The web serves `/a/<site>/<addon>/…` (`apps/web/src/app/a/[site]/[addonId]/[[...path]]`) from the registry's
+  `public` entry, through `lib/api/public-addon.ts`. `/a/` is served on a business's own domain too
+  (`core/hosting/branded-paths.ts`).
+- One sign-up helper, taken out of `commands/form-response.ts`: find or make the person, open the lead, and record
+  text consent with where it came from. Forms and add-on pages record consent the same way.
+
+### Step 2: campaigns from exact words (core)
+
+- `campaign.create` takes `words`: a text, or an email's subject and body. With them the worker puts those words in
+  every draft instead of asking the AI to write one. Approval, consent, unsubscribes, the business's postal address
+  and the 500-person limit stay as they are; an AI call can't take `words`.
+- An add-on starts one through `executeCommandWithin`, as the person who clicked.
+
+### Step 3: the listing and its facts
+
+- `listings` (one per listing deal: the facts, where each came from and whether the agent confirmed them, the MLS
+  number and the day it went live, the public page's address and whether it's published), `listing_photos` and
+  `listing_prices`.
+- The facts come three ways: the seller's questionnaire (a client task, filled in the portal), the old listing's text
+  pasted by the agent (round two's `home_fill` and `LISTING_FACTS`, on a listing), or typed by the agent. Only a
+  person confirms them (`listing.confirm_facts`).
+- The list price is the deal's `list_price` term (`term.enter`).
+- Proof: S-09 (the facts), S-18 (the photos).
+
+### Step 4: the description, and the seller's sign-off
+
+- `listing_descriptions`: each version, who wrote it, its fair housing check, and where it stands.
+- `fair_housing_checks.description_id`, and the check that exactly one thing is checked widened to it.
+- The worker drafts it (`realestate.description_draft`) as it drafts a CMA's summary: `askStructured`, then
+  `checkWords` and the model's own read, with a scripted stand-in. The agent's edits are checked again.
+- "Send to the seller" makes a sign-off task with the exact words; it's refused while a flag is open. An owner or
+  admin can let it through with a reason. Proof: S-19.
+
+### Step 5: live on the MLS, and the hold
+
+- `listing.mark_live`: the MLS number, the day it went live, and the MLS page as proof if there is one (S-20). It
+  moves the deal to Active if it's earlier.
+- Until then, publishing the page, the flyer, the email or text to contacts, the social posts, the open house sign-in
+  and matching are all refused (`realestate_not_on_mls`): "418 Maple Ave isn’t live on the MLS yet, so it can’t be
+  shared outside your office. Mark it live on the listing page once it is."
+- The page says "Under contract" or "Sold" when the deal gets there, and comes down if the listing is withdrawn,
+  expires or is cancelled.
+
+### Step 6: marketing
+
+- **The public page** (`/a/<site>/realestate/<slug>`): the photos, price and facts, the signed-off description, the
+  open houses, the agent, the brokerage's name and the Equal Housing Opportunity words, and "Ask about this home",
+  which makes a lead for the listing agent through the sign-up helper and alerts them.
+- **The flyer:** a staff page that prints, with a QR code to the public page.
+- **Email or text to contacts:** the agent picks tags or stages, and the add-on starts a campaign with words made
+  from the signed-off description, read by `checkWords` first. The agent approves it in Campaigns.
+- **Social posts:** the worker drafts three (`realestate.social_draft`), with both checks; the agent edits and copies
+  them. Nothing is posted for them.
+- Proof: S-21, S-22.
+
+### Step 7: open houses
+
+- `open_houses` (when, who hosts, and its appointment on the host's calendar, made as a tour's is) and
+  `open_house_visitors` (who, whether they're working with an agent, whether they agreed to texts, and whether
+  they've been followed up).
+- Planning one sets the deal's `open_house` fact, so S-36 to S-39 open.
+- The sign-in page (`/a/<site>/realestate/<slug>/open-house/<id>`) opens an hour before and closes an hour after. A
+  ticked box records text consent from "Open house: 418 Maple Ave".
+- A sign-in sheet with the QR code prints from the open house. The next morning the host is alerted to visitors not
+  yet followed up (S-39).
+
+### Step 8: offers side by side, with what the seller takes home
+
+- Round two's offers work on a listing: an offer's home is optional, it names the buyers, their agent and brokerage,
+  and on a listing "them" is the buyer's offer and "us" the seller's counter.
+- The terms gain the down payment, a home-sale contingency, an escalation clause, possession, and what the buyer's
+  agent asks the seller to pay.
+- The figures for the seller's estimate (what's owed on the mortgage, the listing fee, title and escrow, transfer tax,
+  other costs) are kept on the listing, each change kept. A pure `net.ts` works out each offer's estimate, in whole
+  cents, with every line named. Proof: X-04.
+- `realestate.offers.compare` lines them up; "Share with the seller" puts it in the portal, where the seller can say
+  Accept, Counter, Decline or "Let's talk"; their words are kept and the agent is alerted.
+- The first offer starts S-40 to S-45; a second open one sets `multiple_offers`. The response clock and an accepted
+  offer's terms work as round two's do. Proof: S-40 to S-48.
+
+### Step 9: the CMA, the inspection and the buyer's loan on a listing
+
+- A CMA on the listing's own facts prices it (S-06, S-07).
+- The buyer's inspection: their repair request comes in and the seller's answer goes out (S-52 to S-56).
+- The financing tracker follows the buyer's loan (S-59, S-61).
+- The client's task presets and words read right for a seller (`client-words.ts`).
+
+### Step 10: price changes
+
+- "Change the price" makes a sign-off task: "Change the list price of 418 Maple Ave from $409,000 to $399,000."
+- The new price can't be used until it's signed off (`realestate_price_needs_signoff`), unless an owner or admin lets
+  it through with a reason. Then it replaces the `list_price` term, the history keeps the old one, the public page
+  shows it, matching runs again, and the agent is reminded to change it on the MLS (S-67). Proof: S-34.
+
+### Step 11: matching to buyers
+
+- The worker (`realestate.listing_match`) runs when a listing goes live, when its price changes and when a buyer's
+  profile is saved. It scores the business's open buyer deals with round two's `fit.ts`: price, areas, kind of home,
+  beds, baths and size, nothing else.
+- A suggestion (`listing_suggestions`) belongs to the buyer's deal and keeps a copy of the listing's public facts, so
+  nothing reads across deals. The agents on the buyer's deal are alerted.
+- "Add to their homes" adds it as a home from our own listing, its facts confirmed; "Not a fit" sets it aside. The
+  listing's side sees only how many (S-23, S-24).
+
+### Step 12: the seller's portal
+
+- A listing in the portal: where it stands in the seller's words, the key dates, the price and its history, what's
+  waiting for their sign-off, the public page once it's live, the open houses, and the offers once shared.
+- `portal.questionnaire.save` and `submit`, and `portal.offer_choice`. The manifest's `ui.portal` gains
+  `deals/:dealId/questionnaire` and `deals/:dealId/offers`.
+
+### Step 13: staff screens
+
+- A listing deal's page gains its listing cards, and pages under `deals/:dealId/`: `listing`, `marketing`,
+  `marketing/flyer`, `open-houses`, `offers` (a listing's view), `net-sheet` and `price`. Each is in `ui.phone`.
+- A buyer deal's page gains "Fits from our listings".
+
+### Step 14: the portal's and public screens, docs, the browser test and a video
+
+- The seller's portal pages and the two public pages, drawn at phone width.
+- `docs/realestate.md`, `docs/addon-architecture.md` (public pages, campaigns from exact words), CLAUDE.md.
+- Browser test `apps/web/e2e/realestate-listing.spec.ts`: the seller's questionnaire and the agent's pasted text; the
+  AI's description flagged, fixed and signed off; publishing refused until the listing is live, then the public page
+  signed out; an open house sign-in; a price change signed off; two offers side by side and the seller's choice; a
+  buyer's agent adding the listing from "Fits from our listings".
+
+## Not in round three
+
+- Showings and their feedback (round five, with the showing connector).
+- Putting the listing on the MLS, posting to social sites, e-sign, and reading offers from their PDFs (rounds four
+  and five).
+- Vendors and booking the photographer, and reports on competing listings.

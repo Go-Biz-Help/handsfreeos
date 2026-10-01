@@ -247,6 +247,150 @@
       "y": 7100,
       "w": 390,
       "h": 844
+    },
+    {
+      "file": "ListingWorkspace.dc.html",
+      "title": "32 \u00b7 A listing deal: the listing\u2019s side",
+      "x": 0,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingFacts.dc.html",
+      "title": "33 \u00b7 The home\u2019s facts: the seller\u2019s questionnaire, pasted text, typed",
+      "x": 1360,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingPhotos.dc.html",
+      "title": "34 \u00b7 Photos: order, captions, what the page shows",
+      "x": 2720,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingDescription.dc.html",
+      "title": "35 \u00b7 The description: the AI\u2019s draft, a fair housing flag, the seller signs off",
+      "x": 4080,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "MlsLive.dc.html",
+      "title": "36 \u00b7 Before the MLS: everything public waits, then \u201cMark it live\u201d",
+      "x": 0,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Marketing.dc.html",
+      "title": "37 \u00b7 Marketing: the page, contacts by email or text, social posts",
+      "x": 1360,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Flyer.dc.html",
+      "title": "38 \u00b7 The printable flyer, with a QR code to the page",
+      "x": 2720,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "OpenHouses.dc.html",
+      "title": "39 \u00b7 Open houses: visitors, consent, follow-up, the QR sheet",
+      "x": 4080,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingOffers.dc.html",
+      "title": "40 \u00b7 Offers on a listing, side by side with what the seller takes home",
+      "x": 0,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "NetSheet.dc.html",
+      "title": "41 \u00b7 The seller\u2019s estimate: the figures, and each offer\u2019s net",
+      "x": 1360,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PriceChange.dc.html",
+      "title": "42 \u00b7 A price change waits for the seller\u2019s sign-off",
+      "x": 2720,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuyerMatch.dc.html",
+      "title": "43 \u00b7 On a buyer\u2019s deal: \u201cFits from our listings\u201d",
+      "x": 4080,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PublicListing.dc.html",
+      "title": "44 \u00b7 The public page, signed out, on a phone",
+      "x": 0,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "OpenHouseSignIn.dc.html",
+      "title": "45 \u00b7 The open house sign-in, from the QR code",
+      "x": 470,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalListing.dc.html",
+      "title": "46 \u00b7 Portal: the seller\u2019s listing",
+      "x": 940,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalQuestionnaire.dc.html",
+      "title": "47 \u00b7 Portal: the seller\u2019s questionnaire",
+      "x": 1410,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalSignOff.dc.html",
+      "title": "48 \u00b7 Portal: the seller signs off the description (and a new price the same way)",
+      "x": 1880,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalOffers.dc.html",
+      "title": "49 \u00b7 Portal: the offers side by side, and what the seller wants to do",
+      "x": 2350,
+      "y": 11200,
+      "w": 390,
+      "h": 844
     }
   ]
 }
