@@ -56,7 +56,8 @@ create table app.rcs_requests (
   -- The end of the year paid for. The renewal is charged then, and moves it on a year.
   paid_through timestamptz,
   renewal_count integer not null default 0 check (renewal_count >= 0),
-  -- The last renewal the card refused, until staff sort it out. Nothing is charged again while it is set.
+  -- The last renewal the card refused, until it is paid on a page of its own (below). Nothing is charged
+  -- again on its own while it is set.
   renewal_problem text check (renewal_problem is null or length(renewal_problem) <= 1000),
   renewal_failed_at timestamptz,
   -- After a refused renewal, a page the business pays it on with another card: Stripe's `cs_…`, its address, and
