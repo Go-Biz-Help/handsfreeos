@@ -1131,6 +1131,24 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
   one co-buyer is theirs alone.
 - The manifest's portal pages: "Your deals" and "Your deal" (`deals/:dealId`).
 
+### Step 13: duty hooks (built, 2026-10-01)
+
+**As built** (no migration; `ops/proof-hooks.ts`):
+
+- One helper, `addProof`, adds a record's proof to the open catalog duties it answers, once each; `documentProof`
+  adds a document to every open duty whose proof names its kind; `withdrawProof` takes proof back with a reason.
+  Nothing finishes a duty on its own, done, waived or cancelled duties are left alone, and the catalog and its version
+  don't change.
+- What counts where: a planned tour is B-05's (and B-14's) appointment, taken back if the tour is canceled; the
+  agent's note on a home seen is B-06's note; each client's tour feedback is B-08's note; a finalized CMA is linked to
+  B-10/B-15; an offer is linked to B-11/B-16, an accepted one to B-17, and a lost one is B-13's note; an inspection on
+  the calendar is B-19's (and a specialist's, B-22's) appointment; the inspection report counts for B-21; the repair
+  request is B-24's note and is linked to B-25 with the seller's answer.
+- Documents by kind: the client's uploads (the buyer agreement for X-01, the preapproval for B-02), a financing step's
+  document proof, an offer version's document, the inspection report, and any document marked signed.
+- Links to the add-on's own rows are `record` proof (`ref_kind`, `ref_id`): shown on the duty, never enough on their
+  own to meet a rule that asks for a document, note or appointment.
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

@@ -40,6 +40,8 @@ import type { DealStage } from '../states';
 import { homeReactions, homes, tourFeedback, tourStops, tours } from '../tables';
 import { historyLine, inWorkspace, loadDeal, requireOpen, type Ctx, type Deal } from './common';
 import { completeTask, loadTask } from './client-tasks';
+import { addProof, PROOF_EVENTS } from './proof-hooks';
+import { feedbackWords } from './tours';
 
 const notYours = () =>
   HfosError.notFound('That isn’t in your portal. Go back to your deals and pick it there.');
@@ -561,7 +563,7 @@ export const portalTourFeedback = defineAddonCommand(realestateAddon, {
   permission: null,
   actors: ['customer'],
   scope: inWorkspace,
-  emits: ['realestate.tour.feedback_added'],
+  emits: ['realestate.tour.feedback_added', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const me = requireCustomer(ctx);
     const [s] = await ctx.tx
@@ -612,6 +614,13 @@ export const portalTourFeedback = defineAddonCommand(realestateAddon, {
         interest: input.interest,
       },
     });
+    // B-08 "Collect showing feedback": the client's own.
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-08'] },
+      { kind: 'note', body: feedbackWords(who?.first_name ?? 'The client', s.address, input) },
+    );
     await ctx.emit({
       type: 'realestate.tour.feedback_added',
       entityType: 'realestate_deal',
@@ -649,7 +658,7 @@ export const portalTaskComplete = defineAddonCommand(realestateAddon, {
   permission: null,
   actors: ['customer'],
   scope: inWorkspace,
-  emits: ['realestate.client_task.done'],
+  emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { me, task, deal } = await myTask(ctx, input.taskId);
     if (task.kind === 'upload')
@@ -681,7 +690,7 @@ export const portalTaskAttach = defineAddonCommand(realestateAddon, {
   permission: null,
   actors: ['customer'],
   scope: inWorkspace,
-  emits: ['realestate.client_task.done'],
+  emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { me, task, deal } = await myTask(ctx, input.taskId);
     if (task.kind !== 'upload')

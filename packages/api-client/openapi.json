@@ -53068,7 +53068,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.document.signed.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.document.signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -56365,7 +56365,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.tour.planned.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.tour.planned, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -56726,7 +56726,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.tour.canceled.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.tour.canceled, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -56814,7 +56814,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.visited.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -56900,7 +56900,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -57637,7 +57637,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.cma.finalized.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.cma.finalized, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58095,7 +58095,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58339,7 +58339,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58579,7 +58579,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits .",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58671,7 +58671,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.offer.answered.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58780,7 +58780,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.offer.answered.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59293,7 +59293,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.step_done.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59600,7 +59600,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59693,7 +59693,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59807,7 +59807,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -60309,7 +60309,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.repair.sent.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.repair.sent, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -60423,7 +60423,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.repair.answered.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.repair.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {
@@ -60760,7 +60760,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.client_task.done.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.client_task.done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
         "requestBody": {
           "required": true,
           "content": {

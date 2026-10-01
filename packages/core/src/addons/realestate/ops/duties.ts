@@ -54,7 +54,7 @@ import {
 import { openWork, termEntriesOf } from './engine';
 import { propertyOf } from './people';
 
-type DutyRow = typeof duties.$inferSelect;
+export type DutyRow = typeof duties.$inferSelect;
 
 const dutyGone = () =>
   HfosError.notFound(
@@ -79,7 +79,7 @@ export async function loadDuty(
 const definitionOf = (d: DutyRow) => d.definition as unknown as ResolvedDuty;
 
 /** A line in the duty's own history. */
-async function logLine(
+export async function logLine(
   ctx: CommandContext,
   d: DutyRow,
   what: string,
@@ -174,7 +174,7 @@ const answer = (d: DutyRow, status: DutyStatus = d.status as DutyStatus) => ({
   status,
 });
 
-async function dutyEvent(
+export async function dutyEvent(
   ctx: CommandContext,
   type: string,
   d: DutyRow,

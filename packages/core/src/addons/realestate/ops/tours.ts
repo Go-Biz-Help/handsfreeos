@@ -71,6 +71,7 @@ import {
 } from './common';
 import { termEntriesOf } from './engine';
 import { loadHome, refuseFairHousingWords, requireBuyerSide } from './homes';
+import { addProof, PROOF_EVENTS, withdrawProof } from './proof-hooks';
 
 type Tour = typeof tours.$inferSelect;
 type Stop = typeof tourStops.$inferSelect;
@@ -302,7 +303,7 @@ export const tourPlan = defineAddonCommand(realestateAddon, {
     description:
       'Plan a home tour on a buyer deal: the homes in order, the day and time. A person OKs it first.',
   },
-  emits: ['realestate.tour.planned'],
+  emits: ['realestate.tour.planned', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
@@ -372,6 +373,17 @@ export const tourPlan = defineAddonCommand(realestateAddon, {
         after: { when },
         note: gate.exception.reason,
       });
+    // B-05 "Schedule showings" (and B-14 after a lost offer): the tour is its appointment.
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-05', 'B-14'] },
+      {
+        kind: 'appointment',
+        appointmentId: booked.output.appointmentId,
+        body: `Tour on ${when}: ${addresses.join('; ')}`,
+      },
+    );
     await ctx.emit({
       type: 'realestate.tour.planned',
       entityType: 'realestate_deal',
@@ -523,7 +535,7 @@ export const tourCancel = defineAddonCommand(realestateAddon, {
   output: TourChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.tour.canceled'],
+  emits: ['realestate.tour.canceled', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const t = await loadTour(ctx, input.tourId, { lock: true });
     const deal = await loadDeal(ctx, t.dealRecordId);
@@ -555,6 +567,8 @@ export const tourCancel = defineAddonCommand(realestateAddon, {
       .returning();
     const when = fmtAt(t.startsAt.getTime(), tz);
     await historyLine(ctx, deal, 'tour_canceled', { after: { when }, note: input.reason ?? null });
+    if (t.appointmentId)
+      await withdrawProof(ctx, deal, { appointmentId: t.appointmentId }, 'The tour was canceled.');
     await ctx.emit({
       type: 'realestate.tour.canceled',
       entityType: 'realestate_deal',
@@ -587,7 +601,7 @@ export const tourRecordVisit = defineAddonCommand(realestateAddon, {
   output: TourRecordVisitOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.tour.visited'],
+  emits: ['realestate.tour.visited', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const stop = await loadStop(ctx, input.stopId);
     const t = await loadTour(ctx, stop.tourId, { lock: true });
@@ -626,6 +640,14 @@ export const tourRecordVisit = defineAddonCommand(realestateAddon, {
         .update(tours)
         .set({ status: tourStatus, updatedAt: new Date() })
         .where(eq(tours.id, t.id));
+    // B-06 "Obtain the property rundown": the agent's note on a home seen.
+    if (input.note && input.status === 'visited')
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['B-06'] },
+        { kind: 'note', body: `${home.address}: ${input.note}` },
+      );
     if (stop.status !== input.status)
       await historyLine(ctx, deal, 'tour_visited', {
         after: { address: home.address, status: input.status },
@@ -649,7 +671,7 @@ export const tourFeedbackAdd = defineAddonCommand(realestateAddon, {
   output: TourFeedbackOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.tour.feedback_added'],
+  emits: ['realestate.tour.feedback_added', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const stop = await loadStop(ctx, input.stopId);
     const t = await loadTour(ctx, stop.tourId);
@@ -703,6 +725,13 @@ export const tourFeedbackAdd = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'tour_feedback', {
       after: { address: home.address, name, interest: input.interest },
     });
+    // B-08 "Collect showing feedback".
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-08'] },
+      { kind: 'note', body: feedbackWords(name, home.address, input) },
+    );
     await ctx.emit({
       type: 'realestate.tour.feedback_added',
       entityType: 'realestate_deal',
@@ -730,7 +759,7 @@ export const tourFollow = defineAddonCommand(realestateAddon, {
   permission: 'realestate.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['realestate.tour.rescheduled', 'realestate.tour.canceled'],
+  emits: ['realestate.tour.rescheduled', 'realestate.tour.canceled', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const [t] = await ctx.tx
       .select()
@@ -761,6 +790,12 @@ export const tourFollow = defineAddonCommand(realestateAddon, {
         after: { when, by },
         note: input.reason ?? null,
       });
+      await withdrawProof(
+        ctx,
+        deal,
+        { appointmentId: input.appointmentId },
+        'The tour was canceled.',
+      );
       await ctx.emit({
         type: 'realestate.tour.canceled',
         entityType: 'realestate_deal',
@@ -902,6 +937,14 @@ export const toursList = defineAddonQuery(realestateAddon, {
     };
   },
 });
+
+/** A client's feedback as B-08's note: "Linh on 418 Maple Ave: Loved it. “The kitchen!”". */
+export const feedbackWords = (
+  name: string,
+  address: string,
+  f: { readonly interest: string; readonly words?: string | null | undefined },
+): string =>
+  `${name} on ${address}: ${interestWords(f.interest)}.${f.words ? ` “${f.words}”` : ''}`;
 
 /** "Loved it", for the Assistant and history. */
 export const interestWords = (interest: string): string =>

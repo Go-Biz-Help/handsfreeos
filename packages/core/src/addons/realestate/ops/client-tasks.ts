@@ -47,6 +47,7 @@ import {
   type Ctx,
   type Deal,
 } from './common';
+import { documentProof, PROOF_EVENTS } from './proof-hooks';
 
 type Task = typeof clientTasks.$inferSelect;
 
@@ -117,14 +118,19 @@ export async function completeTask(
       ctx.tx,
       sql`select name from app.files where id = ${part.fileId}`,
     );
-    await ctx.tx.insert(documents).values({
-      workspaceId: task.workspaceId,
-      dealRecordId: task.dealRecordId,
-      fileId: part.fileId,
-      kind: task.documentKind,
-      title: file?.name ?? task.title,
-      lineageId: randomUUID(),
-    });
+    const [doc] = await ctx.tx
+      .insert(documents)
+      .values({
+        workspaceId: task.workspaceId,
+        dealRecordId: task.dealRecordId,
+        fileId: part.fileId,
+        kind: task.documentKind,
+        title: file?.name ?? task.title,
+        lineageId: randomUUID(),
+      })
+      .returning({ id: documents.id });
+    // The preapproval letter is B-02's proof, the signed agreement X-01's.
+    await documentProof(ctx, deal, doc!.id);
   }
   const done = await ctx.tx
     .select({ personId: clientTaskCompletions.personId })
@@ -282,7 +288,7 @@ export const clientTaskMarkDone = defineAddonCommand(realestateAddon, {
   output: ClientTaskChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.client_task.done'],
+  emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     if (actorKind(ctx) !== 'person')
       throw HfosError.forbidden(

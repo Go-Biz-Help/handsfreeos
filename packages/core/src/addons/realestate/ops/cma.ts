@@ -67,6 +67,7 @@ import {
   type Ctx,
   type Deal,
 } from './common';
+import { addProof, PROOF_EVENTS } from './proof-hooks';
 import { loadHome, requireBuyerSide } from './homes';
 
 type Cma = typeof cmas.$inferSelect;
@@ -527,7 +528,7 @@ export const cmaFinalize = defineAddonCommand(realestateAddon, {
   output: CmaChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.cma.finalized'],
+  emits: ['realestate.cma.finalized', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { cma, deal } = await loadCma(ctx, input.cmaId, true);
     requireNotArchived(deal);
@@ -556,6 +557,18 @@ export const cmaFinalize = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'cma_finalized', {
       after: { number: cma.number, address: cma.subjectAddress, range: rangeWords(result.range) },
     });
+    // B-10 "Research and create CMA" (B-15 for another): linked to it.
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-10', 'B-15'] },
+      {
+        kind: 'record',
+        refKind: 'cma',
+        refId: cma.id,
+        body: `CMA ${cma.number} for ${cma.subjectAddress}: ${rangeWords(result.range)}`,
+      },
+    );
     await ctx.emit({
       type: 'realestate.cma.finalized',
       entityType: 'realestate_deal',

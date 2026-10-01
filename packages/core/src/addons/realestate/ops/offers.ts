@@ -59,6 +59,7 @@ import {
 import { dealMoveStage, dealOfferLost } from './deals';
 import { loadHome, requireBuyerSide } from './homes';
 import { termEnter } from './terms';
+import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 import type { z } from 'zod';
 
 type Offer = typeof offers.$inferSelect;
@@ -183,7 +184,7 @@ export const offerStart = defineAddonCommand(realestateAddon, {
     tool: 'realestate_record_offer',
     description: 'Record an offer sent on one of a buyer’s homes, with its terms and deadline.',
   },
-  emits: ['realestate.offer.version_added'],
+  emits: ['realestate.offer.version_added', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
@@ -232,6 +233,19 @@ export const offerStart = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'offer_made', {
       after: { address: home.address, price: money(v.priceCents), number: offer!.number },
     });
+    // B-11 "Write offer" (B-16 for another): linked to it; its signed document is the proof.
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-11', 'B-16'] },
+      {
+        kind: 'record',
+        refKind: 'offer',
+        refId: offer!.id,
+        body: `Offer ${offer!.number} on ${home.address} at ${money(v.priceCents)}`,
+      },
+    );
+    if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await ctx.emit({
       type: 'realestate.offer.version_added',
       entityType: 'realestate_deal',
@@ -256,7 +270,7 @@ export const offerAddVersion = defineAddonCommand(realestateAddon, {
     description:
       'Record a counteroffer on an open offer (the seller’s or ours), with its terms and deadline.',
   },
-  emits: ['realestate.offer.version_added'],
+  emits: ['realestate.offer.version_added', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId);
@@ -274,6 +288,7 @@ export const offerAddVersion = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'offer_countered', {
       after: { address: home.address, price: money(v.priceCents), side: v.side, number: v.number },
     });
+    if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await ctx.emit({
       type: 'realestate.offer.version_added',
       entityType: 'realestate_deal',
@@ -293,7 +308,7 @@ export const offerAttachDocument = defineAddonCommand(realestateAddon, {
   output: OfferChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: [],
+  emits: [...PROOF_EVENTS],
   async handler(ctx, input) {
     const [v] = await ctx.tx
       .select()
@@ -312,6 +327,7 @@ export const offerAttachDocument = defineAddonCommand(realestateAddon, {
       .update(documents)
       .set({ offerVersionId: v.id, updatedAt: new Date() })
       .where(eq(documents.id, input.documentId));
+    await documentProof(ctx, deal, input.documentId);
     return { offerId: o.id, status: o.status, termsEntered: 0, dealStage: null };
   },
 });
@@ -401,7 +417,7 @@ export const offerRecordResponse = defineAddonCommand(realestateAddon, {
     tool: 'realestate_record_offer_answer',
     description: 'Record that an offer was accepted, declined or expired. Asks the person first.',
   },
-  emits: ['realestate.offer.answered'],
+  emits: ['realestate.offer.answered', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId, { lock: true });
@@ -449,14 +465,33 @@ export const offerRecordResponse = defineAddonCommand(realestateAddon, {
         });
         dealStage = moved.output.stage;
       }
-    } else {
-      dealStage = await lostPath(
+      // B-17 "Ratify accepted offer": linked to it; the signed contract and confirmed acceptance are its proof.
+      await addProof(
         ctx,
-        o,
         deal,
+        { keys: ['B-17'] },
+        {
+          kind: 'record',
+          refKind: 'offer',
+          refId: o.id,
+          body: `Accepted: version ${v.number} on ${home.address} at ${money(v.priceCents)}`,
+        },
+      );
+    } else {
+      const why =
         input.outcome === 'declined'
           ? `The seller declined the offer on ${home.address}.`
-          : `The offer on ${home.address} passed with no answer.`,
+          : `The offer on ${home.address} passed with no answer.`;
+      dealStage = await lostPath(ctx, o, deal, why);
+      // B-13 "Record lost offer and outcome".
+      await addProof(
+        ctx,
+        deal,
+        { keys: ['B-13'] },
+        {
+          kind: 'note',
+          body: `${why} Last version ${v.number}: ${money(v.priceCents)}.${input.note ? ` ${input.note}` : ''}`,
+        },
       );
     }
     await ctx.emit({
@@ -478,7 +513,7 @@ export const offerWithdraw = defineAddonCommand(realestateAddon, {
   output: OfferChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.offer.answered'],
+  emits: ['realestate.offer.answered', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const o = await loadOffer(ctx, input.offerId, true);
     const deal = await loadDeal(ctx, o.dealRecordId, { lock: true });
@@ -498,12 +533,9 @@ export const offerWithdraw = defineAddonCommand(realestateAddon, {
       after: { address: home.address, outcome: 'withdrawn' },
       note: input.reason,
     });
-    const dealStage = await lostPath(
-      ctx,
-      o,
-      deal,
-      `The offer on ${home.address} was withdrawn: ${input.reason}`,
-    );
+    const why = `The offer on ${home.address} was withdrawn: ${input.reason}`;
+    const dealStage = await lostPath(ctx, o, deal, why);
+    await addProof(ctx, deal, { keys: ['B-13'] }, { kind: 'note', body: why });
     await ctx.emit({
       type: 'realestate.offer.answered',
       entityType: 'realestate_deal',

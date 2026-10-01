@@ -32,6 +32,7 @@ import {
   requireNotArchived,
   type Deal,
 } from './common';
+import { documentProof, PROOF_EVENTS } from './proof-hooks';
 
 type Doc = typeof documents.$inferSelect;
 
@@ -278,7 +279,7 @@ export const documentMarkSigned = defineAddonCommand(realestateAddon, {
   output: DocumentOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.document.signed'],
+  emits: ['realestate.document.signed', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const { doc, deal } = await loadDocument(ctx, input.documentId);
     if (doc.status === 'void') throw voided(doc);
@@ -335,6 +336,8 @@ export const documentMarkSigned = defineAddonCommand(realestateAddon, {
       tone: 'success',
       body: 'Its file is locked: it stays on the deal and can only be replaced by a newer version.',
     });
+    // Signed, it's proof for the duties that name its kind (the buyer agreement for X-01, an offer for B-11).
+    await documentProof(ctx, deal, now!.id);
     return out(now!);
   },
 });

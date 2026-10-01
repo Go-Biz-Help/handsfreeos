@@ -6248,7 +6248,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a client’s part of a task done for them, with a note (an ID handed over at the office). A sign-off is the client’s own, in their portal.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_client_task_mark_done"];
         delete?: never;
@@ -6308,7 +6308,7 @@ export interface paths {
         put?: never;
         /**
          * Finalize a CMA: its range is kept as the comps give it now, and its comps stay as they are.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.finalized.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.finalized, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_cma_finalize"];
         delete?: never;
@@ -6928,7 +6928,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a deal’s document signed: its file is locked for good (never deleted or renamed), earlier versions are replaced, and it becomes the one that counts of its kind unless another does.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.document.signed.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_document_mark_signed"];
         delete?: never;
@@ -7248,7 +7248,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a financing step done, with its proof: the lender’s letter or email, or one of the deal’s documents. Only a person marks a step done.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_financing_mark_done"];
         delete?: never;
@@ -7448,7 +7448,7 @@ export interface paths {
         put?: never;
         /**
          * Add an inspection on a buyer deal: its kind, the inspector, when, and when the report is expected.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_inspection_add"];
         delete?: never;
@@ -7488,7 +7488,7 @@ export interface paths {
         put?: never;
         /**
          * Mark an inspection’s report in, with the uploaded report. The deal’s first report brings the duties that follow one.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_inspection_report_in"];
         delete?: never;
@@ -7508,7 +7508,7 @@ export interface paths {
         put?: never;
         /**
          * Change an inspection’s inspector, time, expected report date or note.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_inspection_update"];
         delete?: never;
@@ -7588,7 +7588,7 @@ export interface paths {
         put?: never;
         /**
          * Record the next version of an open offer, as it was sent: the seller’s counter, or ours. Who answers next, and by when, follows it.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_add_version"];
         delete?: never;
@@ -7608,7 +7608,7 @@ export interface paths {
         put?: never;
         /**
          * Say which of the deal’s uploaded documents an offer’s version is: the contract or counter as signed.
-         * @description Risk level 1. Requires realestate.use. Emits .
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_attach_document"];
         delete?: never;
@@ -7628,7 +7628,7 @@ export interface paths {
         put?: never;
         /**
          * Record how an offer was answered: accepted (its terms go to the deal’s key dates to confirm, and the deal moves to Under contract), declined, or passed with no answer. With no other offer out, a lost offer takes the deal back to Touring.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_record_response"];
         delete?: never;
@@ -7668,7 +7668,7 @@ export interface paths {
         put?: never;
         /**
          * Record an offer made on one of a buyer’s homes, as it was sent: its terms, who it’s with, and when the seller must answer by. The contract itself is uploaded as one of the deal’s documents.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_start"];
         delete?: never;
@@ -7688,7 +7688,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw an open offer, with the reason. With no other offer out, the deal goes back to Touring.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_offer_withdraw"];
         delete?: never;
@@ -7748,7 +7748,7 @@ export interface paths {
         put?: never;
         /**
          * Keep the seller’s answer to the repair request: agreed, a counter, or refused, in their words. Agreed brings the duties that follow agreed repairs.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.answered.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_repair_record_answer"];
         delete?: never;
@@ -7768,7 +7768,7 @@ export interface paths {
         put?: never;
         /**
          * Keep the repair request as it was sent to the seller: its words, what it asks for by finding, and when they must answer by.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.sent.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.sent, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_repair_send"];
         delete?: never;
@@ -8068,7 +8068,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel a planned tour, and its appointment, telling the client if asked.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.canceled.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.canceled, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_tour_cancel"];
         delete?: never;
@@ -8088,7 +8088,7 @@ export interface paths {
         put?: never;
         /**
          * Keep what a client thought of a home they saw on a tour (loved it, maybe, not for us), as the agent heard it.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_tour_feedback"];
         delete?: never;
@@ -8108,7 +8108,7 @@ export interface paths {
         put?: never;
         /**
          * Plan a tour of a buyer’s homes: one appointment on the calendar with the homes in order, the client invited. Needs a signed buyer agreement that covers the day, unless an owner or admin makes an exception with a reason.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.planned.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.planned, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_tour_plan"];
         delete?: never;
@@ -8128,7 +8128,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a home on a tour seen or skipped, with a note for the team. Once every home is, the tour is done.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_tour_record_visit"];
         delete?: never;

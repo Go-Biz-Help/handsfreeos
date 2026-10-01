@@ -9,6 +9,7 @@
  *   each answer of the seller's is kept too. Agreed, it's the moment "repairs are agreed", with its duties.
  */
 import { and, asc, eq, inArray, max } from 'drizzle-orm';
+import { fmtAt } from '../../../calendar/when';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
@@ -52,6 +53,7 @@ import {
 import { dealRecordEvent } from './deals';
 import { termEntriesOf } from './engine';
 import { requireBuyerSide } from './homes';
+import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 
 type Inspection = typeof inspections.$inferSelect;
 type Finding = typeof inspectionFindings.$inferSelect;
@@ -136,6 +138,26 @@ async function liveFindings(ctx: Ctx, dealId: string): Promise<Finding[]> {
   return list.filter((x) => x.status !== 'canceled').map((x) => x.f);
 }
 
+/** B-19 "Schedule inspections" (and B-22 for a specialist's): an inspection on the calendar is its appointment. */
+async function inspectionProof(
+  ctx: CommandContext,
+  deal: Deal,
+  kind: string,
+  at: string,
+  inspector: string | null | undefined,
+): Promise<void> {
+  const when = fmtAt(at, await timeZoneOf(ctx));
+  await addProof(
+    ctx,
+    deal,
+    { keys: kind === 'general' ? ['B-19'] : ['B-19', 'B-22'] },
+    {
+      kind: 'appointment',
+      body: `${kindLabel(kind)} on ${when}${inspector ? ` with ${inspector}` : ''}`,
+    },
+  );
+}
+
 // ---------- inspections ----------
 
 export const inspectionAdd = defineAddonCommand(realestateAddon, {
@@ -151,7 +173,7 @@ export const inspectionAdd = defineAddonCommand(realestateAddon, {
     tool: 'realestate_add_inspection',
     description: 'Add an inspection to a buyer deal, with the inspector and when.',
   },
-  emits: ['realestate.inspection.changed'],
+  emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
@@ -170,6 +192,8 @@ export const inspectionAdd = defineAddonCommand(realestateAddon, {
       })
       .returning({ id: inspections.id });
     await historyLine(ctx, deal, 'inspection_added', { after: { kind: input.kind } });
+    if (input.scheduledAt)
+      await inspectionProof(ctx, deal, input.kind, input.scheduledAt, input.inspector);
     await ctx.emit({
       type: 'realestate.inspection.changed',
       entityType: 'realestate_deal',
@@ -188,12 +212,14 @@ export const inspectionUpdate = defineAddonCommand(realestateAddon, {
   output: InspectionChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.inspection.changed'],
+  emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const i = await loadInspection(ctx, input.inspectionId, true);
     const deal = await loadDeal(ctx, i.dealRecordId);
     requireNotArchived(deal);
     requireNotCanceled(i);
+    if (input.scheduledAt && !i.scheduledAt)
+      await inspectionProof(ctx, deal, i.kind, input.scheduledAt, input.inspector ?? i.inspector);
     await ctx.tx
       .update(inspections)
       .set({
@@ -227,7 +253,7 @@ export const inspectionReportIn = defineAddonCommand(realestateAddon, {
   output: InspectionChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.inspection.report_in'],
+  emits: ['realestate.inspection.report_in', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const i = await loadInspection(ctx, input.inspectionId, true);
     const deal = await loadDeal(ctx, i.dealRecordId, { lock: true });
@@ -265,6 +291,8 @@ export const inspectionReportIn = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'inspection_report_in', { after: { kind: i.kind } });
     if (first && i.status !== 'report_in')
       await moment(ctx, deal, 'inspection_report', `${kindLabel(i.kind)} report is in.`);
+    // B-21 "Interpret inspection report": the report, once its duties are there.
+    if (input.documentId) await documentProof(ctx, deal, input.documentId);
     await ctx.emit({
       type: 'realestate.inspection.report_in',
       entityType: 'realestate_deal',
@@ -443,7 +471,7 @@ export const repairSend = defineAddonCommand(realestateAddon, {
   output: RepairChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.repair.sent'],
+  emits: ['realestate.repair.sent', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
@@ -481,6 +509,19 @@ export const repairSend = defineAddonCommand(realestateAddon, {
     await historyLine(ctx, deal, 'repair_requested', {
       after: { number, items: draft.items.length },
     });
+    // B-24 "Develop repair strategy": the request is its note; B-25 "Negotiate inspection issues" is linked to it.
+    await addProof(ctx, deal, { keys: ['B-24'] }, { kind: 'note', body: input.words });
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-25'] },
+      {
+        kind: 'record',
+        refKind: 'repair_request',
+        refId: row!.id,
+        body: `Repair request ${number} sent`,
+      },
+    );
     await ctx.emit({
       type: 'realestate.repair.sent',
       entityType: 'realestate_deal',
@@ -500,7 +541,7 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
   output: RepairChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.repair.answered'],
+  emits: ['realestate.repair.answered', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
@@ -533,6 +574,17 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
       })
       .returning({ id: repairRequests.id });
     await historyLine(ctx, deal, 'repair_answered', { after: { number, outcome: input.outcome } });
+    await addProof(
+      ctx,
+      deal,
+      { keys: ['B-25'] },
+      {
+        kind: 'record',
+        refKind: 'repair_request',
+        refId: row!.id,
+        body: `The seller ${input.outcome === 'agreed' ? 'agreed' : input.outcome === 'countered' ? 'countered' : 'refused'}: ${input.words}`,
+      },
+    );
     const dutiesCreated =
       input.outcome === 'agreed'
         ? await moment(ctx, deal, 'repairs_agreed', 'The seller agreed to the repairs.')

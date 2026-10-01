@@ -53,6 +53,7 @@ import {
 import { termEntriesOf } from './engine';
 import { requireBuyerSide } from './homes';
 import { termEnter } from './terms';
+import { documentProof, PROOF_EVENTS } from './proof-hooks';
 import type { z } from 'zod';
 
 type Step = typeof financingSteps.$inferSelect;
@@ -244,7 +245,7 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
   output: FinancingChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.financing.step_done'],
+  emits: ['realestate.financing.step_done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     if (actorKind(ctx) !== 'person')
       throw HfosError.forbidden(
@@ -282,6 +283,8 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
     if (input.step === 'closing_disclosure')
       termsEntered += await enterDate(ctx, deal, 'cd_received', doneOn);
     await historyLine(ctx, deal, 'financing_step_done', { after: { step: input.step, proof } });
+    // A lender's document counts for the duties that name its kind (B-02's preapproval, the rate lock…).
+    if (input.proof.kind === 'document') await documentProof(ctx, deal, input.proof.id);
     await ctx.emit({
       type: 'realestate.financing.step_done',
       entityType: 'realestate_deal',
