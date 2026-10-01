@@ -1,6 +1,6 @@
 'use client';
 /**
- * A video link's page (/v/<token>, 20261018000200): the customer picks or records a video on their phone and it
+ * A video link's page (/v/<token>, 20261018000300): the customer picks or records a video on their phone and it
  * goes up as it is, at full quality, straight to Storage, then lands in the business's conversation with them as
  * their reply. MMS squeezes a texted video to almost nothing; this is the way round it.
  *

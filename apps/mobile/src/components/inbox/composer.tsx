@@ -189,7 +189,7 @@ export function Composer({
   /** A carousel's pictures go to the customer's files, so it needs a customer. */
   canCarousel?: boolean;
   onCardPhoto?: (cardKey: string, source: 'camera' | 'library') => void;
-  /** "Ask for a video" (20261018000200): a link to send a full-quality video, put into the box. Texts only. */
+  /** "Ask for a video" (20261018000300): a link to send a full-quality video, put into the box. Texts only. */
   canAskVideo?: boolean;
   askingVideo?: boolean;
   onAskVideo?: () => void;

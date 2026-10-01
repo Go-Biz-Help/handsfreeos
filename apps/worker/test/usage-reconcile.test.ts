@@ -178,7 +178,7 @@ describe('a category nothing here has heard of', () => {
 
 describe('texting registration fees and phone numbers', () => {
   /**
-   * Charged on our own schedule (money/registration-fees.ts, money/number-months.ts), while Twilio dates them by
+   * Charged on our own schedule (telephony/texting-fees.ts, money/number-months.ts), while Twilio dates them by
    * its own clock, so comparing them day by day would charge a business twice for one fee or one month.
    */
   it('are known, and neither charged again nor reported as unknown', async () => {

@@ -1,5 +1,5 @@
 /**
- * The video link's routes (20261018000200). A customer opens /v/<token> signed out, picks or records a video, and
+ * The video link's routes (20261018000300). A customer opens /v/<token> signed out, picks or records a video, and
  * it goes up as it is, straight to Storage, through a link this worker signs for one path at a time. Then the page
  * says it's done, and the video lands in the conversation as their reply (core's video_link.receive_upload).
  *

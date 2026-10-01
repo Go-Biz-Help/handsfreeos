@@ -1287,7 +1287,7 @@ function sendInput(
 }
 
 /**
- * Its reply, with the link it asked them to send a video with on its own line at the end (20261018000200). The
+ * Its reply, with the link it asked them to send a video with on its own line at the end (20261018000300). The
  * link is made only now, as the reply goes out or waits as a draft, so a run that ends any other way leaves none;
  * on the business's own domain when one is serving, like every other link a customer gets. A customer who has
  * just texted STOP gets no link: the text itself is refused, or its draft is when someone approves it.

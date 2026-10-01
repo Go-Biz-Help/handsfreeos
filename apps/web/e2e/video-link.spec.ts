@@ -5,7 +5,7 @@ import { setUpTexting, textFromCustomer } from './telephony';
 const ROSA = '+17135550199';
 
 /**
- * Asking a customer for a video (20261018000200), end to end: the reply box's "Ask for a video" puts a link in the
+ * Asking a customer for a video (20261018000300), end to end: the reply box's "Ask for a video" puts a link in the
  * text, the customer opens it signed out and sends a video at full quality, and it arrives in the thread as their
  * reply, marked as having come through the link, and plays in the viewer.
  */

@@ -1,5 +1,5 @@
 /**
- * Asking a customer for a video (20261018000200). MMS squeezes a texted video to almost nothing, so the team texts
+ * Asking a customer for a video (20261018000300). MMS squeezes a texted video to almost nothing, so the team texts
  * a link instead: the customer opens it signed out, picks or records a video, and it goes up as it is. Each video
  * lands in the conversation as their reply.
  *

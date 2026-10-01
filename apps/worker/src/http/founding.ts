@@ -20,8 +20,8 @@
  * rights of its own on purpose, and these first shipped using it directly: both answered 500 from the moment
  * they were deployed, until test/founding-routes.test.ts drove them as the worker really connects.
  *
- * `POST /webhooks/stripe/platform` (0093) is Stripe telling us a founding seat — or, since 0104, an RCS request —
- * was paid for. It is our own
+ * `POST /webhooks/stripe/platform` (0093) is Stripe telling us a founding seat — or, since 0104, an RCS request,
+ * and since 0105 a texting fee — was paid for. It is our own
  * account's destination — "Your account" in Stripe, not the Connect one at `/webhooks/stripe` — signed with its
  * own secret, and it does what every provider webhook here does: checks the signature over the exact bytes,
  * stores the event once under its own id, and answers. The worker's processor does the rest
@@ -33,6 +33,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { checkoutOutcome, FOUNDING_CHECKOUT_KIND } from '../founding/checkout';
 import { RCS_CHECKOUT_KIND, rcsCheckoutOutcome } from '../telephony/rcs-billing';
+import { TEXTING_FEE_CHECKOUT_KIND, textingFeeCheckoutOutcome } from '../telephony/texting-fees';
 import { WEBHOOK_MAX_BYTES } from '../money/webhook-events';
 import { header, parseBody, recordDelivery, type HttpDeps } from './common';
 
@@ -161,6 +162,42 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
           return reply.code(403).type('text/plain').send('Invalid signature');
         }
         const event = platform.webhooks.checkout(rawBody);
+        // A texting fee's page (0105): the same door, routed to the business the fee is for.
+        if (event?.textingFeeId) {
+          if (!UUID.test(event.textingFeeId) || !textingFeeCheckoutOutcome(event))
+            return reply.code(200).send({ received: true, ignored: true });
+          const [to] = await asWorker(deps.httpDb, {}, (tx) =>
+            rows<{ workspace_id: string; organization_id: string }>(
+              tx,
+              sql`select workspace_id, organization_id
+                from private.texting_fee_route(${event.textingFeeId}::uuid)`,
+            ),
+          );
+          if (!to) {
+            deps.log.info(
+              { type: event.type, textingFeeId: event.textingFeeId },
+              'a Stripe checkout event for a texting fee nobody here has',
+            );
+            return reply.code(200).send({ received: true, ignored: true });
+          }
+          await recordDelivery(deps, {
+            provider: 'stripe',
+            kind: TEXTING_FEE_CHECKOUT_KIND,
+            dedupeKey: event.id,
+            accountRef: null,
+            url,
+            params: {
+              id: event.id,
+              type: event.type,
+              accountRef: '',
+              createdAt: '',
+              body: rawBody,
+            },
+            workspaceId: to.workspace_id,
+            organizationId: to.organization_id,
+          });
+          return reply.code(200).send({ received: true });
+        }
         // An RCS request's page (0104): the same door, routed to the business the request is for.
         if (event?.rcsRequestId) {
           if (!UUID.test(event.rcsRequestId) || !rcsCheckoutOutcome(event))

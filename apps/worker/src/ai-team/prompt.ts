@@ -279,7 +279,7 @@ function skillLines(rc: RunContext, texting: boolean): string[] {
         ? '  From a photo you may give a rough price range, only from the price list and Knowledge (like a sizing guide), always as a range and never a quote: say the team confirms the price after they look. With nothing to go by, say the team will follow up with a price.'
         : '  Never say a price from a photo. Say the team will look at it and follow up.',
     );
-    // 20261018000200: a texted video comes through blurry; the link brings the original.
+    // 20261018000300: a texted video comes through blurry; the link brings the original.
     if (texting)
       out.push(
         '- Videos: you can’t watch them. When a video would show the problem better than words or a photo (a noise, a leak, something that won’t start), use ask_for_video and say in your reply what to film. When they send one, thank them and say the team will watch it.',

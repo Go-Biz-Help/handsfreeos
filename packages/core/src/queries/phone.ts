@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { telephonyAccounts } from '@hfos/db/schema';
+import { telephonyAccounts, textingFees } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { defineQuery } from '../kernel/define';
 import { quietHoursState } from '../messaging/quiet-hours';
@@ -13,12 +13,59 @@ import {
   loadRegistrations,
   rcsSending,
   readiness,
+  textingFeesPaidFor,
+  unsettledTextingFee,
   workspaceMessaging,
 } from '../messaging/store';
+import { TEXTING_CAMPAIGN_MONTH_CENTS } from '../money/texting-fees';
 import { PhoneSetupStatusInput, PhoneSetupStatusOutput } from '../schemas/telephony';
 import { scopeCan } from '../kernel/execute';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+
+type FeeRow = typeof textingFees.$inferSelect;
+const feeOut = (f: FeeRow) => ({
+  id: f.id,
+  purpose: f.purpose,
+  status: f.status,
+  lines: f.lines.map(({ key, name, cents }) => ({ key, name, cents })),
+  amountCents: f.amountCents,
+  checkoutUrl: f.status === 'open' ? f.sessionUrl : null,
+  problem: f.problem || null,
+  periodStart: iso(f.periodStart),
+});
+
+/**
+ * What registering for texting costs the business right now (0105): a registration's fees waiting to be paid, a
+ * month the card didn't pay, whether a card is kept, and the campaign's month once there is one to charge.
+ */
+async function textingFeesOf(
+  tx: Parameters<typeof unsettledTextingFee>[0],
+  workspaceId: string,
+  regs: readonly { kind: string; status: string }[],
+) {
+  const due = await unsettledTextingFee(tx, workspaceId, 'registration');
+  const month = await unsettledTextingFee(tx, workspaceId, 'month');
+  const [kept] = await tx
+    .select({ id: textingFees.id })
+    .from(textingFees)
+    .where(
+      and(
+        eq(textingFees.workspaceId, workspaceId),
+        eq(textingFees.status, 'paid'),
+        isNotNull(textingFees.cardRef),
+      ),
+    )
+    .limit(1);
+  const campaign = latestByKind(regs).get('a2p_campaign');
+  return {
+    due: due ? feeOut(due) : null,
+    month: month ? feeOut(month) : null,
+    card: !!kept,
+    monthlyCents: kept && campaign?.status === 'approved' ? TEXTING_CAMPAIGN_MONTH_CENTS : null,
+    paidFor: await textingFeesPaidFor(tx, workspaceId),
+  };
+}
 
 export const phoneSetupStatus = defineQuery({
   name: 'phone.setup_status',
@@ -55,6 +102,8 @@ export const phoneSetupStatus = defineQuery({
     const rcs = await currentRcsSender(ctx.tx, input.workspaceId);
     // Row-level security shows a request only to people who manage the channels: null for everybody else.
     const asked = await currentRcsRequest(ctx.tx, input.workspaceId);
+    const manages = scopeCan(ctx.scope, 'channels.manage');
+    const fees = manages ? await textingFeesOf(ctx.tx, input.workspaceId, regs) : null;
     const out = (n: NonNullable<typeof number>) => ({
       id: n.id,
       e164: n.e164,
@@ -137,6 +186,7 @@ export const phoneSetupStatus = defineQuery({
             createdAt: asked.createdAt.toISOString(),
           }
         : null,
+      textingFees: fees,
     };
   },
 });

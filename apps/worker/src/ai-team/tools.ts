@@ -154,7 +154,7 @@ export interface RunState {
   verified: boolean;
   /** How many of the customer's photos it looked at in this run (M18). */
   photos: number;
-  /** It asked them for a video: a link to send one goes at the end of its reply (20261018000200). */
+  /** It asked them for a video: a link to send one goes at the end of its reply (20261018000300). */
   videoLink: boolean;
   end: RunEnd | null;
   abort: RunAbort | null;

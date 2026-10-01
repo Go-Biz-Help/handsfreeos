@@ -83,14 +83,10 @@ import {
   SPEECH_CHARGE_KEY,
   SPEECH_JOBS,
 } from './money/speech-usage';
-import {
-  CAMPAIGN_MONTHS_KEY,
-  REGISTRATION_FEE_JOBS,
-  runCampaignMonths,
-} from './money/registration-fees';
 import { NUMBER_MONTH_JOBS, NUMBER_MONTHS_KEY, runNumberMonths } from './money/number-months';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
+import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
 import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -538,6 +534,9 @@ export const jobs: JobMap = {
   // RCS (0104): a request's Stripe page, the hourly sweep for paid years that are up, and each renewal's charge
   // (telephony/rcs-billing.ts).
   ...rcsBillingJobs,
+  // What registering for texting costs (0105): each fee collected, a page to pay one with another card, and the
+  // hourly sweep for campaign months that have started (telephony/texting-fees.ts).
+  ...textingFeeJobs,
   // Sign-ups and checkouts opened, sent to Opinly with retries of their own (opinly.ts).
   ...opinlyJobs,
   // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
@@ -548,8 +547,9 @@ export const jobs: JobMap = {
   ...RECHARGE_JOB_HANDLERS,
   // The AI's hearing and voice, billed from its running totals every quarter of an hour.
   [SPEECH_JOBS.charge]: runSpeechCharge,
-  // The carriers' monthly fee for a business's texting registration, at cost, once a day.
-  [REGISTRATION_FEE_JOBS.months]: runCampaignMonths,
+  // Retired: the campaign's month went on the balance before the card paid it (telephony/texting-fees.ts). A row
+  // an earlier build scheduled finishes here, once, without charging anything or coming back.
+  'wallet.campaign_months': async () => undefined,
   // Each phone number's month, once per calendar month where the business is, checked daily.
   [NUMBER_MONTH_JOBS.charge]: runNumberMonths,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
@@ -689,16 +689,6 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       workspaceId: null,
       organizationId: null,
     });
-    // Texting registration (A2P 10DLC), once a day: each approved campaign's monthly carrier fee, passed on at
-    // cost on the day of the month it was approved. With the wallet off it does nothing.
-    await scheduleJob(tx, {
-      kind: REGISTRATION_FEE_JOBS.months,
-      dedupeKey: CAMPAIGN_MONTHS_KEY,
-      runAt,
-      payload: {},
-      workspaceId: null,
-      organizationId: null,
-    });
     // Phone numbers, once a day: each number's month charged once, by the calendar month where the business is.
     // With the wallet off it does nothing.
     await scheduleJob(tx, {
@@ -723,6 +713,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: RCS_BILLING_JOBS.renewals,
       dedupeKey: RCS_RENEWALS_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Texting (0105), hourly: an approved campaign's month that has started is charged to the card on file.
+    await scheduleJob(tx, {
+      kind: TEXTING_FEE_JOBS.months,
+      dedupeKey: TEXTING_MONTHS_KEY,
       runAt,
       payload: {},
       workspaceId: null,

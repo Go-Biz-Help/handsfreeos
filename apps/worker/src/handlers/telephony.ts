@@ -18,6 +18,7 @@ import {
   rcsSending,
   registrationUpdateStatus,
   scheduleJob,
+  unsettledTextingFee,
   WALLET_REFUSALS,
   walletRoom,
   type RegistrationFamily,
@@ -41,7 +42,6 @@ import {
   type TenantScope,
   type WorkerServices,
 } from '../services';
-import { chargeCampaignMonths, chargeRegistrationSent } from '../money/registration-fees';
 import { ensureAccount, loadAccount, webhookUrls } from '../telephony/accounts';
 import { contentTemplateFor } from '../telephony/rcs-content';
 import { errorMessage } from '../outbox';
@@ -172,7 +172,7 @@ export async function advanceRegistrations(
   causation: { correlationId?: string | null; causationId?: string | null } = {},
 ): Promise<void> {
   const run = <T>(fn: (tx: Tx) => Promise<T>) => asWorker(services.db, scope, fn);
-  const [regs, numbers, loaded] = await run(
+  const [regs, numbers, loaded, unpaid] = await run(
     async (tx) =>
       [
         await tx
@@ -182,6 +182,7 @@ export async function advanceRegistrations(
           .orderBy(asc(telephonyRegistrations.createdAt)),
         await numbersOf(tx, scope.workspaceId),
         await loadAccount(tx, scope.workspaceId, services.sealer),
+        await unsettledTextingFee(tx, scope.workspaceId, 'registration'),
       ] as const,
   );
   const latest = latestByKind(regs);
@@ -192,7 +193,9 @@ export async function advanceRegistrations(
    * day. That needs the subaccount and messaging service first, which a number would otherwise have made, so a
    * 10DLC chain makes them here. Toll-free verification is for one number, and still waits for it.
    */
-  const tenDlc = FAMILY_KINDS.a2p_10dlc.some((k) => latest.has(k));
+  // **Nothing goes to the carriers unpaid (0105).** While the registration's fees wait on the business, its 10DLC
+  // steps wait too; paying them (`texting_fee.paid`) walks the chain again. Toll-free has no fees.
+  const tenDlc = !unpaid && FAMILY_KINDS.a2p_10dlc.some((k) => latest.has(k));
   if (!tenDlc && !numbers.some((n) => n.status === 'active')) return;
   const account = loaded ?? (tenDlc ? await ensureAccount(services, scope) : null);
   if (!account) throw new Error('no telephony account for this workspace');
@@ -263,15 +266,6 @@ export async function advanceRegistrations(
         // The version the carrier now has: people sending again later makes this differ.
         carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
       });
-      // What the carrier charged us for taking it, passed on from the business's balance at cost.
-      await chargeRegistrationSent(services.wallet, scope, {
-        kind,
-        providerSid: state.providerSid,
-        again: Boolean(reg.providerSid) && reg.providerSid === state.providerSid,
-        monthlyVolume:
-          typeof submission['monthlyVolume'] === 'string' ? submission['monthlyVolume'] : null,
-        registrationId: reg.id,
-      });
       if (state.status === 'approved') {
         usable[kind] = state.providerSid;
         continue;
@@ -311,6 +305,7 @@ export async function advanceRegistrations(
     const number =
       numbers.find((n) => n.status === 'active' && familyFor(n.numberType) === family) ?? null;
     if (!number && family !== 'a2p_10dlc') continue;
+    if (family === 'a2p_10dlc' && unpaid) continue;
     await advanceFamily(family, number);
   }
 }
@@ -359,9 +354,6 @@ export const onNumberArrived: EventHandler = async (ctx) => {
 export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const p = ctx.event.payload as { kind?: string; to?: string };
-  // An approved campaign's first month, charged now; the daily sweep charges the months after it.
-  if (p.kind === 'a2p_campaign' && p.to === 'approved')
-    await chargeCampaignMonths(ctx.wallet, scope, Date.now(), true);
   const final = p.kind === 'toll_free_verification' || p.kind === 'a2p_campaign';
   if (!(p.to === 'rejected' || (p.to === 'approved' && final))) return;
   const [ws] = await ctx.tx

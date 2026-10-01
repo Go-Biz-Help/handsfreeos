@@ -1,5 +1,5 @@
 /**
- * A video link's page (`/v/<token>`) talking to the worker's `/public/video` routes (20261018000200). No session:
+ * A video link's page (`/v/<token>`) talking to the worker's `/public/video` routes (20261018000300). No session:
  * the token is the whole of the permission. Opening the page changes nothing (link previews open it); a video
  * goes up only when the customer picks one.
  *

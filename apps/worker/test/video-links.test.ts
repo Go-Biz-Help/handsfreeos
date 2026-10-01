@@ -1,5 +1,5 @@
 /**
- * The video link, end to end through the worker and the real local Storage (20261018000200): the page reads whose
+ * The video link, end to end through the worker and the real local Storage (20261018000300): the page reads whose
  * link it is, starts an upload, sends the file straight to Storage on the link it was handed, and says it's done;
  * the video lands in the conversation as the customer's reply. What Storage measured is what's filed, a retry
  * files it once, and a file the link can't take is taken back out.

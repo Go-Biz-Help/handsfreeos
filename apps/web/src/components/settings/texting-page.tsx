@@ -1,5 +1,5 @@
 'use client';
-import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
+import { formatClock, formatPhone, money, normalizePhone } from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -163,6 +163,8 @@ export function TextingPage({
   }, [busy, router]);
   const [fixing, setFixing] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  // Just sent a registration with fees to pay: off to the payment page as soon as it is made.
+  const [goPay, setGoPay] = useState(false);
   // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
   // about getting a first number working — so it is local state that drops back into the same buy screen.
   const [adding, setAdding] = useState(false);
@@ -328,6 +330,9 @@ export function TextingPage({
           </div>
         ) : null}
         <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
+        {status.textingFees?.due && !fixing && !ahead ? (
+          <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+        ) : null}
         {step === 'buy_number' ? (
           <NumberStep
             workspaceId={workspaceId}
@@ -364,7 +369,11 @@ export function TextingPage({
             draft={registrationDraft}
             surfaces={surfaces}
             onBack={fixing ? () => setFixing(false) : undefined}
-            onSubmitted={() => setFixing(false)}
+            feesPaidFor={status.textingFees?.paidFor ?? null}
+            onSubmitted={(fee) => {
+              setFixing(false);
+              if (fee) setGoPay(true);
+            }}
           />
         ) : step === 'rejected' ? (
           <Rejected
@@ -394,6 +403,8 @@ export function TextingPage({
           submission={submission}
           arriving={ahead.arriving}
           onViewSent={() => setShowSent(true)}
+          goPay={goPay}
+          onFee={() => setGoPay(true)}
         />
       ) : null}
     </div>
@@ -959,7 +970,9 @@ function Review({
     latestOf(regs, 'a2p_trust_product'),
     latestOf(regs, 'a2p_brand'),
   ];
-  const brandState = stateOf(brand);
+  // Its fees not paid yet (0105): nothing has gone to the carriers, so nothing is in review either.
+  const unpaid = !!status.textingFees?.due && local;
+  const brandState = unpaid ? 'next' : stateOf(brand);
   const brandApproved = brand
     .map((r) => r?.approvedAt)
     .filter(Boolean)
@@ -968,7 +981,9 @@ function Review({
   return (
     <div data-testid="review-step">
       <h2 className="text-lg font-semibold tracking-tight">
-        The carriers are reviewing {businessName}
+        {unpaid
+          ? `${businessName}’s registration goes to the carriers once it’s paid`
+          : `The carriers are reviewing ${businessName}`}
       </h2>
       <p className="mb-5 mt-1 text-[13px] text-text-2">
         {local
@@ -1039,6 +1054,115 @@ function Review({
   );
 }
 
+type Fee = NonNullable<NonNullable<Status['textingFees']>['due']>;
+
+/**
+ * A texting fee waiting on the business (0105): a registration's fees, which hold it back from the carriers, or a
+ * month of the campaign the card didn't pay. The page is being made, is waiting to be paid, or the card said no
+ * and the business pays with another. Back from Stripe, it waits for Stripe's own word, the only one believed.
+ */
+function TextingFeeDue({
+  workspaceId,
+  fee,
+  goPay,
+}: {
+  workspaceId: string;
+  fee: Fee;
+  /** Just sent: go to the page as soon as it is made. */
+  goPay: boolean;
+}) {
+  const router = useRouter();
+  const [paying, setPaying] = useState(false);
+  const [back, setBack] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('fees') === 'paid') setBack(true);
+  }, []);
+  const go = goPay || paying;
+  useEffect(() => {
+    if (go && fee.status === 'open' && fee.checkoutUrl) window.location.assign(fee.checkoutUrl);
+  }, [go, fee.status, fee.checkoutUrl]);
+  const waiting =
+    fee.status === 'pending' ||
+    (back && fee.status === 'open') ||
+    (paying && fee.status !== 'open');
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => router.refresh(), 2500);
+    return () => clearInterval(timer);
+  }, [waiting, router]);
+  // A page that never comes (Stripe said no to making it): stop waiting, and show what the fee now says.
+  useEffect(() => {
+    if (!paying) return;
+    const timer = setTimeout(() => setPaying(false), 30_000);
+    return () => clearTimeout(timer);
+  }, [paying]);
+
+  async function payAgain() {
+    setPaying(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/texting_fee.pay', {
+          body: { workspaceId, textingFeeId: fee.id },
+        }),
+      );
+      if (out.checkoutUrl) window.location.assign(out.checkoutUrl);
+      else router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setPaying(false);
+    }
+  }
+
+  const amount = money(fee.amountCents);
+  const month = fee.purpose === 'month';
+  const what = month
+    ? `this month’s ${amount} for your texting campaign`
+    : `the ${amount} the carriers charge for your registration (${fee.lines.map((l) => `${l.name} ${money(l.cents)}`).join(', ')})`;
+  return (
+    <Callout
+      tone={fee.status === 'failed' || fee.problem ? 'warning' : 'info'}
+      icon={fee.status === 'failed' || fee.problem ? CircleAlert : Clock}
+      className="mb-[18px] mt-1"
+      data-testid="texting-fee-due"
+      data-status={fee.status}
+      action={
+        waiting ? null : fee.status === 'open' && fee.checkoutUrl ? (
+          <Button
+            size="sm"
+            onClick={() => window.location.assign(fee.checkoutUrl!)}
+            data-testid="texting-fee-pay"
+          >
+            Pay {amount}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={paying}
+            onClick={() => void payAgain()}
+            data-testid="texting-fee-pay-again"
+          >
+            Pay {amount} with another card
+          </Button>
+        )
+      }
+    >
+      {waiting ? (
+        <span className="flex items-center gap-2" role="status">
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          {back && fee.status === 'open'
+            ? 'Confirming your payment with Stripe…'
+            : 'Making your payment page…'}
+        </span>
+      ) : fee.problem ? (
+        `We couldn’t take ${what}: ${fee.problem} ${month ? 'Your texts keep going out.' : 'Nothing goes to the carriers until it’s paid.'}`
+      ) : (
+        `Pay ${what} to send it to the carriers. They’re passed on at cost, and nothing goes to the carriers until they’re paid.`
+      )}
+    </Callout>
+  );
+}
+
 /**
  * The 10DLC registration sent ahead of the number: below the number screens while a business moves its own
  * number here, or before it has one. The carriers take 1 to 3 weeks either way, so the weeks a port or a
@@ -1055,6 +1179,8 @@ function RegisterAhead({
   submission,
   arriving,
   onViewSent,
+  goPay,
+  onFee,
 }: {
   workspaceId: string;
   businessName: string;
@@ -1066,6 +1192,9 @@ function RegisterAhead({
   /** The number on its way here, when there is one. */
   arriving: string | null;
   onViewSent: () => void;
+  goPay: boolean;
+  /** Sent with fees to pay. */
+  onFee: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [fixing, setFixing] = useState(false);
@@ -1086,8 +1215,12 @@ function RegisterAhead({
         initial={fixing ? submission : null}
         draft={draft}
         surfaces={surfaces}
+        feesPaidFor={status.textingFees?.paidFor ?? null}
         onBack={close}
-        onSubmitted={close}
+        onSubmitted={(fee) => {
+          close();
+          if (fee) onFee();
+        }}
       />
     );
   else if (step === 'awaiting_approval')
@@ -1146,6 +1279,9 @@ function RegisterAhead({
     );
   return (
     <Card className="max-w-[820px] p-5 md:p-7" data-testid="register-ahead" data-step={step}>
+      {status.textingFees?.due && !open && !fixing ? (
+        <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+      ) : null}
       {body}
     </Card>
   );
@@ -1578,7 +1714,13 @@ function Configured({
           </div>
           <p className="mt-1 text-[13px] text-text-2">
             Carriers only deliver business texts from registered senders.
+            {status.textingFees?.monthlyCents
+              ? ` Your texting campaign is ${money(status.textingFees.monthlyCents)} a month, the carriers’ fee passed on at cost and charged to the card you paid with.`
+              : ''}
           </p>
+          {status.textingFees?.month ? (
+            <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.month} goPay={false} />
+          ) : null}
           <div className="mt-3.5">
             {regRows.map(([title, date], i) => (
               <SetRow

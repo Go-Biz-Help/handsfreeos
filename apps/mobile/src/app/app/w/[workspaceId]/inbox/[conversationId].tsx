@@ -198,7 +198,7 @@ function Thread() {
   const current: ComposerMode = mode ?? channel;
   // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
   const canRich = current === 'sms' && !editing;
-  // "Ask for a video" (20261018000200): only in a text thread, into its own box.
+  // "Ask for a video" (20261018000300): only in a text thread, into its own box.
   const canAskVideo = current === 'sms' && channel === 'sms' && !editing;
   const [askingVideo, setAskingVideo] = React.useState(false);
   const richCheck = rich && canRich ? checkRich(rich, body, photos.length) : null;

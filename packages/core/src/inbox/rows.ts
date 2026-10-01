@@ -539,7 +539,7 @@ export interface MediaShape {
   readonly sizeBytes: number;
   readonly name: string;
   readonly fileId?: string;
-  /** A video the customer sent through a video link we texted them (20261018000200). */
+  /** A video the customer sent through a video link we texted them (20261018000300). */
   readonly via?: 'video_link';
 }
 

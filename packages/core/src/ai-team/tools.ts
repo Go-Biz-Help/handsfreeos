@@ -671,7 +671,7 @@ export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'check_verification_code',
 ]);
 
-/** Only in a conversation by text: the link to send a video goes by text (20261018000200). */
+/** Only in a conversation by text: the link to send a video goes by text (20261018000300). */
 export const TEXTING_ONLY: ReadonlySet<TeammateToolName> = new Set(['ask_for_video']);
 
 /** Only on a live phone call (M18 step 5). */

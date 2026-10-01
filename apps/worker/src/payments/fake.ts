@@ -149,7 +149,7 @@ export interface FakeSubscription {
 export interface FakeCheckout {
   readonly sessionRef: string;
   /** What it is for: the metadata key its id goes out under. */
-  readonly kind: 'founding_checkout' | 'rcs_request';
+  readonly kind: 'founding_checkout' | 'rcs_request' | 'texting_fee';
   readonly checkoutId: string;
   readonly amountCents: number;
   readonly productName: string;

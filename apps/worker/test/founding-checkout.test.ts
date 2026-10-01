@@ -167,6 +167,7 @@ describe('Stripe Checkout, in our own account', () => {
       checkoutId: 'co_1',
       rcsRequestId: null,
       renewalFor: null,
+      textingFeeId: null,
       customerRef: null,
       paymentStatus: 'paid',
       paymentRef: 'pi_1',

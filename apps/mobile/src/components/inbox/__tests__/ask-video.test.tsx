@@ -5,7 +5,7 @@ import * as React from 'react';
 import { Composer } from '@/components/inbox/composer';
 
 /**
- * "Ask for a video" in the phone's reply box (20261018000200): offered in a text thread, it asks the screen for a
+ * "Ask for a video" in the phone's reply box (20261018000300): offered in a text thread, it asks the screen for a
  * link, and waits while one is being made. Not offered where the link can't go, or while the box is off.
  */
 
