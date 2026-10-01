@@ -553,6 +553,7 @@ describe('local numbers (10DLC)', () => {
     expect(seen[0]!.body.get('PolicySid')).toBe('RNdfbf3fae0e1107f8aded0e7cead80bf5');
     expect(JSON.parse(seen[1]!.body.get('Attributes')!)).toMatchObject({
       business_name: 'Lone Star HVAC LLC',
+      business_identity: 'direct_customer',
       business_type: 'Limited Liability Corporation',
       business_registration_identifier: 'EIN',
       business_registration_number: '123456789',
