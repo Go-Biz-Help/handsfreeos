@@ -6197,6 +6197,226 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.cma.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a CMA summary’s fair-housing flags are fine as written, with the reason. Kept with the CMA; editing it again asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.flags_acknowledged.
+         */
+        post: operations["command_realestate_cma_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.add_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a comparable home to a draft CMA: its address, sold price and date (or asking price while pending or for sale), beds, baths, square feet and distance.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_add_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize a CMA: its range is kept as the comps give it now, and its comps stay as they are.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.finalized.
+         */
+        post: operations["command_realestate_cma_finalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.remove_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a comp off a draft CMA.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_remove_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a final CMA that hasn’t been shared, to change its comps.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.request_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for the CMA’s summary to be drafted from its numbers, for the agent to check. Replaces the summary there is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.summary_requested.
+         */
+        post: operations["command_realestate_cma_request_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.save_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for a CMA’s summary. They’re checked again for fair-housing risk (the list at once, the model a moment later), and any earlier confirmation of flags no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.summary_saved.
+         */
+        post: operations["command_realestate_cma_save_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.set_subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the facts of the home a draft CMA is for: beds, baths, square feet, list price, year built.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_set_subject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a final CMA with the deal’s client: its range and summary go in their portal as a one-page summary. Refused until its summary has been checked and any fair-housing flag is fixed or kept with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.cma.shared.
+         */
+        post: operations["command_realestate_cma_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a CMA for one of a buyer deal’s homes, with its facts as the deal has them; or another CMA from an earlier one’s comps.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.started.
+         */
+        post: operations["command_realestate_cma_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.update_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a draft CMA’s comp: its facts, whether it’s used, and the agent’s adjustments, each with its reason.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_update_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.add_person": {
         parameters: {
             query?: never;
@@ -12591,6 +12811,46 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_buyer_profile_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.cma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One CMA: the home and its facts, each comp with its value for the home and why it is or isn’t counted, the range, the summary and its fair-housing checks, and whether it can be shared.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_cma"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.cmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s CMAs: the home each is for, where it stands and its range.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_cmas"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27082,6 +27342,428 @@ export interface operations {
                         /** Format: uuid */
                         dealId: string;
                         version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_add_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    baths?: number | null;
+                    beds?: number | null;
+                    /** Format: uuid */
+                    cmaId: string;
+                    distanceMiles?: number | null;
+                    note?: string;
+                    priceCents: number;
+                    soldOn?: string | null;
+                    sqft?: number | null;
+                    /**
+                     * @default sold
+                     * @enum {string}
+                     */
+                    status?: "sold" | "pending" | "active";
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** Format: uuid */
+                        compId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_finalize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_remove_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    compId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_request_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_save_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    summary: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_set_subject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baths: number | null;
+                    beds: number | null;
+                    /** Format: uuid */
+                    cmaId: string;
+                    listPriceCents: number | null;
+                    sqft: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    fromCmaId?: string;
+                    /** Format: uuid */
+                    homeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        comps: number;
+                        number: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_update_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: string;
+                    adjustments?: {
+                        cents: number;
+                        label: string;
+                    }[];
+                    baths?: number | null;
+                    beds?: number | null;
+                    /** Format: uuid */
+                    compId: string;
+                    distanceMiles?: number | null;
+                    note?: string | null;
+                    priceCents?: number;
+                    soldOn?: string | null;
+                    sqft?: number | null;
+                    /** @enum {string} */
+                    status?: "sold" | "pending" | "active";
+                    used?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
                     };
                 };
             };
@@ -45391,6 +46073,167 @@ export interface operations {
                             } | null;
                             version: number;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_cma: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cma: {
+                            asOf: string;
+                            comps: {
+                                address: string;
+                                adjustmentCents: number | null;
+                                adjustments: {
+                                    cents: number;
+                                    label: string;
+                                }[];
+                                baths: number | null;
+                                beds: number | null;
+                                counted: boolean;
+                                distanceMiles: number | null;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                                priceCents: number;
+                                soldOn: string | null;
+                                /** @enum {string} */
+                                source: "agent" | "mls";
+                                sqft: number | null;
+                                /** @enum {string} */
+                                status: "sold" | "pending" | "active";
+                                used: boolean;
+                                valueCents: number | null;
+                                warnings: string[];
+                                weight: number;
+                                why: string | null;
+                                yearBuilt: number | null;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            fairHousing: {
+                                acknowledged: {
+                                    by: {
+                                        fullName: string;
+                                        /** Format: uuid */
+                                        id: string;
+                                    } | null;
+                                    reason: string;
+                                } | null;
+                                checked: boolean;
+                                flags: {
+                                    /** @enum {string} */
+                                    category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                    phrase: string;
+                                    reason: string;
+                                    safer: string;
+                                }[];
+                            };
+                            finalizedAt: string | null;
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            method: string;
+                            missing: string | null;
+                            number: number;
+                            range: {
+                                counted: number;
+                                highCents: number;
+                                likelyCents: number;
+                                lowCents: number;
+                                perSqftCents: number;
+                            } | null;
+                            shareBlocked: string | null;
+                            sharedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "shared";
+                            subject: {
+                                address: string;
+                                baths: number | null;
+                                beds: number | null;
+                                listPriceCents: number | null;
+                                sqft: number | null;
+                                yearBuilt: number | null;
+                            };
+                            summary: {
+                                byAi: boolean;
+                                failure: string | null;
+                                /** @enum {string} */
+                                state: "none" | "drafting" | "ready" | "failed";
+                                text: string | null;
+                                unsupportedAmounts: string[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_cmas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cmas: {
+                            comps: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            highCents: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            likelyCents: number | null;
+                            lowCents: number | null;
+                            number: number;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "shared";
+                            subjectAddress: string;
+                        }[];
                     };
                 };
             };

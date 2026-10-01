@@ -40,6 +40,7 @@ import {
   memoryWaitingChanged,
 } from './memory';
 import { tourAppointmentChanged } from './tours';
+import { cmaSummaryRequested, cmaSummarySaved } from './cma';
 import { scheduleAddonJob } from '../queue';
 import type {
   AddonEventContext,
@@ -193,6 +194,9 @@ export const realestateAddonWorker: AddonWorkerModule = {
     // Tours: the appointment moved or canceled on the calendar (./tours.ts).
     'appointment.rescheduled': tourAppointmentChanged,
     'appointment.cancelled': tourAppointmentChanged,
+    // The CMA's summary: drafted, and every version of its words checked (./cma.ts).
+    'realestate.cma.summary_requested': cmaSummaryRequested,
+    'realestate.cma.summary_saved': cmaSummarySaved,
   },
   jobs: { [SWEEP]: runSweep, [MEMORY_JOB]: memoryJob },
   onEnable: armSweep,

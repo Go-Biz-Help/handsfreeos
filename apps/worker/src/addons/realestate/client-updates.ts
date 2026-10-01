@@ -103,7 +103,7 @@ async function factsOf(
 }
 
 /** The model's fair-housing read of an email; unavailable when it can't be asked. */
-async function modelCheck(ctx: AddonScopeContext, subject: string, body: string) {
+export async function modelCheck(ctx: AddonScopeContext, subject: string, body: string) {
   try {
     const { value, model } = await askStructured(ctx, ctx.scope, {
       system: FAIR_HOUSING_SYSTEM,

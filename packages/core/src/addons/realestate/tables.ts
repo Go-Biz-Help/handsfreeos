@@ -500,7 +500,9 @@ export const fairHousingChecks = addonRealestate.table(
     id: uuid('id').primaryKey().defaultRandom(),
     workspaceId: workspaceRef(),
     dealRecordId: uuid('deal_record_id').notNull(),
-    draftId: uuid('draft_id').notNull(),
+    /** A client update's words, or a CMA's summary (round two). */
+    draftId: uuid('draft_id'),
+    cmaId: uuid('cma_id'),
     source: text('source').notNull().$type<'words' | 'model'>(),
     version: text('version').notNull(),
     status: text('status').notNull().$type<'passed' | 'flagged' | 'unavailable'>(),
@@ -805,6 +807,103 @@ export const tourFeedback = addonRealestate.table(
   ],
 );
 
+/** A look at what a home is worth next to homes sold nearby (round two, step 9). */
+export const cmas = addonRealestate.table(
+  'cmas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    homeId: uuid('home_id'),
+    subjectAddress: text('subject_address').notNull(),
+    subjectBeds: integer('subject_beds'),
+    subjectBaths: numeric('subject_baths', { precision: 3, scale: 1 }),
+    subjectSqft: integer('subject_sqft'),
+    subjectListPriceCents: cents('subject_list_price_cents'),
+    subjectYearBuilt: integer('subject_year_built'),
+    number: integer('number').notNull(),
+    status: text('status').notNull().default('draft').$type<'draft' | 'final' | 'shared'>(),
+    method: integer('method').notNull().default(1),
+    asOf: date('as_of', { mode: 'string' }).notNull(),
+    lowCents: cents('low_cents'),
+    likelyCents: cents('likely_cents'),
+    highCents: cents('high_cents'),
+    perSqftCents: cents('per_sqft_cents'),
+    summary: text('summary'),
+    summaryState: text('summary_state')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'drafting' | 'ready' | 'failed'>(),
+    summaryModel: text('summary_model'),
+    summaryFailure: text('summary_failure'),
+    summaryEditedBy: userRef('summary_edited_by'),
+    summaryEditedAt: ts('summary_edited_at'),
+    flagsAcknowledgedBy: userRef('flags_acknowledged_by'),
+    flagsAcknowledgedAt: ts('flags_acknowledged_at'),
+    flagsAcknowledgedReason: text('flags_acknowledged_reason'),
+    finalizedBy: userRef('finalized_by'),
+    finalizedAt: ts('finalized_at'),
+    sharedBy: userRef('shared_by'),
+    sharedAt: ts('shared_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.dealRecordId, t.number),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A home a CMA compares with: its price, sale, size and the agent's adjustments. */
+export const cmaComps = addonRealestate.table(
+  'cma_comps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    cmaId: uuid('cma_id').notNull(),
+    address: text('address').notNull(),
+    priceCents: cents('price_cents').notNull(),
+    status: text('status').notNull().default('sold').$type<'sold' | 'pending' | 'active'>(),
+    soldOn: date('sold_on', { mode: 'string' }),
+    beds: integer('beds'),
+    baths: numeric('baths', { precision: 3, scale: 1 }),
+    sqft: integer('sqft'),
+    yearBuilt: integer('year_built'),
+    distanceMiles: numeric('distance_miles', { precision: 5, scale: 2 }),
+    adjustments: jsonb('adjustments')
+      .$type<{ label: string; cents: number }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    used: boolean('used').notNull().default(true),
+    note: text('note'),
+    source: text('source').notNull().default('agent').$type<'agent' | 'mls'>(),
+    position: integer('position').notNull(),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.cmaId],
+      foreignColumns: [cmas.workspaceId, cmas.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the mirror's test. */
 export const REALESTATE_TABLES = {
   deals,
@@ -831,4 +930,6 @@ export const REALESTATE_TABLES = {
   tours,
   tourStops,
   tourFeedback,
+  cmas,
+  cmaComps,
 } as const;

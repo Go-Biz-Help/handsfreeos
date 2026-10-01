@@ -18,6 +18,7 @@ import { RUNGS } from './ladder';
 import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
+import { CMA_STATUS_KEYS, COMP_STATUS_KEYS } from './cma';
 import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
@@ -1337,3 +1338,200 @@ export const ToursOutput = z.object({
   tours: z.array(TourOut),
   can: z.object({ except: z.boolean() }),
 });
+
+// ---------- the CMA (round two) ----------
+
+const beds = z.int().min(0).max(20);
+const baths = z.number().min(0).max(20).multipleOf(0.5, { error: 'Baths go in halves, like 2.5.' });
+const sqft = z.int().min(100, 'At least 100 square feet.').max(100_000);
+const yearBuilt = z.int().min(1600).max(2100);
+const CompAdjustmentIn = z.object({
+  label: z.string().trim().min(1, 'Say what the adjustment is for.').max(80),
+  /** Signed: what the comp is worth more (+) or less (−) for it, in cents. */
+  cents: z.int().min(-100_000_000).max(100_000_000),
+});
+
+export const CmaStartInput = z.object({
+  ...inDeal,
+  /** One of the deal's homes. */
+  homeId: uuid,
+  /** Start from another CMA's comps on the deal ("another CMA"). */
+  fromCmaId: uuid.optional(),
+});
+export const CmaStartOutput = z.object({ cmaId: uuid, number: z.int(), comps: z.int() });
+
+export const CmaSetSubjectInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  beds: beds.nullable(),
+  baths: baths.nullable(),
+  sqft: sqft.nullable(),
+  listPriceCents: z.int().min(1).max(100_000_000_000).nullable(),
+  yearBuilt: yearBuilt.nullable(),
+});
+
+const CompFields = {
+  address: z.string().trim().min(3, 'Enter the comp’s address.').max(300),
+  priceCents: z.int().min(1, 'Enter its price.').max(100_000_000_000),
+  status: z.enum(COMP_STATUS_KEYS).default('sold'),
+  soldOn: localDate.nullable().optional(),
+  beds: beds.nullable().optional(),
+  baths: baths.nullable().optional(),
+  sqft: sqft.nullable().optional(),
+  yearBuilt: yearBuilt.nullable().optional(),
+  distanceMiles: z.number().min(0).max(500).nullable().optional(),
+  note: z.string().trim().max(1000).optional(),
+};
+export const CmaAddCompInput = z
+  .object({ workspaceId: uuid, cmaId: uuid, ...CompFields })
+  .refine((c) => c.status !== 'sold' || !!c.soldOn, {
+    error: 'Enter the date it sold.',
+    path: ['soldOn'],
+  });
+export const CmaAddCompOutput = z.object({ cmaId: uuid, compId: uuid });
+export const CmaUpdateCompInput = z.object({
+  workspaceId: uuid,
+  compId: uuid,
+  address: CompFields.address.optional(),
+  priceCents: CompFields.priceCents.optional(),
+  status: z.enum(COMP_STATUS_KEYS).optional(),
+  soldOn: localDate.nullable().optional(),
+  beds: beds.nullable().optional(),
+  baths: baths.nullable().optional(),
+  sqft: sqft.nullable().optional(),
+  yearBuilt: yearBuilt.nullable().optional(),
+  distanceMiles: z.number().min(0).max(500).nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+  /** Whether it counts in the range. */
+  used: z.boolean().optional(),
+  adjustments: z.array(CompAdjustmentIn).max(8).optional(),
+});
+export const CmaRemoveCompInput = z.object({ workspaceId: uuid, compId: uuid });
+export const CmaInput = z.object({ workspaceId: uuid, cmaId: uuid });
+export const CmaChangeOutput = z.object({ cmaId: uuid, status: z.enum(CMA_STATUS_KEYS) });
+
+export const CmaSaveSummaryInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  summary: z.string().trim().min(1, 'Write the summary.').max(6000),
+});
+export const CmaSaveSummaryOutput = CmaChangeOutput.extend({
+  /** What the word list found in it at once; the model reads it a moment later. */
+  flags: z.array(FlagOut),
+});
+export const CmaAcknowledgeInput = z.object({ workspaceId: uuid, cmaId: uuid, reason });
+
+const CheckIn = z.object({
+  source: z.enum(['words', 'model']),
+  version: z.string().max(100),
+  status: z.enum(['passed', 'flagged', 'unavailable']),
+  flags: z.array(FlagOut).max(50),
+});
+export const CmaSummaryDraftedInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  summary: z.string().max(6000).optional(),
+  model: z.string().max(100).optional(),
+  failure: z.string().max(2000).optional(),
+  /** The figures it was written from, as of when it was asked for. */
+  checks: z.array(CheckIn).max(2).default([]),
+});
+export const CmaSummaryCheckedInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  textHash: z.string().regex(/^[0-9a-f]{64}$/),
+  version: z.string().min(1).max(100),
+  status: z.enum(['passed', 'flagged', 'unavailable']),
+  flags: z.array(FlagOut).max(50),
+});
+
+const RangeOut = z.object({
+  lowCents: z.number().int(),
+  likelyCents: z.number().int(),
+  highCents: z.number().int(),
+  perSqftCents: z.number().int(),
+  counted: z.number().int(),
+});
+export const CmaCompOut = z.object({
+  id: uuid,
+  address: z.string(),
+  priceCents: z.number().int(),
+  status: z.enum(COMP_STATUS_KEYS),
+  soldOn: z.string().nullable(),
+  beds: z.number().int().nullable(),
+  baths: z.number().nullable(),
+  sqft: z.number().int().nullable(),
+  yearBuilt: z.number().int().nullable(),
+  distanceMiles: z.number().nullable(),
+  adjustments: z.array(z.object({ label: z.string(), cents: z.number().int() })),
+  used: z.boolean(),
+  note: z.string().nullable(),
+  source: z.enum(['agent', 'mls']),
+  /** Its value for the home, and what it was adjusted by. */
+  valueCents: z.number().int().nullable(),
+  adjustmentCents: z.number().int().nullable(),
+  weight: z.number(),
+  counted: z.boolean(),
+  why: z.string().nullable(),
+  warnings: z.array(z.string()),
+});
+export const CmaOut = z.object({
+  id: uuid,
+  dealId: uuid,
+  homeId: uuid.nullable(),
+  number: z.number().int(),
+  status: z.enum(CMA_STATUS_KEYS),
+  asOf: z.string(),
+  method: z.string(),
+  subject: z.object({
+    address: z.string(),
+    beds: z.number().int().nullable(),
+    baths: z.number().nullable(),
+    sqft: z.number().int().nullable(),
+    listPriceCents: z.number().int().nullable(),
+    yearBuilt: z.number().int().nullable(),
+  }),
+  comps: z.array(CmaCompOut),
+  /** As finalized, or as the comps give it now while a draft. */
+  range: RangeOut.nullable(),
+  /** Why there's no range yet. */
+  missing: z.string().nullable(),
+  summary: z.object({
+    state: z.enum(['none', 'drafting', 'ready', 'failed']),
+    text: z.string().nullable(),
+    failure: z.string().nullable(),
+    byAi: z.boolean(),
+    /** Dollar amounts in it that nothing in the CMA supports: the agent checks them. */
+    unsupportedAmounts: z.array(z.string()),
+  }),
+  fairHousing: z.object({
+    /** Both checks have read the summary as it is now. */
+    checked: z.boolean(),
+    flags: z.array(FlagOut),
+    acknowledged: z
+      .object({ reason: z.string(), by: z.object({ id: uuid, fullName: z.string() }).nullable() })
+      .nullable(),
+  }),
+  /** Why it can't be shared yet, when it can't. */
+  shareBlocked: z.string().nullable(),
+  finalizedAt: isoDateTime.nullable(),
+  sharedAt: isoDateTime.nullable(),
+  createdAt: isoDateTime,
+});
+export const CmasInput = z.object({ ...inDeal });
+export const CmasOutput = z.object({
+  cmas: z.array(
+    z.object({
+      id: uuid,
+      number: z.number().int(),
+      subjectAddress: z.string(),
+      status: z.enum(CMA_STATUS_KEYS),
+      likelyCents: z.number().int().nullable(),
+      lowCents: z.number().int().nullable(),
+      highCents: z.number().int().nullable(),
+      comps: z.number().int(),
+      createdAt: isoDateTime,
+    }),
+  ),
+});
+export const CmaGetOutput = z.object({ cma: CmaOut });

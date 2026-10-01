@@ -74,6 +74,15 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `No longer true: ${str(a.words)}`;
     case 'home_status':
       return `${str(a.address)}: ${homeStatus(b.status)} to ${homeStatus(a.status)}`;
+    // The CMA.
+    case 'cma_started':
+      return `Started CMA ${str(a.number)} for ${str(a.address)}`;
+    case 'cma_finalized':
+      return `Finalized CMA ${str(a.number)}: ${str(a.range)}`;
+    case 'cma_reopened':
+      return `Reopened CMA ${str(a.number)}`;
+    case 'cma_shared':
+      return `Shared CMA ${str(a.number)} with the client: ${str(a.range)}`;
     // Tours.
     case 'tour_planned':
       return Number(a.homes) > 1
@@ -143,7 +152,9 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
     case 'template_applied':
       return `Moved it to version ${String(a.version ?? '')} of the duty list`;
     case 'fair_housing_confirmed':
-      return 'Kept flagged words in a client update, with a reason';
+      return a.cmaId
+        ? 'Kept flagged words in a CMA’s summary, with a reason'
+        : 'Kept flagged words in a client update, with a reason';
     case 'client_update_sent':
       return 'Sent a client update';
     case 'health':

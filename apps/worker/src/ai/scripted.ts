@@ -1231,8 +1231,55 @@ export function scriptedBuyerMemory(message: string): {
   return { items: items.slice(0, 20) };
 }
 
+interface ScriptedCmaFacts {
+  readonly agentName?: string;
+  readonly clientFirstName?: string;
+  readonly home?: { readonly address?: string };
+  readonly range?: { readonly low: string; readonly likely: string; readonly high: string } | null;
+  readonly used?: readonly {
+    readonly address: string;
+    readonly price: string;
+    readonly sold: string | null;
+    readonly valueForThisHome: string | null;
+  }[];
+  readonly leftOut?: readonly { readonly address: string; readonly why: string }[];
+}
+
+/**
+ * A CMA's summary written only from its <cma_facts>: the range, the closest comp and what it says about the home,
+ * what was left out, and that it's an estimate. Nothing that could read as a fair-housing preference.
+ */
+export function scriptedCmaSummary(message: string): { summary: string } {
+  let f: ScriptedCmaFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'cma_facts') ?? '{}')) as ScriptedCmaFacts;
+  } catch {
+    // Unreadable facts: a short, general summary.
+  }
+  const home = f.home?.address?.split(',')[0] ?? 'the home';
+  const first = f.used?.[0];
+  const lines = [
+    `Hi ${f.clientFirstName ?? 'there'},`,
+    '',
+    f.range
+      ? `${f.used?.length ?? 0} recent sales nearby point to a value for ${home} between ${f.range.low} and ${f.range.high}, most likely about ${f.range.likely}.`
+      : `There aren't enough sales yet to put a range on ${home}.`,
+    ...(first
+      ? [
+          `${first.address} sold for ${first.price}${first.sold ? ` on ${first.sold}` : ''}${first.valueForThisHome ? `; for ${home} it compares at about ${first.valueForThisHome}` : ''}.`,
+        ]
+      : []),
+    ...(f.leftOut?.length ? [`I left out ${f.leftOut.map((l) => l.address).join(' and ')}.`] : []),
+    'This is an estimate from recent sales, not an appraisal.',
+    '',
+    (f.agentName ?? '').split(/\s+/)[0] || 'Your agent',
+  ];
+  return { summary: lines.join('\n') };
+}
+
 export const LISTING_RULES: readonly ScriptRule[] = [
   { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
+  { when: /Write the CMA summary\.$/, json: (message) => scriptedCmaSummary(message) },
   {
     when: /Find what the buyer said they want\.$/,
     json: (message) => scriptedBuyerMemory(message),

@@ -1031,6 +1031,33 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 - Chosen for Chris: only the first client (one with an email or phone first) is on the appointment; the others see
   it in their portal. Tour stops of a planned tour can be removed (nothing about them is kept until a home is seen).
 
+### Step 9: the CMA (server built, 2026-10-01)
+
+**As built** (`20261014001100_realestate_cma.sql`):
+
+- `cmas`: one per look at a home's value ("CMA 2" on the deal): the home and its facts as the agent had them, the
+  range (kept when finalized), the summary and where it stands, who finalized and shared it. `cma_comps`: price,
+  sold date (or asking price while pending or for sale), beds, baths, size, distance, the agent's adjustments each
+  with its reason, and whether it's used. `fair_housing_checks.cma_id`: a check reads a client update or a CMA
+  summary.
+- Pure `cma.ts`, method 1, "adjusted price per square foot, recent sales weighted more": each used, sold comp with
+  its size gives a value for the home at the home's size after the agent's adjustments; each counts half as much
+  for every six months since it sold. Likely is the weighted average, low and high the lowest and highest (rounded
+  down, up and to the nearest $1,000). Each comp says why it isn't counted, and warns of an old sale, a far one, or
+  a much bigger or smaller home.
+- `realestate.cma.start` (from one of a buyer deal's homes, its facts copied; or from an earlier CMA's comps),
+  `.set_subject`, `.add_comp`, `.update_comp`, `.remove_comp` (a draft's only), `.finalize` (keeps the range;
+  refused without one, saying what's missing), `.reopen` (until it's shared).
+- The summary: `.request_summary` has the worker draft it from the CMA's numbers alone (`CMA_SUMMARY_SYSTEM`), then
+  both fair-housing checks read it, as a client update's. `.save_summary` keeps the agent's own words, with the word
+  list's check at once and the model's a moment later; `.acknowledge_flags` keeps flagged words with a reason (a
+  person only). Dollar amounts the CMA doesn't support are pointed out for the agent to check.
+- `.share` (risk 2) puts it in the client's portal, refused until it's final, both checks have read the summary as
+  it is, and any flag is fixed or kept. The portal reads a CMA and its comps only once shared (a restrictive policy
+  for `portal_actor`). A shared CMA stays as it is; another starts from it.
+- `realestate.cmas` and `realestate.cma` (each comp's value, the range, the summary, its checks and why it can't be
+  shared yet). The stand-in model writes a plain summary from the numbers (`scriptedCmaSummary`).
+
 ## Not in round two
 
 - The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,

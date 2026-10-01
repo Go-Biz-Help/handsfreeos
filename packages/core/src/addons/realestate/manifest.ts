@@ -205,6 +205,8 @@ export const realestateAddon = defineAddon({
     'tours',
     'tour_stops',
     'tour_feedback',
+    'cmas',
+    'cma_comps',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -272,6 +274,14 @@ export const realestateAddon = defineAddon({
       'realestate.tour.canceled',
       'realestate.tour.visited',
       'realestate.tour.feedback_added',
+      'realestate.cma.started',
+      'realestate.cma.changed',
+      'realestate.cma.finalized',
+      'realestate.cma.summary_requested',
+      'realestate.cma.summary_ready',
+      'realestate.cma.summary_saved',
+      'realestate.cma.flags_acknowledged',
+      'realestate.cma.shared',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -299,6 +309,9 @@ export const realestateAddon = defineAddon({
       // Tours: a tour's appointment moved or canceled on the calendar moves or cancels the tour.
       'appointment.rescheduled',
       'appointment.cancelled',
+      // The CMA's summary: drafted from its numbers, and every version of its words checked.
+      'realestate.cma.summary_requested',
+      'realestate.cma.summary_saved',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
