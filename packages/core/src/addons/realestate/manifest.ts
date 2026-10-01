@@ -227,6 +227,7 @@ export const realestateAddon = defineAddon({
     'net_sheets',
     'offer_comparisons',
     'offer_choices',
+    'listing_prices',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -341,6 +342,9 @@ export const realestateAddon = defineAddon({
       'realestate.net_sheet.saved',
       'realestate.offers.shared',
       'realestate.offers.seller_chose',
+      'realestate.listing.price_proposed',
+      'realestate.listing.price_changed',
+      'realestate.listing.price_withdrawn',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -374,6 +378,8 @@ export const realestateAddon = defineAddon({
       'realestate.open_house.followed_up',
       // A seller said what they want about an offer in their portal: their agent hears.
       'realestate.offers.seller_chose',
+      // A new price in use: the agent is reminded to change it on the MLS.
+      'realestate.listing.price_changed',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
       'call.transcribed',

@@ -462,8 +462,10 @@ describe('a listing’s photos', () => {
 
 // ---------- the description (step 4) ----------
 
-/** Maria, signed in to her portal on a device, as the worker signs her in. */
+/** Maria, signed in to her portal on a device, as the worker signs her in (once: codes are limited per hour). */
+let mariaSession: CustomerActor | null = null;
 async function mariaSignsIn(): Promise<CustomerActor> {
+  if (mariaSession) return mariaSession;
   const { accessId } = (
     await executeCommand(
       api(),
@@ -491,13 +493,14 @@ async function mariaSignsIn(): Promise<CustomerActor> {
       meta(),
     )
   ).output;
-  return {
+  mariaSession = {
     type: 'customer',
     workspaceId: ws,
     organizationId: org,
     personId: maria,
     sessionId: hit.sessionId!,
   };
+  return mariaSession;
 }
 
 /** What the worker records once it has written a draft: the words and both checks. */
@@ -1034,6 +1037,156 @@ describe('open houses', () => {
         }),
       ),
     ).toBe('realestate_open_house_cancelled');
+  });
+});
+
+// ---------- price changes (step 10) ----------
+
+describe('a price change', () => {
+  const prices = () => ask(agent, 'realestate.listing.prices', { dealId: listing });
+
+  it('waits for a list price to change, and is asked of the seller with its exact words', async () => {
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.price.propose', { dealId: listing, priceCents: 1 }),
+      ),
+    ).toBe('realestate_no_list_price');
+    // The first list price is a key term, with no sign-off.
+    await run(agent, 'realestate.term.enter', {
+      dealId: listing,
+      key: 'list_price',
+      cents: 49_900_000,
+      source: 'agreement',
+    });
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.price.propose', { dealId: listing, priceCents: 49_900_000 }),
+      ),
+    ).toBe('realestate_price_same');
+    const asked = await run(agent, 'realestate.listing.price.propose', {
+      dealId: listing,
+      priceCents: 48_900_000,
+      note: 'Two weeks, no offers.',
+    });
+    const [task] = await rows<{ sign_off_words: string; ref_kind: string; status: string }>(
+      admin(),
+      sql`select sign_off_words, ref_kind, status from addon_realestate.client_tasks where id = ${asked.taskId}`,
+    );
+    expect(task).toEqual({
+      sign_off_words: 'Change the list price of 2207 Juniper Trail from $499,000 to $489,000.',
+      ref_kind: 'listing_price',
+      status: 'open',
+    });
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.price.propose', { dealId: listing, priceCents: 47_000_000 }),
+      ),
+    ).toBe('realestate_price_waiting');
+    // Not around it either: a new list price typed in is refused until the seller signs.
+    expect(
+      await refused(
+        run(agent, 'realestate.term.enter', {
+          dealId: listing,
+          key: 'list_price',
+          cents: 48_900_000,
+        }),
+      ),
+    ).toBe('realestate_price_needs_signoff');
+    const p = await prices();
+    expect(p.currentCents).toBe(49_900_000);
+    expect(p.waiting).toMatchObject({
+      toCents: 48_900_000,
+      state: 'waiting',
+      taskId: asked.taskId,
+    });
+  });
+
+  it('is used once the seller signs it in her portal, as proof for S-34', async () => {
+    const { waiting } = await prices();
+    const mariaOnPhone = await mariaSignsIn();
+    await executeCommand(
+      worker(),
+      op('commands', 'realestate.portal.task.complete') as CommandDef,
+      { workspaceId: ws, taskId: waiting.taskId, signedWords: waiting.words },
+      mariaOnPhone,
+      meta('portal'),
+    );
+    const p = await prices();
+    expect(p.currentCents).toBe(48_900_000);
+    expect(p.waiting).toBeNull();
+    expect(p.history[0]).toMatchObject({ state: 'applied', how: 'portal', signedBy: 'Maria' });
+    // The agent who asked for exactly this price confirms it; the old one stays in its history.
+    const entries = await rows<{ cents: number; confirmed: string | null; superseded: boolean }>(
+      admin(),
+      sql`select value_cents::float8 as cents, confirmed_by as confirmed, superseded_at is not null as superseded
+          from addon_realestate.term_entries
+          where deal_record_id = ${listing} and key = 'list_price' order by entered_at`,
+    );
+    expect(entries).toEqual([
+      { cents: 49_900_000, confirmed: agent.id, superseded: true },
+      { cents: 48_900_000, confirmed: agent.id, superseded: false },
+    ]);
+    const [proof] = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = 'listing_price' and e.ref_id = ${waiting.id}`,
+    );
+    expect(proof!.key).toBe('S-34');
+    const [event] = await rows<{ payload: Any }>(
+      admin(),
+      sql`select payload from app.events
+          where workspace_id = ${ws} and event_type = 'realestate.listing.price_changed'`,
+    );
+    expect(event!.payload).toMatchObject({ toCents: 48_900_000, onMls: true, letThrough: false });
+  });
+
+  it('can be let through by an owner or admin only, with a reason, or withdrawn', async () => {
+    const second = await run(agent, 'realestate.listing.price.propose', {
+      dealId: listing,
+      priceCents: 47_900_000,
+    });
+    expect(
+      await refused(
+        run(agent, 'realestate.listing.price.let_through', {
+          priceId: second.priceId,
+          reason: 'Maria signed the change on paper.',
+        }),
+      ),
+    ).toBe('realestate_let_through_permission');
+    const done = await run(owner, 'realestate.listing.price.let_through', {
+      priceId: second.priceId,
+      reason: 'Maria signed the change on paper.',
+    });
+    expect(done).toMatchObject({
+      state: 'applied',
+      how: 'let_through',
+      overrideReason: 'Maria signed the change on paper.',
+    });
+    const [task] = await rows<{ status: string }>(
+      admin(),
+      sql`select status from addon_realestate.client_tasks where id = ${second.taskId}`,
+    );
+    expect(task!.status).toBe('canceled');
+    const third = await run(agent, 'realestate.listing.price.propose', {
+      dealId: listing,
+      priceCents: 46_900_000,
+    });
+    const gone = await run(agent, 'realestate.listing.price.withdraw', {
+      priceId: third.priceId,
+      reason: 'They want to wait a week.',
+    });
+    expect(gone).toMatchObject({
+      state: 'withdrawn',
+      withdrawnReason: 'They want to wait a week.',
+    });
+    const p = await prices();
+    expect(p.currentCents).toBe(47_900_000);
+    expect(p.history.map((h: Any) => [h.toCents, h.state])).toEqual([
+      [46_900_000, 'withdrawn'],
+      [47_900_000, 'applied'],
+      [48_900_000, 'applied'],
+    ]);
   });
 });
 

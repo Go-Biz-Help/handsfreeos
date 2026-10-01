@@ -318,6 +318,36 @@ describe('an open house’s next morning', () => {
   });
 });
 
+describe('a new price', () => {
+  it('reminds the listing’s agent to change it on the MLS', async () => {
+    await run('realestate.term.enter', {
+      dealId: listing,
+      key: 'list_price',
+      cents: 49_900_000,
+      source: 'agreement',
+    });
+    const { priceId } = await run('realestate.listing.price.propose', {
+      dealId: listing,
+      priceCents: 48_900_000,
+    });
+    // The agent here owns the business, so they may let it through.
+    await run('realestate.listing.price.let_through', {
+      priceId,
+      reason: 'Maria signed the change on paper.',
+    });
+    await drain();
+    const [alert] = await rows<{ title: string; href: string }>(
+      admin(),
+      sql`select title, href from app.addon_alerts
+          where workspace_id = ${ws} and key = ${`price_mls:${listing}`}`,
+    );
+    expect(alert).toEqual({
+      title: 'Change the price on the MLS: 2207 Juniper Trail is now $489,000',
+      href: `/a/realestate/deals/${listing}/listing`,
+    });
+  });
+});
+
 describe('a seller’s answer on an offer', () => {
   it('tells the listing’s agent what she wants, without accepting anything', async () => {
     const { offerId } = await run('realestate.offer.start', {

@@ -28,6 +28,7 @@ import { marketingCommands, marketingQueries } from './ops/marketing';
 import { publicCommands, publicQueries } from './ops/public';
 import { openHouseCommands, openHouseQueries } from './ops/open-houses';
 import { offerCompareCommands, offerCompareQueries } from './ops/offer-compare';
+import { priceCommands, priceQueries } from './ops/price';
 import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
@@ -59,6 +60,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...publicCommands,
     ...openHouseCommands,
     ...offerCompareCommands,
+    ...priceCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -80,5 +82,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...publicQueries,
     ...openHouseQueries,
     ...offerCompareQueries,
+    ...priceQueries,
   ],
 };

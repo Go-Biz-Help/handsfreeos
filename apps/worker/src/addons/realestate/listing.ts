@@ -248,6 +248,32 @@ export async function listingAsked(ctx: AddonEventContext): Promise<void> {
   });
 }
 
+// ---------- the price ----------
+
+/**
+ * `realestate.listing.price_changed`: a new price is in use (the page shows it at once); the listing's agent is
+ * reminded to change it on the MLS too, when it's there. A later change replaces the reminder.
+ */
+export async function priceChanged(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const dealId = ctx.event.entityId;
+  if (!dealId || p['onMls'] !== true) return;
+  const owner = typeof p['ownerUserId'] === 'string' ? p['ownerUserId'] : null;
+  const street = typeof p['street'] === 'string' ? p['street'] : 'The listing';
+  const to = typeof p['toCents'] === 'number' ? money(p['toCents']) : 'its new price';
+  await raiseAddonAlert(ctx, {
+    key: `price_mls:${dealId}`,
+    severity: 'attention',
+    title: `Change the price on the MLS: ${street} is now ${to}`.slice(0, 200),
+    detail: 'The seller signed it off, and the listing’s page shows it already.',
+    href: `/a/realestate/deals/${dealId}/listing`,
+    permission: 'realestate.use',
+    customRecordId: dealId,
+    audienceUserIds: owner ? [owner] : [],
+    assigneeUserId: owner,
+  });
+}
+
 // ---------- offers ----------
 
 const CHOICE_TITLES: Readonly<Record<string, string>> = {

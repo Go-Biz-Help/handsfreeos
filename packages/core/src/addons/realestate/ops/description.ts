@@ -269,7 +269,7 @@ export async function descriptionView(ctx: Ctx, deal: Deal) {
 export const mayLetThrough = (ctx: Ctx): boolean =>
   ctx.actor.type === 'human' && scopeCan(ctx.scope, 'realestate.except' as Permission);
 
-function requireLetThrough(ctx: CommandContext, what: string): void {
+export function requireLetThrough(ctx: CommandContext, what: string): void {
   if (actorKind(ctx) !== 'person')
     throw HfosError.forbidden(
       `Only a person can let ${what} through without the seller’s sign-off, from the listing’s page.`,

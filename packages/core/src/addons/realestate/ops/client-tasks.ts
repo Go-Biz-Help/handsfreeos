@@ -49,12 +49,13 @@ import {
   type Deal,
 } from './common';
 import { descriptionSignedOff } from './description';
+import { PRICE_EVENTS, priceSignedOff } from './price';
 import { documentProof, PROOF_EVENTS } from './proof-hooks';
 
 export { dealClients };
 
-/** The events a sign-off can cause once it's done (round three): the description going in use. */
-export const SIGN_OFF_EVENTS = ['realestate.listing.description_signed'] as const;
+/** The events a sign-off can cause once it's done (round three): the description or a new price going in use. */
+export const SIGN_OFF_EVENTS = ['realestate.listing.description_signed', ...PRICE_EVENTS] as const;
 
 type Task = typeof clientTasks.$inferSelect;
 
@@ -157,6 +158,8 @@ export async function completeTask(
     // A sign-off for one of the listing's own rows moves it on (round three): the description goes in use.
     if (task.refKind === 'listing_description' && task.refId)
       await descriptionSignedOff(ctx, deal, task.refId, personId);
+    if (task.refKind === 'listing_price' && task.refId)
+      await priceSignedOff(ctx, deal, task.refId, personId);
   }
   return finished ? 'done' : 'open';
 }

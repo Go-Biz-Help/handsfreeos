@@ -105,6 +105,14 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return a.channel === 'email'
         ? `Started an email about the listing to ${str(a.recipients)} contacts`
         : `Started a text about the listing to ${str(a.recipients)} contacts`;
+    case 'price_proposed':
+      return `Asked the seller to sign off a new price: ${str(b.price)} to ${str(a.price)}`;
+    case 'price_changed':
+      return a.how === 'let_through'
+        ? `Changed the price from ${str(b.price)} to ${str(a.price)} without the seller’s sign-off in the portal`
+        : `The seller signed off the new price: ${str(b.price)} to ${str(a.price)}`;
+    case 'price_withdrawn':
+      return `Withdrew the price change to ${str(a.price)}`;
     case 'open_house_planned':
       return `Planned an open house for ${str(a.when)}, hosted by ${str(a.host)}`;
     case 'open_house_cancelled':

@@ -1626,3 +1626,41 @@ export const offerChoices = addonRealestate.table(
     }).onDelete('cascade'),
   ],
 );
+
+/** A change to a listing's price, asked of the seller to sign off (round three, step 10). */
+export const listingPrices = addonRealestate.table(
+  'listing_prices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    fromCents: bigint('from_cents', { mode: 'number' }).notNull(),
+    toCents: bigint('to_cents', { mode: 'number' }).notNull(),
+    words: text('words').notNull(),
+    note: text('note'),
+    state: text('state').notNull().default('waiting').$type<'waiting' | 'applied' | 'withdrawn'>(),
+    clientTaskId: uuid('client_task_id'),
+    signedByPersonId: uuid('signed_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    overrideBy: userRef('override_by'),
+    overrideReason: text('override_reason'),
+    appliedAt: ts('applied_at'),
+    termEntryId: uuid('term_entry_id').references(() => termEntries.id, { onDelete: 'set null' }),
+    withdrawnReason: text('withdrawn_reason'),
+    proposedBy: userRef('proposed_by'),
+    proposedAt: ts('proposed_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.clientTaskId],
+      foreignColumns: [clientTasks.workspaceId, clientTasks.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);

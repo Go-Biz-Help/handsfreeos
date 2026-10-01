@@ -2771,3 +2771,48 @@ export const PortalOfferChoiceInput = z.object({
 });
 export const PortalOfferChoiceOutput = z.object({ choiceId: uuid });
 export type CompareRowOut = z.infer<typeof CompareRow>;
+
+// ---------- round three, step 10: a listing's price changes ----------
+
+export const ListingPriceProposeInput = z.object({
+  ...inDeal,
+  /** The new list price. */
+  priceCents: z.int().min(1, 'Enter the new price.').max(100_000_000_000),
+  note: z.string().trim().max(500).optional(),
+});
+export const ListingPriceProposeOutput = z.object({ priceId: uuid, taskId: uuid });
+export const ListingPriceChangeInput = z.object({
+  workspaceId: uuid,
+  priceId: uuid,
+  /** Why: "Maria signed the change on paper", "They want to wait a week". */
+  reason,
+});
+const ListingPriceOut = z.object({
+  id: uuid,
+  fromCents: z.number().int(),
+  toCents: z.number().int(),
+  /** The words the seller signs off. */
+  words: z.string(),
+  note: z.string().nullable(),
+  state: z.enum(['waiting', 'applied', 'withdrawn']),
+  /** Applied: signed in the portal, or let through by an owner or admin. */
+  how: z.enum(['portal', 'let_through']).nullable(),
+  signedBy: z.string().nullable(),
+  overrideBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  overrideReason: z.string().nullable(),
+  appliedAt: isoDateTime.nullable(),
+  withdrawnReason: z.string().nullable(),
+  taskId: uuid.nullable(),
+  proposedAt: isoDateTime,
+  proposedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+});
+export const ListingPriceChangeOutput = ListingPriceOut;
+export const ListingPricesOutput = z.object({
+  dealId: uuid,
+  /** The list price in use now. */
+  currentCents: z.number().int().nullable(),
+  /** The change waiting on the seller, if there is one. */
+  waiting: ListingPriceOut.nullable(),
+  /** Every change asked for, newest first. */
+  history: z.array(ListingPriceOut),
+});

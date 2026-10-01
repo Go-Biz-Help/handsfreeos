@@ -20,7 +20,15 @@ import {
   TermResolveInput,
 } from '../schemas';
 import { documents, termEntries } from '../tables';
-import { isLive, termKind, termLabel, termOnSide, termValueWords, type TermKey } from '../terms';
+import {
+  isLive,
+  termKind,
+  termLabel,
+  termOnSide,
+  termsNow,
+  termValueWords,
+  type TermKey,
+} from '../terms';
 import { sideWords } from '../words';
 import {
   actorUserId,
@@ -31,7 +39,7 @@ import {
   requireNotArchived,
   type Deal,
 } from './common';
-import { openWork, type Work } from './engine';
+import { openWork, termEntriesOf, type Work } from './engine';
 
 type Entry = typeof termEntries.$inferSelect;
 
@@ -119,6 +127,17 @@ export const termEnter = defineAddonCommand(realestateAddon, {
       if (!doc)
         throw HfosError.notFound(
           'That document isn’t on this deal anymore. Pick one of its documents, or leave it out.',
+        );
+    }
+    // A listing's new price is the seller's to sign off (round three, step 10): once one is confirmed, another comes
+    // only through a change they signed, or an owner or admin let through (`realestate.listing.price.*`).
+    if (key === 'list_price' && deal.side === 'listing') {
+      const now = termsNow(await termEntriesOf(ctx, deal.recordId)).get('list_price');
+      if (now?.confirmed && now.current?.valueCents !== input.cents)
+        throw HfosError.rule(
+          'realestate_price_needs_signoff',
+          409,
+          `A new list price for ${deal.name} needs the seller’s sign-off first. Use Change the price on the listing’s page; it goes to them in their portal.`,
         );
     }
     let replaced: Entry | null = null;

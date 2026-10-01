@@ -1453,12 +1453,25 @@ boards; the server steps go ahead meanwhile.
   keys. The add-a-task dialog offers only the deal's side's.
 - Tests: `realestate-listing.test.ts`.
 
-### Step 10: price changes
+### Step 10: price changes (server built, 2026-10-01)
 
-- "Change the price" makes a sign-off task: "Change the list price of 418 Maple Ave from $409,000 to $399,000."
-- The new price can't be used until it's signed off (`realestate_price_needs_signoff`), unless an owner or admin lets
-  it through with a reason. Then it replaces the `list_price` term, the history keeps the old one, the public page
-  shows it, matching runs again, and the agent is reminded to change it on the MLS (S-67). Proof: S-34.
+**As built** (`20261020000700_realestate_listing_prices.sql`; `ops/price.ts`):
+
+- `listing_prices`: each change asked for, from and to, the exact words the seller signs, its sign-off task, and how
+  it ended (applied: signed in the portal or let through with a reason, and the list price entry it made; or
+  withdrawn, with why). One waits at a time. The seller reads them in the portal.
+- `realestate.listing.price.propose` makes the sign-off task: "Change the list price of 2207 Juniper Trail from
+  $499,000 to $489,000." It needs a list price already (the first is a key term, with no sign-off) and a seller on
+  the deal, and refuses the same price or a second change while one waits.
+- Signed in the portal, the change is used at once: a new `list_price` entry replaces the old one (kept in its
+  history), confirmed by the agent who asked for exactly that price; the page shows it; S-34's proof; and the worker
+  reminds the agent to change it on the MLS (an alert, when it's on the MLS: S-67 is the MLS after closing, so the
+  reminder isn't a duty). `price.let_through` does the same for an owner or admin with a reason, and takes the task
+  back; `price.withdraw` takes it back, with why.
+- `realestate.term.enter` refuses a new list price on a listing with one confirmed (`realestate_price_needs_signoff`),
+  so there's no way round the sign-off. Matching runs again on a new price in step 11.
+- `realestate.listing.prices` is the price now, the change waiting, and every change.
+- Tests: `realestate-listing.test.ts`, the worker's `realestate-listing.test.ts`.
 
 ### Step 11: matching to buyers
 

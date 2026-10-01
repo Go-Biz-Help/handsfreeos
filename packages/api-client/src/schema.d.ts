@@ -7837,6 +7837,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.listing.price.let_through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a new list price without the seller’s sign-off in the portal, with the reason (“signed the change on paper”). Owners and admins only; kept on the deal’s history.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_price_let_through"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.price.propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the seller to sign off a new list price in their portal, with its exact words (“Change the list price of 418 Maple Ave from $409,000 to $399,000.”). The new price is used only once they sign.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added.
+         */
+        post: operations["command_realestate_listing_price_propose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.price.withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a price change still waiting on the seller, with why. Its sign-off task leaves their portal; the price stays as it is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.price_withdrawn.
+         */
+        post: operations["command_realestate_listing_price_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.listing.request_questionnaire": {
         parameters: {
             query?: never;
@@ -14071,6 +14131,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing_marketing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s price: the one in use, a change waiting on the seller’s sign-off, and every change asked for.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_prices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31765,6 +31845,156 @@ export interface operations {
                         dealId: string;
                         /** @enum {string} */
                         state: "drafting" | "ready" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_let_through: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    priceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string | null;
+                        fromCents: number;
+                        how: ("portal" | "let_through") | null;
+                        /** Format: uuid */
+                        id: string;
+                        note: string | null;
+                        overrideBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        overrideReason: string | null;
+                        /** Format: date-time */
+                        proposedAt: string;
+                        proposedBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        signedBy: string | null;
+                        /** @enum {string} */
+                        state: "waiting" | "applied" | "withdrawn";
+                        taskId: string | null;
+                        toCents: number;
+                        withdrawnReason: string | null;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_propose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string;
+                    priceCents: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        priceId: string;
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    priceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string | null;
+                        fromCents: number;
+                        how: ("portal" | "let_through") | null;
+                        /** Format: uuid */
+                        id: string;
+                        note: string | null;
+                        overrideBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        overrideReason: string | null;
+                        /** Format: date-time */
+                        proposedAt: string;
+                        proposedBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        signedBy: string | null;
+                        /** @enum {string} */
+                        state: "waiting" | "applied" | "withdrawn";
+                        taskId: string | null;
+                        toCents: number;
+                        withdrawnReason: string | null;
+                        words: string;
                     };
                 };
             };
@@ -50617,6 +50847,95 @@ export interface operations {
                             facts: boolean;
                             photos: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_prices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        currentCents: number | null;
+                        /** Format: uuid */
+                        dealId: string;
+                        history: {
+                            appliedAt: string | null;
+                            fromCents: number;
+                            how: ("portal" | "let_through") | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            overrideBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            overrideReason: string | null;
+                            /** Format: date-time */
+                            proposedAt: string;
+                            proposedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            signedBy: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "applied" | "withdrawn";
+                            taskId: string | null;
+                            toCents: number;
+                            withdrawnReason: string | null;
+                            words: string;
+                        }[];
+                        waiting: {
+                            appliedAt: string | null;
+                            fromCents: number;
+                            how: ("portal" | "let_through") | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            overrideBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            overrideReason: string | null;
+                            /** Format: date-time */
+                            proposedAt: string;
+                            proposedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            signedBy: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "applied" | "withdrawn";
+                            taskId: string | null;
+                            toCents: number;
+                            withdrawnReason: string | null;
+                            words: string;
+                        } | null;
                     };
                 };
             };
