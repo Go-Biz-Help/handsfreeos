@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { apiServer, getMe, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
 import { loadOnboarding } from '@/lib/onboarding';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
@@ -79,7 +79,9 @@ export default async function WorkspaceHomePage({
         {suggested ? <AddonSuggestionCard workspaceId={ws.id} suggestion={suggested} /> : null}
       </div>
     ) : null;
-  const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
+  // Viewing as a teammate (20261016000200), Home greets them, as it would.
+  const greeted = (await getWorkspaceShell(workspaceId)).teammateView?.person ?? me.user;
+  const firstName = (greeted.fullName || greeted.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
   const guide = onboarding ? (
     <GettingStarted
