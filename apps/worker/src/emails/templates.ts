@@ -473,9 +473,22 @@ export function eveningBriefEmail(input: {
 /** The carriers approved texting. */
 export function textingApprovedEmail(input: {
   business: string;
-  number: string;
+  /** Null when the registration went ahead of the number (it is still on its way here). */
+  number: string | null;
   link: string;
 }): EmailContent {
+  if (input.number === null) {
+    const subject = `Texting is approved for ${input.business}`;
+    const line =
+      'The carriers approved your texting registration. Your number can text customers as soon as it’s here, with nothing more to send.';
+    const text = `${line}\n\nSee where your number is: ${input.link}`;
+    const html = shell(
+      para(escapeHtml(line)) +
+        button(input.link, 'See where your number is') +
+        small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+    );
+    return { subject, text, html };
+  }
   const subject = `Texting is on for ${input.business}`;
   const text = `The carriers approved your registration. Customers can text ${input.number} now, and your team can text them back from the inbox.\n\nOpen the inbox: ${input.link}`;
   const html = shell(
@@ -493,17 +506,20 @@ export function textingRejectedEmail(input: {
   business: string;
   reason: string | null;
   link: string;
+  /** False when the business has no working number yet, so there are no calls to keep working. */
+  calls?: boolean;
 }): EmailContent {
+  const calls = input.calls ?? true;
   const subject = `The carriers need a change before ${input.business} can text`;
   const reason = input.reason ? `Their reason: “${input.reason}”` : 'They did not give a reason.';
-  const text = `The carriers turned down the texting registration for ${input.business}. ${reason}\n\nFix it and send it again: ${input.link}\n\nCalls keep working in the meantime.`;
+  const text = `The carriers turned down the texting registration for ${input.business}. ${reason}\n\nFix it and send it again: ${input.link}${calls ? '\n\nCalls keep working in the meantime.' : ''}`;
   const html = shell(
     para(
       `The carriers turned down the texting registration for <strong>${escapeHtml(input.business)}</strong>.`,
     ) +
       para(escapeHtml(reason)) +
       button(input.link, 'Fix and send again') +
-      small('Calls keep working in the meantime.'),
+      (calls ? small('Calls keep working in the meantime.') : ''),
   );
   return { subject, text, html };
 }
@@ -523,6 +539,70 @@ See RCS in Settings: ${input.link}`;
       `The carriers approved <strong>${escapeHtml(input.sender)}</strong>. Your texts now go as RCS — with your name, your logo and buttons customers can tap — to every phone that can show it, and as ordinary texts to the phones that can't.`,
     ) +
       para('Nothing changes in the inbox: the thread shows which way each message went.') +
+      button(input.link, 'See RCS in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** A business paid for RCS (0104): what happens next, and when it renews. */
+export function rcsPaidEmail(input: {
+  business: string;
+  paid: string;
+  renews: string;
+  renewsOn: string;
+  ticket: number;
+  link: string;
+}): EmailContent {
+  const subject = `We’re setting up RCS for ${input.business}`;
+  const lines = [
+    `Thanks: we took ${input.paid} for RCS’s first year. We’re making your RCS sender at Twilio now and will connect it to your texting. Then the carriers review it, which can take a few weeks. We’ll email you when RCS is on, and your texts keep going as they do now until then.`,
+    `If we need anything else from you, like your logo, we’ll ask on support ticket #${input.ticket}. Reply to that email any time.`,
+    `RCS renews for ${input.renews} a year on ${input.renewsOn}, charged to the same card. You can stop it renewing under RCS messaging in Settings.`,
+  ];
+  const text = `${lines.join('\n\n')}\n\nSee RCS in Settings: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'See RCS in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** RCS's yearly renewal went through (0104). */
+export function rcsRenewedEmail(input: {
+  business: string;
+  paid: string;
+  until: string;
+  link: string;
+}): EmailContent {
+  const subject = `RCS renewed for ${input.business}`;
+  const line = `We charged ${input.paid} for another year of RCS: the carriers’ brand vetting and its upkeep. It’s paid through ${input.until}.`;
+  const text = `${line}\n\nSee RCS in Settings: ${input.link}`;
+  const html = shell(
+    para(escapeHtml(line)) +
+      button(input.link, 'See RCS in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** The card refused RCS's yearly renewal (0104): support is on it, and RCS stays on meanwhile. */
+export function rcsRenewalFailedEmail(input: {
+  business: string;
+  amount: string;
+  reason: string;
+  ticket: number;
+  link: string;
+}): EmailContent {
+  const subject = `RCS’s renewal for ${input.business} didn’t go through`;
+  const lines = [
+    `We couldn’t take the yearly ${input.amount} for RCS: ${input.reason}`,
+    `RCS stays on meanwhile. You can pay it with another card under RCS messaging in Settings, which keeps that card for next year. Questions? Reply to our email about support ticket #${input.ticket}.`,
+  ];
+  const text = `${lines.join('\n\n')}\n\nSee RCS in Settings: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
       button(input.link, 'See RCS in Settings') +
       small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
   );

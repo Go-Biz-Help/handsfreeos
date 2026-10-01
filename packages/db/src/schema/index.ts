@@ -697,6 +697,16 @@ export const rcsSenderStatus = app.enum('rcs_sender_status', [
   'disconnected',
 ]);
 export type RcsSenderStatus = (typeof rcsSenderStatus.enumValues)[number];
+/** 0104: a business asking for an RCS sender and paying for it. */
+export const rcsRequestStatus = app.enum('rcs_request_status', [
+  'pending',
+  'open',
+  'paid',
+  'expired',
+  'failed',
+  'cancelled',
+]);
+export type RcsRequestStatus = (typeof rcsRequestStatus.enumValues)[number];
 export const callStatus = app.enum('call_status', [
   'initiated',
   'ringing',
@@ -1113,6 +1123,48 @@ export const rcsSenders = app.table('rcs_senders', {
   connectedAt: ts('connected_at'),
   disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * A business asking HandsFreeOS for an RCS sender, and paying for it (0104). Clients can't make a sender
+ * themselves (Twilio makes them only in its console, in a subaccount only HandsFreeOS can open), so they ask
+ * and pay here, a support ticket opens, and the sender is connected (`rcsSenders`) once it is made. What
+ * Stripe says is the worker's to write (`private.guard_rcs_request_update`).
+ */
+export const rcsRequests = app.table('rcs_requests', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  status: rcsRequestStatus('status').notNull().default('pending'),
+  brand: jsonb('brand').$type<Json>().notNull(),
+  firstYearCents: integer('first_year_cents').notNull(),
+  yearlyCents: integer('yearly_cents').notNull(),
+  sessionRef: text('session_ref').unique(),
+  sessionUrl: text('session_url'),
+  sessionExpiresAt: ts('session_expires_at'),
+  paymentRef: text('payment_ref'),
+  paidCents: integer('paid_cents'),
+  customerRef: text('customer_ref'),
+  cardRef: text('card_ref'),
+  paidAt: ts('paid_at'),
+  /** The end of the year paid for: the renewal is charged then. */
+  paidThrough: ts('paid_through'),
+  renewalCount: integer('renewal_count').notNull().default(0),
+  renewalProblem: text('renewal_problem'),
+  renewalFailedAt: ts('renewal_failed_at'),
+  /** After a refused renewal: the page the business pays it on with another card, and the year it renews. */
+  renewalSessionRef: text('renewal_session_ref').unique(),
+  renewalSessionUrl: text('renewal_session_url'),
+  renewalSessionFor: ts('renewal_session_for'),
+  /** The support ticket the payment opened (platform.tickets; no foreign key across). */
+  ticketId: uuid('ticket_id'),
+  ticketNumber: bigint('ticket_number', { mode: 'number' }),
+  problem: text('problem').notNull().default(''),
+  requestedBy: userRef('requested_by'),
+  stoppedAt: ts('stopped_at'),
+  stoppedBy: userRef('stopped_by'),
+  openedAt: ts('opened_at'),
+  closedAt: ts('closed_at'),
   ...timestamps(),
 });
 

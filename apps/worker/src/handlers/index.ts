@@ -82,6 +82,11 @@ import {
   onRcsStateChanged,
 } from '../telephony/rcs';
 import {
+  onRcsBilled,
+  onRcsRenewalPageRequested,
+  onRcsRequestSubmitted,
+} from '../telephony/rcs-billing';
+import {
   onBrandedDomainAdded,
   onBrandedDomainCheckRequested,
   onBrandedDomainRemoved,
@@ -91,6 +96,7 @@ import {
   onConversationLinked,
   onConversationSnoozed,
   onMessageQueued,
+  onNumberArrived,
   onPurchaseRequested,
   onRegistrationStatusChanged,
   onRegistrationSubmitted,
@@ -128,6 +134,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'phone_number.release_requested': onReleaseRequested,
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
+    // A number started working here: a registration sent while it was on its way goes now.
+    'phone_number.purchased': onNumberArrived,
+    'phone_number.ported_in': onNumberArrived,
+    'phone_number.imported': onNumberArrived,
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
@@ -146,6 +156,13 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'rcs_sender.disconnect_requested': onRcsDisconnectRequested,
     // Owners and admins hear when RCS goes live, and when it stops.
     'rcs_sender.state_changed': onRcsStateChanged,
+    // A business asking for an RCS sender and paying for it (0104): the Stripe page is a job, and the business
+    // hears when it is paid, renewed, or its renewal is refused (telephony/rcs-billing.ts).
+    'rcs_request.submitted': onRcsRequestSubmitted,
+    'rcs_request.paid': onRcsBilled,
+    'rcs_request.renewed': onRcsBilled,
+    'rcs_request.renewal_failed': onRcsBilled,
+    'rcs_request.renewal_page_requested': onRcsRenewalPageRequested,
     // A business's own domain on its forms, payment links and booking page (hosting/domains.ts).
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,

@@ -4142,6 +4142,16 @@ You should see "{number} bought. Calls ring now.", then "Setting up {number}. Th
 - Only numbers bought here work. A number bought by hand in the Twilio console is unknown to HandsFreeOS (see "Twilio webhooks are rejected" in "Going live, and when something goes wrong").
 - Sole proprietors, and businesses without an EIN, must use toll-free. On a local number their registration fails with "Sole proprietors text from a toll-free number. Release this number and pick a toll-free one." But the **Release this number** menu only appears once texting is approved, so a client in this state can't release the number from the page, and can't buy a toll-free one while the local number is live. Until a developer adds a release option to that screen, tell sole proprietors and businesses without an EIN to pick **Toll-free** before they buy.
 
+#### Registering before the number is here
+
+A client moving its own local number here (a carrier port, or a transfer from Twilio or HighLevel), or not ready to pick one, can send the local texting registration first. While the page is on the number step or **Moving to us**, a **Register for texting now** card sits below it. **Start the registration** opens the same business-details steps, and the card then follows the carrier review the same way the main page does. The carriers take 1 to 3 weeks on a local registration either way, and none of its four steps needs the number, so those weeks no longer wait on top of a port or a transfer. When the number lands it joins the messaging service and can text that day, with nothing more to send. The import list says the same ("Your registration already covers it…").
+
+- **Local (10DLC) only.** Toll-free verification is for one toll-free number, and Twilio asks for that number, so it still waits for it (rule `no_number`). The card isn't shown when the number on its way is toll-free; sending a 10DLC registration then is refused with `registration_kind_mismatch`.
+- **Sending it makes the subaccount and messaging service**, the way a first purchase would (below), because the campaign is registered on the messaging service.
+- **The registration names the number on its way** when there is one (its HELP reply and the hosted privacy page give it). With nothing on its way, they leave the number out.
+- **The campaign's $10 a month starts when the carriers approve it**, which can be before the number lands.
+- Toll-free verification sent while its number is still being set up now goes the moment the number starts working (`phone_number.purchased`, `phone_number.ported_in` and `phone_number.imported` walk the registration again). It used to wait until someone sent it again.
+
 The first purchase creates these in order: the subaccount `HandsFreeOS <workspace name> <tag>`, the messaging service `HandsFreeOS <tag>`, and an API key and a TwiML app both named `HandsFreeOS calls <tag>`. The `<tag>` is the first 8 characters of the workspace id. Each step is saved as it finishes, so a failure part-way picks up where it stopped. To see them in the Twilio console, open the master account's list of subaccounts and click the subaccount's name. The list is at `https://www.twilio.com/console/project/subaccounts`; in the new console it is under **Settings** → **Account settings** → **Subaccount management**. If neither works, search the console for `Subaccounts`. To return to the master account, use the account menu at the top left.
 
 #### Business details
@@ -4522,7 +4532,7 @@ The screen writes the request for them with both SIDs filled in and a field for 
 **Setting the number up is separate from registering it for texting.** Each import shows two statuses side by side:
 
 - **Phone number**: waiting for the transfer, then **live here**. Calls work from this moment.
-- **Texting registration**: A2P 10DLC for a local number, toll-free verification for a toll-free one. HighLevel's registration belongs to HighLevel's brand and **does not move with the number**. Until the business's own registration is approved here, texts may be blocked by the carriers. A business that already has an approved 10DLC campaign here gets the new number covered as soon as it joins the messaging service.
+- **Texting registration**: A2P 10DLC for a local number, toll-free verification for a toll-free one. HighLevel's registration belongs to HighLevel's brand and **does not move with the number**. Until the business's own registration is approved here, texts may be blocked by the carriers. A business that already has an approved 10DLC campaign here gets the new number covered as soon as it joins the messaging service. A local number's registration can be sent while the number is still waiting, from **Register for texting now** below the imports (see "Registering before the number is here").
 
 **Connecting a Twilio account.** Only the organization's owners and admins can connect one, because listing an account lists every business's numbers in it. Numbers can then be sent to any business in the organization. They give the Account SID with either the account's auth token or, better, a standard **API key** SID and secret, which they can revoke in Twilio at any time. We only ever **read** with it: the account and its subaccounts, and the numbers in each. We never change anything in their account. Each number shows who its webhooks point at today ("Used by HighLevel"), whether it is already here, and whether it is already on its way to one of their businesses.
 
@@ -4541,13 +4551,45 @@ Replies come back to the same conversation. A tap on a reply button arrives as a
 
 **On the phone app** it works the same way. The thread shows the buttons, cards and carousels as the customer saw them, the **RCS**, **SMS** or **MMS** tag, when an RCS message was read, the plain text a phone without RCS got, and which button a customer's reply came from. The composer's **Add buttons or a card** builds buttons, a card or a carousel, with the same rules and the same plain-text preview as the web, and it works with no signal like any reply. A carousel's pictures are taken like a reply's photos. The phone doesn't know whether RCS is on for the business, so it doesn't say; connecting and managing the sender is on the web. The phone gets these four message fields through its sync streams, added to the existing ones in place (see `apps/sync/sync-config.yaml`), so a phone build from before them keeps working and just doesn't show them.
 
-#### Setting up a business's RCS sender
+#### How a business asks for RCS, and pays
 
-Twilio makes RCS senders only in its own console: the carriers review the brand (its name, logo, colors, contact details, privacy policy and terms), and that happens there. So each business's sender is made by hand, once, in that business's own subaccount.
+Twilio makes RCS senders only in its own console (it has no API for it), and a business's Twilio account is a subaccount that only HandsFreeOS can open. So a business can't make its own sender. It asks for one on the **RCS messaging** card and pays, and HandsFreeOS makes it.
+
+1. The business opens **Settings** → **Texting & calls** (the card shows once texting is approved). Owners and admins fill in what the sender shows: the name customers see, a one-line description, a brand color, the website, privacy policy and terms links, the phone and email on the profile, and optionally a link to their logo. The links and email start from their texting registration.
+2. The card shows what it costs, line by line, from `packages/core/src/money/rcs-fees.ts`:
+
+   | Line                   | Amount      | Whose                                   |
+   | ---------------------- | ----------- | --------------------------------------- |
+   | Carrier onboarding     | $500, once  | The US carriers' fee, passed on at cost |
+   | Brand vetting by Aegis | $200 a year | Passed on at cost                       |
+   | Setup by HandsFreeOS   | $100, once  | Ours                                    |
+   | Yearly upkeep          | $15 a year  | Ours, from the second year              |
+   | **First year**         | **$800**    |                                         |
+   | **Each year after**    | **$215**    |                                         |
+
+   The screen makes no promise about refunds. Decide each one yourself, and refund in Stripe.
+
+3. **Pay $800 and send** writes the request (`rcs_request.submit`, rule `no_number` without a business number, `rcs_sender_exists` when a sender is already connected). The worker makes a Stripe Checkout page in our own account, with those three lines, and sends the person there. It is the same Stripe setup as the founding seats: the same `STRIPE_PLATFORM_WEBHOOK_SECRET`, and the same four events at `/webhooks/stripe/platform`. Without that secret the card says "Paying online isn’t switched on yet" and nothing is charged. The page keeps the card on a Stripe customer for the renewal.
+4. When Stripe says it's paid, the request is **paid** for a year, the owners and admins get "We’re setting up RCS for …", and **a support ticket opens** in **Support** → **Tickets**: "RCS sender for {business}". The business's own message lists what they asked for. An internal note says what was paid, when it renews, the subaccount's Account SID, and the steps below.
+
+Then make the sender, once, in that business's own subaccount:
 
 1. Open the business's subaccount in the Twilio console (see "Number" above for where the list of subaccounts is).
-2. Under **Messaging** → **Senders**, create an RCS sender for the business and fill in the brand details Twilio asks for. If the menu has moved, search the console for `RCS`. Send it for carrier review.
-3. In HandsFreeOS, the business (or you, signed in to it) opens **Settings** → **Texting & calls**. The **RCS messaging** card lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. A business with more than one number can also pick where new RCS conversations start.
+2. Under **Messaging** → **Senders**, create an RCS sender for the business with the details from the ticket. If they sent no logo, ask on the ticket for a 224 × 224 logo and a 1440 × 448 banner; a reply there emails them. If the menu has moved, search the console for `RCS`. Send it for carrier review.
+3. In HandsFreeOS, view the business and open **Settings** → **Texting & calls**. The **RCS messaging** card says "Paid… We’re making your RCS sender" and lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. The business can do this too. A business with more than one number can also pick where new RCS conversations start.
+4. Answer the ticket to say it's with the carriers.
+
+**A business or agency that already has a sender** (one you made before this, say) uses **Already have an RCS sender at Twilio? Connect it** under the form, which connects it without paying.
+
+**Renewals.** A year after paying, an hourly sweep (`rcs_request.renewals`) charges the yearly $215 to the card the first payment kept, and moves the paid year on; owners and admins get "RCS renewed for …". Each charge is keyed on the request and the year, so it is charged once however often the sweep runs.
+
+- **A refused card** is not tried again on its own. The request keeps the reason, owners and admins get "RCS’s renewal for … didn’t go through", and a ticket opens: "RCS renewal for {business} didn’t go through". RCS stays connected. The card shows **Pay $215 with another card** (`rcs_request.pay_renewal`), which makes a Stripe page for that year; paying it renews the year and keeps the new card for next year. Nothing else is needed from you unless they ask on the ticket.
+- **Stopping it.** **Stop renewing** on the card stops future charges. RCS stays on until the paid year ends, and a ticket opens in their name: "Stop renewing RCS for {business}". After that date, delete the sender in the Twilio console (or Aegis bills its vetting again) and disconnect it on the card.
+- **Paid twice** (two tabs): the second payment is recorded but never renews, and its ticket says "(paid twice)" and asks you to refund it.
+
+Locally and in tests, the fake payment provider stands in for Stripe: **Pay** opens its own checkout page, and paying there sends the signed event back. A card paid with `4000000000000341` is refused at renewal.
+
+#### Following the sender through review
 
 The card then shows **In review** while the carriers look at the sender. That can take a few weeks, and texts keep going as SMS and MMS in the meantime. The worker checks with Twilio on the same schedule as a carrier registration, and once a day after the sender is approved. **Check now** asks straight away. When the carriers approve it, the worker adds the sender to the business's messaging service, the card says **On**, and owners and admins get an email ("RCS is on for …"). If the sender goes offline or can't be connected, they get "RCS stopped for …" and texts go as SMS and MMS until it is fixed.
 
@@ -10181,7 +10223,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 - **Buying.** The fake carrier turns down any number that ends in `0000` with "That number is no longer available." **Show numbers** never lists one, so only the automated tests show this error.
 - **Carrier approval** arrives 3 seconds after you click **Submit for approval** on the business details step (`FAKE_APPROVAL_MS=3000`). A **Legal business name** that contains `reject` is turned down with "The website does not show how customers agree to receive texts."
 - **Sending.** A text shows as sent after about a quarter of a second and as delivered after about 0.7 seconds. A text whose body contains `[fail]` fails instead, with carrier error 30006.
-- **RCS.** Connect `hfos_demo_agent` in the **RCS messaging** card on **Settings** → **Texting & calls** and texts go as RCS, then show as read. Texts to a customer number ending in `7` fall back to SMS or MMS. See "RCS: branded texts with buttons" in "The phone carrier: Twilio".
+- **RCS.** Connect `hfos_demo_agent` in the **RCS messaging** card on **Settings** → **Texting & calls** (under **Already have an RCS sender at Twilio? Connect it**; **Pay $800 and send** tries the request and payment on the stand-in) and texts go as RCS, then show as read. Texts to a customer number ending in `7` fall back to SMS or MMS. See "RCS: branded texts with buttons" in "The phone carrier: Twilio".
 - **Calls from the browser** use a stand-in for Twilio's calling library. It is ready at once, and a call you place "picks up" after a moment. No sound leaves the browser.
 - **Voicemail recordings** are all the same three-second, two-note chime.
 - **Confirming a cell** presses 1 by itself about 2 seconds after the call is placed, so the cell is confirmed. A cell number ending in `0404` doesn't answer, and one ending in `0405` answers and presses nothing.

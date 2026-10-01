@@ -90,6 +90,7 @@ import {
 } from './money/registration-fees';
 import { NUMBER_MONTH_JOBS, NUMBER_MONTHS_KEY, runNumberMonths } from './money/number-months';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
+import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -534,6 +535,9 @@ export const jobs: JobMap = {
   // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
   // nobody took up or paid for (founding/checkout.ts).
   ...foundingJobs,
+  // RCS (0104): a request's Stripe page, the hourly sweep for paid years that are up, and each renewal's charge
+  // (telephony/rcs-billing.ts).
+  ...rcsBillingJobs,
   // Sign-ups and checkouts opened, sent to Opinly with retries of their own (opinly.ts).
   ...opinlyJobs,
   // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
@@ -710,6 +714,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: FOUNDING_JOBS.expire,
       dedupeKey: FOUNDING_EXPIRE_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // RCS (0104), hourly: a paid year that is up is renewed, charged to the card its first payment kept.
+    await scheduleJob(tx, {
+      kind: RCS_BILLING_JOBS.renewals,
+      dedupeKey: RCS_RENEWALS_KEY,
       runAt,
       payload: {},
       workspaceId: null,

@@ -171,12 +171,19 @@ export function readStripeCheckoutEvent(rawBody: string): CheckoutEvent | null {
   const sessionRef = str(session['id']);
   if (!sessionRef) return null;
   const intent = session['payment_intent'];
+  const metadata = obj(session['metadata']);
+  const rcsRequestId = str(metadata['rcs_request_id']);
   return {
     id,
     type,
     sessionRef,
+    // An RCS page carries its own id; only a founding page may fall back to the reference.
     checkoutId:
-      str(obj(session['metadata'])['founding_checkout_id']) ?? str(session['client_reference_id']),
+      str(metadata['founding_checkout_id']) ??
+      (rcsRequestId ? null : str(session['client_reference_id'])),
+    rcsRequestId,
+    renewalFor: rcsRequestId ? str(metadata['rcs_renewal_for']) : null,
+    customerRef: typeof session['customer'] === 'string' ? str(session['customer']) : null,
     paymentStatus: str(session['payment_status']),
     paymentRef: typeof intent === 'string' ? str(intent) : str(obj(intent)['id']),
     amountTotal: centsOf(session['amount_total']),
@@ -754,24 +761,31 @@ export function createStripePayments(opts: {
       async createCheckout(input) {
         const metadata = cleanMetadata({
           ...input.metadata,
-          founding_checkout_id: input.checkoutId,
+          [`${input.kind ?? 'founding_checkout'}_id`]: input.checkoutId,
         });
+        const lines = input.lines?.length
+          ? input.lines
+          : [
+              {
+                name: input.productName,
+                description: input.description,
+                amountCents: input.amountCents,
+              },
+            ];
         const made = await api<Json>(null, '/checkout/sessions', {
           body: {
             mode: 'payment',
-            line_items: [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: 'usd',
-                  unit_amount: requireAmount(input.amountCents),
-                  product_data: {
-                    name: input.productName.slice(0, 200),
-                    ...(input.description ? { description: input.description.slice(0, 500) } : {}),
-                  },
+            line_items: lines.map((l) => ({
+              quantity: 1,
+              price_data: {
+                currency: 'usd',
+                unit_amount: requireAmount(l.amountCents),
+                product_data: {
+                  name: l.name.slice(0, 200),
+                  ...(l.description ? { description: l.description.slice(0, 500) } : {}),
                 },
               },
-            ],
+            })),
             payment_method_types: ['card'],
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
@@ -784,6 +798,8 @@ export function createStripePayments(opts: {
             payment_intent_data: {
               description: input.productName.slice(0, 200),
               metadata,
+              // The card stays on the customer, for a renewal charged later without them there.
+              ...(input.saveCard ? { setup_future_usage: 'off_session' } : {}),
             },
           },
           idempotencyKey: input.idempotencyKey,
@@ -793,6 +809,25 @@ export function createStripePayments(opts: {
         if (!sessionRef || !url)
           throw new PaymentError('Stripe answered without a page to pay on.', null, false);
         return { sessionRef, url, expiresAt: isoOf(made['expires_at']) };
+      },
+
+      async checkoutCard(sessionRef) {
+        const session = obj(
+          await api<Json>(
+            null,
+            `/checkout/sessions/${encodeURIComponent(sessionRef)}?expand[]=payment_intent`,
+          ),
+        );
+        const intent = session['payment_intent'];
+        let cardRef = typeof intent === 'object' ? str(obj(intent)['payment_method']) : null;
+        // Not expanded after all: ask for the payment itself.
+        if (!cardRef && typeof intent === 'string' && intent)
+          cardRef = str(
+            obj(await api<Json>(null, `/payment_intents/${encodeURIComponent(intent)}`))[
+              'payment_method'
+            ],
+          );
+        return { customerRef: str(session['customer']), cardRef };
       },
 
       webhooks: {

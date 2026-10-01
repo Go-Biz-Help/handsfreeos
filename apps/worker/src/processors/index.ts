@@ -1,5 +1,6 @@
 import type { ProcessorMap } from '../deliveries';
 import { foundingProcessors } from '../founding/checkout';
+import { rcsBillingProcessors } from '../telephony/rcs-billing';
 import { paymentProcessors } from '../money/processors';
 import { workflowProcessors } from '../workflows/index';
 import { onSupportInboundEmail } from '../support/inbound';
@@ -35,4 +36,5 @@ export const processors: ProcessorMap = {
   ...paymentProcessors,
   // Stripe about our own account (0093): a founding seat paid for, or its page lapsing.
   ...foundingProcessors,
+  ...rcsBillingProcessors,
 };

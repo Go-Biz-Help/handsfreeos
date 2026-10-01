@@ -6,6 +6,7 @@ import { defineQuery } from '../kernel/define';
 import { quietHoursState } from '../messaging/quiet-hours';
 import {
   currentNumber,
+  currentRcsRequest,
   currentRcsSender,
   numbersOf,
   latestByKind,
@@ -52,6 +53,8 @@ export const phoneSetupStatus = defineQuery({
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
     const r = readiness(number, regs);
     const rcs = await currentRcsSender(ctx.tx, input.workspaceId);
+    // Row-level security shows a request only to people who manage the channels: null for everybody else.
+    const asked = await currentRcsRequest(ctx.tx, input.workspaceId);
     const out = (n: NonNullable<typeof number>) => ({
       id: n.id,
       e164: n.e164,
@@ -88,6 +91,8 @@ export const phoneSetupStatus = defineQuery({
       voiceReady: r.voiceReady,
       messagingReady: r.messagingReady,
       nextStep: r.nextStep,
+      // The 10DLC chain as if a local number were here and working: the same question the import list asks.
+      localRegistrationStep: readiness({ status: 'active', numberType: 'local' }, regs).nextStep,
       settings: m.settings,
       timezone: m.timezone,
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
@@ -105,6 +110,31 @@ export const phoneSetupStatus = defineQuery({
             checkedAt: iso(rcs.checkedAt),
             connectedAt: iso(rcs.connectedAt),
             sending: rcsSending(rcs),
+          }
+        : null,
+      rcsRequest: asked
+        ? {
+            id: asked.id,
+            status: asked.status,
+            brand: asked.brand,
+            firstYearCents: asked.firstYearCents,
+            yearlyCents: asked.yearlyCents,
+            checkoutUrl: asked.status === 'open' ? asked.sessionUrl : null,
+            problem: asked.problem || null,
+            paidAt: iso(asked.paidAt),
+            paidThrough: iso(asked.paidThrough),
+            renews: asked.status === 'paid' && !asked.stoppedAt && !asked.renewalFailedAt,
+            stoppedAt: iso(asked.stoppedAt),
+            renewalProblem: asked.renewalProblem,
+            // Only while it is still for the year that is due: a page for a year already renewed is spent.
+            renewalCheckoutUrl:
+              asked.renewalFailedAt &&
+              asked.renewalSessionUrl &&
+              asked.renewalSessionFor?.getTime() === asked.paidThrough?.getTime()
+                ? asked.renewalSessionUrl
+                : null,
+            ticketNumber: asked.ticketNumber,
+            createdAt: asked.createdAt.toISOString(),
           }
         : null,
     };

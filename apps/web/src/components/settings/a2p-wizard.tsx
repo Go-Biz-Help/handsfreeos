@@ -808,7 +808,12 @@ export function A2pWizard({
 }: {
   workspaceId: string;
   businessName: string;
-  number: PhoneNumberInfo;
+  /**
+   * The number this registration is for. Null when it goes ahead of the number (a local registration sent
+   * while the business's own number is being moved here, or before it has one): that is always 10DLC, and
+   * the number is filled in when we know it.
+   */
+  number: Pick<PhoneNumberInfo, 'numberType' | 'display'> | null;
   me: { fullName: string; email: string };
   initial: Record<string, unknown> | null;
   /** The answers as they were left last time (`registration.get_draft`), which win over `initial`. */
@@ -886,7 +891,7 @@ export function A2pWizard({
     return () => clearTimeout(timer);
   }, [form, at, workspaceId]);
 
-  const local = number.numberType === 'local';
+  const local = !number || number.numberType === 'local';
   const issues = useMemo(() => checkDraft(draftOf(form), businessName), [form, businessName]);
   const step = STEPS[at]!;
 
@@ -1283,7 +1288,7 @@ export function A2pWizard({
           set={set}
           origin={origin}
           siteSlug={surfaces.siteSlug}
-          phone={number.display}
+          phone={number?.display}
         />
       ) : null}
 
@@ -1365,8 +1370,8 @@ function PolicyStep({
   set: <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => void;
   origin: string;
   siteSlug: string | null;
-  /** The business number, which the terms give as the way to get help. */
-  phone: string;
+  /** The business number, which the terms give as the way to get help. Not known yet when it is on its way. */
+  phone: string | undefined;
 }) {
   const own = form.ownPolicyUrl.trim().length > 0;
   const ownTerms = form.ownTermsUrl.trim().length > 0;
@@ -1377,7 +1382,7 @@ function PolicyStep({
     legalName: form.legalName,
     website: withScheme(form.website),
     email: form.contactEmail,
-    phone,
+    ...(phone ? { phone } : {}),
     offers: sendsOffers(form.useCase),
     address: {
       line1: form.line1,
