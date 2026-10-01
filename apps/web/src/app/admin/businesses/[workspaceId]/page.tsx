@@ -75,12 +75,23 @@ export default async function BusinessPage({
           <h2 className="text-sm font-semibold">{DESK_BUSINESS_WORDS.theirPeople}</h2>
           <ul className="mt-3 flex flex-col gap-2 text-[13px]">
             {detail.people.map((p) => (
-              <li key={p.userId} className="flex items-baseline justify-between gap-2">
+              <li key={p.userId} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate">
                   {p.fullName || p.email}
                   <span className="text-text-3"> · {p.role}</span>
                 </span>
-                <span className="flex-none text-text-3">{deskLastActive(p.lastActiveAt)}</span>
+                <span className="flex flex-none items-center gap-2 text-text-3">
+                  {deskLastActive(p.lastActiveAt)}
+                  {/* The business as this person sees it (20261016000200), read-only. */}
+                  {me.staff?.permissions.includes('platform.view_as') ? (
+                    <ViewAsButton
+                      workspaceId={b.workspaceId}
+                      businessName={b.name}
+                      founder={me.staff.founder}
+                      person={p}
+                    />
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>

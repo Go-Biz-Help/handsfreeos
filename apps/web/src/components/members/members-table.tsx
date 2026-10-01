@@ -1,6 +1,6 @@
 'use client';
-import { can, type CustomizableRole } from '@hfos/core';
-import { Clock, LogOut, MoreHorizontal, ShieldCheck, Trash2 } from 'lucide-react';
+import { can, mayViewAs, VIEW_AS_WORDS, type CustomizableRole } from '@hfos/core';
+import { Clock, LogOut, MoreHorizontal, ShieldCheck, Trash2, UserRoundSearch } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Select } from '@/components/ui/input';
+import { useStartView } from '@/components/view-as/use-start-view';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Member, PermissionSettingsOut, Role } from '@/lib/api/types';
 import { PersonPermissionsDialog } from './person-permissions-dialog';
@@ -55,6 +56,7 @@ export function MembersTable({
   const canRemove = can(myPermissions, 'members.remove');
   // Someone else's hours are for whoever sets up calendars, as My calendar's own page says.
   const canEditHours = can(myPermissions, 'calendars.manage');
+  const viewing = useStartView();
   const ownSettings = (userId: string) =>
     permissionSettings?.people.find((p) => p.userId === userId)?.settings ?? {};
   const roleSettings = (role: CustomizableRole) =>
@@ -129,6 +131,9 @@ export function MembersTable({
               // Owners always do everything, so there is nothing to set for them.
               const settable = !!permissionSettings && m.role !== 'owner';
               const hasOwn = Object.keys(ownSettings(m.userId)).length > 0;
+              // Someone below them who can do nothing they can't (20261016000200); the API decides.
+              const viewable =
+                !isSelf && mayViewAs({ role: myRole, permissions: myPermissions }, m);
               return (
                 <tr key={m.userId} data-testid={`member-row-${m.email}`}>
                   <td className="border-b border-border px-4 py-3 last:border-b-0">
@@ -186,7 +191,7 @@ export function MembersTable({
                     })}
                   </td>
                   <td className="border-b border-border px-4 py-3">
-                    {isSelf || removable || canEditHours || settable ? (
+                    {isSelf || removable || canEditHours || settable || viewable ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -207,6 +212,16 @@ export function MembersTable({
                                 <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
                                 {isSelf ? 'Edit my hours' : 'Edit hours'}
                               </Link>
+                            </DropdownMenuItem>
+                          ) : null}
+                          {viewable ? (
+                            <DropdownMenuItem
+                              disabled={viewing.busy !== null}
+                              onSelect={() => void viewing.start(workspaceId, m.userId)}
+                              data-testid={`view-as-${m.email}`}
+                            >
+                              <UserRoundSearch className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                              {VIEW_AS_WORDS.start(m)}
                             </DropdownMenuItem>
                           ) : null}
                           {settable ? (

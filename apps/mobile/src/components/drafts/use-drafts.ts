@@ -4,6 +4,8 @@ import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
 import { useGrants } from '@/lib/grants';
+import { sees } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 
@@ -104,15 +106,19 @@ export function useWaitingDrafts(
   ]);
   const decisions = useDraftDecisions(business.id);
   const canManage = holds(useGrants(), 'ai_team.manage');
+  // Viewing as a teammate (20261016000200): only the drafts on threads they see.
+  const lens = useLens();
   return React.useMemo(() => {
-    const items = data.map((row) => ({
-      draft: teammateDraftOf(row, { canManage }),
-      decision: decisions.get(row.id) ?? null,
-    }));
+    const items = data
+      .filter((row) => !row.conversation_id || sees(lens?.conversations, row.conversation_id))
+      .map((row) => ({
+        draft: teammateDraftOf(row, { canManage }),
+        decision: decisions.get(row.id) ?? null,
+      }));
     return {
       items,
       visible: items.filter((item) => !decisionStands(item.decision)),
       loading: isLoading,
     };
-  }, [data, decisions, canManage, isLoading]);
+  }, [data, decisions, canManage, isLoading, lens]);
 }

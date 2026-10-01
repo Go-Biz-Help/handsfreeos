@@ -20,6 +20,7 @@ import {
   Puzzle,
   Settings2,
   Sparkles,
+  UserRoundSearch,
   Users,
 } from '@/components/icons';
 import { ApprovalsCount } from '@/components/home/approvals-count';
@@ -37,6 +38,7 @@ import { useWhatsNewUnseen } from '@/ideas/whats-new-signal';
 import { ROLE_LABELS } from '@/lib/businesses';
 import { useGrants } from '@/lib/grants';
 import { openWeb } from '@/lib/open-web';
+import { VIEW_AS_PHONE_WORDS } from '@/view-as/words';
 
 /**
  * More: Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
@@ -44,13 +46,15 @@ import { openWeb } from '@/lib/open-web';
  * for the desk work. Somebody who answers HandsFreeOS support also has the Support desk, which belongs to no business.
  */
 export default function More() {
-  const { me, business, userId, openSwitcher } = useBusiness();
+  const { me, business, userId, openSwitcher, viewing } = useBusiness();
   const name = me.user.fullName || me.user.email;
   const unseen = useWhatsNewUnseen(userId);
   const grants = useGrants();
   const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
   const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
   const { manage: managesAddons } = useAddonGrants();
+  // Owners and admins, as themselves: viewing as a teammate shows what someone below them sees (20261016000200).
+  const canViewAs = !viewing && holds(grants, 'members.view_as');
   const { staff } = useStaff(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
@@ -117,6 +121,15 @@ export default function More() {
             detail={MORE_WORDS.testTeammateDetail}
             onPress={() => go('ai-test')}
             testID="more-test-console"
+          />
+        ) : null}
+        {canViewAs ? (
+          <ListRow
+            icon={UserRoundSearch}
+            label={VIEW_AS_PHONE_WORDS.pickTitle}
+            detail={VIEW_AS_PHONE_WORDS.moreDetail}
+            onPress={() => go('view-as')}
+            testID="more-view-as"
           />
         ) : null}
         <ListRow

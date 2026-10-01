@@ -9,6 +9,8 @@ import { BusinessSwitcher } from '@/components/shell/business-switcher';
 import { useSession } from '@/lib/auth';
 import { rememberOpened, useMe } from '@/lib/businesses';
 import { colors, useThemeName } from '@/theme';
+import { KeepViewFresh } from '@/components/view-as/view-strip';
+import { useView } from '@/view-as/state';
 
 /** A business screen that can't draw shows why instead of closing the app. */
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
@@ -29,15 +31,28 @@ function Business({ userId }: { userId: string }) {
   const theme = useThemeName();
   const [switcher, setSwitcher] = React.useState(false);
   const business = me?.businesses.find((b) => b.id === workspaceId) ?? null;
+  const view = useView(userId, workspaceId);
 
   React.useEffect(() => {
     if (business) rememberOpened(userId, business.id);
   }, [business, userId]);
 
-  const value = React.useMemo(
-    () => (me && business ? { userId, me, business, openSwitcher: () => setSwitcher(true) } : null),
-    [me, business, userId],
-  );
+  const value = React.useMemo(() => {
+    if (!me || !business) return null;
+    const openSwitcher = () => setSwitcher(true);
+    if (!view) return { userId, me, business, openSwitcher, viewing: null };
+    // Viewing as a teammate (20261016000200): the screens are for them, with their role and what they may do.
+    return {
+      userId,
+      me: {
+        ...me,
+        user: { id: view.person.userId, email: view.person.email, fullName: view.person.fullName },
+      },
+      business: { ...business, role: view.person.role, permissions: view.person.permissions },
+      openSwitcher,
+      viewing: view,
+    };
+  }, [me, business, userId, view]);
 
   // Not one of this person's businesses (removed, or a link from someone else's): open theirs instead.
   if (!me || !business || !value) return <Redirect href="/app" />;
@@ -45,6 +60,7 @@ function Business({ userId }: { userId: string }) {
   return (
     <BusinessProvider value={value}>
       <OpenBusiness businessId={business.id} />
+      {view ? <KeepViewFresh view={view} /> : null}
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors[theme].bg } }}
       >

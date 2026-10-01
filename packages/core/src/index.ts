@@ -46,6 +46,7 @@ export * from './assistant/places-map';
 // The Assistant's words, and the settings people have of their own (M10 step 17).
 export * from './assistant/words';
 export * from './account/settings-words';
+export * from './account/view-as-words';
 // The side menu, as each person arranges it.
 export * from './account/menu';
 export * from './calendar/index';

@@ -1,5 +1,6 @@
 'use client';
-import { Eye, KeyRound } from 'lucide-react';
+import { VIEW_AS_WORDS } from '@hfos/core';
+import { Eye, KeyRound, UserRoundSearch } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,25 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { rememberView } from '@/lib/view-as';
+
+/** One of the business's people, to view the app as once it's open (20261016000200). */
+interface Person {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly email: string;
+}
+
+/** With the business open, view it as `person`: their view of it is what the business's pages show until stopped. */
+async function viewAs(workspaceId: string, person: Person | undefined): Promise<void> {
+  if (!person) return;
+  const { view } = unwrap(
+    await apiBrowser().POST('/v1/commands/teammate_view.start', {
+      body: { workspaceId, userId: person.userId },
+    }),
+  );
+  rememberView(workspaceId, { viewId: view.id, personId: view.person.userId });
+}
 
 /**
  * Opening a business read-only. The reason box is not a formality: it is what the business reads in its own
@@ -14,23 +34,44 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
  *
  * The founder skips all of it (20261013002100): one click opens the business as its owner, with no reason and
  * no time limit, until they leave.
+ *
+ * With a `person`, the business opens as that person sees it (20261016000200): support's look, or the founder's
+ * session, and inside it a view as them. Read-only either way.
  */
 export function ViewAsButton({
   workspaceId,
   businessName,
   ticketId,
   founder = false,
+  person,
 }: {
   workspaceId: string;
   businessName: string;
   ticketId?: string;
   founder?: boolean;
+  person?: Person;
 }) {
-  if (founder) return <OpenAsOwnerButton workspaceId={workspaceId} ticketId={ticketId} />;
-  return <LookButton workspaceId={workspaceId} businessName={businessName} ticketId={ticketId} />;
+  if (founder)
+    return <OpenAsOwnerButton workspaceId={workspaceId} ticketId={ticketId} person={person} />;
+  return (
+    <LookButton
+      workspaceId={workspaceId}
+      businessName={businessName}
+      ticketId={ticketId}
+      person={person}
+    />
+  );
 }
 
-function OpenAsOwnerButton({ workspaceId, ticketId }: { workspaceId: string; ticketId?: string }) {
+function OpenAsOwnerButton({
+  workspaceId,
+  ticketId,
+  person,
+}: {
+  workspaceId: string;
+  ticketId?: string;
+  person?: Person;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +85,7 @@ function OpenAsOwnerButton({ workspaceId, ticketId }: { workspaceId: string; tic
           body: { workspaceId, ...(ticketId ? { ticketId } : {}) },
         }),
       );
+      await viewAs(workspaceId, person);
       router.push(`/app/w/${workspaceId}`);
     } catch (e) {
       setError(errorMessage(e));
@@ -53,10 +95,23 @@ function OpenAsOwnerButton({ workspaceId, ticketId }: { workspaceId: string; tic
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button variant="secondary" onClick={start} disabled={busy} data-testid="view-as-open">
-        <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        Open as owner
-      </Button>
+      {person ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={start}
+          disabled={busy}
+          data-testid={`view-as-person-${person.userId}`}
+        >
+          <UserRoundSearch className="h-4 w-4" strokeWidth={1.5} />
+          {VIEW_AS_WORDS.startShort}
+        </Button>
+      ) : (
+        <Button variant="secondary" onClick={start} disabled={busy} data-testid="view-as-open">
+          <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          Open as owner
+        </Button>
+      )}
       {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
     </div>
   );
@@ -66,10 +121,12 @@ function LookButton({
   workspaceId,
   businessName,
   ticketId,
+  person,
 }: {
   workspaceId: string;
   businessName: string;
   ticketId?: string;
+  person?: Person;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -93,6 +150,7 @@ function LookButton({
           },
         }),
       );
+      await viewAs(workspaceId, person);
       router.push(`/app/w/${workspaceId}`);
     } catch (e) {
       setError(errorMessage(e));
@@ -102,13 +160,33 @@ function LookButton({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="secondary" onClick={() => setOpen(true)} data-testid="view-as-open">
-        <Eye className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        Look at their account
-      </Button>
+      {person ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(true)}
+          data-testid={`view-as-person-${person.userId}`}
+        >
+          <UserRoundSearch className="h-4 w-4" strokeWidth={1.5} />
+          {VIEW_AS_WORDS.startShort}
+        </Button>
+      ) : (
+        <Button variant="secondary" onClick={() => setOpen(true)} data-testid="view-as-open">
+          <Eye className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          Look at their account
+        </Button>
+      )}
       <DialogContent
-        title={`Look at ${businessName}`}
-        description="You will see what they see, and you will not be able to change anything. They are told: it goes into their own audit log with your name, your reason, and how long you looked."
+        title={
+          person
+            ? `Look at ${businessName} as ${person.fullName || person.email}`
+            : `Look at ${businessName}`
+        }
+        description={
+          person
+            ? `You will see exactly what ${person.fullName || person.email} sees, and you will not be able to change anything. They are told: it goes into their own audit log with your name, your reason, and how long you looked.`
+            : 'You will see what they see, and you will not be able to change anything. They are told: it goes into their own audit log with your name, your reason, and how long you looked.'
+        }
       >
         <div className="mt-4 flex flex-col gap-4">
           <Field label="Why are you looking?" htmlFor="view-as-reason">

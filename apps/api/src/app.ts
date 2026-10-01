@@ -3,7 +3,13 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { APP_HEADERS, appVersionAtLeast, HfosError, isAppRequest } from '@hfos/core/server';
+import {
+  APP_HEADERS,
+  appVersionAtLeast,
+  HfosError,
+  isAppRequest,
+  VIEW_AS_HEADER,
+} from '@hfos/core/server';
 import { createDb, type DbHandle } from '@hfos/db/client';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
@@ -51,7 +57,14 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: [...opts.env.webOrigins],
     credentials: false,
-    allowedHeaders: ['content-type', 'authorization', 'x-correlation-id', 'x-hfos-reason'],
+    // x-hfos-view-as: the view a request is in (20261016000200), which the web sends from its cookie.
+    allowedHeaders: [
+      'content-type',
+      'authorization',
+      'x-correlation-id',
+      'x-hfos-reason',
+      VIEW_AS_HEADER,
+    ],
     exposedHeaders: ['x-correlation-id', 'x-hfos-events'],
   });
   await app.register(rateLimit, { global: false });
@@ -62,7 +75,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
         title: 'HandsFreeOS API',
         version: '0.1.0',
         description:
-          'Every write goes through a command; every read through a query. Same operations for the web app, mobile, the assistant and integrations. The phone app sends x-hfos-client: mobile with x-hfos-app-version, and on every command x-hfos-command-id (a repeat gets the first answer back), x-hfos-occurred-at and x-hfos-sent-at (its own clock, corrected here), and x-hfos-confirmed-at after "Still send?". Every error body carries a disposition: final, retry or ask.',
+          'Every write goes through a command; every read through a query. Same operations for the web app, mobile, the assistant and integrations. The phone app sends x-hfos-client: mobile with x-hfos-app-version, and on every command x-hfos-command-id (a repeat gets the first answer back), x-hfos-occurred-at and x-hfos-sent-at (its own clock, corrected here), and x-hfos-confirmed-at after "Still send?". Every error body carries a disposition: final, retry or ask. A request may name the view it is in with x-hfos-view-as (a teammate_view id): its look-ups in that view’s business are read as the teammate, and changes there are refused.',
       },
       components: {
         securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },

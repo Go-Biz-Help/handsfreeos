@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { loadMigrations, STATUS_WORDS } from '@/lib/agency/migrations';
-import { apiServer, getMe } from '@/lib/api/server';
+import { apiServer, getMe, getWorkspaceShell } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Migrations' };
 
@@ -30,7 +30,11 @@ export default async function WorkspaceMigrationsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const me = await getMe();
-  const current = me.workspaces.find((w) => w.id === workspaceId);
+  // Viewing as a teammate (20261016000200), it's their business the page is for.
+  const shell = await getWorkspaceShell(workspaceId);
+  const current = shell.teammateView
+    ? shell.current
+    : me.workspaces.find((w) => w.id === workspaceId);
   if (!current) notFound();
   if (!can(current.permissions, 'migrations.manage')) notFound();
 

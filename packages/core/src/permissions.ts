@@ -24,6 +24,8 @@ export const ROLE_PERMISSIONS = {
     'members.invite',
     'members.change_role',
     'members.remove',
+    // Viewing the app as a teammate below them, read-only (20261016000200).
+    'members.view_as',
     'invitations.read',
     'invitations.revoke',
     'audit.read',
@@ -64,6 +66,7 @@ export const ROLE_PERMISSIONS = {
     'members.invite',
     'members.change_role',
     'members.remove',
+    'members.view_as',
     'invitations.read',
     'invitations.revoke',
     'audit.read',
@@ -409,6 +412,12 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         description: 'At their own role or below.',
         requires: [],
       },
+      {
+        permission: 'members.view_as',
+        label: 'View the app as someone',
+        description: 'See what a teammate below them sees, read-only.',
+        requires: [],
+      },
     ],
   },
 ];
@@ -538,6 +547,23 @@ export function permissionsBeyond(
   already: readonly string[] = [],
 ): string[] {
   return granted.filter((p) => !already.includes(p) && !holds(actor, p as Permission));
+}
+
+/**
+ * Whether someone may view the app as a teammate (20261016000200): they hold members.view_as, the teammate's role is
+ * below theirs, and the teammate can do nothing they can't, so a view never shows more than they could see as
+ * themselves. private.may_view_as() says the same in the database and is the one that decides; this is for offering
+ * it. HandsFreeOS, with a business open, views as anyone in it, and its own pages offer that.
+ */
+export function mayViewAs(
+  viewer: Grants,
+  person: { readonly role: string; readonly permissions: readonly string[] },
+): boolean {
+  return (
+    holds(viewer, 'members.view_as') &&
+    roleRank(person.role) < roleRank(viewer.role) &&
+    permissionsBeyond(viewer, person.permissions).length === 0
+  );
 }
 
 export function isOrgPermission(permission: Permission): boolean {

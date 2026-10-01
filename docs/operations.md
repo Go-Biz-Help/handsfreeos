@@ -9408,6 +9408,40 @@ where user_id = (select id from app.users where email = 'founder@example.com');
 
 There can only be one founder. To hand it over, set the current one to `false` first, in the same way.
 
+### Viewing the app as someone
+
+**View as** shows the web app and the phone app exactly as one person sees them: their menu, their inbox, their
+money, their Home, read-only, until **Stop viewing** on the banner. Needs
+`20261016000200_viewing_the_app_as_a_teammate.sql`. See "Apply new migrations".
+
+| Who         | May view as                             | Where it starts                                                               | The business is told           |
+| ----------- | --------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------ |
+| An owner    | Admins and members of their business    | Web: **Members**, a person's **…** menu. Phone: **More → View as a teammate** | Yes, in its audit log, by name |
+| An admin    | Members                                 | The same                                                                      | Yes                            |
+| Support     | Anyone in the business, owners included | **Businesses → the business → Their people → View as**, on the web            | Yes, as for a look             |
+| The founder | Anyone in the business                  | The same                                                                      | No                             |
+
+- **Below them, and never more than they can see.** Someone in the business may view as a teammate whose role is
+  below theirs, and only when that teammate can do nothing they can't (a member an owner has given more than the
+  admins). It's a permission, **View the app as someone**, owners' and admins' by default: an owner can turn it
+  off for admins, or for one person, in **Settings → Permissions**.
+- **Support views inside a look,** so it needs a reason and ends when the look does. On the phone's Support desk,
+  **View as one of them on the web** opens the business's page on the web, where **View as** is beside each person.
+  The founder opens the business as its owner first, in the same click.
+- **Nothing can be changed.** The API refuses every change to the business a viewing request asks for, and the
+  phone refuses them before they're queued. Changes waiting on the phone from before still go, as the viewer.
+  The viewer's own settings and other businesses work as usual. The Assistant is off while viewing.
+- **Their own mail stays theirs.** A person's own mailbox (M19) isn't shown to anyone viewing as them.
+- **It ends by itself** if the viewer may no longer view as that person: their role or permissions change, the
+  person leaves, or support's look runs out. The page goes back to the viewer's own view and says so.
+
+**How it works.** A view is a row in `app.teammate_views`. The web keeps the view in a cookie scoped to the
+business's pages, and the phone keeps it on the device; each request then names it in the `x-hfos-view-as`
+header. The API asks the database (`private.teammate_view()`, as the viewer) whether the view is theirs and still
+holds, and only then reads the request as the teammate. On the phone, the business's copy is the viewer's, so it is
+shown through what the API says the teammate sees (`teammate_view.lens`): their threads where the business shows
+each person only their own, and their bills where they don't manage the money.
+
 ### Chat on handsfreeos.com
 
 The website's chat button is the same widget a business puts on its own site, pointed at us. To turn it on:

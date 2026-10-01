@@ -22,6 +22,8 @@ import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 import { useBusiness } from '@/components/shell/business-context';
 import { useGrants } from '@/lib/grants';
+import { sees } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 
 import { withOwnChanges } from './outbox';
 import {
@@ -270,12 +272,16 @@ export function useInvoices(): {
   const now = useMoneyNow();
   const { data, isLoading } = useQuery<InvoiceRow>(INVOICES_SQL, [business.id]);
   const outbox = useMoneyOutbox();
+  // Viewing as a teammate (20261016000200): only the bills they see.
+  const lens = useLens();
   return React.useMemo(
     () => ({
-      items: data.map((row) => invoiceOf(row, outbox, timeZone, now)),
+      items: data
+        .filter((row) => sees(lens?.invoices, row.id))
+        .map((row) => invoiceOf(row, outbox, timeZone, now)),
       loading: isLoading,
     }),
-    [data, outbox, timeZone, now, isLoading],
+    [data, outbox, timeZone, now, isLoading, lens],
   );
 }
 
@@ -305,7 +311,8 @@ export function useInvoice(invoiceId: string): {
     refunded_at: string | null;
   }>(INVOICE_REFUNDS_SQL, [business.id, invoiceId]);
   const outbox = useMoneyOutbox();
-  const row = data[0];
+  const lens = useLens();
+  const row = data[0] && sees(lens?.invoices, data[0].id) ? data[0] : undefined;
   return React.useMemo(
     () => ({
       invoice: row ? invoiceOf(row, outbox, timeZone, now) : null,
@@ -340,9 +347,15 @@ export function useEstimates(): {
   const timeZone = useMoneyZone();
   const now = useMoneyNow();
   const { data, isLoading } = useQuery<EstimateRow>(ESTIMATES_SQL, [business.id]);
+  const lens = useLens();
   return React.useMemo(
-    () => ({ items: data.map((r) => estimateOf(r, timeZone, now)), loading: isLoading }),
-    [data, timeZone, now, isLoading],
+    () => ({
+      items: data
+        .filter((r) => sees(lens?.estimates, r.id))
+        .map((r) => estimateOf(r, timeZone, now)),
+      loading: isLoading,
+    }),
+    [data, timeZone, now, isLoading, lens],
   );
 }
 
@@ -356,7 +369,8 @@ export function useEstimate(estimateId: string): {
   const now = useMoneyNow();
   const { data, isLoading } = useQuery<EstimateRow>(ESTIMATE_SQL, [business.id, estimateId]);
   const lines = useQuery<LineRow>(ESTIMATE_LINES_SQL, [business.id, estimateId]);
-  const row = data[0];
+  const lens = useLens();
+  const row = data[0] && sees(lens?.estimates, data[0].id) ? data[0] : undefined;
   return React.useMemo(
     () => ({
       estimate: row ? estimateOf(row, timeZone, now) : null,
@@ -370,7 +384,11 @@ export function useEstimate(estimateId: string): {
 export function usePayments(): readonly PaymentRow[] {
   const { business } = useBusiness();
   const { data } = useQuery<PaymentRow>(PAYMENTS_SQL, [business.id]);
-  return data;
+  const lens = useLens();
+  return React.useMemo(
+    () => (lens?.invoices ? data.filter((p) => sees(lens.invoices, p.invoice_id)) : data),
+    [data, lens],
+  );
 }
 
 export function useSubscriptions(): readonly SubscriptionRow[] {

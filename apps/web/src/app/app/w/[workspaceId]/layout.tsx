@@ -1,6 +1,7 @@
 import { can } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
+import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
@@ -35,8 +36,8 @@ export default async function WorkspaceLayout({
   const { workspaceId } = await params;
   const me = await getMe();
   // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
-  // or the founder working in it as its owner.
-  const { current, viewingAs } = await getWorkspaceShell(workspaceId);
+  // or the founder working in it as its owner, or anyone viewing it as a teammate (20261016000200).
+  const { current, viewingAs, teammateView, staleView } = await getWorkspaceShell(workspaceId);
   return (
     <LiveProvider workspaceId={workspaceId}>
       {/* Inside LiveProvider: the shell is drawn again when an add-on is turned on or off (0108). */}
@@ -54,7 +55,8 @@ export default async function WorkspaceLayout({
                 key={workspaceId}
                 workspaceId={workspaceId}
                 workspaceName={current.name}
-                enabled={can(current.permissions, 'assistant.use')}
+                // A view is for seeing, and the Assistant is for doing; the teammate's chats are theirs.
+                enabled={can(current.permissions, 'assistant.use') && !teammateView}
                 consentNeeded={me.assistantConsent.needed}
               >
                 {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
@@ -71,6 +73,10 @@ export default async function WorkspaceLayout({
                         acting={viewingAs.acting}
                       />
                     ) : null}
+                    {teammateView ? (
+                      <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
+                    ) : null}
+                    {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
                     <div className="flex min-h-0 flex-1">
                       <Sidebar me={me} current={current} />
                       <div className="flex min-w-0 flex-1 flex-col">

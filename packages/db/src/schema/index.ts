@@ -3717,6 +3717,29 @@ export const memberPermissionOverrides = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.permission] })],
 );
 
+/**
+ * Someone viewing the app as a teammate (20261016000200): read-only, until they stop. The API reads a viewing request
+ * as the teammate once private.teammate_view() says the view is the caller's and still holds. Each person reads only
+ * their own; the business learns of a view from its audit log.
+ */
+export const teammateViews = app.table('teammate_views', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  viewerId: uuid('viewer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** The teammate whose view it is. */
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  endedAt: ts('ended_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const pushPlatform = app.enum('push_platform', ['ios', 'android']);
 export type PushPlatform = (typeof pushPlatform.enumValues)[number];
 

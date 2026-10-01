@@ -7357,6 +7357,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/teammate_view.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop viewing the app as a teammate: one view, the one open in a business, or every one you have open.
+         * @description Risk level 1. Emits teammate_view.ended.
+         */
+        post: operations["command_teammate_view_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_view.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start viewing the app as a teammate below you: read-only, until you stop. Written in the business’s audit log. HandsFreeOS support and the founder, with the business open, may view as anyone in it.
+         * @description Risk level 2. Emits teammate_view.started, platform.teammate_view_started.
+         */
+        post: operations["command_teammate_view_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/telephony.disable": {
         parameters: {
             query?: never;
@@ -11291,6 +11331,46 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_task_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/teammate_view.current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The view you have open in a business, while it still holds; null when there is none, it has ended, or you may no longer view as that person.
+         * @description Any signed-in user.
+         */
+        post: operations["query_teammate_view_current"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/teammate_view.lens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Through a view: the teammate’s role and permissions, and the threads, Action Center items and bills they see where that is fewer than the whole business. The phone shows its copy through it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_teammate_view_lens"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23260,7 +23340,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -23294,7 +23374,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -27301,6 +27381,85 @@ export interface operations {
                             before: string;
                             where: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_view_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    viewId?: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: number;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_view_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        view: {
+                            /** @enum {string} */
+                            by: "team" | "support" | "founder";
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                email: string;
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin" | "member";
+                                /** Format: uuid */
+                                userId: string;
+                            };
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        };
                     };
                 };
             };
@@ -40912,6 +41071,93 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_view_current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        view: {
+                            /** @enum {string} */
+                            by: "team" | "support" | "founder";
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                email: string;
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin" | "member";
+                                /** Format: uuid */
+                                userId: string;
+                            };
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_view_lens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attentionItemIds: string[] | null;
+                        conversationIds: string[] | null;
+                        estimateIds: string[] | null;
+                        invoiceIds: string[] | null;
+                        person: {
+                            email: string;
+                            fullName: string;
+                            permissions: string[];
+                            /** @enum {string} */
+                            role: "owner" | "admin" | "member";
+                            /** Format: uuid */
+                            userId: string;
+                        };
                     };
                 };
             };

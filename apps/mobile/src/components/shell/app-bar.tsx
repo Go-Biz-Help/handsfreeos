@@ -99,7 +99,8 @@ export function AppBar({
           ) : null}
         </View>
         {trailing}
-        {ask && ctx ? (
+        {/* Not while viewing as a teammate (20261016000200): the Assistant is for doing, and their chats are theirs. */}
+        {ask && ctx && !ctx.viewing ? (
           <Pressable
             role="button"
             accessibilityLabel="Ask HandsFreeOS"
