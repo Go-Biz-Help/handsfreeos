@@ -25,6 +25,13 @@
 --            exactly as the worker does for a business's people.
 --
 --        Both are the worker's alone.
+--
+--        **`addons` stays a switch.** The add-on alerts work (its own
+--        branch, 20261013002500_add_on_alerts_on_home) put `addons` into
+--        push_on on the hosted database before either change reached main.
+--        This redefinition keeps it, and the column's comment keeps
+--        `addonEmail`, so neither change drops the other's switch whichever
+--        merges first.
 -- =============================================================================
 
 -- ---------- the switch ----------
@@ -32,7 +39,8 @@
 create or replace function private.push_on(p_settings jsonb, p_key text)
 returns boolean language plpgsql immutable set search_path = '' as $$
 begin
-  if p_key is null or p_key not in ('customerWaiting', 'missedCall', 'urgent', 'approval', 'booking', 'assigned', 'payment', 'wallet', 'jobs', 'connections', 'supportTickets') then
+  if p_key is null or p_key not in ('customerWaiting', 'missedCall', 'urgent', 'approval', 'booking', 'assigned',
+                                    'payment', 'wallet', 'jobs', 'connections', 'addons', 'supportTickets') then
     raise exception 'Unknown push switch: %', p_key using errcode = '22023', detail = 'push_switch_unknown';
   end if;
   if jsonb_typeof(p_settings -> 'push' -> p_key) = 'boolean' then
@@ -42,7 +50,7 @@ begin
 end $$;
 
 comment on column app.users.settings is
-  'Per-person choices, each top-level key saved whole: theme; notifications, the email switches (unansweredEmail, attentionDigest, aiHandoff, bookingEmail, paymentEmail, agencyDigest, eveningSummary), each on unless false; push, the phone''s switches (customerWaiting, missedCall, urgent, approval, booking, assigned, payment, wallet, jobs, connections, supportTickets), each on unless false except payment: private.push_on.';
+  'Per-person choices, each top-level key saved whole: theme; notifications, the email switches (unansweredEmail, attentionDigest, aiHandoff, bookingEmail, paymentEmail, agencyDigest, eveningSummary, addonEmail), each on unless false; push, the phone''s switches (customerWaiting, missedCall, urgent, approval, booking, assigned, payment, wallet, jobs, connections, addons, supportTickets), each on unless false except payment: private.push_on.';
 
 -- ---------- the support people's phones ----------
 -- The phones to tell about one kind of push: on, belonging to an active support person whose account is not

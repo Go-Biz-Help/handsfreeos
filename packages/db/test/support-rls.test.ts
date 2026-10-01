@@ -236,7 +236,7 @@ describe('asking for help from inside the app', () => {
 });
 
 /**
- * A new ticket on the support people's phones (20261013002200). The worker sends it holding no business, so it
+ * A new ticket on the support people's phones (20261016000100). The worker sends it holding no business, so it
  * can't see anybody's phones; these two functions answer for it, and for nobody else.
  */
 describe('who hears about a new ticket on their phone', () => {

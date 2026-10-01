@@ -9347,7 +9347,7 @@ the same way it refuses removing a business's last owner.
   ticket that's already there doesn't buzz anyone; the queue shows it. Turn it off under Settings →
   Notifications, **New support tickets** (on the web, Settings → Account; only support people see that row),
   or on the phone's Support desk → **Notifications**, which is there for somebody in no business.
-  Needs `20261013002200_new_tickets_on_support_phones.sql`. See "Apply new migrations".
+  Needs `20261016000100_new_tickets_on_support_phones.sql`. See "Apply new migrations".
 - **Ask the AI for a draft** writes a suggested answer from the saved replies and from tickets like this one
   that were answered before. It never sends anything: a person edits it and presses send. If it had nothing
   solid to go on it says so, and what it writes is the questions to ask instead.
