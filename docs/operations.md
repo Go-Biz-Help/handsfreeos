@@ -9665,7 +9665,9 @@ About 15 minutes after each push, the worker asks Expo what Apple and Google sai
 ### When something goes wrong with push
 
 - **Nobody gets pushes, and the worker's log says `push is off`:** it has no `EXPO_ACCESS_TOKEN`. Do Expo Part 2.
-- **The log says `Expo refused some pushes` or `Apple or Google refused some pushes` with `InvalidCredentials`:** the token was revoked or mistyped, or Apple's or Firebase's credentials in EAS are missing or expired. Make a new token (Expo Part 1, step 4) and import it again, and check the app's push credentials with `eas credentials`.
+- **The log says `Expo refused some pushes` or `Apple or Google refused some pushes`:** its `errors` counts each reason, and `phones` lists the first five phones refused, each with its `platform`, its `deviceId` (the row in `app.push_devices`) and `said`, Expo's own words for why, with any token taken out. Read `said` first: it names the cause.
+  - **`InvalidCredentials`:** the token was revoked or mistyped, or Apple's or Firebase's credentials in EAS are missing or expired. Make a new token (Expo Part 1, step 4) and import it again, and check the app's push credentials with `eas credentials`.
+  - **`DeveloperError`:** Expo's word for a problem with how the push or the app on that phone is set up; `said` names which. A token from a build other than the store's (a development build, or a preview with another app id) is one possible cause. The phone stays on, since only `DeviceNotRegistered` turns one off, so it fails on every push: with two phones getting a push, Expo's dashboard shows half of them failing. Fix what `said` names; for a test build, install the store build on that phone, or sign out of the app on it.
 - **One person gets nothing:** check their switch for that kind, that they're signed in on the phone, and that the phone itself allows HandsFreeOS notifications. A phone Expo reported gone stays off until the app opens on it again.
 - **A push never came while the phone was off:** Apple and Google keep trying for 12 hours for a customer's message and the urgent kinds, and a day for the rest. The emails still went.
 

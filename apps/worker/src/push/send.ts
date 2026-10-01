@@ -11,7 +11,8 @@
  *
  * `push.receipts`, 15 minutes after each request: what Apple and Google said. A phone the app is gone from
  * (DeviceNotRegistered) is turned off, unless it registered again after the push went; receipts not ready yet are
- * asked for again, twice at most (Expo keeps them a day). Neither job logs a token or anything a push said.
+ * asked for again, twice at most (Expo keeps them a day). Neither job logs a token or anything a push said; a refusal
+ * logs Expo's own words for it, which say what to fix, with any token taken out.
  *
  * A push to HandsFreeOS's own support people (`support_ticket`) runs the same way with no business in scope: its
  * phones, and turning off the ones the app is gone from, go through the two database functions made for it
@@ -84,7 +85,16 @@ const ReceiptsPayload = z.object({
   notificationId: z.uuid(),
   /** When the request went: a phone seen since then registered again, and stays on. */
   sentAt: z.iso.datetime(),
-  tickets: z.array(z.object({ id: z.string().min(1).max(200), deviceId: z.uuid() })).max(5_000),
+  tickets: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(200),
+        deviceId: z.uuid(),
+        // Missing on jobs queued before it was kept.
+        platform: z.enum(['ios', 'android']).optional(),
+      }),
+    )
+    .max(5_000),
   round: z.number().int().min(0).default(0),
   /** The phones are support people's (a push about no business): turned off through their own function. */
   staff: z.boolean().optional(),
@@ -208,6 +218,33 @@ const writeDelivery = (tx: Tx, jobId: string, delivery: Delivery) =>
 const tally = (errors: readonly string[]) =>
   errors.reduce<Record<string, number>>((acc, e) => ({ ...acc, [e]: (acc[e] ?? 0) + 1 }), {});
 
+/** A phone Expo, Apple or Google refused a push for, and what they said. */
+export interface Refusal {
+  readonly deviceId: string;
+  readonly platform?: PushPlatform;
+  readonly error: string | null;
+  readonly message: string;
+}
+
+/** Expo's tokens, and the long ones Apple and Google give a phone: never logged. */
+const TOKENS = /Expo(?:nent)?PushToken\[[^\]]*\]|[\w:-]{40,}/g;
+/** Refusals logged in full: the same cause on many phones says the same thing. */
+export const REFUSALS_LOGGED = 5;
+
+/**
+ * A refusal's log fields: how many of each error, and for the first few, the phone (by its row's id, never its
+ * token) and Expo's own words, which name the cause (`DeveloperError` alone doesn't).
+ */
+export const refusalLog = (refused: readonly Refusal[]) => ({
+  errors: tally(refused.map((r) => r.error ?? 'unknown')),
+  phones: refused.slice(0, REFUSALS_LOGGED).map((r) => ({
+    deviceId: r.deviceId,
+    platform: r.platform ?? null,
+    error: r.error ?? 'unknown',
+    said: String(r.message).replace(TOKENS, '[token]').slice(0, 300),
+  })),
+});
+
 export const pushSendJob: JobHandler = async (ctx) => {
   const parsed = SendPayload.safeParse(ctx.job.payload);
   if (!parsed.success) {
@@ -277,15 +314,22 @@ export const pushSendJob: JobHandler = async (ctx) => {
       continue;
     }
     handedOver.push(...ids);
-    const accepted: { id: string; deviceId: string }[] = [];
+    const accepted: { id: string; deviceId: string; platform: PushPlatform }[] = [];
     const gone: string[] = [];
-    const refused: string[] = [];
+    const refused: Refusal[] = [];
     tickets.forEach((t, k) => {
       const device = chunk[k];
       if (!device) return;
-      if (t.status === 'ok') accepted.push({ id: t.id, deviceId: device.id });
+      if (t.status === 'ok')
+        accepted.push({ id: t.id, deviceId: device.id, platform: device.platform });
       else if (t.error === DEVICE_GONE) gone.push(device.id);
-      else refused.push(t.error ?? 'unknown');
+      else
+        refused.push({
+          deviceId: device.id,
+          platform: device.platform,
+          error: t.error,
+          message: t.message,
+        });
     });
     const turnedOff = await asWorker(ctx.db, scope, async (tx) => {
       await writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] });
@@ -312,8 +356,8 @@ export const pushSendJob: JobHandler = async (ctx) => {
         'phones the app is gone from turned off',
       );
     if (refused.length > 0)
-      ctx.log[refused.includes('InvalidCredentials') ? 'error' : 'warn'](
-        { notificationId: p.notificationId, errors: tally(refused) },
+      ctx.log[refused.some((r) => r.error === 'InvalidCredentials') ? 'error' : 'warn'](
+        { notificationId: p.notificationId, ...refusalLog(refused) },
         'Expo refused some pushes',
       );
   }
@@ -341,14 +385,20 @@ export const pushReceiptsJob: JobHandler = async (ctx) => {
       await provider.receipts(p.tickets.slice(i, i + RECEIPT_CHUNK).map((t) => t.id)),
     );
   const gone: string[] = [];
-  const refused: string[] = [];
-  const waiting: { id: string; deviceId: string }[] = [];
+  const refused: Refusal[] = [];
+  const waiting: typeof p.tickets = [];
   for (const t of p.tickets) {
     const r = receipts[t.id];
     if (!r) waiting.push(t);
     else if (r.status === 'error') {
       if (r.error === DEVICE_GONE) gone.push(t.deviceId);
-      else refused.push(r.error ?? 'unknown');
+      else
+        refused.push({
+          deviceId: t.deviceId,
+          platform: t.platform,
+          error: r.error,
+          message: r.message,
+        });
     }
   }
   const turnedOff = await asWorker(ctx.db, phones.scope, (tx) =>
@@ -360,8 +410,8 @@ export const pushReceiptsJob: JobHandler = async (ctx) => {
       'phones the app is gone from turned off',
     );
   if (refused.length > 0)
-    ctx.log[refused.includes('InvalidCredentials') ? 'error' : 'warn'](
-      { notificationId: p.notificationId, errors: tally(refused) },
+    ctx.log[refused.some((r) => r.error === 'InvalidCredentials') ? 'error' : 'warn'](
+      { notificationId: p.notificationId, ...refusalLog(refused) },
       'Apple or Google refused some pushes',
     );
   if (waiting.length > 0 && p.round < RECEIPT_ROUNDS) {
