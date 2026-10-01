@@ -3,8 +3,10 @@ import { segmentCounterLabel, unreadLabel, waitingFor, type WordPart } from '@hf
 import { Clock, Globe, Image as ImageIcon, Moon, Phone } from 'lucide-react';
 import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { PhotoViewer } from './photo-viewer';
 
 export type IconType = ComponentType<{ className?: string; strokeWidth?: number }>;
 
@@ -197,7 +199,7 @@ export function useSignedUrl(bucket: string, path: string): string | null {
   return url;
 }
 
-/** A photo in a message: the image once its link is ready, a quiet tile until then. Opens full size. */
+/** A photo in a message: the image once its link is ready, a quiet tile until then. Opens full size over the thread. */
 export function MediaThumb({
   bucket,
   objectPath,
@@ -213,25 +215,53 @@ export function MediaThumb({
 }) {
   const url = useSignedUrl(bucket, objectPath);
   const image = contentType.startsWith('image/');
-  return (
-    <a
-      href={url ?? undefined}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={`Open ${name}`}
-      data-testid="media-thumb"
-      className={cn(
-        'relative flex h-[150px] w-[200px] items-center justify-center overflow-hidden rounded-[14px] border border-border bg-[linear-gradient(135deg,var(--card-3),var(--card-2))] text-text-3 max-md:h-[136px] max-md:w-[180px]',
-        className,
-      )}
-    >
-      {url && image ? (
-        // A signed Storage link: plain <img>, nothing for an image optimizer to cache.
-        <img src={url} alt={name} className="h-full w-full object-cover" />
-      ) : (
+  const [viewing, setViewing] = useState(false);
+  const tile = cn(
+    'relative flex h-[150px] w-[200px] items-center justify-center overflow-hidden rounded-[14px] border border-border bg-[linear-gradient(135deg,var(--card-3),var(--card-2))] text-text-3 max-md:h-[136px] max-md:w-[180px]',
+    className,
+  );
+  // A file that isn't a photo (a PDF, a contact card) opens the way the browser opens that kind of file.
+  if (!image)
+    return (
+      <a
+        href={url ?? undefined}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open ${name}`}
+        data-testid="media-thumb"
+        className={tile}
+      >
         <ImageIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-      )}
-    </a>
+      </a>
+    );
+  return (
+    <Dialog open={viewing} onOpenChange={setViewing}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          disabled={!url}
+          aria-label={`Open ${name}`}
+          data-testid="media-thumb"
+          className={cn(tile, url && 'cursor-zoom-in')}
+        >
+          {url ? (
+            // A signed Storage link: plain <img>, nothing for an image optimizer to cache.
+            <img src={url} alt={name} className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          )}
+        </button>
+      </DialogTrigger>
+      {url ? (
+        <PhotoViewer
+          url={url}
+          bucket={bucket}
+          objectPath={objectPath}
+          name={name}
+          onClose={() => setViewing(false)}
+        />
+      ) : null}
+    </Dialog>
   );
 }
 

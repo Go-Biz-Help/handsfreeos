@@ -177,6 +177,13 @@ export const THREAD_WORDS = {
   noSubject: '(no subject)',
   /** Under a rich text that went to a phone without RCS (0103): it opens to the plain text that phone got. */
   wentAsText: 'Went as a text, with the choices listed',
+  /** A photo opened full size over the thread, as the phone's Messages app shows one. */
+  closePhoto: 'Close',
+  downloadPhoto: 'Download',
+  sharePhoto: 'Share',
+  photoWontLoad: 'This photo didn’t load. Check your signal and try again.',
+  photoWontDownload: 'That photo couldn’t be downloaded. Try again in a minute.',
+  photoWontShare: 'That photo couldn’t be shared. Check your signal and try again.',
 } as const;
 
 /** When an RCS message was read, beside "Read": "Read Tue 2:14 PM". */
