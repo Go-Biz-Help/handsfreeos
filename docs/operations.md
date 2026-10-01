@@ -8803,6 +8803,21 @@ brand appeal isn't charged; it only happens when support asks Twilio for one. Wi
 charged. Needs `20261016000200_a_fee_is_a_unit.sql` and `20261016000300_texting_registration_on_the_wallet.sql`.
 To change a price when Twilio does, publish a new card at `/admin/rates` as for any other line.
 
+**Phone numbers are charged once per calendar month.** Each number a business held during a month is one
+statement line, "Phone number (512) 555-0134, October 2026", at the card's price ($2 local, $3.50 toll-free).
+"Held" means bought, moved in or finished porting, and not given back before the month began. The months are
+counted in the business's own time zone. The daily `wallet.number_months` job does it, and charges each month only
+once. A number given back mid-month has already paid for that month, the same as at Twilio. Twilio charges on the
+day of the month a number was bought, so the nightly reconciliation leaves `phonenumbers-local` and
+`phonenumbers-tollfree` alone, as it does the registration fees. Before October 2026 nothing charged numbers at
+all, and the nightly reconciliation never ran: its plan read the carrier accounts with no business in scope and
+found none. Both need `20261016000400_numbers_on_the_wallet.sql`. Once that's applied, expect the first
+reconciliation adjustments ("Carrier charge for recordings on …") to show up on statements: that's the true-up
+doing the job it was built for. It never compares a line that's already inside another, so the same money is
+never charged twice. One such line is the parts of `calls-inbound` (`calls-inbound-local` and the rest). The
+others are the carriers' per-message fees (`carrier-fees`, `sms-messages-carrierfees`,
+`mms-messages-carrierfees`), which the card's text prices already include.
+
 ### Part 0: The Stripe account the money lands in
 
 Before any of the parts below, the money has to have somewhere to go. That somewhere is **HandsFreeOS's own
