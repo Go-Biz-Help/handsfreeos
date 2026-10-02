@@ -43,6 +43,7 @@ import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonPublicRoutes } from './addon-public';
+import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
@@ -277,8 +278,9 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
-  // An add-on's accounts at other services: a pasted key, tried and sealed (round five).
+  // An add-on's accounts at other services: a pasted key, tried and sealed, and their updates (round five).
   registerAddonConnectionRoutes(app, deps, deps.addonConnections);
+  await registerAddonWebhookRoutes(app, deps, deps.addonConnections);
   // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);

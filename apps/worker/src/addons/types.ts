@@ -6,6 +6,7 @@
  */
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
 import type { ConnectionTester } from './connections';
+import type { AddonWebhookReceiver } from './webhooks';
 import type { Tx } from '@hfos/db/client';
 import type { EventRow } from '../handlers/types';
 import type { JobResult, JobRow } from '../jobs';
@@ -86,4 +87,9 @@ export interface AddonWorkerModule {
    * that connects by key). Nothing is kept until it works.
    */
   readonly connectors?: Readonly<Record<string, Readonly<Record<string, ConnectionTester>>>>;
+  /**
+   * Connector key → service → how to read the service's updates (its manifest's `connectors`, for each service with
+   * `webhooks`): checked and kept once by the worker's route, then handed here one at a time.
+   */
+  readonly webhooks?: Readonly<Record<string, Readonly<Record<string, AddonWebhookReceiver>>>>;
 }

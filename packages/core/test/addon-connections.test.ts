@@ -278,6 +278,32 @@ describe('an add-on’s connections', () => {
     expect(other.connectionId).not.toBe(before.id);
   });
 
+  it('gives a connection its own address only for the add-on it belongs to', async () => {
+    const id = (await list(owner)).connectors[0]!.connections[0]!.id;
+    const open = (addon: string) =>
+      executeCommand(
+        worker(),
+        cmds.webhook,
+        { workspaceId: ws, connectionId: id, tokenHash: 'ab'.repeat(32), secretEnc: null },
+        { ...system(owner.id), addon: { id: addon, name: addon, version: '1.0.0' } },
+        meta(),
+      );
+    // The kernel refuses an add-on that isn't on here; one that is can't reach another's connection.
+    expect(await refusedWith(open('fxother'))).toBe('addon_inactive');
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${ws}, 'fxother', 'enabled', '1.0.0')`,
+    );
+    expect(await refusedWith(open('fxother'))).toBe('not_found');
+    expect((await open(ADDON)).output).toEqual({ connectionId: id });
+    const [row] = await rows<{ hash: string }>(
+      admin(),
+      sql`select encode(webhook_token_hash, 'hex') as hash from app.addon_connections where id = ${id}`,
+    );
+    expect(row!.hash).toBe('ab'.repeat(32));
+  });
+
   it('counts failures, needs connecting again after a refusal, and clears when it works', async () => {
     const id = (await list(owner)).connectors[0]!.connections[0]!.id;
     expect((await health(id, { ok: false, error: 'It timed out.' })).status).toBe('active');

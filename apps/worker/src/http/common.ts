@@ -51,7 +51,7 @@ export interface HttpDeps extends WorkerServices {
   readonly testRoutes?: TestRoutes | null;
   /** Reading the CRM a business is leaving (M11): the sign-in routes need the adapter to build its URL. */
   readonly migrationAdapters?: MigrationAdapters | null;
-  /** The add-ons whose keys the connection route tries (default: the real catalogue; tests give their own). */
+  /** The add-ons whose keys and updates the connection routes take (default: the real ones; tests give their own). */
   readonly addonConnections?: AddonConnectionRouteOptions;
 }
 

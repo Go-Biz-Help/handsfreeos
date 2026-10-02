@@ -1,7 +1,7 @@
 /**
  * A made-up add-on that connects a listing feed (round five's add-on connections): one service that takes a key or
- * HandsFreeOS's own account, one that takes only a key, and one that signs in. For the core and worker tests of
- * connections; it isn't in the fixture catalogue, so nothing else sees it.
+ * HandsFreeOS's own account and sends updates, one that takes only a key, and one that signs in. For the core and
+ * worker tests of connections; it isn't in the fixture catalogue, so nothing else sees it.
  */
 import { defineAddon, type AddonManifest } from '../../src/addons/manifest';
 
@@ -50,6 +50,7 @@ export const fxconn: AddonManifest = defineAddon({
           label: 'Acme Listings',
           auth: ['key', 'platform'],
           fields: [{ key: 'apiKey', label: 'API key', secret: true }],
+          webhooks: true,
         },
         {
           id: 'other',

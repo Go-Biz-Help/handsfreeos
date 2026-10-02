@@ -1876,6 +1876,14 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   declares its own connectors with their adapters in step 3.
 
 - **Step 2 (core):** an add-on's webhooks: an address per connection, checked, kept once, handed to the add-on.
+
+  **As built** (`20261021000200`): `POST /webhooks/addon/<token>`; the add-on opens a connection's address with
+  `openConnectionWebhook` and gives it to the service. Updates are kept as deliveries with provider `addon` and the
+  connection, once per service id, and run through the delivery runner's `addon:*` processor, set aside while the
+  add-on is off. A service that doesn't sign is kept unsigned and read back from the service. HandsFreeOS's own
+  account (`platform`) isn't given an address: one account serves every business, so the feed is read every 15
+  minutes for those (step 3).
+
 - **Step 3:** the listing-data connector and its three adapters (Repliers, AnyProp, RESO Web API), with a stand-in
   for tests.
 - **Step 4:** a home's facts and photos from the feed; sold comps for a CMA.

@@ -14,7 +14,7 @@ export interface DeliveryContext extends WorkerServices {
 
 /** Returns 'ignored' for deliveries that need no work (a status we do not track, a number nobody owns). */
 export type DeliveryProcessor = (ctx: DeliveryContext) => Promise<void | 'ignored'>;
-/** `provider:kind` → processor. */
+/** `provider:kind` → processor; `provider:*` takes every kind of a provider without its own. */
 export type ProcessorMap = Readonly<Record<string, DeliveryProcessor>>;
 
 export interface DeliveryDeps extends WorkerServices {
@@ -77,7 +77,10 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
       return { delivery: row, addonRuns: check?.ok === true };
     });
     if (!delivery) continue;
-    const processor = deps.processors[`${delivery.provider}:${delivery.kind}`];
+    // A provider whose kinds aren't ours to list (an add-on's service) has one processor for all of them.
+    const processor =
+      deps.processors[`${delivery.provider}:${delivery.kind}`] ??
+      deps.processors[`${delivery.provider}:*`];
     try {
       // An add-on that is off takes nothing in: what its provider sent is set aside, not processed later.
       const outcome = !addonRuns

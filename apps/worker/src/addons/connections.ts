@@ -4,6 +4,7 @@
  * and never logged or sent back.
  *
  * - `connectionFor(ctx, connector)`: the account to use now for one thing the add-on connects, or null.
+ * - `connectionById(ctx, id)`: one of them by id, whatever its health (the one an update arrived on).
  * - `connectionWorked(ctx, connection, …)`: whether a call to the service just worked, so the business sees its
  *   health and what it affects; a refusal says to connect it again.
  * - A service the add-on can be connected to by key has a tester in its worker half (`connectors`), which tries
@@ -16,6 +17,8 @@ import type { AddonScopeContext } from './types';
 /** The account an add-on uses at a service: the business's own, or HandsFreeOS's. */
 export interface AddonConnection {
   readonly id: string;
+  /** What it's for, as the manifest names it (listing_data). */
+  readonly connector: string;
   readonly provider: string;
   readonly auth: 'key' | 'oauth' | 'platform';
   readonly label: string | null;
@@ -54,24 +57,51 @@ export class ConnectionRefused extends Error {
 /** Where HandsFreeOS's own account at a service is kept: the worker's environment, by `<addon>.<provider>`. */
 export const platformKeyName = (addonId: string, provider: string) => `${addonId}.${provider}`;
 
+interface ConnectionRow extends Record<string, unknown> {
+  id: string;
+  connector: string;
+  provider: string;
+  auth: 'key' | 'oauth' | 'platform';
+  status: string;
+  label: string | null;
+  account_ref: string | null;
+  details: Record<string, unknown>;
+  secret_enc: string | null;
+}
+
+const connectionColumns = sql`id, connector, provider, auth, status, label, account_ref, details, secret_enc`;
+
+/** A row with its key opened: from the sealed column, or HandsFreeOS's own from the environment. Null without one. */
+function opened(ctx: AddonScopeContext, c: ConnectionRow): AddonConnection | null {
+  let secret: Record<string, string> | null = null;
+  if (c.auth === 'platform')
+    secret = ctx.addonConnect?.platformKeys[platformKeyName(ctx.manifest.id, c.provider)] ?? null;
+  else if (c.secret_enc)
+    secret = JSON.parse(ctx.sealer.open(c.secret_enc)) as Record<string, string>;
+  // HandsFreeOS's own account with no key here (a local stack, a deploy without it): as if it weren't there.
+  if (!secret) return null;
+  return {
+    id: c.id,
+    connector: c.connector,
+    provider: c.provider,
+    auth: c.auth,
+    label: c.label,
+    accountRef: c.account_ref,
+    details: c.details ?? {},
+    secret,
+    failing: c.status === 'error',
+  };
+}
+
 /** The account to use now for one thing the add-on connects: its own before HandsFreeOS's; null when there's none. */
 export async function connectionFor(
   ctx: AddonScopeContext,
   connector: string,
 ): Promise<AddonConnection | null> {
   const list = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{
-      id: string;
-      provider: string;
-      auth: 'key' | 'oauth' | 'platform';
-      status: string;
-      label: string | null;
-      account_ref: string | null;
-      details: Record<string, unknown>;
-      secret_enc: string | null;
-    }>(
+    rows<ConnectionRow>(
       tx,
-      sql`select id, provider, auth, status, label, account_ref, details, secret_enc
+      sql`select ${connectionColumns}
           from app.addon_connections
           where workspace_id = ${ctx.scope.workspaceId} and addon_id = ${ctx.manifest.id}
             and connector = ${connector} and status in ('active', 'error')
@@ -79,25 +109,30 @@ export async function connectionFor(
     ),
   );
   for (const c of list) {
-    let secret: Record<string, string> | null = null;
-    if (c.auth === 'platform')
-      secret = ctx.addonConnect?.platformKeys[platformKeyName(ctx.manifest.id, c.provider)] ?? null;
-    else if (c.secret_enc)
-      secret = JSON.parse(ctx.sealer.open(c.secret_enc)) as Record<string, string>;
-    // HandsFreeOS's own account with no key here (a local stack, a deploy without it): as if it weren't there.
-    if (!secret) continue;
-    return {
-      id: c.id,
-      provider: c.provider,
-      auth: c.auth,
-      label: c.label,
-      accountRef: c.account_ref,
-      details: c.details ?? {},
-      secret,
-      failing: c.status === 'error',
-    };
+    const found = opened(ctx, c);
+    if (found) return found;
   }
   return null;
+}
+
+/**
+ * One of the add-on's connections by id, whatever its health (an update that arrived on it, say): null once it's been
+ * let go, or when it isn't this add-on's.
+ */
+export async function connectionById(
+  ctx: AddonScopeContext,
+  id: string,
+): Promise<AddonConnection | null> {
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<ConnectionRow>(
+      tx,
+      sql`select ${connectionColumns}
+          from app.addon_connections
+          where id = ${id} and workspace_id = ${ctx.scope.workspaceId} and addon_id = ${ctx.manifest.id}
+            and status <> 'disconnected'`,
+    ),
+  );
+  return c ? opened(ctx, c) : null;
 }
 
 /** Records whether a call to the service just worked. A refusal (a key turned down) needs connecting again. */

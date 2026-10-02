@@ -421,6 +421,7 @@ export const {
   save: addonConnectionSave,
   disconnect: addonConnectionDisconnect,
   health: addonConnectionHealth,
+  webhook: addonConnectionWebhook,
   platform: addonConnectionPlatform,
 } = addonConnectionCommands(ADDON_CATALOG);
 export {
@@ -996,6 +997,7 @@ export const commands: readonly CommandDef[] = [
   addonConnectionSave,
   addonConnectionDisconnect,
   addonConnectionHealth,
+  addonConnectionWebhook,
   addonConnectionPlatform,
   // Getting started.
   onboardingSaveAnswers,

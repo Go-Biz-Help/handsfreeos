@@ -27,6 +27,8 @@ import {
   AddonConnectionPlatformInput,
   AddonConnectionPlatformOutput,
   AddonConnectionSaveInput,
+  AddonConnectionWebhookInput,
+  AddonConnectionWebhookOutput,
 } from '../schemas/addon-connection';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -293,6 +295,43 @@ export function addonConnectionCommands(catalog: Catalog) {
     },
   });
 
+  const webhook = defineCommand({
+    name: 'addon_connection.webhook',
+    description:
+      'Worker: give an add-on’s connection its own address for the service’s updates, replacing any it had. Only the address’s hash and the service’s sealed signing secret are kept.',
+    risk: 1,
+    input: AddonConnectionWebhookInput,
+    output: AddonConnectionWebhookOutput,
+    permission: null,
+    actors: ['system'],
+    scope: inWorkspace,
+    emits: [],
+    async handler(ctx, input) {
+      const [c] = await ctx.tx
+        .select({ id: addonConnections.id, addonId: addonConnections.addonId })
+        .from(addonConnections)
+        .where(
+          and(
+            eq(addonConnections.id, input.connectionId),
+            eq(addonConnections.workspaceId, input.workspaceId),
+            ne(addonConnections.status, 'disconnected'),
+          ),
+        )
+        .for('update');
+      // An add-on opens addresses only for its own connections.
+      if (!c || (ctx.addon && ctx.addon.id !== c.addonId))
+        throw HfosError.notFound('That add-on has no connection by that id.');
+      await ctx.tx
+        .update(addonConnections)
+        .set({
+          webhookTokenHash: Buffer.from(input.tokenHash, 'hex'),
+          webhookSecretEnc: input.secretEnc,
+        })
+        .where(eq(addonConnections.id, c.id));
+      return { connectionId: c.id };
+    },
+  });
+
   const platform = defineCommand({
     name: 'addon_connection.platform',
     description:
@@ -341,5 +380,5 @@ export function addonConnectionCommands(catalog: Catalog) {
     },
   });
 
-  return { save, disconnect, health, platform };
+  return { save, disconnect, health, webhook, platform };
 }

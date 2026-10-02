@@ -1526,6 +1526,10 @@ export const webhookDeliveries = app.table('webhook_deliveries', {
   processedAt: ts('processed_at'),
   /** The add-on it is for (0108): set aside, not processed, while that add-on is off. */
   addonId: text('addon_id'),
+  /** The add-on connection it came in on (round five, 20261021000200). */
+  addonConnectionId: uuid('addon_connection_id').references(() => addonConnections.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 

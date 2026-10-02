@@ -44,7 +44,15 @@ export {
 } from './alerts';
 
 /** Core events about one add-on's own thing, named by `payload.addonId`: only that add-on hears them. */
-export const ADDON_OWNED_EVENTS: ReadonlySet<string> = new Set(['addon_alert.acknowledged']);
+export const ADDON_OWNED_EVENTS: ReadonlySet<string> = new Set([
+  'addon_alert.acknowledged',
+  // Its connections to other services (round five): connected, let go, failing, working again, HandsFreeOS's own.
+  'addon_connection.connected',
+  'addon_connection.disconnected',
+  'addon_connection.failing',
+  'addon_connection.working',
+  'addon_connection.platform_changed',
+]);
 export { addonActor, addonScope } from './context';
 export type * from './types';
 
@@ -61,6 +69,7 @@ export function addonWorkerModuleIssues(
     jobs = {},
     dataMigrations = {},
     connectors = {},
+    webhooks = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -94,6 +103,19 @@ export function addonWorkerModuleIssues(
         if (!p?.auth.includes('key'))
           issues.push(
             `${m.id} tries keys for ${key} at ${id}, which its manifest doesn't connect by key`,
+          );
+      }
+    // Every service that sends updates has a receiver, and nothing else does.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.webhooks && !webhooks[c.key]?.[p.id])
+          issues.push(`${m.id} hears from ${p.id} for ${c.key} but has no receiver`);
+    for (const [key, receivers] of Object.entries(webhooks))
+      for (const id of Object.keys(receivers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.webhooks)
+          issues.push(
+            `${m.id} receives ${id}'s updates for ${key}, which its manifest doesn't say it sends`,
           );
       }
   }

@@ -268,6 +268,11 @@ export interface AddonConnectorProvider {
     readonly secret: boolean;
     readonly hint?: string;
   }[];
+  /**
+   * The service sends its updates to the connection's own address (round five, step 2): the add-on's worker half
+   * has a receiver for it, which checks the service's signature and reads what happened.
+   */
+  readonly webhooks?: boolean;
 }
 
 /** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */

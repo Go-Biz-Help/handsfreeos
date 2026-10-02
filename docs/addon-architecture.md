@@ -171,6 +171,20 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     key it holds; purging its data deletes the rows.
   - Locally and in tests, `ADDON_CONNECTORS=fake` (the default outside production) tells each tester to use its
     stand-in, and nothing leaves the worker.
+- **A service's updates** (Real Estate round five, step 2): a service that sends updates says so in the manifest
+  (`webhooks: true` on its provider), and the add-on's worker half has a receiver for it (`webhooks[key][service]`:
+  `verify`, `parse`, `handle`; apps/worker/src/addons/webhooks.ts).
+  - `openConnectionWebhook(ctx, connection, { secret })` gives a connection its own address,
+    `<WORKER_PUBLIC_URL>/webhooks/addon/<token>`, replacing any it had; the add-on hands it to the service. Only the
+    token's hash is kept, and the service's signing secret is sealed (`'generate'` makes one to give it).
+  - The route (apps/worker/src/http/addon-webhooks.ts) finds the connection by the address, has the receiver check
+    the signature over the exact text that arrived (a 403 keeps nothing) and read what happened, and keeps each
+    update once, by the service's own id on that connection (`app.webhook_deliveries`, provider `addon`).
+  - The delivery runner hands each one to `handle` with the connection it came in on, with retries, and sets it aside
+    while the add-on is off. A service that doesn't sign is kept with `signed: false`: read what changed back from the
+    service rather than trusting what was sent.
+  - An address that was replaced, or whose connection was let go, is a 404. An add-on hears about its own
+    connections through `addon_connection.*` events, and no other add-on does.
 - **Campaigns from exact words** (Real Estate round three, step 2): an add-on can start a campaign with its own words
   (`campaign.create` with `words`: `{ text }`, or `{ subject, body }` for an email) through `executeCommandWithin`,
   as the person who clicked. The AI writes nothing; who it picks and leaves out, approval and every consent rule are
@@ -346,13 +360,10 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
 - **Signing in to a service for an add-on (OAuth).** Connections take a pasted key today; a sign-in (DocuSign,
   Dotloop) comes with round five's e-sign step, through the worker's OAuth routes.
-- **Add-on webhook routes.** The delivery guard is in place, but `app.webhook_deliveries.provider` is a closed list
-  and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
 - **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
   duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
   the seller's portal; reading contracts, contingencies, duty order, linked deals, escalation and Coordinate) are
-  built and in beta (docs/realestate.md); MLS and property data, showings services and
-  lockbox details wait for an add-on's own credentials and webhook routes above. Everyone else still sees it as
-  Coming soon.
+  built and in beta (docs/realestate.md). Its fifth (listing data, e-sign, showings and vendors) is being built
+  on connections and a service's updates (The pieces). Everyone else still sees it as Coming soon.

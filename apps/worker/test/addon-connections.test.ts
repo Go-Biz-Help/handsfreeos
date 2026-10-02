@@ -68,6 +68,8 @@ const tester =
 const module: AddonWorkerModule = {
   manifest: fxconn,
   connectors: { listing_data: { acme: tester('acme'), other: tester('other') } },
+  // Its updates are tested in addon-webhooks.test.ts.
+  webhooks: { listing_data: { acme: { parse: () => [], handle: async () => 'ignored' } } },
 };
 
 let app: FastifyInstance;

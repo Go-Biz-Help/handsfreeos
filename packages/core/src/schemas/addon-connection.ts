@@ -50,6 +50,16 @@ export const AddonConnectionHealthOutput = z.object({
   status: z.enum(['pending', 'active', 'reauth_required', 'error', 'disconnected']),
 });
 
+export const AddonConnectionWebhookInput = z.object({
+  workspaceId: uuid,
+  connectionId: uuid,
+  /** SHA-256 of the address's token, hex: the token itself is never kept. */
+  tokenHash: z.string().regex(/^[0-9a-f]{64}$/, 'Not a token hash.'),
+  /** The secret the service signs its updates with, sealed by the worker; null when it doesn't sign. */
+  secretEnc: z.string().min(1).max(20_000).nullable(),
+});
+export const AddonConnectionWebhookOutput = z.object({ connectionId: uuid });
+
 export const AddonConnectionPlatformInput = z.object({
   workspaceId: uuid,
   addonId,
