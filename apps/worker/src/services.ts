@@ -136,6 +136,17 @@ export interface WorkerServices {
    * which is how the rate card gets proved against a real week; `on` warns and, per business, enforces.
    */
   readonly wallet: WalletDeps;
+  /**
+   * What add-ons connect to (round five, addons/connections.ts): whether the services are stand-ins, and
+   * HandsFreeOS's own accounts there by `<add-on>.<service>`. Missing reads as stand-ins with no accounts.
+   */
+  readonly addonConnect?: AddonConnect;
+}
+
+export interface AddonConnect {
+  /** Stand-ins (development and tests): any key but one with "wrong" in it works. */
+  readonly fake: boolean;
+  readonly platformKeys: Readonly<Record<string, Readonly<Record<string, string>>>>;
 }
 
 export interface TenantScope {

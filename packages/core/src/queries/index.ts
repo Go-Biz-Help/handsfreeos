@@ -200,6 +200,12 @@ export const {
 } = addonQueryDefs;
 export { addonQueries } from './addon';
 
+import { addonConnectionQueries } from './addon-connection';
+
+/** What an add-on connects to, and the business's accounts there (round five). */
+export const { list: addonConnectionList } = addonConnectionQueries(ADDON_CATALOG);
+export { addonConnectionQueries } from './addon-connection';
+
 import { addonRoadmapQueries } from './addon-roadmap';
 
 /** Voting on what's next: the planned list, Home's note, and the team's view (0109). */
@@ -339,6 +345,7 @@ export const queries: readonly QueryDef[] = [
   addonList,
   addonImpact,
   addonSettings,
+  addonConnectionList,
   addonSuggestion,
   // Voting on what's next (0109).
   addonRoadmap,

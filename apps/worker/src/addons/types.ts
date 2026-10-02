@@ -5,6 +5,7 @@
  * kernel is done as the system acting for it: refused the moment it is off, and marked as its own in history.
  */
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
+import type { ConnectionTester } from './connections';
 import type { Tx } from '@hfos/db/client';
 import type { EventRow } from '../handlers/types';
 import type { JobResult, JobRow } from '../jobs';
@@ -80,4 +81,9 @@ export interface AddonWorkerModule {
   readonly onUninstall?: (ctx: AddonScopeContext) => Promise<void>;
   /** Lets go of one thing it holds outside HandsFreeOS. Must be safe to repeat (already gone is fine). */
   readonly releaseResource?: (ctx: AddonScopeContext, resource: AddonResource) => Promise<void>;
+  /**
+   * Connector key → service → how to try a key a business pasted (its manifest's `connectors`, for each service
+   * that connects by key). Nothing is kept until it works.
+   */
+  readonly connectors?: Readonly<Record<string, Readonly<Record<string, ConnectionTester>>>>;
 }

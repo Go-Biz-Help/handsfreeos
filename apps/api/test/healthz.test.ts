@@ -116,6 +116,8 @@ describe('readEnv', () => {
       // Expo: the worker's push access token, and EAS's build token.
       'EXPO_ACCESS_TOKEN',
       'EXPO_TOKEN',
+      // HandsFreeOS's own accounts at the services add-ons connect to (Repliers).
+      'ADDON_PLATFORM_KEYS',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
     // Claude Code's own names in a developer's shell, names that merely end in OAUTH, and the phone app's public

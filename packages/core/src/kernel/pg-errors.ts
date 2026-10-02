@@ -560,6 +560,17 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'What was entered stays as it was. Enter a correction instead, and it replaces the old value.',
   },
+  // 20261021000100: an add-on's connections.
+  addon_connection_not_found: {
+    status: 404,
+    message:
+      'That connection isn’t here anymore, or you can’t manage it. Refresh the page to see what’s connected.',
+  },
+  addon_connection_platform_is_ours: {
+    status: 403,
+    message:
+      'HandsFreeOS’s own account is turned on and off by HandsFreeOS. Connect your own account instead, and it’s used in its place.',
+  },
   realestate_term_settled: {
     status: 409,
     message:

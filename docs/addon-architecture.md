@@ -146,6 +146,31 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     on the server, and the registry's `public` entry draws it (`pages`, one component handed the answer, and the
     tab's `title`). Its forms post from the visitor's browser (`publicAddonCommand`), with core's words for agreeing
     to texts (`smsConsentWords`).
+- **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
+  (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
+  connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —
+  `key`, `oauth` or `platform` — and the fields a key needs, with `secret` on the ones to hide).
+  - A business's account is a row of `app.addon_connections`. A key is pasted on its Connections screen and posted to
+    the worker (`POST /v1/addons/connections/key`, apps/worker/src/http/addon-connections.ts): the add-on must be on,
+    the person must hold the connector's permission, and the add-on's worker half tries the key with the service
+    (`connectors[key][service]`, a `ConnectionTester`) before anything is kept. Only then does the worker seal it and
+    save it (`addon_connection.save`, as the system acting for that person). A refusal (`ConnectionRefused`) says
+    what the service said; a service that doesn't answer keeps nothing.
+  - Nobody reads a sealed column back, owners included; only the people with the connector's permission see the
+    row at all (`addon_connection.list`). Anyone who uses the add-on may ask whether it works
+    (`private.addon_connection_live`).
+  - **HandsFreeOS's own account** at a service (`platform`) is turned on for a business by staff
+    (`addon_connection.platform`); its key lives only in the worker's environment, `ADDON_PLATFORM_KEYS`, by
+    `<add-on>.<service>`, and the API refuses to start with it. The business's own account is used before it, and
+    for a connector that isn't `many`, connecting a new service lets the business's other one go.
+  - The add-on's worker half asks for the account to use now with `connectionFor(ctx, connector)`, which opens the
+    key only then, and reports each call with `connectionWorked(ctx, connection, result)`: failures count, a
+    refusal needs the key again (`reauth_required`), five in a row read `error`, and one that works clears them.
+    The moves between working and not are events (`addon_connection.failing`, `addon_connection.working`).
+  - Letting one go (`addon_connection.disconnect`) wipes its key there and then. Uninstalling the add-on wipes every
+    key it holds; purging its data deletes the rows.
+  - Locally and in tests, `ADDON_CONNECTORS=fake` (the default outside production) tells each tester to use its
+    stand-in, and nothing leaves the worker.
 - **Campaigns from exact words** (Real Estate round three, step 2): an add-on can start a campaign with its own words
   (`campaign.create` with `words`: `{ text }`, or `{ subject, body }` for an email) through `executeCommandWithin`,
   as the person who clicked. The AI writes nothing; who it picks and leaves out, approval and every consent rule are
@@ -319,8 +344,8 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   the event (WF-3).
 - **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
   can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
-- **An add-on's own credentials.** A business can't yet give an add-on its account for another service (the MLS
-  login a real estate add-on needs). Owners and admins will; once saved, nobody can read one back.
+- **Signing in to a service for an add-on (OAuth).** Connections take a pasted key today; a sign-in (DocuSign,
+  Dotloop) comes with round five's e-sign step, through the worker's OAuth routes.
 - **Add-on webhook routes.** The delivery guard is in place, but `app.webhook_deliveries.provider` is a closed list
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their

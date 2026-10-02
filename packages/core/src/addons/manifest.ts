@@ -236,6 +236,40 @@ export interface AddonSettingsDeclaration {
   readonly flags?: Readonly<Record<string, { readonly label: string; readonly default: boolean }>>;
 }
 
+/**
+ * One thing an add-on connects to another service for (round five, 20261021000100): its listing feed, its e-sign. A
+ * business connects it with a key it pastes, a sign-in, or HandsFreeOS's own account; the worker tries and seals what
+ * it's given, and the add-on's worker half uses it (`connectionFor`).
+ */
+export interface AddonConnector {
+  /** Its name in the add-on (`listing_data`). */
+  readonly key: string;
+  readonly label: string;
+  /** Who connects it and lets it go: one of the add-on's own permissions (its owners and admins, usually). */
+  readonly permission: string;
+  /** Several services at once (DocuSign and Dotloop), or one of its own at a time (a listing feed). */
+  readonly many?: boolean;
+  readonly providers: readonly AddonConnectorProvider[];
+}
+
+export interface AddonConnectorProvider {
+  /** The service (`repliers`). */
+  readonly id: string;
+  readonly label: string;
+  /**
+   * How a business connects it: a key it pastes (`key`), a sign-in (`oauth`), or HandsFreeOS's own account
+   * (`platform`), turned on by staff, its key only in the worker's environment.
+   */
+  readonly auth: readonly ('key' | 'oauth' | 'platform')[];
+  /** What a pasted key asks for. A secret one is sealed and never shown again. */
+  readonly fields?: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly secret: boolean;
+    readonly hint?: string;
+  }[];
+}
+
 /** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */
 export interface AddonBilling {
   /** `free` installs on its own; `paid` needs billing, which does not exist yet, so only staff can grant it. */
@@ -291,6 +325,8 @@ export interface AddonManifest {
   readonly jobs?: readonly string[];
   /** Kinds of things it holds outside HandsFreeOS (`<id>.page_subscription`), released on uninstall. */
   readonly resources?: readonly string[];
+  /** The services it connects to, and what for (round five). */
+  readonly connectors?: readonly AddonConnector[];
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
     readonly nav?: readonly AddonNavItem[];
@@ -437,6 +473,31 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     if (!dotted.test(j)) say(`job kind "${j}" must start with "${m.id}."`);
   for (const r of m.resources ?? [])
     if (!dotted.test(r)) say(`resource kind "${r}" must start with "${m.id}."`);
+
+  for (const c of m.connectors ?? []) {
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(c.key)) say(`connector "${c.key}" isn't a valid key`);
+    if (!permissionKeys.has(c.permission))
+      say(`connector "${c.key}" needs "${c.permission}", which isn't one of its permissions`);
+    if (!c.providers.length) say(`connector "${c.key}" names no service`);
+    for (const p of c.providers) {
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(p.id))
+        say(`connector "${c.key}" service "${p.id}" isn't a valid key`);
+      if (!p.auth.length) say(`connector "${c.key}" service "${p.id}" has no way to connect`);
+      if (p.auth.includes('key') && !p.fields?.some((f) => f.secret))
+        say(`connector "${c.key}" service "${p.id}" takes a key but asks for no secret field`);
+      for (const f of p.fields ?? [])
+        if (!/^[a-z][a-zA-Z0-9_]{0,39}$/.test(f.key))
+          say(`connector "${c.key}" service "${p.id}" field "${f.key}" isn't a valid key`);
+    }
+    unique(
+      `connector "${c.key}" service`,
+      c.providers.map((p) => p.id),
+    );
+  }
+  unique(
+    'connector',
+    (m.connectors ?? []).map((c) => c.key),
+  );
 
   if (m.settings) {
     if (!Number.isInteger(m.settings.version) || m.settings.version < 1)

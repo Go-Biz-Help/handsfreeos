@@ -5003,6 +5003,43 @@ export const addonAlerts = app.table('addon_alerts', {
   ...timestamps(),
 });
 
+/** An add-on's account at another service (round five, 20261021000100): sealed by the worker, never selectable. */
+export const addonConnections = app.table('addon_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  /** What it's for, as the add-on's manifest names it (listing_data, esign). */
+  connector: text('connector').notNull(),
+  /** The service (repliers, anyprop, reso, docusign). */
+  provider: text('provider').notNull(),
+  /** key, oauth or platform (HandsFreeOS's own account). */
+  auth: text('auth').notNull(),
+  /** pending, active, reauth_required, error or disconnected. */
+  status: text('status').notNull().default('active'),
+  /** The add-on permission it takes to manage it. */
+  permission: text('permission').notNull(),
+  label: text('label'),
+  /** The service's own id for the account: how its updates find this connection. */
+  accountRef: text('account_ref'),
+  details: jsonb('details').$type<Json>().notNull().default({}),
+  secretEnc: text('secret_enc'),
+  keyId: text('key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  oauthStateHash: bytea('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  webhookTokenHash: bytea('webhook_token_hash'),
+  webhookSecretEnc: text('webhook_secret_enc'),
+  lastSuccessAt: ts('last_success_at'),
+  failingSince: ts('failing_since'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  connectedBy: userRef('connected_by'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  ...timestamps(),
+});
+
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.

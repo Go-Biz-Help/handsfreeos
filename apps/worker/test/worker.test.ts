@@ -125,6 +125,29 @@ describe('env', () => {
     expect(() => readEnv({ ...base, OPINLY_API_KEY: 'pk-abc' })).toThrow(/sk- key/);
   });
 
+  it('reads HandsFreeOS’s own accounts for add-ons, and says at once when they’re the wrong shape', () => {
+    const base = {
+      DATABASE_URL_WORKER: 'postgresql://hfos_worker:x@h/db',
+      SMTP_URL: 'smtp://h',
+      WORKER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+    };
+    expect(readEnv(base)).toMatchObject({ addonConnectors: 'fake', addonPlatformKeys: {} });
+    expect(
+      readEnv({ ...base, ADDON_PLATFORM_KEYS: '{"realestate.repliers": {"apiKey": " k1 "}}' })
+        .addonPlatformKeys,
+    ).toEqual({ 'realestate.repliers': { apiKey: 'k1' } });
+    for (const wrong of [
+      'not json',
+      '[]',
+      '{"repliers": {"apiKey": "k"}}',
+      '{"realestate.repliers": "k"}',
+      '{"realestate.repliers": {}}',
+      '{"realestate.repliers": {"apiKey": ""}}',
+    ])
+      expect(() => readEnv({ ...base, ADDON_PLATFORM_KEYS: wrong })).toThrow(/ADDON_PLATFORM_KEYS/);
+    expect(() => readEnv({ ...base, ADDON_CONNECTORS: 'maybe' })).toThrow(/ADDON_CONNECTORS/);
+  });
+
   it('refuses to run production without a bot check, unless told to on purpose', () => {
     const production = {
       DATABASE_URL_WORKER: 'postgresql://hfos_worker:x@h/db',

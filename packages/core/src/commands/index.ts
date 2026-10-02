@@ -414,6 +414,21 @@ export const { give: addonGrantGive, takeBack: addonGrantTakeBack } =
   addonGrantCommands(ADDON_CATALOG);
 export { addonGrantCommands } from './addon-grant';
 
+import { addonConnectionCommands } from './addon-connection';
+
+/** An add-on's accounts at other services: kept by the worker, let go by a person, HandsFreeOS's own by staff. */
+export const {
+  save: addonConnectionSave,
+  disconnect: addonConnectionDisconnect,
+  health: addonConnectionHealth,
+  platform: addonConnectionPlatform,
+} = addonConnectionCommands(ADDON_CATALOG);
+export {
+  addonConnectionCommands,
+  connectorOf,
+  CONNECTION_FAILURES_BEFORE_ERROR,
+} from './addon-connection';
+
 export {
   conversationAssign,
   conversationArchive,
@@ -977,6 +992,11 @@ export const commands: readonly CommandDef[] = [
   // Staff handing a business an add-on to try (Real Estate, step 2).
   addonGrantGive,
   addonGrantTakeBack,
+  // An add-on's accounts at other services (round five).
+  addonConnectionSave,
+  addonConnectionDisconnect,
+  addonConnectionHealth,
+  addonConnectionPlatform,
   // Getting started.
   onboardingSaveAnswers,
   onboardingSkip,

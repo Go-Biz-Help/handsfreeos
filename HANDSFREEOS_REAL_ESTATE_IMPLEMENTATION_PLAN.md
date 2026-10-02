@@ -1865,6 +1865,16 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 
 - **Step 0:** this part, and the boards in `design/realestate` (numbers 62 onward).
 - **Step 1 (core):** an add-on's connections: keys and sign-ins, sealed by the worker, with their health.
+
+  **As built** (`20261021000100`): `app.addon_connections` and a manifest's `connectors`
+  (docs/addon-architecture.md, "Connections to other services"). A key is tried by the add-on's worker half before
+  the worker seals and keeps it (`POST /v1/addons/connections/key`). HandsFreeOS's own account is a `platform` row
+  staff turn on, with its key only in the worker's `ADDON_PLATFORM_KEYS`; the business's own is used first, and both
+  can be live at one service at once. Health counts failures, a refusal asks for the key again, and five in a row
+  read "not working". Uninstalling wipes the keys; purging deletes the rows. Sign-ins (OAuth) come with e-sign
+  (step 7). The tests use a made-up feed add-on (`packages/core/test/addons/connection-fixture.ts`); Real Estate
+  declares its own connectors with their adapters in step 3.
+
 - **Step 2 (core):** an add-on's webhooks: an address per connection, checked, kept once, handed to the add-on.
 - **Step 3:** the listing-data connector and its three adapters (Repliers, AnyProp, RESO Web API), with a stand-in
   for tests.

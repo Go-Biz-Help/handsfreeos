@@ -137,6 +137,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let go of an add-on’s account at another service. Its key or sign-in is wiped at once; the add-on uses HandsFreeOS’s own account there, if it has one, or nothing.
+         * @description Risk level 2. Requires workspace.read. Emits addon_connection.disconnected.
+         */
+        post: operations["command_addon_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_connection.platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: turn HandsFreeOS’s own account at a service on or off for one business’s add-on. A business that connects its own account uses that instead.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_connection.platform_changed.
+         */
+        post: operations["command_addon_connection_platform"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon_grant.give": {
         parameters: {
             query?: never;
@@ -11597,6 +11637,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/addon_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What an add-on connects to: each service it can use, and the business’s accounts there with whether they work.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_connection_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/addon_pick.overview": {
         parameters: {
             query?: never;
@@ -15999,6 +16059,73 @@ export interface operations {
                         /** Format: uuid */
                         alertId: string;
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_connection_platform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    connector: string;
+                    on: boolean;
+                    provider: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        connectionId: string | null;
                     };
                 };
             };
@@ -40577,6 +40704,73 @@ export interface operations {
                             role: "owner" | "admin" | "member";
                             slug: string;
                             timezone: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_addon_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connectors: {
+                            canManage: boolean;
+                            connections: {
+                                /** @enum {string} */
+                                auth: "key" | "oauth" | "platform";
+                                connectedAt: string | null;
+                                connectedByName: string | null;
+                                details: {
+                                    [key: string]: unknown;
+                                };
+                                failingSince: string | null;
+                                failures: number;
+                                /** Format: uuid */
+                                id: string;
+                                inUse: boolean;
+                                label: string | null;
+                                lastError: string | null;
+                                lastSuccessAt: string | null;
+                                provider: string;
+                                providerLabel: string;
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            }[];
+                            key: string;
+                            label: string;
+                            many: boolean;
+                            providers: {
+                                auth: ("key" | "oauth" | "platform")[];
+                                fields: {
+                                    hint: string | null;
+                                    key: string;
+                                    label: string;
+                                    secret: boolean;
+                                }[];
+                                id: string;
+                                label: string;
+                            }[];
                         }[];
                     };
                 };

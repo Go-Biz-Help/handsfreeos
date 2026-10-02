@@ -60,6 +60,7 @@ export function addonWorkerModuleIssues(
     subscribers = {},
     jobs = {},
     dataMigrations = {},
+    connectors = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -82,6 +83,19 @@ export function addonWorkerModuleIssues(
         issues.push(`${m.id} has a data step for version ${v}, outside 2–${m.dataVersion}`);
     if ((m.resources ?? []).length > 0 && !rest.releaseResource)
       issues.push(`${m.id} holds resources outside HandsFreeOS but can't let go of them`);
+    // Every service a business connects by key has a tester, and nothing else does.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.auth.includes('key') && !connectors[c.key]?.[p.id])
+          issues.push(`${m.id} connects ${c.key} to ${p.id} by key but can't try a key`);
+    for (const [key, testers] of Object.entries(connectors))
+      for (const id of Object.keys(testers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.auth.includes('key'))
+          issues.push(
+            `${m.id} tries keys for ${key} at ${id}, which its manifest doesn't connect by key`,
+          );
+      }
   }
   return issues;
 }

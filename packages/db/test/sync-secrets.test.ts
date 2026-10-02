@@ -82,6 +82,8 @@ const SECRET_COLUMN =
 
 /** The tables whose columns hold one today: none may ever be published. */
 const SECRET_TABLES = [
+  // Real Estate round five: an add-on's key at another service (a listing feed), sealed. No phone ever needs it.
+  'addon_connections',
   'calendar_connections',
   'chat_visitors',
   // M15: a half-finished answer sheet keeps the hash of the key that reopens it.
