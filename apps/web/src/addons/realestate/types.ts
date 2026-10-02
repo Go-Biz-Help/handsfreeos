@@ -66,6 +66,8 @@ export interface BuyerSide {
   readonly tasks: ClientTaskList;
   readonly offers: readonly Offer[];
   readonly cmas: readonly CmaRow[];
+  /** Our own listings that fit what they want (round three). */
+  readonly suggestions: readonly Suggestion[];
 }
 
 // Round three: the listing's side.
@@ -95,4 +97,6 @@ export interface ListingSide {
   readonly cmas: readonly CmaRow[];
   /** The deal's files: its photos are signed for showing from these. */
   readonly files: readonly FileItem[];
+  /** The business's own domain when one is serving: the page's link uses it. */
+  readonly brandedOrigin: string | null;
 }

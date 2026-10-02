@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { HomesPage } from '@/addons/realestate/homes-page';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -15,10 +16,15 @@ export default async function RealestateHomesPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
-    const [got, deal, homes] = await Promise.all([
+    const [got, deal] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
+    ]);
+    // Homes to look at are a buyer deal's; a listing has none.
+    if (deal.deal.side !== 'buyer') notFound();
+    const [homes, suggestions] = await Promise.all([
       api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage),
+      api.POST('/v1/queries/realestate.suggestions', inDeal).then(unwrapPage),
     ]);
     return (
       <HomesPage
@@ -29,6 +35,7 @@ export default async function RealestateHomesPage({
         homes={homes.homes}
         clients={deal.parties.filter((p) => p.role === 'client').map((p) => p.name)}
         agentName={deal.team.find((t) => t.main)?.name ?? null}
+        suggestions={suggestions.suggestions}
         live={!deal.deal.outcome && !deal.deal.archived}
       />
     );

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { ToursPage } from '@/addons/realestate/tours-page';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -15,9 +16,11 @@ export default async function RealestateToursPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
-    const [got, deal, tours, homes, calendars] = await Promise.all([
+    const deal = await api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage);
+    // Tours are a buyer deal's; a listing has open houses instead.
+    if (deal.deal.side !== 'buyer') notFound();
+    const [got, tours, homes, calendars] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-      api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
       api
         .POST('/v1/queries/realestate.tours', {
           body: { workspaceId, dealId, includeCanceled: true },

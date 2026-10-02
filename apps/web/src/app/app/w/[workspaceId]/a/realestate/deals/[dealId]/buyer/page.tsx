@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { BuyerPage } from '@/addons/realestate/buyer-page';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -15,9 +16,13 @@ export default async function RealestateBuyerPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
-    const [got, deal, profile, memory] = await Promise.all([
+    const [got, deal] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
+    ]);
+    // What a buyer wants is a buyer deal's; a listing has none.
+    if (deal.deal.side !== 'buyer') notFound();
+    const [profile, memory] = await Promise.all([
       api.POST('/v1/queries/realestate.buyer_profile.get', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.memory', inDeal).then(unwrapPage),
     ]);

@@ -3,6 +3,7 @@ import { addonPage } from '@/addons/gate';
 import { DealPage } from '@/addons/realestate/deal-page';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
+import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Deal' };
 
@@ -39,16 +40,20 @@ export default async function RealestateDealPage({
             api.POST('/v1/queries/realestate.client_tasks', inDeal).then(unwrapPage),
             api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
             api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
-          ]).then(([profile, memory, homes, tours, financing, tasks, offers, cmas]) => ({
-            profile: profile.profile,
-            memory,
-            homes: homes.homes,
-            tours,
-            financing,
-            tasks,
-            offers: offers.offers,
-            cmas: cmas.cmas,
-          }))
+            api.POST('/v1/queries/realestate.suggestions', inDeal).then(unwrapPage),
+          ]).then(
+            ([profile, memory, homes, tours, financing, tasks, offers, cmas, suggestions]) => ({
+              profile: profile.profile,
+              memory,
+              homes: homes.homes,
+              tours,
+              financing,
+              tasks,
+              offers: offers.offers,
+              cmas: cmas.cmas,
+              suggestions: suggestions.suggestions,
+            }),
+          )
         : null;
     const listing =
       deal.deal.side === 'listing'
@@ -65,16 +70,20 @@ export default async function RealestateDealPage({
                 body: { workspaceId, recordType: 'custom_record', recordId: dealId },
               })
               .then(unwrapPage),
-          ]).then(([l, marketing, prices, openHouses, compare, tasks, cmas, files]) => ({
-            listing: l.listing,
-            marketing,
-            prices,
-            openHouses,
-            compare,
-            tasks,
-            cmas: cmas.cmas,
-            files: files.files,
-          }))
+            brandedOriginFor(api, workspaceId),
+          ]).then(
+            ([l, marketing, prices, openHouses, compare, tasks, cmas, files, brandedOrigin]) => ({
+              listing: l.listing,
+              marketing,
+              prices,
+              openHouses,
+              compare,
+              tasks,
+              cmas: cmas.cmas,
+              files: files.files,
+              brandedOrigin,
+            }),
+          )
         : null;
     return (
       <DealPage

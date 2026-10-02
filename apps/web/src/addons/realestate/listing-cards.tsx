@@ -6,19 +6,29 @@
  */
 import { fmtMonthDay, localDayOf as dateOf, money } from '@hfos/core';
 import { CMA_STATUSES } from '@hfos/core/addons/realestate/cma';
+import { SELLER_CHOICES } from '@hfos/core/addons/realestate/net';
+import { dueWords, LIVE_OFFER_STATUSES } from '@hfos/core/addons/realestate/offer-words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { CardHead, dealHref, HeadLink, Line } from './bits';
 import { firstNames, street } from './buyer-bits';
 import { listingFactsLine, priceWas, SignedPhoto } from './listing-bits';
+import { buyersOf } from './listing-offers-page';
 import type { ListingSide } from './types';
 import { useAct } from './use-act';
 
 const thisYear = () => new Date().getFullYear();
+
+/** How they pay, in a word: "cash", "conventional", "FHA". */
+const payingShort = (paying: string) => {
+  const w = paying.split(' · ')[0] ?? paying;
+  return w === w.toUpperCase() ? w : w.toLowerCase();
+};
 
 /** The seller's first names on the deal: "Maria and Tom", or "the seller". */
 export const sellerNames = (side: ListingSide) =>
@@ -44,6 +54,7 @@ export function ListingCard({
   const signed = l.description.inUse;
   const sent = l.description.working?.state === 'sent';
   const published = m.page.state === 'published' && !!m.page.path;
+  const origin = usePublicOrigin(side.brandedOrigin);
   return (
     <Card className="p-4 md:p-5" data-testid="listing-card">
       <CardHead
@@ -105,12 +116,12 @@ export function ListingCard({
           </div>
           {published ? (
             <a
-              href={m.page.path!}
+              href={`${origin}${m.page.path!}`}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 block truncate text-[13px] text-accent-text hover:underline"
+              className="mt-2 block break-all text-[13px] text-accent-text hover:underline"
             >
-              {m.page.path}
+              {`${origin}${m.page.path!}`.replace(/^https?:\/\//, '')}
             </a>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
@@ -141,6 +152,123 @@ export function ListingCard({
           </div>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/** The listing's offers on its deal page (board 32's Offers): each with what the seller would take home. */
+export function OffersCard({
+  workspaceId,
+  dealId,
+  timeZone,
+  side,
+}: {
+  workspaceId: string;
+  dealId: string;
+  timeZone: string;
+  side: ListingSide;
+}) {
+  const { rows, shared, choices } = side.compare;
+  const seller = sellerNames(side);
+  const open = rows.filter((r) => LIVE_OFFER_STATUSES.includes(r.status));
+  const due = open
+    .map((r) => r.respondBy)
+    .filter((x): x is string => !!x)
+    .sort()[0];
+  const said = choices[0];
+  const saidRow = said ? rows.find((r) => r.offerId === said.offerId) : undefined;
+  const day = (iso: string) => fmtMonthDay(dateOf(iso, timeZone), thisYear());
+  return (
+    <Card className="p-4 md:p-5" data-testid="listing-offers">
+      <CardHead
+        title="Offers"
+        action={
+          <HeadLink href={dealHref(workspaceId, dealId, 'offers')}>
+            {rows.length > 1 ? 'Side by side' : 'Open'}
+          </HeadLink>
+        }
+      />
+      {rows.length === 0 ? (
+        <p className="text-[13.5px] text-text-2">
+          None yet. Add each one with its terms; they line up side by side, with what {seller} would
+          take home from each.
+        </p>
+      ) : (
+        <>
+          {open.length ? (
+            <div className="mb-3 rounded-menu bg-warning-soft px-3.5 py-3 text-[13.5px] text-warning-text">
+              <div className="font-semibold text-text">
+                {open.length} {open.length === 1 ? 'offer' : 'offers'}
+                {due ? ` · the first answer is due ${dueWords(due, timeZone, Date.now())}` : ''}
+              </div>
+              <div>
+                {shared
+                  ? `Shared with ${seller} ${day(shared.at)}.`
+                  : `Not shared with ${seller} yet.`}
+                {said
+                  ? ` ${said.name}: ${SELLER_CHOICES[said.choice]}${saidRow ? ` the ${buyersOf(saidRow)} offer` : ''}.`
+                  : ''}
+              </div>
+            </div>
+          ) : null}
+          <ul className="space-y-1.5">
+            {rows.map((r) => (
+              <li
+                key={r.offerId}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13.5px]"
+              >
+                <span>
+                  {buyersOf(r)} · {payingShort(r.paying)}
+                </span>
+                <span className="tabular-nums">
+                  {money(r.priceCents)} · {seller} takes home about{' '}
+                  <span className={r.best ? 'font-semibold' : undefined}>
+                    {money(r.net.netCents)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/** The seller's estimate on the deal page (board 32's Seller's estimate): the figures, in a line. */
+export function NetSheetCard({
+  workspaceId,
+  dealId,
+  timeZone,
+  side,
+}: {
+  workspaceId: string;
+  dealId: string;
+  timeZone: string;
+  side: ListingSide;
+}) {
+  const f = side.compare.figures;
+  return (
+    <Card className="p-4 md:p-5" data-testid="listing-net-sheet">
+      <CardHead
+        title="Seller’s estimate"
+        action={<HeadLink href={dealHref(workspaceId, dealId, 'net-sheet')}>Open</HeadLink>}
+      />
+      <p className="text-[13.5px] text-text-2">
+        {f
+          ? [
+              `Payoff ${money(f.payoffCents)}`,
+              f.listingFeeBp !== null
+                ? `listing fee ${(f.listingFeeBp / 100).toLocaleString('en-US')}%`
+                : f.listingFeeCents !== null
+                  ? `listing fee ${money(f.listingFeeCents)}`
+                  : null,
+              `title and escrow ${money(f.titleEscrowCents)}`,
+            ]
+              .filter(Boolean)
+              .join(' · ') + `. Updated ${fmtMonthDay(dateOf(f.savedAt, timeZone), thisYear())}.`
+          : `No figures yet. Enter what’s owed and the costs, and it works out what ${sellerNames(side)} would take home from each offer.`}
+      </p>
     </Card>
   );
 }

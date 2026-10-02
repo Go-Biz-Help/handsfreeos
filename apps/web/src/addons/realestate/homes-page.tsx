@@ -17,7 +17,8 @@ import { dealHref } from './bits';
 import { HomeVoice } from './buyer-cards';
 import { DealCrumb, firstNames, FitList, street } from './buyer-bits';
 import { AddHomeDialog, HomeDialog } from './home-dialogs';
-import type { Home } from './types';
+import { SuggestionsCard } from './suggestions-card';
+import type { Home, Suggestion } from './types';
 import { useQueryState } from './use-query-state';
 
 type Filter = 'all' | 'shortlisted' | 'saved' | 'passed' | 'facts';
@@ -30,6 +31,7 @@ export function HomesPage({
   homes,
   clients,
   agentName,
+  suggestions = [],
   live,
 }: {
   workspaceId: string;
@@ -40,6 +42,8 @@ export function HomesPage({
   /** The deal's clients' names. */
   clients: readonly string[];
   agentName: string | null;
+  /** Our own listings that fit what they want (round three). */
+  suggestions?: readonly Suggestion[];
   live: boolean;
 }) {
   useLiveRefresh(['custom_record']);
@@ -111,6 +115,16 @@ export function HomesPage({
           </>
         }
       />
+      {suggestions.some((x) => x.state === 'new') ? (
+        <div className="mb-4">
+          <SuggestionsCard
+            workspaceId={workspaceId}
+            suggestions={suggestions}
+            clients={firstNames(clients)}
+            live={live}
+          />
+        </div>
+      ) : null}
       <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Which homes">
         {chips
           .filter((c) => c.key === 'all' || c.n > 0)

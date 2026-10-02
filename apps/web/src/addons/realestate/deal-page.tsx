@@ -42,6 +42,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { CardHead, dealHref, DutyStatusBadge, HealthDot, realestateHref } from './bits';
+import { firstNames } from './buyer-bits';
 import {
   AddDutyDialog,
   ApplyVersionDialog,
@@ -60,8 +61,16 @@ import {
   WhatTheyWantCard,
 } from './buyer-cards';
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
-import { ListingCard, ListingCmasCard, MarketingCard, MatchingCard } from './listing-cards';
+import {
+  ListingCard,
+  ListingCmasCard,
+  MarketingCard,
+  MatchingCard,
+  NetSheetCard,
+  OffersCard,
+} from './listing-cards';
 import { OpenHousesCard } from './open-houses-page';
+import { SuggestionsCard } from './suggestions-card';
 import { DutyDrawer } from './duty-drawer';
 import type {
   BuyerSide,
@@ -394,6 +403,12 @@ export function DealPage({
         <div className="min-w-0 space-y-4 lg:space-y-5">
           {buyer ? (
             <>
+              <SuggestionsCard
+                workspaceId={workspaceId}
+                suggestions={buyer.suggestions}
+                clients={firstNames(buyer.tasks.clients.map((c) => c.name))}
+                live={live}
+              />
               <WhatTheyWantCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
               <HomesCard
                 workspaceId={workspaceId}
@@ -414,6 +429,12 @@ export function DealPage({
           {listing ? (
             <>
               <ListingCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                timeZone={timeZone}
+                side={listing}
+              />
+              <OffersCard
                 workspaceId={workspaceId}
                 dealId={dealId}
                 timeZone={timeZone}
@@ -455,6 +476,12 @@ export function DealPage({
                 empty="Nothing asked of them yet. Ask them about their home from the facts page, and they answer in their portal."
               />
               <MatchingCard side={listing} />
+              <NetSheetCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                timeZone={timeZone}
+                side={listing}
+              />
               <ListingCmasCard
                 workspaceId={workspaceId}
                 dealId={dealId}

@@ -474,6 +474,7 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/price', query: ['change'] },
       { path: 'deals/:dealId/marketing', query: ['live'] },
       { path: 'deals/:dealId/open-houses', query: ['plan'] },
+      { path: 'deals/:dealId/net-sheet' },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
     // Homes and To do are places in the portal's menu (pages without an id); the rest open from them.
