@@ -69,6 +69,7 @@ Every refusal a person can read explains the problem and, when anything can be d
   - Only `apps/web/src/addons/registry.ts` imports an add-on's web folder; lint checks.
   - Pages open through `addonPage`, and panels on core's pages through `<AddonSlot>`.
   - A customer's portal pages are the registry's `portal` entry, declared in `ui.portal`, and act through `usePortal()`.
+  - Signed-out public pages are the registry's `public` entry, declared in `ui.public`, and run only `<id>.public.*` operations.
 - **The AI sees an operation only when it declares `ai`.** Look-ups and risk 0–1 changes run on their own. Risk 2–3 changes wait for a person's OK. Risk 4 is never offered.
 - **When an add-on's data changes shape,** add a `dataMigrations` step and bump `dataVersion`.
 - **Check the doc's "Not yet" list first.** It covers an add-on's own credentials, webhook routes, workflow steps and billing. If an add-on needs one of these, build it in core as its own step. Don't work around it inside the add-on.

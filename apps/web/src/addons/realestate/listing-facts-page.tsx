@@ -46,6 +46,8 @@ interface Row {
   readonly value: unknown;
   readonly from: FactFrom;
   readonly quote: string | null;
+  /** The agent picked, typed or ticked it here: new answers arriving don't change it. */
+  readonly picked?: boolean;
 }
 type Rows = Partial<Record<ListingHomeFactKey, Row>>;
 
@@ -90,7 +92,8 @@ export function ListingFactsPage({
   const seller = firstNames(sellers) || 'The seller';
   const [rows, setRows] = useState<Rows>(() => rowsFrom(l.choices));
   const [highlights, setHighlights] = useState(l.highlights ?? '');
-  // A paste read or the seller's answers arriving: what nobody has touched yet takes the new answer.
+  // A paste read or the seller's answers arriving: what nobody has touched yet takes the new answer, and one that
+  // now disagrees waits for a pick again.
   const signature = JSON.stringify(l.choices);
   const [seen, setSeen] = useState(signature);
   if (seen !== signature) {
@@ -99,7 +102,8 @@ export function ListingFactsPage({
     setRows((now) => {
       const next: Rows = { ...fresh };
       for (const [k, r] of Object.entries(now) as [ListingHomeFactKey, Row][])
-        if (r.from === 'agent' || !fresh[k]) next[k] = r;
+        if (r.picked) next[k] = r;
+        else if (!fresh[k]) delete next[k];
       return next;
     });
   }
@@ -125,7 +129,11 @@ export function ListingFactsPage({
   const pick = (
     k: ListingHomeFactKey,
     c: { value: unknown; from: FactFrom; quote: string | null },
-  ) => setRows({ ...rows, [k]: { checked: true, value: c.value, from: c.from, quote: c.quote } });
+  ) =>
+    setRows({
+      ...rows,
+      [k]: { checked: true, value: c.value, from: c.from, quote: c.quote, picked: true },
+    });
   const fromBadge = (from: FactFrom) =>
     from === 'seller' ? (
       <Badge variant="accent">From {seller}’s questionnaire</Badge>
@@ -328,7 +336,11 @@ export function ListingFactsPage({
                           checked={!!r?.checked && r.value !== undefined}
                           disabled={!live || r?.value === undefined}
                           onChange={(e) =>
-                            r && setRows({ ...rows, [k]: { ...r, checked: e.target.checked } })
+                            r &&
+                            setRows({
+                              ...rows,
+                              [k]: { ...r, checked: e.target.checked, picked: true },
+                            })
                           }
                         />
                       </td>
@@ -402,7 +414,10 @@ export function ListingFactsPage({
         open={dialog === 'type'}
         onClose={() => setDialog(null)}
         onAdd={(k, value) =>
-          setRows({ ...rows, [k]: { checked: true, value, from: 'agent', quote: null } })
+          setRows({
+            ...rows,
+            [k]: { checked: true, value, from: 'agent', quote: null, picked: true },
+          })
         }
       />
     </div>

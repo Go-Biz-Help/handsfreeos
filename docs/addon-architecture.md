@@ -123,6 +123,26 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     (`home`) and its pages (`pages`, one component handed the path), opened at `a/<id>/<path>` only for a path
     its `ui.portal` declares. Its pages without an id (Real Estate's Homes and To do) are places in the portal's
     menu, between Home and Messages. They read and act through `usePortal()`, never holding the sign-in.
+- **Public pages** (Real Estate round three, step 1): pages anyone with the link opens, signed out, under the
+  business's booking site at `/a/<site>/<id>/<path>` (on its own domain too). They run as a `public` actor, in the
+  business whose site it is, as the service actor there on the forms' channel, and stop while the add-on is off.
+  - Operations for visitors list `actors: ['public']` alone, are named `<id>.public.*`, ask no permission, carry no
+    `ai` and are risk 2 at most (`publicOperationIssues`): one can make a customer and a lead.
+  - The manifest's `ui.public` names each page (`{ path, query }`, `:name` for a part of the path) and the public
+    query it shows. The worker serves them at `POST /public/addon/:site/query/:name` and `…/command/:name`, with the
+    forms' per-address limits, the honeypot and the bot check on changes, and `no-store`. Every `{ publicFileId }` in
+    an answer gets a `url` that works for an hour, once the file is checked to be the business's own.
+  - A visitor who leaves their name goes through `signUpFromPage` (`crm/signup.ts`): the customer is found or made,
+    a lead opened where the business's forms would, and a yes to texts kept with where it came from. A command that
+    calls it lists `SIGN_UP_EVENTS` in its `emits`.
+  - On the web, `apps/web/src/app/a/[site]/[addonId]/[...path]/` matches the path to `ui.public`, reads its query
+    on the server, and the registry's `public` entry draws it (`pages`, one component handed the answer, and the
+    tab's `title`). Its forms post from the visitor's browser (`publicAddonCommand`), with core's words for agreeing
+    to texts (`smsConsentWords`).
+- **Campaigns from exact words** (Real Estate round three, step 2): an add-on can start a campaign with its own words
+  (`campaign.create` with `words`: `{ text }`, or `{ subject, body }` for an email) through `executeCommandWithin`,
+  as the person who clicked. The AI writes nothing; who it picks and leaves out, approval and every consent rule are
+  Campaigns' own, unchanged.
 
 ## The lifecycle
 
@@ -298,7 +318,8 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
-- **Real Estate Agent's later rounds.** Its first two rounds (deals, duties, dates, proof, documents, alerts, the duty
-  editor, client updates; then the buyer's side and the client's portal) are built and in beta (docs/realestate.md);
-  MLS and property data, showings services and lockbox details wait for an add-on's own credentials and webhook
-  routes above. Everyone else still sees it as Coming soon.
+- **Real Estate Agent's later rounds.** Its first three rounds (deals, duties, dates, proof, documents, alerts, the
+  duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
+  the seller's portal) are built and in beta (docs/realestate.md); MLS and property data, showings services and
+  lockbox details wait for an add-on's own credentials and webhook routes above. Everyone else still sees it as
+  Coming soon.

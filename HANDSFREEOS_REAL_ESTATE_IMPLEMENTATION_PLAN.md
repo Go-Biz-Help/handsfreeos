@@ -1524,20 +1524,45 @@ ending a listing took 25 seconds.
 anything different: the private-records, portal and add-on table tests still pass. The kinds function went from
 about 120ms to 5ms, and ending a listing from 25 seconds to 2.5.
 
-### Step 13: staff screens
+### Step 13: staff screens (built, 2026-10-02)
 
-- A listing deal's page gains its listing cards, and pages under `deals/:dealId/`: `listing`, `marketing`,
-  `marketing/flyer`, `open-houses`, `offers` (a listing's view), `net-sheet` and `price`. Each is in `ui.phone`.
-- A buyer deal's page gains "Fits from our listings".
+**As built** (no migration; boards 32–43 followed closely):
 
-### Step 14: the portal's and public screens, docs, the browser test and a video
+- A listing deal's page: the listing card (photo, price and what it was, the MLS, the description, the page and its
+  link), Offers with each one's take-home, Open houses, and at the side Marketing, the seller's to-do, Matching, the
+  seller's estimate and CMAs. A Marketing button joins Key dates and Documents.
+- Its pages under `deals/:dealId/`: `facts`, `photos`, `description`, `price` (`?change=1`), `marketing`
+  (`?live=1`), `flyer`, `open-houses` (`?plan=1`), `offers` (a listing's side by side) and `net-sheet`. All but the
+  flyer are in `ui.phone`. Offers, Financing, Inspections, the CMA and the client's to-do read right on a listing.
+- What the boards showed and the server doesn't keep is left out or said as it is: "Printed Oct 10", "Sent to 214"
+  and "3 people asked about it" became status words; photo credits, the TREC number and the agent's phone are left out.
+- The seller's estimate works the take-home out with core's `netEstimate` as the figures are typed, and before any
+  offer at the list price. The listing's offers page shows the seller's choice from the portal; answers and new
+  versions are recorded from each column.
+- A buyer deal's page and its Homes page gain "Fits from our listings" (`suggestion.add`, `suggestion.not_a_fit`).
+- The worker's questionnaire alert opens `facts` and the price alert `price`. The hold's words name Marketing, where
+  it's marked live. A printed page leaves out the app's sidebar and bars, so the flyer, the sign-in sheet and the
+  offer summary print alone.
+- Found and fixed on the way: the facts page kept a seller's answer picked after the old listing disagreed with it,
+  so the disagreement never showed; it now waits for a pick. What they want, Homes and Tours say "not found" on a
+  listing instead of erroring. The listing tests mark it live on the business's day, not UTC's.
 
-- The seller's portal pages and the two public pages, drawn at phone width.
-- `docs/realestate.md`, `docs/addon-architecture.md` (public pages, campaigns from exact words), CLAUDE.md.
-- Browser test `apps/web/e2e/realestate-listing.spec.ts`: the seller's questionnaire and the agent's pasted text; the
-  AI's description flagged, fixed and signed off; publishing refused until the listing is live, then the public page
-  signed out; an open house sign-in; a price change signed off; two offers side by side and the seller's choice; a
-  buyer's agent adding the listing from "Fits from our listings".
+### Step 14: the portal's and public screens, docs, the browser test and a video (built, 2026-10-02)
+
+**As built:**
+
+- The seller's portal (`portal/listing.tsx`): their listing (steps, price and what it was, the MLS, the page link,
+  what's waiting for them, open houses, key dates); the questions about their home (save for later, then send);
+  a sign-off page for exact words (`sign-off/:taskId`, the round-two buyer sign-offs use it too); and the offers side
+  by side with Accept, Counter, Decline and Let's talk. Three `ui.portal` entries, each with an id in its path.
+- The public pages (`public/pages.tsx`, the registry's `public` entry): the listing's page with its photos, price,
+  facts, open houses, description and "Ask about this home"; the open house's sign-in, open, not yet, closed or
+  cancelled. Both carry the honeypot, the bot check and core's words for agreeing to texts, and show only the
+  business's name. The public frame's bottom line says what kind of page it is.
+- Docs: `docs/realestate.md` (round three's screens and rules), `docs/addon-architecture.md` (public pages and
+  campaigns from exact words), CLAUDE.md.
+- `apps/web/e2e/realestate-listing.spec.ts` covers the seven scenarios above in one run, about three and a half
+  minutes locally.
 
 ## Not in round three
 
