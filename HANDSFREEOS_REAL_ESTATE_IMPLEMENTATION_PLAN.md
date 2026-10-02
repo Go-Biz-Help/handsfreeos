@@ -1512,6 +1512,18 @@ boards; the server steps go ahead meanwhile.
 - The `ui.portal` pages (the listing, the questionnaire, the offers) come with their screens in step 14.
 - Tests: `realestate-listing.test.ts`.
 
+### A speed fix for private records (core, built 2026-10-02)
+
+Chris OK'd it on 2026-10-02. `private.private_kinds_seen_whole()` (round one's step 4) asked
+`private.has_permission()` about every private kind of record in every business before narrowing to the caller's
+own. Every add-on row policy reaches it through `private.unseen_private_records()`, so a query on a deal's rows cost
+more with every business on HandsFreeOS. With about 1,400 test businesses, each duty update took half a second, and
+ending a listing took 25 seconds.
+
+`20261020001000_private_kinds_checked_fast.sql` narrows both functions to the caller's businesses first. Nobody sees
+anything different: the private-records, portal and add-on table tests still pass. The kinds function went from
+about 120ms to 5ms, and ending a listing from 25 seconds to 2.5.
+
 ### Step 13: staff screens
 
 - A listing deal's page gains its listing cards, and pages under `deals/:dealId/`: `listing`, `marketing`,
