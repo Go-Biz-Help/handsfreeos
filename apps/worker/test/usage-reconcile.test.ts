@@ -9,6 +9,8 @@ import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CARRIER_CATEGORIES,
+  CHARGED_WHEN_THEY_HAPPEN,
+  COUNTED_ELSEWHERE,
   dayToReconcile,
   nextReconcileAt,
   reconcileDay,
@@ -171,6 +173,62 @@ describe('a category nothing here has heard of', () => {
       expect(CARRIER_CATEGORIES, parent).not.toHaveProperty(parent);
     expect(CARRIER_CATEGORIES).toHaveProperty('sms-inbound');
     expect(CARRIER_CATEGORIES).toHaveProperty('sms-outbound');
+  });
+});
+
+describe('texting registration fees and phone numbers', () => {
+  /**
+   * Charged on our own schedule (telephony/texting-fees.ts, money/number-months.ts), while Twilio dates them by
+   * its own clock, so comparing them day by day would charge a business twice for one fee or one month.
+   */
+  it('are known, and neither charged again nor reported as unknown', async () => {
+    const asked = watch();
+    const found = await reconcileDay(
+      ctx,
+      scope,
+      DAY,
+      [
+        line('a2p-registration-fees', 19.5),
+        line('phonenumbers-local', 1.15),
+        line('phonenumbers-tollfree', 2.15),
+        line('sms-outbound', 2),
+      ],
+      new Map(),
+    );
+    expect(found.unknown).toEqual([]);
+    expect(asked.map((a) => a.meta?.['carrier_category'])).toEqual(['sms-outbound']);
+    for (const category of ['a2p-registration-fees', 'phonenumbers-local', 'phonenumbers-tollfree'])
+      expect(CHARGED_WHEN_THEY_HAPPEN.has(category), category).toBe(true);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('a line already inside another', () => {
+  /**
+   * `calls-inbound` is every inbound call, and Twilio reports its local and toll-free parts beside it. A text's
+   * price already includes the carrier's fee. Comparing either on its own would charge the same money twice.
+   */
+  it('is known, and never charged on its own', async () => {
+    const asked = watch();
+    const found = await reconcileDay(
+      ctx,
+      scope,
+      DAY,
+      [
+        line('calls-inbound', 3),
+        line('calls-inbound-local', 2),
+        line('calls-inbound-tollfree', 1),
+        line('carrier-fees', 4),
+        line('sms-messages-carrierfees', 4),
+      ],
+      new Map(),
+    );
+    expect(found.unknown).toEqual([]);
+    expect(asked.map((a) => a.meta?.['carrier_category'])).toEqual(['calls-inbound']);
+    for (const part of ['calls-inbound-local', 'calls-inbound-tollfree'])
+      expect(CARRIER_CATEGORIES, part).not.toHaveProperty(part);
+    expect(COUNTED_ELSEWHERE.has('carrier-fees')).toBe(true);
+    vi.restoreAllMocks();
   });
 });
 

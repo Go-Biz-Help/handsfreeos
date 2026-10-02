@@ -42,6 +42,7 @@ import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerAddonPublicRoutes } from './addon-public';
+import { registerVideoLinkRoutes } from './video-links';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { SafeFetchError } from './safe-fetch';
@@ -275,6 +276,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
+  // A customer sending a video at full quality through a link the business texted them (20261018000300).
+  await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
   await registerFoundingRoutes(app, deps);

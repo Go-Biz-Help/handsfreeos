@@ -104,8 +104,9 @@ export interface RegistrationRequest {
   readonly kind: RegistrationKind;
   /** The business profile people submitted (schemas/telephony BusinessProfile plus forNumber). */
   readonly submission: Readonly<Record<string, unknown>>;
+  /** Null for a 10DLC step sent before the business has a number: none of them names one. */
   readonly phoneNumberSid: string | null;
-  readonly phoneNumberE164: string;
+  readonly phoneNumberE164: string | null;
   /**
    * Provider ids of the earlier steps this one builds on: approved ones, plus the customer profile and trust
    * product while still in review (Twilio lets the brand go ahead). The brand needs both; the campaign the brand.

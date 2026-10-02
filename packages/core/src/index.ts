@@ -34,6 +34,8 @@ export * from './messaging/policies';
 export * from './messaging/preflight';
 export * from './messaging/sms';
 export * from './messaging/rcs';
+export * from './messaging/video-link';
+export * from './messaging/file-link';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
 export * from './messaging/number-import';
@@ -46,6 +48,7 @@ export * from './assistant/places-map';
 // The Assistant's words, and the settings people have of their own (M10 step 17).
 export * from './assistant/words';
 export * from './account/settings-words';
+export * from './account/view-as-words';
 // The side menu, as each person arranges it.
 export * from './account/menu';
 export * from './calendar/index';

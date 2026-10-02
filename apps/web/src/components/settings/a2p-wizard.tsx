@@ -22,6 +22,7 @@ import {
   checkDraft,
   hasBlockers,
   issuesFor,
+  money,
   optInDescriptionFor,
   ownSiteBoxText,
   privacyPolicy,
@@ -31,12 +32,16 @@ import {
   sendsOffers,
   TERMS_TEXTING_ITEMS,
   termsOfService,
+  TEXTING_CAMPAIGN_MONTH_CENTS,
+  textingFeeLines,
+  textingFeeTotal,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type OptInPath,
   type PreflightCheck,
   type SensitiveTopicId,
+  type TextingFeesPaidFor,
 } from '@hfos/core';
 import {
   ArrowLeft,
@@ -802,19 +807,31 @@ export function A2pWizard({
   initial,
   draft = null,
   surfaces: initialSurfaces = EMPTY_SURFACES,
+  feesPaidFor = null,
   onBack,
   onSubmitted,
 }: {
   workspaceId: string;
   businessName: string;
-  number: PhoneNumberInfo;
+  /**
+   * The number this registration is for. Null when it goes ahead of the number (a local registration sent
+   * while the business's own number is being moved here, or before it has one): that is always 10DLC, and
+   * the number is filled in when we know it.
+   */
+  number: Pick<PhoneNumberInfo, 'numberType' | 'display'> | null;
   me: { fullName: string; email: string };
   initial: Record<string, unknown> | null;
   /** The answers as they were left last time (`registration.get_draft`), which win over `initial`. */
   draft?: Record<string, unknown> | null;
   surfaces?: HostedSurfaces;
+  /**
+   * What the business already sent or paid for (`textingFees.paidFor`), so the last step shows what sending a
+   * local registration costs before anything is sent (0105). Left out, no price is shown.
+   */
+  feesPaidFor?: TextingFeesPaidFor | null;
   onBack?: () => void;
-  onSubmitted: () => void;
+  /** Sent. `fee` is what it costs when anything: it goes to the carriers once that is paid. */
+  onSubmitted: (fee: { id: string; amountCents: number } | null) => void;
 }) {
   const [form, setForm] = useState<WizardForm>(() =>
     withDraft(wizardFormFrom(initial, businessName, me), draft),
@@ -885,7 +902,13 @@ export function A2pWizard({
     return () => clearTimeout(timer);
   }, [form, at, workspaceId]);
 
-  const local = number.numberType === 'local';
+  const local = !number || number.numberType === 'local';
+  // What sending it costs: the carriers' fees, from what is already sent or paid for and the volume picked.
+  const feeLines =
+    local && feesPaidFor
+      ? textingFeeLines({ ...feesPaidFor, monthlyVolume: form.volume || 'under_1000' })
+      : [];
+  const feeTotal = textingFeeTotal(feeLines);
   const issues = useMemo(() => checkDraft(draftOf(form), businessName), [form, businessName]);
   const step = STEPS[at]!;
 
@@ -961,7 +984,7 @@ export function A2pWizard({
     try {
       // A save still on its way lands first, so the send's clearing of the draft is the last word.
       await saving.current;
-      unwrap(
+      const done = unwrap(
         await apiBrowser().POST('/v1/commands/registration.submit', {
           body: {
             workspaceId,
@@ -1002,8 +1025,10 @@ export function A2pWizard({
         }),
       );
       sent.current = true;
-      toast.success('Sent to the carriers');
-      onSubmitted();
+      toast.success(
+        done.fee ? 'Saved. Pay the carriers’ fees to send it.' : 'Sent to the carriers',
+      );
+      onSubmitted(done.fee);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)) {
         const details = err.details as { path?: string; message?: string }[];
@@ -1262,7 +1287,7 @@ export function A2pWizard({
           set={set}
           origin={origin}
           siteSlug={surfaces.siteSlug}
-          phone={number.display}
+          phone={number?.display}
         />
       ) : null}
 
@@ -1278,6 +1303,36 @@ export function A2pWizard({
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
         />
+      ) : null}
+
+      {step.key === 'review' && feeTotal > 0 ? (
+        <div className="mt-5 flex flex-col gap-1.5" data-testid="registration-fees">
+          <span className="text-[13px] font-medium">What the carriers charge</span>
+          <div className="overflow-hidden rounded-[10px] border border-border">
+            <ul className="divide-y divide-border">
+              {feeLines.map((l) => (
+                <li key={l.key} className="flex items-start justify-between gap-3 px-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-medium">{l.name}</span>
+                    <span className="block text-xs text-text-3">{l.detail}</span>
+                  </span>
+                  <span className="whitespace-nowrap text-[13px] font-medium">
+                    {money(l.cents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-between gap-3 bg-card-2 px-3 py-2.5 text-[13px] font-semibold">
+              <span>Now</span>
+              <span data-testid="registration-fees-total">{money(feeTotal)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-text-3">
+            Passed on at cost from The Campaign Registry and the carriers, with nothing added. Once
+            they approve it, the campaign is {money(TEXTING_CAMPAIGN_MONTH_CENTS)} a month, charged
+            to the same card.
+          </p>
+        </div>
       ) : null}
 
       <div className="mt-6 flex items-center justify-between gap-3">
@@ -1305,7 +1360,11 @@ export function A2pWizard({
             data-testid="submit-registration"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {busy ? 'Sending…' : 'Send to the carriers'}
+            {busy
+              ? 'Sending…'
+              : feeTotal > 0
+                ? `Pay ${money(feeTotal)} and send`
+                : 'Send to the carriers'}
           </Button>
         ) : (
           <Button
@@ -1343,8 +1402,8 @@ function PolicyStep({
   set: <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => void;
   origin: string;
   siteSlug: string | null;
-  /** The business number, which the terms give as the way to get help. */
-  phone: string;
+  /** The business number, which the terms give as the way to get help. Not known yet when it is on its way. */
+  phone: string | undefined;
 }) {
   const own = form.ownPolicyUrl.trim().length > 0;
   const ownTerms = form.ownTermsUrl.trim().length > 0;
@@ -1355,7 +1414,7 @@ function PolicyStep({
     legalName: form.legalName,
     website: withScheme(form.website),
     email: form.contactEmail,
-    phone,
+    ...(phone ? { phone } : {}),
     offers: sendsOffers(form.useCase),
     address: {
       line1: form.line1,

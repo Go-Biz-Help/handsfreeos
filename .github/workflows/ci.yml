@@ -120,6 +120,11 @@ jobs:
       - name: Write local env files
         run: pnpm env:local
 
+      # The worker turns videos texted to a business into MP4s with ffmpeg (apps/worker/src/telephony/video.ts), and
+      # its test converts a real one. The runner image has no ffmpeg; the worker's Docker image installs its own.
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
       - name: Unit, database, API and worker tests
         run: pnpm test
 

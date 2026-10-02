@@ -100,6 +100,7 @@ const ALL_ON = {
   connections: true,
   addons: true,
   supportTickets: true,
+  qualifying: true,
 };
 
 beforeEach(() => {
@@ -126,7 +127,8 @@ describe('Settings → Notifications', () => {
       expect(screen.getByTestId(`push-${key}`)).toBeChecked();
     expect(screen.getByTestId('push-payment')).not.toBeChecked();
     expect(screen.getByTestId('email-unansweredEmail')).toBeChecked();
-    expect(screen.getByText('Always')).toBeTruthy();
+    // Approvals' email, and the AI teammate's qualifying.
+    expect(screen.getAllByText('Always')).toHaveLength(2);
     expect(screen.getByText('Morning summary')).toBeTruthy();
     // Dale owns a business on its own, not an agency: no agency digest. Nor does he answer support.
     expect(screen.queryByText('Daily agency digest')).toBeNull();

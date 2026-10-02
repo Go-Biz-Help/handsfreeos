@@ -91,6 +91,13 @@ function describeAction(e: AuditEntry): string {
       return e.entityType === 'invitation'
         ? `accepted an invitation and joined as ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`
         : 'joined the workspace';
+    // Viewing the app as a teammate (20261018000100): someone in the business, and HandsFreeOS support inside a look.
+    case 'teammate_view.start':
+      return `viewed the app as ${s(e.after?.person) || 'a teammate'}, read-only`;
+    case 'platform.teammate_view.started':
+      return `let ${s(e.after?.who) || 'HandsFreeOS support'} view the app as ${s(e.after?.person) || 'one of your team'}, read-only`;
+    case 'platform.view_as.started':
+      return `let ${s(e.after?.who) || 'HandsFreeOS support'} look at the business read-only${s(e.after?.reason) ? `: “${s(e.after?.reason)}”` : ''}`;
     case 'membership.change_role':
       return `changed ${who(e)}'s role from ${ROLE[s(e.before?.role)] ?? s(e.before?.role)} to ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`;
     // Milestone 10: a person's own account, handing a business over, and their cell
@@ -404,7 +411,37 @@ function describeAction(e: AuditEntry): string {
       return 'disconnected RCS: texts go as SMS and MMS again';
     case 'rcs_sender.record_state':
       return rcsStateSentence(e);
+    // 0104: asking HandsFreeOS for an RCS sender, and paying for it. Paying, stopping and a refused renewal each
+    // open a support ticket too, which is a line of its own.
+    case 'rcs_request.cancel':
+    case 'rcs_request.record_paid':
+    case 'rcs_request.record_renewal':
+      if (e.entityType === 'support_ticket')
+        return `opened support ticket ${s(e.after?.ticket)} with HandsFreeOS`;
+      return rcsRequestSentence(e);
+    case 'rcs_request.submit':
+      return `asked for an RCS sender showing ${s(e.after?.name)}: ${s(e.after?.firstYear)} for the first year, then ${s(e.after?.yearly)} a year`;
+    // 0105: what registering for texting costs, passed on.
+    case 'texting_fee.pay':
+      return `asked to pay ${s(e.after?.paying)} for texting with another card`;
+    case 'texting_fee.record_outcome':
+      return e.after?.paid
+        ? `paid ${s(e.after.paid)} for texting`
+        : e.after?.waived
+          ? `let ${s(e.after.waived)} of texting fees through uncharged: paying online is off`
+          : `couldn’t take ${s(e.after?.unpaid)} for texting: ${s(e.after?.reason)}`;
+    case 'texting_fee.charge_month':
+      return `owes ${s(e.after?.owed)} for this month’s texting campaign`;
+    case 'rcs_request.pay_renewal':
+      return `asked to pay RCS’s ${s(e.after?.renewal)} renewal with another card`;
+    case 'rcs_request.record_closed':
+      return s(e.after?.status) === 'expired'
+        ? 'found the RCS payment page ran out unpaid'
+        : 'found the RCS payment didn’t go through';
     case 'registration.submit':
+      // 0105: sending a local registration also writes what the carriers charge for it.
+      if (e.entityType === 'texting_fee')
+        return `owes ${s(e.after?.owed)} for ${s(e.after?.for)}, passed on from the carriers`;
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
       return registrationSentence(e);
@@ -1495,6 +1532,22 @@ function portStateSentence(e: AuditEntry): string {
   }
 }
 
+/** Paying for RCS, stopping it renewing, and its yearly renewal (0104). */
+function rcsRequestSentence(e: AuditEntry): string {
+  switch (e.action) {
+    case 'rcs_request.cancel':
+      return s(e.after?.renews) === 'no'
+        ? `stopped RCS renewing; it stays on until ${s(e.after?.until)}`
+        : 'gave up on the RCS request before paying';
+    case 'rcs_request.record_paid':
+      return `paid ${s(e.after?.paid)} for RCS; HandsFreeOS is making the sender (ticket ${s(e.after?.ticket)})`;
+    default:
+      return s(e.after?.renewal) === 'refused'
+        ? `couldn’t renew RCS: ${s(e.after?.reason)}`
+        : `renewed RCS for ${s(e.after?.paid)}, paid through ${s(e.after?.until)}`;
+  }
+}
+
 function rcsStateSentence(e: AuditEntry): string {
   // The same sender put on texting or taken off it (switched on or off in Settings), with no news from the carriers.
   if (typeof e.after?.inService === 'boolean' && !s(e.after?.status))
@@ -1743,6 +1796,8 @@ export function auditCategory(action: string): AuditCategory {
   // A person's own account (deleting it hands a business over) and their cell phone: about the team (M10).
   if (
     action.startsWith('membership.') ||
+    action.startsWith('teammate_view.') ||
+    action.startsWith('platform.teammate_view.') ||
     action.startsWith('account.') ||
     action.startsWith('user_phone.') ||
     action === 'organization.add_owner'
@@ -1761,6 +1816,8 @@ export function auditCategory(action: string): AuditCategory {
       'registration.',
       'number_port.',
       'rcs_sender.',
+      'rcs_request.',
+      'texting_fee.',
       'email.',
       'email_domain.',
       'email_address.',

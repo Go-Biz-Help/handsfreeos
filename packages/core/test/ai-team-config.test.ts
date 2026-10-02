@@ -411,6 +411,12 @@ describe('parse and upgrade', () => {
             notAFitIf: { below: 1000, above: 50000 },
           },
           { id: 'zip', question: 'ZIP?' },
+          {
+            id: 'bill',
+            question: 'A photo of your latest electric bill',
+            kind: 'file',
+            notify: { kind: 'lead_assignee' },
+          },
         ],
       },
     });
@@ -421,7 +427,29 @@ describe('parse and upgrade', () => {
       options: [],
       required: true,
       notAFitIf: { answers: [], below: null, above: null },
+      notify: null,
     });
+    expect(c.qualify.questions[4]).toMatchObject({
+      kind: 'file',
+      notify: { kind: 'lead_assignee' },
+    });
+  });
+
+  it('lets only a file question tell anyone, and never rules a lead out by a file', () => {
+    const parse = (q: Record<string, unknown>) =>
+      TeammateConfig.safeParse({
+        version: TEAMMATE_CONFIG_VERSION,
+        qualify: { questions: [{ id: 'q1', question: 'Your electric bill', ...q }] },
+      });
+    expect(parse({ kind: 'file', notify: { kind: 'admins' } }).success).toBe(true);
+    expect(parse({ kind: 'file', notify: null }).success).toBe(true);
+    const told = parse({ kind: 'text', notify: { kind: 'admins' } });
+    expect(told.success).toBe(false);
+    expect(told.error?.issues[0]?.message).toBe(
+      'Only a file question tells anyone when it’s answered.',
+    );
+    expect(parse({ kind: 'file', notAFitIf: { answers: ['yes'] } }).success).toBe(false);
+    expect(parse({ kind: 'file', notAFitIf: { below: 3 } }).success).toBe(false);
   });
 });
 
@@ -673,5 +701,31 @@ describe('qualificationOf', () => {
         other: 'x',
       }),
     ).toEqual({ status: 'qualified', missing: [], notAFit: [] });
+  });
+
+  it('waits for a required file until one comes, and never rules a lead out by it', () => {
+    const withBill = applyTeammatePatch(emptyTeammateConfig(), {
+      qualify: {
+        questions: [
+          { id: 'owner', question: 'Do you own the home?', kind: 'yes_no' },
+          {
+            id: 'bill',
+            question: 'A photo of your latest electric bill',
+            kind: 'file',
+            notify: { kind: 'admins' },
+          },
+        ],
+      },
+    }).qualify.questions;
+    expect(qualificationOf(withBill, { owner: 'yes' })).toEqual({
+      status: 'incomplete',
+      missing: ['bill'],
+      notAFit: [],
+    });
+    expect(qualificationOf(withBill, { owner: 'yes', bill: 'Sent “bill.pdf”' })).toEqual({
+      status: 'qualified',
+      missing: [],
+      notAFit: [],
+    });
   });
 });

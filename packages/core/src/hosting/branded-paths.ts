@@ -21,6 +21,8 @@ const PUBLIC_PREFIXES = [
   '/p/',
   '/w/',
   '/hold/',
+  // A link to send the business a video.
+  '/v/',
   // A campaign email's unsubscribe page.
   '/u/',
   '/chat/',

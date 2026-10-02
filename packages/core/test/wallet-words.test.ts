@@ -111,5 +111,7 @@ describe('how much a statement line was for', () => {
     expect(usageQuantityWords(1, 'minute')).toBe('1 minute');
     expect(usageQuantityWords(3, 'segment')).toBe('3 segments');
     expect(usageQuantityWords(1, 'month')).toBe('1 month');
+    expect(usageQuantityWords(1, 'fee')).toBe('once');
+    expect(usageQuantityWords(2, 'fee')).toBe('2 times');
   });
 });

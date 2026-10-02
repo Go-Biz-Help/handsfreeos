@@ -145,6 +145,44 @@ export const onViewAsStarted: EventHandler = async (ctx) => {
   );
 };
 
+/**
+ * A support person, inside a look, started viewing the app as someone in the business (20261018000100). The business
+ * is told as it is of the look: in its own audit log, who from HandsFreeOS and as whom. Not the founder's.
+ */
+export const onTeammateViewStarted: EventHandler = async (ctx) => {
+  const viewId = ctx.event.entityId;
+  const p = ctx.event.payload as {
+    workspaceId?: string;
+    organizationId?: string;
+    personId?: string;
+    by?: string;
+    /** Named by the command, which runs as the support person: the worker can't read people outside a business. */
+    staff?: string;
+    person?: string;
+  };
+  if (!viewId || !p.workspaceId || !p.organizationId || p.by !== 'support') return;
+  const staffName = p.staff || 'HandsFreeOS support';
+  const scope = { workspaceId: p.workspaceId, organizationId: p.organizationId };
+  await asWorker(ctx.db, scope, (tx) =>
+    recordSystemEvent(tx, {
+      type: 'platform.teammate_view_recorded',
+      action: 'platform.teammate_view.started',
+      organizationId: p.organizationId!,
+      workspaceId: p.workspaceId!,
+      entityType: 'teammate_view',
+      entityId: viewId,
+      payload: { staff: staffName, personId: p.personId ?? null },
+      after: {
+        who: `${staffName} (HandsFreeOS support)`,
+        person: p.person ?? '',
+        readOnly: true,
+      },
+      correlationId: ctx.event.correlationId,
+      causationId: ctx.event.id,
+    }),
+  );
+};
+
 export const supportHandlers = {
   'support_ticket.opened': [onSupportTicketOpened],
   'support_ticket.replied': [onSupportTicketReplied],
@@ -152,4 +190,5 @@ export const supportHandlers = {
   'support_staff.invited': [onSupportStaffInvited],
   'support_staff.invitation_resent': [onSupportStaffInvitationResent],
   'platform.view_as_started': [onViewAsStarted],
+  'platform.teammate_view_started': [onTeammateViewStarted],
 };

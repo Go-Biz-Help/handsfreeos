@@ -5,7 +5,7 @@
  * until approved, and a held time someone took before the approval; the quiet-hours reply window; and a website
  * chat visitor, who gets none of the matched customer's record.
  */
-import { localDateOf, weekdayOf } from '@hfos/core/server';
+import { leadCreate, localDateOf, weekdayOf } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -36,6 +36,7 @@ import {
   replyNow,
   briefOf,
   requestAbout,
+  run,
   runsOf,
   saveTeammate,
   setQuietHours,
@@ -44,7 +45,9 @@ import {
   textsTo,
   toolCallsOf,
   type TeammateWorld,
+  useModel,
 } from './ai-team-world';
+import { scriptedAi } from '../src/ai/scripted';
 
 let auto: TeammateWorld;
 let training: TeammateWorld;
@@ -192,6 +195,114 @@ describe('automatic and training', () => {
       expect((await activityOf(t)).counters.repliedToday).toBe(4);
     } finally {
       await t.app.close();
+    }
+  });
+});
+
+describe('asking for a video', () => {
+  it('puts the link it asked for in its draft while training, and it goes out as approved', async () => {
+    useModel(
+      training,
+      scriptedAi([], {
+        teammate: [
+          {
+            when: /grinding noise/i,
+            step: (t) =>
+              !t.results['ask_for_video']
+                ? { calls: [{ name: 'ask_for_video', arguments: {} }] }
+                : {
+                    calls: [
+                      {
+                        name: 'reply',
+                        arguments: {
+                          message:
+                            'Hi, I’m an AI assistant. Could you film the unit running? Tap this link to send it.',
+                        },
+                      },
+                    ],
+                  },
+          },
+        ],
+      }),
+    );
+    const c = await newCustomer(training, 'Vera');
+    const m = await textIn(training, c.phone, 'The unit is making a grinding noise');
+    await replyNow(training, m.conversationId);
+    const [d] = await draftsOf(m.conversationId);
+    const body = d!.preview.message!.body;
+    expect(body).toMatch(
+      /Tap this link to send it\.\nhttp:\/\/localhost:3000\/v\/[A-Za-z0-9_-]{32}$/,
+    );
+    expect(await aiMessages(m.conversationId)).toHaveLength(0);
+    await decide(training, d!.id, 'approve');
+    await drain(training);
+    expect((await aiMessages(m.conversationId)).map((x) => x.body_text)).toEqual([body]);
+  });
+});
+
+describe('asking for a file', () => {
+  it('asks for the file a question wants, with the link for it, on the customer’s lead', async () => {
+    const w = await teammateWorld('tmfile', { status: 'automatic' });
+    try {
+      await saveTeammate(w, {
+        qualify: {
+          enabled: true,
+          questions: [
+            {
+              id: 'bill',
+              question: 'A photo of your latest electric bill',
+              kind: 'file',
+              notify: { kind: 'admins' },
+            },
+          ],
+        },
+      });
+      useModel(
+        w,
+        scriptedAi([], {
+          teammate: [
+            {
+              when: /solar/i,
+              step: (t) =>
+                !t.results['ask_for_file']
+                  ? { calls: [{ name: 'ask_for_file', arguments: { questionId: 'bill' } }] }
+                  : {
+                      calls: [
+                        {
+                          name: 'reply',
+                          arguments: {
+                            message:
+                              'Hi, I’m an AI assistant. Could you send a photo of your latest electric bill? Tap this link to send it.',
+                          },
+                        },
+                      ],
+                    },
+            },
+          ],
+        }),
+      );
+      const c = await newCustomer(w, 'Sol');
+      const { leadId } = await run(w, leadCreate, {
+        workspaceId: w.workspaceId,
+        title: 'Solar panels',
+        personId: c.id,
+      });
+      const m = await textIn(w, c.phone, 'Would solar panels save me money?');
+      await replyNow(w, m.conversationId);
+      // It knows how to get the file, from the question's own line.
+      expect(briefOf(requestAbout(w, 'solar panels')!)).toContain('ask_for_file');
+      const [sent] = await aiMessages(m.conversationId);
+      expect(sent!.body_text).toMatch(
+        /Tap this link to send it\.\nhttp:\/\/localhost:3000\/v\/[A-Za-z0-9_-]{32}$/,
+      );
+      const [link] = await rows<{ asks_for: string; lead_id: string; question_id: string }>(
+        admin(),
+        sql`select asks_for, lead_id, question_id from app.video_links
+            where conversation_id = ${m.conversationId}`,
+      );
+      expect(link).toEqual({ asks_for: 'file', lead_id: leadId, question_id: 'bill' });
+    } finally {
+      await w.app.close();
     }
   });
 });

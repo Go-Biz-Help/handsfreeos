@@ -317,6 +317,37 @@ export const TEAMMATE_TOOLS = [
     skill: 'qualify',
     autonomy: 'auto',
   }),
+  // 20261018000400: a question they answer with a file, like a photo or PDF of their electric bill.
+  define({
+    name: 'ask_for_file',
+    description:
+      'For a qualifying question that asks for a file (a photo or PDF of a bill, say), send them a link to send it: whatever they send through it goes on their lead and answers the question. In your reply, say what to send and ask them to use the link. The link is added at the end of your reply for you, so never write one yourself.',
+    input: z.strictObject({
+      questionId: z
+        .string()
+        .trim()
+        .min(1)
+        .max(40)
+        .describe('A file question’s id, from the context'),
+    }),
+    skill: 'qualify',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'save_file',
+    description:
+      'When the customer texts or emails what a file question asks for (a photo of the bill, a PDF), save it: the newest photo or PDF they sent in this conversation goes on their lead and answers the question. Not for a file they sent through the link: that is saved already.',
+    input: z.strictObject({
+      questionId: z
+        .string()
+        .trim()
+        .min(1)
+        .max(40)
+        .describe('A file question’s id, from the context'),
+    }),
+    skill: 'qualify',
+    autonomy: 'auto',
+  }),
   define({
     name: 'move_stage',
     description:
@@ -436,6 +467,14 @@ export const TEAMMATE_TOOLS = [
       fit: z.enum(['yes', 'no', 'unsure']).describe('Whether it looks like work the business does'),
       askedFor: optionalText(300).describe('The better photo you asked them for, if you did'),
     }),
+    skill: 'photos',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'ask_for_video',
+    description:
+      'When a video would show the problem better than words or a photo (a noise, a leak, something that moves or won’t start), send them a link to send one at full quality: a video sent by text comes through blurry. In your reply, say what to film and ask them to use the link. The link is added at the end of your reply for you, so never write one yourself.',
+    input: z.strictObject({}),
     skill: 'photos',
     autonomy: 'auto',
   }),
@@ -651,6 +690,7 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
  */
 export const STRANGER_IN_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'record_answers',
+  'save_file',
   'move_stage',
   'add_note',
   'note_photos',
@@ -661,6 +701,18 @@ export const STRANGER_IN_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
 export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'send_verification_code',
   'check_verification_code',
+]);
+
+/** Only in a conversation by text: the link to send a video, or a file, goes by text (20261018000300). */
+export const TEXTING_ONLY: ReadonlySet<TeammateToolName> = new Set([
+  'ask_for_video',
+  'ask_for_file',
+]);
+
+/** Only while a qualifying question asks for a file (20261018000400). */
+export const FILE_QUESTION_ONLY: ReadonlySet<TeammateToolName> = new Set([
+  'ask_for_file',
+  'save_file',
 ]);
 
 /** Only on a live phone call (M18 step 5). */
@@ -679,6 +731,7 @@ export const OUTBOUND_CALL_ONLY: ReadonlySet<TeammateToolName> = new Set([
 export const PHONE_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'no_reply',
   'note_photos',
+  'save_file',
   'send_verification_code',
   'check_verification_code',
 ]);
@@ -688,6 +741,8 @@ export interface TeammateToolOptions {
   readonly unverifiedChat?: boolean;
   /** And its customer was on file already, not added by the chat. */
   readonly strangerInChat?: boolean;
+  /** It's answering a conversation by text. */
+  readonly texting?: boolean;
   /** It's answering a live phone call (M18 step 5). */
   readonly phone?: boolean;
   /** It placed this call itself, and why (AI outbound calls). */
@@ -722,6 +777,8 @@ export function teammateTools(
     if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
     if (t.name === 'book_repeating' && !config.book.repeats) return false;
     if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
+    if (FILE_QUESTION_ONLY.has(t.name) && !config.qualify.questions.some((q) => q.kind === 'file'))
+      return false;
     if (OUTBOUND_CALL_ONLY.has(t.name))
       return (
         !!opts.phone &&
@@ -729,6 +786,7 @@ export function teammateTools(
         (t.name !== 'confirm_visit' || opts.outbound === 'confirm_visit')
       );
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
+    if (TEXTING_ONLY.has(t.name)) return !!opts.texting && !opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
     if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
     if (opts.unverifiedChat && opts.strangerInChat && STRANGER_IN_CHAT_HIDDEN.has(t.name))

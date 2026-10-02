@@ -1,5 +1,5 @@
 'use client';
-import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
+import { formatClock, formatPhone, money, normalizePhone } from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -60,7 +60,7 @@ import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
-import { RcsCard } from './rcs-card';
+import { RcsCard, type RcsPrefill } from './rcs-card';
 import { ReleaseNumberDialog } from './release-number-dialog';
 import { SetRow } from './set-row';
 import { TestTextDialog } from './test-text-dialog';
@@ -163,6 +163,8 @@ export function TextingPage({
   }, [busy, router]);
   const [fixing, setFixing] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  // Just sent a registration with fees to pay: off to the payment page as soon as it is made.
+  const [goPay, setGoPay] = useState(false);
   // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
   // about getting a first number working — so it is local state that drops back into the same buy screen.
   const [adding, setAdding] = useState(false);
@@ -288,6 +290,20 @@ export function TextingPage({
     );
 
   const step = status.nextStep;
+  /*
+   * A local number's texting registration doesn't need the number here, so a business without a working one
+   * (it is moving its own here, or hasn't got one yet) can send it now and text the day the number lands.
+   * Not for a toll-free number on its way: its verification is for that number, and waits for it.
+   */
+  const arrivingPort = status.numbers.find((n) => n.status === 'porting');
+  const arrivingImport = imports.find((i) => i.status === 'waiting');
+  const arriving = arrivingPort ?? arrivingImport ?? null;
+  const ahead =
+    (step === 'buy_number' || step === 'porting') &&
+    arriving?.numberType !== 'toll_free' &&
+    (status.canManage || status.localRegistrationStep !== 'submit_registration')
+      ? { arriving: arriving ? arriving.display : null }
+      : null;
   const current =
     step === 'buy_number' || step === 'provisioning' || step === 'releasing' || step === 'porting'
       ? 0
@@ -314,6 +330,9 @@ export function TextingPage({
           </div>
         ) : null}
         <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
+        {status.textingFees?.due && !fixing && !ahead ? (
+          <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+        ) : null}
         {step === 'buy_number' ? (
           <NumberStep
             workspaceId={workspaceId}
@@ -350,7 +369,11 @@ export function TextingPage({
             draft={registrationDraft}
             surfaces={surfaces}
             onBack={fixing ? () => setFixing(false) : undefined}
-            onSubmitted={() => setFixing(false)}
+            feesPaidFor={status.textingFees?.paidFor ?? null}
+            onSubmitted={(fee) => {
+              setFixing(false);
+              if (fee) setGoPay(true);
+            }}
           />
         ) : step === 'rejected' ? (
           <Rejected
@@ -369,6 +392,21 @@ export function TextingPage({
         )}
         {sentSheet}
       </Card>
+      {ahead ? (
+        <RegisterAhead
+          workspaceId={workspaceId}
+          businessName={businessName}
+          status={status}
+          me={me}
+          surfaces={surfaces}
+          draft={registrationDraft}
+          submission={submission}
+          arriving={ahead.arriving}
+          onViewSent={() => setShowSent(true)}
+          goPay={goPay}
+          onFee={() => setGoPay(true)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -408,6 +446,25 @@ function letterProfileOf(
     city: text(address['city']),
     state: text(address['state']),
     zip: text(address['postalCode']),
+  };
+}
+
+/**
+ * What the RCS request form starts from: what the business already told the carriers for texting, which the
+ * RCS review checks the same things against. The business number stands in for a contact phone.
+ */
+function rcsPrefillOf(
+  submission: Record<string, unknown> | null,
+  number: PhoneNumberInfo,
+): RcsPrefill {
+  const s = submission ?? {};
+  const contact = (s['contact'] ?? {}) as Record<string, unknown>;
+  return {
+    website: text(s['website']),
+    privacyUrl: text(s['privacyPageUrl']) || text(s['policyUrl']),
+    termsUrl: text(s['termsPageUrl']) || text(s['termsUrl']),
+    phone: number.display,
+    email: text(contact['email']),
   };
 }
 
@@ -890,13 +947,19 @@ function Review({
   status,
   businessName,
   onViewSent,
+  ahead,
 }: {
   status: Status;
   businessName: string;
   onViewSent: () => void;
+  /**
+   * Sent ahead of the number: the business is moving its own here, or has none yet. Always 10DLC, and the
+   * first row says where the number is rather than that it was bought.
+   */
+  ahead?: { display: string | null };
 }) {
-  const n = status.number!;
-  const local = n.numberType === 'local';
+  const n = ahead ? null : status.number!;
+  const local = !n || n.numberType === 'local';
   const regs = status.registrations;
   const submitted = regs
     .map((r) => r.submittedAt)
@@ -907,7 +970,9 @@ function Review({
     latestOf(regs, 'a2p_trust_product'),
     latestOf(regs, 'a2p_brand'),
   ];
-  const brandState = stateOf(brand);
+  // Its fees not paid yet (0105): nothing has gone to the carriers, so nothing is in review either.
+  const unpaid = !!status.textingFees?.due && local;
+  const brandState = unpaid ? 'next' : stateOf(brand);
   const brandApproved = brand
     .map((r) => r?.approvedAt)
     .filter(Boolean)
@@ -916,19 +981,35 @@ function Review({
   return (
     <div data-testid="review-step">
       <h2 className="text-lg font-semibold tracking-tight">
-        The carriers are reviewing {businessName}
+        {unpaid
+          ? `${businessName}’s registration goes to the carriers once it’s paid`
+          : `The carriers are reviewing ${businessName}`}
       </h2>
       <p className="mb-5 mt-1 text-[13px] text-text-2">
         {local
           ? 'Local numbers go through a brand and campaign registration that usually takes 1 to 3 weeks.'
           : 'Toll-free verification usually takes a few days.'}{' '}
-        We check every 15 minutes and email you when texting is on. Calls already work.
+        {ahead
+          ? 'We check every 15 minutes and email you when they approve it. Your number can text as soon as it’s here.'
+          : 'We check every 15 minutes and email you when texting is on. Calls already work.'}
       </p>
       <div
         className="overflow-hidden rounded-card border border-border"
         data-testid="review-checklist"
       >
-        <ReviewRow title="Number bought" sub={`${n.display} · calls ring now`} state="done" />
+        {n ? (
+          <ReviewRow title="Number bought" sub={`${n.display} · calls ring now`} state="done" />
+        ) : (
+          <ReviewRow
+            title={ahead?.display ? 'Number on its way' : 'Number'}
+            sub={
+              ahead?.display
+                ? `${ahead.display} · texts can go out the day it’s here`
+                : 'Get one or bring yours whenever you’re ready'
+            }
+            state="next"
+          />
+        )}
         {local ? (
           <>
             <ReviewRow
@@ -959,15 +1040,250 @@ function Review({
         <Button variant="secondary" onClick={onViewSent}>
           View what we sent
         </Button>
-        <Button variant="secondary" disabled title="Texting isn’t approved yet">
-          Text me a test
-        </Button>
+        {n ? (
+          <Button variant="secondary" disabled title="Texting isn’t approved yet">
+            Text me a test
+          </Button>
+        ) : null}
         <span className="flex-1" />
         {submitted ? (
           <span className="text-xs text-text-3">Submitted {formatDate(submitted)}</span>
         ) : null}
       </div>
     </div>
+  );
+}
+
+type Fee = NonNullable<NonNullable<Status['textingFees']>['due']>;
+
+/**
+ * A texting fee waiting on the business (0105): a registration's fees, which hold it back from the carriers, or a
+ * month of the campaign the card didn't pay. The page is being made, is waiting to be paid, or the card said no
+ * and the business pays with another. Back from Stripe, it waits for Stripe's own word, the only one believed.
+ */
+function TextingFeeDue({
+  workspaceId,
+  fee,
+  goPay,
+}: {
+  workspaceId: string;
+  fee: Fee;
+  /** Just sent: go to the page as soon as it is made. */
+  goPay: boolean;
+}) {
+  const router = useRouter();
+  const [paying, setPaying] = useState(false);
+  const [back, setBack] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('fees') === 'paid') setBack(true);
+  }, []);
+  const go = goPay || paying;
+  useEffect(() => {
+    if (go && fee.status === 'open' && fee.checkoutUrl) window.location.assign(fee.checkoutUrl);
+  }, [go, fee.status, fee.checkoutUrl]);
+  const waiting =
+    fee.status === 'pending' ||
+    (back && fee.status === 'open') ||
+    (paying && fee.status !== 'open');
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => router.refresh(), 2500);
+    return () => clearInterval(timer);
+  }, [waiting, router]);
+  // A page that never comes (Stripe said no to making it): stop waiting, and show what the fee now says.
+  useEffect(() => {
+    if (!paying) return;
+    const timer = setTimeout(() => setPaying(false), 30_000);
+    return () => clearTimeout(timer);
+  }, [paying]);
+
+  async function payAgain() {
+    setPaying(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/texting_fee.pay', {
+          body: { workspaceId, textingFeeId: fee.id },
+        }),
+      );
+      if (out.checkoutUrl) window.location.assign(out.checkoutUrl);
+      else router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setPaying(false);
+    }
+  }
+
+  const amount = money(fee.amountCents);
+  const month = fee.purpose === 'month';
+  const what = month
+    ? `this month’s ${amount} for your texting campaign`
+    : `the ${amount} the carriers charge for your registration (${fee.lines.map((l) => `${l.name} ${money(l.cents)}`).join(', ')})`;
+  return (
+    <Callout
+      tone={fee.status === 'failed' || fee.problem ? 'warning' : 'info'}
+      icon={fee.status === 'failed' || fee.problem ? CircleAlert : Clock}
+      className="mb-[18px] mt-1"
+      data-testid="texting-fee-due"
+      data-status={fee.status}
+      action={
+        waiting ? null : fee.status === 'open' && fee.checkoutUrl ? (
+          <Button
+            size="sm"
+            onClick={() => window.location.assign(fee.checkoutUrl!)}
+            data-testid="texting-fee-pay"
+          >
+            Pay {amount}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={paying}
+            onClick={() => void payAgain()}
+            data-testid="texting-fee-pay-again"
+          >
+            Pay {amount} with another card
+          </Button>
+        )
+      }
+    >
+      {waiting ? (
+        <span className="flex items-center gap-2" role="status">
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          {back && fee.status === 'open'
+            ? 'Confirming your payment with Stripe…'
+            : 'Making your payment page…'}
+        </span>
+      ) : fee.problem ? (
+        `We couldn’t take ${what}: ${fee.problem} ${month ? 'Your texts keep going out.' : 'Nothing goes to the carriers until it’s paid.'}`
+      ) : (
+        `Pay ${what} to send it to the carriers. They’re passed on at cost, and nothing goes to the carriers until they’re paid.`
+      )}
+    </Callout>
+  );
+}
+
+/**
+ * The 10DLC registration sent ahead of the number: below the number screens while a business moves its own
+ * number here, or before it has one. The carriers take 1 to 3 weeks either way, so the weeks a port or a
+ * transfer takes needn't be added to them. It follows the registration through review the same way the main
+ * screen does once there is a number, and hands over to it when the number lands.
+ */
+function RegisterAhead({
+  workspaceId,
+  businessName,
+  status,
+  me,
+  surfaces,
+  draft,
+  submission,
+  arriving,
+  onViewSent,
+  goPay,
+  onFee,
+}: {
+  workspaceId: string;
+  businessName: string;
+  status: Status;
+  me: { fullName: string; email: string };
+  surfaces: HostedSurfaces;
+  draft: Record<string, unknown> | null;
+  submission: Record<string, unknown> | null;
+  /** The number on its way here, when there is one. */
+  arriving: string | null;
+  onViewSent: () => void;
+  goPay: boolean;
+  /** Sent with fees to pay. */
+  onFee: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const step = status.localRegistrationStep;
+  const close = () => {
+    setOpen(false);
+    setFixing(false);
+  };
+
+  let body: ReactNode;
+  if (open || fixing)
+    body = (
+      <A2pWizard
+        workspaceId={workspaceId}
+        businessName={businessName}
+        number={arriving ? { numberType: 'local', display: arriving } : null}
+        me={me}
+        initial={fixing ? submission : null}
+        draft={draft}
+        surfaces={surfaces}
+        feesPaidFor={status.textingFees?.paidFor ?? null}
+        onBack={close}
+        onSubmitted={(fee) => {
+          close();
+          if (fee) onFee();
+        }}
+      />
+    );
+  else if (step === 'awaiting_approval')
+    body = (
+      <Review
+        status={status}
+        businessName={businessName}
+        onViewSent={onViewSent}
+        ahead={{ display: arriving }}
+      />
+    );
+  else if (step === 'rejected')
+    body = (
+      <Rejected
+        workspaceId={workspaceId}
+        status={status}
+        businessName={businessName}
+        onFix={() => setFixing(true)}
+        onViewSent={onViewSent}
+        ahead
+      />
+    );
+  else if (step === 'ready')
+    body = (
+      <Callout tone="info" icon={Check} data-testid="register-ahead-approved">
+        Texting is approved.{' '}
+        {arriving
+          ? `${arriving} can text customers as soon as it’s here.`
+          : 'Any local number you get or bring here can text customers as soon as it’s working.'}
+      </Callout>
+    );
+  else
+    body = (
+      <>
+        <h2 className="text-lg font-semibold tracking-tight">Register for texting now</h2>
+        <p className="mt-1 text-[13px] text-text-2">
+          {arriving
+            ? `The carriers take 1 to 3 weeks to approve a local number for texting, and that doesn’t have to wait for ${arriving}. Send your business details now and it can text the day it’s here.`
+            : 'Keeping a local number you already have, or getting one soon? The carriers take 1 to 3 weeks to approve a local number for texting, and that doesn’t need the number here yet. Send your business details now and it can text the day it arrives.'}
+        </p>
+        {arriving ? null : (
+          <p className="mt-1.5 text-xs text-text-3">
+            Toll-free numbers are verified once you have them, which usually takes a few days.
+          </p>
+        )}
+        {status.canManage ? (
+          <div className="mt-4">
+            <Button onClick={() => setOpen(true)} data-testid="register-ahead-start">
+              {draft ? 'Pick up the registration' : 'Start the registration'}
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-text-3">Owners and admins can send it.</p>
+        )}
+      </>
+    );
+  return (
+    <Card className="max-w-[820px] p-5 md:p-7" data-testid="register-ahead" data-step={step}>
+      {status.textingFees?.due && !open && !fixing ? (
+        <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+      ) : null}
+      {body}
+    </Card>
   );
 }
 
@@ -984,13 +1300,18 @@ function Rejected({
   businessName,
   onFix,
   onViewSent,
+  ahead = false,
 }: {
   workspaceId: string;
   status: Status;
   businessName: string;
   onFix: () => void;
   onViewSent: () => void;
+  /** Sent ahead of the number, so it is 10DLC and there are no calls yet to keep working. */
+  ahead?: boolean;
 }) {
+  const local = ahead || status.number?.numberType === 'local';
+  const meanwhile = ahead ? '' : ', and calls keep working';
   const bad = status.registrations.find((r) => r.status === 'rejected' || r.status === 'failed');
   const reason = bad?.rejectionReason ?? null;
   const optIn = !!reason && /opt|consent|agree|permission/i.test(reason);
@@ -1003,11 +1324,7 @@ function Rejected({
     </Callout>
   );
   // A local number's business profile or brand turned down by the carriers: support corrects it with them.
-  if (
-    status.number?.numberType === 'local' &&
-    bad?.status === 'rejected' &&
-    PROFILE_STEPS.has(bad.kind)
-  )
+  if (local && bad?.status === 'rejected' && PROFILE_STEPS.has(bad.kind))
     return (
       <div data-testid="rejected-step">
         {callout}
@@ -1016,6 +1333,7 @@ function Rejected({
           status={status}
           businessName={businessName}
           onViewSent={onViewSent}
+          ahead={ahead}
         />
       </div>
     );
@@ -1025,8 +1343,8 @@ function Rejected({
       <h2 className="text-lg font-semibold tracking-tight">What to fix</h2>
       <p className="mb-4 mt-1 text-[13px] text-text-2">
         {optIn
-          ? 'Add a line to your booking and contact forms, then send the details again. Nothing else changes, and calls keep working.'
-          : 'Change what the carriers asked about, then send the details again. Nothing else changes, and calls keep working.'}
+          ? `Add a line to your booking and contact forms, then send the details again. Nothing else changes${meanwhile}.`
+          : `Change what the carriers asked about, then send the details again. Nothing else changes${meanwhile}.`}
       </p>
       {optIn ? (
         <div className="mb-[18px] rounded-[10px] bg-card-2 p-3">
@@ -1059,11 +1377,13 @@ function SupportFix({
   status,
   businessName,
   onViewSent,
+  ahead = false,
 }: {
   workspaceId: string;
   status: Status;
   businessName: string;
   onViewSent: () => void;
+  ahead?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -1094,8 +1414,8 @@ function SupportFix({
       <p className="mb-4 mt-1 text-[13px] text-text-2">
         The carriers check {businessName}’s brand against the business profile HandsFreeOS keeps for
         you with them, and that profile can’t be changed from this page. Contact HandsFreeOS support
-        and share their reason. Once support tells you it’s fixed, send it again. Calls keep
-        working.
+        and share their reason. Once support tells you it’s fixed, send it again.
+        {ahead ? null : ' Calls keep working.'}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button loading={busy} onClick={() => void sendAgain()} data-testid="resend-registration">
@@ -1394,7 +1714,13 @@ function Configured({
           </div>
           <p className="mt-1 text-[13px] text-text-2">
             Carriers only deliver business texts from registered senders.
+            {status.textingFees?.monthlyCents
+              ? ` Your texting campaign is ${money(status.textingFees.monthlyCents)} a month, the carriers’ fee passed on at cost and charged to the card you paid with.`
+              : ''}
           </p>
+          {status.textingFees?.month ? (
+            <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.month} goPay={false} />
+          ) : null}
           <div className="mt-3.5">
             {regRows.map(([title, date], i) => (
               <SetRow
@@ -1423,6 +1749,8 @@ function Configured({
           workspaceId={workspaceId}
           businessName={businessName}
           sender={status.rcsSender}
+          request={status.rcsRequest}
+          prefill={rcsPrefillOf(latestSubmission(regs), n)}
           numbers={status.numbers}
           canManage={status.canManage}
         />

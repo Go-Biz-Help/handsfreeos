@@ -49,4 +49,11 @@ paths = ['''pnpm-lock\.yaml''', '''\.gitleaks\.toml''', '''design/.*\.dc\.html$'
 # Opinly's publishable pixel key (apps/site/src/components/opinly.tsx, and an earlier opinly-pixel.tsx in this
 # repository's history). Public by design: it can only send analytics events, and Opinly has it pasted into every
 # page's HTML. Only this exact value is let through — the secret sk- key is a different value and is still caught.
-regexes = ['''^pk-4URAEI_KUurk_6J8t-fX_Hg2OjhEeT1fjYPs4h5$''']
+#
+# The usage rate card's keys (core's USAGE_KEYS, mirrored in SQL), like `a2p.brand.vetting`: lowercase words joined
+# by dots after `key:`, which the generic rule reads as a random token. Names, never secrets, and they come back
+# every time someone edits a rate-card line, so the shape is let through rather than each commit's fingerprint.
+regexes = [
+  '''^pk-4URAEI_KUurk_6J8t-fX_Hg2OjhEeT1fjYPs4h5$''',
+  '''^(number|sms|mms|voice|ai|speech|a2p)\.[a-z0-9_]+(\.[a-z0-9_]+)*$''',
+]

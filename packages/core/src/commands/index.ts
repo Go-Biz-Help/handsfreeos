@@ -4,6 +4,7 @@ import { reviewCommands } from './review';
 import { templateCommands } from './template';
 import { formResponseCommands } from './form-response';
 import { supportStaffCommands } from './support-staff';
+import { teammateViewCommands } from './teammate-view';
 import { supportTicketCommands } from './support';
 import { ideaCommands } from './ideas';
 import { activityDelete, activityLog, activityUpdate } from './activity';
@@ -84,6 +85,8 @@ import {
   messageUpdateStatus,
   personSetSmsConsent,
 } from './message';
+import { videoLinkCreate, videoLinkReceiveUpload, videoLinkStartUpload } from './video-link';
+import { fileFinishCopy, fileLinkCreate, leadSaveFileAnswer } from './file-answer';
 import {
   phoneNumberActivate,
   phoneNumberBuy,
@@ -123,6 +126,8 @@ import { numberImportCommands } from './number-import';
 import { twilioConnectionCommands } from './twilio-connection';
 import { telephonyAccountCommands } from './telephony-account';
 import { rcsCommands } from './rcs';
+import { rcsRequestCommands } from './rcs-request';
+import { textingFeeCommands } from './texting-fee';
 import {
   emailAddressCreate,
   emailAddressReassign,
@@ -581,11 +586,15 @@ export {
   waitlistJoinOnline,
 };
 export { hashInvitationToken } from './invitation.accept';
+export { teammateViewEnd, teammateViewStart } from './teammate-view';
 export { INVITATION_TTL_MS } from './membership.invite';
 export { DEFAULT_STAGES } from './pipeline.create';
 
 /** Explicit list on purpose: greppable, bundler-safe, and the order the docs list them in. */
 export { emailReceive, emailSuppressionRecord };
+export { videoLinkCreate, videoLinkStartUpload, videoLinkReceiveUpload };
+export { videoLinkTokenHash, videoUploadPath, fileUploadPath } from './video-link';
+export { fileLinkCreate, leadSaveFileAnswer, fileFinishCopy };
 
 export const commands: readonly CommandDef[] = [
   organizationCreate,
@@ -684,6 +693,12 @@ export const commands: readonly CommandDef[] = [
   messageReceive,
   messageUpdateStatus,
   messageAttachMedia,
+  videoLinkCreate,
+  videoLinkStartUpload,
+  videoLinkReceiveUpload,
+  fileLinkCreate,
+  leadSaveFileAnswer,
+  fileFinishCopy,
   personSetSmsConsent,
   messageRecordOptOut,
   callStart,
@@ -915,6 +930,8 @@ export const commands: readonly CommandDef[] = [
   ...migrationCommands,
   ...supportTicketCommands,
   ...supportStaffCommands,
+  // Viewing the app as a teammate, read-only (20261018000100).
+  ...teammateViewCommands,
   ...formCommands,
   ...templateCommands,
   ...reviewCommands,
@@ -941,6 +958,8 @@ export const commands: readonly CommandDef[] = [
   ...ideaCommands,
   // A business's RCS sender: connected, paused, looked at again and let go (0103).
   ...rcsCommands,
+  ...rcsRequestCommands,
+  ...textingFeeCommands,
   // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
   addonInstall,
   addonEnable,
@@ -1025,6 +1044,8 @@ export * from './support';
 export * from './support-staff';
 export * from './port';
 export * from './rcs';
+export * from './rcs-request';
+export * from './texting-fee';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';

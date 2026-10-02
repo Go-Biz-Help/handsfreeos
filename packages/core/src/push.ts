@@ -9,6 +9,7 @@
  *   whole. `customerWaiting` is a new message nobody has answered yet, as it arrives; `missedCall` is a call nobody
  *   took, and the voicemail if one was left; `urgent` is what can't wait, a customer left waiting past the reply
  *   threshold among it. `supportTickets` is for HandsFreeOS's own support people alone: a new support ticket.
+ *   `qualifying` is the AI teammate's: a lead qualifies, or a customer sends a file a question asked for.
  * - **Categories and buttons:** what each kind of push offers. The buttons that reach a customer or approve
  *   something (Reply, Let AI handle, Let HandsFreeOS handle, Approve) need the phone unlocked first; Snooze 1 hour
  *   doesn't; Call, Review and Open open the app.
@@ -41,6 +42,11 @@ export const PUSH_SWITCHES = [
   'addons',
   /** HandsFreeOS's support desk: someone wrote to support. Only its own support people ever get these. */
   'supportTickets',
+  /**
+   * The AI teammate's qualifying (20261018000400): a lead qualifies, or a customer sends the file a question asks
+   * for. Only to the people the teammate's settings name ("Tell").
+   */
+  'qualifying',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -68,6 +74,7 @@ export const PushSwitches = z.object({
   connections: z.boolean(),
   addons: z.boolean(),
   supportTickets: z.boolean(),
+  qualifying: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
@@ -185,6 +192,12 @@ export const PUSH_CATEGORIES = {
    * this build has one (the add-on's `ui.phone`), and the web until then.
    */
   addon_alert: { switch: 'addons', buttons: ['open'] },
+  /**
+   * The AI teammate's qualifying (20261018000400), to whoever its settings name: a customer sent the file a question
+   * asks for, like a photo of their electric bill; or a lead qualified. Open goes to the lead.
+   */
+  customer_file: { switch: 'qualifying', buttons: ['open'] },
+  lead_qualified: { switch: 'qualifying', buttons: ['open'] },
   /**
    * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
    * no business; Open goes to the ticket on the support desk.

@@ -3,6 +3,8 @@ import { normalizePhone } from '../crm/phone';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
 import { isoDateTime, uuid } from './common';
 import { RcsSenderOut } from './rcs-sender';
+import { RcsRequestOut } from './rcs-request';
+import { TextingFeesOut } from './texting-fee';
 
 /** A number already in E.164 (provider webhooks, numbers picked from search results). */
 export const e164Phone = z
@@ -296,7 +298,14 @@ export const RegistrationSubmitInput = z
     path: ['business', 'messageSamples'],
     error: 'Local numbers need at least two example texts.',
   });
-export const RegistrationSubmitOutput = z.object({ registrationIds: z.array(uuid) });
+export const RegistrationSubmitOutput = z.object({
+  registrationIds: z.array(uuid),
+  /**
+   * What sending it costs, when anything (0105): the 10DLC steps wait until it is paid. Read
+   * `phone.setup_status` (`textingFees.due`) for the payment page. Null when nothing is owed.
+   */
+  fee: z.object({ id: uuid, amountCents: z.int() }).nullable(),
+});
 
 /**
  * The registration wizard's answers as the business types them, saved as it goes. Loose on purpose: a half-typed
@@ -389,12 +398,29 @@ export const PhoneSetupStatusOutput = z.object({
   messagingReady: z.boolean(),
   voiceReady: z.boolean(),
   nextStep: phoneNextStep,
+  /**
+   * Where the 10DLC registration stands on its own, whatever the numbers are doing: `submit_registration`,
+   * `awaiting_approval`, `rejected` or `ready`. A business can send it before it has a number (while its own is
+   * being moved here), and `nextStep` stays about the number until there is one, so this is what says how the
+   * registration is going in the meantime.
+   */
+  localRegistrationStep: phoneNextStep,
   settings: TelephonySettings,
   timezone: z.string(),
   quiet: QuietState,
   canManage: z.boolean(),
   /** The business's RCS sender (0103), or null when it has none connected. */
   rcsSender: RcsSenderOut.nullable(),
+  /**
+   * The business asking HandsFreeOS for an RCS sender and paying for it (0104), or null when it hasn't. Only
+   * people who manage the business's channels see it; for everybody else it is null.
+   */
+  rcsRequest: RcsRequestOut.nullable(),
+  /**
+   * What registering for texting costs the business (0105): fees waiting to be paid, and the campaign's month.
+   * Null for people who can't manage the channels.
+   */
+  textingFees: TextingFeesOut.nullable(),
 });
 
 /**

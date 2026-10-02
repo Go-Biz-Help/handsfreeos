@@ -52,6 +52,9 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   connection: 24 * HOUR_S,
   // A late duty is still late tomorrow, and Home has it either way.
   addon_alert: 24 * HOUR_S,
+  // A bill or a photo a customer sent for a qualifying question, or a lead that qualified: on the lead tomorrow too.
+  customer_file: 24 * HOUR_S,
+  lead_qualified: 24 * HOUR_S,
   // Someone waiting on HandsFreeOS, like a customer's message to a business; by tomorrow the desk's queue has it.
   support_ticket: 12 * HOUR_S,
 };

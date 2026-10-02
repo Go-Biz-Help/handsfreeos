@@ -74,7 +74,7 @@ describe('the rate card mirrors core', () => {
         sql`select pg_get_constraintdef(oid) as def from pg_constraint
             where conrelid = 'platform.usage_rates'::regclass and conname = 'usage_rates_key_check'`,
       );
-      const live = [...(check?.def ?? '').matchAll(/'([a-z_.]+)'::text/g)].map((m) => m[1]!);
+      const live = [...(check?.def ?? '').matchAll(/'([a-z0-9_.]+)'::text/g)].map((m) => m[1]!);
       expect(live.length).toBeGreaterThan(0);
       expect(new Set(live).size).toBe(live.length);
       expect([...live].sort()).toEqual([...USAGE_KEYS].sort());

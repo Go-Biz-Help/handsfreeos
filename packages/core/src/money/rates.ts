@@ -68,14 +68,36 @@ export const USAGE_KEYS = [
    * that silently bills an unknown one at nothing is how a month of AI goes out free.
    */
   'ai.unknown.mtok',
+  // ---------- texting registration for local numbers (A2P 10DLC) ----------
+  // The Campaign Registry's and the carriers' fees, which Twilio passes on to us. Passed on at cost
+  // (`PASS_THROUGH_KEYS`), and charged when they happen rather than waiting for the nightly reconciliation.
+  /** Registering the business as a brand, once. A brand sent again after a rejection isn't charged again. */
+  'a2p.brand.registration',
+  /** The extra (secondary) check on a brand, once. Skipped for a business sending under 1,000 texts a month. */
+  'a2p.brand.vetting',
+  /** A person reviewing the campaign, each time one is sent: a campaign sent again after a rejection pays again. */
+  'a2p.campaign.vetting',
+  /** The campaign itself, a month at a time from the day it's approved, for as long as it stays registered. */
+  'a2p.campaign.month',
 ] as const;
 export type UsageKey = (typeof USAGE_KEYS)[number];
 
 export const isUsageKey = (value: unknown): value is UsageKey =>
   typeof value === 'string' && (USAGE_KEYS as readonly string[]).includes(value);
 
-/** What a quantity counts. The unit is the card's, not the caller's: passing minutes for an `mtok` key is a bug. */
-export const USAGE_UNITS = ['month', 'segment', 'message', 'minute', 'mtok', 'kchar'] as const;
+/**
+ * What a quantity counts. The unit is the card's, not the caller's: passing minutes for an `mtok` key is a bug.
+ * A `fee` is a one-off charge, like registering a business for texting.
+ */
+export const USAGE_UNITS = [
+  'month',
+  'segment',
+  'message',
+  'minute',
+  'mtok',
+  'kchar',
+  'fee',
+] as const;
 export type UsageUnit = (typeof USAGE_UNITS)[number];
 
 export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
@@ -96,7 +118,23 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'speech.recording.minute': 'minute',
   'speech.voice.kchar': 'kchar',
   'ai.unknown.mtok': 'mtok',
+  'a2p.brand.registration': 'fee',
+  'a2p.brand.vetting': 'fee',
+  'a2p.campaign.vetting': 'fee',
+  'a2p.campaign.month': 'month',
 };
+
+/**
+ * The lines passed on at exactly what they cost us, with no markup (Chris, October 2026). They are fees the
+ * carriers set and anybody can look up, so a business pays what Twilio charged us and nothing more. Every
+ * other line keeps the 1.5× promise.
+ */
+export const PASS_THROUGH_KEYS: readonly UsageKey[] = [
+  'a2p.brand.registration',
+  'a2p.brand.vetting',
+  'a2p.campaign.vetting',
+  'a2p.campaign.month',
+];
 
 /**
  * How a length is rounded up before it is priced. Twilio bills voice **per whole minute**, so a 20-second call
@@ -367,6 +405,38 @@ export const SEED_RATES: readonly {
     roundUpTo: 'none',
     notes:
       'A model with no line of its own: priced high on purpose, so one gets noticed and added.',
+  },
+  {
+    key: 'a2p.brand.registration',
+    costMicros: 4_500_000,
+    markupBp: 10_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'A2P 10DLC brand registration, $4.50 once. Passed on at cost.',
+  },
+  {
+    key: 'a2p.brand.vetting',
+    costMicros: 41_500_000,
+    markupBp: 10_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'A2P 10DLC secondary vetting, $41.50 once, over 1,000 texts a month. Passed on at cost.',
+  },
+  {
+    key: 'a2p.campaign.vetting',
+    costMicros: 15_000_000,
+    markupBp: 10_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'A2P 10DLC campaign vetting, $15 each time a campaign is sent. Passed on at cost.',
+  },
+  {
+    key: 'a2p.campaign.month',
+    costMicros: 10_000_000,
+    markupBp: 10_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'A2P 10DLC campaign, $10 a month for a standard use case. Passed on at cost.',
   },
 ];
 

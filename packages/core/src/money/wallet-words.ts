@@ -69,6 +69,8 @@ export function usageQuantityWords(quantity: number, unit: string): string {
       return count(q, 'segment', 'segments');
     case 'message':
       return count(q, 'message', 'messages');
+    case 'fee':
+      return q === 1 ? 'once' : `${q.toLocaleString('en-US')} times`;
     default:
       return `${q} ${unit}`;
   }

@@ -28,6 +28,7 @@ import {
   type MailMove,
   type RichDraft,
   type StageRef,
+  VIDEO_LINK_WORDS,
 } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -91,6 +92,8 @@ import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
 import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
+import { api, errorMessage, unwrap } from '@/lib/api';
+import { config } from '@/lib/config';
 import { useNetwork } from '@/lib/network';
 
 type Row =
@@ -197,6 +200,9 @@ function Thread() {
   const current: ComposerMode = mode ?? channel;
   // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
   const canRich = current === 'sms' && !editing;
+  // "Ask for a video" (20261018000300): only in a text thread, into its own box.
+  const canAskVideo = current === 'sms' && channel === 'sms' && !editing;
+  const [askingVideo, setAskingVideo] = React.useState(false);
   const richCheck = rich && canRich ? checkRich(rich, body, photos.length) : null;
   const first = data?.first ?? null;
   const who = whoOf(first, channel);
@@ -333,6 +339,31 @@ function Thread() {
       return;
     }
     setMode(next);
+  };
+
+  /**
+   * A link the customer sends a full-quality video through, with a line asking for it, put into the box to send as
+   * any text. Making the link needs signal: it is made on the server, and shown once.
+   */
+  const askForVideo = async () => {
+    if (!online) {
+      toast.error(VIDEO_LINK_WORDS.needsSignal);
+      return;
+    }
+    setAskingVideo(true);
+    try {
+      const out = unwrap(
+        await api.POST('/v1/commands/video_link.create', {
+          body: { workspaceId: business.id, conversationId },
+        }),
+      );
+      const ask = VIDEO_LINK_WORDS.ask(`${config.webUrl}${out.path}`);
+      setBody((was) => (was.trim() ? `${was}${/\s$/.test(was) ? '' : ' '}${ask}` : ask));
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setAskingVideo(false);
+    }
   };
 
   const addPhoto = async (source: 'camera' | 'library') => {
@@ -841,6 +872,9 @@ function Thread() {
               canRich={canRich}
               canCarousel={!!person}
               onCardPhoto={(key, source) => void addCardPhoto(key, source)}
+              canAskVideo={canAskVideo}
+              askingVideo={askingVideo}
+              onAskVideo={() => void askForVideo()}
             />
           </View>
         )}

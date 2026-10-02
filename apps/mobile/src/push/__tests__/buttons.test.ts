@@ -46,6 +46,8 @@ describe('the notification categories', () => {
       job_check: ['Done', 'Didn’t happen', 'Still there'],
       connection: ['Open'],
       addon_alert: ['Open'],
+      customer_file: ['Open'],
+      lead_qualified: ['Open'],
       support_ticket: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());

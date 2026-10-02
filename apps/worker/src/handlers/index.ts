@@ -52,6 +52,8 @@ import {
   onUnmatchedClaimed,
 } from './email';
 import { onFileDeleted } from './file-removed';
+import { onFileReceived } from './file-received';
+import { onLeadQualified } from './qualifying-alerts';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
 import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
@@ -84,6 +86,17 @@ import {
   onRcsStateChanged,
 } from '../telephony/rcs';
 import {
+  onRcsBilled,
+  onRcsRenewalPageRequested,
+  onRcsRequestSubmitted,
+} from '../telephony/rcs-billing';
+import {
+  onTextingFeeDue,
+  onTextingFeeFailed,
+  onTextingFeePageRequested,
+  onTextingFeePaid,
+} from '../telephony/texting-fees';
+import {
   onBrandedDomainAdded,
   onBrandedDomainCheckRequested,
   onBrandedDomainRemoved,
@@ -93,6 +106,7 @@ import {
   onConversationLinked,
   onConversationSnoozed,
   onMessageQueued,
+  onNumberArrived,
   onPurchaseRequested,
   onRegistrationStatusChanged,
   onRegistrationSubmitted,
@@ -130,11 +144,19 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // What a file held when it arrived, and before it was locked as signed (Real Estate, step 3).
     'file.attached': onFileFingerprint,
     'file.locked': onFileFingerprint,
+    // 20261018000400: a customer's file for a file question: copied onto the lead, and the question's people told.
+    'file.received': onFileReceived,
+    // "When a lead qualifies → Tell": whoever the AI teammate's settings name hears, with the answers.
+    'lead.qualified': onLeadQualified,
     'import.requested': onImportRequested,
     'phone_number.purchase_requested': onPurchaseRequested,
     'phone_number.release_requested': onReleaseRequested,
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
+    // A number started working here: a registration sent while it was on its way goes now.
+    'phone_number.purchased': onNumberArrived,
+    'phone_number.ported_in': onNumberArrived,
+    'phone_number.imported': onNumberArrived,
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
@@ -153,6 +175,19 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'rcs_sender.disconnect_requested': onRcsDisconnectRequested,
     // Owners and admins hear when RCS goes live, and when it stops.
     'rcs_sender.state_changed': onRcsStateChanged,
+    // A business asking for an RCS sender and paying for it (0104): the Stripe page is a job, and the business
+    // hears when it is paid, renewed, or its renewal is refused (telephony/rcs-billing.ts).
+    'rcs_request.submitted': onRcsRequestSubmitted,
+    'rcs_request.paid': onRcsBilled,
+    'rcs_request.renewed': onRcsBilled,
+    'rcs_request.renewal_failed': onRcsBilled,
+    'rcs_request.renewal_page_requested': onRcsRenewalPageRequested,
+    // What registering for texting costs, passed on (0105): collecting a fee is a job; paying it lets the
+    // registration go to the carriers; a card that says no is told to the owners (telephony/texting-fees.ts).
+    'texting_fee.due': onTextingFeeDue,
+    'texting_fee.page_requested': onTextingFeePageRequested,
+    'texting_fee.paid': onTextingFeePaid,
+    'texting_fee.failed': onTextingFeeFailed,
     // A business's own domain on its forms, payment links and booking page (hosting/domains.ts).
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,

@@ -4237,6 +4237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/lead.save_file_answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the photos or PDF a customer texted or emailed as their answer to a file question (a photo of their electric bill, say): they go on the lead’s Files, the question is answered, and whoever the question names hears.
+         * @description Risk level 1. Requires records.write. Emits file.received, lead.answers_recorded, lead.qualified.
+         */
+        post: operations["command_lead_save_file_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/lead.set_next_action": {
         parameters: {
             query?: never;
@@ -6091,6 +6111,66 @@ export interface paths {
          * @description Risk level 1. Emits push_device.removed.
          */
         post: operations["command_push_device_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_request.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give up on an RCS request that hasn’t been paid, or stop a paid one renewing: RCS stays on until the year paid for ends, nothing more is charged, and support is told so they can take the sender down then.
+         * @description Risk level 2. Requires channels.manage. Emits rcs_request.cancelled, rcs_request.stopped, support_ticket.opened.
+         */
+        post: operations["command_rcs_request_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_request.pay_renewal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay RCS’s yearly renewal with another card, after the card on file refused it. The worker makes the Stripe page; read its address from phone.setup_status (rcsRequest.renewalCheckoutUrl). The new card is the one charged from then on.
+         * @description Risk level 3. Requires channels.manage. Emits rcs_request.renewal_page_requested.
+         */
+        post: operations["command_rcs_request_pay_renewal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_request.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask HandsFreeOS to make this business’s RCS sender, and start paying for it: $800 for the first year (Carrier onboarding $500, passed on at cost; Brand vetting by Aegis $200, passed on at cost; Setup by HandsFreeOS $100), then $215 a year. The worker makes the Stripe page; read its address from phone.setup_status. Asking again while one is waiting to be paid picks that one back up.
+         * @description Risk level 3. Requires channels.manage. Emits rcs_request.submitted.
+         */
+        post: operations["command_rcs_request_submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8907,8 +8987,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only.
-         * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number. A local registration costs what the carriers charge for it (the brand’s fees once, the campaign’s review each time it is sent), and its steps wait until that is paid: the output’s fee says how much, and phone.setup_status where to pay it.
+         * @description Risk level 3. Requires channels.manage. Emits registration.submitted, texting_fee.due.
          */
         post: operations["command_registration_submit"];
         delete?: never;
@@ -10177,6 +10257,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/teammate_view.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop viewing the app as a teammate: one view, the one open in a business, or every one you have open.
+         * @description Risk level 1. Emits teammate_view.ended.
+         */
+        post: operations["command_teammate_view_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_view.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start viewing the app as a teammate below you: read-only, until you stop. Written in the business’s audit log. HandsFreeOS support and the founder, with the business open, may view as anyone in it.
+         * @description Risk level 2. Emits teammate_view.started, platform.teammate_view_started.
+         */
+        post: operations["command_teammate_view_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/telephony.disable": {
         parameters: {
             query?: never;
@@ -10357,6 +10477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/texting_fee.pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.
+         * @description Risk level 3. Requires channels.manage. Emits texting_fee.page_requested.
+         */
+        post: operations["command_texting_fee_pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/time_off.add": {
         parameters: {
             query?: never;
@@ -10431,6 +10571,26 @@ export interface paths {
          * @description Risk level 1. Emits user.profile_updated.
          */
         post: operations["command_user_update_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_link.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Makes a link to text a customer so they can send a video at full quality, which lands in this conversation. The link is shown once, to send; it lasts a week and takes three videos.
+         * @description Risk level 1. Requires inbox.use. Emits video_link.created.
+         */
+        post: operations["command_video_link_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14811,6 +14971,46 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_task_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/teammate_view.current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The view you have open in a business, while it still holds; null when there is none, it has ended, or you may no longer view as that person.
+         * @description Any signed-in user.
+         */
+        post: operations["query_teammate_view_current"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/teammate_view.lens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Through a view: the teammate’s role and permissions, and the threads, Action Center items and bills they see where that is fewer than the whole business. The phone shows its copy through it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_teammate_view_lens"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24556,6 +24756,51 @@ export interface operations {
             };
         };
     };
+    command_lead_save_file_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    messageId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duplicate: boolean;
+                        files: {
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        leadId: string;
+                        missing: string[];
+                        qualified: boolean;
+                        /** @enum {string} */
+                        status: "qualified" | "not_a_fit" | "incomplete";
+                    };
+                };
+            };
+        };
+    };
     command_lead_set_next_action: {
         parameters: {
             query?: never;
@@ -27066,7 +27311,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -27100,7 +27345,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -28422,6 +28667,120 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         deviceId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_request_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_request_pay_renewal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_request_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    brand: {
+                        color: string;
+                        description: string;
+                        displayName: string;
+                        email: string;
+                        /** @default null */
+                        logoUrl?: string | null;
+                        /** @default  */
+                        notes?: string;
+                        phone: string;
+                        /** Format: uri */
+                        privacyUrl: string;
+                        /** Format: uri */
+                        termsUrl: string;
+                        /** Format: uri */
+                        website: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        rcsRequestId: string;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
                     };
                 };
             };
@@ -34450,6 +34809,11 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        fee: {
+                            amountCents: number;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
                         registrationIds: string[];
                     };
                 };
@@ -36794,6 +37158,85 @@ export interface operations {
             };
         };
     };
+    command_teammate_view_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    viewId?: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: number;
+                    };
+                };
+            };
+        };
+    };
+    command_teammate_view_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        view: {
+                            /** @enum {string} */
+                            by: "team" | "support" | "founder";
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                email: string;
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin" | "member";
+                                /** Format: uuid */
+                                userId: string;
+                            };
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_telephony_disable: {
         parameters: {
             query?: never;
@@ -37145,6 +37588,39 @@ export interface operations {
             };
         };
     };
+    command_texting_fee_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    textingFeeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkoutUrl: string | null;
+                        /** Format: uuid */
+                        textingFeeId: string;
+                    };
+                };
+            };
+        };
+    };
     command_time_off_add: {
         parameters: {
             query?: never;
@@ -37299,6 +37775,43 @@ export interface operations {
                         updated: string[];
                         /** Format: uuid */
                         userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_link_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        expiresAt: string;
+                        maxUploads: number;
+                        path: string;
+                        token: string;
+                        /** Format: uuid */
+                        videoLinkId: string;
                     };
                 };
             };
@@ -43448,6 +43961,8 @@ export interface operations {
                                 name: string;
                                 objectPath: string;
                                 sizeBytes: number;
+                                /** @enum {string} */
+                                via?: "video_link" | "file_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -43481,6 +43996,8 @@ export interface operations {
                                         name: string;
                                         objectPath: string;
                                         sizeBytes: number;
+                                        /** @enum {string} */
+                                        via?: "video_link" | "file_link";
                                     };
                                     title: string | null;
                                 }[];
@@ -46755,6 +47272,13 @@ export interface operations {
                                         answeredAt: string;
                                         /** @enum {string} */
                                         by: "ai" | "person";
+                                        /** @default [] */
+                                        files: {
+                                            /** Format: uuid */
+                                            fileId: string;
+                                            messageId: string | null;
+                                            name: string;
+                                        }[];
                                         question: string;
                                     };
                                 };
@@ -47036,6 +47560,8 @@ export interface operations {
                                 name: string;
                                 objectPath: string;
                                 sizeBytes: number;
+                                /** @enum {string} */
+                                via?: "video_link" | "file_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -47069,6 +47595,8 @@ export interface operations {
                                         name: string;
                                         objectPath: string;
                                         sizeBytes: number;
+                                        /** @enum {string} */
+                                        via?: "video_link" | "file_link";
                                     };
                                     title: string | null;
                                 }[];
@@ -48568,6 +49096,8 @@ export interface operations {
                     "application/json": {
                         accountStatus: string | null;
                         canManage: boolean;
+                        /** @enum {string} */
+                        localRegistrationStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
                         messagingReady: boolean;
                         /** @enum {string} */
                         nextStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
@@ -48630,6 +49160,28 @@ export interface operations {
                             localTime: string;
                             quiet: boolean;
                         };
+                        rcsRequest: {
+                            brand: {
+                                [key: string]: unknown;
+                            };
+                            checkoutUrl: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            firstYearCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            paidAt: string | null;
+                            paidThrough: string | null;
+                            problem: string | null;
+                            renewalCheckoutUrl: string | null;
+                            renewalProblem: string | null;
+                            renews: boolean;
+                            /** @enum {string} */
+                            status: "pending" | "open" | "paid" | "expired" | "failed" | "cancelled";
+                            stoppedAt: string | null;
+                            ticketNumber: number | null;
+                            yearlyCents: number;
+                        } | null;
                         rcsSender: {
                             checkedAt: string | null;
                             connectedAt: string | null;
@@ -48668,6 +49220,50 @@ export interface operations {
                             };
                             unansweredReminderMinutes: number;
                         };
+                        textingFees: {
+                            card: boolean;
+                            due: {
+                                amountCents: number;
+                                checkoutUrl: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    name: string;
+                                }[];
+                                periodStart: string | null;
+                                problem: string | null;
+                                /** @enum {string} */
+                                purpose: "registration" | "month";
+                                /** @enum {string} */
+                                status: "pending" | "open" | "paid" | "failed" | "cancelled" | "waived";
+                            } | null;
+                            month: {
+                                amountCents: number;
+                                checkoutUrl: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    name: string;
+                                }[];
+                                periodStart: string | null;
+                                problem: string | null;
+                                /** @enum {string} */
+                                purpose: "registration" | "month";
+                                /** @enum {string} */
+                                status: "pending" | "open" | "paid" | "failed" | "cancelled" | "waived";
+                            } | null;
+                            monthlyCents: number | null;
+                            paidFor: {
+                                brandPaid: boolean;
+                                brandSent: boolean;
+                                campaignCovered: boolean;
+                                vettingPaid: boolean;
+                            };
+                        } | null;
                         timezone: string;
                         voiceReady: boolean;
                     };
@@ -53121,6 +53717,93 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_view_current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        view: {
+                            /** @enum {string} */
+                            by: "team" | "support" | "founder";
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                email: string;
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin" | "member";
+                                /** Format: uuid */
+                                userId: string;
+                            };
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_teammate_view_lens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attentionItemIds: string[] | null;
+                        conversationIds: string[] | null;
+                        estimateIds: string[] | null;
+                        invoiceIds: string[] | null;
+                        person: {
+                            email: string;
+                            fullName: string;
+                            permissions: string[];
+                            /** @enum {string} */
+                            role: "owner" | "admin" | "member";
+                            /** Format: uuid */
+                            userId: string;
+                        };
                     };
                 };
             };

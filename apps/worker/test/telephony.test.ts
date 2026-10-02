@@ -49,7 +49,7 @@ import { processors } from '../src/processors/index';
 import { jobs, unansweredCheck } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
 import { twilioSignature, verifyTwilioSignature } from '../src/telephony/signature';
-import { TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
+import { payTextingFee, TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
 
 const env = testEnv();
 const WORKER_ID = `vitest-telephony-${process.pid}`;
@@ -886,6 +886,53 @@ describe('texting', () => {
     await drain();
     expect(helpReplies()).toHaveLength(before + 1);
   });
+
+  it('keeps a texted video as an MP4, so it plays in the inbox, and keeps the original when it can’t convert', async () => {
+    const sid = fakeSid('SM');
+    const carrier = Buffer.from('a carrier’s 3GP').toString('base64');
+    const unreadable = Buffer.from('an unreadable 3GP').toString('base64');
+    await postTwilio(INBOUND, {
+      AccountSid: accountSid,
+      MessageSid: sid,
+      From: '+15125550133',
+      To: businessNumber,
+      Body: '',
+      NumMedia: '3',
+      MediaContentType0: 'video/3gpp',
+      MediaUrl0: `data:video/3gpp;base64,${carrier}`,
+      MediaContentType1: 'video/3gpp',
+      MediaUrl1: `data:video/3gpp;base64,${unreadable}`,
+      MediaContentType2: 'video/mp4',
+      MediaUrl2: `data:video/mp4;base64,${carrier}`,
+    });
+    await drain();
+    const m = await messageBySid(sid);
+    const path = (i: number, ext: string) => `${workspaceId}/messages/${m!.id}/${i}.${ext}`;
+    expect(m?.media).toEqual([
+      expect.objectContaining({
+        contentType: 'video/mp4',
+        objectPath: path(0, 'mp4'),
+        name: 'video-1.mp4',
+      }),
+      // ffmpeg couldn't read it: kept as it came rather than lost.
+      expect.objectContaining({
+        contentType: 'video/3gpp',
+        objectPath: path(1, '3gp'),
+        name: 'video-2.3gp',
+      }),
+      // Already an MP4: stored as it came, not converted again.
+      expect.objectContaining({
+        contentType: 'video/mp4',
+        objectPath: path(2, 'mp4'),
+        name: 'video-3.mp4',
+      }),
+    ]);
+    const stored = (await s.store.download('telephony', path(0, 'mp4'))).toString('utf8');
+    expect(stored).toBe('fake-mp4:a carrier’s 3GP');
+    expect((await s.store.download('telephony', path(2, 'mp4'))).toString('utf8')).toBe(
+      'a carrier’s 3GP',
+    );
+  });
 });
 
 describe('number search', () => {
@@ -1028,12 +1075,18 @@ describe('local numbers (10DLC)', () => {
     await submit(
       'Hi Mike, your estimate is ready. Accept or reject it here, or reply STOP to opt out.',
     );
+    // Nothing goes to the carriers until the registration's fees are paid (0105): $4.50 for the brand and $15
+    // for the campaign's review, on a page that keeps the card.
+    await drain();
+    expect(s.telephony.registrations.length).toBe(before);
+    await payTextingFee(s, { workspaceId, organizationId });
     await drain({
       until: async () => (await campaign())?.status === 'rejected',
       timeoutMs: 15_000,
     });
     const turnedDown = (await campaign())!;
-    // Fix and send again: only the campaign goes back, as a new one in place of the old.
+    // Fix and send again: only the campaign goes back, as a new one in place of the old. Its review is $15 again,
+    // charged to the card kept from the first payment, so it goes without a page.
     await submit(fixedSample);
     await drain({
       until: async () => (await campaign())?.status === 'approved',

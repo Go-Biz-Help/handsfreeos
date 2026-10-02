@@ -124,6 +124,11 @@ export interface ChangesDeps {
   readonly setTimer?: (run: () => void, ms: number) => unknown;
   readonly clearTimer?: (timer: unknown) => void;
   readonly log?: (message: string, error?: unknown) => void;
+  /**
+   * Why no change can be made for this input now, or null: the person is viewing the app as a teammate in its
+   * business (20261018000100), where nothing is changed. Asked before anything is kept or sent.
+   */
+  readonly refuse?: (input: unknown) => string | null;
 }
 
 interface Attached {
@@ -404,6 +409,8 @@ export class Changes {
   ): Promise<ChangeResult<N>> {
     if (!isCommandName(name))
       throw new ChangeError('failed', `${String(name)} isn’t a change this phone can make.`);
+    const refused = this.deps.refuse?.(input);
+    if (refused) throw new ChangeError('refused', refused);
     const body = JSON.stringify(input);
     if (isOnline(name)) return (await this.sendNow(name, body, options)) as ChangeResult<N>;
     const attached = this.attached;
@@ -519,6 +526,8 @@ export class Changes {
       readonly name?: string;
     },
   ): Promise<{ readonly id: string }> {
+    const refused = this.deps.refuse?.(photo);
+    if (refused) throw new ChangeError('refused', refused);
     const attached = this.attached;
     if (!attached)
       throw new ChangeError('no-copy', 'This phone’s copy of your business isn’t open yet.');

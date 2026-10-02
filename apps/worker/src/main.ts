@@ -40,6 +40,7 @@ import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/in
 import { createGeocoder } from './geo/geocoder';
 import { createOpinly } from './opinly';
 import { createTranscriber } from './telephony/transcriber';
+import { createFfmpegConverter } from './telephony/video';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
 
@@ -76,6 +77,7 @@ const services: EngineServices = {
   publicUrl: env.publicUrl,
   telephony,
   transcriber: createTranscriber(env, log, telephony),
+  video: createFfmpegConverter({ log }),
   geocoder: createGeocoder(env, log),
   driving: createDriveTimer(env, log),
   speech: createSpeech(env, log),

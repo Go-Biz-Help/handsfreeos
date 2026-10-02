@@ -5,6 +5,7 @@
  */
 
 import { money } from '../money/format';
+import { PASS_THROUGH_KEYS } from '../money/rates';
 
 /** The promise: at least one and a half times what it cost us. A line realising under this, somebody looks today. */
 export const RATE_MARGIN_FLOOR = 1.2;
@@ -24,10 +25,18 @@ export const rateRealisedWords = (realised: {
 }): string =>
   `${realised.events} · ${money(realised.chargedCents)} on ${money(realised.costCents)}`;
 
-/** Whether a line charged under the floor over the window. A line nothing happened on isn't thin. */
+/**
+ * Whether a line charged under the floor over the window. A line nothing happened on isn't thin, and a line passed
+ * on at cost (`PASS_THROUGH_KEYS`, the carriers' registration fees) is only thin under cost.
+ */
 export const rateIsThin = (line: {
+  readonly key: string;
   readonly realised: { readonly markup: number } | null;
-}): boolean => line.realised !== null && line.realised.markup < RATE_MARGIN_FLOOR;
+}): boolean => line.realised !== null && line.realised.markup < marginFloorOf(line.key);
+
+/** The least a line should realise: the floor, or exactly cost for the lines passed on at cost. */
+const marginFloorOf = (key: string): number =>
+  (PASS_THROUGH_KEYS as readonly string[]).includes(key) ? 1 : RATE_MARGIN_FLOOR;
 
 /** The warning over the card, naming each thin line; null when every line is holding. */
 export function rateThinWarning(

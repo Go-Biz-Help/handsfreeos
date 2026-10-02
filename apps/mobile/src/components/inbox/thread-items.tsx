@@ -16,6 +16,8 @@ import {
   THREAD_WORDS,
   type MediaShape,
   type ThreadItemShape,
+  VIDEO_LINK_WORDS,
+  FILE_LINK_WORDS,
 } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
@@ -33,14 +35,17 @@ import {
   PhoneIncoming,
   PhoneMissed,
   PhoneOutgoing,
+  Play,
   Sparkles,
   Voicemail,
 } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
 import { signedUrl, useSignedUrl } from '@/inbox/storage';
 import { cn } from '@/lib/utils';
 
+import { MediaViewer } from './media-viewer';
 import { ButtonReplyNote, PlainFace, RichContent, TransportTag } from './rich-message';
 import { VoicemailPlayer } from './voicemail-player';
 
@@ -63,33 +68,66 @@ export function SystemLine({ icon, children }: { icon: LucideIcon; children: str
   );
 }
 
-/** A photo in a message: the picture once its link is ready (with signal), a quiet tile until then. */
+/**
+ * A photo or a video in a message: the picture once its link is ready (with signal), a dark tile with a play mark for
+ * a video, a quiet tile until then. A tap opens it full screen over the thread; a file that's neither opens in
+ * whatever the phone opens that kind of file with.
+ */
 export function MediaThumb({ media }: { media: MediaShape }) {
   const image = media.contentType.startsWith('image/');
+  const video = media.contentType.startsWith('video/');
   const url = useSignedUrl(image ? media.bucket : null, image ? media.objectPath : null);
+  // Each opening gets a new key, so it starts unzoomed; closing keeps it mounted long enough to fade out.
+  const [viewer, setViewer] = React.useState<{ url: string; key: number; open: boolean } | null>(
+    null,
+  );
+  async function open() {
+    const link = url ?? (await signedUrl(media.bucket, media.objectPath).catch(() => null));
+    if (!link) {
+      if (image) toast.error(THREAD_WORDS.photoWontLoad);
+      else if (video) toast.error(THREAD_WORDS.videoWontLoad);
+      return;
+    }
+    if (!image && !video) return void Linking.openURL(link);
+    setViewer((was) => ({ url: link, key: (was?.key ?? 0) + 1, open: true }));
+  }
   return (
-    <Pressable
-      role="button"
-      accessibilityLabel={`Open ${media.name}`}
-      testID="media-thumb"
-      onPress={() => {
-        void (url ? Promise.resolve(url) : signedUrl(media.bucket, media.objectPath)).then(
-          (link) => link && void Linking.openURL(link),
-        );
-      }}
-      className="h-[136px] w-[180px] items-center justify-center overflow-hidden rounded-[14px] border border-border bg-card-2"
-    >
-      {url && image ? (
-        <Image
-          source={{ uri: url }}
-          accessibilityIgnoresInvertColors
-          className="size-full"
-          resizeMode="cover"
+    <>
+      <Pressable
+        role="button"
+        accessibilityLabel={`${video ? 'Play' : 'Open'} ${media.name}`}
+        testID="media-thumb"
+        onPress={() => void open()}
+        className={cn(
+          'h-[136px] w-[180px] items-center justify-center overflow-hidden rounded-[14px] border border-border',
+          video ? 'bg-black' : 'bg-card-2',
+        )}
+      >
+        {url && image ? (
+          <Image
+            source={{ uri: url }}
+            accessibilityIgnoresInvertColors
+            className="size-full"
+            resizeMode="cover"
+          />
+        ) : video ? (
+          <View className="size-11 items-center justify-center rounded-full bg-white/20">
+            <Icon as={Play} className="ml-0.5 size-5 text-white" fill="white" />
+          </View>
+        ) : (
+          <Icon as={image ? ImageIcon : FileText} className="size-[18px] text-text-3" />
+        )}
+      </Pressable>
+      {viewer ? (
+        <MediaViewer
+          key={viewer.key}
+          media={media}
+          url={viewer.url}
+          open={viewer.open}
+          onClose={() => setViewer((was) => was && { ...was, open: false })}
         />
-      ) : (
-        <Icon as={image ? ImageIcon : FileText} className="size-[18px] text-text-3" />
-      )}
-    </Pressable>
+      ) : null}
+    </>
   );
 }
 
@@ -226,6 +264,15 @@ export function MessageBubble({
               {item.media.map((m) => (
                 <MediaThumb key={m.objectPath} media={m} />
               ))}
+              {item.media.some((m) => m.via === 'video_link') ? (
+                <Text className="px-1 text-xs text-text-3" testID="came-by-video-link">
+                  {VIDEO_LINK_WORDS.cameByLink}
+                </Text>
+              ) : item.media.some((m) => m.via === 'file_link') ? (
+                <Text className="px-1 text-xs text-text-3" testID="came-by-file-link">
+                  {FILE_LINK_WORDS.cameByLink}
+                </Text>
+              ) : null}
               {item.body ? (
                 <Bubble out={out} tone={failed ? 'failed' : 'plain'}>
                   {item.body}

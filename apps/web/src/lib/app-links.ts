@@ -19,6 +19,7 @@ export const CUSTOMER_PATHS: readonly { readonly path: string; readonly comment:
   { path: '/m/*', comment: 'A customer managing their booking' },
   { path: '/hold/*', comment: 'A time held for a deposit' },
   { path: '/w/*', comment: 'Waitlist offers' },
+  { path: '/v/*', comment: 'A customer sending a video through a video link' },
   { path: '/chat/*', comment: 'The website chat window' },
   { path: '/embed/*', comment: 'The website chat loader' },
   { path: '/invite/*', comment: 'Invitations to join a business, accepted on the web' },

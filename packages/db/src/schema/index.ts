@@ -723,6 +723,27 @@ export const rcsSenderStatus = app.enum('rcs_sender_status', [
   'disconnected',
 ]);
 export type RcsSenderStatus = (typeof rcsSenderStatus.enumValues)[number];
+/** 0104: a business asking for an RCS sender and paying for it. */
+export const rcsRequestStatus = app.enum('rcs_request_status', [
+  'pending',
+  'open',
+  'paid',
+  'expired',
+  'failed',
+  'cancelled',
+]);
+export type RcsRequestStatus = (typeof rcsRequestStatus.enumValues)[number];
+/** 0105: what registering a local number for texting costs a business, passed on at cost. */
+export const textingFeePurpose = app.enum('texting_fee_purpose', ['registration', 'month']);
+export const textingFeeStatus = app.enum('texting_fee_status', [
+  'pending',
+  'open',
+  'paid',
+  'failed',
+  'cancelled',
+  'waived',
+]);
+export type TextingFeeStatus = (typeof textingFeeStatus.enumValues)[number];
 export const callStatus = app.enum('call_status', [
   'initiated',
   'ringing',
@@ -824,6 +845,11 @@ export interface MediaRef {
   readonly name: string;
   /** A customer file (app.files) sent as an outbound attachment. */
   readonly fileId?: string;
+  /**
+   * How it came, when it wasn't by text: `video_link`, a video the customer sent through a link we texted them;
+   * `file_link`, a photo or PDF sent through a link that asked for a file (20261018000400).
+   */
+  readonly via?: 'video_link' | 'file_link';
 }
 
 /**
@@ -1139,6 +1165,110 @@ export const rcsSenders = app.table('rcs_senders', {
   connectedAt: ts('connected_at'),
   disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * A business asking HandsFreeOS for an RCS sender, and paying for it (0104). Clients can't make a sender
+ * themselves (Twilio makes them only in its console, in a subaccount only HandsFreeOS can open), so they ask
+ * and pay here, a support ticket opens, and the sender is connected (`rcsSenders`) once it is made. What
+ * Stripe says is the worker's to write (`private.guard_rcs_request_update`).
+ */
+export const rcsRequests = app.table('rcs_requests', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  status: rcsRequestStatus('status').notNull().default('pending'),
+  brand: jsonb('brand').$type<Json>().notNull(),
+  firstYearCents: integer('first_year_cents').notNull(),
+  yearlyCents: integer('yearly_cents').notNull(),
+  sessionRef: text('session_ref').unique(),
+  sessionUrl: text('session_url'),
+  sessionExpiresAt: ts('session_expires_at'),
+  paymentRef: text('payment_ref'),
+  paidCents: integer('paid_cents'),
+  customerRef: text('customer_ref'),
+  cardRef: text('card_ref'),
+  paidAt: ts('paid_at'),
+  /** The end of the year paid for: the renewal is charged then. */
+  paidThrough: ts('paid_through'),
+  renewalCount: integer('renewal_count').notNull().default(0),
+  renewalProblem: text('renewal_problem'),
+  renewalFailedAt: ts('renewal_failed_at'),
+  /** After a refused renewal: the page the business pays it on with another card, and the year it renews. */
+  renewalSessionRef: text('renewal_session_ref').unique(),
+  renewalSessionUrl: text('renewal_session_url'),
+  renewalSessionFor: ts('renewal_session_for'),
+  /** The support ticket the payment opened (platform.tickets; no foreign key across). */
+  ticketId: uuid('ticket_id'),
+  ticketNumber: bigint('ticket_number', { mode: 'number' }),
+  problem: text('problem').notNull().default(''),
+  requestedBy: userRef('requested_by'),
+  stoppedAt: ts('stopped_at'),
+  stoppedBy: userRef('stopped_by'),
+  openedAt: ts('opened_at'),
+  closedAt: ts('closed_at'),
+  ...timestamps(),
+});
+
+/**
+ * A link texted to a customer to send a video at full quality (20261018000300): the token's hash, never the token,
+ * and how many videos it has taken. Each one arrives as an inbound message on the conversation.
+ */
+export const videoLinks = app.table('video_links', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  conversationId: uuid('conversation_id')
+    .notNull()
+    .references((): AnyPgColumn => conversations.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  createdBy: userRef('created_by'),
+  createdByTeammateId: uuid('created_by_teammate_id').references(
+    (): AnyPgColumn => aiTeammates.id,
+    { onDelete: 'set null' },
+  ),
+  expiresAt: ts('expires_at').notNull(),
+  maxUploads: smallint('max_uploads').notNull().default(3),
+  uploadsStarted: smallint('uploads_started').notNull().default(0),
+  uploadsReceived: smallint('uploads_received').notNull().default(0),
+  lastUploadAt: ts('last_upload_at'),
+  /** 20261018000400: 'file' asks for a file that answers a qualifying question, on a lead. */
+  asksFor: text('asks_for').$type<'video' | 'file'>().notNull().default('video'),
+  leadId: uuid('lead_id').references((): AnyPgColumn => leads.id, { onDelete: 'set null' }),
+  questionId: text('question_id'),
+  ask: text('ask'),
+  ...timestamps(),
+});
+
+/**
+ * What registering a local number for texting costs a business (0105): a registration's one-time fees, paid
+ * before the worker sends it to the carriers, and each month of the approved campaign. What Stripe says is the
+ * worker's to write (`private.guard_texting_fee_update`).
+ */
+export const textingFees = app.table('texting_fees', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  purpose: textingFeePurpose('purpose').notNull(),
+  status: textingFeeStatus('status').notNull().default('pending'),
+  /** [{ key, name, cents }] from core's TEXTING_FEES. */
+  lines: jsonb('lines').$type<{ key: string; name: string; cents: number }[]>().notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  /** A month's fee: the campaign, which month since approval, and when that month starts. */
+  registrationId: uuid('registration_id').references(() => telephonyRegistrations.id, {
+    onDelete: 'set null',
+  }),
+  monthIndex: integer('month_index'),
+  periodStart: ts('period_start'),
+  sessionRef: text('session_ref').unique(),
+  sessionUrl: text('session_url'),
+  sessionExpiresAt: ts('session_expires_at'),
+  paymentRef: text('payment_ref'),
+  paidCents: integer('paid_cents'),
+  customerRef: text('customer_ref'),
+  cardRef: text('card_ref'),
+  paidAt: ts('paid_at'),
+  problem: text('problem').notNull().default(''),
+  requestedBy: userRef('requested_by'),
+  closedAt: ts('closed_at'),
   ...timestamps(),
 });
 
@@ -3816,6 +3946,29 @@ export const memberPermissionOverrides = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.permission] })],
 );
 
+/**
+ * Someone viewing the app as a teammate (20261018000100): read-only, until they stop. The API reads a viewing request
+ * as the teammate once private.teammate_view() says the view is the caller's and still holds. Each person reads only
+ * their own; the business learns of a view from its audit log.
+ */
+export const teammateViews = app.table('teammate_views', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  viewerId: uuid('viewer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** The teammate whose view it is. */
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  endedAt: ts('ended_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const pushPlatform = app.enum('push_platform', ['ios', 'android']);
 export type PushPlatform = (typeof pushPlatform.enumValues)[number];
 
@@ -5147,6 +5300,7 @@ export const usageUnit = platform.enum('usage_unit', [
   'minute',
   'mtok',
   'kchar',
+  'fee',
 ]);
 export const usageRounding = platform.enum('usage_rounding', ['none', 'minute', 'six_seconds']);
 

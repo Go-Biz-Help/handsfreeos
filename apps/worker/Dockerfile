@@ -32,6 +32,9 @@ RUN pnpm --filter @hfos/worker deploy --prod /out
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+# Videos texted to a business become MP4s that play in the inbox (src/telephony/video.ts). Without ffmpeg they are
+# kept as they came, which most browsers and phones only offer to download.
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules

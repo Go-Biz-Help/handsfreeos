@@ -1090,10 +1090,16 @@ function textingSentence(i: NumberImportInfo): string {
       return `Your ${registration} is with the carriers. Calls work meanwhile; texts start once they approve.`;
     case 'rejected':
       return `The carriers turned down your ${registration}. Fix it in the registration below — calls keep working.`;
-    default:
+    default: {
+      // A local registration doesn't need the number here, so it can go while the number travels.
+      const now =
+        i.numberType === 'local' && i.status === 'waiting'
+          ? ' You can send it now, under Register for texting below, so texts go out the moment it lands.'
+          : ' Calls work without it.';
       return i.source === 'highlevel'
-        ? `HighLevel’s registration does not move with the number, so it needs a ${registration} here. Calls work without it.`
-        : `It needs a ${registration} here before texts can go out. Calls work without it.`;
+        ? `HighLevel’s registration does not move with the number, so it needs a ${registration} here.${now}`
+        : `It needs a ${registration} here before texts can go out.${now}`;
+    }
   }
 }
 

@@ -24,10 +24,10 @@ The operating system for running the customer side of a small business with as l
 
 ## Run it locally
 
-You need Node 22 (see `.nvmrc`), pnpm 12, Docker and the Supabase CLI.
+You need Node 22 (see `.nvmrc`), pnpm 12, Docker, the Supabase CLI and ffmpeg (the worker turns texted videos into MP4s with it, and its test converts one).
 
 ```bash
-brew install pnpm supabase/tap/supabase
+brew install pnpm supabase/tap/supabase ffmpeg
 ```
 
 ```bash
@@ -88,7 +88,7 @@ Good to know:
 - `pnpm db:reset` wipes the database, re-applies every migration and seeds again.
 - Milestone 2 uses Realtime and Storage. A local stack started before those migrations existed must be restarted once (`pnpm supabase:stop && pnpm supabase:start`) so the Realtime service creates its tables; the migration that adds the live-updates policy warns instead of failing when they are missing.
 - Texting runs against a fake phone carrier locally: buying a number, carrier approval, sending, delivery receipts and inbound texts all happen in memory inside the worker, so nothing costs money. The reminder email for an unanswered customer waits the workspace's 10 minutes; set `UNANSWERED_ALERT_MS=8000` in `apps/worker/.env` to see it sooner.
-- RCS (branded texts with pictures and buttons) rides on the same texting: connect the fake's `hfos_demo_agent` in **Settings** → **Texting & calls** and texts go RCS first, falling back to SMS or MMS for customer numbers ending in `7`. `docs/operations.md` ("RCS: branded texts with buttons") covers setting up a real sender at Twilio.
+- RCS (branded texts with pictures and buttons) rides on the same texting: connect the fake's `hfos_demo_agent` in **Settings** → **Texting & calls** (under **Already have an RCS sender at Twilio? Connect it** on the RCS card) and texts go RCS first, falling back to SMS or MMS for customer numbers ending in `7`. `docs/operations.md` ("RCS: branded texts with buttons") covers setting up a real sender at Twilio.
 - The Assistant needs an Anthropic API key to answer: add `ANTHROPIC_API_KEY=<your key>` to `apps/worker/.env` and restart `pnpm dev`, or its panel says it isn't set up. "Trying the Assistant" in `docs/operations.md` explains how to make a separate local key. `pnpm env:local` keeps the line when it rewrites the file.
 - Workflow AI steps, Describe, website scans and Try it use the Assistant's model and daily limit. Without a key they fall back: AI steps take their fallback, a scan turns each page into one suggested article, and Describe and Try it say the AI isn't set up. `ASSISTANT_PROVIDER=scripted` in `apps/worker/.env` swaps in the free scripted stand-in the browser tests use (the next `pnpm env:local` removes that line). "Try workflows and the knowledge base locally" in `docs/operations.md` shows how to skip a wait and scan the stand-in website.
 - Calendars run against a stand-in locally: the Google and Outlook buttons in Settings → My calendar open a stand-in sign-in page on the worker, so no Google or Microsoft account is needed, and busy times and events live in the worker's memory. "Trying the calendar locally" in `docs/operations.md` shows how to add busy time and see what HandsFreeOS wrote.
@@ -131,7 +131,7 @@ Run `pnpm --filter @hfos/web exec playwright install chromium` once before the b
 
 ## The AI teammate and website chat
 
-Each business can have one AI teammate, set up under **AI teammate** in the sidebar. It has a name, says it's AI in its first message or only when asked, and never claims to be a person. Its skills switch on and off: message new leads, answer from the knowledge base, ask qualifying questions and book on the business's calendars. It answers texts, email and the website chat.
+Each business can have one AI teammate, set up under **AI teammate** in the sidebar. It has a name, says it's AI in its first message or only when asked, and never claims to be a person. Its skills switch on and off: message new leads, answer from the knowledge base, ask qualifying questions and book on the business's calendars. A qualifying question can ask for a file, like a photo of the customer's electric bill: the teammate texts a link to send it (or saves the photo they text or email), it goes on the lead's Files, and whoever the question names hears that it came. Whoever "When a lead qualifies → Tell" names hears when a lead qualifies, by email and on their phone. It answers texts, email and the website chat.
 
 - **Training wheels, then automatic.** Every reply, booking, move or cancellation waits as a draft for a person's OK, in the inbox and on **Approvals**, until it has enough approvals (20 by default). Then it answers on its own. **Switch to automatic now** and **Back to training** are always there.
 - **Guardrails in code, not only in the prompt.** `checkTeammateReply` (`packages/core/src/ai-team/guardrails.ts`) checks every reply's links, numbers, prices, booking claims and disclosure. A reply that fails is rewritten once, then goes to a person. Emergencies, legal threats and refunds go straight to **Needs a person**, with a note and an email.

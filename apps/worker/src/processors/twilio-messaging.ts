@@ -13,6 +13,7 @@ import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
 import { chargeText } from '../money/usage-capture';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
+import { needsConverting } from '../telephony/video';
 
 type Params = Readonly<Record<string, string | undefined>>;
 type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed';
@@ -34,6 +35,8 @@ export const TEXT_STATUS: Readonly<Record<string, DeliveryStatus>> = {
 };
 
 const E164 = /^\+[1-9][0-9]{6,14}$/;
+/** How long one text's videos may spend becoming MP4s, all together. */
+const CONVERTING_MS = 3 * 60_000;
 const EXTENSIONS: Readonly<Record<string, string>> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -42,6 +45,8 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
   'image/heic': 'heic',
   'video/mp4': 'mp4',
   'video/3gpp': '3gp',
+  'video/3gpp2': '3g2',
+  'video/quicktime': 'mov',
   'audio/amr': 'amr',
   'audio/mpeg': 'mp3',
   'text/vcard': 'vcf',
@@ -131,7 +136,10 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
   });
 };
 
-/** Photos and files stay on our storage, not the provider's: copy each, attach it, then delete the original. */
+/**
+ * Photos and files stay on our storage, not the provider's: copy each, attach it, then delete the original. A video
+ * that isn't an MP4 is kept as one, so it plays in the inbox rather than opening as a download (telephony/video.ts).
+ */
 async function copyMedia(
   ctx: DeliveryContext,
   scope: TenantScope,
@@ -151,20 +159,36 @@ async function copyMedia(
     name: string;
   }[] = [];
   const urls: string[] = [];
+  // A text holds this delivery for five minutes at most (deliveries.ts). Converting is worth a few of them; past that,
+  // the rest of its videos are kept as they came rather than risk the text being taken up twice.
+  const convertUntil = Date.now() + CONVERTING_MS;
   for (let i = 0; i < count; i++) {
     const url = p[`MediaUrl${i}`];
     if (!url) continue;
     const got = await ctx.telephony.fetchMedia(account, url);
-    const contentType = p[`MediaContentType${i}`] || got.contentType;
+    let contentType = p[`MediaContentType${i}`] || got.contentType;
+    let data = got.data;
+    if (needsConverting(contentType) && Date.now() < convertUntil) {
+      const mp4 = await ctx.video.toMp4(data);
+      if (mp4) {
+        data = mp4;
+        contentType = 'video/mp4';
+      }
+    }
     const ext = EXTENSIONS[contentType] ?? 'bin';
     const objectPath = `${scope.workspaceId}/messages/${messageId}/${i}.${ext}`;
-    await ctx.store.upload('telephony', objectPath, got.data, contentType, { upsert: true });
+    await ctx.store.upload('telephony', objectPath, data, contentType, { upsert: true });
+    const kind = contentType.startsWith('image/')
+      ? 'photo'
+      : contentType.startsWith('video/')
+        ? 'video'
+        : 'attachment';
     media.push({
       bucket: 'telephony',
       objectPath,
       contentType,
-      sizeBytes: got.data.length,
-      name: `${contentType.startsWith('image/') ? 'photo' : 'attachment'}-${i + 1}.${ext}`,
+      sizeBytes: data.length,
+      name: `${kind}-${i + 1}.${ext}`,
     });
     urls.push(url);
   }

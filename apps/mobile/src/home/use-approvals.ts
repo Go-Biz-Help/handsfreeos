@@ -34,7 +34,9 @@ type WorkflowRow = SyncedWorkflowApprovalRow & {
 
 /** The workflow approvals waiting for this person, newest first, less the ones decided on this phone. */
 export function useWaitingWorkflowApprovals(now: number): readonly ApprovalFacts[] {
-  const { business, userId } = useBusiness();
+  const { business, me } = useBusiness();
+  // The person's, or the teammate's they're viewing as (20261018000100).
+  const userId = me.user.id;
   const who = useGrants();
   const { data } = useQuery<WorkflowRow>(WORKFLOW_APPROVALS_SQL, [business.id]);
   const users = useQuery<{ id: string; full_name: string | null; email: string | null }>(USERS_SQL);
@@ -90,7 +92,8 @@ const kept = new Map<string, DecidedLately>();
  * reach phones.
  */
 export function useDecidedLately(refreshKey: number): DecidedLately {
-  const { business, userId } = useBusiness();
+  const { business, me } = useBusiness();
+  const userId = me.user.id;
   const who = useGrants();
   const { online } = useNetwork();
   const [state, setState] = React.useState<DecidedLately>(() => kept.get(business.id) ?? EMPTY);

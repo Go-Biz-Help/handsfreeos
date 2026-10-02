@@ -2,6 +2,7 @@ import type { Href } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { ViewStrip } from '@/components/view-as/view-strip';
 import { cn } from '@/lib/utils';
 
 import { AppBar, type Leading } from './app-bar';
@@ -56,6 +57,7 @@ export function Screen({
         ask={ask}
       />
       <StatusStrip />
+      <ViewStrip />
       {scroll ? (
         <ScrollView
           className="flex-1"

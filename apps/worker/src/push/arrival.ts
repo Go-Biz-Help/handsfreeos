@@ -85,9 +85,14 @@ async function joinsBurst(
 /** The message's own words: an email's subject and first line, or a text's or chat's (or its photos). */
 function wordsOf(
   channel: Conversation['channel'],
-  m: { readonly body: string | null; readonly subject: string | null; readonly photos: number },
+  m: {
+    readonly body: string | null;
+    readonly subject: string | null;
+    readonly photos: number;
+    readonly videos?: number;
+  },
 ): string {
-  if (channel !== 'email') return messagePreview(m.body, m.photos) || 'Sent a message.';
+  if (channel !== 'email') return messagePreview(m.body, m.photos, m.videos) || 'Sent a message.';
   const firstLine = (m.body ?? '').split('\n').find((l) => l.trim()) ?? '';
   return (
     messagePreview([m.subject?.trim(), firstLine.trim()].filter(Boolean).join(' · '), m.photos) ||
@@ -110,10 +115,13 @@ export const onCustomerMessagePush = pushMoment('customerWaiting', async (ctx, s
     body: string | null;
     subject: string | null;
     photos: number;
+    videos: number;
   }>(
     ctx.tx,
     sql`select direction::text as direction, occurred_at, body_text as body, subject,
-          coalesce(jsonb_array_length(media), 0)::int as photos
+          coalesce(jsonb_array_length(media), 0)::int as photos,
+          (select count(*) from jsonb_array_elements(media) x
+            where x ->> 'contentType' like 'video/%')::int as videos
         from app.messages where id = ${messageId} and workspace_id = ${ws}`,
   );
   if (!m || m.direction !== 'inbound') return;

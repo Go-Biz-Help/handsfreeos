@@ -60,7 +60,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                                                                                      | "Connected mailboxes: Outlook and Gmail"    |
 | Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $40 a day per workspace. | "The Assistant: Anthropic"                  |
 | OpenAI (an OpenAI Platform organization, with prepaid credits)      | GPT, the backup that answers every AI feature while Claude is down                                                                                                                                      | Pay as you go from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. Businesses pay the same whichever AI answers.                                                                                                                     | "The backup AI: OpenAI"                     |
-| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                                                                                                                      | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
+| GitHub, organization `Go-Biz-Help` (already exists)                 | The repository `Go-Biz-Help/handsfreeos`, CI and the Deploy workflow                                                                                                                                    | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
 | Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                                                                                    | Several sections                            |
 | Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                                                                          | "The public website on Vercel"              |
 
@@ -1021,7 +1021,7 @@ The migrations create three private buckets. There is nothing to create by hand.
 | ------------- | ---------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
 | `attachments` | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first |
 | `imports`     | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths               |
-| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 25 MiB       | The worker only                                        |
+| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
 - To check the buckets, click **Storage** in the left sidebar.
@@ -1030,6 +1030,69 @@ The migrations create three private buckets. There is nothing to create by hand.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").
+- The project has its own upload limit as well, above every bucket's: **Storage → Settings → Upload file size
+  limit**. It must be at least 250 MB, or videos sent through a video link over the project's limit are turned
+  away (see "Video links"). This is a project setting, not a bucket's, so it is set in the dashboard; the
+  free plan can't go past 50 MB.
+
+#### Video links
+
+A texted video arrives blurry (see "Videos." under the texting section). For a sharp one, a team member taps
+**Ask for a video** (the video-camera button by the reply box, on the web and the phone). It writes "Can you send
+us a video? Use this link so it comes through clear: …" into the reply, and they send it like any text. The
+customer opens the link (`/v/<token>` on the web app's address, no sign-in), picks or records a video, and it goes
+up as it is, up to 250 MB, straight to the `telephony` bucket. It lands in the conversation as their reply, marked
+"Sent with your video link", and plays in the viewer.
+
+- A link lasts 7 days and takes 3 videos. Only a hash of its token is kept, so a lost link can't be read back;
+  send a new one.
+- The worker signs each upload for one path only, then files what Storage says arrived (its size and type), not
+  what the page claimed. A file that isn't a video, or is too big, is taken back out.
+- Only for texting threads, and never to a customer who texted STOP.
+- The AI teammate asks for one too, when a video would show the problem better (a noise, a leak), while it looks
+  at photos (its Photos setting). It says what to film, and the link goes on its own line at the end of its
+  text, made only as the text goes out (or waits as a draft in training). Its Activity shows "Asked for a video".
+- If uploads fail at a size the bucket allows, check the project's upload limit above.
+
+#### File questions: asking a customer for a file
+
+A qualifying question can ask for a file instead of an answer in words, like "Can you send a photo of your latest
+electric bill?". In **AI teammate → Qualify**, set the question's answer to **File** and pick who hears when it
+arrives under **Tell when it arrives** (owners and admins, the lead's assignee, the customer's owner, or one
+person). The AI teammate then gets it one of two ways:
+
+- **By link, in a texting thread.** It asks with a link at the end of its text: the same `/v/<token>` page as a
+  video link, asking for a file. The page shows the question and takes photos and PDFs, up to 25 MB each and 5 per
+  link, for 7 days. Each one lands in the conversation as the customer's reply, marked "Sent with your file link".
+- **As a photo or attachment.** When they text a photo of it, or attach it to an email, the teammate saves their
+  newest photo or PDF in that conversation as the answer. On a call or a website chat it asks them to text a photo.
+
+Either way the file goes on the lead (the customer, if the lead has gone since), the question counts as answered
+("Sent “bill.pdf”"), and the lead qualifies if that was the last thing missing. Then the worker:
+
+1. copies the file from the message (`telephony`) onto the lead's Files (`attachments`), so deleting one never
+   takes the other, and puts it on the timeline;
+2. emails each person the question names ("Rosa Diaz sent a file") and sends a phone notification (the
+   **customer_file** kind), once per file that came in.
+
+When a lead qualifies, whoever **When a lead qualifies → Tell** names gets an email ("Rosa Diaz is qualified: Solar
+panels", with the answers) and a phone notification (**lead_qualified**). Until 20261018000400 that setting was
+saved but told nobody; businesses that picked someone long ago start hearing from then on. Both phone notifications
+are on the **Your AI teammate's qualifying** switch in Settings → Notifications; the emails always go to the people
+named, so to stop them, change who the setting names. The person who recorded the last answer themselves is never
+told about it.
+
+The event is `file.received`. If a file shows as missing from a lead's Files, look for it in
+`fly logs --app handsfreeos-worker` and in the outbox:
+
+```sql
+select status, attempts, last_error from app.outbox
+where event_type = 'file.received' and workspace_id = '<business id>'
+order by created_at desc limit 5;
+```
+
+A person can still type an answer for a file question on the lead (say the customer brought it in); the AI teammate
+can't, so it never says a file came that didn't.
 
 #### A voicemail nobody can play
 
@@ -2039,7 +2102,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 3. Store it in GitHub. `gh` asks you to paste the value. Paste it and press Return.
 
    ```bash
-   gh secret set FLY_API_TOKEN --repo gobizhelp/handsfreeos
+   gh secret set FLY_API_TOKEN --repo Go-Biz-Help/handsfreeos
    ```
 
    To do it in the browser instead, open the repository and go to **Settings** → **Secrets and variables** → **Actions**, click the **Secrets** tab, then **New repository secret**. Enter `FLY_API_TOKEN` as the **Name**, paste the token into **Secret**, and click **Add secret**.
@@ -2047,7 +2110,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 4. Check it.
 
    ```bash
-   gh secret list --repo gobizhelp/handsfreeos
+   gh secret list --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see `FLY_API_TOKEN` in the list.
@@ -2056,13 +2119,13 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
 6. Run the Deploy workflow once to prove it works.
 
    ```bash
-   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+   gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 7. Watch the run until it ends. Pick the newest Deploy run and press Return. If `gh` says no runs are in progress, wait a few seconds and run it again.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its first job, **The API and the worker on Fly.io**, shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**. A second job, **The sync service on Fly.io**, follows it; until the sync service is set up, its steps note that they skipped (see Sync Part 8 in "Sync service: PowerSync on Fly").
@@ -2104,7 +2167,7 @@ After the redeploy:
 - To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run ships the newest commit on the branch you pick. It doesn't report to Vercel, so a web build waiting on its check still needs its own run re-run, or **Force Promote** in Vercel.
 
   ```bash
-  gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+  gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
   ```
 
 - To deploy from your Mac, start from a clean, up-to-date `main` (Fly Part 7, steps 1 and 2). Then run the same commands as GitHub, worker first:
@@ -2289,13 +2352,13 @@ Fly's docs describe no rollback command. Instead you redeploy an earlier image.
 11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job to report ("Make Vercel wait for the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
 
     ```bash
-    gh workflow disable Deploy --repo gobizhelp/handsfreeos
+    gh workflow disable Deploy --repo Go-Biz-Help/handsfreeos
     ```
 
 12. If you paused it, turn the workflow back on once the fix is on `main`.
 
     ```bash
-    gh workflow enable Deploy --repo gobizhelp/handsfreeos
+    gh workflow enable Deploy --repo Go-Biz-Help/handsfreeos
     ```
 
 What a rollback does not undo:
@@ -2925,13 +2988,13 @@ Run it once to prove it works:
 1. Start the workflow:
 
    ```bash
-   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+   gh workflow run Deploy --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 2. Watch it. Pick the newest Deploy run and press Return.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see the run end successfully. The first time, the steps **Deploy the sync service (one machine, never stopped)**, **Wait for a new sync config to finish copying** and **Keep the daily compaction machine in step** each get a check mark.
@@ -2951,13 +3014,13 @@ Its hourly runs start only once the repository variable `HFOS_SYNC_HEALTH` is `o
 1. Run it once now:
 
    ```bash
-   gh workflow run "Sync health" --repo gobizhelp/handsfreeos --ref main
+   gh workflow run "Sync health" --repo Go-Biz-Help/handsfreeos --ref main
    ```
 
 2. Watch it. Pick the newest Sync health run and press Return.
 
    ```bash
-   gh run watch --repo gobizhelp/handsfreeos
+   gh run watch --repo Go-Biz-Help/handsfreeos
    ```
 
    You should see the run end successfully, and `Healthy.` at the end of its step **Ask the sync service how it is**.
@@ -2965,10 +3028,10 @@ Its hourly runs start only once the repository variable `HFOS_SYNC_HEALTH` is `o
 3. Turn on the hourly runs.
 
    ```bash
-   gh variable set HFOS_SYNC_HEALTH --body on --repo gobizhelp/handsfreeos
+   gh variable set HFOS_SYNC_HEALTH --body on --repo Go-Biz-Help/handsfreeos
    ```
 
-   You should see `✓ Created variable HFOS_SYNC_HEALTH for gobizhelp/handsfreeos`. The next run starts at 23 minutes past the hour. To stop them again, `gh variable delete HFOS_SYNC_HEALTH --repo gobizhelp/handsfreeos`.
+   You should see `✓ Created variable HFOS_SYNC_HEALTH for Go-Biz-Help/handsfreeos`. The next run starts at 23 minutes past the hour. To stop them again, `gh variable delete HFOS_SYNC_HEALTH --repo Go-Biz-Help/handsfreeos`.
 
 4. Make sure its failures reach you. GitHub emails a scheduled workflow's failures to the person who last changed its `cron:` line, which is the account that committed the file. On GitHub, click your profile picture, then **Settings** → **Notifications**. Under **System**, set **Actions** to email you, for failed workflows only. If the page has moved, search GitHub's settings for "Actions notifications".
 
@@ -3212,21 +3275,21 @@ The trial ends after 14 days, or sooner if the team reaches the trial's usage li
 
 ### Create the project
 
-`gobizhelp` is a personal GitHub account, not a GitHub organization. Vercel's rule that every commit author must be a member of the Pro team applies only to private repositories owned by an organization, so it does not affect `gobizhelp/handsfreeos`. If the repository ever moves to a GitHub organization, each person who commits needs a Vercel account, linked to GitHub, that is a member of the Pro team. Otherwise their deployments fail with "Team access required to deploy." If the team uses **Manual Approval**, approve new members under the team's **Settings** → **Members**.
+The repository belongs to the GitHub organization `Go-Biz-Help`. It moved there from the personal account `gobizhelp` (see "If the repository moves" below). Vercel's rule that every commit author must be a member of the Pro team applies to private repositories owned by an organization, so it applies here: each person who commits needs a Vercel account, linked to GitHub, that is a member of the Pro team. Otherwise their deployments fail with "Team access required to deploy." If the team uses **Manual Approval**, approve new members under the team's **Settings** → **Members**.
 
 1. Make sure the Pro team is selected in the team switcher at the top left.
 2. Click **Add New…** and choose **Project**.
-3. Under **Import Git Repository**, click **Import** next to `gobizhelp/handsfreeos`.
+3. Under **Import Git Repository**, click **Import** next to `Go-Biz-Help/handsfreeos`.
 
-   If `gobizhelp/handsfreeos` is not listed:
-   1. Look below the list for a link to install or adjust the Vercel GitHub App, and click it. If there is none, open `https://github.com/settings/installations` while signed in to GitHub as `gobizhelp`.
+   If `Go-Biz-Help/handsfreeos` is not listed:
+   1. Look below the list for a link to install or adjust the Vercel GitHub App, and click it. If there is none, open `https://github.com/organizations/Go-Biz-Help/settings/installations` while signed in to GitHub as an owner of the organization.
    2. Click **Configure** next to **Vercel**.
    3. Under **Repository access**, choose **Only select repositories**.
    4. Add `handsfreeos` to the list.
    5. Click **Save**.
    6. Go back to Vercel and refresh the page.
 
-      You should see `gobizhelp/handsfreeos` with an **Import** button.
+      You should see `Go-Biz-Help/handsfreeos` with an **Import** button.
 
 4. Set **Project Name** to `handsfreeos-web`.
 5. Next to **Root Directory**, click **Edit**.
@@ -3395,6 +3458,20 @@ Next.js writes the `NEXT_PUBLIC_` values into the app while it builds. That cove
 
 A push to `main` also builds with the current settings.
 
+### If the repository moves
+
+Vercel and Expo stay linked to the old address when the repository is transferred on GitHub or renamed, and they don't follow it. Pushes stop deploying, and **Create Deployment** refuses a link to the new address with "The provided link points to a different repository than what is connected to the Vercel project." Relink each one:
+
+1. On GitHub, open the new owner's **Settings** → **GitHub Apps** (for an organization, `https://github.com/organizations/<name>/settings/installations`). Click **Configure** next to **Vercel** and add `handsfreeos` under **Repository access**. If Vercel isn't listed, install it from the Vercel project in step 2. Do the same for **Expo**.
+2. In Vercel, open `handsfreeos-web`, then **Settings** → **Git**. Click **Disconnect**, then **Connect Git Repository**, and pick the repository at its new address. Give the plain repository, never a link to a branch or folder: **Root Directory** (`apps/web`) is a separate setting and is kept.
+3. Do the same for `handsfreeos-site`, whose **Root Directory** stays `apps/site`.
+4. In Expo, open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github` and link the repository at its new address, with **Base directory** `apps/mobile`.
+5. Push a commit to `main`.
+
+   You should see a new deployment start in both Vercel projects.
+
+Domains, environment variables and build settings stay as they were. **Create Deployment** takes a branch or commit, such as `main` or `https://github.com/Go-Biz-Help/handsfreeos/tree/main`.
+
 ### Add app.handsfreeos.com
 
 1. In the project, click **Settings**, then **Domains**.
@@ -3551,7 +3628,7 @@ These are plain settings in files in the repository, not Fly.io secrets, so `fly
    git add apps/api/fly.toml apps/worker/fly.toml && git commit -m "Change the web address" && git push
    ```
 
-   You should see a new **CI** run for your commit at `https://github.com/gobizhelp/handsfreeos/actions`.
+   You should see a new **CI** run for your commit at `https://github.com/Go-Biz-Help/handsfreeos/actions`.
 
 9. Wait until the **CI** run shows a green check, and then the **Deploy** run that follows it. The Deploy workflow ships the worker and then the API. To run it by hand, open the repository on GitHub and click **Actions** → **Deploy** → **Run workflow**.
 10. Run the two `curl .../healthz` commands from "Before you start" in this section.
@@ -3976,6 +4053,8 @@ You should see **Enable** selected under **Enforce HTTP Auth on Media URLs** on 
 
 This breaks nothing. The worker always signs in with the client subaccount's credentials to download a voicemail or picture. It copies the file into the Supabase Storage bucket `telephony`, then deletes Twilio's copy. A voicemail is deleted from Twilio once its transcript arrives, or at once if it is 2 seconds or shorter.
 
+**Videos.** A video texted by MMS is whatever the customer's phone and carrier squeezed it into, often a 3GP well under 1 MB, so it looks blurry, and nothing here can bring back what the carrier threw away. Sharper videos come over RCS (see "RCS: branded texts with buttons"). As the worker copies a video that isn't an MP4, it turns it into one (H.264 and AAC) with ffmpeg, so it plays in the inbox on the web and on both phones. ffmpeg is installed in the worker's image (`apps/worker/Dockerfile`). When a video can't be converted (unreadable, over 25 MB, or more than 90 seconds of work), it is kept as it came and the worker logs `a texted video could not be converted; kept as it came`. Videos that arrived before this are kept as they were: an iPhone can't play a 3GP, so the app offers **Share** instead, and the web offers **Download**. For a sharp video, send the customer a video link (see "Video links" under "Storage buckets").
+
 #### Balance and auto-recharge
 
 Client subaccounts have no balance of their own. They all draw on the master account's balance, so an empty balance can stop calls and texts for every client at once.
@@ -4128,6 +4207,16 @@ You should see "{number} bought. Calls ring now.", then "Setting up {number}. Th
 - Only numbers bought here work. A number bought by hand in the Twilio console is unknown to HandsFreeOS (see "Twilio webhooks are rejected" in "Going live, and when something goes wrong").
 - Sole proprietors, and businesses without an EIN, must use toll-free. On a local number their registration fails with "Sole proprietors text from a toll-free number. Release this number and pick a toll-free one." But the **Release this number** menu only appears once texting is approved, so a client in this state can't release the number from the page, and can't buy a toll-free one while the local number is live. Until a developer adds a release option to that screen, tell sole proprietors and businesses without an EIN to pick **Toll-free** before they buy.
 
+#### Registering before the number is here
+
+A client moving its own local number here (a carrier port, or a transfer from Twilio or HighLevel), or not ready to pick one, can send the local texting registration first. While the page is on the number step or **Moving to us**, a **Register for texting now** card sits below it. **Start the registration** opens the same business-details steps, and the card then follows the carrier review the same way the main page does. The carriers take 1 to 3 weeks on a local registration either way, and none of its four steps needs the number, so those weeks no longer wait on top of a port or a transfer. When the number lands it joins the messaging service and can text that day, with nothing more to send. The import list says the same ("Your registration already covers it…").
+
+- **Local (10DLC) only.** Toll-free verification is for one toll-free number, and Twilio asks for that number, so it still waits for it (rule `no_number`). The card isn't shown when the number on its way is toll-free; sending a 10DLC registration then is refused with `registration_kind_mismatch`.
+- **Sending it makes the subaccount and messaging service**, the way a first purchase would (below), because the campaign is registered on the messaging service.
+- **The registration names the number on its way** when there is one (its HELP reply and the hosted privacy page give it). With nothing on its way, they leave the number out.
+- **The campaign's $10 a month starts when the carriers approve it**, which can be before the number lands. The business pays it (see "Paying the carriers' fees").
+- Toll-free verification sent while its number is still being set up now goes the moment the number starts working (`phone_number.purchased`, `phone_number.ported_in` and `phone_number.imported` walk the registration again). It used to wait until someone sent it again.
+
 The first purchase creates these in order: the subaccount `HandsFreeOS <workspace name> <tag>`, the messaging service `HandsFreeOS <tag>`, and an API key and a TwiML app both named `HandsFreeOS calls <tag>`. The `<tag>` is the first 8 characters of the workspace id. Each step is saved as it finishes, so a failure part-way picks up where it stopped. To see them in the Twilio console, open the master account's list of subaccounts and click the subaccount's name. The list is at `https://www.twilio.com/console/project/subaccounts`; in the new console it is under **Settings** → **Account settings** → **Subaccount management**. If neither works, search the console for `Subaccounts`. To return to the master account, use the account menu at the top left.
 
 #### Business details
@@ -4158,6 +4247,30 @@ What HandsFreeOS sends besides their answers:
 #### STOP, START and HELP
 
 Twilio answers STOP and START itself, in its standard words, before HandsFreeOS sees the text. Nothing else can be sent to a number after it says STOP, so HandsFreeOS can't send its own STOP reply, and the registration declares Twilio's. HandsFreeOS answers HELP and INFO itself with the reply above, at any hour, and never to someone who texted STOP. If you turn on **Advanced Opt-Out** for a client's messaging service in the Twilio console (it can only be turned off by Twilio support), Twilio answers these keywords instead and HandsFreeOS stays quiet; set its STOP, START and HELP replies to the ones the registration declared, or the carriers will find two different answers.
+
+#### Paying the carriers' fees
+
+A local number's registration costs money at The Campaign Registry and the carriers, and the business pays it, at cost, with nothing added (`packages/core/src/money/texting-fees.ts`). Toll-free verification costs nothing and has no fees.
+
+| Fee                | Amount      | When the business pays it                                                  |
+| ------------------ | ----------- | -------------------------------------------------------------------------- |
+| Brand registration | $4.50       | Once, until the brand has gone to The Campaign Registry                    |
+| Brand vetting      | $41.50      | Once, with the brand, when the business picked 1,000 or more texts a month |
+| Campaign review    | $15         | Each time the campaign goes to the carriers, a resubmission included       |
+| Texting campaign   | $10 a month | From the month the carriers approve the campaign, on that day each month   |
+
+So a first registration is $19.50, or $61 for a business that texts 1,000 or more a month, and a campaign sent again after the carriers turn it down is $15.
+
+- **The last step of the registration shows the fees** and its button reads **Pay $19.50 and send**. Sending writes the registration as before and what it costs (`app.texting_fees`, `registration.submit`'s `fee`). **Nothing goes to the carriers until it's paid**: the worker holds the 10DLC steps back while a registration fee waits.
+- **Paying.** The first time, the page shows "Making your payment page…" and then sends the person to a Stripe Checkout page in our own account, with the fees as its lines. It is the same Stripe setup as the founding seats and RCS: `STRIPE_PLATFORM_WEBHOOK_SECRET` and the same four events at `/webhooks/stripe/platform`. The page keeps the card. Later fees (a resubmission's $15, each month) are charged to that card without a page.
+- **A card that says no** is not tried again. The owners and admins get "Your texting registration … is waiting on payment" or "This month’s texting campaign fee … didn’t go through", and Settings → Texting & calls shows **Pay $… with another card** (`texting_fee.pay`). The card paid with is the one charged from then on. While a month waits on the business, no further months are charged; once it's paid, the missed months are charged one an hour.
+- **The month** is charged by an hourly sweep (`texting_fee.months`) for each business whose newest campaign is approved, whose Twilio account is open, and that has paid a texting fee by card here. A business registered before this has no card on file, so it is never charged for months it didn't agree to. Charge those by hand if you want to.
+- **Paying online switched off** (no `STRIPE_PLATFORM_WEBHOOK_SECRET` on the worker) never strands a registration: its fee is marked waived, the worker logs a warning, and the registration goes to the carriers uncharged.
+- The Assistant's **Send your texting registration** card says there are carrier fees, and after sending it says where to pay.
+- **Not on the usage balance**, so nothing is charged twice. The balance charged them for a short while in October 2026, while it only recorded charges, so no money moved (see "Usage balances: what businesses pay us").
+- Needs `20261018000200_texting_fees_passed_on.sql` (see "Apply new migrations").
+
+Locally and in tests the stand-in Stripe takes the payment. A card paid with `4000000000000341` is refused when the month is charged.
 
 #### Carrier review and how long it takes
 
@@ -4304,7 +4417,7 @@ Carrier fees on local-number texts, added to the prices above:
 
 Twilio's registration-fee help article still says only T-Mobile charges on received texts. The pricing page is the newer source.
 
-Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers.
+Local-number registration, per client. These fees are passed through from The Campaign Registry and the carriers, and the business pays the first four by card, at cost (see "Paying the carriers' fees"). On Twilio's bill they all appear under one category, `a2p-registration-fees` ("Messaging A2P Brand Registration Fee" and the like).
 
 | Fee                  | Price                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -4508,7 +4621,7 @@ The screen writes the request for them with both SIDs filled in and a field for 
 **Setting the number up is separate from registering it for texting.** Each import shows two statuses side by side:
 
 - **Phone number**: waiting for the transfer, then **live here**. Calls work from this moment.
-- **Texting registration**: A2P 10DLC for a local number, toll-free verification for a toll-free one. HighLevel's registration belongs to HighLevel's brand and **does not move with the number**. Until the business's own registration is approved here, texts may be blocked by the carriers. A business that already has an approved 10DLC campaign here gets the new number covered as soon as it joins the messaging service.
+- **Texting registration**: A2P 10DLC for a local number, toll-free verification for a toll-free one. HighLevel's registration belongs to HighLevel's brand and **does not move with the number**. Until the business's own registration is approved here, texts may be blocked by the carriers. A business that already has an approved 10DLC campaign here gets the new number covered as soon as it joins the messaging service. A local number's registration can be sent while the number is still waiting, from **Register for texting now** below the imports (see "Registering before the number is here").
 
 **Connecting a Twilio account.** Only the organization's owners and admins can connect one, because listing an account lists every business's numbers in it. Numbers can then be sent to any business in the organization. They give the Account SID with either the account's auth token or, better, a standard **API key** SID and secret, which they can revoke in Twilio at any time. We only ever **read** with it: the account and its subaccounts, and the numbers in each. We never change anything in their account. Each number shows who its webhooks point at today ("Used by HighLevel"), whether it is already here, and whether it is already on its way to one of their businesses.
 
@@ -4527,13 +4640,45 @@ Replies come back to the same conversation. A tap on a reply button arrives as a
 
 **On the phone app** it works the same way. The thread shows the buttons, cards and carousels as the customer saw them, the **RCS**, **SMS** or **MMS** tag, when an RCS message was read, the plain text a phone without RCS got, and which button a customer's reply came from. The composer's **Add buttons or a card** builds buttons, a card or a carousel, with the same rules and the same plain-text preview as the web, and it works with no signal like any reply. A carousel's pictures are taken like a reply's photos. The phone doesn't know whether RCS is on for the business, so it doesn't say; connecting and managing the sender is on the web. The phone gets these four message fields through its sync streams, added to the existing ones in place (see `apps/sync/sync-config.yaml`), so a phone build from before them keeps working and just doesn't show them.
 
-#### Setting up a business's RCS sender
+#### How a business asks for RCS, and pays
 
-Twilio makes RCS senders only in its own console: the carriers review the brand (its name, logo, colors, contact details, privacy policy and terms), and that happens there. So each business's sender is made by hand, once, in that business's own subaccount.
+Twilio makes RCS senders only in its own console (it has no API for it), and a business's Twilio account is a subaccount that only HandsFreeOS can open. So a business can't make its own sender. It asks for one on the **RCS messaging** card and pays, and HandsFreeOS makes it.
+
+1. The business opens **Settings** → **Texting & calls** (the card shows once texting is approved). Owners and admins fill in what the sender shows: the name customers see, a one-line description, a brand color, the website, privacy policy and terms links, the phone and email on the profile, and optionally a link to their logo. The links and email start from their texting registration.
+2. The card shows what it costs, line by line, from `packages/core/src/money/rcs-fees.ts`:
+
+   | Line                   | Amount      | Whose                                   |
+   | ---------------------- | ----------- | --------------------------------------- |
+   | Carrier onboarding     | $500, once  | The US carriers' fee, passed on at cost |
+   | Brand vetting by Aegis | $200 a year | Passed on at cost                       |
+   | Setup by HandsFreeOS   | $100, once  | Ours                                    |
+   | Yearly upkeep          | $15 a year  | Ours, from the second year              |
+   | **First year**         | **$800**    |                                         |
+   | **Each year after**    | **$215**    |                                         |
+
+   The screen makes no promise about refunds. Decide each one yourself, and refund in Stripe.
+
+3. **Pay $800 and send** writes the request (`rcs_request.submit`, rule `no_number` without a business number, `rcs_sender_exists` when a sender is already connected). The worker makes a Stripe Checkout page in our own account, with those three lines, and sends the person there. It is the same Stripe setup as the founding seats: the same `STRIPE_PLATFORM_WEBHOOK_SECRET`, and the same four events at `/webhooks/stripe/platform`. Without that secret the card says "Paying online isn’t switched on yet" and nothing is charged. The page keeps the card on a Stripe customer for the renewal.
+4. When Stripe says it's paid, the request is **paid** for a year, the owners and admins get "We’re setting up RCS for …", and **a support ticket opens** in **Support** → **Tickets**: "RCS sender for {business}". The business's own message lists what they asked for. An internal note says what was paid, when it renews, the subaccount's Account SID, and the steps below.
+
+Then make the sender, once, in that business's own subaccount:
 
 1. Open the business's subaccount in the Twilio console (see "Number" above for where the list of subaccounts is).
-2. Under **Messaging** → **Senders**, create an RCS sender for the business and fill in the brand details Twilio asks for. If the menu has moved, search the console for `RCS`. Send it for carrier review.
-3. In HandsFreeOS, the business (or you, signed in to it) opens **Settings** → **Texting & calls**. The **RCS messaging** card lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. A business with more than one number can also pick where new RCS conversations start.
+2. Under **Messaging** → **Senders**, create an RCS sender for the business with the details from the ticket. If they sent no logo, ask on the ticket for a 224 × 224 logo and a 1440 × 448 banner; a reply there emails them. If the menu has moved, search the console for `RCS`. Send it for carrier review.
+3. In HandsFreeOS, view the business and open **Settings** → **Texting & calls**. The **RCS messaging** card says "Paid… We’re making your RCS sender" and lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. The business can do this too. A business with more than one number can also pick where new RCS conversations start.
+4. Answer the ticket to say it's with the carriers.
+
+**A business or agency that already has a sender** (one you made before this, say) uses **Already have an RCS sender at Twilio? Connect it** under the form, which connects it without paying.
+
+**Renewals.** A year after paying, an hourly sweep (`rcs_request.renewals`) charges the yearly $215 to the card the first payment kept, and moves the paid year on; owners and admins get "RCS renewed for …". Each charge is keyed on the request and the year, so it is charged once however often the sweep runs.
+
+- **A refused card** is not tried again on its own. The request keeps the reason, owners and admins get "RCS’s renewal for … didn’t go through", and a ticket opens: "RCS renewal for {business} didn’t go through". RCS stays connected. The card shows **Pay $215 with another card** (`rcs_request.pay_renewal`), which makes a Stripe page for that year; paying it renews the year and keeps the new card for next year. Nothing else is needed from you unless they ask on the ticket.
+- **Stopping it.** **Stop renewing** on the card stops future charges. RCS stays on until the paid year ends, and a ticket opens in their name: "Stop renewing RCS for {business}". After that date, delete the sender in the Twilio console (or Aegis bills its vetting again) and disconnect it on the card.
+- **Paid twice** (two tabs): the second payment is recorded but never renews, and its ticket says "(paid twice)" and asks you to refund it.
+
+Locally and in tests, the fake payment provider stands in for Stripe: **Pay** opens its own checkout page, and paying there sends the signed event back. A card paid with `4000000000000341` is refused at renewal.
+
+#### Following the sender through review
 
 The card then shows **In review** while the carriers look at the sender. That can take a few weeks, and texts keep going as SMS and MMS in the meantime. The worker checks with Twilio on the same schedule as a carrier registration, and once a day after the sender is approved. **Check now** asks straight away. When the carriers approve it, the worker adds the sender to the business's messaging service, the card says **On**, and owners and admins get an email ("RCS is on for …"). If the sender goes offline or can't be connected, they get "RCS stopped for …" and texts go as SMS and MMS until it is fixed.
 
@@ -8771,6 +8916,29 @@ rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A bu
 `20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
 made by Twilio (the fallback without a Deepgram key) are not on the balance.
 
+**The carriers' fees for texting from a local number are not on the balance.** The business pays them by card,
+at cost, before its registration goes to the carriers (see "Paying the carriers' fees"). The rate card still has
+their four lines (`a2p.brand.registration`, `a2p.brand.vetting`, `a2p.campaign.vetting`, `a2p.campaign.month`, at
+markup 10000, from `20261017000100_a_fee_is_a_unit.sql` and `20261017000200_texting_registration_on_the_wallet.sql`),
+but nothing charges them; **Usage & balance** doesn't list them. The nightly reconciliation leaves Twilio's
+`a2p-registration-fees` category alone, so the card's charge is the only one. A `wallet.campaign_months` job left
+over from before finishes once and doesn't come back.
+
+**Phone numbers are charged once per calendar month.** Each number a business held during a month is one
+statement line, "Phone number (512) 555-0134, October 2026", at the card's price ($2 local, $3.50 toll-free).
+"Held" means bought, moved in or finished porting, and not given back before the month began. The months are
+counted in the business's own time zone. The daily `wallet.number_months` job does it, and charges each month only
+once. A number given back mid-month has already paid for that month, the same as at Twilio. Twilio charges on the
+day of the month a number was bought, so the nightly reconciliation leaves `phonenumbers-local` and
+`phonenumbers-tollfree` alone, as it does the registration fees. Before October 2026 nothing charged numbers at
+all, and the nightly reconciliation never ran: its plan read the carrier accounts with no business in scope and
+found none. Both need `20261017000300_numbers_on_the_wallet.sql`. Once that's applied, expect the first
+reconciliation adjustments ("Carrier charge for recordings on …") to show up on statements: that's the true-up
+doing the job it was built for. It never compares a line that's already inside another, so the same money is
+never charged twice. One such line is the parts of `calls-inbound` (`calls-inbound-local` and the rest). The
+others are the carriers' per-message fees (`carrier-fees`, `sms-messages-carrierfees`,
+`mms-messages-carrierfees`), which the card's text prices already include.
+
 ### Part 0: The Stripe account the money lands in
 
 Before any of the parts below, the money has to have somewhere to go. That somewhere is **HandsFreeOS's own
@@ -9408,6 +9576,40 @@ where user_id = (select id from app.users where email = 'founder@example.com');
 
 There can only be one founder. To hand it over, set the current one to `false` first, in the same way.
 
+### Viewing the app as someone
+
+**View as** shows the web app and the phone app exactly as one person sees them: their menu, their inbox, their
+money, their Home, read-only, until **Stop viewing** on the banner. Needs
+`20261018000100_viewing_the_app_as_a_teammate.sql`. See "Apply new migrations".
+
+| Who         | May view as                             | Where it starts                                                               | The business is told           |
+| ----------- | --------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------ |
+| An owner    | Admins and members of their business    | Web: **Members**, a person's **…** menu. Phone: **More → View as a teammate** | Yes, in its audit log, by name |
+| An admin    | Members                                 | The same                                                                      | Yes                            |
+| Support     | Anyone in the business, owners included | **Businesses → the business → Their people → View as**, on the web            | Yes, as for a look             |
+| The founder | Anyone in the business                  | The same                                                                      | No                             |
+
+- **Below them, and never more than they can see.** Someone in the business may view as a teammate whose role is
+  below theirs, and only when that teammate can do nothing they can't (a member an owner has given more than the
+  admins). It's a permission, **View the app as someone**, owners' and admins' by default: an owner can turn it
+  off for admins, or for one person, in **Settings → Permissions**.
+- **Support views inside a look,** so it needs a reason and ends when the look does. On the phone's Support desk,
+  **View as one of them on the web** opens the business's page on the web, where **View as** is beside each person.
+  The founder opens the business as its owner first, in the same click.
+- **Nothing can be changed.** The API refuses every change to the business a viewing request asks for, and the
+  phone refuses them before they're queued. Changes waiting on the phone from before still go, as the viewer.
+  The viewer's own settings and other businesses work as usual. The Assistant is off while viewing.
+- **Their own mail stays theirs.** A person's own mailbox (M19) isn't shown to anyone viewing as them.
+- **It ends by itself** if the viewer may no longer view as that person: their role or permissions change, the
+  person leaves, or support's look runs out. The page goes back to the viewer's own view and says so.
+
+**How it works.** A view is a row in `app.teammate_views`. The web keeps the view in a cookie scoped to the
+business's pages, and the phone keeps it on the device; each request then names it in the `x-hfos-view-as`
+header. The API asks the database (`private.teammate_view()`, as the viewer) whether the view is theirs and still
+holds, and only then reads the request as the teammate. On the phone, the business's copy is the viewer's, so it is
+shown through what the API says the teammate sees (`teammate_view.lens`): their threads where the business shows
+each person only their own, and their bills where they don't manage the money.
+
 ### Chat on handsfreeos.com
 
 The website's chat button is the same widget a business puts on its own site, pointed at us. To turn it on:
@@ -9813,7 +10015,7 @@ EAS keeps the build number itself — `appVersionSource` is `remote` and both pr
 Optional, and only worth it if you would rather not build from your Mac. EAS can build from a commit on GitHub instead.
 
 1. Open the project's GitHub settings: `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`.
-2. Install the Expo GitHub App, then link `gobizhelp/handsfreeos`. You need Owner or Admin on the Expo account.
+2. Install the Expo GitHub App, then link `Go-Biz-Help/handsfreeos`. You need Owner or Admin on the Expo account.
 3. Set **Base directory** to `apps/mobile`. Without it the build looks for the app in the repository root and finds a monorepo.
 
 Each profile you build this way also needs an `image` in `eas.json` — `preview` and `production` have `"image": "latest"` for both platforms. Leave it out and there is no error message: the build simply never dispatches.
@@ -9840,7 +10042,7 @@ This is also the rule that keeps an update honest: a phone is only ever offered 
 
 1. **Over-the-air updates turned on.** Done: `app.json` has `expo.updates.url` pointing at `https://u.expo.dev/22b0e923-de8b-4b67-9089-2c4bd440a956`, which is this project's id. Nothing else is needed, and `eas update:configure` does not have to be run. Adding it changed the fingerprint, so the first build after it is a new one on both phones — expected, and it only happens once.
 
-2. **The Expo GitHub App on the repository.** Everything above hangs off this: EAS hears about a push, a pull request or a label only through it. Open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`, install the app, link `gobizhelp/handsfreeos`, and set **Base directory** to `apps/mobile`. Without the base directory EAS looks for the app at the repository root and finds a monorepo. This is the same link Phone Part 3 asks for; doing it once covers both.
+2. **The Expo GitHub App on the repository.** Everything above hangs off this: EAS hears about a push, a pull request or a label only through it. Open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`, install the app, link `Go-Biz-Help/handsfreeos`, and set **Base directory** to `apps/mobile`. Without the base directory EAS looks for the app at the repository root and finds a monorepo. This is the same link Phone Part 3 asks for; doing it once covers both.
 
 3. **`EXPO_TOKEN` as a repository secret.** GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**, named `EXPO_TOKEN`. Use an access token for the robot user from Expo Part 1, not a personal one: it can be revoked without touching anyone's account. Until the secret exists `mobile-release.yml` notes that it skipped and passes, so `main` stays green.
 
@@ -9875,7 +10077,7 @@ One thing to be clear-eyed about: an over-the-air update to `production` reaches
 - **An EAS job fails with `Your repository working tree is dirty` and names `pnpm-lock.yaml`:** `requireCommit` is back on in `eas.json`. EAS's dependency install rewrites the lockfile on its machines, so every workflow update and build trips it. Take `requireCommit` out again.
 - **Settings → Notifications on the phone says "Not in this build":** that is push, not these settings. See "Push notifications: Expo", Part 4.
 - **`workflow:run` says `Failed to read workflow file` / `ENOENT`:** the path is wrong for where you are. The workflows live beside `eas.json`, so from `apps/mobile` the path is `.eas/workflows/deploy-production.yml`, and from the repository root it is `apps/mobile/.eas/workflows/deploy-production.yml`. A `.eas` folder at the repository root is never read: EAS looks under the GitHub App's base directory, which is `apps/mobile`.
-- **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `gobizhelp/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
+- **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `Go-Biz-Help/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
 - **`mobile-release.yml` says `EXPO_TOKEN is not set`:** the repository secret is missing. Phone Part 4, step 3. The job passes anyway on purpose, so `main` stays green before Expo's robot user exists.
 - **Testers' phones keep running old JavaScript although updates publish:** the updates are going to a build that isn't on the phones. On the phone, a crash's JavaScript stack names `main.jsbundle` from the build machine rather than an update. On the EAS website, **Builds** → the iOS build testers have → **Runtime version** differs from the runtime version of the latest update under **Updates** → `production`. The release that made the newer build failed after building it, so it never reached TestFlight. The next release after a failed one rebuilds by itself; to do it now, run **Phone app release** by hand under GitHub **Actions** with **rebuild** ticked (or `npx --yes eas-cli@latest build --platform ios --profile production --auto-submit` from `apps/mobile`, committed and pushed first). A release that outlived its 45-minute wait counts as finished even if EAS failed it later, so that one needs the hand run too.
 - **The production run builds every time, even for a one-line JavaScript change:** the fingerprint isn't matching. Usually the `fingerprint` job and the `production` build profile are reading different environments, so they hash different `EXPO_PUBLIC_` values — both must say `production`. Uncommitted native changes in a build from your Mac do it too, so commit before building.
@@ -10162,7 +10364,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 - **Buying.** The fake carrier turns down any number that ends in `0000` with "That number is no longer available." **Show numbers** never lists one, so only the automated tests show this error.
 - **Carrier approval** arrives 3 seconds after you click **Submit for approval** on the business details step (`FAKE_APPROVAL_MS=3000`). A **Legal business name** that contains `reject` is turned down with "The website does not show how customers agree to receive texts."
 - **Sending.** A text shows as sent after about a quarter of a second and as delivered after about 0.7 seconds. A text whose body contains `[fail]` fails instead, with carrier error 30006.
-- **RCS.** Connect `hfos_demo_agent` in the **RCS messaging** card on **Settings** → **Texting & calls** and texts go as RCS, then show as read. Texts to a customer number ending in `7` fall back to SMS or MMS. See "RCS: branded texts with buttons" in "The phone carrier: Twilio".
+- **RCS.** Connect `hfos_demo_agent` in the **RCS messaging** card on **Settings** → **Texting & calls** (under **Already have an RCS sender at Twilio? Connect it**; **Pay $800 and send** tries the request and payment on the stand-in) and texts go as RCS, then show as read. Texts to a customer number ending in `7` fall back to SMS or MMS. See "RCS: branded texts with buttons" in "The phone carrier: Twilio".
 - **Calls from the browser** use a stand-in for Twilio's calling library. It is ready at once, and a call you place "picks up" after a moment. No sound leaves the browser.
 - **Voicemail recordings** are all the same three-second, two-note chime.
 - **Confirming a cell** presses 1 by itself about 2 seconds after the call is placed, so the cell is confirmed. A cell number ending in `0404` doesn't answer, and one ending in `0405` answers and presses nothing.
@@ -10503,7 +10705,7 @@ These play phones with PowerSync's Node client against a local PowerSync Service
 
 #### The phone app
 
-The app in `apps/mobile` has its own checks, and its Maestro flows run on an Android emulator in the Phone app on Android workflow, which runs only when started by hand (about 46 minutes of GitHub Actions time a run). Run it with `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
+The app in `apps/mobile` has its own checks, and its Maestro flows run on an Android emulator in the Phone app on Android workflow, which runs only when started by hand (about 46 minutes of GitHub Actions time a run). Run it with `gh workflow run "Phone app on Android" --repo Go-Biz-Help/handsfreeos --ref main`.
 
 1. Run the app's checks.
 
@@ -11316,7 +11518,7 @@ You need:
   ```
 
 - The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, Google Cloud, Anthropic (for the Assistant), and OpenAI (the backup AI, optional).
-- Admin rights on the HandsFreeOS GitHub repository, `gobizhelp/handsfreeos`.
+- Admin rights on the HandsFreeOS GitHub repository, `Go-Biz-Help/handsfreeos`.
 - Your password manager, with the `HandsFreeOS` folder. Every secret goes there first, then only into the place named in "Your password manager folder" at the top of this guide. None of these values ever goes into the repository, a commit, a chat or a support ticket.
 - Access to the DNS settings for `handsfreeos.com` at Cloudflare.
 - A second Vercel project for `handsfreeos.com`. Stage 0 below deploys `apps/site` there, which is the home page, the pricing and phone-app pages, the privacy policy, the terms and the support page. Google's consent screen needs the privacy policy and terms, Microsoft's publisher verification needs the domain, Twilio checks that the site names the legal company, and Apple needs the support page.
@@ -11347,7 +11549,7 @@ Everything the site needs is already in `apps/site/src/content/site.ts`: the com
 - `company.mailingAddress` is the address the privacy policy and terms print. Twilio's A2P registration and Stripe's platform profile ask for an address too, and theirs must match the business registration — check which address that is rather than assuming it is this one.
 
 1. Sign in to Vercel and click **Add New** → **Project**.
-2. Import `gobizhelp/handsfreeos` again. The same repository can back several projects.
+2. Import `Go-Biz-Help/handsfreeos` again. The same repository can back several projects.
 3. Name the project `handsfreeos-site`.
 4. Set **Root Directory** to `apps/site`, and turn on **Include source files outside of the Root Directory**. The site is part of the pnpm workspace, so the build needs the repository root.
 5. Leave **Framework Preset** as **Next.js** with every override off, and add no environment variables. The site has none, and never should.
@@ -11436,7 +11638,7 @@ You should see, at the end:
    curl https://api.handsfreeos.com/healthz
    ```
 
-4. `FLY_API_TOKEN` in `gh secret list --repo gobizhelp/handsfreeos`, and a green Deploy run.
+4. `FLY_API_TOKEN` in `gh secret list --repo Go-Biz-Help/handsfreeos`, and a green Deploy run.
 
 Then set up the sync service, which the phone app reads through: do Sync Parts 1 to 9 in "Sync service: PowerSync on Fly". It needs the migrations through `20260921000700_mobile_grants.sql` on the hosted database first. The web app doesn't need it, so the stages after this one don't wait for it. You should see, at the end:
 

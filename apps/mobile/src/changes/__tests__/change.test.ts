@@ -70,6 +70,46 @@ describe('change()', () => {
     ).rejects.toMatchObject({ kind: 'waiting' });
   });
 
+  it('makes no change in a business the person is viewing as a teammate, and carries on elsewhere', async () => {
+    const readOnly = 'You’re viewing as Maria, so nothing here can be changed.';
+    const p = phone({
+      online: false,
+      refuse: (input) =>
+        (input as { workspaceId?: string }).workspaceId === LONE_STAR ? readOnly : null,
+    });
+    const personId = '12345678-1234-4234-8234-123456789012';
+    await expect(
+      p.changes.change(
+        'person.create',
+        { workspaceId: LONE_STAR, id: personId, firstName: 'Rosa', lastName: 'Delgado' },
+        {
+          optimistic: (tx) =>
+            tx.execute(
+              `INSERT INTO people (id, workspace_id, first_name, last_name) VALUES (?, ?, 'Rosa', 'Delgado')`,
+              [personId, LONE_STAR],
+            ),
+        },
+      ),
+    ).rejects.toEqual(new ChangeError('refused', readOnly));
+    await expect(
+      p.changes.change('call.connect_me', { workspaceId: LONE_STAR, personId: MARIA }),
+    ).rejects.toEqual(new ChangeError('refused', readOnly));
+    // Nothing was kept on the phone, and nothing went.
+    expect(p.db.rows('SELECT * FROM people WHERE id = ?', [personId])).toEqual([]);
+    expect(p.db.rows('SELECT * FROM outbox')).toEqual([]);
+    expect(p.api.sent()).toEqual([]);
+    // Another business is the person's own as ever.
+    const other = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    await expect(
+      p.changes.change('person.create', {
+        workspaceId: other,
+        id: '22345678-1234-4234-8234-123456789012',
+        firstName: 'Ana',
+        lastName: 'Ruiz',
+      }),
+    ).resolves.toEqual({ id: expect.any(String), queued: true });
+  });
+
   it('queues a new customer under the phone’s own id, and a lead for them that waits', async () => {
     const p = phone({ online: false });
     const personId = '12345678-1234-4234-8234-123456789012';

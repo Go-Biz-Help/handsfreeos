@@ -15,6 +15,7 @@ import {
   offerCreate,
   pushDeviceRegister,
   territoryCreate,
+  videoLinkTokenHash,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { testDbs } from '@hfos/db/testing';
@@ -44,7 +45,7 @@ import {
   useModel,
   type TeammateWorld,
 } from './ai-team-world';
-import { at, drain, textsTo } from './booking-world';
+import { at, drain, get, textsTo } from './booking-world';
 
 const CHI = 'America/Chicago';
 let w: TeammateWorld;
@@ -317,6 +318,29 @@ const RULES: TeammateRule[] = [
               { name: 'reply', arguments: { message: 'Thanks, the team will take a look.' } },
             ],
           },
+  },
+  {
+    when: /grinding noise/i,
+    step: (t) =>
+      t.tools.has('ask_for_video') && !t.results['ask_for_video']
+        ? { calls: [{ name: 'ask_for_video', arguments: {} }] }
+        : {
+            calls: [
+              {
+                name: 'reply',
+                arguments: {
+                  message:
+                    'Could you film the unit running for 20 seconds? Tap this link to send it.',
+                },
+              },
+            ],
+          },
+  },
+  {
+    when: /video of the noise/i,
+    step: () => ({
+      calls: [{ name: 'reply', arguments: { message: 'Thanks, the team will watch it.' } }],
+    }),
   },
   {
     when: /where is my tech/i,
@@ -838,6 +862,64 @@ describe('photos', () => {
     const req = requestAbout(w, 'from my iPhone')!;
     expect(typeof req.messages[0]!.content).toBe('string');
     expect(String(req.messages[0]!.content)).toContain('in a format you can’t open');
+  });
+});
+
+describe('videos', () => {
+  it('asks for a video by text, with the link at the end of its reply, made in its own name', async () => {
+    const c = await newCustomer(w, 'Vic');
+    const m = await textIn(w, c.phone, 'The unit is making a grinding noise');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    expect(briefOf(requestAbout(w, 'grinding noise')!)).toContain('use ask_for_video');
+    const [reply] = await aiReplies(m.conversationId);
+    expect(reply!.body_text).toMatch(
+      /^Could you film the unit running for 20 seconds\? Tap this link to send it\.\nhttp:\/\/localhost:3000\/v\/[A-Za-z0-9_-]{32}$/,
+    );
+    const token = /\/v\/(\S+)$/.exec(reply!.body_text!)![1]!;
+    const links = await rows<{
+      created_by: string | null;
+      created_by_teammate_id: string | null;
+      token_hash: Buffer;
+    }>(
+      admin(),
+      sql`select created_by, created_by_teammate_id, token_hash from app.video_links
+          where conversation_id = ${m.conversationId}`,
+    );
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ created_by: null, created_by_teammate_id: w.teammateId });
+    expect(links[0]!.token_hash).toEqual(videoLinkTokenHash(token));
+    // The page opens on it.
+    expect((await get(w, `/public/video/${token}`)).statusCode).toBe(200);
+  });
+
+  it('knows a video they sent is a video, not a photo', async () => {
+    const c = await newCustomer(w, 'Val');
+    const m = await textIn(w, c.phone, 'Here is a video of the noise');
+    await executeCommand(
+      testDbs().worker.db,
+      messageAttachMedia,
+      {
+        workspaceId: w.workspaceId,
+        messageId: m.messageId,
+        media: [
+          {
+            bucket: 'telephony',
+            objectPath: `${w.workspaceId}/messages/${m.messageId}/video-0.mp4`,
+            contentType: 'video/mp4',
+            sizeBytes: 1000,
+            name: 'video-0.mp4',
+          },
+        ],
+      },
+      { type: 'system', workspaceId: w.workspaceId, organizationId: w.organizationId },
+      { correlationId: randomUUID(), channel: 'worker' },
+    );
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    const said = requestAbout(w, 'video of the noise')!.messages[0]!.content;
+    expect(String(said)).toContain('(with a video)');
+    expect(String(said)).not.toContain('photo');
   });
 });
 

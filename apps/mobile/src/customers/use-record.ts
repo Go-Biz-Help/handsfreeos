@@ -21,6 +21,8 @@ import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
 import type { PhotoRow } from '@/changes/photos';
+import { sees } from '@/view-as/state';
+import { useLens } from '@/view-as/use-lens';
 
 import { useNames } from './names';
 import {
@@ -147,11 +149,18 @@ export function useRecord(kind: RecordKind, recordId: string): RecordData {
     TIMELINE_FOR(isPerson ? 'person_id' : 'company_id'),
     [business.id, recordId],
   );
-  const { data: invoiceRows } = useQuery<{
+  const { data: allInvoiceRows } = useQuery<{
+    id: string;
     total_cents: number | null;
     amount_paid_cents: number | null;
     amount_refunded_cents: number | null;
   }>(RECORD_INVOICES_SQL, [business.id, isPerson ? recordId : '']);
+  // Viewing as a teammate (20261018000100): what they're owed is from the bills they see.
+  const lens = useLens();
+  const invoiceRows = React.useMemo(
+    () => allInvoiceRows.filter((r) => sees(lens?.invoices, r.id)),
+    [allInvoiceRows, lens],
+  );
   const nowIso = React.useMemo(() => new Date().toISOString(), []);
   const { data: apptRows } = useQuery<{
     id: string;

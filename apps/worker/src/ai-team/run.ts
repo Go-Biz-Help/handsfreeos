@@ -47,6 +47,8 @@ import {
   teammateTools,
   TEAMMATE_TURN_ENDERS,
   uuidArray,
+  videoLinkCreate,
+  fileLinkCreate,
   walletRoom,
   workspaceMessaging,
   type AiEmployeeActor,
@@ -69,6 +71,7 @@ import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { clockLabel } from '../assistant/calendar-format';
 import { quietEndAt } from '../booking/deliver';
 import { STOP_WORDING } from '../booking/messages';
+import { publicOrigin } from '../hosting/origin';
 import type { JobContext, JobHandler, JobResult } from '../jobs';
 import { proposeGap } from '../knowledge/gaps';
 import { errorMessage, MAX_ATTEMPTS } from '../outbox';
@@ -532,6 +535,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
   const all = teammateTools(rc.config, {
     unverifiedChat: rc.unverifiedChat,
     strangerInChat: rc.strangerInChat,
+    texting: rc.conversation.channel === 'sms',
   });
   const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
   return only ? all.filter((t) => only.has(t.name as TeammateToolName)) : all;
@@ -1283,6 +1287,71 @@ function sendInput(
   };
 }
 
+/**
+ * Its reply, with the link it asked them to send a video with on its own line at the end (20261018000300), and the
+ * one to send a file a question asks for (20261018000400). The link is made only now, as the reply goes out or
+ * waits as a draft, so a run that ends any other way leaves none; on the business's own domain when one is serving,
+ * like every other link a customer gets. A customer who has just texted STOP gets no link: the text itself is
+ * refused, or its draft is when someone approves it.
+ */
+async function withVideoLink(
+  tx: Tx,
+  ctx: JobContext,
+  rc: RunContext,
+  ai: AiEmployeeActor,
+  meta: RequestMeta,
+  state: RunState,
+  conversationId: string,
+  body: string,
+): Promise<string> {
+  if ((!state.videoLink && !state.fileLink) || rc.conversation.channel !== 'sms') return body;
+  // Each link the reply asked for, on a line of its own: the video's, then the file's (20261018000400).
+  const make = async (
+    run: (sp: Tx) => Promise<{ readonly output: { readonly path: string } }>,
+  ): Promise<string | null> => {
+    try {
+      return (await tx.transaction(async (sp) => (await run(sp)).output)).path;
+    } catch (e) {
+      if (e instanceof HfosError && e.rule === 'opted_out') return null;
+      throw e;
+    }
+  };
+  const paths: string[] = [];
+  if (state.videoLink) {
+    const path = await make((sp) =>
+      executeCommandIn(
+        sp,
+        videoLinkCreate,
+        { workspaceId: rc.workspace.id, conversationId },
+        ai,
+        meta,
+      ),
+    );
+    if (path) paths.push(path);
+  }
+  const file = state.fileLink;
+  if (file) {
+    const path = await make((sp) =>
+      executeCommandIn(
+        sp,
+        fileLinkCreate,
+        {
+          workspaceId: rc.workspace.id,
+          conversationId,
+          leadId: file.leadId,
+          questionId: file.questionId,
+        },
+        ai,
+        meta,
+      ),
+    );
+    if (path) paths.push(path);
+  }
+  if (!paths.length) return body;
+  const origin = (await publicOrigin(tx, rc.workspace.id, ctx.webUrl)).replace(/\/+$/, '');
+  return [body, ...paths.map((p) => `${origin}${p}`)].join('\n');
+}
+
 type Finished = {
   readonly outcome: 'replied' | 'drafted' | 'no_reply' | 'other';
   readonly waitUntil: Date | null;
@@ -1342,7 +1411,12 @@ async function finish(
           run,
           rc,
           state,
-          body === null ? null : { body, subject: null },
+          body === null
+            ? null
+            : {
+                body: await withVideoLink(tx, ctx, rc, ai, meta, state, conversationId, body),
+                subject: null,
+              },
           latest,
         );
       await makeApprovals(tx, ctx.job.id, run, rc, state);
@@ -1366,7 +1440,13 @@ async function finish(
           await executeCommandIn(
             sp,
             messageSend,
-            sendInput(rc, conversationId, run.id, body, latest),
+            sendInput(
+              rc,
+              conversationId,
+              run.id,
+              await withVideoLink(sp, ctx, rc, ai, meta, state, conversationId, body),
+              latest,
+            ),
             ai,
             meta,
           );
