@@ -381,6 +381,8 @@ export const dealMoveStage = defineAddonCommand(realestateAddon, {
   input: DealMoveStageInput,
   output: DealChangeOutput,
   permission: 'realestate.use',
+  // The worker too: a listing the feed sees live on the MLS moves to Active (round five).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   ai: {
     tool: 'realestate_move_deal',

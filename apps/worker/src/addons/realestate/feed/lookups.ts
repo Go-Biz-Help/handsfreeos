@@ -27,7 +27,7 @@ import {
 import { executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { ConnectionRefused } from '../../connections';
-import type { AddonEventContext } from '../../types';
+import type { AddonEventContext, AddonScopeContext } from '../../types';
 import { askFeed, FeedUnsupported } from './index';
 import { milesBetween } from './reso';
 
@@ -57,7 +57,7 @@ function troubleWords(e: unknown, attempt: number): string | null {
 
 /** The listing at an address, or by its MLS number; null when the MLS has none. */
 export async function findListing(
-  ctx: AddonEventContext,
+  ctx: AddonScopeContext,
   by: { readonly mlsNumber: string | null; readonly address: string | null },
 ): Promise<{ readonly found: FeedListing | null } | null> {
   const query: FeedSearch = by.mlsNumber

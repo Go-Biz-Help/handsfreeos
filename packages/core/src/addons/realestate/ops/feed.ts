@@ -16,7 +16,13 @@ import { HfosError } from '../../../errors';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
 import { MAX_COMPS } from '../cma';
-import { feedAddressWords, feedFacts, mlsSourceWords, type MlsSnapshot } from '../feed';
+import {
+  feedAddressWords,
+  feedFacts,
+  listingFeedDiffers,
+  mlsSourceWords,
+  type MlsSnapshot,
+} from '../feed';
 import { addressKey, LISTING_FACT_KEYS, type ListingFactKey } from '../homes';
 import { realestateAddon } from '../manifest';
 import {
@@ -26,6 +32,8 @@ import {
   CmaFindCompsOutput,
   HomeLookupInput,
   HomeLookupOutput,
+  ListingFeedStatusInput,
+  ListingFeedStatusOutput,
   ListingLookupInput,
   ListingLookupOutput,
   MlsFoundInput,
@@ -33,9 +41,18 @@ import {
 } from '../schemas';
 import { cmaComps, cmas, homes, listings } from '../tables';
 import { compsOf, loadCma, requireDraft } from './cma';
-import { feedConnected, inWorkspace, loadDeal, requireNotArchived } from './common';
+import {
+  feedConnected,
+  inWorkspace,
+  loadDeal,
+  requireNotArchived,
+  timeZoneOf,
+  todayIn,
+} from './common';
 import { loadHome } from './homes';
-import { ensureListing, listingAddress, listingOf } from './listing';
+import { ensureListing, listingAddress, listingOf, listPriceOf } from './listing';
+import { markListingLive } from './marketing';
+import { PROOF_EVENTS } from './proof-hooks';
 
 /** Asked of a person with nothing connected. */
 export const noFeed = () =>
@@ -428,11 +445,107 @@ export const cmaCompsFound = defineAddonCommand(realestateAddon, {
   },
 });
 
+// ---------- our own listing's status on the MLS (step 6) ----------
+
+export const listingFeedStatus = defineAddonCommand(realestateAddon, {
+  name: 'realestate.listing.feed_status',
+  description:
+    'Worker: what the listing feed says of the deal’s own listing now. Active on the MLS marks it live here (the feed as proof); a price or status that differs from the deal’s is flagged for a person, never copied over.',
+  risk: 1,
+  input: ListingFeedStatusInput,
+  output: ListingFeedStatusOutput,
+  permission: 'realestate.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [
+    'realestate.listing.feed_checked',
+    'realestate.listing.live',
+    'realestate.deal.stage_changed',
+    ...PROOF_EVENTS,
+  ],
+  async handler(ctx, input) {
+    const deal = await loadDeal(ctx, input.dealId, { lock: true });
+    if (deal.side !== 'listing' || input.noFeed)
+      return { dealId: deal.recordId, state: 'skipped' as const, live: false, differences: [] };
+    const l = await ensureListing(ctx, deal);
+    const at = new Date();
+    const where = and(
+      eq(listings.workspaceId, l.workspaceId),
+      eq(listings.dealRecordId, l.dealRecordId),
+    );
+    if (input.failure) {
+      await ctx.tx
+        .update(listings)
+        .set({ mlsFailure: failureWords(input.failure), mlsCheckedAt: at })
+        .where(where);
+      return { dealId: deal.recordId, state: 'failed' as const, live: false, differences: [] };
+    }
+    if (!input.listing) {
+      await ctx.tx
+        .update(listings)
+        .set({ mlsState: 'not_found', mlsCheckedAt: at, mlsFailure: null })
+        .where(where);
+      return { dealId: deal.recordId, state: 'not_found' as const, live: false, differences: [] };
+    }
+    await ctx.tx
+      .update(listings)
+      .set({
+        mls: input.listing as unknown as Record<string, unknown>,
+        mlsState: 'found',
+        mlsCheckedAt: at,
+        mlsFailure: null,
+      })
+      .where(where);
+    // Active on the MLS, and not live here yet: it is now, with the feed as proof (Chris, 2026-10-02).
+    let live = false;
+    if (
+      input.listing.status === 'active' &&
+      !l.mlsLiveOn &&
+      deal.outcome === null &&
+      !deal.archivedAt &&
+      (await listingAddress(ctx, deal))
+    ) {
+      const today = todayIn(await timeZoneOf(ctx));
+      const listed = input.listing.listedOn;
+      await markListingLive(ctx, {
+        dealId: deal.recordId,
+        mlsNumber: input.listing.mlsNumber,
+        liveOn: listed && listed <= today ? listed : today,
+        fromFeed: `seen on the MLS, ${mlsSourceWords(input.listing).replace(/^From /, 'from ')}`,
+      });
+      live = true;
+    }
+    const now = await loadDeal(ctx, deal.recordId);
+    const differences = listingFeedDiffers(
+      {
+        stage: now.stage,
+        listPriceCents: await listPriceOf(ctx, deal.recordId),
+        closed: now.outcome === 'closed',
+      },
+      input.listing,
+    );
+    await ctx.emit({
+      type: 'realestate.listing.feed_checked',
+      entityType: 'realestate_deal',
+      entityId: deal.recordId,
+      payload: {
+        dealId: deal.recordId,
+        mlsNumber: input.listing.mlsNumber,
+        status: input.listing.status,
+        live,
+        differences: differences.map((d) => d.key),
+      },
+    });
+    return { dealId: deal.recordId, state: 'found' as const, live, differences };
+  },
+});
+
 export const feedCommands = [
   homeLookup,
   homeMlsFound,
   listingLookup,
   listingMlsFound,
+  listingFeedStatus,
   cmaFindComps,
   cmaCompsFound,
 ] as const;

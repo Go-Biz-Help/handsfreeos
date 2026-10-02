@@ -1923,6 +1923,15 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   home's MLS photos with its MLS's notice, logo and courtesy line, and only homes the agent sent.
 
 - **Step 6:** our listings' status from the feed.
+
+  **As built** (no migration): the same 15-minute feed check reads each open listing deal on the MLS, by its MLS
+  number (fifty at a time) or, before it has one, by its address (ten a time). Seen Active there and not live here,
+  it's marked live through round three's own path (`markListingLive`: its number and day, the MLS-input duty's proof
+  and history saying the feed saw it, Active if it was before it), and the hold lifts. `listingFeedDiffers` compares
+  the MLS's price and status with the deal's list price and stage; a difference is a Home card (`attention`) for the
+  deal's people until they agree, and is shown on the listing (`feed.differences`). Nothing is copied over, and
+  nothing is written to the MLS. `realestate.deal.move_stage` now also runs as the system, for this.
+
 - **Step 7:** e-sign (DocuSign and Dotloop).
 - **Step 8:** showings: our page and ShowingTime's emails.
 - **Step 9:** the vendors directory.

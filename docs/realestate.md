@@ -209,6 +209,8 @@ Round five (Chris, 2026-10-02):
 - **Comps from the MLS don't count until the agent ticks them.**
 - **A buyer's new matches go to the agent first**, at most one Home card a day per buyer, never to the client. The
   client sees only the homes the agent sends.
+- **Our listing seen Active on the MLS is marked live here**, with the feed as proof. A price or status on the MLS
+  that differs from the deal's is flagged on a Home card, never copied over. HandsFreeOS never writes to the MLS.
 - **Each MLS's notice, logo and courtesy line go with its listings** wherever they're shown.
 
 ## Handing it to a test business

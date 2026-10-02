@@ -371,6 +371,7 @@ export const realestateAddon = defineAddon({
       'realestate.listing.mls_found',
       'realestate.cma.comps_requested',
       'realestate.cma.comps_found',
+      'realestate.listing.feed_checked',
       'realestate.search.changed',
       'realestate.search.matched',
       'realestate.match.sent',

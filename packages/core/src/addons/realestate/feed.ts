@@ -11,7 +11,9 @@
  * Browser-safe and pure: the worker's adapters build these, the commands check them, the screens show them.
  */
 import { z } from 'zod';
+import { money } from '../../money/format';
 import { HOME_TYPE_KEYS, LISTING_FACT_KEYS, type HomeType, type ListingFacts } from './homes';
+import { publicStatus } from './listing';
 
 /** Where a listing stands on the MLS, in our words. */
 export const FEED_STATUSES = {
@@ -328,4 +330,53 @@ export function compsStateWords(
     default:
       return null;
   }
+}
+
+/** Where our listing and the MLS disagree: its price or where it stands. Flagged for a person, never copied over. */
+export interface FeedDifference {
+  readonly key: 'price' | 'status';
+  readonly words: string;
+}
+
+const OURS_WORDS = {
+  for_sale: 'for sale',
+  under_contract: 'under contract',
+  sold: 'sold',
+} as const;
+const FEED_AS_OURS: Readonly<Record<FeedStatus, 'for_sale' | 'under_contract' | 'sold' | null>> = {
+  coming_soon: 'for_sale',
+  active: 'for_sale',
+  pending: 'under_contract',
+  sold: 'sold',
+  off_market: null,
+};
+
+export function listingFeedDiffers(
+  ours: {
+    readonly stage: string;
+    readonly listPriceCents: number | null;
+    readonly closed: boolean;
+  },
+  mls: Pick<FeedListing, 'status' | 'listPriceCents'>,
+): FeedDifference[] {
+  const out: FeedDifference[] = [];
+  const here = ours.closed ? 'sold' : publicStatus(ours.stage);
+  const there = FEED_AS_OURS[mls.status];
+  // Before it's on the market here, the MLS showing it for sale is what marks it live, not a difference.
+  if (here !== null && there !== here)
+    out.push({
+      key: 'status',
+      words: `The MLS shows it ${FEED_STATUSES[mls.status].toLowerCase()}; here it’s ${OURS_WORDS[here]}. Move the deal’s stage if the MLS is right, or fix the listing in your MLS.`,
+    });
+  if (
+    here === 'for_sale' &&
+    mls.listPriceCents !== null &&
+    ours.listPriceCents !== null &&
+    mls.listPriceCents !== ours.listPriceCents
+  )
+    out.push({
+      key: 'price',
+      words: `The MLS shows ${money(mls.listPriceCents)}; the deal’s list price is ${money(ours.listPriceCents)}. Change whichever is wrong: the list price here, or the listing in your MLS.`,
+    });
+  return out;
 }

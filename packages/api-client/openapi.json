@@ -126866,12 +126866,36 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "differences": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string",
+                                    "enum": [
+                                      "price",
+                                      "status"
+                                    ]
+                                  },
+                                  "words": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "words"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
                             "state",
                             "words",
-                            "mls"
+                            "mls",
+                            "differences"
                           ],
                           "additionalProperties": false
                         },

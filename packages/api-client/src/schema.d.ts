@@ -52981,6 +52981,11 @@ export interface operations {
                                 id: string;
                             } | null;
                             feed: {
+                                differences: {
+                                    /** @enum {string} */
+                                    key: "price" | "status";
+                                    words: string;
+                                }[];
                                 mls: {
                                     /** Format: date-time */
                                     checkedAt: string;

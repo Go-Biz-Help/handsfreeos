@@ -2512,6 +2512,8 @@ export const ListingOut = z.object({
     state: z.enum(MLS_STATE_KEYS),
     words: z.string().nullable(),
     mls: MlsOut.nullable(),
+    /** Where the MLS and the deal disagree (its price or where it stands), for a person to fix. */
+    differences: z.array(z.object({ key: z.enum(['price', 'status']), words: z.string() })),
   }),
   page: z.object({
     state: z.enum(['none', 'published', 'down']),
@@ -3565,4 +3567,19 @@ export const MatchesOutput = z.object({
     }),
   ),
   counts: z.object({ new: z.int(), sent: z.int(), dismissed: z.int() }),
+});
+
+/** The worker: what the listing feed says of our own listing now (round five, step 6). */
+export const ListingFeedStatusInput = z.object({
+  ...inDeal,
+  listing: MlsSnapshotSchema.nullable(),
+  noFeed: z.boolean().default(false),
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+export const ListingFeedStatusOutput = z.object({
+  dealId: uuid,
+  state: z.enum([...MLS_STATE_KEYS, 'skipped']),
+  /** The MLS showed it Active, so it's marked live here now. */
+  live: z.boolean(),
+  differences: z.array(z.object({ key: z.enum(['price', 'status']), words: z.string() })),
 });

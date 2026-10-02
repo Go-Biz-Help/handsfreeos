@@ -164,75 +164,97 @@ export const listingMarkLive = defineAddonCommand(realestateAddon, {
   },
   emits: ['realestate.listing.live', 'realestate.deal.stage_changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
-    const deal = await loadDeal(ctx, input.dealId, { lock: true });
-    requireOpen(deal);
-    const address = await requireAddress(ctx, deal);
-    const today = todayIn(await timeZoneOf(ctx));
-    if (input.liveOn > today)
-      throw HfosError.validation(
-        [{ path: 'liveOn', message: 'Mark it live on the day it goes live, not before.' }],
-        'Mark it live on the day it goes live, not before.',
-      );
-    const l = await ensureListing(ctx, deal);
-    if (input.documentId) {
-      const [doc] = await ctx.tx
-        .select({ id: documents.id })
-        .from(documents)
-        .where(and(eq(documents.id, input.documentId), eq(documents.dealRecordId, deal.recordId)));
-      if (!doc)
-        throw HfosError.notFound(
-          `That document isn’t on ${deal.name}. Upload the MLS page to the deal’s documents first, then pick it.`,
-        );
-    }
-    const at = changeMoment(ctx.meta);
-    await ctx.tx
-      .update(listings)
-      .set({
-        mlsNumber: input.mlsNumber,
-        mlsLiveOn: input.liveOn,
-        mlsMarkedBy: actorUserId(ctx),
-        mlsMarkedAt: at,
-        updatedAt: at,
-      })
-      .where(
-        and(eq(listings.workspaceId, l.workspaceId), eq(listings.dealRecordId, l.dealRecordId)),
-      );
-    await historyLine(ctx, deal, 'listing_live', {
-      before: l.mlsNumber ? { mlsNumber: l.mlsNumber, liveOn: l.mlsLiveOn } : null,
-      after: { mlsNumber: input.mlsNumber, liveOn: input.liveOn, address },
-    });
-    // S-20 "Enter listing into MLS": the MLS page is its document; the number and day, its record.
-    await addProof(
-      ctx,
-      deal,
-      { keys: ['S-20'] },
-      {
-        kind: 'record',
-        refKind: 'listing_mls',
-        refId: deal.recordId,
-        body: `Live on the MLS since ${input.liveOn}, #${input.mlsNumber}`,
-      },
-    );
-    if (input.documentId) await documentProof(ctx, deal, input.documentId);
-    const at0 = LISTING_STAGES.indexOf(deal.stage as (typeof LISTING_STAGES)[number]);
-    let movedTo: string | null = null;
-    if (at0 >= 0 && at0 < LISTING_STAGES.indexOf('active')) {
-      await executeCommandWithin(ctx, dealMoveStage, {
-        workspaceId: deal.workspaceId,
-        dealId: deal.recordId,
-        stage: 'active',
-      });
-      movedTo = 'active';
-    }
-    await ctx.emit({
-      type: 'realestate.listing.live',
-      entityType: 'realestate_deal',
-      entityId: deal.recordId,
-      payload: { mlsNumber: input.mlsNumber, liveOn: input.liveOn, first: !l.mlsNumber },
-    });
-    return { dealId: deal.recordId, liveOn: input.liveOn, movedTo };
+    return markListingLive(ctx, input);
   },
 });
+
+/**
+ * Marks a listing live on the MLS: its number and day kept, its MLS-input duty's proof, Active if it was before it,
+ * and `realestate.listing.live`. A person does it (`realestate.listing.mark_live`), or the listing feed seeing it
+ * Active on the MLS (round five), whose words then say so on the proof.
+ */
+export async function markListingLive(
+  ctx: CommandContext,
+  input: {
+    readonly dealId: string;
+    readonly mlsNumber: string;
+    readonly liveOn: string;
+    readonly documentId?: string | undefined;
+    /** "From the MLS, through Repliers": it was the feed that saw it live. */
+    readonly fromFeed?: string | undefined;
+  },
+): Promise<{ dealId: string; liveOn: string; movedTo: string | null }> {
+  const deal = await loadDeal(ctx, input.dealId, { lock: true });
+  requireOpen(deal);
+  const address = await requireAddress(ctx, deal);
+  const today = todayIn(await timeZoneOf(ctx));
+  if (input.liveOn > today)
+    throw HfosError.validation(
+      [{ path: 'liveOn', message: 'Mark it live on the day it goes live, not before.' }],
+      'Mark it live on the day it goes live, not before.',
+    );
+  const l = await ensureListing(ctx, deal);
+  if (input.documentId) {
+    const [doc] = await ctx.tx
+      .select({ id: documents.id })
+      .from(documents)
+      .where(and(eq(documents.id, input.documentId), eq(documents.dealRecordId, deal.recordId)));
+    if (!doc)
+      throw HfosError.notFound(
+        `That document isn’t on ${deal.name}. Upload the MLS page to the deal’s documents first, then pick it.`,
+      );
+  }
+  const at = changeMoment(ctx.meta);
+  await ctx.tx
+    .update(listings)
+    .set({
+      mlsNumber: input.mlsNumber,
+      mlsLiveOn: input.liveOn,
+      mlsMarkedBy: actorUserId(ctx),
+      mlsMarkedAt: at,
+      updatedAt: at,
+    })
+    .where(and(eq(listings.workspaceId, l.workspaceId), eq(listings.dealRecordId, l.dealRecordId)));
+  await historyLine(ctx, deal, 'listing_live', {
+    before: l.mlsNumber ? { mlsNumber: l.mlsNumber, liveOn: l.mlsLiveOn } : null,
+    after: {
+      mlsNumber: input.mlsNumber,
+      liveOn: input.liveOn,
+      address,
+      ...(input.fromFeed ? { from: input.fromFeed } : {}),
+    },
+  });
+  // S-20 "Enter listing into MLS": the MLS page is its document; the number and day, its record.
+  await addProof(
+    ctx,
+    deal,
+    { keys: ['S-20'] },
+    {
+      kind: 'record',
+      refKind: 'listing_mls',
+      refId: deal.recordId,
+      body: `Live on the MLS since ${input.liveOn}, #${input.mlsNumber}${input.fromFeed ? ` (${input.fromFeed})` : ''}`,
+    },
+  );
+  if (input.documentId) await documentProof(ctx, deal, input.documentId);
+  const at0 = LISTING_STAGES.indexOf(deal.stage as (typeof LISTING_STAGES)[number]);
+  let movedTo: string | null = null;
+  if (at0 >= 0 && at0 < LISTING_STAGES.indexOf('active')) {
+    await executeCommandWithin(ctx, dealMoveStage, {
+      workspaceId: deal.workspaceId,
+      dealId: deal.recordId,
+      stage: 'active',
+    });
+    movedTo = 'active';
+  }
+  await ctx.emit({
+    type: 'realestate.listing.live',
+    entityType: 'realestate_deal',
+    entityId: deal.recordId,
+    payload: { mlsNumber: input.mlsNumber, liveOn: input.liveOn, first: !l.mlsNumber },
+  });
+  return { dealId: deal.recordId, liveOn: input.liveOn, movedTo };
+}
 
 // ---------- the public page ----------
 
