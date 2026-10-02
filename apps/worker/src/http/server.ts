@@ -40,6 +40,7 @@ import { registerAiCallRoutes } from './ai-calls';
 import { registerChatRoutes } from './chat';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerVideoLinkRoutes } from './video-links';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { SafeFetchError } from './safe-fetch';
@@ -269,6 +270,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerWalletCardRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerFormRoutes(app, deps);
+  // A customer sending a video at full quality through a link the business texted them (20261018000300).
+  await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
   await registerFoundingRoutes(app, deps);

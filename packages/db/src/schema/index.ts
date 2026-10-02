@@ -819,6 +819,8 @@ export interface MediaRef {
   readonly name: string;
   /** A customer file (app.files) sent as an outbound attachment. */
   readonly fileId?: string;
+  /** How it came, when it wasn't by text: `video_link`, a video the customer sent through a link we texted them. */
+  readonly via?: 'video_link';
 }
 
 /**
@@ -1176,6 +1178,30 @@ export const rcsRequests = app.table('rcs_requests', {
   stoppedBy: userRef('stopped_by'),
   openedAt: ts('opened_at'),
   closedAt: ts('closed_at'),
+  ...timestamps(),
+});
+
+/**
+ * A link texted to a customer to send a video at full quality (20261018000300): the token's hash, never the token,
+ * and how many videos it has taken. Each one arrives as an inbound message on the conversation.
+ */
+export const videoLinks = app.table('video_links', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  conversationId: uuid('conversation_id')
+    .notNull()
+    .references((): AnyPgColumn => conversations.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  createdBy: userRef('created_by'),
+  createdByTeammateId: uuid('created_by_teammate_id').references(
+    (): AnyPgColumn => aiTeammates.id,
+    { onDelete: 'set null' },
+  ),
+  expiresAt: ts('expires_at').notNull(),
+  maxUploads: smallint('max_uploads').notNull().default(3),
+  uploadsStarted: smallint('uploads_started').notNull().default(0),
+  uploadsReceived: smallint('uploads_received').notNull().default(0),
+  lastUploadAt: ts('last_upload_at'),
   ...timestamps(),
 });
 

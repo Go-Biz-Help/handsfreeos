@@ -153,6 +153,7 @@ export { default as UserRound } from 'lucide-react-native/icons/user-round';
 export { default as UserRoundSearch } from 'lucide-react-native/icons/user-round-search';
 export { default as Users } from 'lucide-react-native/icons/users';
 export { default as UserX } from 'lucide-react-native/icons/user-x';
+export { default as Video } from 'lucide-react-native/icons/video';
 export { default as Voicemail } from 'lucide-react-native/icons/voicemail';
 export { default as Volume2 } from 'lucide-react-native/icons/volume-2';
 export { default as Wallet } from 'lucide-react-native/icons/wallet';

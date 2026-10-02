@@ -7737,6 +7737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_link.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Makes a link to text a customer so they can send a video at full quality, which lands in this conversation. The link is shown once, to send; it lasts a week and takes three videos.
+         * @description Risk level 1. Requires inbox.use. Emits video_link.created.
+         */
+        post: operations["command_video_link_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/waitlist.add": {
         parameters: {
             query?: never;
@@ -28207,6 +28227,43 @@ export interface operations {
             };
         };
     };
+    command_video_link_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        expiresAt: string;
+                        maxUploads: number;
+                        path: string;
+                        token: string;
+                        /** Format: uuid */
+                        videoLinkId: string;
+                    };
+                };
+            };
+        };
+    };
     command_waitlist_add: {
         parameters: {
             query?: never;
@@ -34303,6 +34360,8 @@ export interface operations {
                                 name: string;
                                 objectPath: string;
                                 sizeBytes: number;
+                                /** @enum {string} */
+                                via?: "video_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -34336,6 +34395,8 @@ export interface operations {
                                         name: string;
                                         objectPath: string;
                                         sizeBytes: number;
+                                        /** @enum {string} */
+                                        via?: "video_link";
                                     };
                                     title: string | null;
                                 }[];
@@ -37873,6 +37934,8 @@ export interface operations {
                                 name: string;
                                 objectPath: string;
                                 sizeBytes: number;
+                                /** @enum {string} */
+                                via?: "video_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -37906,6 +37969,8 @@ export interface operations {
                                         name: string;
                                         objectPath: string;
                                         sizeBytes: number;
+                                        /** @enum {string} */
+                                        via?: "video_link";
                                     };
                                     title: string | null;
                                 }[];

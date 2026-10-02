@@ -1021,7 +1021,7 @@ The migrations create three private buckets. There is nothing to create by hand.
 | ------------- | ---------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
 | `attachments` | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first |
 | `imports`     | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths               |
-| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 25 MiB       | The worker only                                        |
+| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video link         |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
 - To check the buckets, click **Storage** in the left sidebar.
@@ -1030,6 +1030,26 @@ The migrations create three private buckets. There is nothing to create by hand.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").
+- The project has its own upload limit as well, above every bucket's: **Storage → Settings → Upload file size
+  limit**. It must be at least 250 MB, or videos sent through a video link over the project's limit are turned
+  away (see "Video links"). This is a project setting, not a bucket's, so it is set in the dashboard; the
+  free plan can't go past 50 MB.
+
+#### Video links
+
+A texted video arrives blurry (see "Videos." under the texting section). For a sharp one, a team member taps
+**Ask for a video** (the video-camera button by the reply box, on the web and the phone). It writes "Can you send
+us a video? Use this link so it comes through clear: …" into the reply, and they send it like any text. The
+customer opens the link (`/v/<token>` on the web app's address, no sign-in), picks or records a video, and it goes
+up as it is, up to 250 MB, straight to the `telephony` bucket. It lands in the conversation as their reply, marked
+"Sent with your video link", and plays in the viewer.
+
+- A link lasts 7 days and takes 3 videos. Only a hash of its token is kept, so a lost link can't be read back;
+  send a new one.
+- The worker signs each upload for one path only, then files what Storage says arrived (its size and type), not
+  what the page claimed. A file that isn't a video, or is too big, is taken back out.
+- Only for texting threads, and never to a customer who texted STOP.
+- If uploads fail at a size the bucket allows, check the project's upload limit above.
 
 #### A voicemail nobody can play
 
@@ -3990,7 +4010,7 @@ You should see **Enable** selected under **Enforce HTTP Auth on Media URLs** on 
 
 This breaks nothing. The worker always signs in with the client subaccount's credentials to download a voicemail or picture. It copies the file into the Supabase Storage bucket `telephony`, then deletes Twilio's copy. A voicemail is deleted from Twilio once its transcript arrives, or at once if it is 2 seconds or shorter.
 
-**Videos.** A video texted by MMS is whatever the customer's phone and carrier squeezed it into, often a 3GP well under 1 MB, so it looks blurry, and nothing here can bring back what the carrier threw away. Sharper videos come over RCS (see "RCS: branded texts with buttons"). As the worker copies a video that isn't an MP4, it turns it into one (H.264 and AAC) with ffmpeg, so it plays in the inbox on the web and on both phones. ffmpeg is installed in the worker's image (`apps/worker/Dockerfile`). When a video can't be converted (unreadable, over 25 MB, or more than 90 seconds of work), it is kept as it came and the worker logs `a texted video could not be converted; kept as it came`. Videos that arrived before this are kept as they were: an iPhone can't play a 3GP, so the app offers **Share** instead, and the web offers **Download**.
+**Videos.** A video texted by MMS is whatever the customer's phone and carrier squeezed it into, often a 3GP well under 1 MB, so it looks blurry, and nothing here can bring back what the carrier threw away. Sharper videos come over RCS (see "RCS: branded texts with buttons"). As the worker copies a video that isn't an MP4, it turns it into one (H.264 and AAC) with ffmpeg, so it plays in the inbox on the web and on both phones. ffmpeg is installed in the worker's image (`apps/worker/Dockerfile`). When a video can't be converted (unreadable, over 25 MB, or more than 90 seconds of work), it is kept as it came and the worker logs `a texted video could not be converted; kept as it came`. Videos that arrived before this are kept as they were: an iPhone can't play a 3GP, so the app offers **Share** instead, and the web offers **Download**. For a sharp video, send the customer a video link (see "Video links" under "Storage buckets").
 
 #### Balance and auto-recharge
 

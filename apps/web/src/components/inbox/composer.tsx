@@ -23,6 +23,7 @@ import {
   textNote as textNoteWords,
   type ComposerNote,
   type RichDraft,
+  VIDEO_LINK_WORDS,
 } from '@hfos/core';
 import {
   AlertTriangle,
@@ -37,6 +38,7 @@ import {
   Phone,
   RectangleEllipsis,
   Send,
+  Video,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -268,6 +270,8 @@ export function Composer({
   const [fromKey, setFromKey] = useState<string | null>(null);
   /** Buttons, a card or a carousel going with the text (0103), while the editor is open. */
   const [rich, setRich] = useState<RichDraft | null>(null);
+  /** Making a video link (20261018000300): the button waits for it. */
+  const [askingVideo, setAskingVideo] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const previews = useRef(new Set<string>());
@@ -381,6 +385,8 @@ export function Composer({
           variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
         );
   const off = chat ? !!target.chatBlocked : email ? !!opts && !opts.canEmail.ok : !canText.ok;
+  // Only in a text thread: the link goes by text, into this conversation.
+  const canAskVideo = !email && !chat && channel === 'sms' && !!target.conversationId;
   // The buttons belong to a text: switching to email keeps them for when the person switches back.
   const richOn = !!rich && mode === 'sms';
   const richCheck = rich && richOn ? checkRich(rich, text, files.length) : null;
@@ -444,6 +450,32 @@ export function Composer({
         body: { workspaceId: target.workspaceId, templateId: t.id },
       })
       .catch(() => null);
+  }
+
+  /**
+   * "Ask for a video": a link the customer sends a full-quality video through, put into the reply box with a line
+   * asking for it. The person sends it as any text, so quiet hours, STOP and the rest apply as they always do.
+   */
+  async function askForVideo() {
+    if (!target.conversationId) return;
+    setAskingVideo(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/video_link.create', {
+          body: { workspaceId: target.workspaceId, conversationId: target.conversationId },
+        }),
+      );
+      const ask = VIDEO_LINK_WORDS.ask(`${window.location.origin}${out.path}`);
+      const from = area.current?.selectionStart ?? text.length;
+      const to = area.current?.selectionEnd ?? from;
+      const before = text.slice(0, from);
+      setText(`${before}${before && !/\s$/.test(before) ? ' ' : ''}${ask}${text.slice(to)}`);
+      requestAnimationFrame(() => area.current?.focus());
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setAskingVideo(false);
+    }
   }
 
   async function attach(list: FileList | null) {
@@ -753,6 +785,19 @@ export function Composer({
             onPick={insertTemplate}
             size="phone"
           />
+          {canAskVideo ? (
+            <button
+              type="button"
+              title={VIDEO_LINK_WORDS.button}
+              aria-label={VIDEO_LINK_WORDS.button}
+              disabled={off || askingVideo}
+              onClick={() => void askForVideo()}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2 disabled:opacity-45"
+              data-testid="composer-ask-video"
+            >
+              <Video className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+          ) : null}
           <textarea
             ref={area}
             rows={1}
@@ -1019,6 +1064,20 @@ export function Composer({
               <RectangleEllipsis className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </Button>
           )}
+          {canAskVideo ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              title={VIDEO_LINK_WORDS.button}
+              aria-label={VIDEO_LINK_WORDS.button}
+              disabled={off}
+              loading={askingVideo}
+              onClick={() => void askForVideo()}
+              data-testid="composer-ask-video"
+            >
+              {askingVideo ? null : <Video className="h-[18px] w-[18px]" strokeWidth={1.5} />}
+            </Button>
+          ) : null}
           {variant === 'desktop' ? (
             <span className="hidden pl-0.5 text-xs text-text-3 lg:inline">
               {COMPOSER_WORDS.enterSends}

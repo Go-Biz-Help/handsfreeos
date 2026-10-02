@@ -187,6 +187,10 @@ describe('texting rules that run in the browser too', () => {
     expect(smsKeyword('HELP')).toBe('help');
     expect(smsKeyword('Stop by tomorrow?')).toBeNull();
     expect(messagePreview('', 2)).toBe('Sent 2 photos');
+    // Videos alone say so; a photo and a video together are still "photos".
+    expect(messagePreview('', 1, 1)).toBe('Sent a video');
+    expect(messagePreview('', 2, 2)).toBe('Sent 2 videos');
+    expect(messagePreview('', 2, 1)).toBe('Sent 2 photos');
   });
 
   it('works out quiet hours in the business’s time zone, across midnight', () => {
