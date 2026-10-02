@@ -296,6 +296,11 @@ export const DealListInput = z.object({
   status: z.enum(['open', 'closed', 'ended', 'archived', 'all']).default('open'),
   search: z.string().trim().max(100).optional(),
   limit: z.number().int().min(1).max(200).default(100),
+  /** Round four: one agent's deals, a stage, closing within so many days, or waiting on someone. */
+  agentUserId: uuid.optional(),
+  stage: z.string().max(40).optional(),
+  closingWithinDays: z.number().int().min(0).max(365).optional(),
+  waitingOn: z.enum(['outside', 'blocked', 'either']).optional(),
 });
 const DealRow = z.object({
   dealId: uuid,
@@ -319,6 +324,8 @@ const DealRow = z.object({
   mine: z.boolean(),
   /** Dates and terms typed in that nobody has confirmed yet. */
   datesToConfirm: z.number().int(),
+  /** Round four: the first thing it's waiting on outside, or blocked by. */
+  waiting: z.object({ title: z.string(), who: z.string() }).nullable(),
   updatedAt: isoDateTime,
 });
 export const DealListOutput = z.object({ deals: z.array(DealRow) });
@@ -420,8 +427,19 @@ export const DealGetOutput = z.object({
       name: z.string(),
       side: z.enum(DEAL_SIDES),
       stage: z.string(),
+      /** Round four: only what crosses the link: its health, its agent and its key dates. */
+      stageLabel: z.string(),
+      health: z.enum(['green', 'yellow', 'red']),
+      agentName: z.string().nullable(),
+      keyDates: z.array(
+        z.object({ key: z.string(), label: z.string(), date: z.string(), confirmed: z.boolean() }),
+      ),
+      /** The person can open the other deal too. */
+      canOpen: z.boolean(),
     }),
   ),
+  /** Round four: what the linked deal breaks, from this deal's side. */
+  linkedProblems: z.array(z.object({ words: z.string(), next: z.string() })),
   terms: z.array(Term),
   dateProblems: z.array(
     z.object({
@@ -3221,4 +3239,133 @@ export const DutyChasedInput = z.object({
   /** The next day to chase them; two business days on when not given. */
   nextOn: localDate.optional(),
   note: optionalNote,
+});
+
+// ---------- round four: the coordinator's views ----------
+
+export const CoordinateInput = z.object({
+  workspaceId: uuid,
+  /** Only what they answer for or are on. */
+  mine: z.boolean().optional(),
+  /** Only one agent's deals. */
+  agentUserId: uuid.optional(),
+});
+const Health = z.enum(['green', 'yellow', 'red']);
+const TodayDuty = z.object({
+  dutyId: uuid,
+  dealId: uuid,
+  dealName: z.string(),
+  title: z.string(),
+  status: z.enum(DUTY_STATUSES),
+  materiality: z.enum(MATERIALITIES),
+  accountableName: z.string().nullable(),
+  dueAt: isoDateTime.nullable(),
+  health: Health,
+  /** At risk for a business day with nobody acknowledging it. */
+  escalated: z.boolean(),
+  acknowledged: z.boolean(),
+});
+export const TodayOutput = z.object({
+  today: z.string(),
+  atRisk: z.array(
+    z.object({
+      kind: z.enum(['duty', 'reason']),
+      dealId: uuid,
+      dealName: z.string(),
+      dutyId: uuid.nullable(),
+      words: z.string(),
+      next: z.string(),
+      level: z.enum(['red', 'yellow']),
+      health: Health,
+    }),
+  ),
+  overdue: z.array(TodayDuty),
+  dueToday: z.array(TodayDuty),
+});
+export const ExceptionsOutput = z.object({
+  reads: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      readId: uuid,
+      documentTitle: z.string(),
+      waiting: z.number().int(),
+      scan: z.boolean(),
+    }),
+  ),
+  disagree: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      words: z.string(),
+      next: z.string(),
+      linked: z.boolean(),
+    }),
+  ),
+  nobodyAccountable: z.array(
+    z.object({ dealId: uuid, dealName: z.string(), dutyId: uuid, title: z.string() }),
+  ),
+  noProof: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      dutyId: uuid,
+      title: z.string(),
+      dueAt: isoDateTime.nullable(),
+      accountableName: z.string().nullable(),
+    }),
+  ),
+  contingencies: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      contingencyId: uuid,
+      label: z.string(),
+      endedOn: z.string(),
+    }),
+  ),
+  blocked: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      dutyId: uuid,
+      title: z.string(),
+      blocker: z.string(),
+      owner: z.string().nullable(),
+      reviewAt: isoDateTime,
+    }),
+  ),
+});
+export const WaitingRoomOutput = z.object({
+  items: z.array(
+    z.object({
+      dutyId: uuid,
+      dealId: uuid,
+      dealName: z.string(),
+      title: z.string(),
+      status: z.enum(['waiting_external', 'blocked']),
+      /** Who it's waiting on, or whose it is to clear. */
+      waitingOn: z.string(),
+      blocker: z.string().nullable(),
+      since: isoDateTime,
+      /** When to chase them, or look at the blocker again. */
+      next: isoDateTime.nullable(),
+      past: z.boolean(),
+      accountableName: z.string().nullable(),
+    }),
+  ),
+});
+export const WorkloadOutput = z.object({
+  people: z.array(
+    z.object({
+      userId: uuid,
+      name: z.string(),
+      role: z.string(),
+      deals: z.number().int(),
+      openDuties: z.number().int(),
+      overdue: z.number().int(),
+      dueSoon: z.number().int(),
+      atRiskDeals: z.number().int(),
+    }),
+  ),
 });

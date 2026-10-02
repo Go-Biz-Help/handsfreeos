@@ -6748,7 +6748,7 @@ export interface paths {
         put?: never;
         /**
          * Link a buyer deal and a listing: the two sides of one home (they share its property), or a client’s sale and their next purchase (whose dates are then checked against each other).
-         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.linked.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.linked, realestate.duty.evidence_added.
          */
         post: operations["command_realestate_deal_link"];
         delete?: never;
@@ -14437,6 +14437,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What checking duties by hand used to find, across the deals the person sees: values read from contracts waiting, dates or terms that disagree, duties nobody answers for, material work due soon with no proof, contingencies past their end, linked deals that disagree, and blockers past their review.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_exceptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.financing": {
         parameters: {
             query?: never;
@@ -14837,6 +14857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today across the deals the person sees: what’s at risk (escalated duties, dates that disagree, contingencies ending or passed), what’s overdue and what’s due today, the most serious first.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_today"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.tours": {
         parameters: {
             query?: never;
@@ -14851,6 +14891,46 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_tours"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.waiting_room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s waiting on someone outside, or blocked, across the deals the person sees: who, since when, and when to chase or look again; past its day first.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_waiting_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.workload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who has what across every deal: each person’s deals, open duties, overdue ones, ones due within two business days, and deals at risk. For people who can see every deal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_workload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -51153,6 +51233,10 @@ export interface operations {
                             stageLabel: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            waiting: {
+                                title: string;
+                                who: string;
+                            } | null;
                         }[];
                     };
                 };
@@ -51264,7 +51348,21 @@ export interface operations {
                             waitingOn: string | null;
                             warnings: unknown[];
                         }[];
+                        linkedProblems: {
+                            next: string;
+                            words: string;
+                        }[];
                         links: {
+                            agentName: string | null;
+                            canOpen: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            keyDates: {
+                                confirmed: boolean;
+                                date: string;
+                                key: string;
+                                label: string;
+                            }[];
                             /** @enum {string} */
                             kind: "same_home" | "sale_and_purchase";
                             name: string;
@@ -51273,6 +51371,7 @@ export interface operations {
                             /** @enum {string} */
                             side: "buyer" | "listing";
                             stage: string;
+                            stageLabel: string;
                         }[];
                         parties: {
                             companyId: string | null;
@@ -51385,6 +51484,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    closingWithinDays?: number;
                     /** @default 100 */
                     limit?: number;
                     /** @default false */
@@ -51392,11 +51494,14 @@ export interface operations {
                     search?: string;
                     /** @enum {string} */
                     side?: "buyer" | "listing";
+                    stage?: string;
                     /**
                      * @default open
                      * @enum {string}
                      */
                     status?: "open" | "closed" | "ended" | "archived" | "all";
+                    /** @enum {string} */
+                    waitingOn?: "outside" | "blocked" | "either";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -51452,6 +51557,10 @@ export interface operations {
                             stageLabel: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            waiting: {
+                                title: string;
+                                who: string;
+                            } | null;
                         }[];
                     };
                 };
@@ -51794,6 +51903,94 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
                             title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_exceptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        blocked: {
+                            blocker: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            owner: string | null;
+                            /** Format: date-time */
+                            reviewAt: string;
+                            title: string;
+                        }[];
+                        contingencies: {
+                            /** Format: uuid */
+                            contingencyId: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            endedOn: string;
+                            label: string;
+                        }[];
+                        disagree: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            linked: boolean;
+                            next: string;
+                            words: string;
+                        }[];
+                        nobodyAccountable: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            title: string;
+                        }[];
+                        noProof: {
+                            accountableName: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            title: string;
+                        }[];
+                        reads: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            documentTitle: string;
+                            /** Format: uuid */
+                            readId: string;
+                            scan: boolean;
+                            waiting: number;
                         }[];
                     };
                 };
@@ -53262,6 +53459,88 @@ export interface operations {
             };
         };
     };
+    query_realestate_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        atRisk: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dutyId: string | null;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            kind: "duty" | "reason";
+                            /** @enum {string} */
+                            level: "red" | "yellow";
+                            next: string;
+                            words: string;
+                        }[];
+                        dueToday: {
+                            accountableName: string | null;
+                            acknowledged: boolean;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            escalated: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            materiality: "standard" | "material" | "critical";
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        overdue: {
+                            accountableName: string | null;
+                            acknowledged: boolean;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            escalated: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            materiality: "standard" | "material" | "critical";
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        today: string;
+                    };
+                };
+            };
+        };
+    };
     query_realestate_tours: {
         parameters: {
             query?: never;
@@ -53357,6 +53636,96 @@ export interface operations {
                                 status: "planned" | "visited" | "skipped";
                                 visitedAt: string | null;
                             }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_waiting_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountableName: string | null;
+                            blocker: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            next: string | null;
+                            past: boolean;
+                            /** Format: date-time */
+                            since: string;
+                            /** @enum {string} */
+                            status: "waiting_external" | "blocked";
+                            title: string;
+                            waitingOn: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_workload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            atRiskDeals: number;
+                            deals: number;
+                            dueSoon: number;
+                            name: string;
+                            openDuties: number;
+                            overdue: number;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
                         }[];
                     };
                 };

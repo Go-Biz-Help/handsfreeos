@@ -37,6 +37,7 @@ import { termCommands } from './ops/terms';
 import { contractCommands, contractQueries } from './ops/contract';
 import { contingencyCommands, contingencyQueries } from './ops/contingencies';
 import { waitCommands } from './ops/waits';
+import { coordinateQueries } from './ops/coordinate';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
@@ -98,5 +99,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...sellerPortalQueries,
     ...contractQueries,
     ...contingencyQueries,
+    ...coordinateQueries,
   ],
 };

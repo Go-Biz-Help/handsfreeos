@@ -18,6 +18,8 @@ import {
 } from '../contingencies';
 import type { TermSource } from '../dates/key-dates';
 import type { KeyDates } from '../dates/key-dates';
+import { linkedProblems, type LinkedDates } from '../dates/linked';
+import type { DealSide } from '../states';
 import type { HealthContingency, HealthLinked, HealthWait } from '../health';
 import { contingencies } from '../tables';
 import type { TermKey, TermNow } from '../terms';
@@ -94,7 +96,7 @@ export async function syncContingencies(
 /** The round-four facts health needs about a deal. */
 export async function riskFactsOf(
   ctx: Ctx,
-  deal: Pick<Deal, 'recordId'>,
+  deal: Pick<Deal, 'recordId' | 'side'>,
   keyDates: KeyDates,
 ): Promise<{
   readonly contingencies: HealthContingency[];
@@ -126,6 +128,50 @@ export async function riskFactsOf(
     })),
     readsWaiting: reads?.waiting ?? 0,
     waits,
-    linked: [],
+    linked: (await linkedFactsOf(ctx, deal.recordId)).flatMap((o) =>
+      linkedProblems(
+        { side: deal.side, keyDates: keyDates as LinkedDates },
+        { name: o.name, side: o.side, kind: o.kind, agentName: o.agentName, keyDates: o.keyDates },
+      ),
+    ),
   };
+}
+
+/** A linked deal as the link shows it: its key dates, health and agent's name, never anything else. */
+export interface LinkedFacts {
+  readonly otherId: string;
+  readonly kind: 'same_home' | 'sale_and_purchase';
+  readonly name: string;
+  readonly side: DealSide;
+  readonly stage: string;
+  readonly outcome: string | null;
+  readonly health: 'green' | 'yellow' | 'red';
+  readonly agentName: string | null;
+  readonly keyDates: LinkedDates;
+}
+
+/** The deals linked to this one, through the one door that lets their facts across (20261020001400). */
+export async function linkedFactsOf(ctx: Pick<Ctx, 'tx'>, dealId: string): Promise<LinkedFacts[]> {
+  const list = await rows<{
+    other_id: string;
+    kind: 'same_home' | 'sale_and_purchase';
+    name: string;
+    side: DealSide;
+    stage: string;
+    outcome: string | null;
+    health: 'green' | 'yellow' | 'red';
+    agent_name: string | null;
+    key_dates: Record<string, { date: string; confirmed: boolean }>;
+  }>(ctx.tx, sql`select * from private.linked_deal_facts(${dealId})`);
+  return list.map((l) => ({
+    otherId: l.other_id,
+    kind: l.kind,
+    name: l.name,
+    side: l.side,
+    stage: l.stage,
+    outcome: l.outcome,
+    health: l.health,
+    agentName: l.agent_name,
+    keyDates: l.key_dates ?? {},
+  }));
 }

@@ -14,7 +14,6 @@
  * - **Everything is logged** in `duty_log`: created, activated, due changed, cancelled.
  */
 import { and, asc, eq } from 'drizzle-orm';
-import { rows, sql } from '@hfos/db/client';
 import { localDateOf } from '../../../calendar/engine/zoned';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
@@ -56,7 +55,7 @@ import {
 import type { DealRole } from '../words';
 import { checkDealDates, type DateProblem } from '../dates/conflicts';
 import { healthOf } from '../health';
-import { riskFactsOf, syncContingencies } from './risk';
+import { linkedFactsOf, riskFactsOf, syncContingencies } from './risk';
 import {
   actorKind,
   actorUserId,
@@ -194,17 +193,11 @@ export async function dateProblemsOf(
 ): Promise<DateProblem[]> {
   let linkedSaleClosing: string | null = null;
   if (deal.side === 'buyer' && deal.facts.includes('linked_sale')) {
-    const [sale] = await rows<{ closing: string | null }>(
-      ctx.tx,
-      sql`select e.value_date::text as closing
-          from addon_realestate.deal_links l
-          join addon_realestate.deals o on o.record_id = l.other_record_id and o.side = 'listing'
-          join addon_realestate.term_entries e on e.deal_record_id = o.record_id and e.key = 'closing'
-            and e.superseded_at is null and e.rejected_at is null
-          where l.deal_record_id = ${deal.recordId} and l.kind = 'sale_and_purchase'
-          order by e.entered_at desc limit 1`,
+    // Through the link's own door: a private sale the person isn't on still gives its closing date.
+    const sale = (await linkedFactsOf(ctx, deal.recordId)).find(
+      (l) => l.kind === 'sale_and_purchase' && l.side === 'listing',
     );
-    linkedSaleClosing = sale?.closing ?? null;
+    linkedSaleClosing = sale?.keyDates['closing']?.date ?? null;
   }
   return checkDealDates({
     side: deal.side,

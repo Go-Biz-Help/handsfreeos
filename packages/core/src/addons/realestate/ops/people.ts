@@ -5,6 +5,7 @@
  * archiving it. The team rules are core's (custom_record.assign): the main agent adds and removes people, and
  * owners and admins do too and alone choose the main agent (Chris, 2026-09-30).
  */
+import { addProof } from './proof-hooks';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -411,7 +412,8 @@ export const dealLink = defineAddonCommand(realestateAddon, {
   output: DealLinkOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.deal.linked'],
+  // Spelled out: proof-hooks imports this file through duties.ts, so its list isn't there yet when this loads.
+  emits: ['realestate.deal.linked', 'realestate.duty.evidence_added'],
   async handler(ctx, input) {
     const [deal, other] = await lockPair(ctx, input.dealId, input.otherDealId);
     requireNotArchived(deal);
@@ -459,6 +461,19 @@ export const dealLink = defineAddonCommand(realestateAddon, {
     if (input.kind === 'sale_and_purchase') {
       await setLinkedSale(ctx, deal, true);
       await setLinkedSale(ctx, other, true);
+      // Proof the seller's next home is being coordinated (round four).
+      const [sale, purchase] = deal.side === 'listing' ? [deal, other] : [other, deal];
+      await addProof(
+        ctx,
+        sale,
+        { keys: ['X-35'] },
+        {
+          kind: 'record',
+          refKind: 'deal_link',
+          refId: purchase.recordId,
+          body: `Linked to their purchase, ${purchase.name}: each shows the other’s key dates.`,
+        },
+      );
     }
     for (const [a, b] of [
       [deal, other],

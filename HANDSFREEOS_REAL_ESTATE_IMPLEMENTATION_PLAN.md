@@ -1637,7 +1637,7 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   linked deals; the coordinator's views.
 - **Step 8:** the screens. **Step 9:** the docs, the browser test and a short video.
 
-### Step 1: the AI reads a PDF
+### Step 1: the AI reads a PDF (built, 2026-10-02)
 
 - `packages/ai`: a `document` content block (`{ type: 'document', mediaType: 'application/pdf', data }`), sent to
   Anthropic as a base64 document and to OpenAI as a file, with a size and page limit. The scripted provider passes it
@@ -1646,7 +1646,10 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   knowledge base keeps its 5 MB and add-ons read 25 MB contracts. A helper reads a file's bytes after checking it
   belongs to the business.
 
-### Step 2: reading contracts and amendments (S-49, X-15, X-16)
+**As built:** `AI_DOCUMENT_MAX_BYTES` is 20 MB (its base64 stays under the 32 MB request) and `AI_DOCUMENT_MAX_PAGES` 100. A PDF is cached like a picture, and counted by its pages when a stand-in guesses tokens. `files/document-text.ts`
+also reads a PDF page by page (`pdfPages`), so each value can say its page; `files/read.ts` is `readFileBytes`.
+
+### Step 2: reading contracts and amendments (S-49, X-15, X-16) (built, 2026-10-02)
 
 - Migration: `contract_reads` (the deal, the document, its state, whether it was a scan, what was found and why it
   failed), and on `term_entries` the quote, the page, the read and the scan mark.
@@ -1659,7 +1662,23 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   values replace the current ones. Confirming them re-dates the duties. Confirming a read is proof for S-49, X-15 and
   X-16.
 
-### Step 3: contingencies (X-17)
+**As built:**
+
+- What a reading finds is kept on the reading (`contract_reads.found`), not entered as unconfirmed key dates: a
+  value waits there beside what counts now, and only a person's confirm enters it, confirmed, replacing every live
+  entry of that key. That way an amendment shows what it would move before anything moves, and a disagreement with
+  the accepted offer isn't a conflict on the deal while it waits. Read values waiting are a yellow reason
+  (`read_waiting`), and the agent has a card until none wait.
+- The parties are two new text terms, `buyer_names` and `seller_names`.
+- `contract-read.ts` holds the prompt and `checkedContractRead`: a date stated outright must be in its words
+  (`dateStatedIn`: "October 10, 2026", "Oct. 10", "10/10/26", "the 10th day of October"; with no year, only near
+  today); a date counted from another is worked out here, in rounds, from this document or the deal's dates.
+- A document under 200 characters of words is a scan. One reading at a time per document; reading again sets aside
+  what still waited in the older one ("Read again.").
+- Ops: `realestate.document.read`, `realestate.contract.read_done` (system), `realestate.contract.confirm`,
+  `realestate.contract.reject_value`, and the queries `realestate.contract.read` and `realestate.contract.reads`.
+
+### Step 3: contingencies (X-17) (built, 2026-10-02)
 
 - Migration: `contingencies` (kind, end date key, state, how it ended, who recorded it, the form, a note, where it
   came from).
@@ -1670,7 +1689,13 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 - Health: yellow when one is open and ends within 2 business days, red when it's open past its end. The client sees
   their contingencies and how each ended in the portal.
 
-### Step 4: dependencies
+**As built:** a contingency of a named kind ends on its key date, so it's tracked once that date is entered (from any
+source) and the accepted offer starts its contingencies even before their dates exist (an appraisal contingency has
+no date in the offer). One of each named kind per deal; "other" ones have their own date. The sweep raises a
+`contingency:<id>` card for one past its end, cleared when it's recorded. Ops: `realestate.contingency.add`,
+`realestate.contingency.resolve`, `realestate.contingencies`; the portal's deal gains `contingencies`.
+
+### Step 4: dependencies (built, 2026-10-02)
 
 - The catalog's rows gain `after`, for about 25 real orders. The catalog test checks each id exists and that nothing
   waits on itself.
@@ -1681,7 +1706,13 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   sweep reminds a blocker's owner when its review time passes.
 - Duties gain `waiting_since` and `chase_at`, for the Waiting room.
 
-### Step 5: escalation and health
+**As built:** the built-in order is `catalog/order.ts` (29 duties), beside the catalog rather than in its rows, so a
+business's published duty list keeps its version. The engine writes the links on every settle, between the newest
+pass of each duty. Built-in links can't be taken back (waive the first duty instead); the agent's own carry
+`added_by`. `realestate.duty.chased` moves the chase day on two business days (9:00 where the business is), and
+`set_status` takes `chaseOn`. The sweep raises `chase:` and `blocker:` cards to whoever answers for the duty.
+
+### Step 5: escalation and health (built, 2026-10-02)
 
 - Duties gain `at_risk_since` and `escalated_at`. An at-risk alert not acknowledged within one business day is raised
   again to the alert people.
@@ -1689,7 +1720,12 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 - New health reasons: a contingency ending, a contingency passed, a duty waiting on one still open, a linked deal that
   disagrees, read values waiting, and waiting outside past the chase date.
 
-### Step 6: linked deals (X-35)
+**As built:** the sweep keeps `at_risk_since` while a duty's alert says at risk, and once that's a business day old
+(the same time on the next business day) with nothing acknowledged, sets `escalated_at`, logs it, and the alert goes to
+the alert people too, asking to be acknowledged. At-risk pushes still wait for business hours. Several alert people
+already worked on the server (up to 10); the screen comes in step 8.
+
+### Step 6: linked deals (X-35) (built, 2026-10-02)
 
 - Migration: `private.linked_deal_facts(deal)` returns the other deal's key dates, health and agent's name to someone
   on this deal. Nothing else crosses the link.
@@ -1697,11 +1733,20 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   sale closes; the purchase's home-sale contingency ends before the sale closes.
 - When a confirmed date breaks the pair, both agents are warned. Linking is proof for X-35.
 
-### Step 7: the coordinator's views
+**As built:** `dates/linked.ts` says each problem from the deal's own side (the purchase's own date checks keep the
+closing order, so it isn't said twice). Both deals turn red (`linked_conflict`) and the sweep puts a `linked:` card
+on each, for its own agent. `realestate.deal.get` returns the link's dates, health and agent even when the person
+can't open the other deal (`canOpen`).
+
+### Step 7: the coordinator's views (built, 2026-10-02)
 
 - `realestate.today`, `realestate.exceptions`, `realestate.waiting_room` and `realestate.workload` (Workload needs See
   every deal). Each looks only at the deals the person is on, or every deal with See every deal.
 - `realestate.deal.list` gains filters: agent, side, stage, closing within some days, and who a blocker is waiting on.
+
+**As built:** Today's "at risk" is escalated duties plus each deal's reasons that aren't one duty being late. Workload
+reads the people through `private.realestate_team`, so See every deal is enough without the business's member list.
+Deals rows gain `waiting` (the first thing waiting outside or blocked).
 
 ### Step 8: the screens
 

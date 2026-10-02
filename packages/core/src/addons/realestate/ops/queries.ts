@@ -3,6 +3,9 @@
  * history and its terms' history, and the deals of a customer, company, lead or property for the panels on their
  * pages. Row security keeps each to the deals the person sees; nothing here decides that again.
  */
+import { linkedFactsOf } from './risk';
+import { KEY_DATES, type KeyDateKey } from '../dates/key-dates';
+import { linkedProblems, type LinkedDates } from '../dates/linked';
 import { and, asc, desc, eq, lt, type SQL } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customRecords } from '@hfos/db/schema';
@@ -92,6 +95,8 @@ interface Row extends Record<string, unknown> {
   mine: boolean;
   dates_to_confirm: number;
   updated_at: string;
+  waiting_title: string | null;
+  waiting_who: string | null;
 }
 
 const me = (ctx: Ctx) => (ctx.actor.type === 'human' ? ctx.actor.userId : null);
@@ -115,7 +120,8 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           d.health_reasons -> 0 ->> 'words' as headline,
           ${onDealSql(me(ctx))} as mine,
           coalesce(uc.n, 0) as dates_to_confirm,
-          greatest(d.updated_at, r.updated_at) as updated_at
+          greatest(d.updated_at, r.updated_at) as updated_at,
+          wt.title as waiting_title, wt.who as waiting_who
         from addon_realestate.deals d
         join app.custom_records r on r.id = d.record_id
         left join app.users u on u.id = r.owner_user_id
@@ -154,6 +160,11 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           from addon_realestate.term_entries e
           where e.deal_record_id = d.record_id and e.confirmed_at is null
             and e.superseded_at is null and e.rejected_at is null) uc on true
+        left join lateral (
+          select t.title, coalesce(t.waiting_on, t.blocker_owner, t.blocker) as who
+          from addon_realestate.duties t
+          where t.deal_record_id = d.record_id and t.status in ('waiting_external', 'blocked')
+          order by coalesce(t.chase_at, t.blocker_review_at) nulls last limit 1) wt on true
         where d.workspace_id = ${ctx.scope.workspaceId!} and ${filter}
         order by (r.archived_at is null and d.outcome is null) desc, greatest(d.updated_at, r.updated_at) desc
         limit ${limit}`,
@@ -185,6 +196,7 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
     mine: r.mine,
     datesToConfirm: r.dates_to_confirm,
     updatedAt: isoOf(r.updated_at),
+    waiting: r.waiting_title ? { title: r.waiting_title, who: r.waiting_who ?? '' } : null,
   }));
 }
 
@@ -255,6 +267,29 @@ export const dealList = defineAddonQuery(realestateAddon, {
     if (input.status === 'archived') parts.push(sql`r.archived_at is not null`);
     if (input.side) parts.push(sql`d.side = ${input.side}`);
     if (input.mine) parts.push(onDealSql(me(ctx)));
+    // Round four: the coordinator's filters.
+    if (input.agentUserId) parts.push(sql`r.owner_user_id = ${input.agentUserId}`);
+    if (input.stage) parts.push(sql`d.stage = ${input.stage}`);
+    if (input.closingWithinDays !== undefined) {
+      const today = todayIn(await timeZoneOf(ctx));
+      parts.push(
+        sql`exists (select 1 from addon_realestate.term_entries e
+              where e.deal_record_id = d.record_id and e.key = 'closing'
+                and e.superseded_at is null and e.rejected_at is null
+                and e.value_date between ${today}::date and ${today}::date + ${input.closingWithinDays}::int)`,
+      );
+    }
+    if (input.waitingOn)
+      parts.push(
+        sql`exists (select 1 from addon_realestate.duties t where t.deal_record_id = d.record_id
+              and t.status in ${
+                input.waitingOn === 'outside'
+                  ? sql`('waiting_external')`
+                  : input.waitingOn === 'blocked'
+                    ? sql`('blocked')`
+                    : sql`('waiting_external', 'blocked')`
+              })`,
+      );
     if (input.search) {
       const like = `%${input.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       parts.push(
@@ -382,13 +417,12 @@ export const dealGet = defineAddonQuery(realestateAddon, {
           where l.deal_record_id = ${deal.recordId}
           order by l.created_at`,
     );
+    // Through the link's own door: the other deal's key dates, health and agent, even a private one (round four).
+    const linked = await linkedFactsOf(ctx, deal.recordId);
     // A client's sale closes before their purchase: its closing date, for the check.
-    const sale = links.find((l) => l.kind === 'sale_and_purchase' && l.side === 'listing');
-    let linkedSaleClosing: string | null = null;
-    if (deal.side === 'buyer' && sale) {
-      const saleTerms = termsNow(await termEntriesOf(ctx, sale.other));
-      linkedSaleClosing = saleTerms.get('closing')?.current?.valueDate ?? null;
-    }
+    const sale = linked.find((l) => l.kind === 'sale_and_purchase' && l.side === 'listing');
+    const linkedSaleClosing =
+      deal.side === 'buyer' && sale ? (sale.keyDates['closing']?.date ?? null) : null;
     const dutyRows = await ctx.tx
       .select()
       .from(duties)
@@ -475,13 +509,38 @@ export const dealGet = defineAddonQuery(realestateAddon, {
           note: p.note,
         };
       }),
-      links: links.map((l) => ({
-        otherDealId: l.other,
+      links: linked.map((l) => ({
+        otherDealId: l.otherId,
         kind: l.kind,
         name: l.name,
         side: l.side,
         stage: l.stage,
+        stageLabel: STAGE_LABELS[l.stage as DealStage] ?? l.stage,
+        health: l.health,
+        agentName: l.agentName,
+        keyDates: Object.entries(l.keyDates)
+          .filter(([k]) => k in KEY_DATES)
+          .map(([k, v]) => ({
+            key: k,
+            label: KEY_DATES[k as KeyDateKey].label,
+            date: v.date,
+            confirmed: v.confirmed ?? false,
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+        canOpen: links.some((x) => x.other === l.otherId),
       })),
+      linkedProblems: linked.flatMap((l) =>
+        linkedProblems(
+          { side: deal.side, keyDates: keyDates as LinkedDates },
+          {
+            name: l.name,
+            side: l.side,
+            kind: l.kind,
+            agentName: l.agentName,
+            keyDates: l.keyDates,
+          },
+        ).map((p) => ({ words: p.words, next: p.next })),
+      ),
       terms: TERM_KEYS.filter((k) => terms.has(k)).map((k) => {
         const t = terms.get(k)!;
         return {

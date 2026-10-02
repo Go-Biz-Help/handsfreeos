@@ -35,7 +35,8 @@ import {
 } from './common';
 import { dealProofFactsOf, evidenceFactsOf } from './duties';
 import { dateProblemsOf, openWork, termEntriesOf, type Work } from './engine';
-import { riskFactsOf } from './risk';
+import { linkedFactsOf, riskFactsOf } from './risk';
+import { linkedProblems, type LinkedDates } from '../dates/linked';
 
 /** A deal's health as things stand this moment, without writing anything. */
 export async function healthNow(ctx: Ctx, deal: Deal, now = Date.now()) {
@@ -280,6 +281,31 @@ async function dealRisksOf(
       ),
       detail: `It ended ${fmtDateShort(end!)}. Record whether it was satisfied, waived or expired, with the signed form.`,
       href: `/a/realestate/deals/${deal.recordId}/contingencies`,
+      audienceUserIds: team,
+      assigneeUserId: deal.ownerUserId,
+      dueAt: null,
+    });
+  }
+  // What a linked sale or purchase breaks, a card for each linked deal (round four).
+  for (const other of await linkedFactsOf(ctx, deal.recordId)) {
+    const problems = linkedProblems(
+      { side: deal.side, keyDates: w.keyDates as LinkedDates },
+      {
+        name: other.name,
+        side: other.side,
+        kind: other.kind,
+        agentName: other.agentName,
+        keyDates: other.keyDates,
+      },
+    );
+    if (!problems.length) continue;
+    out.push({
+      dealId: deal.recordId,
+      key: `linked:${other.otherId}`,
+      severity: 'at_risk',
+      title: `${deal.name}: ${problems[0]!.words}`.slice(0, 200),
+      detail: `${problems[0]!.next}${problems.length > 1 ? ` And ${problems.length - 1} more with ${other.name}.` : ''}`,
+      href: `/a/realestate/deals/${deal.recordId}`,
       audienceUserIds: team,
       assigneeUserId: deal.ownerUserId,
       dueAt: null,
