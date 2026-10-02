@@ -65,6 +65,7 @@ describe('the registry', () => {
       ['send_verification_code', 'core', 'auto'],
       ['check_verification_code', 'core', 'auto'],
       ['note_photos', 'photos', 'auto'],
+      ['ask_for_video', 'photos', 'auto'],
       ['offer_discount', 'discounts', 'approval'],
       ['my_bills', 'bills', 'auto'],
       ['send_payment_link', 'bills', 'approval'],
@@ -298,6 +299,17 @@ describe('teammateTools', () => {
     expect(names(coordinator)).toContain('note_photos');
     expect(names(applyTeammatePatch(coordinator, { photos: { enabled: false } }))).not.toContain(
       'note_photos',
+    );
+  });
+
+  it('asks for a video only by text, never on a call, and only while it looks at photos', () => {
+    const texting = (c: typeof coordinator, phone = false) =>
+      teammateTools(c, { texting: true, phone }).map((t) => t.name);
+    expect(texting(coordinator)).toContain('ask_for_video');
+    expect(names(coordinator)).not.toContain('ask_for_video');
+    expect(texting(coordinator, true)).not.toContain('ask_for_video');
+    expect(texting(applyTeammatePatch(coordinator, { photos: { enabled: false } }))).not.toContain(
+      'ask_for_video',
     );
   });
 

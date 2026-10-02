@@ -1049,6 +1049,9 @@ up as it is, up to 250 MB, straight to the `telephony` bucket. It lands in the c
 - The worker signs each upload for one path only, then files what Storage says arrived (its size and type), not
   what the page claimed. A file that isn't a video, or is too big, is taken back out.
 - Only for texting threads, and never to a customer who texted STOP.
+- The AI teammate asks for one too, when a video would show the problem better (a noise, a leak), while it looks
+  at photos (its Photos setting). It says what to film, and the link goes on its own line at the end of its
+  text, made only as the text goes out (or waits as a draft in training). Its Activity shows "Asked for a video".
 - If uploads fail at a size the bucket allows, check the project's upload limit above.
 
 #### A voicemail nobody can play

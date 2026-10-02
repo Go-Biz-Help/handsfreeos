@@ -1267,6 +1267,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return refuse('There are no photos in this test chat to note. Use add_note instead.');
   },
 
+  /** A video link goes by text, and the test chat isn't one (it's never offered here). */
+  async ask_for_video() {
+    return refuse('A video link goes by text, and this test chat isn’t by text.');
+  },
+
   async create_task(h, args) {
     if (!h.rc.customer) return refuse(NO_CUSTOMER);
     would(h, 'task', `created a task: “${String(args['title']).slice(0, 120)}”`);

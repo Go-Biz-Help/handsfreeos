@@ -154,6 +154,8 @@ export interface RunState {
   verified: boolean;
   /** How many of the customer's photos it looked at in this run (M18). */
   photos: number;
+  /** It asked them for a video: a link to send one goes at the end of its reply (20261018000300). */
+  videoLink: boolean;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -169,6 +171,7 @@ export function newRunState(): RunState {
     openedLeadId: null,
     verified: false,
     photos: 0,
+    videoLink: false,
     end: null,
     abort: null,
   };
@@ -184,6 +187,7 @@ interface Effect {
   readonly moneyAsk?: MoneyAsk;
   readonly openedLeadId?: string;
   readonly verified?: boolean;
+  readonly videoLink?: boolean;
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
 }
@@ -208,6 +212,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.moneyAsk) state.moneyAsk = effect.moneyAsk;
   if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
   if (effect.verified) state.verified = true;
+  if (effect.videoLink) state.videoLink = true;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
     state.end = effect.end;
@@ -1394,6 +1399,23 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       d.meta,
     );
     return { status: 'done', command: 'activity.log', content: { added: true } };
+  },
+
+  /**
+   * A link for them to send a video at full quality. Nothing is made yet: the link is made as its reply goes out
+   * (or waits as a draft), and added to the end of it (run.ts), so a run that ends any other way leaves none.
+   */
+  async ask_for_video(d) {
+    if (d.rc.conversation.channel !== 'sms' || !d.ai.conversationId)
+      return refused({ error: 'A video link goes by text, and this conversation isn’t by text.' });
+    return {
+      status: 'done',
+      content: {
+        added: true,
+        note: 'The link goes at the end of your reply for you. Don’t write a link yourself: say what to film, and ask them to tap the link to send it.',
+      },
+      effect: { videoLink: true },
+    };
   },
 
   async create_task(d, tx, args) {

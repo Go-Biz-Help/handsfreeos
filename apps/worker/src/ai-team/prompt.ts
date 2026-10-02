@@ -79,7 +79,8 @@ const promptItem = (m: RunContext['matches'][number]) => ({
   sourceUrl: m.sourceUrl,
 });
 
-function skillLines(rc: RunContext): string[] {
+/** `texting`: a conversation by text, not a live call (only a text can carry a video link). */
+function skillLines(rc: RunContext, texting: boolean): string[] {
   const { config } = rc;
   const out: string[] = [];
   out.push(
@@ -278,6 +279,11 @@ function skillLines(rc: RunContext): string[] {
         ? '  From a photo you may give a rough price range, only from the price list and Knowledge (like a sizing guide), always as a range and never a quote: say the team confirms the price after they look. With nothing to go by, say the team will follow up with a price.'
         : '  Never say a price from a photo. Say the team will look at it and follow up.',
     );
+    // 20261018000300: a texted video comes through blurry; the link brings the original.
+    if (texting)
+      out.push(
+        '- Videos: you can’t watch them. When a video would show the problem better than words or a photo (a noise, a leak, something that won’t start), use ask_for_video and say in your reply what to film. When they send one, thank them and say the team will watch it.',
+      );
   } else
     out.push(
       '- You can’t see photos. When they send one, say the team will take a look, and hand off if they need an answer about it.',
@@ -361,8 +367,8 @@ function nowLine(rc: RunContext): string {
   return `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`;
 }
 
-/** The hours, the language, the hand-off, what it does and who the customer is. */
-function standingLines(rc: RunContext): string[] {
+/** The hours, the language, the hand-off, what it does and who the customer is. `call`: a live phone call. */
+function standingLines(rc: RunContext, call: boolean): string[] {
   const { config } = rc;
   const tz = rc.workspace.timeZone;
   return [
@@ -378,7 +384,7 @@ function standingLines(rc: RunContext): string[] {
       ),
     )}” When they write in a language other than English, pass that sentence translated faithfully as translatedLine, with nothing added.`,
     'What you do:',
-    ...skillLines(rc),
+    ...skillLines(rc, call ? false : rc.conversation.channel === 'sms'),
     ...customerLines(rc),
   ];
 }
@@ -391,7 +397,7 @@ export function contextText(
   return [
     ...aboutLines(rc, opts),
     nowLine(rc),
-    ...standingLines(rc),
+    ...standingLines(rc, !!opts.channelLines),
     groundingContext({
       profile: rc.grounding.profile,
       business: rc.grounding.business,
@@ -408,7 +414,7 @@ export function contextText(
 export function textLasting(rc: RunContext): string {
   return [
     ...aboutLines(rc, {}),
-    ...standingLines(rc),
+    ...standingLines(rc, false),
     groundingBrief({ profile: rc.grounding.profile, business: rc.grounding.business }),
   ].join('\n');
 }
@@ -437,7 +443,7 @@ export function callLasting(
 ): string {
   return [
     ...aboutLines(rc, opts),
-    ...standingLines(rc),
+    ...standingLines(rc, true),
     groundingBrief({ profile: rc.grounding.profile, business: rc.grounding.business }),
     ...faqLines(known.faq),
     ...openTimeLines(rc, known.openTimes),

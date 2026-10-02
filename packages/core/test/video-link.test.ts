@@ -16,7 +16,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { HfosError } from '../src/errors';
 import { executeCommand } from '../src/kernel/execute';
-import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
+import type {
+  AiEmployeeActor,
+  CommandDef,
+  HumanActor,
+  RequestMeta,
+  SystemActor,
+} from '../src/kernel/types';
 import {
   messageReceive,
   organizationCreate,
@@ -158,6 +164,32 @@ describe('making a link', () => {
       { workspaceId: wsId, personId: mariaId, consent: 'opted_in' },
       dale,
     );
+  });
+
+  it('lets the AI teammate make one only in the conversation it has', async () => {
+    const ai = (conversation: string): AiEmployeeActor => ({
+      type: 'ai_employee',
+      workspaceId: wsId,
+      organizationId: orgId,
+      teammateId: randomUUID(),
+      teammateName: 'Ava',
+      runId: null,
+      conversationId: conversation,
+      approvedBy: null,
+      origin: null,
+      test: false,
+    });
+    const make = (actor: AiEmployeeActor) =>
+      executeCommand(
+        testDbs().worker.db,
+        videoLinkCreate,
+        { workspaceId: wsId, conversationId },
+        actor,
+        meta(),
+      );
+    await expectRule(() => make(ai(randomUUID())), 'outside_its_conversation');
+    // Its own conversation, but a person has it (the whole way through: the worker's test).
+    await expectRule(() => make(ai(conversationId)), 'not_handled_by_ai');
   });
 });
 

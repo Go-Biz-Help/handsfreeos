@@ -44,7 +44,9 @@ import {
   textsTo,
   toolCallsOf,
   type TeammateWorld,
+  useModel,
 } from './ai-team-world';
+import { scriptedAi } from '../src/ai/scripted';
 
 let auto: TeammateWorld;
 let training: TeammateWorld;
@@ -193,6 +195,47 @@ describe('automatic and training', () => {
     } finally {
       await t.app.close();
     }
+  });
+});
+
+describe('asking for a video', () => {
+  it('puts the link it asked for in its draft while training, and it goes out as approved', async () => {
+    useModel(
+      training,
+      scriptedAi([], {
+        teammate: [
+          {
+            when: /grinding noise/i,
+            step: (t) =>
+              !t.results['ask_for_video']
+                ? { calls: [{ name: 'ask_for_video', arguments: {} }] }
+                : {
+                    calls: [
+                      {
+                        name: 'reply',
+                        arguments: {
+                          message:
+                            'Hi, I’m an AI assistant. Could you film the unit running? Tap this link to send it.',
+                        },
+                      },
+                    ],
+                  },
+          },
+        ],
+      }),
+    );
+    const c = await newCustomer(training, 'Vera');
+    const m = await textIn(training, c.phone, 'The unit is making a grinding noise');
+    await replyNow(training, m.conversationId);
+    const [d] = await draftsOf(m.conversationId);
+    const body = d!.preview.message!.body;
+    expect(body).toMatch(
+      /Tap this link to send it\.\nhttp:\/\/localhost:3000\/v\/[A-Za-z0-9_-]{32}$/,
+    );
+    expect(await aiMessages(m.conversationId)).toHaveLength(0);
+    await decide(training, d!.id, 'approve');
+    await drain(training);
+    expect((await aiMessages(m.conversationId)).map((x) => x.body_text)).toEqual([body]);
   });
 });
 
