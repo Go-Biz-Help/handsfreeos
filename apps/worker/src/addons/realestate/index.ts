@@ -47,6 +47,18 @@ import {
 import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
 import { armFeedCheck, FEED_CHECK, feedCheckJob, matchDecided } from './feed/searches';
+import {
+  SHOWING_ACCESS,
+  SHOWING_FEEDBACK,
+  SHOWING_THEMES,
+  showingAccessJob,
+  showingDecided,
+  showingFeedbackJob,
+  showingFeedbackReceived,
+  showingRequested,
+  showingThemesJob,
+  showingTimeEmail,
+} from './showings';
 import { registerRealestateTestRoutes } from './test-routes';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
@@ -258,7 +270,11 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.match.sent': matchDecided,
     'realestate.match.dismissed': matchDecided,
     // Buyer memory: what the client says, read for what to remember (./memory.ts).
-    'message.received': clientSpoke,
+    // And ShowingTime's emails about our listings, read into their showings (./showings.ts).
+    'message.received': async (ctx) => {
+      await clientSpoke(ctx);
+      await showingTimeEmail(ctx);
+    },
     'call.transcribed': clientSpoke,
     'realestate.memory.requested': memoryRequested,
     'realestate.memory.suggested': memoryWaitingChanged,
@@ -303,6 +319,10 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.esign.requested': esignRequested,
     'realestate.esign.signed_reported': esignSignedReported,
     'realestate.esign.voided': esignVoided,
+    // Showings of our listings: asked for, answered, and what buyers said (./showings.ts).
+    'realestate.showing.requested': showingRequested,
+    'realestate.showing.decided': showingDecided,
+    'realestate.showing.feedback_received': showingFeedbackReceived,
     'realestate.contingency.resolved': async (ctx) => {
       const id = payloadOf(ctx)['contingencyId'];
       if (typeof id === 'string') await clearAddonAlert(ctx, `contingency:${id}`, 'done');
@@ -314,6 +334,9 @@ export const realestateAddonWorker: AddonWorkerModule = {
     [FEED_CHECK]: feedCheckJob,
     // And open DocuSign envelopes, beside DocuSign's own updates (./esign/index.ts).
     [ESIGN_CHECK]: esignCheckJob,
+    [SHOWING_ACCESS]: showingAccessJob,
+    [SHOWING_FEEDBACK]: showingFeedbackJob,
+    [SHOWING_THEMES]: showingThemesJob,
     [MEMORY_JOB]: memoryJob,
     [OFFER_CLOCK]: offerClockJob,
     [OPEN_HOUSE_FOLLOW_UP]: openHouseFollowUpJob,

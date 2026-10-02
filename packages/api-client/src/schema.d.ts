@@ -8757,6 +8757,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.showing.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a showing of a listing by hand (one booked by phone, say), confirmed: the buyer’s agent, the time, and how to reach them for the access instructions and feedback link.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.decided.
+         */
+        post: operations["command_realestate_showing_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a showing read from a ShowingTime email is right, correcting its time or agent if it was read wrong.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_showing_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a showing request for the seller (confirm or turn it down), or cancel a showing, with a note. The buyer’s agent hears.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.decided.
+         */
+        post: operations["command_realestate_showing_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record what a buyer’s agent said about a showing (their buyers’ interest, what they liked, what gave them pause, how the price felt), when they said it by phone or text.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received.
+         */
+        post: operations["command_realestate_showing_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How showings work on a listing: whether its page takes requests, whether the seller says yes or it’s confirmed on its own, the seller’s open days and times, a showing’s length, the access instructions, and when they and the feedback link go.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_showing_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.share_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a showing’s feedback with the seller in their portal, as it was given.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.feedback_shared.
+         */
+        post: operations["command_realestate_showing_share_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.status_email.acknowledge_flags": {
         parameters: {
             query?: never;
@@ -14991,6 +15111,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_property_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.showing.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s showings, newest first: who, when, where each stands and where it came from (its page, ShowingTime’s emails, or added by hand), the feedback, what buyers said in all, and how showings work on it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_showing_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34608,6 +34748,259 @@ export interface operations {
             };
         };
     };
+    command_realestate_showing_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    agentEmail?: string;
+                    agentName: string;
+                    agentPhone?: string;
+                    brokerage?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    license?: string;
+                    minutes?: number;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    agentName?: string;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: date-time */
+                    startsAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "confirm" | "decline" | "cancel";
+                    note?: string;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    interest?: number | null;
+                    liked?: string | null;
+                    pause?: string | null;
+                    price?: ("low" | "right" | "high") | null;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    access?: string | null;
+                    accessHours?: number;
+                    /** @enum {string} */
+                    confirm?: "seller" | "auto";
+                    days?: number[];
+                    /** Format: uuid */
+                    dealId: string;
+                    feedbackHours?: number;
+                    from?: string;
+                    minutes?: number;
+                    open?: boolean;
+                    to?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        settings: {
+                            access: string | null;
+                            accessHours: number;
+                            /** @enum {string} */
+                            confirm: "seller" | "auto";
+                            days: number[];
+                            feedbackHours: number;
+                            from: string;
+                            minutes: number;
+                            open: boolean;
+                            to: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_share_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
     command_realestate_status_email_acknowledge_flags: {
         parameters: {
             query?: never;
@@ -53544,6 +53937,13 @@ export interface operations {
                             withdrawnReason: string | null;
                             words: string;
                         }[];
+                        showings: {
+                            answered: number;
+                            averageInterest: number | null;
+                            priceHigh: number;
+                            showings: number;
+                            words: string;
+                        };
                         waiting: {
                             appliedAt: string | null;
                             fromCents: number;
@@ -54100,6 +54500,125 @@ export interface operations {
                             /** Format: uuid */
                             propertyId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_showing_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        requestPath: string | null;
+                        sellerFirstName: string | null;
+                        settings: {
+                            access: string | null;
+                            accessHours: number;
+                            /** @enum {string} */
+                            confirm: "seller" | "auto";
+                            days: number[];
+                            feedbackHours: number;
+                            from: string;
+                            minutes: number;
+                            open: boolean;
+                            to: string;
+                        };
+                        showings: {
+                            accessSentAt: string | null;
+                            agentEmail: string | null;
+                            agentName: string;
+                            agentPhone: string | null;
+                            brokerage: string | null;
+                            can: {
+                                cancel: boolean;
+                                check: boolean;
+                                confirm: boolean;
+                                decline: boolean;
+                                feedback: boolean;
+                                share: boolean;
+                            };
+                            checked: boolean;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            feedback: {
+                                interest: number | null;
+                                liked: string | null;
+                                pause: string | null;
+                                price: ("low" | "right" | "high") | null;
+                            } | null;
+                            feedbackAskedAt: string | null;
+                            feedbackAt: string | null;
+                            feedbackSharedAt: string | null;
+                            feedbackSource: ("page" | "showingtime" | "agent") | null;
+                            /** Format: uuid */
+                            id: string;
+                            license: string | null;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            /** @enum {string} */
+                            source: "page" | "showingtime" | "agent";
+                            sourceLabel: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                            stateWords: string;
+                            when: string;
+                        }[];
+                        street: string | null;
+                        summary: {
+                            answered: number;
+                            averageInterest: number | null;
+                            interestWords: string;
+                            price: {
+                                high: number;
+                                low: number;
+                                right: number;
+                            };
+                            showings: number;
+                            words: string;
+                        };
+                        themes: {
+                            /** Format: date-time */
+                            at: string;
+                            disliked: {
+                                count: number;
+                                quotes: string[];
+                                theme: string;
+                            }[];
+                            dislikedWords: string;
+                            liked: {
+                                count: number;
+                                quotes: string[];
+                                theme: string;
+                            }[];
+                            likedWords: string;
+                        } | null;
                     };
                 };
             };

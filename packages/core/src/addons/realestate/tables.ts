@@ -17,6 +17,7 @@ import {
   primaryKey,
   smallint,
   text,
+  time,
   timestamp,
   unique,
   uuid,
@@ -24,6 +25,7 @@ import {
 import {
   addonConnections,
   appointments,
+  bytea,
   calendars,
   customRecords,
   files,
@@ -1336,6 +1338,21 @@ export const listings = addonRealestate.table(
     matchedAt: ts('matched_at'),
     // Round five, step 4: what the listing feed says about it, as it said it.
     ...mlsColumns(),
+    // Round five, step 8: how showings work on it.
+    showingsOpen: boolean('showings_open').notNull().default(true),
+    showingConfirm: text('showing_confirm').notNull().default('seller').$type<'seller' | 'auto'>(),
+    showingAccess: text('showing_access'),
+    showingAccessHours: smallint('showing_access_hours').notNull().default(1),
+    showingFeedbackHours: smallint('showing_feedback_hours').notNull().default(1),
+    showingMinutes: smallint('showing_minutes').notNull().default(30),
+    showingDays: smallint('showing_days')
+      .array()
+      .notNull()
+      .default(sql`'{0,1,2,3,4,5,6}'`),
+    showingFrom: time('showing_from').notNull().default('10:00'),
+    showingTo: time('showing_to').notNull().default('18:00'),
+    showingThemes: jsonb('showing_themes').$type<Record<string, unknown>>(),
+    showingThemesAt: ts('showing_themes_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1960,6 +1977,56 @@ export const esignEnvelopes = addonRealestate.table(
     foreignKey({
       columns: [t.workspaceId, t.documentId],
       foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A showing of one of our listings: asked for on its page, read from ShowingTime's emails, or added by hand. */
+export const showings = addonRealestate.table(
+  'showings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    source: text('source').notNull().$type<'page' | 'showingtime' | 'agent'>(),
+    state: text('state')
+      .notNull()
+      .default('requested')
+      .$type<'requested' | 'confirmed' | 'declined' | 'cancelled' | 'done'>(),
+    startsAt: ts('starts_at').notNull(),
+    endsAt: ts('ends_at').notNull(),
+    agentName: text('agent_name').notNull(),
+    brokerage: text('brokerage'),
+    license: text('license'),
+    agentEmail: text('agent_email'),
+    agentPhone: text('agent_phone'),
+    checked: boolean('checked').notNull().default(true),
+    externalId: text('external_id'),
+    messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    decidedAt: ts('decided_at'),
+    decidedBy: userRef('decided_by'),
+    decidedByPersonId: uuid('decided_by_person_id').references(() => people.id, {
+      onDelete: 'set null',
+    }),
+    decisionNote: text('decision_note'),
+    accessSentAt: ts('access_sent_at'),
+    feedbackAskedAt: ts('feedback_asked_at'),
+    feedbackTokenHash: bytea('feedback_token_hash').unique(),
+    feedback: jsonb('feedback').$type<Record<string, unknown>>(),
+    feedbackAt: ts('feedback_at'),
+    feedbackSource: text('feedback_source').$type<'page' | 'showingtime' | 'agent'>(),
+    feedbackSharedAt: ts('feedback_shared_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.externalId),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
     }).onDelete('cascade'),
   ],
 );

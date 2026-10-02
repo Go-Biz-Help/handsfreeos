@@ -27,7 +27,8 @@ import {
   ListingPriceProposeOutput,
   ListingPricesOutput,
 } from '../schemas';
-import { clientTasks, listingPrices, listings, termEntries } from '../tables';
+import { feedbackSummary, type ShowingFeedback } from '../showings';
+import { clientTasks, listingPrices, listings, showings, termEntries } from '../tables';
 import { termsNow } from '../terms';
 import {
   actorUserId,
@@ -424,11 +425,26 @@ export const listingPricesGet = defineAddonQuery(realestateAddon, {
       .orderBy(desc(listingPrices.proposedAt));
     const out = await priceOut(ctx, list);
     const current = await currentListPrice(ctx, deal.recordId);
+    const shown = feedbackSummary(
+      (
+        await ctx.tx
+          .select({ state: showings.state, feedback: showings.feedback })
+          .from(showings)
+          .where(eq(showings.dealRecordId, deal.recordId))
+      ).map((r) => ({ state: r.state, feedback: (r.feedback as ShowingFeedback | null) ?? null })),
+    );
     return {
       dealId: deal.recordId,
       currentCents: current?.valueCents ?? null,
       waiting: out.find((p) => p.state === 'waiting') ?? null,
       history: out,
+      showings: {
+        showings: shown.showings,
+        answered: shown.answered,
+        averageInterest: shown.averageInterest,
+        priceHigh: shown.price.high,
+        words: `${shown.words}${shown.price.high ? ` · ${shown.price.high} said the price was high` : ''}`,
+      },
     };
   },
 });

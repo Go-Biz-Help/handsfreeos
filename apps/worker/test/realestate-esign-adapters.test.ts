@@ -151,7 +151,8 @@ describe('DocuSign', () => {
     const svc = scripted({
       [`GET ${api}/envelopes/e1/documents/combined?certificate=false`]: () =>
         new Response('<html>oops</html>'),
-      [`GET ${api}/envelopes/e1/documents/certificate`]: () => new Response(textPdf([['ok']])),
+      [`GET ${api}/envelopes/e1/documents/certificate`]: () =>
+        new Response(new Uint8Array(textPdf([['ok']]))),
     });
     const ds = createDocusign({
       accessToken: 't',
@@ -223,7 +224,7 @@ describe('Dotloop', () => {
         json({ data: { id: 900, loopUrl: 'https://www.dotloop.com/m/loop?loopId=900' } }),
       [`POST ${loop}/folder`]: () => json({ data: { id: 31 } }),
       [`POST ${loop}/folder/31/document`]: () => json({ data: { id: 5555 } }),
-      [`GET ${loop}/folder/31/document/5555`]: () => new Response(pdf),
+      [`GET ${loop}/folder/31/document/5555`]: () => new Response(new Uint8Array(pdf)),
     });
     const dl = createDotloop({ accessToken: 't', profileId: '4711', fetch: svc.fetch });
     const made = await dl.prepare(

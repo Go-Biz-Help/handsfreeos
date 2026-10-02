@@ -42,6 +42,7 @@ import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { CONTRACT_DATE_KEYS, CONTRACT_KEYS, READ_KINDS } from './contract-read';
 import { CONTINGENCY_ENDINGS, CONTINGENCY_KIND_KEYS, CONTINGENCY_STATES } from './contingencies';
 import { ESIGN_PROVIDER_KEYS, ESIGN_STATE_KEYS, SIGNER_STATE_KEYS } from './esign';
+import { PRICE_FEEL_KEYS, SHOWING_SOURCE_KEYS, SHOWING_STATE_KEYS } from './showings';
 import { TERM_KEYS } from './terms';
 import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
@@ -3027,6 +3028,14 @@ export const ListingPricesOutput = z.object({
   waiting: ListingPriceOut.nullable(),
   /** Every change asked for, newest first. */
   history: z.array(ListingPriceOut),
+  /** What showings say about it (round five): how many, how interested, and how the price felt. */
+  showings: z.object({
+    showings: z.number().int(),
+    answered: z.number().int(),
+    averageInterest: z.number().nullable(),
+    priceHigh: z.number().int(),
+    words: z.string(),
+  }),
 });
 
 // ---------- round three, step 11: our listings suggested to our buyers ----------
@@ -3704,3 +3713,265 @@ export const EsignListOutput = z.object({
     }),
   ),
 });
+
+// ---------- round five, step 8: showings of our listings ----------
+
+const inShowing = { workspaceId: uuid, showingId: uuid };
+const agentName = z.string().trim().min(1, 'Enter the agent’s name.').max(120);
+const brokerage = z.string().trim().min(1).max(120);
+const agentEmail = z.email({ error: 'Enter an email like ana@brokerage.com.' }).max(254);
+const agentPhone = z.string().trim().min(7, 'Enter a phone number.').max(40);
+const words500 = z.string().trim().min(1).max(500, 'Keep it under 500 characters.');
+export const ShowingFeedbackSchema = z.object({
+  interest: z.number().int().min(1).max(5).nullable(),
+  liked: z.string().trim().min(1).max(1000).nullable(),
+  pause: z.string().trim().min(1).max(1000).nullable(),
+  price: z.enum(PRICE_FEEL_KEYS).nullable(),
+});
+const ShowingThemeSchema = z.object({
+  theme: z.string().trim().min(1).max(120),
+  count: z.number().int().min(1).max(500),
+  quotes: z.array(z.string().trim().min(1).max(300)).max(5),
+});
+export const ShowingThemesSchema = z.object({
+  liked: z.array(ShowingThemeSchema).max(6),
+  disliked: z.array(ShowingThemeSchema).max(6),
+});
+export const ShowingSettingsSchema = z.object({
+  open: z.boolean(),
+  confirm: z.enum(['seller', 'auto']),
+  days: z.array(z.number().int().min(0).max(6)).max(7),
+  from: clock,
+  to: clock,
+  minutes: z.number().int().min(15).max(120),
+  accessHours: z.number().int().min(0).max(24),
+  feedbackHours: z.number().int().min(0).max(48),
+});
+
+export const ShowingSettingsInput = z
+  .object({
+    ...inDeal,
+    ...ShowingSettingsSchema.partial().shape,
+    /** The lockbox code and how to get in; null clears it. */
+    access: z.string().trim().min(1).max(1000).nullable().optional(),
+  })
+  .refine((i) => !i.from || !i.to || i.from < i.to, {
+    path: ['to'],
+    message: 'The last time ends after the first. Pick a later time.',
+  });
+export const ShowingSettingsOutput = z.object({
+  dealId: uuid,
+  settings: ShowingSettingsSchema.extend({ access: z.string().nullable() }),
+});
+
+export const ShowingAddInput = z.object({
+  ...inDeal,
+  startsAt: isoDateTime,
+  minutes: z.number().int().min(15).max(240).optional(),
+  agentName,
+  brokerage: brokerage.optional(),
+  license: z.string().trim().min(1).max(40).optional(),
+  agentEmail: agentEmail.optional(),
+  agentPhone: agentPhone.optional(),
+});
+export const ShowingOutput = z.object({
+  showingId: uuid,
+  dealId: uuid,
+  state: z.enum(SHOWING_STATE_KEYS),
+});
+export const ShowingDecideInput = z.object({
+  ...inShowing,
+  decision: z.enum(['confirm', 'decline', 'cancel']),
+  note: words500.optional(),
+});
+export const ShowingCheckInput = z.object({
+  ...inShowing,
+  /** The right time, when the email was read wrong. */
+  startsAt: isoDateTime.optional(),
+  agentName: agentName.optional(),
+});
+export const ShowingFeedbackInput = z.object({
+  ...inShowing,
+  ...ShowingFeedbackSchema.partial().shape,
+});
+export const ShowingShareInput = z.object({ ...inShowing });
+
+export const ShowingListInput = z.object({ ...inDeal });
+const ShowingRow = z.object({
+  id: uuid,
+  source: z.enum(SHOWING_SOURCE_KEYS),
+  sourceLabel: z.string(),
+  state: z.enum(SHOWING_STATE_KEYS),
+  stateWords: z.string(),
+  startsAt: isoDateTime,
+  endsAt: isoDateTime,
+  when: z.string(),
+  agentName: z.string(),
+  brokerage: z.string().nullable(),
+  license: z.string().nullable(),
+  agentEmail: z.string().nullable(),
+  agentPhone: z.string().nullable(),
+  checked: z.boolean(),
+  requestedAt: isoDateTime,
+  decidedAt: isoDateTime.nullable(),
+  decisionNote: z.string().nullable(),
+  accessSentAt: isoDateTime.nullable(),
+  feedbackAskedAt: isoDateTime.nullable(),
+  feedback: ShowingFeedbackSchema.nullable(),
+  feedbackAt: isoDateTime.nullable(),
+  feedbackSource: z.enum(SHOWING_SOURCE_KEYS).nullable(),
+  feedbackSharedAt: isoDateTime.nullable(),
+  can: z.object({
+    confirm: z.boolean(),
+    decline: z.boolean(),
+    cancel: z.boolean(),
+    check: z.boolean(),
+    feedback: z.boolean(),
+    share: z.boolean(),
+  }),
+});
+export const ShowingListOutput = z.object({
+  dealId: uuid,
+  street: z.string().nullable(),
+  /** The page a buyer's agent asks for a showing on, once the listing's page is up. */
+  requestPath: z.string().nullable(),
+  sellerFirstName: z.string().nullable(),
+  settings: ShowingSettingsSchema.extend({ access: z.string().nullable() }),
+  showings: z.array(ShowingRow),
+  summary: z.object({
+    showings: z.number().int(),
+    answered: z.number().int(),
+    averageInterest: z.number().nullable(),
+    interestWords: z.string(),
+    price: z.object({ low: z.number().int(), right: z.number().int(), high: z.number().int() }),
+    words: z.string(),
+  }),
+  themes: ShowingThemesSchema.extend({
+    likedWords: z.string(),
+    dislikedWords: z.string(),
+    at: isoDateTime,
+  }).nullable(),
+});
+
+// The listing's public page: a buyer's agent asks for a time, and says how it went.
+const inPage = { workspaceId: uuid, slug: z.string().trim().max(80) };
+export const PublicShowingTimesInput = z.object({ ...inPage });
+export const PublicShowingTimesOutput = z.object({
+  street: z.string(),
+  open: z.boolean(),
+  /** Why it isn't open, in words, when it isn't. */
+  closedWords: z.string().nullable(),
+  times: z.array(isoDateTime),
+  minutes: z.number().int(),
+  timeZone: z.string(),
+  confirm: z.enum(['seller', 'auto']),
+});
+export const PublicShowingRequestInput = z.object({
+  ...inPage,
+  startsAt: isoDateTime,
+  agentName,
+  brokerage,
+  license: z.string().trim().min(1, 'Enter your license number.').max(40),
+  email: agentEmail,
+  phone: agentPhone.optional(),
+});
+export const PublicShowingRequestOutput = z.object({
+  state: z.enum(['requested', 'confirmed']),
+  startsAt: isoDateTime,
+});
+export const PublicShowingFeedbackFormInput = z.object({
+  ...inPage,
+  token: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{43}$/, 'That link isn’t complete. Open it from the email again.'),
+});
+export const PublicShowingFeedbackFormOutput = z.object({
+  street: z.string(),
+  startsAt: isoDateTime,
+  agentName: z.string(),
+  answered: z.boolean(),
+});
+export const PublicShowingFeedbackInput = z.object({
+  ...PublicShowingFeedbackFormInput.shape,
+  interest: z.number().int().min(1, 'Pick how interested your buyers were.').max(5),
+  liked: z.string().trim().max(1000).optional(),
+  pause: z.string().trim().max(1000).optional(),
+  price: z.enum(PRICE_FEEL_KEYS).optional(),
+});
+export const PublicShowingFeedbackOutput = z.object({ sent: z.literal(true) });
+
+// The seller, in their portal.
+export const PortalShowingsInput = z.object({ ...inDeal });
+export const PortalShowingsOutput = z.object({
+  dealId: uuid,
+  waiting: z.array(
+    z.object({
+      id: uuid,
+      startsAt: isoDateTime,
+      endsAt: isoDateTime,
+      agentName: z.string(),
+      brokerage: z.string().nullable(),
+      source: z.enum(SHOWING_SOURCE_KEYS),
+      requestedAt: isoDateTime,
+    }),
+  ),
+  upcoming: z.array(
+    z.object({
+      id: uuid,
+      startsAt: isoDateTime,
+      endsAt: isoDateTime,
+      agentName: z.string(),
+      brokerage: z.string().nullable(),
+      source: z.enum(SHOWING_SOURCE_KEYS),
+    }),
+  ),
+  /** Feedback their agent shared with them. */
+  feedback: z.array(
+    z.object({
+      id: uuid,
+      startsAt: isoDateTime,
+      feedback: ShowingFeedbackSchema,
+      sharedAt: isoDateTime,
+    }),
+  ),
+  /** Whether a showing waits for their yes, or is confirmed on its own. */
+  confirm: z.enum(['seller', 'auto']),
+});
+export const PortalShowingAnswerInput = z.object({
+  ...inShowing,
+  answer: z.enum(['yes', 'no', 'another']),
+  words: words500.optional(),
+});
+
+// The worker's.
+export const ShowingSentInput = z.object({
+  ...inShowing,
+  what: z.enum(['access', 'feedback']),
+  /** The feedback link's token, hashed (hex), with `feedback`. */
+  tokenHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+});
+export const ShowingSentOutput = z.object({ showingId: uuid, changed: z.boolean() });
+export const ShowingFromEmailInput = z.object({
+  ...inDeal,
+  /** The email it was read from. */
+  messageId: uuid.optional(),
+  kind: z.enum(['requested', 'confirmed', 'cancelled', 'feedback']),
+  /** ShowingTime's own reference for it, when the email has one. */
+  externalId: z.string().trim().min(1).max(200).optional(),
+  startsAt: isoDateTime.optional(),
+  endsAt: isoDateTime.optional(),
+  agentName: agentName.optional(),
+  brokerage: brokerage.optional(),
+  agentEmail: z.string().trim().max(254).optional(),
+  agentPhone: z.string().trim().max(40).optional(),
+  feedback: ShowingFeedbackSchema.optional(),
+});
+export const ShowingFromEmailOutput = z.object({
+  showingId: uuid.nullable(),
+  state: z.enum([...SHOWING_STATE_KEYS, 'skipped']),
+});
+export const ShowingThemesSaveInput = z.object({ ...inDeal, themes: ShowingThemesSchema });
+export const ShowingThemesSaveOutput = z.object({ dealId: uuid });

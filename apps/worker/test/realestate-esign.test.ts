@@ -564,7 +564,8 @@ describe('with DocuSign itself (scripted)', () => {
             ],
           },
         });
-      if (url.startsWith(`${api}/envelopes/${env}/documents/`)) return new Response(pdf);
+      if (url.startsWith(`${api}/envelopes/${env}/documents/`))
+        return new Response(new Uint8Array(pdf));
       return new Response('{"message":"not scripted"}', { status: 404 });
     });
     try {

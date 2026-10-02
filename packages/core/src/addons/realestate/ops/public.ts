@@ -34,7 +34,7 @@ const noPage = () =>
   );
 
 /** The published listing at this address, and its deal; anything else is "no page". */
-async function publishedListing(ctx: Ctx, slug: string) {
+export async function publishedListing(ctx: Ctx, slug: string) {
   const [l] = await ctx.tx
     .select()
     .from(listings)

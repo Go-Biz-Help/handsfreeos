@@ -40,6 +40,7 @@ import { waitCommands } from './ops/waits';
 import { coordinateQueries } from './ops/coordinate';
 import { esignCommands, esignQueries } from './ops/esign';
 import { feedCommands } from './ops/feed';
+import { showingCommands, showingQueries } from './ops/showings';
 import { searchCommands, searchQueries } from './ops/searches';
 
 export const realestateAddonServer: AddonServerModule = {
@@ -79,6 +80,7 @@ export const realestateAddonServer: AddonServerModule = {
     // Round five: listing data from the feed, and buyers' saved searches on it.
     ...feedCommands,
     ...esignCommands,
+    ...showingCommands,
     ...searchCommands,
   ],
   queries: [
@@ -106,6 +108,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...sellerPortalQueries,
     ...contractQueries,
     ...esignQueries,
+    ...showingQueries,
     ...contingencyQueries,
     ...coordinateQueries,
     ...searchQueries,

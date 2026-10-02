@@ -235,6 +235,7 @@ export const realestateAddon = defineAddon({
     // Round five: buyers' new matches from the listing feed, and documents sent for signing.
     'feed_matches',
     'esign_envelopes',
+    'showings',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -384,6 +385,11 @@ export const realestateAddon = defineAddon({
       'realestate.esign.signed_reported',
       'realestate.esign.completed',
       'realestate.esign.voided',
+      // Showings of our listings: asked for, answered, and what buyers said.
+      'realestate.showing.requested',
+      'realestate.showing.decided',
+      'realestate.showing.feedback_received',
+      'realestate.showing.feedback_shared',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -460,6 +466,11 @@ export const realestateAddon = defineAddon({
       'realestate.esign.requested',
       'realestate.esign.signed_reported',
       'realestate.esign.voided',
+      // Showings: the seller and the listing agent told of a request; the buyer's agent told of the answer, sent
+      // the access instructions before and the feedback link after; what buyers said grouped by the AI.
+      'realestate.showing.requested',
+      'realestate.showing.decided',
+      'realestate.showing.feedback_received',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
@@ -472,6 +483,10 @@ export const realestateAddon = defineAddon({
     'realestate.feed_check',
     // And open DocuSign envelopes looked at every fifteen minutes, beside its updates.
     'realestate.esign_check',
+    // Showings: the access instructions just before, the feedback link after, and buyers' words grouped.
+    'realestate.showing_access',
+    'realestate.showing_feedback',
+    'realestate.showing_themes',
   ],
   // Round five: listing data from a feed (Chris, 2026-10-02). HandsFreeOS's own Repliers account by default, turned
   // on by staff; a brokerage can connect its own Repliers or AnyProp account, or its MLS's own RESO Web API, instead.
@@ -656,11 +671,15 @@ export const realestateAddon = defineAddon({
         query: 'realestate.portal.deal',
       },
       { path: 'deals/:dealId/offers', title: 'Your offers', query: 'realestate.portal.listing' },
+      { path: 'deals/:dealId/showings', title: 'Showings', query: 'realestate.portal.showings' },
     ],
     // Round three: a listing's page, for anyone with the link (`/a/<site>/realestate/<slug>`).
     public: [
       { path: ':slug', query: 'realestate.public.listing' },
       { path: ':slug/open-house/:openHouseId', query: 'realestate.public.open_house' },
+      // Round five: a buyer's agent asks for a showing, and says how it went from the link they were sent.
+      { path: ':slug/showing', query: 'realestate.public.showing_times' },
+      { path: ':slug/showing-feedback/:token', query: 'realestate.public.showing_feedback_form' },
     ],
   },
   ai: {

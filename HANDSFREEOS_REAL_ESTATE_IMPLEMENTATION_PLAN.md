@@ -1965,6 +1965,28 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
     redirect URI `<WORKER_PUBLIC_URL>/oauth/addon/callback` (docs/operations.md).
 
 - **Step 8:** showings: our page and ShowingTime's emails.
+
+  **As built** (`20261021000700`): `addon_realestate.showings`, and each listing's showing settings (open to requests,
+  who confirms, the seller's days and hours, a showing's length, the access instructions, and the hours before and
+  after). The seller sees when, who and where it stands, never how to get in or the agent's details.
+  - **Our page.** `realestate.public.showing_times` offers the next week's open slots (an hour's notice, none a
+    showing already holds); `realestate.public.request_showing` takes one, once per agent while one waits.
+    `realestate.portal.showing_answer` is the seller's yes, no or another time; `realestate.showing.decide` is the
+    agent's, for them; `realestate.showing.add` books one by hand.
+  - **The worker** puts a Home card on the listing agent until it's answered and emails the seller a link to their
+    portal; tells the buyer's agent the answer (with the page to pick another time when it's no); sends the access
+    instructions to that agent alone `showing_access_hours` before and the feedback link `showing_feedback_hours`
+    after (`realestate.showing_access`, `realestate.showing_feedback`, each looking again before it sends). The link's
+    token is kept hashed; its page takes one answer (`realestate.public.showing_feedback`).
+  - **ShowingTime's emails** (`message.received`, from showingtime.com) are read by their labels into
+    `realestate.showing.from_email`: asked for, confirmed, cancelled, feedback, matched to our listing by its address
+    and to the showing by ShowingTime's number. Each is marked to check (`realestate.showing.check`); nothing is
+    emailed for them, since ShowingTime does its own asking.
+  - **What buyers said**: `feedbackSummary` counts showings, answers, average interest and how the price felt; it's on
+    Showings and in the price review (`realestate.listing.prices`). Ten minutes after an answer the AI groups buyers'
+    words into themes (`realestate.showing_themes`); core keeps only quotes found in what they wrote, and no count above
+    the answers. Feedback reaches the seller's portal only once the agent shares it.
+
 - **Step 9:** the vendors directory.
 - **Step 10:** the screens. **Step 11:** the docs, the browser test and a short video.
 

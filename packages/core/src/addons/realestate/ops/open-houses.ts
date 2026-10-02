@@ -75,7 +75,7 @@ async function loadOpenHouse(ctx: Ctx, id: string, lock = false): Promise<OpenHo
   return o;
 }
 
-async function siteSlugOf(ctx: Ctx): Promise<string | null> {
+export async function siteSlugOf(ctx: Ctx): Promise<string | null> {
   const [s] = await ctx.tx
     .select({ slug: bookingSites.slug })
     .from(bookingSites)
