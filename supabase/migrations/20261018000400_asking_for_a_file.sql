@@ -36,8 +36,7 @@ alter table app.video_links
 create index video_links_lead_idx on app.video_links (lead_id) where lead_id is not null;
 
 -- A person still makes video links only: a file link names a lead and a question, which the worker checks.
-drop policy video_links_insert on app.video_links;
-create policy video_links_insert on app.video_links for insert to authenticated
+alter policy video_links_insert on app.video_links
   with check (private.has_permission(workspace_id, 'inbox.use')
     and exists (select 1 from app.conversations c
                 where c.id = conversation_id and c.workspace_id = video_links.workspace_id)
