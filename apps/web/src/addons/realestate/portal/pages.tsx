@@ -2,7 +2,8 @@
 /**
  * Real Estate's pages in the client's portal (boards 28–30, design/realestate/PortalDeal, PortalHomes and
  * PortalTour): their deals, the homes on their list, their to-do, one deal, a tour's homes to say what they
- * thought of, and an offer's one-page summary. The portal's shell hands it the path; the manifest's `ui.portal`
+ * thought of, and an offer's one-page summary. A seller's listing, its questions, sign-offs and offers are in
+ * `listing.tsx` (round three). The portal's shell hands it the path; the manifest's `ui.portal`
  * says which paths there are.
  */
 import { fmtMonthDay, fmtWhen, money } from '@hfos/core';
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
+  DealSteps,
   Done,
   feedbackDue,
   firstName,
@@ -35,6 +37,7 @@ import {
   weekday,
   zone,
 } from './bits';
+import { ListingDealPage, OffersPage, QuestionnairePage, SignOffPage } from './listing';
 import type { PortalDeal, PortalDealRow, PortalStop, PortalTour } from './types';
 
 const thisYear = () => new Date().getFullYear();
@@ -49,6 +52,12 @@ export default function RealestatePortalPages({ path }: { path: readonly string[
     return <TourPage dealId={dealId} tourId={id} />;
   if (a === 'deals' && dealId && b === 'offers' && id)
     return <OfferPage dealId={dealId} offerId={id} />;
+  // Round three: the seller's own pages.
+  if (a === 'deals' && dealId && b === 'offers' && !id) return <OffersPage dealId={dealId} />;
+  if (a === 'deals' && dealId && b === 'questionnaire')
+    return <QuestionnairePage dealId={dealId} />;
+  if (a === 'deals' && dealId && b === 'sign-off' && id)
+    return <SignOffPage dealId={dealId} taskId={id} />;
   return null;
 }
 
@@ -289,6 +298,8 @@ function DealPage({ dealId }: { dealId: string }) {
   const { href } = usePortal();
   const { data: deal, reload } = usePortalQuery<PortalDeal>('realestate.portal.deal', { dealId });
   if (!deal) return null;
+  if (deal.deal.side === 'listing')
+    return <ListingDealPage dealId={dealId} deal={deal} reload={reload} />;
   const d = deal.deal;
   const agent = firstName(d.agentName);
   const tour = nextTour(deal.tours);
@@ -302,26 +313,7 @@ function DealPage({ dealId }: { dealId: string }) {
         {d.side === 'buyer' ? 'Buying a home' : 'Selling your home'}
       </h1>
       <Card className="p-4">
-        <ol className="space-y-2.5">
-          {d.steps.map((s, i) => (
-            <li key={s} className="flex items-center gap-3 text-[14px]">
-              {i < d.step ? (
-                <Done />
-              ) : (
-                <span
-                  className={cn(
-                    'h-6 w-6 flex-none rounded-full border',
-                    i === d.step ? 'border-accent bg-accent-soft' : 'border-border-strong',
-                  )}
-                />
-              )}
-              <span className={cn(i === d.step && 'font-semibold', i > d.step && 'text-text-2')}>
-                {s}
-                {i === d.step ? ` · ${d.stage}` : ''}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <DealSteps deal={d} />
       </Card>
       <Card className="p-4">
         <PortalCardHead>What happens next</PortalCardHead>

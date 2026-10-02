@@ -1,13 +1,15 @@
 'use client';
 /**
- * Pieces Real Estate's portal pages share: a task the client does (upload, sign off, or mark done), a home to save
- * or pass on, and the words for days and homes. In the client's words, never the office's.
+ * Pieces Real Estate's portal pages share: a task the client does (upload, mark done, or open its page to sign off or
+ * answer the seller's questions), a home to save or pass on, the steps of their deal, and the words for days and
+ * homes. In the client's words, never the office's.
  */
 import { fmtDateLong, fmtDateShort, localDayOf, money } from '@hfos/core';
 import { Check, Circle, ExternalLink, Heart, Home as HomeIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRef } from 'react';
 import { usePortal, usePortalAct } from '@/components/portal/context';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClassName } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PortalDeal, PortalHome, PortalTask, PortalTour } from './types';
 
@@ -62,9 +64,8 @@ export function TaskRow({
   dealId: string;
   onDone: () => void;
 }) {
-  const { op, upload } = usePortal();
+  const { op, upload, href } = usePortal();
   const { busy, act } = usePortalAct(onDone);
-  const [reading, setReading] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const finished = t.status === 'done' || t.mine;
   const send = (f: File) =>
@@ -119,10 +120,19 @@ export function TaskRow({
                 Upload
               </Button>
             </>
-          ) : t.kind === 'sign_off' ? (
-            <Button size="sm" variant="secondary" onClick={() => setReading(!reading)}>
-              {reading ? 'Close' : 'Read and sign'}
-            </Button>
+          ) : t.kind === 'sign_off' || t.kind === 'questionnaire' ? (
+            // Each has its own page: the exact words to read and approve, or the questions about their home.
+            <Link
+              href={href(
+                `a/realestate/deals/${dealId}/${t.kind === 'sign_off' ? `sign-off/${t.id}` : 'questionnaire'}`,
+              )}
+              className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+              data-testid={
+                t.kind === 'sign_off' ? 'portal-sign-off-open' : 'portal-questionnaire-open'
+              }
+            >
+              {t.kind === 'sign_off' ? 'Read and sign' : 'Open'}
+            </Link>
           ) : (
             <Button
               size="sm"
@@ -141,31 +151,33 @@ export function TaskRow({
           )
         ) : null}
       </div>
-      {reading && t.signOffWords ? (
-        <div className="ml-9 mt-2 rounded-menu bg-card-2 p-3">
-          <p className="whitespace-pre-wrap text-[14px]">{t.signOffWords}</p>
-          <Button
-            size="sm"
-            className="mt-3"
-            loading={busy === 'sign'}
-            onClick={() =>
-              void act(
-                'sign',
-                () =>
-                  op('realestate.portal.task.complete', {
-                    taskId: t.id,
-                    signedWords: t.signOffWords,
-                  }),
-                'Signed off. Your agent can see it.',
-              )
-            }
-            data-testid="portal-sign-off"
-          >
-            I agree
-          </Button>
-        </div>
-      ) : null}
     </li>
+  );
+}
+
+/** Where their deal is: each step, the one they're on with its stage, the ones before ticked. */
+export function DealSteps({ deal: d }: { deal: PortalDeal['deal'] }) {
+  return (
+    <ol className="space-y-2.5">
+      {d.steps.map((s, i) => (
+        <li key={s} className="flex items-center gap-3 text-[14px]">
+          {i < d.step ? (
+            <Done />
+          ) : (
+            <span
+              className={cn(
+                'h-6 w-6 flex-none rounded-full border',
+                i === d.step ? 'border-accent bg-accent-soft' : 'border-border-strong',
+              )}
+            />
+          )}
+          <span className={cn(i === d.step && 'font-semibold', i > d.step && 'text-text-2')}>
+            {s}
+            {i === d.step ? ` · ${d.stage}` : ''}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

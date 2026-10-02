@@ -489,6 +489,18 @@ export const realestateAddon = defineAddon({
         title: 'Your offer',
         query: 'realestate.portal.deal',
       },
+      // Round three: the seller's own pages.
+      {
+        path: 'deals/:dealId/questionnaire',
+        title: 'About your home',
+        query: 'realestate.portal.listing',
+      },
+      {
+        path: 'deals/:dealId/sign-off/:taskId',
+        title: 'Sign off',
+        query: 'realestate.portal.deal',
+      },
+      { path: 'deals/:dealId/offers', title: 'Your offers', query: 'realestate.portal.listing' },
     ],
     // Round three: a listing's page, for anyone with the link (`/a/<site>/realestate/<slug>`).
     public: [

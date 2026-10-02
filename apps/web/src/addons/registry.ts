@@ -155,5 +155,13 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       pages: () => import('./realestate/portal/pages'),
       icons: { homes: realestateAddonIcon, todo: realestateTodoIcon },
     },
+    public: {
+      pages: () => import('./realestate/public/pages'),
+      // The home's street, then the business: what the tab and a shared link show.
+      title: (p) => {
+        const street = (p.result as { street?: string } | null)?.street;
+        return street ? `${street} · ${p.business.name}` : p.business.name;
+      },
+    },
   },
 };

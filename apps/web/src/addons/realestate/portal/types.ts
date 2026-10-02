@@ -28,7 +28,8 @@ export interface PortalDealRow {
 
 export interface PortalTask {
   readonly id: string;
-  readonly kind: 'upload' | 'sign_off' | 'do';
+  /** A seller's questionnaire opens its own page (round three). */
+  readonly kind: 'upload' | 'sign_off' | 'do' | 'questionnaire';
   readonly title: string;
   readonly detail: string | null;
   readonly signOffWords: string | null;
@@ -108,4 +109,89 @@ export interface PortalDeal {
     readonly status: string;
     readonly date: string | null;
   }[];
+}
+
+// Round three: the seller's own listing (`realestate.portal.listing`, ops/seller-portal.ts).
+
+/** One offer as the seller sees it side by side: its newest terms and what they'd take home (an estimate). */
+export interface PortalCompareRow {
+  readonly offerId: string;
+  readonly number: number;
+  readonly buyers: string | null;
+  readonly agent: string | null;
+  readonly brokerage: string | null;
+  readonly status: string;
+  readonly priceCents: number;
+  /** "Cash", "Conventional · 20% down". */
+  readonly paying: string;
+  readonly emdCents: number | null;
+  readonly sellerCreditCents: number;
+  readonly buyerAgentFee: string | null;
+  readonly inspection: string | null;
+  readonly financing: string | null;
+  readonly homeSale: boolean | null;
+  readonly escalation: string | null;
+  readonly closingDate: string | null;
+  readonly possession: string | null;
+  readonly respondBy: string | null;
+  readonly net: {
+    readonly lines: readonly {
+      readonly key: string;
+      readonly label: string;
+      readonly cents: number;
+    }[];
+    readonly netCents: number;
+  };
+  readonly best: boolean;
+}
+
+export type PortalSellerChoice = 'accept' | 'counter' | 'decline' | 'talk';
+
+export interface PortalListing {
+  readonly dealId: string;
+  readonly address: string | null;
+  readonly street: string | null;
+  readonly priceCents: number | null;
+  readonly priceChanges: readonly {
+    readonly id: string;
+    readonly fromCents: number;
+    readonly toCents: number;
+    readonly words: string;
+    readonly state: 'waiting' | 'applied' | 'withdrawn';
+    readonly appliedAt: string | null;
+    readonly proposedAt: string;
+  }[];
+  readonly mls: { readonly number: string; readonly liveOn: string } | null;
+  readonly pagePath: string | null;
+  readonly facts: Readonly<Record<string, unknown>>;
+  readonly description: { readonly words: string; readonly signedAt: string | null } | null;
+  readonly openHouses: readonly {
+    readonly id: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+  }[];
+  readonly questionnaire: {
+    readonly state: 'none' | 'asked' | 'draft' | 'submitted';
+    readonly taskId: string | null;
+    readonly answers: {
+      readonly facts: Readonly<Record<string, unknown>>;
+      readonly updates: string | null;
+      readonly loves: string | null;
+    };
+    readonly savedAt: string | null;
+    readonly submittedAt: string | null;
+  };
+  readonly comparison: {
+    readonly id: string;
+    readonly sharedAt: string;
+    readonly address: string;
+    readonly rows: readonly PortalCompareRow[];
+    readonly note: string;
+    readonly myChoices: readonly {
+      readonly offerId: string;
+      readonly choice: PortalSellerChoice;
+      readonly words: string | null;
+      readonly at: string;
+    }[];
+  } | null;
 }
