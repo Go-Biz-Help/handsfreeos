@@ -44,6 +44,7 @@ export function ReasonDialog({
   label = 'Why',
   submit,
   danger,
+  optional,
   children,
   run,
   done,
@@ -53,6 +54,8 @@ export function ReasonDialog({
   label?: string;
   submit: string;
   danger?: boolean;
+  /** The words may be left empty (a note rather than a reason). */
+  optional?: boolean;
   children?: ReactNode;
   run: (reason: string) => Promise<unknown>;
   done: string;
@@ -91,7 +94,7 @@ export function ReasonDialog({
               type="submit"
               variant={danger ? 'danger' : 'primary'}
               loading={busy === 'go'}
-              disabled={!reason.trim()}
+              disabled={!optional && !reason.trim()}
               data-testid="reason-submit"
             >
               {submit}

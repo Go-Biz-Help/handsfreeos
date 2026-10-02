@@ -61,6 +61,7 @@ import {
 } from './buyer-cards';
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
 import { ListingCard, ListingCmasCard, MarketingCard, MatchingCard } from './listing-cards';
+import { OpenHousesCard } from './open-houses-page';
 import { DutyDrawer } from './duty-drawer';
 import type {
   BuyerSide,
@@ -411,12 +412,20 @@ export function DealPage({
             </>
           ) : null}
           {listing ? (
-            <ListingCard
-              workspaceId={workspaceId}
-              dealId={dealId}
-              timeZone={timeZone}
-              side={listing}
-            />
+            <>
+              <ListingCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                timeZone={timeZone}
+                side={listing}
+              />
+              <OpenHousesCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                list={listing.openHouses}
+                timeZone={timeZone}
+              />
+            </>
           ) : null}
           <RisksCard risks={risks} onOpen={openDuty} workspaceId={workspaceId} dealId={dealId} />
           <DutiesCard
