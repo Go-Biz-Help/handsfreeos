@@ -391,6 +391,102 @@
       "y": 11200,
       "w": 390,
       "h": 844
+    },
+    {
+      "file": "ContractRead.dc.html",
+      "title": "50 \u00b7 The contract read: each value beside its clause, waiting for a person",
+      "x": 0,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AmendmentChanges.dc.html",
+      "title": "51 \u00b7 An amendment: what it changes, and which duties move",
+      "x": 1360,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Contingencies.dc.html",
+      "title": "52 \u00b7 Contingencies: each with its end, and how it ended",
+      "x": 2720,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyWaitsOn.dc.html",
+      "title": "53 \u00b7 A duty: what it waits on, what waits on it, and what moves if it slips",
+      "x": 4080,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "LinkedDeal.dc.html",
+      "title": "54 \u00b7 A linked sale and purchase: the other deal\u2019s dates, and the conflict",
+      "x": 0,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "CoordToday.dc.html",
+      "title": "55 \u00b7 Coordinate: Today, the most serious first",
+      "x": 1360,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Exceptions.dc.html",
+      "title": "56 \u00b7 Coordinate: Exceptions, what checking duties by hand used to find",
+      "x": 2720,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "WaitingRoom.dc.html",
+      "title": "57 \u00b7 Coordinate: the Waiting room, with when to chase",
+      "x": 4080,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Workload.dc.html",
+      "title": "58 \u00b7 Coordinate: Team workload",
+      "x": 0,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DealsFilters.dc.html",
+      "title": "59 \u00b7 Deals: filters by agent, side, stage, closing and who it waits on",
+      "x": 1360,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Escalated.dc.html",
+      "title": "60 \u00b7 Escalated after a business day: the Home card, and choosing the alert people",
+      "x": 2720,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalContingencies.dc.html",
+      "title": "61 \u00b7 Portal: the client\u2019s contingencies and how each ended",
+      "x": 0,
+      "y": 15200,
+      "w": 390,
+      "h": 844
     }
   ]
 }

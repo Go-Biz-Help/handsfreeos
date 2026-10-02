@@ -1570,3 +1570,155 @@ about 120ms to 5ms, and ending a listing from 25 seconds to 2.5.
 - Putting the listing on the MLS, posting to social sites, e-sign, and reading offers from their PDFs (rounds four
   and five).
 - Vendors and booking the photographer, and reports on competing listings.
+
+# Round four: Coordinator and risk
+
+The spec's **Coordinator + risk** release (§23): contract extraction, contingencies, dependencies, health, escalation,
+linked transactions and the coordinator's dashboards. Its exit outcome: exceptions replace checking tasks by hand.
+Chris decided every question below on 2026-10-02, after watching round three's walkthrough.
+
+Much of the groundwork is in already and waits to be wired up: `duty_links` has nothing reading or writing it,
+`deal_links` has no screen, contingencies are only end dates, at-risk alerts never climb past the agent and the
+coordinator, and the AI takes images but not PDFs.
+
+## Decisions (Chris, 2026-10-02)
+
+| Question                          | Answer                                                                                                                                                      |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Documents the AI reads            | **Contracts and amendments:** the parties, the money, every date and contingency, each with its clause. Inspection reports and the closing disclosure wait. |
+| Scanned contracts                 | **Read them too.** The AI reads the pages; each value is marked "read from a scan" for the agent to check closely.                                          |
+| What the AI reads                 | **A person confirms each value.** It waits on Key dates, unconfirmed, beside its clause. Duties that rest on a date start once it's confirmed.              |
+| Removing or waiving a contingency | **The agent records it** (satisfied, waived or expired) with the signed removal form as proof. The client sees it in the portal.                            |
+| Dependencies                      | **Built in, plus the agent's own.** A waiting duty shows what it waits on and who has it; a slip shows what moves.                                          |
+| A linked sale and purchase        | **Watch both and warn.** Each shows the other's key dates; a slip on the sale flags the purchase to both agents.                                            |
+| The coordinator's views           | **Today, Exceptions, Waiting room and Team workload.**                                                                                                      |
+| Escalation                        | **Up after a business day.** An at-risk item nobody acknowledges within one goes to the business's alert people.                                            |
+
+Chosen for Chris, open to change:
+
+- Exporting a whole transaction (every document, date and decision in one file) waits for round six.
+- An owner or admin (Approve exceptions) can record a contingency's end without the signed removal form, with a reason
+  that's kept, as tours and prices are.
+- A linked deal shows its key dates, its health and its agent's name to the people on the other deal. Never its
+  duties, documents or messages.
+- A value the AI couldn't place exactly (a date "after inspection" with no number of days, two dates for one thing) is
+  listed as an exception to look at, never guessed.
+- An amendment's values replace the ones before them, and the old ones are kept in the history.
+
+## How it works
+
+- **Core first.** The AI learns to read a PDF: a `document` block beside its image block, for both providers. The
+  worker's PDF text reading moves out of the knowledge base so add-ons use it too, with a larger limit for contracts.
+- **Reading a contract.** When a contract, amendment or addendum is added to a deal, the worker reads it: the text
+  when the PDF has some, the pages themselves when it's a scan. Every value it finds is checked against the words
+  (the quote must be in the document, the numbers must be in the quote), then waits on Key dates for a person to
+  confirm, beside its clause and page. An amendment shows what it changes before anyone confirms it.
+- **Contingencies** are records of their own on the deal, each with its end date, its state and how it ended. They
+  come from the accepted offer, the contract or the agent.
+- **Dependencies.** The catalog says which duties wait on which (the appraisal after the loan application, closing
+  after clear to close). The agent can add their own. A duty shows what it waits on, and a date that slips shows
+  what moves with it.
+- **Escalation.** An at-risk alert that nobody acknowledges within a business day goes to the business's alert
+  people. Health learns six new reasons, each with its words and a next step.
+- **Linked deals.** A seller who is also buying sees both deals tied together. Each shows the other's key dates and
+  health; a date on one that breaks the other warns both agents.
+- **The coordinator** gets one place with four views: Today (due now or at risk), Exceptions (what disagrees or is
+  missing), the Waiting room (waiting on someone outside, with when to chase) and Team workload.
+
+## Build order (round four)
+
+Round four's migrations follow round three's, from `20261020001100`. As before, rounds two to four's migrations are
+renumbered above whatever `main` holds before anything goes live; none of them is on the hosted database. Screens wait
+for Chris to approve the boards; the server steps go ahead meanwhile.
+
+- **Step 0:** this part, and the boards in `design/realestate` (numbers 50 to 61).
+- **Step 1 (core):** the AI reads a PDF.
+- **Steps 2–7 (Real Estate):** reading contracts and amendments; contingencies; dependencies; escalation and health;
+  linked deals; the coordinator's views.
+- **Step 8:** the screens. **Step 9:** the docs, the browser test and a short video.
+
+### Step 1: the AI reads a PDF
+
+- `packages/ai`: a `document` content block (`{ type: 'document', mediaType: 'application/pdf', data }`), sent to
+  Anthropic as a base64 document and to OpenAI as a file, with a size and page limit. The scripted provider passes it
+  through, so tests can match on the prompt.
+- `apps/worker`: PDF text reading moves to `files/document-text.ts` with the byte limit as a parameter, so the
+  knowledge base keeps its 5 MB and add-ons read 25 MB contracts. A helper reads a file's bytes after checking it
+  belongs to the business.
+
+### Step 2: reading contracts and amendments (S-49, X-15, X-16)
+
+- Migration: `contract_reads` (the deal, the document, its state, whether it was a scan, what was found and why it
+  failed), and on `term_entries` the quote, the page, the read and the scan mark.
+- `realestate.document.read` runs on its own when a contract, amendment or addendum is added, and again from "Read it
+  again". `realestate.contract.read` shows the values, each beside the current one, and what an amendment changes.
+- The worker tries the text first, and sends the pages to the AI only for a scan. Every value goes through
+  `checkedContractTerms`: the quote is in the document, the numbers are in the quote, and a date is either a calendar
+  date or "N (business) days after" a known date, worked out with the business-day calendar.
+- Values land through `termEnter` unconfirmed, with their source, clause, page, quote and document. An amendment's
+  values replace the current ones. Confirming them re-dates the duties. Confirming a read is proof for S-49, X-15 and
+  X-16.
+
+### Step 3: contingencies (X-17)
+
+- Migration: `contingencies` (kind, end date key, state, how it ended, who recorded it, the form, a note, where it
+  came from).
+- They come from the accepted offer (which now also writes the appraisal end date), the contract read or
+  `realestate.contingency.add`.
+- `realestate.contingency.resolve` records satisfied, waived or expired, with the signed form, or an owner's or
+  admin's reason. It's proof for X-17 and the duty it answers.
+- Health: yellow when one is open and ends within 2 business days, red when it's open past its end. The client sees
+  their contingencies and how each ended in the portal.
+
+### Step 4: dependencies
+
+- The catalog's rows gain `after`, for about 25 real orders. The catalog test checks each id exists and that nothing
+  waits on itself.
+- The engine writes `duty_links` when both duties are on a deal. `realestate.duty.link` and `unlink` add the agent's
+  own (same deal, no loops).
+- `realestate.duty.get` gains what it waits on, what waits on it, and what moves if it slips.
+- Health: yellow when a duty due within 3 business days waits on one still open, red when that one is overdue. The
+  sweep reminds a blocker's owner when its review time passes.
+- Duties gain `waiting_since` and `chase_at`, for the Waiting room.
+
+### Step 5: escalation and health
+
+- Duties gain `at_risk_since` and `escalated_at`. An at-risk alert not acknowledged within one business day is raised
+  again to the alert people.
+- Deal settings lets an owner pick several alert people (up to 10).
+- New health reasons: a contingency ending, a contingency passed, a duty waiting on one still open, a linked deal that
+  disagrees, read values waiting, and waiting outside past the chase date.
+
+### Step 6: linked deals (X-35)
+
+- Migration: `private.linked_deal_facts(deal)` returns the other deal's key dates, health and agent's name to someone
+  on this deal. Nothing else crosses the link.
+- New checks: the purchase closes before the sale; possession out of order; the purchase's rate lock ends before the
+  sale closes; the purchase's home-sale contingency ends before the sale closes.
+- When a confirmed date breaks the pair, both agents are warned. Linking is proof for X-35.
+
+### Step 7: the coordinator's views
+
+- `realestate.today`, `realestate.exceptions`, `realestate.waiting_room` and `realestate.workload` (Workload needs See
+  every deal). Each looks only at the deals the person is on, or every deal with See every deal.
+- `realestate.deal.list` gains filters: agent, side, stage, closing within some days, and who a blocker is waiting on.
+
+### Step 8: the screens
+
+- The contract read beside its PDF, an amendment's changes, and the contingencies page.
+- On the deal page: a Contingencies card, a Linked deal card, Waits on in the duty drawer, and the reading state on
+  Documents.
+- A new **Coordinate** place with Today, Exceptions, Waiting room and Workload; filters on Deals; several alert people
+  in Deal settings; the contingencies in the portal.
+
+### Step 9: docs, the browser test and a video
+
+- `docs/realestate.md` and `docs/addon-architecture.md`, and "as built" here.
+- `apps/web/e2e/realestate-coordinator.spec.ts`: a contract read and confirmed, an amendment moving the closing, a
+  contingency removed, a dependency, a linked sale slipping, the coordinator's views, and an escalation.
+
+## Not in round four
+
+- Reading inspection reports and the closing disclosure.
+- Exporting a whole transaction (round six).
+- The MLS, e-sign, lender, title and insurance connectors (round five), so contracts arrive by upload or email.
