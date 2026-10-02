@@ -126,6 +126,18 @@ export function ListingCard({
             >
               Photos ({l.photos.length})
             </Link>
+            <Link
+              href={dealHref(workspaceId, dealId, 'description')}
+              className="text-accent-text hover:underline"
+            >
+              Description
+            </Link>
+            <Link
+              href={dealHref(workspaceId, dealId, 'price')}
+              className="text-accent-text hover:underline"
+            >
+              {prices.waiting ? 'Price · waiting on the seller' : 'Price'}
+            </Link>
           </div>
         </div>
       </div>

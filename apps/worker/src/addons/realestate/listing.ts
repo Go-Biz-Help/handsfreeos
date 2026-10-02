@@ -293,7 +293,7 @@ export async function priceChanged(ctx: AddonEventContext): Promise<void> {
     severity: 'attention',
     title: `Change the price on the MLS: ${street} is now ${to}`.slice(0, 200),
     detail: 'The seller signed it off, and the listing’s page shows it already.',
-    href: `/a/realestate/deals/${dealId}/listing`,
+    href: `/a/realestate/deals/${dealId}/price`,
     permission: 'realestate.use',
     customRecordId: dealId,
     audienceUserIds: owner ? [owner] : [],

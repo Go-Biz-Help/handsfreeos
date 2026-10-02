@@ -10,6 +10,7 @@ import {
   type PublicActor,
   executeCommand,
   executeQuery,
+  localDateOf,
   personCreate,
   portalAccessGive,
   portalCheckCode,
@@ -246,9 +247,9 @@ describe('an open house’s next morning', () => {
       human(agent),
       meta(),
     );
-    const [w] = await rows<{ org: string }>(
+    const [w] = await rows<{ org: string; tz: string }>(
       admin(),
-      sql`select organization_id as org from app.workspaces where id = ${ws}`,
+      sql`select organization_id as org, timezone as tz from app.workspaces where id = ${ws}`,
     );
     const team = {
       owner: agent,
@@ -259,7 +260,7 @@ describe('an open house’s next morning', () => {
     await run('realestate.listing.mark_live', {
       dealId: listing,
       mlsNumber: '4821937',
-      liveOn: new Date().toISOString().slice(0, 10),
+      liveOn: localDateOf(Date.now(), w!.tz),
     });
     await rows(
       admin(),
@@ -343,7 +344,7 @@ describe('a new price', () => {
     );
     expect(alert).toEqual({
       title: 'Change the price on the MLS: 2207 Juniper Trail is now $489,000',
-      href: `/a/realestate/deals/${listing}/listing`,
+      href: `/a/realestate/deals/${listing}/price`,
     });
   });
 });

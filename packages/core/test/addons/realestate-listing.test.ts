@@ -23,6 +23,7 @@ import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
 import {
   executeCommand,
   executeQuery,
+  localDateOf,
   personCreate,
   portalAccessGive,
   portalCheckCode,
@@ -741,10 +742,14 @@ describe('before the MLS', () => {
         }),
       ),
     ).toBe('validation');
+    const [w] = await rows<{ tz: string }>(
+      admin(),
+      sql`select timezone as tz from app.workspaces where id = ${ws}`,
+    );
     const live = await run(agent, 'realestate.listing.mark_live', {
       dealId: listing,
       mlsNumber: '4821937',
-      liveOn: new Date().toISOString().slice(0, 10),
+      liveOn: localDateOf(Date.now(), w!.tz),
     });
     expect(live.movedTo).toBe('active');
     const m = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
