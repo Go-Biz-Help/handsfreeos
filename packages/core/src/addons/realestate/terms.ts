@@ -32,6 +32,9 @@ export type MoneyTermKey = keyof typeof MONEY_TERMS;
 export const TEXT_TERMS = {
   loan_type: { label: 'Loan type', sides: ['buyer', 'listing'], contract: true },
   emd_holder: { label: 'Earnest money held by', sides: ['buyer', 'listing'], contract: true },
+  /** The parties as the contract names them (round four: read from the contract). */
+  buyer_names: { label: 'Buyers on the contract', sides: ['buyer', 'listing'], contract: true },
+  seller_names: { label: 'Sellers on the contract', sides: ['buyer', 'listing'], contract: true },
 } as const satisfies Record<string, TermDef>;
 export type TextTermKey = keyof typeof TEXT_TERMS;
 

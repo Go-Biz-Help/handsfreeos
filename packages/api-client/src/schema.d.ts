@@ -6557,6 +6557,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.contract.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm values a reading found in a contract, amendment or addendum: each goes on the deal’s key dates as confirmed, with its clause and words, replacing what was there. Duties resting on a date start or move.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.confirmed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_contract_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contract.reject_value": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside a value a reading found that isn’t right, with why. Nothing on the deal changes; type the right value under Key dates.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.value_rejected.
+         */
+        post: operations["command_realestate_contract_reject_value"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.add_person": {
         parameters: {
             query?: never;
@@ -6988,7 +7028,7 @@ export interface paths {
         put?: never;
         /**
          * Make one of a deal’s files one of its documents: its kind (purchase contract, amendment, inspection report…), its title, and the document it’s a newer version of.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested.
          */
         post: operations["command_realestate_document_add"];
         delete?: never;
@@ -7011,6 +7051,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.use. Emits realestate.document.signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_document_mark_signed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Have the AI read a deal’s contract, amendment or addendum (a PDF, scans too) for its parties, money, dates and contingencies, each with its clause. Nothing changes on the deal until a person confirms each value.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.read_requested.
+         */
+        post: operations["command_realestate_document_read"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14051,6 +14111,46 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_cmas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contract.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One reading of a contract, amendment or addendum: each value with its clause, page and words, beside what counts on the deal now, what confirming them would move, and what the AI couldn’t place.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contract_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contract.reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The readings of a deal’s contracts and amendments, newest first: each one’s state and how many values wait to be confirmed.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contract_reads"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29515,6 +29615,82 @@ export interface operations {
             };
         };
     };
+    command_realestate_contract_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    valueIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        confirmed: number;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        readId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contract_reject_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    valueId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        readId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_deal_add_person: {
         parameters: {
             query?: never;
@@ -30442,6 +30618,44 @@ export interface operations {
                         /** @enum {string} */
                         status: "draft" | "sent" | "signed" | "superseded" | "void";
                         version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        readId: string;
+                        /** @enum {string} */
+                        state: "reading" | "read" | "failed";
                     };
                 };
             };
@@ -34018,7 +34232,7 @@ export interface operations {
                     /** Format: uuid */
                     documentId?: string;
                     /** @enum {string} */
-                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder";
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
                     note?: string;
                     /** Format: uuid */
                     replaces?: string;
@@ -34111,7 +34325,7 @@ export interface operations {
                     /** Format: uuid */
                     keepEntryId: string;
                     /** @enum {string} */
-                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder";
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
                     reason: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -50345,6 +50559,148 @@ export interface operations {
             };
         };
     };
+    query_realestate_contract_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dealName: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        documentTitle: string;
+                        dropped: number;
+                        failure: string | null;
+                        /** Format: uuid */
+                        fileId: string;
+                        /** @enum {string} */
+                        kind: "contract" | "amendment" | "addendum";
+                        moves: {
+                            accountableName: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            from: string | null;
+                            title: string;
+                            to: string | null;
+                            why: string | null;
+                        }[];
+                        newerReadId: string | null;
+                        pages: number | null;
+                        problems: {
+                            check: string;
+                            words: string;
+                        }[];
+                        readAt: string | null;
+                        /** Format: uuid */
+                        readId: string;
+                        /** Format: date-time */
+                        requestedAt: string;
+                        requestedByName: string | null;
+                        scan: boolean;
+                        /** @enum {string} */
+                        state: "reading" | "read" | "failed";
+                        unclear: {
+                            clause: string | null;
+                            page: number | null;
+                            quote: string | null;
+                            what: string;
+                        }[];
+                        values: {
+                            cents: number | null;
+                            clause: string | null;
+                            date: string | null;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            key: "acceptance" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "closing" | "possession" | "price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
+                            label: string;
+                            now: string | null;
+                            nowFrom: string | null;
+                            page: number | null;
+                            quote: string;
+                            reason: string | null;
+                            same: boolean;
+                            /** @enum {string} */
+                            state: "waiting" | "confirmed" | "rejected";
+                            text: string | null;
+                            value: string;
+                            worked: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_contract_reads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reads: {
+                            confirmed: number;
+                            /** Format: uuid */
+                            documentId: string;
+                            documentTitle: string;
+                            /** @enum {string} */
+                            kind: "contract" | "amendment" | "addendum";
+                            /** Format: uuid */
+                            readId: string;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            scan: boolean;
+                            /** @enum {string} */
+                            state: "reading" | "read" | "failed";
+                            unclear: number;
+                            waiting: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_realestate_deal_for: {
         parameters: {
             query?: never;
@@ -52445,7 +52801,7 @@ export interface operations {
                     /** Format: uuid */
                     dealId: string;
                     /** @enum {string} */
-                    key?: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder";
+                    key?: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
                     /** Format: uuid */
                     workspaceId: string;
                 };

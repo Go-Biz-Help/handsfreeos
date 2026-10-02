@@ -38,6 +38,7 @@ import { SELLER_CHOICE_KEYS } from './net';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
+import { CONTRACT_DATE_KEYS, CONTRACT_KEYS, READ_KINDS } from './contract-read';
 import { TERM_KEYS } from './terms';
 import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
@@ -2935,4 +2936,164 @@ export const PortalQuestionnaireOutput = z.object({
   state: z.enum(['draft', 'submitted']),
   savedAt: isoDateTime.nullable(),
   submittedAt: isoDateTime.nullable(),
+});
+
+// ---------- round four: reading contracts and amendments ----------
+
+const ReadState = z.enum(['reading', 'read', 'failed']);
+const ValueState = z.enum(['waiting', 'confirmed', 'rejected']);
+
+export const DocumentReadInput = z.object({ workspaceId: uuid, documentId: uuid });
+export const DocumentReadOutput = z.object({
+  dealId: uuid,
+  documentId: uuid,
+  readId: uuid,
+  state: ReadState,
+});
+
+const ReadValueIn = z.object({
+  key: z.enum(CONTRACT_KEYS),
+  date: localDate.nullable(),
+  cents: cents.nullable(),
+  text: z.string().trim().min(1).max(200).nullable(),
+  worked: z
+    .object({
+      days: z.number().int().min(0).max(400),
+      business: z.boolean(),
+      from: z.enum(CONTRACT_DATE_KEYS),
+      fromDate: localDate,
+    })
+    .nullable(),
+  clause: z.string().trim().max(60).nullable(),
+  page: z.number().int().min(1).nullable(),
+  quote: z.string().trim().min(1).max(600),
+});
+const UnclearIn = z.object({
+  what: z.string().trim().min(1).max(300),
+  quote: z.string().trim().max(600).nullable(),
+  page: z.number().int().min(1).nullable(),
+  clause: z.string().trim().max(60).nullable(),
+});
+
+export const ContractReadDoneInput = z.object({
+  workspaceId: uuid,
+  readId: uuid,
+  values: z.array(ReadValueIn).max(60).default([]),
+  unclear: z.array(UnclearIn).max(30).default([]),
+  dropped: z.number().int().min(0).default(0),
+  scan: z.boolean().default(false),
+  pages: z.number().int().min(0).nullable().default(null),
+  model: z.string().max(200).optional(),
+  /** Why it couldn't be read, instead. */
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+export const ContractReadDoneOutput = z.object({
+  readId: uuid,
+  state: z.enum(['read', 'failed', 'skipped']),
+});
+
+export const ContractReadQueryInput = z.object({ workspaceId: uuid, readId: uuid });
+
+const ReadValueOut = z.object({
+  id: uuid,
+  key: z.enum(CONTRACT_KEYS),
+  label: z.string(),
+  /** What it says, as a sentence would: "Oct 10, 2026", "$412,000.00", the words. */
+  value: z.string(),
+  date: localDate.nullable(),
+  cents: z.number().nullable(),
+  text: z.string().nullable(),
+  /** "9 days after the contract accepted (Sep 24, 2026)", when the contract counts it. */
+  worked: z.string().nullable(),
+  clause: z.string().nullable(),
+  page: z.number().nullable(),
+  quote: z.string(),
+  state: ValueState,
+  decidedByName: z.string().nullable(),
+  decidedAt: isoDateTime.nullable(),
+  reason: z.string().nullable(),
+  /** The value that counts on the deal now, in words; null when there's none. */
+  now: z.string().nullable(),
+  /** Where that one came from: "the accepted offer", "typed by Dana". */
+  nowFrom: z.string().nullable(),
+  /** It says the same as what counts now. */
+  same: z.boolean(),
+});
+
+const DueMove = z.object({
+  dutyId: uuid,
+  title: z.string(),
+  /** Now and after, in the business's words: "Oct 9", "Oct 13". */
+  from: z.string().nullable(),
+  to: z.string().nullable(),
+  /** "1 business day before closing". */
+  why: z.string().nullable(),
+  accountableName: z.string().nullable(),
+});
+
+export const ContractReadOutput = z.object({
+  readId: uuid,
+  dealId: uuid,
+  dealName: z.string(),
+  documentId: uuid,
+  documentTitle: z.string(),
+  fileId: uuid,
+  kind: z.enum(READ_KINDS),
+  state: ReadState,
+  scan: z.boolean(),
+  pages: z.number().nullable(),
+  failure: z.string().nullable(),
+  requestedAt: isoDateTime,
+  readAt: isoDateTime.nullable(),
+  requestedByName: z.string().nullable(),
+  values: z.array(ReadValueOut),
+  unclear: z.array(UnclearIn),
+  dropped: z.number(),
+  /** What confirming every waiting value would move: each open duty whose due changes. */
+  moves: z.array(DueMove),
+  /** Dates that wouldn't fit together once confirmed (a rate lock ending before closing). */
+  problems: z.array(z.object({ check: z.string(), words: z.string() })),
+  /** A newer reading of the same document exists. */
+  newerReadId: uuid.nullable(),
+});
+
+export const ContractConfirmInput = z.object({
+  workspaceId: uuid,
+  readId: uuid,
+  /** The values to confirm; none named confirms every one still waiting. */
+  valueIds: z.array(uuid).max(60).optional(),
+});
+export const ContractConfirmOutput = z.object({
+  readId: uuid,
+  dealId: uuid,
+  confirmed: z.number().int(),
+  dutiesCreated: z.number().int(),
+  dutiesActivated: z.number().int(),
+  dutiesRedated: z.number().int(),
+});
+
+export const ContractRejectInput = z.object({
+  workspaceId: uuid,
+  readId: uuid,
+  valueId: uuid,
+  reason: reason,
+});
+export const ContractRejectOutput = z.object({ readId: uuid, dealId: uuid });
+
+export const ContractReadsInput = z.object({ ...inDeal });
+export const ContractReadsOutput = z.object({
+  reads: z.array(
+    z.object({
+      readId: uuid,
+      documentId: uuid,
+      documentTitle: z.string(),
+      kind: z.enum(READ_KINDS),
+      state: ReadState,
+      scan: z.boolean(),
+      waiting: z.number().int(),
+      confirmed: z.number().int(),
+      unclear: z.number().int(),
+      requestedAt: isoDateTime,
+    }),
+  ),
 });

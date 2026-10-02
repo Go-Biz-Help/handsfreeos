@@ -1357,6 +1357,127 @@ export function scriptedListingPosts(message: string): { posts: string[] } {
   };
 }
 
+// ---- Real Estate's contract reading ("Read the contract’s terms.") ----
+
+type ScriptedContractValue = {
+  key: string;
+  date: string | null;
+  days_after: { days: number; business: boolean; from: string } | null;
+  dollars: number | null;
+  words: string | null;
+  clause: string | null;
+  page: number | null;
+  quote: string;
+};
+
+const MONTH_NUMBER: Readonly<Record<string, number>> = Object.fromEntries(
+  [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ].map((m, i) => [m, i + 1]),
+);
+
+/** "October 30, 2026" as 2026-10-30; null when it isn't one. */
+function isoOfWords(words: string): string | null {
+  const m = /([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/.exec(words);
+  const month = m ? MONTH_NUMBER[m[1]!.toLowerCase()] : undefined;
+  if (!m || !month) return null;
+  return `${m[3]}-${String(month).padStart(2, '0')}-${m[2]!.padStart(2, '0')}`;
+}
+
+/**
+ * A contract read the plain way, from labelled lines on its <page>s: "Effective Date: …", "Sales Price: $…",
+ * "Earnest Money: $… within N days after the Effective Date", "Option Period: N days after the Effective Date",
+ * "Financing: N days after …", "Closing Date: …", "Buyer: …", "Seller: …", and an amendment's "The Closing Date is
+ * changed to …". Each value quotes its own line and says its page; a clause is the "§…" the line starts with. A scan
+ * (no words) gives nothing to read.
+ */
+export function scriptedContractRead(message: string): {
+  values: ScriptedContractValue[];
+  unclear: { what: string; clause: string | null; page: number | null; quote: string | null }[];
+} {
+  const contract = quotedBlock(message, 'contract');
+  if (contract === null)
+    return {
+      values: [],
+      unclear: [
+        {
+          what: 'The scripted stand-in can’t read scanned pages.',
+          clause: null,
+          page: null,
+          quote: null,
+        },
+      ],
+    };
+  const values: ScriptedContractValue[] = [];
+  const unclear: {
+    what: string;
+    clause: string | null;
+    page: number | null;
+    quote: string | null;
+  }[] = [];
+  const blank = { date: null, days_after: null, dollars: null, words: null };
+  for (const m of contract.matchAll(/<page n="(\d+)">\n?([\s\S]*?)\n?<\/page>/g)) {
+    const page = Number(m[1]);
+    for (const raw of unquote(m[2]!).split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const clause = /^(§\s?[\w().]+)/.exec(line)?.[1] ?? null;
+      const add = (key: string, v: Partial<ScriptedContractValue>) =>
+        values.push({ key, ...blank, clause, page, quote: line, ...v });
+      const days = /(\d+)\s+(business\s+)?days after the (Effective Date|Closing Date)/i.exec(line);
+      const after = days
+        ? {
+            days: Number(days[1]),
+            business: !!days[2],
+            from: /closing/i.test(days[3]!) ? 'closing' : 'acceptance',
+          }
+        : null;
+      const dollars = /\$\s?(\d[\d,]*(?:\.\d{2})?)/.exec(line);
+      const amount = dollars ? Number(dollars[1]!.replace(/,/g, '')) : null;
+      if (/Effective Date:/i.test(line)) add('acceptance', { date: isoOfWords(line) });
+      else if (/Sales Price:/i.test(line) && amount) add('price', { dollars: amount });
+      else if (/Earnest Money:/i.test(line)) {
+        if (amount) add('emd_amount', { dollars: amount });
+        if (after) add('emd_due', { days_after: after });
+      } else if (/Option Period:|Inspection Period:/i.test(line) && after)
+        add('inspection_end', { days_after: after });
+      else if (/Financing( Contingency)?:/i.test(line) && after)
+        add('financing_end', { days_after: after });
+      else if (/Appraisal( Contingency)?:/i.test(line) && after)
+        add('appraisal_end', { days_after: after });
+      else if (/Closing Date( is changed to|:)/i.test(line))
+        add('closing', { date: isoOfWords(line) });
+      else if (/Possession:/i.test(line) && /closing/i.test(line))
+        add('possession', { days_after: { days: 0, business: false, from: 'closing' } });
+      else if (/Seller (shall )?(pay|credit)/i.test(line) && amount)
+        add('seller_credit', { dollars: amount });
+      else if (/^(§\s?[\w().]+\s+)?Buyers?:/i.test(line))
+        add('buyer_names', { words: line.replace(/^.*?Buyers?:\s*/i, '').trim() });
+      else if (/^(§\s?[\w().]+\s+)?Sellers?:/i.test(line))
+        add('seller_names', { words: line.replace(/^.*?Sellers?:\s*/i, '').trim() });
+      else if (/Survey:/i.test(line) && /reasonable time/i.test(line))
+        unclear.push({
+          what: 'Survey due: “within a reasonable time” isn’t a date.',
+          clause,
+          page,
+          quote: line,
+        });
+    }
+  }
+  return { values, unclear };
+}
+
 export const LISTING_RULES: readonly ScriptRule[] = [
   { when: /Write the social posts\.$/, json: (message) => scriptedListingPosts(message) },
   {
@@ -1364,6 +1485,7 @@ export const LISTING_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedListingDescription(message),
   },
   { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
+  { when: /Read the contract’s terms\.$/, json: (message) => scriptedContractRead(message) },
   { when: /Write the CMA summary\.$/, json: (message) => scriptedCmaSummary(message) },
   {
     when: /Find what the buyer said they want\.$/,

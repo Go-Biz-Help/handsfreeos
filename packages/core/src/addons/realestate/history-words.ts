@@ -288,6 +288,15 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return 'Sent a client update';
     case 'health':
       return 'Its health changed';
+    // Round four: contracts read, and what was confirmed from them.
+    case 'contract_read':
+      return a.failed
+        ? `Couldn’t read “${str(a.title)}”`
+        : `Read “${str(a.title)}”${a.scan ? ' from its scanned pages' : ''}: ${str(a.found)} to confirm`;
+    case 'contract_confirmed':
+      return `Confirmed values read from “${str(a.title)}”`;
+    case 'contract_value_rejected':
+      return 'Set aside a value read from a contract';
     default:
       return what.replace(/_/g, ' ');
   }

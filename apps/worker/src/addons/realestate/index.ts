@@ -31,6 +31,7 @@ import {
   draftSaved,
   milestoneReached,
 } from './client-updates';
+import { contractDecided, contractReadFinished, contractReadRequested } from './contract';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
 import {
@@ -246,6 +247,11 @@ export const realestateAddonWorker: AddonWorkerModule = {
     // The seller's questionnaire: their agent hears, until the facts are confirmed (./listing.ts).
     'realestate.listing.questionnaire_sent': questionnaireSent,
     'realestate.listing.facts_confirmed': factsConfirmed,
+    // Round four: a contract or amendment read, and its agent told while values wait (./contract.ts).
+    'realestate.contract.read_requested': contractReadRequested,
+    'realestate.contract.read_finished': contractReadFinished,
+    'realestate.contract.confirmed': contractDecided,
+    'realestate.contract.value_rejected': contractDecided,
   },
   jobs: {
     [SWEEP]: runSweep,

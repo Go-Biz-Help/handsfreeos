@@ -229,6 +229,8 @@ export const realestateAddon = defineAddon({
     'offer_choices',
     'listing_prices',
     'listing_suggestions',
+    // Round four: coordinator and risk.
+    'contract_reads',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -349,6 +351,11 @@ export const realestateAddon = defineAddon({
       'realestate.listing.suggested',
       'realestate.suggestion.decided',
       'realestate.listing.questionnaire_sent',
+      // Round four: contracts and amendments read, and their values confirmed.
+      'realestate.contract.read_requested',
+      'realestate.contract.read_finished',
+      'realestate.contract.confirmed',
+      'realestate.contract.value_rejected',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -407,6 +414,11 @@ export const realestateAddon = defineAddon({
       // Offers: the response clock, armed with each version and stopped when it's answered.
       'realestate.offer.version_added',
       'realestate.offer.answered',
+      // A contract or amendment: read by the AI, and its agent told while values wait to be confirmed.
+      'realestate.contract.read_requested',
+      'realestate.contract.read_finished',
+      'realestate.contract.confirmed',
+      'realestate.contract.value_rejected',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.

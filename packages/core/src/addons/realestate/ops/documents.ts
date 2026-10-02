@@ -14,6 +14,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
 import { DOCUMENT_KINDS, type DocumentKind } from '../catalog/types';
+import { READ_KINDS, type ReadKind } from '../contract-read';
 import { realestateAddon } from '../manifest';
 import {
   DocumentAddInput,
@@ -32,6 +33,7 @@ import {
   requireNotArchived,
   type Deal,
 } from './common';
+import { isPdf, READ_EVENTS, startRead } from './contract';
 import { documentProof, PROOF_EVENTS } from './proof-hooks';
 
 type Doc = typeof documents.$inferSelect;
@@ -128,12 +130,12 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
   output: DocumentOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
-  emits: ['realestate.document.added'],
+  emits: ['realestate.document.added', ...READ_EVENTS],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
     const [file] = await ctx.tx
-      .select({ id: files.id, name: files.name })
+      .select({ id: files.id, name: files.name, mimeType: files.mimeType })
       .from(files)
       .where(
         and(
@@ -225,6 +227,9 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
         : `added the ${kindLabel(input.kind).toLowerCase()}, “${doc!.title}”`,
       { eventId },
     );
+    // A contract, amendment or addendum is read on its own (round four): its values wait for a person.
+    if (READ_KINDS.includes(input.kind as ReadKind) && isPdf(file))
+      await startRead(ctx, deal, doc!);
     return out(doc!);
   },
 });

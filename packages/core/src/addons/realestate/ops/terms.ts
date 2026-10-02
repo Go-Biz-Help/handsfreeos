@@ -64,13 +64,13 @@ const settled = (e: Entry) =>
   );
 
 /** The dates that turned confirmed bring their duties; then due times, drafts and commission follow. */
-async function afterTermsChanged(w: Work) {
+export async function afterTermsChanged(w: Work) {
   const confirmed = await w.reloadTerms();
   for (const key of confirmed) await w.create({ on: 'dates', key });
   await w.settle();
 }
 
-const counts = (w: Work) => ({
+export const termCounts = (w: Work) => ({
   dutiesCreated: w.counts.created,
   dutiesActivated: w.counts.activated,
   dutiesRedated: w.counts.redated,
@@ -222,7 +222,7 @@ export const termEnter = defineAddonCommand(realestateAddon, {
           }
         : { eventId },
     );
-    return { dealId: deal.recordId, entryId: entry.id, conflict, ...counts(w) };
+    return { dealId: deal.recordId, entryId: entry.id, conflict, ...termCounts(w) };
   },
 });
 
@@ -247,7 +247,7 @@ export const termConfirm = defineAddonCommand(realestateAddon, {
     const e = await entryOf(ctx, deal, input.entryId);
     if (!isLive(e)) throw settled(e);
     const w = await openWork(ctx, deal);
-    if (e.confirmedAt) return { dealId: deal.recordId, entryId: e.id, ...counts(w) };
+    if (e.confirmedAt) return { dealId: deal.recordId, entryId: e.id, ...termCounts(w) };
     await ctx.tx
       .update(termEntries)
       .set({ confirmedBy: actorUserId(ctx), confirmedAt: w.at })
@@ -267,7 +267,7 @@ export const termConfirm = defineAddonCommand(realestateAddon, {
     await dealLine(ctx, deal, `confirmed the ${label.toLowerCase()}: ${termValueWords(e)}`, {
       eventId,
     });
-    return { dealId: deal.recordId, entryId: e.id, ...counts(w) };
+    return { dealId: deal.recordId, entryId: e.id, ...termCounts(w) };
   },
 });
 
@@ -314,7 +314,7 @@ export const termReject = defineAddonCommand(realestateAddon, {
       eventId,
       body: input.reason,
     });
-    return { dealId: deal.recordId, entryId: e.id, ...counts(w) };
+    return { dealId: deal.recordId, entryId: e.id, ...termCounts(w) };
   },
 });
 
@@ -383,7 +383,7 @@ export const termResolve = defineAddonCommand(realestateAddon, {
       eventId,
       body: input.reason,
     });
-    return { dealId: deal.recordId, entryId: keep.id, ...counts(w) };
+    return { dealId: deal.recordId, entryId: keep.id, ...termCounts(w) };
   },
 });
 

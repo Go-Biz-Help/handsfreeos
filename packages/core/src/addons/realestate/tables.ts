@@ -197,6 +197,11 @@ export const termEntries = addonRealestate.table(
     rejectedAt: ts('rejected_at'),
     rejectedReason: text('rejected_reason'),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** Round four: where a value read from a contract or amendment was, once a person confirmed it. */
+    quote: text('quote'),
+    page: integer('page'),
+    readId: uuid('read_id'),
+    scan: boolean('scan').notNull().default(false),
   },
   (t) => [
     foreignKey({
@@ -1237,45 +1242,6 @@ export const clientTaskCompletions = addonRealestate.table(
   ],
 );
 
-/** Every table, for the mirror's test. */
-export const REALESTATE_TABLES = {
-  deals,
-  dealRoles,
-  dealLinks,
-  dealHistory,
-  termEntries,
-  templateSets,
-  templateItems,
-  templateOverrides,
-  customTemplates,
-  duties,
-  dutyLinks,
-  documents,
-  dutyEvidence,
-  dutyLog,
-  drafts,
-  fairHousingChecks,
-  buyerProfiles,
-  buyerProfileVersions,
-  homes,
-  homeReactions,
-  memoryItems,
-  tours,
-  tourStops,
-  tourFeedback,
-  cmas,
-  cmaComps,
-  offers,
-  offerVersions,
-  financing,
-  financingSteps,
-  inspections,
-  inspectionFindings,
-  repairRequests,
-  clientTasks,
-  clientTaskCompletions,
-} as const;
-
 // ---------- round three: the listing ----------
 
 /** Where one of a listing's confirmed facts came from. */
@@ -1711,3 +1677,131 @@ export const listingSuggestions = addonRealestate.table(
     }).onDelete('cascade'),
   ],
 );
+
+// ---------- round four: coordinator and risk ----------
+
+/** One value a contract reading found, waiting for a person, confirmed (with the entry it made) or set aside. */
+export interface ContractValue {
+  readonly id: string;
+  readonly key: string;
+  readonly date: string | null;
+  readonly time: string | null;
+  readonly cents: number | null;
+  readonly text: string | null;
+  /** A date the contract gives as days after another one, worked out with the business's calendar. */
+  readonly worked: {
+    readonly days: number;
+    readonly business: boolean;
+    readonly from: string;
+    readonly fromDate: string;
+  } | null;
+  readonly clause: string | null;
+  readonly page: number | null;
+  readonly quote: string;
+  readonly state: 'waiting' | 'confirmed' | 'rejected';
+  readonly entryId: string | null;
+  readonly decidedBy: string | null;
+  readonly decidedAt: string | null;
+  readonly reason: string | null;
+}
+
+/** Something a reading saw but couldn't place exactly, for a person to look at. */
+export interface ContractUnclear {
+  readonly what: string;
+  readonly quote: string | null;
+  readonly page: number | null;
+  readonly clause: string | null;
+}
+
+/** One reading of a contract, amendment or addendum (round four, step 2). */
+export const contractReads = addonRealestate.table(
+  'contract_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    documentId: uuid('document_id').notNull(),
+    kind: text('kind').notNull().$type<'contract' | 'amendment' | 'addendum'>(),
+    state: text('state').notNull().default('reading').$type<'reading' | 'read' | 'failed'>(),
+    scan: boolean('scan').notNull().default(false),
+    pages: integer('pages'),
+    model: text('model'),
+    failure: text('failure'),
+    found: jsonb('found')
+      .$type<ContractValue[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    unclear: jsonb('unclear')
+      .$type<ContractUnclear[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    dropped: integer('dropped').notNull().default(0),
+    requestedBy: userRef('requested_by'),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    readAt: ts('read_at'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Every table, for the test that holds the mirror to the live columns. */
+export const REALESTATE_TABLES = {
+  deals,
+  dealRoles,
+  dealLinks,
+  dealHistory,
+  termEntries,
+  templateSets,
+  templateItems,
+  templateOverrides,
+  customTemplates,
+  duties,
+  dutyLinks,
+  documents,
+  dutyEvidence,
+  dutyLog,
+  drafts,
+  fairHousingChecks,
+  buyerProfiles,
+  buyerProfileVersions,
+  homes,
+  homeReactions,
+  memoryItems,
+  tours,
+  tourStops,
+  tourFeedback,
+  cmas,
+  cmaComps,
+  offers,
+  offerVersions,
+  financing,
+  financingSteps,
+  inspections,
+  inspectionFindings,
+  repairRequests,
+  clientTasks,
+  clientTaskCompletions,
+  listings,
+  listingPhotos,
+  sellerQuestionnaires,
+  listingDescriptions,
+  listingPosts,
+  openHouses,
+  openHouseVisitors,
+  netSheets,
+  offerComparisons,
+  offerChoices,
+  listingPrices,
+  listingSuggestions,
+  contractReads,
+} as const;
