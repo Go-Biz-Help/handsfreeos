@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
+  ContingenciesCard,
   DealSteps,
   Done,
   feedbackDue,
@@ -371,6 +372,7 @@ function DealPage({ dealId }: { dealId: string }) {
           </ul>
         </Card>
       ) : null}
+      <ContingenciesCard deal={deal} />
       {deal.offers.length || deal.cmas.length ? (
         <Card className="p-4">
           <PortalCardHead>Shared with you</PortalCardHead>

@@ -1,15 +1,18 @@
 'use client';
 /**
  * Pieces Real Estate's portal pages share: a task the client does (upload, mark done, or open its page to sign off or
- * answer the seller's questions), a home to save or pass on, the steps of their deal, and the words for days and
- * homes. In the client's words, never the office's.
+ * answer the seller's questions), a home to save or pass on, the steps of their deal, their contingencies, and the
+ * words for days and homes. In the client's words, never the office's.
  */
 import { fmtDateLong, fmtDateShort, localDayOf, money } from '@hfos/core';
 import { Check, Circle, ExternalLink, Heart, Home as HomeIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { usePortal, usePortalAct } from '@/components/portal/context';
+import { PortalCardHead } from '@/components/portal/ui';
+import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { PortalDeal, PortalHome, PortalTask, PortalTour } from './types';
 
@@ -263,3 +266,40 @@ export const tourOf = (deal: PortalDeal, homeId: string) =>
   deal.tours.find((t) => t.status === 'planned' && t.stops.some((s) => s.homeId === homeId));
 
 export { fmtDateShort };
+
+/**
+ * Their contingencies (round four, board 61): the ways the buyer can still step back, when each ends, and how each
+ * ended. Told as what each is for, never as advice.
+ */
+export function ContingenciesCard({ deal }: { deal: PortalDeal }) {
+  const list = deal.contingencies;
+  if (!list.length) return null;
+  const buying = deal.deal.side === 'buyer';
+  return (
+    <Card className="p-4" data-testid="portal-contingencies">
+      <PortalCardHead>{buying ? 'Your contingencies' : 'The buyers’ contingencies'}</PortalCardHead>
+      <p className="-mt-1 mb-2.5 text-[13px] text-text-2">
+        {buying
+          ? 'The ways you can still step back from buying, and when each ends.'
+          : 'The ways the buyers can still step back, and when each ends.'}
+      </p>
+      <ul className="divide-y divide-border text-[14px]">
+        {list.map((c) => (
+          <li key={c.id} className="py-2.5 first:pt-0 last:pb-0" data-testid="portal-contingency">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium">{c.label}</span>
+              <Badge variant={c.state === 'open' ? 'pending' : 'ok'}>
+                {c.state === 'open' ? 'Open' : 'Done'}
+              </Badge>
+            </div>
+            <div className="text-[13px] text-text-2">{c.words}</div>
+            <div className="text-[13px] text-text-3">{c.meaning}</div>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2.5 text-[12.5px] text-text-3">
+        Questions? Message {firstName(deal.deal.agentName)}. Nothing here changes your contract.
+      </p>
+    </Card>
+  );
+}

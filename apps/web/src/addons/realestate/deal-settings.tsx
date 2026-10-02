@@ -206,41 +206,74 @@ function AlertSettings({
     );
   };
   const closed = Object.entries(s.closedDays).sort(([a], [b]) => a.localeCompare(b));
-  const person = s.alertPersonUserIds[0] ?? '';
+  const picked = s.alertPersonUserIds;
+  const nameOf = new Map(members.map((m) => [m.id, m]));
+  const addable = members.filter((m) => !picked.includes(m.id));
   return (
     <div className="grid gap-4 lg:grid-cols-2" data-testid="alert-settings">
       <Card className="p-4 md:p-5">
-        <h2 className="text-[15px] font-semibold">Who hears when it’s critical</h2>
+        <h2 className="text-[15px] font-semibold">Who hears when it’s serious</h2>
         <p className="mt-1 text-[13px] text-text-2">
-          A closing blocker, a missed contract date or changed wiring goes to the deal’s people and
-          to this person, at any hour.
+          An at-risk alert that nobody on the deal acknowledges within one business day goes to
+          these people too. Critical ones (a closing blocker, a missed contract date, changed
+          wiring) go to them straight away, at any hour.
         </p>
-        <Field
-          label="Alert person"
-          htmlFor="alert-person"
-          hint="An owner, or someone who can see every deal. Nobody picked: the owners."
-          className="mt-3"
-        >
-          <Select
-            id="alert-person"
-            value={person}
-            disabled={busy === 'save'}
-            onChange={(e) =>
-              void save(
-                { ...s, alertPersonUserIds: e.target.value ? [e.target.value] : [] },
-                'Saved.',
-              )
-            }
-            data-testid="alert-person"
-          >
-            <option value="">The owners</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.fullName} · {m.role}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="mt-3">
+          <div className="mb-1.5 text-[13px] font-medium">Alert people</div>
+          {picked.length ? (
+            <ul className="mb-2 flex flex-wrap gap-1.5" data-testid="alert-people">
+              {picked.map((id) => {
+                const m = nameOf.get(id);
+                return (
+                  <li key={id}>
+                    <Badge variant="gray">
+                      {m ? `${m.fullName} · ${m.role}` : 'Someone who left'}
+                      <button
+                        type="button"
+                        aria-label={`Stop alerting ${m?.fullName ?? 'them'}`}
+                        className="ml-1 text-text-3 hover:text-danger-text"
+                        disabled={busy === 'save'}
+                        onClick={() =>
+                          void save(
+                            { ...s, alertPersonUserIds: picked.filter((x) => x !== id) },
+                            'Saved.',
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mb-2 text-[12.5px] text-text-3">Nobody picked: the owners hear.</p>
+          )}
+          {picked.length < 10 && addable.length ? (
+            <Select
+              id="alert-person"
+              aria-label="Add someone"
+              value=""
+              disabled={busy === 'save'}
+              onChange={(e) =>
+                e.target.value &&
+                void save({ ...s, alertPersonUserIds: [...picked, e.target.value] }, 'Saved.')
+              }
+              data-testid="alert-person"
+            >
+              <option value="">+ Add someone</option>
+              {addable.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.fullName} · {m.role}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <p className="mt-1.5 text-[12.5px] text-text-3">
+            An owner, or someone who can see every deal; up to 10.
+          </p>
+        </div>
       </Card>
       <Card className="p-4 md:p-5">
         <h2 className="text-[15px] font-semibold">Reminders</h2>

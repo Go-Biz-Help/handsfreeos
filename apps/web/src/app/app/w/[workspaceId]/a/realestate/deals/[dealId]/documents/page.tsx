@@ -5,7 +5,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Documents' };
 
-/** A deal's documents, their versions, and the files on it that aren't documents yet. */
+/** A deal's documents, their versions, and the files on it that aren't documents yet; a contract's reading too. */
 export default async function RealestateDocumentsPage({
   params,
 }: {
@@ -14,7 +14,7 @@ export default async function RealestateDocumentsPage({
   const { workspaceId, dealId } = await params;
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
-    const [deal, documents, files] = await Promise.all([
+    const [deal, documents, files, reads] = await Promise.all([
       api
         .POST('/v1/queries/realestate.deal.get', { body: { workspaceId, dealId } })
         .then(unwrapPage),
@@ -25,6 +25,9 @@ export default async function RealestateDocumentsPage({
         .POST('/v1/queries/file.list', {
           body: { workspaceId, recordType: 'custom_record', recordId: dealId },
         })
+        .then(unwrapPage),
+      api
+        .POST('/v1/queries/realestate.contract.reads', { body: { workspaceId, dealId } })
         .then(unwrapPage),
     ]);
     return (
@@ -39,6 +42,7 @@ export default async function RealestateDocumentsPage({
           bucket: f.bucket,
           objectPath: f.objectPath,
         }))}
+        reads={reads.reads}
       />
     );
   });

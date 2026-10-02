@@ -24,6 +24,7 @@ import {
   House as realestateAddonIcon,
   ListChecks as realestateDutiesIcon,
   ListTodo as realestateTodoIcon,
+  Radar as realestateCoordinateIcon,
   Settings2 as realestateSettingsIcon,
 } from 'lucide-react';
 
@@ -142,7 +143,11 @@ export interface AddonUi {
 export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   realestate: {
     icon: realestateAddonIcon,
-    navIcons: { duties: realestateDutiesIcon, settings: realestateSettingsIcon },
+    navIcons: {
+      duties: realestateDutiesIcon,
+      coordinate: realestateCoordinateIcon,
+      settings: realestateSettingsIcon,
+    },
     slots: {
       'person.panels': () => import('./realestate/person-panel'),
       'company.panels': () => import('./realestate/company-panel'),

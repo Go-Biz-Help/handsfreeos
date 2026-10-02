@@ -103,12 +103,25 @@ export interface PortalDeal {
     readonly sharedAt: string;
   }[];
   readonly offers: readonly PortalOffer[];
+  /** Round four: their contingencies, when each ends and how each ended. */
+  readonly contingencies: readonly PortalContingency[];
   readonly financing: readonly {
     readonly step: string;
     readonly label: string;
     readonly status: string;
     readonly date: string | null;
   }[];
+}
+
+/** A contingency as the client sees it: what it's for, when it ends, how it ended; never the agent's note. */
+export interface PortalContingency {
+  readonly id: string;
+  readonly label: string;
+  readonly meaning: string;
+  readonly state: 'open' | 'satisfied' | 'waived' | 'expired';
+  readonly endsOn: string | null;
+  /** "Open · ends Oct 8", "Satisfied Oct 1". */
+  readonly words: string;
 }
 
 // Round three: the seller's own listing (`realestate.portal.listing`, ops/seller-portal.ts).

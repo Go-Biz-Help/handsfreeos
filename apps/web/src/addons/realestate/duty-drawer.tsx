@@ -4,7 +4,7 @@
  * the proof so far, who answers for it, and every change. It's done only with its proof; owners and admins
  * (`realestate.except`) may finish it without, or waive it, with a reason that stays in its history.
  */
-import { ATTACHMENT_TYPES } from '@hfos/core';
+import { ATTACHMENT_TYPES, fmtMonthDay, localDayOf } from '@hfos/core';
 import { KEY_DATES } from '@hfos/core/addons/realestate/dates/key-dates';
 import { dutyLogWords } from '@hfos/core/addons/realestate/history-words';
 import {
@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { DutyStatusBadge } from './bits';
+import { DutyWaits, waitsOpenWords } from './duty-waits';
 import type { DealDocument, DutyGet, Teammate } from './types';
 import { useAct } from './use-act';
 
@@ -131,7 +132,14 @@ function DutyBody({
   const { duty, proof, evidence, log, can } = data;
   const [form, setForm] = useState<Form>(null);
   const [text, setText] = useState('');
-  const [extra, setExtra] = useState({ owner: '', impact: '', review: '', date: '', time: '' });
+  const [extra, setExtra] = useState({
+    owner: '',
+    impact: '',
+    review: '',
+    date: '',
+    time: '',
+    chase: '',
+  });
   const [documents, setDocuments] = useState<DealDocument[] | null>(null);
   const [documentId, setDocumentId] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -151,7 +159,7 @@ function DutyBody({
   function show(next: Form, prefill = '') {
     setForm(next);
     setText(prefill);
-    setExtra({ owner: '', impact: '', review: '', date: duty.dueDate ?? '', time: '' });
+    setExtra({ owner: '', impact: '', review: '', date: duty.dueDate ?? '', time: '', chase: '' });
     if (next === 'document' && documents === null)
       void api
         .POST('/v1/queries/realestate.document.list', {
@@ -233,6 +241,9 @@ function DutyBody({
           </Badge>
         ) : null}
         {duty.exception ? <Badge variant="pending">Done without its proof</Badge> : null}
+        {open && waitsOpenWords(data) ? (
+          <Badge variant="pending">{waitsOpenWords(data)}</Badge>
+        ) : null}
       </div>
 
       <div>
@@ -266,7 +277,61 @@ function DutyBody({
       </div>
 
       {duty.waitingOn && status === 'waiting_external' ? (
-        <Callout tone="warning">Waiting on {duty.waitingOn}.</Callout>
+        <Callout
+          tone="warning"
+          data-testid="duty-waiting"
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === 'chased'}
+                onClick={() =>
+                  void act(
+                    'chased',
+                    async () =>
+                      unwrap(await api.POST('/v1/commands/realestate.duty.chased', { body: ids })),
+                    'Noted. Chase them again in two business days.',
+                  )
+                }
+                data-testid="duty-chased"
+              >
+                Chased
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={busy === 'came-in'}
+                onClick={() =>
+                  void act(
+                    'came-in',
+                    async () =>
+                      unwrap(
+                        await api.POST('/v1/commands/realestate.duty.set_status', {
+                          body: { ...ids, status: 'in_progress' },
+                        }),
+                      ),
+                    'Not waiting anymore. Add the proof when you have it.',
+                  )
+                }
+              >
+                It came in
+              </Button>
+            </div>
+          }
+        >
+          <div className="font-medium">Waiting on {duty.waitingOn}</div>
+          <div>
+            {[
+              duty.waitingSince
+                ? `since ${fmtMonthDay(localDayOf(duty.waitingSince, timeZone), thisYear)}`
+                : null,
+              duty.chaseAt ? chaseWords(duty.chaseAt, timeZone, thisYear) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
+        </Callout>
       ) : null}
       {duty.blocker && status === 'blocked' ? (
         <Callout tone="danger">
@@ -334,6 +399,15 @@ function DutyBody({
           </ul>
         ) : null}
       </section>
+
+      <DutyWaits
+        workspaceId={workspaceId}
+        data={data}
+        timeZone={timeZone}
+        open={open}
+        busy={busy}
+        act={act}
+      />
 
       {open ? (
         <div className="flex flex-wrap gap-2">
@@ -476,29 +550,59 @@ function DutyBody({
       ) : null}
 
       {form === 'waiting' ? (
-        <InlineForm
-          label="Waiting on"
-          hint="Who has to do something before this can move: the lender, the sellers, Capitol Title."
-          value={text}
-          onChange={setText}
-          multiline={false}
-          busy={busy === 'status'}
-          submit="Save"
-          error={errors.waitingOn}
-          onCancel={() => setForm(null)}
-          onSubmit={() =>
+        <form
+          className="space-y-3 rounded-menu border border-border p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!text.trim()) return;
             void act(
               'status',
               async () =>
                 unwrap(
                   await api.POST('/v1/commands/realestate.duty.set_status', {
-                    body: { ...ids, status: 'waiting_external', waitingOn: text.trim() },
+                    body: {
+                      ...ids,
+                      status: 'waiting_external',
+                      waitingOn: text.trim(),
+                      ...(extra.chase ? { chaseOn: extra.chase } : {}),
+                    },
                   }),
                 ),
               'Marked waiting.',
-            )
-          }
-        />
+            );
+          }}
+          data-testid="duty-waiting-form"
+        >
+          <Field
+            label="Waiting on"
+            htmlFor="wait-on"
+            hint="Who has to do something before this can move: the lender, the sellers, Capitol Title."
+            error={errors.waitingOn}
+          >
+            <Input id="wait-on" value={text} onChange={(e) => setText(e.target.value)} />
+          </Field>
+          <Field
+            label="Chase them on (optional)"
+            htmlFor="wait-chase"
+            hint="None: two business days from now. Past it, the deal turns yellow."
+            error={errors.chaseOn}
+          >
+            <Input
+              id="wait-chase"
+              type="date"
+              value={extra.chase}
+              onChange={(e) => setExtra({ ...extra, chase: e.target.value })}
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setForm(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy === 'status'} disabled={!text.trim()}>
+              Save
+            </Button>
+          </div>
+        </form>
       ) : null}
 
       {form === 'blocked' ? (
@@ -818,6 +922,16 @@ function DutyBody({
       </section>
     </div>
   );
+}
+
+/** "chase them today", "chase on Oct 6", or "was to chase them Oct 1". */
+function chaseWords(at: string, timeZone: string, thisYear: number): string {
+  const day = localDayOf(at, timeZone);
+  const today = localDayOf(new Date().toISOString(), timeZone);
+  if (day === today) return 'chase them today';
+  return day < today
+    ? `was to chase them ${fmtMonthDay(day, thisYear)}`
+    : `chase them ${fmtMonthDay(day, thisYear)}`;
 }
 
 function InlineForm({

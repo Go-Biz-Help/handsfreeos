@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { parseMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { DealSteps, Done, firstName, street, TaskRow, zone } from './bits';
+import { ContingenciesCard, DealSteps, Done, firstName, street, TaskRow, zone } from './bits';
 import type { PortalCompareRow, PortalDeal, PortalListing, PortalSellerChoice } from './types';
 
 const thisYear = () => new Date().getFullYear();
@@ -165,6 +165,7 @@ export function ListingDealPage({
           </ul>
         </Card>
       ) : null}
+      <ContingenciesCard deal={deal} />
       {c && undecided.length === 0 ? (
         <Link
           href={href(`a/realestate/deals/${dealId}/offers`)}

@@ -2,14 +2,17 @@
 /**
  * Deals (board 1, design/realestate/DealsHome.dc.html): how the business's deals stand, the person's own and every
  * one they see, what needs attention, and the closed and archived ones. Every deal here is one the person may see;
- * row security decides that, never this page.
+ * row security decides that, never this page. Round four (board 59) adds filters, kept in the address so a saved
+ * link opens the same list: the agent, the side, the stage, closing within so many days, what it's waiting on, and
+ * its health.
  */
 import { dayWords, dueWords } from '@hfos/core/addons/realestate/rule-words';
 import { OUTCOME_LABELS } from '@hfos/core/addons/realestate/words';
+import { STAGE_LABELS, stagesOf, type DealStage } from '@hfos/core/addons/realestate/states';
 import { zoneLabel } from '@hfos/core';
 import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Button } from '@/components/ui/button';
@@ -24,6 +27,22 @@ import type { DealRow, Teammate } from './types';
 
 export type DealsView = 'mine' | 'all' | 'attention' | 'closed' | 'archived';
 
+/** The list's filters, as the address has them. */
+export interface DealFilters {
+  readonly agent: string | null;
+  readonly side: 'buyer' | 'listing' | null;
+  readonly stage: string | null;
+  readonly closing: number | null;
+  readonly waiting: 'outside' | 'blocked' | 'either' | null;
+  readonly health: Health | null;
+}
+
+const WAITING_WORDS = {
+  outside: 'someone outside',
+  blocked: 'blocked',
+  either: 'either',
+} as const;
+
 const needsAttention = (d: DealRow) => d.health !== 'green' || d.datesToConfirm > 0;
 
 export function DealsHome({
@@ -32,6 +51,8 @@ export function DealsHome({
   timeZone,
   view,
   openDeals,
+  matchingDeals,
+  filters,
   otherDeals,
   members,
   myUserId,
@@ -43,6 +64,9 @@ export function DealsHome({
   view: DealsView;
   /** Every open deal the person sees: the counts and the first three tabs. */
   openDeals: readonly DealRow[];
+  /** The open ones the server's filters keep, when any is set. */
+  matchingDeals: readonly DealRow[] | null;
+  filters: DealFilters;
   /** The closed and ended ones, or the archived ones, when that tab is open. */
   otherDeals: readonly DealRow[];
   members: readonly Teammate[];
@@ -51,7 +75,36 @@ export function DealsHome({
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [q, setQ] = useState('');
+  const setFilter = (key: string, value: string | null) => {
+    const next = new URLSearchParams(params.toString());
+    if (value) next.set(key, value);
+    else next.delete(key);
+    // A stage belongs to a side.
+    if (key === 'side') next.delete('stage');
+    const s = next.toString();
+    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+  };
+  const anyFilter = Object.values(filters).some((v) => v !== null);
+  const clearFilters = () => {
+    const next = new URLSearchParams(params.toString());
+    for (const k of ['agent', 'side', 'stage', 'closing', 'waiting', 'health']) next.delete(k);
+    const s = next.toString();
+    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+  };
+  const agents = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of openDeals) if (d.mainAgent) m.set(d.mainAgent.userId, d.mainAgent.name);
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [openDeals]);
+  const stages = useMemo(() => {
+    const list = filters.side
+      ? stagesOf(filters.side)
+      : [...new Set([...stagesOf('buyer'), ...stagesOf('listing')])];
+    return list.filter((st) => st !== 'past_client');
+  }, [filters.side]);
   const [starting, setStarting] = useState<'buyer' | 'listing' | null>(null);
 
   const counts = useMemo(() => {
@@ -67,13 +120,16 @@ export function DealsHome({
   }, [openDeals]);
 
   const shown = useMemo(() => {
+    const live = (matchingDeals ?? openDeals).filter(
+      (d) => !filters.health || d.health === filters.health,
+    );
     const base =
       view === 'mine'
-        ? openDeals.filter((d) => d.mine)
+        ? live.filter((d) => d.mine)
         : view === 'all'
-          ? openDeals
+          ? live
           : view === 'attention'
-            ? openDeals.filter(needsAttention)
+            ? live.filter(needsAttention)
             : otherDeals;
     const needle = q.trim().toLowerCase();
     if (!needle) return base;
@@ -82,7 +138,9 @@ export function DealsHome({
         s?.toLowerCase().includes(needle),
       ),
     );
-  }, [view, openDeals, otherDeals, q]);
+  }, [view, openDeals, matchingDeals, filters.health, otherDeals, q]);
+  const live = view !== 'closed' && view !== 'archived';
+  const showWaiting = !!filters.waiting || shown.some((d) => d.waiting);
 
   const tabs: { key: DealsView; label: string }[] = [
     { key: 'mine', label: `My deals · ${counts.mine}` },
@@ -99,7 +157,11 @@ export function DealsHome({
     <div data-testid="realestate-deals">
       <PageHeader
         title="Deals"
-        description={`${businessName} · ${openDeals.length} open · ${zoneLabel(timeZone)}`}
+        description={
+          anyFilter && live
+            ? `${businessName} · ${shown.length} of ${openDeals.length} open match`
+            : `${businessName} · ${openDeals.length} open · ${zoneLabel(timeZone)}`
+        }
         actions={
           <>
             <Button
@@ -174,11 +236,77 @@ export function DealsHome({
             />
           </div>
         </div>
+        {live ? (
+          <div
+            className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 text-[13px] md:px-5"
+            data-testid="deals-filters"
+          >
+            <FilterSelect
+              label="Agent"
+              value={filters.agent}
+              onChange={(v) => setFilter('agent', v)}
+              options={agents.map(([id, name]) => [id, name])}
+              testId="deals-filter-agent"
+            />
+            <FilterSelect
+              label="Side"
+              value={filters.side}
+              onChange={(v) => setFilter('side', v)}
+              options={[
+                ['buyer', 'Buyer'],
+                ['listing', 'Listing'],
+              ]}
+              testId="deals-filter-side"
+            />
+            <FilterSelect
+              label="Stage"
+              value={filters.stage}
+              onChange={(v) => setFilter('stage', v)}
+              options={stages.map((st) => [st, STAGE_LABELS[st as DealStage] ?? st])}
+              testId="deals-filter-stage"
+            />
+            <FilterSelect
+              label="Closing within"
+              value={filters.closing ? String(filters.closing) : null}
+              onChange={(v) => setFilter('closing', v)}
+              options={[14, 30, 60, 90].map((n) => [String(n), `${n} days`])}
+              testId="deals-filter-closing"
+            />
+            <FilterSelect
+              label="Waiting on"
+              value={filters.waiting}
+              onChange={(v) => setFilter('waiting', v)}
+              options={Object.entries(WAITING_WORDS)}
+              testId="deals-filter-waiting"
+            />
+            <FilterSelect
+              label="Health"
+              value={filters.health}
+              onChange={(v) => setFilter('health', v)}
+              options={[
+                ['red', 'At risk'],
+                ['yellow', 'Needs attention'],
+                ['green', 'On track'],
+              ]}
+              testId="deals-filter-health"
+            />
+            {anyFilter ? (
+              <button
+                type="button"
+                className="text-accent-text hover:underline"
+                onClick={clearFilters}
+                data-testid="deals-filter-clear"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {shown.length === 0 ? (
           <EmptyState
             title={
-              q.trim()
+              q.trim() || (anyFilter && live)
                 ? 'No deal matches that.'
                 : view === 'mine'
                   ? 'You’re not on any open deals yet.'
@@ -206,7 +334,9 @@ export function DealsHome({
                   <th className="px-5 py-2.5 font-semibold">Deal</th>
                   <th className="w-[92px] px-3 py-2.5 font-semibold">Side</th>
                   <th className="w-[128px] px-3 py-2.5 font-semibold">Stage</th>
-                  <th className="w-[26%] px-3 py-2.5 font-semibold">Next duty</th>
+                  <th className="w-[26%] px-3 py-2.5 font-semibold">
+                    {showWaiting ? 'Waiting on' : 'Next duty'}
+                  </th>
                   <th className="w-[84px] px-3 py-2.5 font-semibold">Closing</th>
                   <th className="w-[140px] px-5 py-2.5 font-semibold">Agent</th>
                 </tr>
@@ -239,7 +369,20 @@ export function DealsHome({
                     </td>
                     <td className="px-3 py-3">{stageWords(d)}</td>
                     <td className="px-3 py-3">
-                      {d.nextDue ? (
+                      {showWaiting ? (
+                        d.waiting ? (
+                          <>
+                            <div className="truncate" title={d.waiting.title}>
+                              {d.waiting.title}
+                            </div>
+                            <div className="truncate text-[12.5px] text-text-2">
+                              {d.waiting.who}
+                            </div>
+                          </>
+                        ) : (
+                          '—'
+                        )
+                      ) : d.nextDue ? (
                         <>
                           <div className="truncate" title={d.nextDue.title}>
                             {d.nextDue.title}
@@ -271,6 +414,11 @@ export function DealsHome({
                       <div className="truncate text-[12.5px] text-text-2">
                         {d.stageLabel} · {dealLine(d)}
                       </div>
+                      {d.waiting ? (
+                        <div className="truncate text-[12.5px] text-text-3">
+                          Waiting on {d.waiting.who}: {d.waiting.title}
+                        </div>
+                      ) : null}
                     </div>
                     <SideBadge side={d.side} />
                   </Link>
@@ -315,6 +463,45 @@ function stageWords(d: DealRow): string {
   return d.outcome
     ? ((OUTCOME_LABELS as Readonly<Record<string, string>>)[d.outcome] ?? d.stageLabel)
     : d.stageLabel;
+}
+
+/** One filter: "Agent: Dana Reyes", or "Any" when it's off. */
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  testId,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (value: string | null) => void;
+  options: readonly (readonly [string, string])[];
+  testId: string;
+}) {
+  return (
+    <label
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5',
+        value ? 'border-accent bg-accent-soft text-accent-text' : 'border-border text-text-2',
+      )}
+    >
+      <span>{label}:</span>
+      <select
+        className="max-w-[160px] cursor-pointer bg-transparent py-1 font-medium text-text focus:outline-none"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        data-testid={testId}
+      >
+        <option value="">Any</option>
+        {options.map(([v, words]) => (
+          <option key={v} value={v}>
+            {words}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function Count({ label, value, health }: { label: string; value: number; health: Health }) {

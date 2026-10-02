@@ -22,12 +22,15 @@ export default async function RealestateDealPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
-    const [got, deal, risks, drafts, members] = await Promise.all([
+    const [got, deal, risks, drafts, members, contingencies, reads] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.deal.risks', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.status_email.list', inDeal).then(unwrapPage),
       api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+      // Round four: its contingencies, and the contracts read for it.
+      api.POST('/v1/queries/realestate.contingencies', inDeal).then(unwrapPage),
+      api.POST('/v1/queries/realestate.contract.reads', inDeal).then(unwrapPage),
     ]);
     const buyer =
       deal.deal.side === 'buyer'
@@ -96,6 +99,8 @@ export default async function RealestateDealPage({
         canManage={got.workspace.permissions.includes('realestate.manage')}
         buyer={buyer}
         listing={listing}
+        contingencies={contingencies.contingencies}
+        reads={reads.reads}
       />
     );
   });

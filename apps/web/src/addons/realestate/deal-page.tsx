@@ -70,10 +70,13 @@ import {
   OffersCard,
 } from './listing-cards';
 import { OpenHousesCard } from './open-houses-page';
+import { ContingenciesCard, LinkedDealsCard, LinkedProblems, ReadsCallout } from './risk-cards';
 import { SuggestionsCard } from './suggestions-card';
 import { DutyDrawer } from './duty-drawer';
 import type {
   BuyerSide,
+  Contingency,
+  ContractReadRow,
   DealDuty,
   DealGet,
   DealRisks,
@@ -105,6 +108,8 @@ export function DealPage({
   canManage,
   buyer,
   listing,
+  contingencies,
+  reads,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -117,6 +122,9 @@ export function DealPage({
   buyer?: BuyerSide | null;
   /** A listing deal's own side (round three): the listing, its marketing, offers and open houses, the seller. */
   listing?: ListingSide | null;
+  /** Round four: its contingencies, and the contracts read for it. */
+  contingencies: readonly Contingency[];
+  reads: readonly ContractReadRow[];
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
@@ -399,8 +407,11 @@ export function DealPage({
         </Callout>
       ) : null}
 
+      <LinkedProblems problems={deal.linkedProblems} />
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-5">
         <div className="min-w-0 space-y-4 lg:space-y-5">
+          <ReadsCallout workspaceId={workspaceId} dealId={dealId} reads={reads} />
           {buyer ? (
             <>
               <SuggestionsCard
@@ -491,6 +502,8 @@ export function DealPage({
             </>
           ) : null}
           <KeyDatesCard workspaceId={workspaceId} deal={deal} />
+          <ContingenciesCard workspaceId={workspaceId} dealId={dealId} list={contingencies} />
+          <LinkedDealsCard workspaceId={workspaceId} deal={deal} live={live} />
           <PeopleCard workspaceId={workspaceId} deal={deal} members={members} />
           <CommissionCard workspaceId={workspaceId} deal={deal} />
           <UpdatesCard workspaceId={workspaceId} dealId={dealId} drafts={drafts} />

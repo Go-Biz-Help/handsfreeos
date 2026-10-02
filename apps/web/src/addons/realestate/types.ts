@@ -100,3 +100,16 @@ export interface ListingSide {
   /** The business's own domain when one is serving: the page's link uses it. */
   readonly brandedOrigin: string | null;
 }
+
+// Round four: contracts read, contingencies, and the coordinator's views.
+export type ContractRead = Ok<'/v1/queries/realestate.contract.read'>;
+export type ReadValue = ContractRead['values'][number];
+export type ContractReads = Ok<'/v1/queries/realestate.contract.reads'>;
+export type ContractReadRow = ContractReads['reads'][number];
+export type Contingencies = Ok<'/v1/queries/realestate.contingencies'>;
+export type Contingency = Contingencies['contingencies'][number];
+export type DealLink = DealGet['links'][number];
+export type Today = Ok<'/v1/queries/realestate.today'>;
+export type Exceptions = Ok<'/v1/queries/realestate.exceptions'>;
+export type WaitingRoom = Ok<'/v1/queries/realestate.waiting_room'>;
+export type Workload = Ok<'/v1/queries/realestate.workload'>;

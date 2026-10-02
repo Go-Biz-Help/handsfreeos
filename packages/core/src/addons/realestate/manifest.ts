@@ -452,6 +452,14 @@ export const realestateAddon = defineAddon({
         path: 'duties',
         permission: 'realestate.use',
       },
+      // Round four: the coordinator's views (Today, Exceptions, the Waiting room, Team workload).
+      {
+        key: 'coordinate',
+        label: 'Coordinate',
+        icon: 'radar',
+        path: 'coordinate',
+        permission: 'realestate.use',
+      },
       {
         key: 'settings',
         label: 'Deal settings',
@@ -495,6 +503,10 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/marketing', query: ['live'] },
       { path: 'deals/:dealId/open-houses', query: ['plan'] },
       { path: 'deals/:dealId/net-sheet' },
+      // Round four: the contract as read, contingencies, and Coordinate.
+      { path: 'deals/:dealId/contract/:readId' },
+      { path: 'deals/:dealId/contingencies' },
+      { path: 'coordinate', query: ['tab', 'mine', 'agent', 'duty'] },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
     // Homes and To do are places in the portal's menu (pages without an id); the rest open from them.

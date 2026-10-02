@@ -3,12 +3,14 @@
  * A deal's documents (board 6, design/realestate/Documents.dc.html): each with its kind, its versions and which one
  * counts. A signed document is kept for good: nobody deletes or renames it, owners included; a change is a newer
  * version marked as the one that counts, and the old one stays in the history. Every file's SHA-256 fingerprint is
- * taken as it arrives.
+ * taken as it arrives. A contract, an amendment or an addendum is read as it's added (round four, board 50): its row
+ * says when it's being read and how many of its values wait on a person, and opens the reading.
  */
 import { ATTACHMENT_TYPES } from '@hfos/core';
 import { DOCUMENT_KINDS, type DocumentKind } from '@hfos/core/addons/realestate/catalog/types';
 import { FileText, Lock } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { uploadFile } from '@/components/files/upload-zone';
@@ -30,7 +32,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { dealHref } from './bits';
 import { ReasonDialog } from './deal-dialogs';
-import type { DealDocument } from './types';
+import type { ContractReadRow, DealDocument } from './types';
 import { useAct } from './use-act';
 
 export interface DealFile {
@@ -48,7 +50,7 @@ const STATUS_WORDS: Readonly<Record<DealDocument['status'], string>> = {
   void: 'Void',
 };
 
-async function openFile(f: DealFile) {
+export async function openFile(f: DealFile) {
   const { data, error } = await supabaseBrowser()
     .storage.from(f.bucket)
     .createSignedUrl(f.objectPath, 300);
@@ -62,14 +64,32 @@ export function DocumentsPage({
   dealName,
   documents,
   files,
+  reads,
 }: {
   workspaceId: string;
   dealId: string;
   dealName: string;
   documents: readonly DealDocument[];
   files: readonly DealFile[];
+  /** Round four: each contract, amendment and addendum read, newest first. */
+  reads: readonly ContractReadRow[];
 }) {
   useLiveRefresh(['custom_record']);
+  const router = useRouter();
+  // The newest reading of each document.
+  const readOf = useMemo(() => {
+    const m = new Map<string, ContractReadRow>();
+    for (const r of [...reads].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt)))
+      m.set(r.documentId, r);
+    return m;
+  }, [reads]);
+  const reading = [...readOf.values()].some((r) => r.state === 'reading');
+  // The worker reads it in a minute or so: look again until it has.
+  useEffect(() => {
+    if (!reading) return;
+    const t = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(t);
+  }, [reading, router]);
   const [adding, setAdding] = useState<{ supersedes?: DealDocument; fileId?: string } | null>(null);
   const [voiding, setVoiding] = useState<DealDocument | null>(null);
   const { busy, act } = useAct();
@@ -184,6 +204,10 @@ export function DocumentsPage({
                         {d.controlling && of > 1 ? (
                           <Badge variant="accent">The one that counts</Badge>
                         ) : null}
+                        <ReadBadge
+                          read={readOf.get(d.documentId)}
+                          href={(id) => dealHref(workspaceId, dealId, `contract/${id}`)}
+                        />
                       </div>
                       {d.voidReason ? (
                         <div className="mt-1 text-[12px] text-text-3">{d.voidReason}</div>
@@ -222,6 +246,26 @@ export function DocumentsPage({
                             <DropdownMenuItem onSelect={() => setAdding({ supersedes: d })}>
                               Add a newer version…
                             </DropdownMenuItem>
+                            {READ_KINDS.has(d.kind) ? (
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  void act(
+                                    `read-${d.documentId}`,
+                                    async () =>
+                                      unwrap(
+                                        await apiBrowser().POST(
+                                          '/v1/commands/realestate.document.read',
+                                          { body: { workspaceId, documentId: d.documentId } },
+                                        ),
+                                      ),
+                                    'Reading it again. Its values show here in a minute or two.',
+                                  )
+                                }
+                                data-testid={`read-again-${d.documentId}`}
+                              >
+                                Read it again
+                              </DropdownMenuItem>
+                            ) : null}
                             {!d.controlling ? (
                               <DropdownMenuItem
                                 onSelect={() =>
@@ -311,6 +355,43 @@ export function DocumentsPage({
         }
       />
     </div>
+  );
+}
+
+/** The kinds read as they're added: a contract, an amendment, an addendum. */
+const READ_KINDS: ReadonlySet<string> = new Set(['contract', 'amendment', 'addendum']);
+
+/** Where a document's reading stands: being read, values to confirm, all confirmed, or couldn't be read. */
+function ReadBadge({
+  read,
+  href,
+}: {
+  read: ContractReadRow | undefined;
+  href: (readId: string) => string;
+}) {
+  if (!read) return null;
+  if (read.state === 'reading')
+    return (
+      <Badge variant="gray" data-testid="document-reading">
+        Reading…
+      </Badge>
+    );
+  if (read.state === 'failed')
+    return (
+      <Link href={href(read.readId)} data-testid="document-read-failed">
+        <Badge variant="danger">Couldn’t read it</Badge>
+      </Link>
+    );
+  return (
+    <Link href={href(read.readId)} data-testid="document-read">
+      {read.waiting ? (
+        <Badge variant="pending">
+          {read.waiting} {read.waiting === 1 ? 'value' : 'values'} to confirm
+        </Badge>
+      ) : (
+        <Badge variant="ok">Read · all confirmed</Badge>
+      )}
+    </Link>
   );
 }
 
