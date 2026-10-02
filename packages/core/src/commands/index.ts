@@ -86,6 +86,7 @@ import {
   personSetSmsConsent,
 } from './message';
 import { videoLinkCreate, videoLinkReceiveUpload, videoLinkStartUpload } from './video-link';
+import { fileFinishCopy, fileLinkCreate, leadSaveFileAnswer } from './file-answer';
 import {
   phoneNumberActivate,
   phoneNumberBuy,
@@ -563,7 +564,8 @@ export { DEFAULT_STAGES } from './pipeline.create';
 /** Explicit list on purpose: greppable, bundler-safe, and the order the docs list them in. */
 export { emailReceive, emailSuppressionRecord };
 export { videoLinkCreate, videoLinkStartUpload, videoLinkReceiveUpload };
-export { videoLinkTokenHash, videoUploadPath } from './video-link';
+export { videoLinkTokenHash, videoUploadPath, fileUploadPath } from './video-link';
+export { fileLinkCreate, leadSaveFileAnswer, fileFinishCopy };
 
 export const commands: readonly CommandDef[] = [
   organizationCreate,
@@ -664,6 +666,9 @@ export const commands: readonly CommandDef[] = [
   videoLinkCreate,
   videoLinkStartUpload,
   videoLinkReceiveUpload,
+  fileLinkCreate,
+  leadSaveFileAnswer,
+  fileFinishCopy,
   personSetSmsConsent,
   messageRecordOptOut,
   callStart,

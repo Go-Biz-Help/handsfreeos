@@ -82,6 +82,13 @@ const ROWS: readonly Row[] = [
     email: null,
   },
   {
+    title: 'Your AI teammate’s qualifying',
+    description:
+      'When a lead qualifies, or a customer sends a file one of its questions asked for, like a photo of a bill. Only to the people its settings name, under AI teammate → Qualify. The email always goes.',
+    push: 'qualifying',
+    email: 'always',
+  },
+  {
     title: 'A customer pays',
     description: 'A short note when an invoice is settled, with what it was for and how they paid.',
     push: 'payment',

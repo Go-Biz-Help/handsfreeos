@@ -48,9 +48,10 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
 
   const { token } = await signInOwner(email);
   const me = await api<{ user: { settings: Settings } }>(token, 'queries', 'account.me', {});
-  // All eleven, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
+  // All twelve, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
   // purpose: a switch arriving without anybody deciding it should is the thing this catches. New support
-  // tickets is saved with the rest, though only support people see its row.
+  // tickets is saved with the rest, though only support people see its row. `qualifying` (20261018000400): the AI
+  // teammate's qualifying, a lead qualifying or a file coming in.
   expect(me.user.settings.push).toEqual({
     customerWaiting: true,
     missedCall: true,
@@ -63,6 +64,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
     jobs: true,
     connections: true,
     supportTickets: true,
+    qualifying: true,
   });
   expect(me.user.settings.notifications).toMatchObject({
     attentionDigest: false,

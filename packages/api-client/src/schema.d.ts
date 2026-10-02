@@ -4097,6 +4097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/lead.save_file_answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the photos or PDF a customer texted or emailed as their answer to a file question (a photo of their electric bill, say): they go on the lead’s Files, the question is answered, and whoever the question names hears.
+         * @description Risk level 1. Requires records.write. Emits file.received, lead.answers_recorded, lead.qualified.
+         */
+        post: operations["command_lead_save_file_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/lead.set_next_action": {
         parameters: {
             query?: never;
@@ -20930,6 +20950,51 @@ export interface operations {
             };
         };
     };
+    command_lead_save_file_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    messageId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duplicate: boolean;
+                        files: {
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        leadId: string;
+                        missing: string[];
+                        qualified: boolean;
+                        /** @enum {string} */
+                        status: "qualified" | "not_a_fit" | "incomplete";
+                    };
+                };
+            };
+        };
+    };
     command_lead_set_next_action: {
         parameters: {
             query?: never;
@@ -34361,7 +34426,7 @@ export interface operations {
                                 objectPath: string;
                                 sizeBytes: number;
                                 /** @enum {string} */
-                                via?: "video_link";
+                                via?: "video_link" | "file_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -34396,7 +34461,7 @@ export interface operations {
                                         objectPath: string;
                                         sizeBytes: number;
                                         /** @enum {string} */
-                                        via?: "video_link";
+                                        via?: "video_link" | "file_link";
                                     };
                                     title: string | null;
                                 }[];
@@ -37653,6 +37718,13 @@ export interface operations {
                                         answeredAt: string;
                                         /** @enum {string} */
                                         by: "ai" | "person";
+                                        /** @default [] */
+                                        files: {
+                                            /** Format: uuid */
+                                            fileId: string;
+                                            messageId: string | null;
+                                            name: string;
+                                        }[];
                                         question: string;
                                     };
                                 };
@@ -37935,7 +38007,7 @@ export interface operations {
                                 objectPath: string;
                                 sizeBytes: number;
                                 /** @enum {string} */
-                                via?: "video_link";
+                                via?: "video_link" | "file_link";
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
@@ -37970,7 +38042,7 @@ export interface operations {
                                         objectPath: string;
                                         sizeBytes: number;
                                         /** @enum {string} */
-                                        via?: "video_link";
+                                        via?: "video_link" | "file_link";
                                     };
                                     title: string | null;
                                 }[];

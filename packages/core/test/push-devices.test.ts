@@ -309,6 +309,8 @@ describe('pushSwitchOn', () => {
       connections: true,
       // Only support people see it, and for them it is on until turned off.
       supportTickets: true,
+      // 20261018000400: the AI teammate's qualifying, to the people its settings name.
+      qualifying: true,
     });
   });
 });

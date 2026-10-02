@@ -10,6 +10,12 @@ import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
+import {
+  FILE_ANSWER_TYPES,
+  FILE_LINK_MAX_BYTES,
+  FILE_LINK_WORDS,
+  isFileAnswerType,
+} from '../messaging/file-link';
 import { loadConversation, scheduleJob, workspaceMessaging } from '../messaging/store';
 import {
   VIDEO_LINK_DAYS,
@@ -30,6 +36,7 @@ import {
   VideoLinkStartUploadInput,
   VideoLinkStartUploadOutput,
 } from '../schemas/video-link';
+import { fileArrived } from './file-answer';
 import { customerOptedOut } from './message';
 
 /**
@@ -52,6 +59,44 @@ export const videoLinkTokenHash = (token: string): Buffer =>
 /** Where a video goes up: the folder of the message it will arrive as, which storage already reads by its rules. */
 export const videoUploadPath = (workspaceId: string, uploadId: string, contentType: string) =>
   `${workspaceId}/messages/${uploadId}/video.${VIDEO_LINK_TYPES[contentType] ?? 'mp4'}`;
+
+/** Where a file a link asked for goes up (20261018000400): the same folder, as `file.<ext>`. */
+export const fileUploadPath = (workspaceId: string, uploadId: string, contentType: string) =>
+  `${workspaceId}/messages/${uploadId}/file.${FILE_ANSWER_TYPES[contentType] ?? 'bin'}`;
+
+type Link = typeof videoLinks.$inferSelect;
+
+/**
+ * Whether the link takes this one: a video for a video link, a photo or PDF for a file link (20261018000400), and
+ * no bigger than it takes. Throws the customer's words when not.
+ */
+function assertTakes(link: Link, file: { name: string; contentType: string; sizeBytes: number }) {
+  if (link.asksFor === 'file') {
+    if (!isFileAnswerType(file.contentType))
+      throw HfosError.rule('not_a_file', 415, FILE_LINK_WORDS.notAFile(file.name));
+    if (file.sizeBytes > FILE_LINK_MAX_BYTES)
+      throw HfosError.rule(
+        'file_too_large',
+        413,
+        FILE_LINK_WORDS.tooLarge(videoSize(file.sizeBytes)),
+      );
+    return;
+  }
+  if (!VIDEO_LINK_TYPES[file.contentType])
+    throw HfosError.rule('not_a_video', 415, VIDEO_LINK_WORDS.notAVideo(file.name));
+  if (file.sizeBytes > VIDEO_LINK_MAX_BYTES)
+    throw HfosError.rule(
+      'video_too_large',
+      413,
+      VIDEO_LINK_WORDS.tooLarge(videoSize(file.sizeBytes)),
+    );
+}
+
+/** "You've sent 3 videos…" or "…5 files…", by what the link asks for. */
+const fullWords = (link: Link, business: string) =>
+  link.asksFor === 'file'
+    ? FILE_LINK_WORDS.full(business, link.maxUploads)
+    : VIDEO_LINK_WORDS.full(business, link.maxUploads);
 
 /** The business's name and time zone, for the customer's page and its refusals. */
 async function businessOf(ctx: CommandContext): Promise<{ name: string; timezone: string }> {
@@ -141,7 +186,7 @@ export const videoLinkCreate = defineCommand({
 export const videoLinkStartUpload = defineCommand({
   name: 'video_link.start_upload',
   description:
-    'Worker: the customer’s video page is about to send a video. Checks the link still takes one and that it is a video of a size it takes, and names where it goes up.',
+    'Worker: the customer’s video page is about to send a video (or a photo or PDF, for a link that asked for a file). Checks the link still takes one and that it is a kind and size it takes, and names where it goes up.',
   risk: 1,
   input: VideoLinkStartUploadInput,
   output: VideoLinkStartUploadOutput,
@@ -159,26 +204,20 @@ export const videoLinkStartUpload = defineCommand({
         VIDEO_LINK_WORDS.expired(business, videoLinkDay(link.expiresAt, timezone)),
       );
     if (link.uploadsReceived >= link.maxUploads)
-      throw HfosError.rule('link_full', 409, VIDEO_LINK_WORDS.full(business, link.maxUploads));
+      throw HfosError.rule('link_full', 409, fullWords(link, business));
     if (link.uploadsStarted >= VIDEO_LINK_MAX_STARTS)
       throw HfosError.rule('too_many_starts', 429, VIDEO_LINK_WORDS.tooManyTries(business));
-    if (!VIDEO_LINK_TYPES[input.contentType])
-      throw HfosError.rule('not_a_video', 415, VIDEO_LINK_WORDS.notAVideo(input.name));
-    if (input.sizeBytes > VIDEO_LINK_MAX_BYTES)
-      throw HfosError.rule(
-        'video_too_large',
-        413,
-        VIDEO_LINK_WORDS.tooLarge(videoSize(input.sizeBytes)),
-      );
+    assertTakes(link, input);
     await ctx.tx
       .update(videoLinks)
       .set({ uploadsStarted: link.uploadsStarted + 1 })
       .where(eq(videoLinks.id, link.id));
     const uploadId = randomUUID();
+    const path = link.asksFor === 'file' ? fileUploadPath : videoUploadPath;
     return {
       uploadId,
       bucket: 'telephony',
-      objectPath: videoUploadPath(ctx.scope.workspaceId!, uploadId, input.contentType),
+      objectPath: path(ctx.scope.workspaceId!, uploadId, input.contentType),
     };
   },
 });
@@ -186,13 +225,13 @@ export const videoLinkStartUpload = defineCommand({
 export const videoLinkReceiveUpload = defineCommand({
   name: 'video_link.receive_upload',
   description:
-    'Worker: a video the customer sent through a video link arrived. Files it in the conversation as their reply, as a text with the video on it, and starts the reply reminder.',
+    'Worker: a video the customer sent through a video link arrived (or a photo or PDF through a link that asked for a file). Files it in the conversation as their reply, as a text with it on, and starts the reply reminder. A file goes on the lead too, and answers the question the link asked.',
   risk: 1,
   input: VideoLinkReceiveUploadInput,
   output: VideoLinkReceiveUploadOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.received'],
+  emits: ['message.received', 'file.received', 'lead.answers_recorded', 'lead.qualified'],
   actors: ['system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
@@ -208,19 +247,14 @@ export const videoLinkReceiveUpload = defineCommand({
       throw HfosError.rule('wrong_place', 400, VIDEO_LINK_WORDS.notArrived);
     const { name: business } = await businessOf(ctx);
     if (link.uploadsReceived >= link.maxUploads)
-      throw HfosError.rule('link_full', 409, VIDEO_LINK_WORDS.full(business, link.maxUploads));
-    if (!VIDEO_LINK_TYPES[input.contentType])
-      throw HfosError.rule('not_a_video', 415, VIDEO_LINK_WORDS.notAVideo(input.name));
-    if (input.sizeBytes > VIDEO_LINK_MAX_BYTES)
-      throw HfosError.rule(
-        'video_too_large',
-        413,
-        VIDEO_LINK_WORDS.tooLarge(videoSize(input.sizeBytes)),
-      );
+      throw HfosError.rule('link_full', 409, fullWords(link, business));
+    assertTakes(link, input);
 
     const conv = await loadConversation(ctx, link.conversationId);
     const at = new Date();
-    const preview = VIDEO_LINK_WORDS.preview;
+    const file = link.asksFor === 'file';
+    const via = file ? ('file_link' as const) : ('video_link' as const);
+    const preview = file ? FILE_LINK_WORDS.preview : VIDEO_LINK_WORDS.preview;
     const messageId = input.uploadId;
     const eventId = await ctx.emit({
       type: 'message.received',
@@ -233,9 +267,13 @@ export const videoLinkReceiveUpload = defineCommand({
         mediaCount: 1,
         keyword: null,
         reopened: conv.status !== 'open',
-        via: 'video_link',
+        via,
       },
-      after: { from: formatPhone(conv.counterpart), preview, via: 'Video link' },
+      after: {
+        from: formatPhone(conv.counterpart),
+        preview,
+        via: file ? 'File link' : 'Video link',
+      },
     });
     const activityId = await logChannelActivity(ctx, {
       kind: 'sms',
@@ -249,7 +287,7 @@ export const videoLinkReceiveUpload = defineCommand({
         messageId,
         conversationId: conv.id,
         mediaCount: 1,
-        via: 'video_link',
+        via,
       },
     });
     await ctx.tx.insert(messages).values({
@@ -269,10 +307,10 @@ export const videoLinkReceiveUpload = defineCommand({
           contentType: input.contentType,
           sizeBytes: input.sizeBytes,
           name: input.name,
-          via: 'video_link',
+          via,
         },
       ],
-      provider: 'video_link',
+      provider: via,
       providerMessageId: input.uploadId,
       dedupeKey,
       segments: 0,
@@ -309,6 +347,26 @@ export const videoLinkReceiveUpload = defineCommand({
         payload: { conversationId: conv.id },
         workspaceId,
         organizationId: m.organizationId,
+      });
+    // A file a question asked for goes on the lead and answers it (20261018000400).
+    if (file && link.questionId)
+      await fileArrived(ctx, {
+        leadId: link.leadId,
+        personId: conv.personId,
+        questionId: link.questionId,
+        ask: link.ask ?? '',
+        conversationId: conv.id,
+        messageId,
+        files: [
+          {
+            bucket: 'telephony',
+            objectPath: input.objectPath,
+            contentType: input.contentType,
+            sizeBytes: input.sizeBytes,
+            name: input.name,
+          },
+        ],
+        via: 'file_link',
       });
     return { messageId, conversationId: conv.id, duplicate: false };
   },

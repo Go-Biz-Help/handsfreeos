@@ -143,6 +143,8 @@ interface QuestionArgs {
   notAFitAnswers?: string[];
   notAFitBelow?: number | null;
   notAFitAbove?: number | null;
+  fileTell?: string;
+  fileTellUserIds?: string[];
 }
 
 /**
@@ -173,6 +175,16 @@ function questionFrom(
           : [];
   const range = (given: number | null | undefined, was: number | null | undefined) =>
     given !== undefined ? given : kind === 'number' ? (was ?? null) : null;
+  // A file question tells someone when it arrives: whoever was said, else whoever it told, else owners and admins.
+  const told = whoHears(input.fileTell, input.fileTellUserIds, 'fileTell');
+  const notify =
+    kind !== 'file'
+      ? null
+      : told !== undefined
+        ? told
+        : base?.kind === 'file'
+          ? base.notify
+          : { kind: 'admins' as const };
   return {
     id,
     question: input.question ?? base?.question ?? '',
@@ -184,6 +196,7 @@ function questionFrom(
       below: range(input.notAFitBelow, base?.notAFitIf.below),
       above: range(input.notAFitAbove, base?.notAFitIf.above),
     },
+    notify,
   };
 }
 
@@ -369,6 +382,7 @@ const KIND_WORDS: Record<QuestionKind, string> = {
   choice: 'choice',
   yes_no: 'yes or no',
   number: 'number',
+  file: 'a file they send',
 };
 
 function questionWords(q: QualifyingQuestion): string {
@@ -874,6 +888,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   jobs: 'A job you were on is over',
   connections: 'A connection stops working',
   supportTickets: 'New support tickets',
+  qualifying: 'Your AI teammate’s qualifying',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {

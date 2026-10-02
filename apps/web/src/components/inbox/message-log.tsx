@@ -20,6 +20,7 @@ import {
   weekdayClock,
   type NoteEntry,
   VIDEO_LINK_WORDS,
+  FILE_LINK_WORDS,
 } from '@hfos/core';
 import { CheckCheck, CircleAlert, Moon, Sparkles } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
@@ -321,6 +322,10 @@ function MessageEntry({
               {item.media.some((m) => m.via === 'video_link') ? (
                 <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-video-link">
                   {VIDEO_LINK_WORDS.cameByLink}
+                </span>
+              ) : item.media.some((m) => m.via === 'file_link') ? (
+                <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-file-link">
+                  {FILE_LINK_WORDS.cameByLink}
                 </span>
               ) : null}
               {item.body ? (

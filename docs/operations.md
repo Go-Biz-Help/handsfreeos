@@ -1021,7 +1021,7 @@ The migrations create three private buckets. There is nothing to create by hand.
 | ------------- | ---------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
 | `attachments` | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first |
 | `imports`     | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths               |
-| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video link         |
+| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
 - To check the buckets, click **Storage** in the left sidebar.
@@ -1053,6 +1053,46 @@ up as it is, up to 250 MB, straight to the `telephony` bucket. It lands in the c
   at photos (its Photos setting). It says what to film, and the link goes on its own line at the end of its
   text, made only as the text goes out (or waits as a draft in training). Its Activity shows "Asked for a video".
 - If uploads fail at a size the bucket allows, check the project's upload limit above.
+
+#### File questions: asking a customer for a file
+
+A qualifying question can ask for a file instead of an answer in words, like "Can you send a photo of your latest
+electric bill?". In **AI teammate → Qualify**, set the question's answer to **File** and pick who hears when it
+arrives under **Tell when it arrives** (owners and admins, the lead's assignee, the customer's owner, or one
+person). The AI teammate then gets it one of two ways:
+
+- **By link, in a texting thread.** It asks with a link at the end of its text: the same `/v/<token>` page as a
+  video link, asking for a file. The page shows the question and takes photos and PDFs, up to 25 MB each and 5 per
+  link, for 7 days. Each one lands in the conversation as the customer's reply, marked "Sent with your file link".
+- **As a photo or attachment.** When they text a photo of it, or attach it to an email, the teammate saves their
+  newest photo or PDF in that conversation as the answer. On a call or a website chat it asks them to text a photo.
+
+Either way the file goes on the lead (the customer, if the lead has gone since), the question counts as answered
+("Sent “bill.pdf”"), and the lead qualifies if that was the last thing missing. Then the worker:
+
+1. copies the file from the message (`telephony`) onto the lead's Files (`attachments`), so deleting one never
+   takes the other, and puts it on the timeline;
+2. emails each person the question names ("Rosa Diaz sent a file") and sends a phone notification (the
+   **customer_file** kind), once per file that came in.
+
+When a lead qualifies, whoever **When a lead qualifies → Tell** names gets an email ("Rosa Diaz is qualified: Solar
+panels", with the answers) and a phone notification (**lead_qualified**). Until 20261018000400 that setting was
+saved but told nobody; businesses that picked someone long ago start hearing from then on. Both phone notifications
+are on the **Your AI teammate's qualifying** switch in Settings → Notifications; the emails always go to the people
+named, so to stop them, change who the setting names. The person who recorded the last answer themselves is never
+told about it.
+
+The event is `file.received`. If a file shows as missing from a lead's Files, look for it in
+`fly logs --app handsfreeos-worker` and in the outbox:
+
+```sql
+select status, attempts, last_error from app.outbox
+where event_type = 'file.received' and workspace_id = '<business id>'
+order by created_at desc limit 5;
+```
+
+A person can still type an answer for a file question on the lead (say the customer brought it in); the AI teammate
+can't, so it never says a file came that didn't.
 
 #### A voicemail nobody can play
 

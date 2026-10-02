@@ -48,6 +48,7 @@ import {
   TEAMMATE_TURN_ENDERS,
   uuidArray,
   videoLinkCreate,
+  fileLinkCreate,
   walletRoom,
   workspaceMessaging,
   type AiEmployeeActor,
@@ -1287,10 +1288,11 @@ function sendInput(
 }
 
 /**
- * Its reply, with the link it asked them to send a video with on its own line at the end (20261018000300). The
- * link is made only now, as the reply goes out or waits as a draft, so a run that ends any other way leaves none;
- * on the business's own domain when one is serving, like every other link a customer gets. A customer who has
- * just texted STOP gets no link: the text itself is refused, or its draft is when someone approves it.
+ * Its reply, with the link it asked them to send a video with on its own line at the end (20261018000300), and the
+ * one to send a file a question asks for (20261018000400). The link is made only now, as the reply goes out or
+ * waits as a draft, so a run that ends any other way leaves none; on the business's own domain when one is serving,
+ * like every other link a customer gets. A customer who has just texted STOP gets no link: the text itself is
+ * refused, or its draft is when someone approves it.
  */
 async function withVideoLink(
   tx: Tx,
@@ -1302,27 +1304,52 @@ async function withVideoLink(
   conversationId: string,
   body: string,
 ): Promise<string> {
-  if (!state.videoLink || rc.conversation.channel !== 'sms') return body;
-  let path: string;
-  try {
-    ({ path } = await tx.transaction(
-      async (sp) =>
-        (
-          await executeCommandIn(
-            sp,
-            videoLinkCreate,
-            { workspaceId: rc.workspace.id, conversationId },
-            ai,
-            meta,
-          )
-        ).output,
-    ));
-  } catch (e) {
-    if (e instanceof HfosError && e.rule === 'opted_out') return body;
-    throw e;
+  if ((!state.videoLink && !state.fileLink) || rc.conversation.channel !== 'sms') return body;
+  // Each link the reply asked for, on a line of its own: the video's, then the file's (20261018000400).
+  const make = async (
+    run: (sp: Tx) => Promise<{ readonly output: { readonly path: string } }>,
+  ): Promise<string | null> => {
+    try {
+      return (await tx.transaction(async (sp) => (await run(sp)).output)).path;
+    } catch (e) {
+      if (e instanceof HfosError && e.rule === 'opted_out') return null;
+      throw e;
+    }
+  };
+  const paths: string[] = [];
+  if (state.videoLink) {
+    const path = await make((sp) =>
+      executeCommandIn(
+        sp,
+        videoLinkCreate,
+        { workspaceId: rc.workspace.id, conversationId },
+        ai,
+        meta,
+      ),
+    );
+    if (path) paths.push(path);
   }
-  const origin = await publicOrigin(tx, rc.workspace.id, ctx.webUrl);
-  return `${body}\n${origin.replace(/\/+$/, '')}${path}`;
+  const file = state.fileLink;
+  if (file) {
+    const path = await make((sp) =>
+      executeCommandIn(
+        sp,
+        fileLinkCreate,
+        {
+          workspaceId: rc.workspace.id,
+          conversationId,
+          leadId: file.leadId,
+          questionId: file.questionId,
+        },
+        ai,
+        meta,
+      ),
+    );
+    if (path) paths.push(path);
+  }
+  if (!paths.length) return body;
+  const origin = (await publicOrigin(tx, rc.workspace.id, ctx.webUrl)).replace(/\/+$/, '');
+  return [body, ...paths.map((p) => `${origin}${p}`)].join('\n');
 }
 
 type Finished = {

@@ -819,8 +819,11 @@ export interface MediaRef {
   readonly name: string;
   /** A customer file (app.files) sent as an outbound attachment. */
   readonly fileId?: string;
-  /** How it came, when it wasn't by text: `video_link`, a video the customer sent through a link we texted them. */
-  readonly via?: 'video_link';
+  /**
+   * How it came, when it wasn't by text: `video_link`, a video the customer sent through a link we texted them;
+   * `file_link`, a photo or PDF sent through a link that asked for a file (20261018000400).
+   */
+  readonly via?: 'video_link' | 'file_link';
 }
 
 /**
@@ -1202,6 +1205,11 @@ export const videoLinks = app.table('video_links', {
   uploadsStarted: smallint('uploads_started').notNull().default(0),
   uploadsReceived: smallint('uploads_received').notNull().default(0),
   lastUploadAt: ts('last_upload_at'),
+  /** 20261018000400: 'file' asks for a file that answers a qualifying question, on a lead. */
+  asksFor: text('asks_for').$type<'video' | 'file'>().notNull().default('video'),
+  leadId: uuid('lead_id').references((): AnyPgColumn => leads.id, { onDelete: 'set null' }),
+  questionId: text('question_id'),
+  ask: text('ask'),
   ...timestamps(),
 });
 

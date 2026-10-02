@@ -1603,3 +1603,105 @@ export function aiSwitchEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A customer sent the file a qualifying question asks for, like a photo of their electric bill (20261018000400): one
+ * email to each person the question says hears about it.
+ */
+export function fileReceivedEmail(input: {
+  customer: string;
+  /** The question, as it was asked. */
+  question: string;
+  /** The files' names. */
+  files: readonly string[];
+  /** It came through the link the AI teammate texted, or by text or email. */
+  via: 'file_link' | 'message';
+  /** Where it is now: the lead's page, else the customer's. */
+  link: string;
+  /** It answered the question on their lead (false when the lead has gone since). */
+  onLead: boolean;
+}): EmailContent {
+  const n = input.files.length;
+  const what = n === 1 ? `“${input.files[0]}”` : `${n} files`;
+  const subject = `${input.customer} sent ${n === 1 ? 'a file' : `${n} files`}`;
+  const how = input.via === 'file_link' ? 'through the link you texted them' : 'by message';
+  const opening = `${input.customer} sent ${what} ${how}, for “${input.question}”`;
+  const where = input.onLead
+    ? 'It’s on their lead, under Files.'
+    : 'It’s on the customer, under Files.';
+  const why =
+    'You’re getting this because the AI teammate’s question names you. To change who hears, open AI teammate, then Qualify.';
+  const label = input.onLead ? 'Open the lead' : 'Open the customer';
+  const text = [
+    `${opening}. ${where}`,
+    '',
+    ...(n > 1 ? [...input.files.map((f) => `- ${f}`), ''] : []),
+    `${label}: ${input.link}`,
+    '',
+    why,
+  ].join('\n');
+  const html = shell(
+    preheader(input.question) +
+      wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;"><strong>${escapeHtml(input.customer)}</strong>${escapeHtml(
+        opening.slice(input.customer.length),
+      )}. ${escapeHtml(where)}</p>` +
+      (n > 1
+        ? `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 0;">${input.files
+            .map((f, i) => detailRow(String(i + 1), f))
+            .join('')}</table>`
+        : '') +
+      button(input.link, label) +
+      small(escapeHtml(why)),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * A lead qualified ("When a lead qualifies → Tell", 20261018000400): one email to each person the AI teammate's
+ * settings name, with the answers that qualified it.
+ */
+export function leadQualifiedEmail(input: {
+  customer: string;
+  /** The lead's title, "Solar panels". */
+  lead: string;
+  /** Each answer under its question, as it was asked, oldest first. */
+  answers: readonly { question: string; answer: string }[];
+  /** "Ava"; null when there's no teammate to name. */
+  teammate: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `${input.customer} is qualified: ${input.lead}`;
+  const opening = `${input.customer} answered every qualifying question, and nothing rules them out.`;
+  const asked = input.teammate ? ` ${input.teammate} asked the questions.` : '';
+  const why =
+    'You’re getting this because the AI teammate’s settings name you under “When a lead qualifies”. To change who hears, open AI teammate, then Qualify.';
+  const text = [
+    `${opening}${asked}`,
+    '',
+    `Lead: ${input.lead}`,
+    ...input.answers.flatMap((a) => [`${a.question}`, `  ${a.answer}`]),
+    '',
+    `Open the lead: ${input.link}`,
+    '',
+    why,
+  ].join('\n');
+  const html = shell(
+    preheader(input.lead) +
+      wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;"><strong>${escapeHtml(input.customer)}</strong>${escapeHtml(
+        opening.slice(input.customer.length) + asked,
+      )}</p>` +
+      `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 0;">${[
+        detailRow('Lead', input.lead),
+        ...input.answers.map((a) => answerRow(a.question, a.answer)),
+      ].join('')}</table>` +
+      button(input.link, 'Open the lead') +
+      small(escapeHtml(why)),
+  );
+  return { subject, text, html };
+}
+
+/** A question above its answer: the question can be long, so it doesn't sit in a narrow label column. */
+const answerRow = (question: string, answer: string) =>
+  `<tr><td colspan="2" style="padding: 6px 0; border-top: 1px solid #e4e8ee;"><div style="color: #676c75;">${escapeHtml(question)}</div><div>${escapeHtml(answer)}</div></td></tr>`;
