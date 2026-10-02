@@ -11,32 +11,36 @@ Round one built deals, duties, dates, proof, documents, alerts, the duty editor 
 financing, inspections and repairs, the client's own tasks, and the client's portal. Round three (**Listing core**)
 adds the listing's side: the home's facts, photos, the description the seller signs off, the MLS hold, the public
 page, flyer, campaign and social posts, open houses, price changes the seller signs off, offers side by side with
-the seller's estimate, matching to the business's own buyers, and the seller's portal.
+the seller's estimate, matching to the business's own buyers, and the seller's portal. Round four (**Coordinator and
+risk**) reads contracts and amendments, tracks contingencies, knows which duties wait on others, watches a client's
+linked sale and purchase, raises at-risk work to the alert people after a business day, and adds Coordinate: Today,
+Exceptions, the Waiting room and Team workload.
 
 It's in **beta**: offered to nobody on its own. HandsFreeOS staff hand it to a test business, whose owners and
 admins then add it from their Add-ons page. It's free; its AI use is counted.
 
 ## Where things are
 
-| What                                  | Where                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, permissions, kinds, events  | `packages/core/src/addons/realestate/manifest.ts`                                                                                                                                                                                                                                                                                     |
-| The 148 duties and 24 trackers        | `packages/core/src/addons/realestate/catalog/`                                                                                                                                                                                                                                                                                        |
-| Business days, due rules, date checks | `packages/core/src/addons/realestate/dates/`                                                                                                                                                                                                                                                                                          |
-| Stages and duty statuses              | `states.ts`; terms and their history `terms.ts`; proof `proof.ts`; health `health.ts`; the alert ladder `ladder.ts`                                                                                                                                                                                                                   |
-| The duty editor's rules               | `editor.ts`; settings `settings.ts`                                                                                                                                                                                                                                                                                                   |
-| Words both apps and the AI use        | `words.ts`, `rule-words.ts` (a duty's rules, "due Fri"), `history-words.ts` (a deal's and a duty's history)                                                                                                                                                                                                                           |
-| Fair housing and the AI's prompts     | `fair-housing.ts`, `prompts.ts`                                                                                                                                                                                                                                                                                                       |
-| The buyer's side, in words            | `homes.ts` (facts and fit), `memory.ts`, `tours.ts` (the agreement rule), `cma.ts`, `offer-words.ts` (the one-page summary), `closing.ts`, `client-words.ts` (the portal's words)                                                                                                                                                     |
-| The listing's side, in words          | `listing.ts` (facts and where each came from, the hold, the page's address, the campaign's words, the questionnaire), `net.ts` (the seller's estimate), `offer-words.ts` (offers side by side)                                                                                                                                        |
-| Commands and queries                  | `packages/core/src/addons/realestate/ops/` (the engine that makes and dates duties is `ops/engine.ts`); all of them in `server.ts`                                                                                                                                                                                                    |
-| Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`                                                                                                                                                    |
-| Worker                                | `apps/worker/src/addons/realestate/`: the sweep and the alert ladder, the wiring alert, client-update drafting and checking; reading pasted listings, buyer memory, tours following the calendar, the CMA summary, the offer clock; `listing.ts` (a listing's facts, description, posts and reminders) and `matching.ts` (our buyers) |
-| Web                                   | components in `apps/web/src/addons/realestate/`; pages under `apps/web/src/app/app/w/[workspaceId]/a/realestate/`; panels and menu icons in `apps/web/src/addons/registry.ts`                                                                                                                                                         |
-| The client's portal                   | its pages in `apps/web/src/addons/realestate/portal/` (the seller's in `listing.tsx`); core's shell, sign-in, Home, Messages and Files in `apps/web/src/components/portal/` and `apps/web/src/app/c/[token]/`                                                                                                                         |
-| The public pages                      | `apps/web/src/addons/realestate/public/`, drawn by core's `apps/web/src/app/a/[site]/[addonId]/[...path]/`; their operations in `ops/public.ts` and `ops/open-houses.ts`                                                                                                                                                              |
-| Design boards                         | `design/realestate` (approved 2026-09-30)                                                                                                                                                                                                                                                                                             |
-| Tests                                 | `packages/core/test/addons/realestate-*.test.ts`; `apps/worker/test/realestate-*.test.ts`; `packages/db/test/private-records-rls.test.ts`; `apps/web/e2e/realestate.spec.ts`, `realestate-buyer.spec.ts`, `realestate-listing.spec.ts`                                                                                                |
+| What                                  | Where                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, permissions, kinds, events  | `packages/core/src/addons/realestate/manifest.ts`                                                                                                                                                                                                                                                                                                                                      |
+| The 148 duties and 24 trackers        | `packages/core/src/addons/realestate/catalog/`                                                                                                                                                                                                                                                                                                                                         |
+| Business days, due rules, date checks | `packages/core/src/addons/realestate/dates/`                                                                                                                                                                                                                                                                                                                                           |
+| Stages and duty statuses              | `states.ts`; terms and their history `terms.ts`; proof `proof.ts`; health `health.ts`; the alert ladder `ladder.ts`                                                                                                                                                                                                                                                                    |
+| The duty editor's rules               | `editor.ts`; settings `settings.ts`                                                                                                                                                                                                                                                                                                                                                    |
+| Words both apps and the AI use        | `words.ts`, `rule-words.ts` (a duty's rules, "due Fri"), `history-words.ts` (a deal's and a duty's history)                                                                                                                                                                                                                                                                            |
+| Fair housing and the AI's prompts     | `fair-housing.ts`, `prompts.ts`                                                                                                                                                                                                                                                                                                                                                        |
+| The buyer's side, in words            | `homes.ts` (facts and fit), `memory.ts`, `tours.ts` (the agreement rule), `cma.ts`, `offer-words.ts` (the one-page summary), `closing.ts`, `client-words.ts` (the portal's words)                                                                                                                                                                                                      |
+| Round four, in words                  | `contract-read.ts` (what the AI is asked and how its answer is checked), `contingencies.ts`, `catalog/order.ts` (which duties wait on which), `dates/linked.ts` (what a linked sale or purchase breaks)                                                                                                                                                                                |
+| The listing's side, in words          | `listing.ts` (facts and where each came from, the hold, the page's address, the campaign's words, the questionnaire), `net.ts` (the seller's estimate), `offer-words.ts` (offers side by side)                                                                                                                                                                                         |
+| Commands and queries                  | `packages/core/src/addons/realestate/ops/` (the engine that makes and dates duties is `ops/engine.ts`); all of them in `server.ts`                                                                                                                                                                                                                                                     |
+| Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`, round four's from `20261020001100`                                                                                                                                                                 |
+| Worker                                | `apps/worker/src/addons/realestate/`: the sweep and the alert ladder, the wiring alert, client-update drafting and checking; reading pasted listings, buyer memory, tours following the calendar, the CMA summary, the offer clock; `listing.ts` (a listing's facts, description, posts and reminders) and `matching.ts` (our buyers); `contract.ts` (reading a contract or amendment) |
+| Web                                   | components in `apps/web/src/addons/realestate/`; pages under `apps/web/src/app/app/w/[workspaceId]/a/realestate/`; panels and menu icons in `apps/web/src/addons/registry.ts`                                                                                                                                                                                                          |
+| The client's portal                   | its pages in `apps/web/src/addons/realestate/portal/` (the seller's in `listing.tsx`); core's shell, sign-in, Home, Messages and Files in `apps/web/src/components/portal/` and `apps/web/src/app/c/[token]/`                                                                                                                                                                          |
+| The public pages                      | `apps/web/src/addons/realestate/public/`, drawn by core's `apps/web/src/app/a/[site]/[addonId]/[...path]/`; their operations in `ops/public.ts` and `ops/open-houses.ts`                                                                                                                                                                                                               |
+| Design boards                         | `design/realestate` (approved 2026-09-30)                                                                                                                                                                                                                                                                                                                                              |
+| Tests                                 | `packages/core/test/addons/realestate-*.test.ts`; `apps/worker/test/realestate-*.test.ts`; `packages/db/test/private-records-rls.test.ts`; `apps/web/e2e/realestate.spec.ts`, `realestate-buyer.spec.ts`, `realestate-listing.spec.ts`, `realestate-coordinator.spec.ts`                                                                                                               |
 
 The core pieces it needed are core's, usable by any add-on: private records and support access
 (docs/relationships.md), add-on alerts on Home, push and email, locked files, and staff grants
@@ -52,7 +56,7 @@ The core pieces it needed are core's, usable by any add-on: private records and 
   (`…/history`) and a **client update** (`…/updates/<draft>`) are its own pages.
 - **My duties** (`/a/realestate/duties`): overdue, today, this week, later, waiting, blocked, and waiting for a date.
 - **Deal settings** (`/a/realestate/settings`, owners and admins): the duty list and its editor, publishing,
-  versions, the alert person, closed days, milestone drafts, and support access.
+  versions, the alert people, closed days, milestone drafts, and support access.
 - **Panels** on a customer, a company, a Pipeline lead and a property: their deals, and Start a deal from them.
 - **A buyer deal** also has, on its page, what the buyer wants, their homes and tours, the buyer agreement,
   financing, the client's to-do, and offers and CMAs; and its own pages under `…/deals/<id>/`: **What they want**
@@ -71,6 +75,17 @@ The core pieces it needed are core's, usable by any add-on: private records and 
   Settings → Real Estate → Alerts & dates picks the calendar tours and open houses go on.
 - **The public pages** (`/a/<site>/realestate/<slug>`, signed out): a listing's page with "Ask about this home", and
   an open house's sign-in (`…/open-house/<id>`), opened from the QR code on the printed sheet.
+- **Round four on a deal**: **the contract as read** (`…/contract/<read>`), the PDF beside each value with its clause,
+  page and words, to confirm or set aside, and for an amendment what it changes and which duties move;
+  **Contingencies** (`…/contingencies`), each with its end and how it ended; on the deal page, a callout while a
+  reading waits, the Contingencies and Linked deal cards, and what a linked deal breaks; on Documents, each reading's
+  state and Read it again. A duty's drawer shows what it waits on, what waits on it and what moves if it slips, and
+  Chased and It came in while it waits on someone outside.
+- **Coordinate** (`/a/realestate/coordinate`): **Today** (at risk, escalated, overdue, due today), **Exceptions**
+  (`?tab=exceptions`), the **Waiting room** (`?tab=waiting`) and **Workload** (`?tab=workload`, See every deal only),
+  each narrowed by `?mine=1` or `?agent=<id>`. **Deals** takes filters in its address: `agent`, `side`, `stage`,
+  `closing` (days), `waiting` (`outside`, `blocked`, `either`) and `health`.
+- **The client's portal** shows their contingencies on their deal, and how each ended.
 
 ## Rules worth knowing before changing anything
 
@@ -98,7 +113,7 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
 - **Changing the duty list changes new deals only.** Open deals keep their version until an owner or admin applies
   the new one to one deal, after seeing what it changes.
 - **Alerts:** Home cards, push and email; critical any time, the rest in working hours; critical ones also go to
-  the business's alert person (an owner or someone who sees every deal; the owners when nobody is picked).
+  the business's alert people (owners or people who see every deal; the owners when nobody is picked).
   Acknowledging stops an alert climbing. A changed wire raises a critical alert at once and a duty finished only by
   a phone check.
 - **The Assistant** looks things up on its own and changes things only with a person's OK. It never makes
@@ -160,6 +175,29 @@ Round three (Chris, 2026-10-01):
 - **Public photos are links that work for an hour**, and the public pages show only the business's name, never the
   agent's phone.
 
+Round four (Chris, 2026-10-02):
+
+- **The AI reads contracts and amendments** as they're added to Documents (`contract`, `amendment`, `addendum`):
+  parties, money, every date and contingency, each with its clause, page and the words it came from. A value whose
+  words aren't in the document, or a date that isn't a date ("within a reasonable time"), is never entered; it's
+  listed for the agent. Inspection reports and the Closing Disclosure aren't read.
+- **Scans are read too**: the PDF goes to the AI, and each value is marked "read from a scan" to check closely.
+- **A person confirms each value.** Until then it waits on Key dates, unconfirmed, beside its clause, and nothing
+  rests on it; the duties on its date start, or move, once it's confirmed. One that's wrong is set aside with a reason.
+- **The agent records how a contingency ended** (satisfied, waived or expired) with the signed form from the deal's
+  documents, as its proof; an owner or admin can record it without the form, with a reason kept. The client sees each
+  one, and how it ended, in their portal. A contingency ends on its key date, so moving the date moves it; past its
+  end with nothing recorded, the deal is red.
+- **Duties wait on others: built in, plus the agent's own** on the same deal, never in a circle. Built-in orders
+  stay; one that doesn't apply ends when its first duty is waived or done. Waiting on someone outside has a day to
+  chase them (two business days on, unless said), and "Chased" moves it on.
+- **Linked sale and purchase: watch both and warn.** Each shows the other's key dates, health and agent, never its
+  duties, documents or messages; a date that breaks the pair is flagged on both, to both agents.
+- **At risk for a business day with nobody acknowledging it** goes to the business's alert people too (up to 10, in
+  Deal settings; the owners when nobody is picked). Critical ones go to them at once, as before.
+- **Coordinate's views** cover the deals the person sees; Workload is about people, so it needs See every deal.
+  Exceptions stay until they're fixed, not when someone opens them.
+
 ## Handing it to a test business
 
 1. A HandsFreeOS staff member with `platform.addons.manage` opens **/admin/businesses/<business>** and presses
@@ -192,9 +230,9 @@ pnpm openapi                                                        # after chan
 - Showings and their feedback (round five, with the showing connector); vendors and booking the photographer;
   reports on competing listings.
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
-- Reading contracts and reports; the MLS, e-sign, lender, title, insurance and showing connectors (each needs an
-  add-on's own credentials and webhook routes in core first).
-- Phone screens for deals. Their links are ready: the manifest's `ui.phone` names the deal pages the phone will
+- Reading inspection reports and the Closing Disclosure; the MLS, e-sign, lender, title, insurance and showing
+  connectors (each needs an add-on's own credentials and webhook routes in core first).
+- Phone screens for deals and Coordinate. Their links are ready: the manifest's `ui.phone` names the deal pages the phone will
   draw, and a push, an email link or a Home card opens them there once the phone has them (the web until then).
 - The AI teammate using the add-on, and workflow steps and triggers from it.
 - State rules, a brokerage rule engine beyond the duty editor, retention and legal holds, and exporting a whole

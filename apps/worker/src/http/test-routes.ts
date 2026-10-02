@@ -36,6 +36,7 @@ import { HfosError, phoneRequired, scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { registerRealestateTestRoutes } from '../addons/realestate/test-routes';
 import { registerTeammateTestRoutes } from '../ai-team/test-routes';
 import { registerAttentionTestRoutes } from '../attention/test-routes';
 import { registerMoneyTestRoutes } from '../money/test-routes';
@@ -81,6 +82,9 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
   registerMoneyTestRoutes(app, deps, test.jobs);
   // Push's: what the stand-in was handed for a business, and its push jobs run now (push/test-routes.ts).
   registerPushTestRoutes(app, deps, test.jobs);
+  // Real Estate's: an at-risk duty aged, so its escalation shows without waiting a business day
+  // (addons/realestate/test-routes.ts).
+  registerRealestateTestRoutes(app, deps);
 
   // A signed-up test person made a HandsFreeOS support admin, the way PLATFORM_OWNER_EMAILS makes one at start
   // (support/owners.ts): so a browser test can hand an add-on in testing to its business (Real Estate step 11).

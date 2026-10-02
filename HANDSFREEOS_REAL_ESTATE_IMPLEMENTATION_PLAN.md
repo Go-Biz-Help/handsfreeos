@@ -1756,11 +1756,32 @@ Deals rows gain `waiting` (the first thing waiting outside or blocked).
 - A new **Coordinate** place with Today, Exceptions, Waiting room and Workload; filters on Deals; several alert people
   in Deal settings; the contingencies in the portal.
 
+**As built** (no migration; boards 50–61, approved 2026-10-02):
+
+- The contract's page (`contract/<read>`, `contract-page.tsx`) shows the PDF in the browser's own viewer, signed for
+  ten minutes with the person's session, and opens it at a value's page. Where the browser can't show a PDF inline
+  (most phones), it's a link. An amendment's page is the same one, with Was beside each value and What moves.
+- Contingencies (`contingencies-page.tsx`): "Add the signed form" files it on Documents as kind Other, marked signed,
+  then picks it; owners and admins get "Record it without the form" with a reason.
+- On the deal page (`risk-cards.tsx`): the reading callout, the Contingencies and Linked deal cards, and what a linked
+  deal breaks. "Link a deal" searches the open deals the person sees.
+- The duty drawer's order (`duty-waits.tsx`) adds only waits on another duty; waiting on someone outside stays
+  Waiting on…, which now takes the day to chase them. Chased and It came in sit on its callout.
+- Coordinate (`coordinate-page.tsx`, menu icon Radar) loads Today, Exceptions and the Waiting room for the tabs'
+  counts, and Workload only on its tab. "Agent" narrows by a deal's main agent, as the queries do.
+- Deals' filters are in the address; Health is worked out in the browser, the rest by `realestate.deal.list`. The list
+  shows Waiting on instead of Next duty while any deal is waiting.
+- The phone's pages (`ui.phone`) gain the contract, contingencies and Coordinate.
+
 ### Step 9: docs, the browser test and a video
 
 - `docs/realestate.md` and `docs/addon-architecture.md`, and "as built" here.
 - `apps/web/e2e/realestate-coordinator.spec.ts`: a contract read and confirmed, an amendment moving the closing, a
   contingency removed, a dependency, a linked sale slipping, the coordinator's views, and an escalation.
+
+**As built:** the spec makes its PDFs in code (`textPdf` in `realestate-helpers.ts`, as the worker's tests do), and
+the scripted reader finds their values. The worker's test-only `/test/realestate/at-risk-since` ages an at-risk
+duty, so the escalation shows at the next sweep without waiting a business day.
 
 ## Not in round four
 

@@ -87,6 +87,13 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
 - **Locked files** (Real Estate step 3): an add-on keeps a file for good with core's `file.lock` (a signed document).
   A locked file can't be deleted, renamed or unlocked by anyone (`file_locked`), stays locked if the add-on's data is
   deleted, and goes only with the whole business. The worker records every file's SHA-256 as it arrives.
+- **Reading a PDF** (Real Estate round four): an add-on's worker half reads one of the business's files with
+  `readFileBytes` (apps/worker/src/files/read.ts, which checks the file is the business's first), then
+  `documentText` (apps/worker/src/files/document-text.ts) for its text, page by page, the same reader the knowledge
+  base uses, with the size limit as a parameter. A PDF with no text (a scan) can go to the AI itself as a `document`
+  content block (`packages/ai`, `AI_DOCUMENT_MAX_BYTES`, `AI_DOCUMENT_MAX_PAGES`), with both providers. What the AI
+  says it found is checked against the words before anything is kept (each value's quote must be in the text), and
+  what came from a scan says so. A person confirms what matters; the AI never changes a record on its own.
 - **Alerts** (Real Estate step 5): what an add-on needs someone to see. Its worker calls `raiseAddonAlert(ctx, …)`
   (apps/worker/src/addons/alerts.ts) with its own key, a severity (`info`, `attention`, `at_risk`, `critical`), the
   words, one of its own pages (`/a/<id>/…`), one of its own permissions, and optionally a record, an audience, a due
@@ -318,8 +325,9 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
-- **Real Estate Agent's later rounds.** Its first three rounds (deals, duties, dates, proof, documents, alerts, the
+- **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
   duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
-  the seller's portal) are built and in beta (docs/realestate.md); MLS and property data, showings services and
+  the seller's portal; reading contracts, contingencies, duty order, linked deals, escalation and Coordinate) are
+  built and in beta (docs/realestate.md); MLS and property data, showings services and
   lockbox details wait for an add-on's own credentials and webhook routes above. Everyone else still sees it as
   Coming soon.
