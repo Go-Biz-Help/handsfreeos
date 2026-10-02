@@ -244,6 +244,13 @@ function inputOf(messages: readonly AiMessage[], searching: boolean): ResponseIn
             image_url: `data:${c.mediaType};base64,${c.data}`,
           });
           break;
+        case 'document':
+          parts.push({
+            type: 'input_file',
+            filename: c.title ? `${c.title}.pdf` : 'document.pdf',
+            file_data: `data:${c.mediaType};base64,${c.data}`,
+          });
+          break;
         case 'tool_call':
           flush();
           items.push({
