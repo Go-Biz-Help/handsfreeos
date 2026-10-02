@@ -239,8 +239,10 @@ describe('a scan', () => {
     await drain();
     const read = await readOf(doc.documentId);
     expect(read).toMatchObject({ state: 'read', scan: true, pages: 1 });
+    // Possession, at closing in the contract, moves with it.
     expect(read.values.map((v: Any) => [v.key, v.value, v.now])).toEqual([
       ['closing', 'Nov 4, 2026', 'Oct 30, 2026'],
+      ['possession', 'Nov 4, 2026', 'Oct 30, 2026'],
     ]);
     const sent = scanAsked!.messages[0]!.content as Any[];
     expect(sent[0]).toMatchObject({
@@ -252,7 +254,7 @@ describe('a scan', () => {
     });
     expect(sent[1].text).toContain('It’s a scan');
     expect((await alertOf(read.readId))!.title).toBe(
-      'Smith purchase: 1 value from “Amendment 1” to confirm',
+      'Smith purchase: 2 values from “Amendment 1” to confirm',
     );
   });
 
@@ -264,6 +266,7 @@ describe('a scan', () => {
     expect(read).toMatchObject({ state: 'read', scan: false, pages: 1 });
     expect(read.values.map((v: Any) => [v.key, v.value, v.clause])).toEqual([
       ['closing', 'Nov 6, 2026', '§2'],
+      ['possession', 'Nov 6, 2026', '§10 of the contract'],
     ]);
   });
 });
