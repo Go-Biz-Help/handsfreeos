@@ -8,6 +8,7 @@ import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server'
 import type { FastifyInstance } from 'fastify';
 import type { HttpDeps } from '../http/common';
 import type { ConnectionTester } from './connections';
+import type { AddonOAuthProvider } from './sign-ins';
 import type { AddonWebhookReceiver } from './webhooks';
 import type { Tx } from '@hfos/db/client';
 import type { EventRow } from '../handlers/types';
@@ -94,6 +95,11 @@ export interface AddonWorkerModule {
    * `webhooks`): checked and kept once by the worker's route, then handed here one at a time.
    */
   readonly webhooks?: Readonly<Record<string, Readonly<Record<string, AddonWebhookReceiver>>>>;
+  /**
+   * Connector key → service → how a business signs in to it (its manifest's `connectors`, for each service with
+   * `oauth`): the sign-in page, the code's swap for tokens, and their renewal.
+   */
+  readonly oauth?: Readonly<Record<string, Readonly<Record<string, AddonOAuthProvider>>>>;
   /**
    * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
    * providers, never in production.

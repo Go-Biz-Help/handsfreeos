@@ -16,17 +16,24 @@ import { rows, sql } from '@hfos/db/client';
 import { addonConnections } from '@hfos/db/schema';
 import { findAddon, type Catalog } from '../addons/graph';
 import type { AddonConnector, AddonConnectorProvider } from '../addons/manifest';
+import type { CommandContext } from '../kernel/types';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import {
+  AddonConnectionBeginSignInInput,
+  AddonConnectionBeginSignInOutput,
   AddonConnectionDisconnectInput,
   AddonConnectionDisconnectOutput,
+  AddonConnectionEndSignInInput,
+  AddonConnectionEndSignInOutput,
   AddonConnectionHealthInput,
   AddonConnectionHealthOutput,
   AddonConnectionOutput,
   AddonConnectionPlatformInput,
   AddonConnectionPlatformOutput,
   AddonConnectionSaveInput,
+  AddonConnectionTokensInput,
+  AddonConnectionTokensOutput,
   AddonConnectionWebhookInput,
   AddonConnectionWebhookOutput,
 } from '../schemas/addon-connection';
@@ -134,6 +141,11 @@ export function addonConnectionCommands(catalog: Catalog) {
         connectedBy: input.connectedBy,
         connectedAt: at,
         disconnectedAt: null,
+        // A sign-in that finished: its one-time state and verifier are spent.
+        oauthStateHash: null,
+        oauthStateExpiresAt: null,
+        pkceVerifierEnc: null,
+        oauthStartedBy: null,
       };
       const [was] = await ctx.tx
         .select({ id: addonConnections.id })
@@ -332,6 +344,151 @@ export function addonConnectionCommands(catalog: Catalog) {
     },
   });
 
+  /** A connection of one add-on's, for the worker acting for it; never another add-on's. */
+  async function ownConnection(ctx: CommandContext, workspaceId: string, connectionId: string) {
+    const [c] = await ctx.tx
+      .select()
+      .from(addonConnections)
+      .where(
+        and(
+          eq(addonConnections.id, connectionId),
+          eq(addonConnections.workspaceId, workspaceId),
+          ne(addonConnections.status, 'disconnected'),
+        ),
+      )
+      .for('update');
+    if (!c || (ctx.addon && ctx.addon.id !== c.addonId))
+      throw HfosError.notFound('That add-on has no connection by that id.');
+    return c;
+  }
+
+  const beginSignIn = defineCommand({
+    name: 'addon_connection.begin_sign_in',
+    description:
+      'Worker: a person starts signing in to a service for one of a business’s add-ons. Its one-time state (hashed) and PKCE verifier (sealed) wait ten minutes for the person to finish.',
+    risk: 1,
+    input: AddonConnectionBeginSignInInput,
+    output: AddonConnectionBeginSignInOutput,
+    permission: null,
+    actors: ['system'],
+    scope: inWorkspace,
+    emits: [],
+    async handler(ctx, input) {
+      const { connector, provider } = connectorOf(
+        catalog,
+        input.addonId,
+        input.connector,
+        input.provider,
+      );
+      if (!provider.auth.includes('oauth'))
+        throw HfosError.rule(
+          'addon_connector_auth',
+          409,
+          `${provider.label} doesn’t connect by signing in here. Use what its Connections offers.`,
+        );
+      const [on] = await rows<{ ok: boolean }>(
+        ctx.tx,
+        sql`select private.addon_in_use(${input.workspaceId}::uuid, ${input.addonId}, true) as ok`,
+      );
+      if (!on?.ok) throw HfosError.addonInactive(findAddon(catalog, input.addonId)!);
+      const state = {
+        oauthStateHash: Buffer.from(input.stateHash, 'hex'),
+        oauthStateExpiresAt: new Date(Date.now() + 10 * 60_000),
+        pkceVerifierEnc: input.pkceVerifierEnc,
+        oauthStartedBy: input.startedBy,
+      };
+      // Connecting again keeps the account in use until the new sign-in finishes.
+      const [was] = await ctx.tx
+        .select({ id: addonConnections.id })
+        .from(addonConnections)
+        .where(
+          and(
+            eq(addonConnections.workspaceId, input.workspaceId),
+            eq(addonConnections.addonId, input.addonId),
+            eq(addonConnections.connector, input.connector),
+            eq(addonConnections.provider, input.provider),
+            ne(addonConnections.status, 'disconnected'),
+            ne(addonConnections.auth, 'platform'),
+          ),
+        )
+        .for('update');
+      const [row] = was
+        ? await ctx.tx
+            .update(addonConnections)
+            .set(state)
+            .where(eq(addonConnections.id, was.id))
+            .returning({ id: addonConnections.id })
+        : await ctx.tx
+            .insert(addonConnections)
+            .values({
+              workspaceId: input.workspaceId,
+              addonId: input.addonId,
+              connector: input.connector,
+              provider: input.provider,
+              auth: 'oauth',
+              status: 'pending',
+              permission: connector.permission,
+              ...state,
+            })
+            .returning({ id: addonConnections.id });
+      return { connectionId: row!.id };
+    },
+  });
+
+  const endSignIn = defineCommand({
+    name: 'addon_connection.end_sign_in',
+    description:
+      'Worker: a sign-in that ends without connecting: refused at the service, or finished by somebody other than the person who started it. Its state stops working; an account already in use stays.',
+    risk: 0,
+    input: AddonConnectionEndSignInInput,
+    output: AddonConnectionEndSignInOutput,
+    permission: null,
+    actors: ['system'],
+    scope: inWorkspace,
+    emits: [],
+    async handler(ctx, input) {
+      const c = await ownConnection(ctx, input.workspaceId, input.connectionId);
+      await ctx.tx
+        .update(addonConnections)
+        .set({
+          oauthStateHash: null,
+          oauthStateExpiresAt: null,
+          pkceVerifierEnc: null,
+          oauthStartedBy: null,
+          ...(c.status === 'pending'
+            ? { status: 'disconnected' as const, disconnectedAt: new Date() }
+            : {}),
+          lastError: input.error,
+        })
+        .where(eq(addonConnections.id, c.id));
+      return { connectionId: c.id };
+    },
+  });
+
+  const tokens = defineCommand({
+    name: 'addon_connection.tokens',
+    description: 'Worker: a signed-in connection’s tokens, renewed with the service and sealed.',
+    risk: 0,
+    input: AddonConnectionTokensInput,
+    output: AddonConnectionTokensOutput,
+    permission: null,
+    actors: ['system'],
+    scope: inWorkspace,
+    emits: [],
+    async handler(ctx, input) {
+      const c = await ownConnection(ctx, input.workspaceId, input.connectionId);
+      await ctx.tx
+        .update(addonConnections)
+        .set({
+          secretEnc: input.secretEnc,
+          keyId: input.keyId,
+          tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+        })
+        .where(eq(addonConnections.id, c.id));
+      return { connectionId: c.id };
+    },
+  });
+
   const platform = defineCommand({
     name: 'addon_connection.platform',
     description:
@@ -380,5 +537,5 @@ export function addonConnectionCommands(catalog: Catalog) {
     },
   });
 
-  return { save, disconnect, health, webhook, platform };
+  return { save, disconnect, health, webhook, beginSignIn, endSignIn, tokens, platform };
 }

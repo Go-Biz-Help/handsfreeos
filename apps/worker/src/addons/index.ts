@@ -70,6 +70,7 @@ export function addonWorkerModuleIssues(
     dataMigrations = {},
     connectors = {},
     webhooks = {},
+    oauth = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -103,6 +104,19 @@ export function addonWorkerModuleIssues(
         if (!p?.auth.includes('key'))
           issues.push(
             `${m.id} tries keys for ${key} at ${id}, which its manifest doesn't connect by key`,
+          );
+      }
+    // Every service a business signs in to can be signed in to, and nothing else.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.auth.includes('oauth') && !oauth[c.key]?.[p.id])
+          issues.push(`${m.id} connects ${c.key} to ${p.id} by sign-in but can't sign in`);
+    for (const [key, providers] of Object.entries(oauth))
+      for (const id of Object.keys(providers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.auth.includes('oauth'))
+          issues.push(
+            `${m.id} signs in to ${id} for ${key}, which its manifest doesn't connect by sign-in`,
           );
       }
     // Every service that sends updates has a receiver, and nothing else does.

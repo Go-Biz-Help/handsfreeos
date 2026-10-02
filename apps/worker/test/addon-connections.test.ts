@@ -36,6 +36,7 @@ import {
 } from '../src/addons/connections';
 import { addonScope } from '../src/addons/context';
 import type { AddonWorkerModule } from '../src/addons/types';
+import { signinStub } from './addon-fixture-oauth';
 import { addonWorkerModuleIssues } from '../src/addons/index';
 import { buildHttpServer } from '../src/http/server';
 import { workerMeta } from '../src/services';
@@ -70,6 +71,8 @@ const module: AddonWorkerModule = {
   connectors: { listing_data: { acme: tester('acme'), other: tester('other') } },
   // Its updates are tested in addon-webhooks.test.ts.
   webhooks: { listing_data: { acme: { parse: () => [], handle: async () => 'ignored' } } },
+  // Its sign-in is tested in addon-sign-ins.test.ts.
+  oauth: { listing_data: { signin: signinStub } },
 };
 
 let app: FastifyInstance;

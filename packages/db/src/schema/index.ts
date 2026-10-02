@@ -5041,6 +5041,8 @@ export const addonConnections = app.table('addon_connections', {
   connectedBy: userRef('connected_by'),
   connectedAt: ts('connected_at'),
   disconnectedAt: ts('disconnected_at'),
+  /** Who started the sign-in under way: only they finish it (20261021000500). */
+  oauthStartedBy: userRef('oauth_started_by'),
   ...timestamps(),
 });
 

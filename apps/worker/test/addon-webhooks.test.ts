@@ -22,6 +22,7 @@ import { ADDON, fxconn } from '../../../packages/core/test/addons/connection-fix
 import { addonScope } from '../src/addons/context';
 import { addonWorkerModuleIssues } from '../src/addons/index';
 import type { AddonWorkerModule } from '../src/addons/types';
+import { signinStub } from './addon-fixture-oauth';
 import {
   addonDeliveryProcessor,
   openConnectionWebhook,
@@ -53,6 +54,7 @@ const module: AddonWorkerModule = {
       other: async () => ({ label: 'other', accountRef: null }),
     },
   },
+  oauth: { listing_data: { signin: signinStub } },
   webhooks: {
     listing_data: {
       acme: {

@@ -60,6 +60,37 @@ export const AddonConnectionWebhookInput = z.object({
 });
 export const AddonConnectionWebhookOutput = z.object({ connectionId: uuid });
 
+/** The worker: a sign-in starting, its one-time state hashed and its PKCE verifier sealed. */
+export const AddonConnectionBeginSignInInput = z.object({
+  workspaceId: uuid,
+  addonId,
+  connector: slug,
+  provider: slug,
+  /** SHA-256 of the one-time state, hex. */
+  stateHash: z.string().regex(/^[0-9a-f]{64}$/, 'Not a state hash.'),
+  pkceVerifierEnc: z.string().min(1).max(2000),
+  startedBy: uuid,
+});
+export const AddonConnectionBeginSignInOutput = z.object({ connectionId: uuid });
+
+/** The worker: a sign-in that ends without connecting (refused, or finished by somebody else). */
+export const AddonConnectionEndSignInInput = z.object({
+  workspaceId: uuid,
+  connectionId: uuid,
+  error: z.string().trim().min(1).max(500),
+});
+export const AddonConnectionEndSignInOutput = z.object({ connectionId: uuid });
+
+/** The worker: a signed-in connection's tokens, renewed. */
+export const AddonConnectionTokensInput = z.object({
+  workspaceId: uuid,
+  connectionId: uuid,
+  secretEnc: z.string().min(1).max(20_000),
+  keyId: z.string().min(1).max(100),
+  tokenExpiresAt: isoDateTime.nullable(),
+});
+export const AddonConnectionTokensOutput = z.object({ connectionId: uuid });
+
 export const AddonConnectionPlatformInput = z.object({
   workspaceId: uuid,
   addonId,

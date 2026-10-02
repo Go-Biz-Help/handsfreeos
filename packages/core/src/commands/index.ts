@@ -422,6 +422,9 @@ export const {
   disconnect: addonConnectionDisconnect,
   health: addonConnectionHealth,
   webhook: addonConnectionWebhook,
+  beginSignIn: addonConnectionBeginSignIn,
+  endSignIn: addonConnectionEndSignIn,
+  tokens: addonConnectionTokens,
   platform: addonConnectionPlatform,
 } = addonConnectionCommands(ADDON_CATALOG);
 export {
@@ -998,6 +1001,9 @@ export const commands: readonly CommandDef[] = [
   addonConnectionDisconnect,
   addonConnectionHealth,
   addonConnectionWebhook,
+  addonConnectionBeginSignIn,
+  addonConnectionEndSignIn,
+  addonConnectionTokens,
   addonConnectionPlatform,
   // Getting started.
   onboardingSaveAnswers,

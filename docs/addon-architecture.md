@@ -173,6 +173,18 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     stand-in, and nothing leaves the worker; HandsFreeOS's own account works there without a key.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
+- **Connecting by sign-in** (Real Estate round five, step 7): a service with `oauth` in its provider's `auth` is
+  connected by signing in to it. The add-on's worker half says how (`oauth[key][service]`: `authorizeUrl`,
+  `exchange`, `refresh`; apps/worker/src/addons/sign-ins.ts), and HandsFreeOS's app at the service (its client ID and
+  secret) is in `ADDON_PLATFORM_KEYS` under `<add-on>.<service>`.
+  - It works as every sign-in here does (http/addon-sign-ins.ts): `POST /v1/addons/connections/sign-in` keeps a
+    one-time state (hashed) and a PKCE verifier (sealed) for ten minutes; the callback connects nothing and hands a
+    seal to the app (`/app/oauth/finish?door=addon`); only the person who pressed Connect finishes it
+    (`POST /v1/addons/connections/finish`), and anybody else ends it. The tokens are sealed and kept, and the browser
+    goes back to the add-on's Connections.
+  - `signedInTokens(ctx, connection, provider)` renews the tokens when they're about to lapse; a renewal turned down
+    asks for the sign-in again (`reauth_required`).
+  - With the stand-ins the sign-in page is the worker's own (`/oauth/fake/addon/…`) and the tokens are made up.
 - **A service's updates** (Real Estate round five, step 2): a service that sends updates says so in the manifest
   (`webhooks: true` on its provider), and the add-on's worker half has a receiver for it (`webhooks[key][service]`:
   `verify`, `parse`, `handle`; apps/worker/src/addons/webhooks.ts).
@@ -360,8 +372,6 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   the event (WF-3).
 - **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
   can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
-- **Signing in to a service for an add-on (OAuth).** Connections take a pasted key today; a sign-in (DocuSign,
-  Dotloop) comes with round five's e-sign step, through the worker's OAuth routes.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
 - **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
