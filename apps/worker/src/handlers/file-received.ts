@@ -6,26 +6,16 @@
  * 1. **The copy.** Each file is copied from the customer's message (the `telephony` bucket) to its place on the
  *    record (`attachments`), and `file.finish_copy` marks it ready and puts it on the timeline. The message keeps
  *    its own, so deleting one never takes the other.
- * 2. **The alert.** Whoever the question names hears: an email each, and a push (the customer's-messages switch).
- *    Once per event: a marker event stops a retry emailing anyone twice.
+ * 2. **The alert.** Whoever the question names hears: an email each, and a push on the `qualifying` switch
+ *    (qualifying-alerts.ts). Once per event: a marker event stops a retry emailing anyone twice.
  */
-import {
-  executeCommandIn,
-  fileFinishCopy,
-  isWorkspaceUser,
-  NotifyWho,
-  uuidArray,
-  type RequestMeta,
-} from '@hfos/core/server';
-import { rows, sql, type Tx } from '@hfos/db/client';
+import { executeCommandIn, fileFinishCopy, NotifyWho, type RequestMeta } from '@hfos/core/server';
+import { rows, sql } from '@hfos/db/client';
 import { fileReceivedEmail } from '../emails/templates';
-import { errorMessage } from '../outbox';
-import { personName } from '../push/moment';
-import { queuePush } from '../push/queue';
+import { personActor, personName } from '../push/moment';
 import { systemActor, tenantOf, type TenantScope } from '../services';
-import { recordSystemEvent } from '../system-event';
 import { assertInWorkspace } from './file-removed';
-import { workspaceManagers } from './telephony';
+import { recipientsOf, sendAlert, toldAlready } from './qualifying-alerts';
 import type { HandlerContext } from './types';
 
 const TOLD = 'file.received_told';
@@ -111,62 +101,11 @@ async function copyOne(ctx: HandlerContext, scope: TenantScope, meta: RequestMet
   );
 }
 
-interface Recipient {
-  readonly id: string;
-  readonly email: string;
-}
-
-/** The people a question's "Tell" reaches who still work here: owners and admins, the assignee, the owner, or named. */
-async function recipients(
-  tx: Tx,
-  workspaceId: string,
-  who: NotifyWho,
-  r: Received,
-): Promise<Recipient[]> {
-  const usersById = async (ids: readonly (string | null | undefined)[]) => {
-    const here: string[] = [];
-    for (const id of new Set(ids.filter((v): v is string => typeof v === 'string')))
-      if (await isWorkspaceUser(tx, workspaceId, id)) here.push(id);
-    if (!here.length) return [];
-    return rows<{ id: string; email: string }>(
-      tx,
-      sql`select id, email::text as email from app.users where id = any(${uuidArray(here)}) order by email`,
-    );
-  };
-  switch (who.kind) {
-    case 'admins':
-      return (await workspaceManagers(tx, workspaceId)).map((u) => ({ id: u.id, email: u.email }));
-    case 'users':
-      return usersById(who.userIds.map((v) => (typeof v === 'string' ? v : null)));
-    case 'lead_assignee': {
-      if (!r.leadId) return [];
-      const [l] = await rows<{ assignee_user_id: string | null }>(
-        tx,
-        sql`select assignee_user_id from app.leads where id = ${r.leadId} and workspace_id = ${workspaceId}`,
-      );
-      return usersById([l?.assignee_user_id]);
-    }
-    case 'person_owner': {
-      if (!r.personId) return [];
-      const [p] = await rows<{ owner_user_id: string | null }>(
-        tx,
-        sql`select owner_user_id from app.people where id = ${r.personId} and workspace_id = ${workspaceId}`,
-      );
-      return usersById([p?.owner_user_id]);
-    }
-  }
-}
-
-/** Tells whoever the question names, once: an email each and a push. */
+/** Tells whoever the question names, once: an email each and a push (qualifying-alerts.ts). */
 async function tell(ctx: HandlerContext, scope: TenantScope, r: Received): Promise<void> {
-  if (!r.notify || !r.files.length) return;
-  const [done] = await rows(
-    ctx.tx,
-    sql`select 1 from app.events where causation_id = ${ctx.event.id} and event_type = ${TOLD} limit 1`,
-  );
-  if (done) return;
+  if (!r.notify || !r.files.length || (await toldAlready(ctx, TOLD))) return;
   const ws = scope.workspaceId;
-  const people = await recipients(ctx.tx, ws, r.notify, r);
+  const people = await recipientsOf(ctx.tx, ws, r.notify, r, personActor(ctx));
   if (!people.length) return;
   const customer = (await personName(ctx.tx, r.personId)) ?? 'A customer';
   const names = r.files.map((f) => f.name);
@@ -179,12 +118,13 @@ async function tell(ctx: HandlerContext, scope: TenantScope, r: Received): Promi
         ? `/app/w/${ws}/inbox/${r.conversationId}`
         : `/app/w/${ws}`;
   const what = names.length === 1 ? `“${names[0]}”` : `${names.length} files`;
-  // In a savepoint: a push that can't be queued never costs the emails, nor the copy.
-  const push = (tx: Tx) =>
-    queuePush(tx, scope, {
+  await sendAlert(ctx, scope, {
+    marker: TOLD,
+    action: 'file.received_tell',
+    people,
+    push: {
       key: `file:${ctx.event.id}`,
       category: 'customer_file',
-      userIds: people.map((p) => p.id),
       title: `File sent · ${customer}`,
       body: `${what} for “${r.question}”`,
       path,
@@ -193,39 +133,16 @@ async function tell(ctx: HandlerContext, scope: TenantScope, r: Received): Promi
         ...(r.personId ? { personId: r.personId } : {}),
         ...(r.conversationId ? { conversationId: r.conversationId } : {}),
       },
-    });
-  try {
-    await ctx.tx.transaction(push);
-  } catch (err) {
-    ctx.log.warn({ err: errorMessage(err) }, 'could not queue the file push');
-  }
-  const mail = fileReceivedEmail({
-    customer,
-    question: r.question,
-    files: names,
-    via: r.via,
-    link: `${ctx.webUrl}${path}`,
-    onLead,
-  });
-  const emailed: string[] = [];
-  for (const p of people)
-    try {
-      await ctx.mailer.send({ to: p.email, ...mail });
-      emailed.push(p.email);
-    } catch (e) {
-      ctx.log.warn({ err: errorMessage(e), userId: p.id }, 'could not email that a file came in');
-    }
-  await recordSystemEvent(ctx.tx, {
-    type: TOLD,
-    action: 'file.received_tell',
-    organizationId: scope.organizationId,
-    workspaceId: ws,
-    entityType: ctx.event.entityType,
-    entityId: ctx.event.entityId,
-    payload: { userIds: people.map((p) => p.id), _broadcast: false },
-    after: { emailed, question: r.question },
-    correlationId: ctx.event.correlationId,
-    causationId: ctx.event.id,
+    },
+    mail: fileReceivedEmail({
+      customer,
+      question: r.question,
+      files: names,
+      via: r.via,
+      link: `${ctx.webUrl}${path}`,
+      onLead,
+    }),
+    after: { question: r.question },
   });
 }
 

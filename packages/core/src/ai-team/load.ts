@@ -113,10 +113,15 @@ export function teammateProgressOf(row: TeammateRow) {
   };
 }
 
-/** The people its settings name (who hears about hand-offs and qualified leads). */
+/** The people its settings name (who hears about hand-offs, qualified leads, and files that come in). */
 export function teammateUserIds(config: TeammateConfig): string[] {
   const ids = new Set<string>();
-  for (const who of [config.handOff.notify, config.qualify.whenQualified.notify])
+  const told = [
+    config.handOff.notify,
+    config.qualify.whenQualified.notify,
+    ...config.qualify.questions.map((q) => q.notify),
+  ];
+  for (const who of told)
     if (who?.kind === 'users')
       for (const u of who.userIds) if (typeof u === 'string' && UUID.test(u)) ids.add(u);
   return [...ids];

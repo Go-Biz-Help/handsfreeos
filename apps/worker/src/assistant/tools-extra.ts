@@ -888,6 +888,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   jobs: 'A job you were on is over',
   connections: 'A connection stops working',
   supportTickets: 'New support tickets',
+  qualifying: 'Your AI teammate’s qualifying',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {

@@ -17,6 +17,10 @@
 --
 --        A file link lasts a week and takes five files, each up to 25 MB, the
 --        `attachments` bucket's own limit, since that is where they end up.
+--
+--        **A phone switch for the teammate's qualifying.** `qualifying` turns
+--        off the push when a file comes in, and when a lead qualifies (the
+--        "Tell" under "When a lead qualifies", which told nobody until now).
 -- =============================================================================
 
 alter table app.video_links
@@ -42,3 +46,25 @@ create policy video_links_insert on app.video_links for insert to authenticated
     and asks_for = 'video' and lead_id is null and question_id is null and ask is null);
 
 grant select (asks_for, lead_id, question_id, ask) on app.video_links to authenticated;
+
+-- ---------- the phone switch for it ----------
+-- `qualifying`: the AI teammate's qualifying, to the people its settings name: a customer sent the file a question
+-- asks for (`customer_file`), or a lead qualified (`lead_qualified`, which "Who hears about qualified leads" names
+-- and which until now told nobody). On unless turned off. Every switch 20261016000100 knows stays, `addons` among
+-- them.
+create or replace function private.push_on(p_settings jsonb, p_key text)
+returns boolean language plpgsql immutable set search_path = '' as $$
+begin
+  if p_key is null or p_key not in ('customerWaiting', 'missedCall', 'urgent', 'approval', 'booking', 'assigned',
+                                    'payment', 'wallet', 'jobs', 'connections', 'addons', 'supportTickets',
+                                    'qualifying') then
+    raise exception 'Unknown push switch: %', p_key using errcode = '22023', detail = 'push_switch_unknown';
+  end if;
+  if jsonb_typeof(p_settings -> 'push' -> p_key) = 'boolean' then
+    return (p_settings -> 'push' ->> p_key)::boolean;
+  end if;
+  return p_key <> 'payment';
+end $$;
+
+comment on column app.users.settings is
+  'Per-person choices, each top-level key saved whole: theme; notifications, the email switches (unansweredEmail, attentionDigest, aiHandoff, bookingEmail, paymentEmail, agencyDigest, eveningSummary, addonEmail), each on unless false; push, the phone''s switches (customerWaiting, missedCall, urgent, approval, booking, assigned, payment, wallet, jobs, connections, addons, supportTickets, qualifying), each on unless false except payment: private.push_on.';

@@ -50,8 +50,9 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   job_check: 12 * HOUR_S,
   // Broken until someone reconnects it: still worth hearing about tomorrow.
   connection: 24 * HOUR_S,
-  // A bill or a photo a customer sent for a qualifying question: it's on their lead tomorrow, as today.
+  // A bill or a photo a customer sent for a qualifying question, or a lead that qualified: on the lead tomorrow too.
   customer_file: 24 * HOUR_S,
+  lead_qualified: 24 * HOUR_S,
   // Someone waiting on HandsFreeOS, like a customer's message to a business; by tomorrow the desk's queue has it.
   support_ticket: 12 * HOUR_S,
 };

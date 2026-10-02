@@ -1,9 +1,9 @@
 /**
- * What the email says when a customer sends the file a qualifying question asks for (20261018000400): who sent what,
- * for which question, how it came, and where it is now.
+ * The AI teammate's qualifying emails (20261018000400): when a customer sends the file a question asks for (who sent
+ * what, for which question, how it came, and where it is now), and when a lead qualifies (with the answers).
  */
 import { describe, expect, it } from 'vitest';
-import { fileReceivedEmail } from '../src/emails/templates';
+import { fileReceivedEmail, leadQualifiedEmail } from '../src/emails/templates';
 
 const LINK = 'https://app.handsfreeos.com/app/w/w1/leads/l1';
 const email = (over: Partial<Parameters<typeof fileReceivedEmail>[0]> = {}) =>
@@ -48,5 +48,45 @@ describe('the file email', () => {
     const m = email({ customer: 'Ann <b>', files: ['<script>.pdf'] });
     expect(m.html).not.toContain('<script>');
     expect(m.html).toContain('Ann &lt;b&gt;');
+  });
+});
+
+describe('the qualified-lead email', () => {
+  const qualified = (over: Partial<Parameters<typeof leadQualifiedEmail>[0]> = {}) =>
+    leadQualifiedEmail({
+      customer: 'Rosa Diaz',
+      lead: 'Solar panels',
+      answers: [
+        { question: 'Do you own the home?', answer: 'Yes' },
+        {
+          question: 'Can you send a photo of your latest electric bill?',
+          answer: 'Sent “bill.pdf”',
+        },
+      ],
+      teammate: 'Ava',
+      link: LINK,
+      ...over,
+    });
+
+  it('names the customer and the lead, with each answer under its question', () => {
+    const m = qualified();
+    expect(m.subject).toBe('Rosa Diaz is qualified: Solar panels');
+    expect(m.text).toContain(
+      'Rosa Diaz answered every qualifying question, and nothing rules them out. Ava asked the questions.',
+    );
+    expect(m.text).toContain('Do you own the home?\n  Yes');
+    expect(m.text).toContain(`Open the lead: ${LINK}`);
+    expect(m.text).toContain('open AI teammate, then Qualify');
+    expect(m.html).toContain('Sent “bill.pdf”');
+  });
+
+  it('leaves out who asked when there’s no teammate to name, and escapes what customers wrote', () => {
+    const m = qualified({
+      teammate: null,
+      answers: [{ question: 'Budget?', answer: '<b>5k</b>' }],
+    });
+    expect(m.text).not.toContain('asked the questions');
+    expect(m.html).not.toContain('<b>5k</b>');
+    expect(m.html).toContain('&lt;b&gt;5k&lt;/b&gt;');
   });
 });

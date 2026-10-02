@@ -1,7 +1,8 @@
 /**
  * A link that asks for a file, end to end through the worker and the real local Storage (20261018000400): the page
  * says what was asked and takes a PDF, the PDF lands in the conversation as the customer's reply and answers the
- * question on their lead, and then the worker copies it onto the lead's Files and emails whoever the question names.
+ * question on their lead, and then the worker copies it onto the lead's Files and emails whoever the question names;
+ * the lead qualifies, and whoever "When a lead qualifies → Tell" names hears that too.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -89,6 +90,8 @@ beforeAll(async () => {
       qualify: {
         enabled: true,
         questions: [{ id: 'bill', question: BILL, kind: 'file', notify: { kind: 'admins' } }],
+        // "When a lead qualifies → Tell" (20261018000400), which told nobody before.
+        whenQualified: { notify: { kind: 'admins' } },
       },
     }),
   });
@@ -175,5 +178,18 @@ describe('a link that asks for a file', () => {
       `Rosa Diaz sent “bill.pdf” through the link you texted them, for “${BILL}”`,
     );
     expect(mail.text).toContain(`/app/w/${w.workspaceId}/leads/${leadId}`);
+
+    // The bill was the last thing missing, so the lead qualified, and "Tell" hears that too.
+    const qualified = await waitForMail(w.owner.email, 'Rosa Diaz is qualified: Solar');
+    expect(qualified.text).toContain(BILL);
+    expect(qualified.text).toContain('Sent “bill.pdf”');
+    const told = await rows<{ event_type: string }>(
+      admin(),
+      sql`select event_type from app.events
+          where workspace_id = ${w.workspaceId}
+            and event_type in ('file.received_told', 'lead.qualified_told')
+          order by event_type`,
+    );
+    expect(told.map((e) => e.event_type)).toEqual(['file.received_told', 'lead.qualified_told']);
   });
 });

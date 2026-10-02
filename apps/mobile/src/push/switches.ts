@@ -74,6 +74,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     email: null,
   },
   {
+    title: 'Your AI teammate’s qualifying',
+    detail: 'A lead qualifies, or a customer sends a file',
+    push: 'qualifying',
+    email: 'always',
+  },
+  {
     title: 'A customer pays',
     detail: 'An invoice is paid in full',
     push: 'payment',

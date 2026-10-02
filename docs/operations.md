@@ -1073,7 +1073,14 @@ Either way the file goes on the lead (the customer, if the lead has gone since),
 1. copies the file from the message (`telephony`) onto the lead's Files (`attachments`), so deleting one never
    takes the other, and puts it on the timeline;
 2. emails each person the question names ("Rosa Diaz sent a file") and sends a phone notification (the
-   **customer_file** kind, on the customer's-messages switch), once per file that came in.
+   **customer_file** kind), once per file that came in.
+
+When a lead qualifies, whoever **When a lead qualifies → Tell** names gets an email ("Rosa Diaz is qualified: Solar
+panels", with the answers) and a phone notification (**lead_qualified**). Until 20261018000400 that setting was
+saved but told nobody; businesses that picked someone long ago start hearing from then on. Both phone notifications
+are on the **Your AI teammate's qualifying** switch in Settings → Notifications; the emails always go to the people
+named, so to stop them, change who the setting names. The person who recorded the last answer themselves is never
+told about it.
 
 The event is `file.received`. If a file shows as missing from a lead's Files, look for it in
 `fly logs --app handsfreeos-worker` and in the outbox:

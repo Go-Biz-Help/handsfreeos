@@ -51,6 +51,7 @@ import {
 } from './email';
 import { onFileDeleted } from './file-removed';
 import { onFileReceived } from './file-received';
+import { onLeadQualified } from './qualifying-alerts';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
 import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
@@ -138,6 +139,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'file.deleted': onFileDeleted,
     // 20261018000400: a customer's file for a file question: copied onto the lead, and the question's people told.
     'file.received': onFileReceived,
+    // "When a lead qualifies → Tell": whoever the AI teammate's settings name hears, with the answers.
+    'lead.qualified': onLeadQualified,
     'import.requested': onImportRequested,
     'phone_number.purchase_requested': onPurchaseRequested,
     'phone_number.release_requested': onReleaseRequested,

@@ -542,7 +542,7 @@ function WhenQualified({
             ))}
         </Select>
       </SetRow>
-      <SetRow center title="Tell">
+      <SetRow center title="Tell" description="By email, and on their phone.">
         <NotifyPicker
           value={w.notify}
           members={catalogs.members}
