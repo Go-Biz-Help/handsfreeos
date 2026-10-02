@@ -40766,6 +40766,7 @@ export interface operations {
                                     hint: string | null;
                                     key: string;
                                     label: string;
+                                    optional: boolean;
                                     secret: boolean;
                                 }[];
                                 id: string;

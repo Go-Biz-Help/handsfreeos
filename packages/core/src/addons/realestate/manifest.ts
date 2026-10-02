@@ -436,6 +436,80 @@ export const realestateAddon = defineAddon({
     'realestate.offer_clock',
     'realestate.open_house_follow_up',
   ],
+  // Round five: listing data from a feed (Chris, 2026-10-02). HandsFreeOS's own Repliers account by default, turned
+  // on by staff; a brokerage can connect its own Repliers or AnyProp account, or its MLS's own RESO Web API, instead.
+  connectors: [
+    {
+      key: 'listing_data',
+      label: 'Listing data',
+      permission: 'realestate.manage',
+      providers: [
+        {
+          id: 'repliers',
+          label: 'Repliers',
+          auth: ['platform', 'key'],
+          fields: [
+            {
+              key: 'apiKey',
+              label: 'API key',
+              secret: true,
+              hint: 'In your Repliers dashboard, under API keys. It reads the MLSs your Repliers account is approved for.',
+            },
+          ],
+        },
+        {
+          id: 'anyprop',
+          label: 'AnyProp',
+          auth: ['key'],
+          fields: [
+            {
+              key: 'username',
+              label: 'Username',
+              secret: false,
+              hint: 'The API username AnyProp gave you.',
+            },
+            { key: 'password', label: 'Password', secret: true },
+          ],
+        },
+        {
+          id: 'reso',
+          label: 'Your MLS’s own feed (RESO Web API)',
+          auth: ['key'],
+          fields: [
+            {
+              key: 'serviceUrl',
+              label: 'Web API address',
+              secret: false,
+              hint: 'The address your MLS or its vendor (Bridge, Trestle, MLS Grid) gave you, up to the part before /Property.',
+            },
+            {
+              key: 'accessToken',
+              label: 'Server token',
+              secret: true,
+              optional: true,
+              hint: 'Bridge and MLS Grid give one. Leave it empty if you were given a client ID and secret instead.',
+            },
+            { key: 'clientId', label: 'Client ID', secret: false, optional: true },
+            { key: 'clientSecret', label: 'Client secret', secret: true, optional: true },
+            {
+              key: 'tokenUrl',
+              label: 'Token address',
+              secret: false,
+              optional: true,
+              hint: 'Only with a client ID and secret, such as Trestle’s.',
+            },
+            {
+              key: 'mls',
+              label: 'MLS name in the feed',
+              secret: false,
+              optional: true,
+              hint: 'Its OriginatingSystemName, when the feed carries more than one MLS. MLS Grid needs it.',
+            },
+          ],
+        },
+      ],
+    },
+  ],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.

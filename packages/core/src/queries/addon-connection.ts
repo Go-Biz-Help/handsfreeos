@@ -90,6 +90,7 @@ export function addonConnectionQueries(catalog: Catalog) {
                 label: f.label,
                 secret: f.secret,
                 hint: f.hint ?? null,
+                optional: !!f.optional,
               })),
             })),
             connections: mine.map((x, i) => ({

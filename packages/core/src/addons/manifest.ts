@@ -267,6 +267,8 @@ export interface AddonConnectorProvider {
     readonly label: string;
     readonly secret: boolean;
     readonly hint?: string;
+    /** It may be left empty (one of two ways a service signs in, say); the service's tester decides. */
+    readonly optional?: boolean;
   }[];
   /**
    * The service sends its updates to the connection's own address (round five, step 2): the add-on's worker half

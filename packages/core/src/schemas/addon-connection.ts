@@ -109,6 +109,7 @@ export const AddonConnectionListOutput = z.object({
               label: z.string(),
               secret: z.boolean(),
               hint: z.string().nullable(),
+              optional: z.boolean(),
             }),
           ),
         }),

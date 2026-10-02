@@ -1886,6 +1886,19 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 
 - **Step 3:** the listing-data connector and its three adapters (Repliers, AnyProp, RESO Web API), with a stand-in
   for tests.
+
+  **As built** (no migration): the manifest's `listing_data` connector (managed with `realestate.manage`): Repliers
+  by key or HandsFreeOS's own account, AnyProp by username and password, and a direct RESO feed by server token or
+  client ID and secret. Core's `feed.ts` is the one shape (RESO's names, the MLS's notice, logo and courtesy line);
+  the worker's adapters ask in each supplier's own words, AnyProp is a RESO feed with its token and MLS profiles,
+  and `askFeed` uses the business's own account before HandsFreeOS's and records each answer on the connection.
+  - Repliers' updates (webhooks) cover every listing on an account, with no way to ask for some, so the feed is read
+    with targeted questions every 15 minutes instead; a service's updates (step 2) carry e-sign.
+  - MLS Grid only copies its whole feed out, so a direct MLS Grid feed answers MLS numbers and our listings'
+    status, and a broader search says it can't.
+  - The stand-in MLS (60 made-up homes around Austin; `ADDON_CONNECTORS=fake`) answers every question locally,
+    and HandsFreeOS's own account works there without a key.
+
 - **Step 4:** a home's facts and photos from the feed; sold comps for a CMA.
 - **Step 5:** buyers' saved searches and new matches; what the client sees.
 - **Step 6:** our listings' status from the feed.

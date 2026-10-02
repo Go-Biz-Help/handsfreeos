@@ -97,8 +97,8 @@ export function registerAddonConnectionRoutes(
     for (const f of provider.fields ?? []) {
       const v = input.fields[f.key];
       const value = f.secret ? v : v?.trim();
-      if (!value?.trim()) missing.push(f.label);
-      else fields[f.key] = value;
+      if (value?.trim()) fields[f.key] = value;
+      else if (!f.optional) missing.push(f.label);
     }
     if (missing.length)
       throw HfosError.rule(

@@ -74,8 +74,11 @@ const connectionColumns = sql`id, connector, provider, auth, status, label, acco
 /** A row with its key opened: from the sealed column, or HandsFreeOS's own from the environment. Null without one. */
 function opened(ctx: AddonScopeContext, c: ConnectionRow): AddonConnection | null {
   let secret: Record<string, string> | null = null;
+  // HandsFreeOS's own account: its key from the environment; the stand-ins need none.
   if (c.auth === 'platform')
-    secret = ctx.addonConnect?.platformKeys[platformKeyName(ctx.manifest.id, c.provider)] ?? null;
+    secret =
+      ctx.addonConnect?.platformKeys[platformKeyName(ctx.manifest.id, c.provider)] ??
+      (ctx.addonConnect?.fake ? {} : null);
   else if (c.secret_enc)
     secret = JSON.parse(ctx.sealer.open(c.secret_enc)) as Record<string, string>;
   // HandsFreeOS's own account with no key here (a local stack, a deploy without it): as if it weren't there.

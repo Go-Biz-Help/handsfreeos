@@ -197,7 +197,7 @@ describe('an add-on’s connections', () => {
     expect(feed).toMatchObject({ key: 'listing_data', label: 'Listing data', canManage: true });
     expect(feed!.providers.map((p) => p.id)).toEqual(['acme', 'other', 'signin']);
     expect(feed!.providers[0]!.fields).toEqual([
-      { key: 'apiKey', label: 'API key', secret: true, hint: null },
+      { key: 'apiKey', label: 'API key', secret: true, hint: null, optional: false },
     ]);
     expect(feed!.connections).toEqual([
       expect.objectContaining({

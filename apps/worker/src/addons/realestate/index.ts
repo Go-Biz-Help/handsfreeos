@@ -32,6 +32,7 @@ import {
   milestoneReached,
 } from './client-updates';
 import { contractDecided, contractReadFinished, contractReadRequested } from './contract';
+import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
 import {
@@ -287,4 +288,6 @@ export const realestateAddonWorker: AddonWorkerModule = {
     await armSweep(ctx);
     await armOfferClocks(ctx);
   },
+  // Round five: a pasted key for its listing feed, tried with the supplier before it's kept (./feed/index.ts).
+  connectors: { [LISTING_DATA]: listingDataTesters() },
 };

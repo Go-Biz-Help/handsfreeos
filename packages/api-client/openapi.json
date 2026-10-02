@@ -115885,13 +115885,17 @@
                                           "string",
                                           "null"
                                         ]
+                                      },
+                                      "optional": {
+                                        "type": "boolean"
                                       }
                                     },
                                     "required": [
                                       "key",
                                       "label",
                                       "secret",
-                                      "hint"
+                                      "hint",
+                                      "optional"
                                     ],
                                     "additionalProperties": false
                                   }
