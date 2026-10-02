@@ -232,6 +232,8 @@ export const realestateAddon = defineAddon({
     // Round four: coordinator and risk.
     'contract_reads',
     'contingencies',
+    // Round five: buyers' new matches from the listing feed.
+    'feed_matches',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -369,6 +371,10 @@ export const realestateAddon = defineAddon({
       'realestate.listing.mls_found',
       'realestate.cma.comps_requested',
       'realestate.cma.comps_found',
+      'realestate.search.changed',
+      'realestate.search.matched',
+      'realestate.match.sent',
+      'realestate.match.dismissed',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -438,6 +444,9 @@ export const realestateAddon = defineAddon({
       'realestate.home.lookup_requested',
       'realestate.listing.lookup_requested',
       'realestate.cma.comps_requested',
+      // A buyer's search: its Home card comes down when nothing waits on the agent.
+      'realestate.match.sent',
+      'realestate.match.dismissed',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
@@ -446,6 +455,8 @@ export const realestateAddon = defineAddon({
     'realestate.memory_suggest',
     'realestate.offer_clock',
     'realestate.open_house_follow_up',
+    // Round five: the listing feed asked every fifteen minutes for each buyer's search.
+    'realestate.feed_check',
   ],
   // Round five: listing data from a feed (Chris, 2026-10-02). HandsFreeOS's own Repliers account by default, turned
   // on by staff; a brokerage can connect its own Repliers or AnyProp account, or its MLS's own RESO Web API, instead.

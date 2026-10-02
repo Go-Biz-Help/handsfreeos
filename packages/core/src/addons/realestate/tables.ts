@@ -584,6 +584,11 @@ export const buyerProfiles = addonRealestate.table(
       .notNull()
       .default(sql`'{}'`),
     version: integer('version').notNull().default(1),
+    // Round five: the profile as a saved search on the listing feed.
+    searchOn: boolean('search_on').notNull().default(true),
+    searchCheckedAt: ts('search_checked_at'),
+    searchCardOn: date('search_card_on', { mode: 'string' }),
+    searchFailure: text('search_failure'),
     updatedBy: userRef('updated_by'),
     updatedAt: ts('updated_at').notNull().defaultNow(),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -1876,3 +1881,36 @@ export const REALESTATE_TABLES = {
   contractReads,
   contingencies,
 } as const;
+
+/** A buyer's new match from the listing feed, for the agent to send to the client or set aside (round five). */
+export const feedMatches = addonRealestate.table(
+  'feed_matches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    provider: text('provider').notNull(),
+    listingKey: text('listing_key').notNull(),
+    mlsNumber: text('mls_number').notNull(),
+    mls: jsonb('mls').$type<Record<string, unknown>>().notNull(),
+    state: text('state').notNull().default('new').$type<'new' | 'sent' | 'dismissed'>(),
+    foundAt: ts('found_at').notNull().defaultNow(),
+    changedAt: ts('changed_at'),
+    decidedBy: userRef('decided_by'),
+    decidedAt: ts('decided_at'),
+    homeId: uuid('home_id'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.dealRecordId, t.provider, t.listingKey),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.homeId],
+      foreignColumns: [homes.workspaceId, homes.id],
+    }),
+  ],
+);

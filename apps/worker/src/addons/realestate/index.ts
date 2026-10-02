@@ -34,6 +34,7 @@ import {
 import { contractDecided, contractReadFinished, contractReadRequested } from './contract';
 import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
+import { armFeedCheck, FEED_CHECK, feedCheckJob, matchDecided } from './feed/searches';
 import { registerRealestateTestRoutes } from './test-routes';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
@@ -138,6 +139,8 @@ async function armSweep(ctx: AddonScopeContext): Promise<void> {
 /** `realestate.sweep`: every open deal worked out again, and each duty's alert where the ladder says. */
 async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
   const armedAt = Number(ctx.job.payload['armedAt'] ?? 0);
+  // Round five's feed check, for a business where the add-on was on before it existed (a no-op once armed).
+  await armFeedCheck(ctx);
   const { output } = await executeCommand(
     ctx.db,
     sweep,
@@ -240,6 +243,8 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.home.lookup_requested': homeLookup,
     'realestate.listing.lookup_requested': listingLookup,
     'realestate.cma.comps_requested': compsRequested,
+    'realestate.match.sent': matchDecided,
+    'realestate.match.dismissed': matchDecided,
     // Buyer memory: what the client says, read for what to remember (./memory.ts).
     'message.received': clientSpoke,
     'call.transcribed': clientSpoke,
@@ -289,6 +294,8 @@ export const realestateAddonWorker: AddonWorkerModule = {
   },
   jobs: {
     [SWEEP]: runSweep,
+    // Round five: buyers' saved searches on the listing feed (./feed/searches.ts).
+    [FEED_CHECK]: feedCheckJob,
     [MEMORY_JOB]: memoryJob,
     [OFFER_CLOCK]: offerClockJob,
     [OPEN_HOUSE_FOLLOW_UP]: openHouseFollowUpJob,
@@ -296,6 +303,7 @@ export const realestateAddonWorker: AddonWorkerModule = {
   onEnable: async (ctx) => {
     await armSweep(ctx);
     await armOfferClocks(ctx);
+    await armFeedCheck(ctx);
   },
   // Round five: a pasted key for its listing feed, tried with the supplier before it's kept (./feed/index.ts).
   connectors: { [LISTING_DATA]: listingDataTesters() },

@@ -1912,6 +1912,16 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   folder (the boundaries test caught it).
 
 - **Step 5:** buyers' saved searches and new matches; what the client sees.
+
+  **As built** (`20261021000400`): a buyer's profile is their saved search (on by default; `realestate.search.set`
+  turns it off), asked of the feed by `realestate.feed_check` every 15 minutes, after the first look only for what
+  the MLS changed since (an hour's overlap). It needs an area (a town or ZIP code). New homes are kept in
+  `feed_matches` for the agent, each with how it fits the profile; one the MLS changed since is marked, and the same
+  listing is one match. The deal's agent and team get one `info` Home card a day per buyer at most, taken down once
+  nothing waits. `realestate.match.send` makes a match one of the deal's homes (source `mls`, the MLS's facts as
+  suggestions, no second look-up); `realestate.match.dismiss` sets it aside for good. The client's portal shows a
+  home's MLS photos with its MLS's notice, logo and courtesy line, and only homes the agent sent.
+
 - **Step 6:** our listings' status from the feed.
 - **Step 7:** e-sign (DocuSign and Dotloop).
 - **Step 8:** showings: our page and ShowingTime's emails.

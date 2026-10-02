@@ -8257,6 +8257,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.match.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside one of a buyer’s new matches: the client never sees it, and it doesn’t come back.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.match.dismissed.
+         */
+        post: operations["command_realestate_match_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.match.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a buyer’s new match to the client: it becomes one of the deal’s homes, with what the MLS says of it, and the client sees it in their portal with the MLS’s notice.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added.
+         */
+        post: operations["command_realestate_match_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.memory.add": {
         parameters: {
             query?: never;
@@ -8631,6 +8671,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.use. Emits realestate.repair.sent, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_repair_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.search.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn a buyer’s saved search on the business’s listing feed on or off. On, their profile is asked every fifteen minutes and new homes come to the agent.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.search.changed.
+         */
+        post: operations["command_realestate_search_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14711,6 +14771,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s saved search on the listing feed: what it asks, whether it’s on, and the homes it found, new ones first, each with how it fits what the buyer wants.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_matches"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33364,6 +33444,73 @@ export interface operations {
             };
         };
     };
+    command_realestate_match_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    matchId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        matchId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_match_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    matchId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        homeId: string;
+                        /** Format: uuid */
+                        matchId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_memory_add: {
         parameters: {
             query?: never;
@@ -34210,6 +34357,41 @@ export interface operations {
                         number: number;
                         /** Format: uuid */
                         repairId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_search_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        on: boolean;
                     };
                 };
             };
@@ -53095,6 +53277,115 @@ export interface operations {
                             withdrawnReason: string | null;
                             words: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_matches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    state?: "new" | "sent" | "dismissed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            dismissed: number;
+                            new: number;
+                            sent: number;
+                        };
+                        matches: {
+                            address: string;
+                            changedAt: string | null;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            fit: {
+                                lines: {
+                                    /** @enum {string} */
+                                    key: "budget" | "area" | "type" | "beds" | "baths" | "sqft";
+                                    met: boolean | null;
+                                    words: string;
+                                }[];
+                                met: number;
+                                missed: number;
+                                unknown: number;
+                            };
+                            /** Format: date-time */
+                            foundAt: string;
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            mls: {
+                                /** Format: date-time */
+                                checkedAt: string;
+                                daysOnMarket: number | null;
+                                description: string | null;
+                                differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                display: {
+                                    courtesy: string | null;
+                                    logoUrl: string | null;
+                                    notice: string | null;
+                                };
+                                facts: {
+                                    baths?: number;
+                                    beds?: number;
+                                    garage_spaces?: number;
+                                    hoa_monthly_cents?: number;
+                                    lot_sqft?: number;
+                                    price_cents?: number;
+                                    /** @enum {string} */
+                                    property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                    sqft?: number;
+                                    year_built?: number;
+                                };
+                                listPriceCents: number | null;
+                                mlsNumber: string;
+                                photos: {
+                                    caption: string | null;
+                                    url: string;
+                                }[];
+                                soldOn: string | null;
+                                soldPriceCents: number | null;
+                                sourceWords: string;
+                                /** @enum {string} */
+                                status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                statusWords: string;
+                            };
+                            /** @enum {string} */
+                            state: "new" | "sent" | "dismissed";
+                        }[];
+                        search: {
+                            checkedAt: string | null;
+                            failure: string | null;
+                            feedConnected: boolean;
+                            missing: string | null;
+                            on: boolean;
+                            words: string;
+                        };
                     };
                 };
             };

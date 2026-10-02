@@ -45,7 +45,7 @@ import {
   HomeSetStatusOutput,
 } from '../schemas';
 import type { HomeOut } from '../schemas';
-import { mlsOut, mlsStateWords, type MlsSnapshot } from '../feed';
+import { feedFacts, mlsOut, mlsSourceWords, mlsStateWords, type MlsSnapshot } from '../feed';
 import { buyerProfiles, buyerProfileVersions, homeReactions, homes } from '../tables';
 import {
   actorKind,
@@ -270,10 +270,12 @@ export async function addHome(
     readonly address: string;
     readonly link?: string | undefined;
     readonly pastedText?: string | undefined;
-    readonly source: 'agent' | 'client' | 'our_listing';
+    readonly source: 'agent' | 'client' | 'our_listing' | 'mls';
     readonly personId?: string | null;
     /** Look it up on the listing feed by this MLS number rather than its address (round five). */
     readonly mlsNumber?: string | undefined;
+    /** What the listing feed already said about it (a new match the agent sent): kept, not looked up again. */
+    readonly mls?: MlsSnapshot | undefined;
   },
 ): Promise<{ homeId: string; filling: boolean; looking: boolean }> {
   requireNotArchived(deal);
@@ -297,8 +299,10 @@ export async function addHome(
       `${input.address} is already on ${deal.name}. Open it there to change it.`,
     );
   const pasted = input.pastedText?.trim() || null;
-  // Round five: a business with a listing feed has each new home looked up on it.
-  const looking = await feedConnected(ctx);
+  // Round five: a business with a listing feed has each new home looked up on it, unless the feed brought it.
+  const looking = !input.mls && (await feedConnected(ctx));
+  const fromFeed = input.mls ? feedFacts(input.mls) : null;
+  const fromFeedWords = input.mls ? mlsSourceWords(input.mls) : null;
   const [h] = await ctx.tx
     .insert(homes)
     .values({
@@ -309,8 +313,24 @@ export async function addHome(
       source: input.source,
       link: input.link ?? null,
       pastedText: pasted,
-      factsState: pasted ? 'filling' : 'none',
-      mlsState: looking ? 'looking' : 'none',
+      factsState: pasted
+        ? 'filling'
+        : fromFeed && Object.keys(fromFeed).length
+          ? 'suggested'
+          : 'none',
+      ...(fromFeed && !pasted
+        ? {
+            facts: fromFeed as Record<string, unknown>,
+            factSources: Object.fromEntries(Object.keys(fromFeed).map((k) => [k, fromFeedWords!])),
+          }
+        : {}),
+      mlsState: input.mls ? 'found' : looking ? 'looking' : 'none',
+      ...(input.mls
+        ? {
+            mls: input.mls as unknown as Record<string, unknown>,
+            mlsCheckedAt: new Date(input.mls.checkedAt),
+          }
+        : {}),
       addedBy: actorUserId(ctx),
       addedByPersonId: input.source === 'client' ? (input.personId ?? null) : null,
     })

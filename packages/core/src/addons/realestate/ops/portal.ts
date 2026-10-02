@@ -26,6 +26,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { FINANCING_STEPS, type FinancingStep } from '../closing';
 import { CLIENT_STAGE_WORDS, CLIENT_STEP_WORDS, clientStep } from '../client-words';
 import { KEY_DATES, type KeyDateKey } from '../dates/key-dates';
+import { FEED_STATUSES, type MlsSnapshot } from '../feed';
 import { addressKey } from '../homes';
 import { realestateAddon } from '../manifest';
 import { offerSummary, type LoanType, type OfferStatus } from '../offer-words';
@@ -247,9 +248,10 @@ export const portalDeal = defineAddonQuery(realestateAddon, {
       facts: Record<string, unknown>;
       status: string;
       added_by_person_id: string | null;
+      mls: MlsSnapshot | null;
     }>(
       ctx.tx,
-      sql`select id, address, link, facts, status, added_by_person_id from addon_realestate.homes
+      sql`select id, address, link, facts, status, added_by_person_id, mls from addon_realestate.homes
           where deal_record_id = ${deal} and status <> 'removed' order by created_at`,
     );
     const reactions = await rows<{
@@ -398,6 +400,18 @@ export const portalDeal = defineAddonQuery(realestateAddon, {
         link: h.link,
         facts: h.facts,
         status: h.status,
+        // Round five: what the MLS says of it, with the notice its MLS asks for, wherever it's shown.
+        mls: h.mls
+          ? {
+              statusWords: FEED_STATUSES[h.mls.status] ?? null,
+              listPriceCents: h.mls.listPriceCents,
+              photos: (h.mls.photos ?? []).slice(0, 8),
+              description: h.mls.description,
+              courtesy: h.mls.display?.courtesy ?? null,
+              notice: h.mls.display?.notice ?? null,
+              logoUrl: h.mls.display?.logoUrl ?? null,
+            }
+          : null,
         addedByMe: h.added_by_person_id === me.personId,
         mine:
           reactions.find((r) => r.home_id === h.id && r.person_id === me.personId)?.reaction ??

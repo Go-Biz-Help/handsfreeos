@@ -2267,6 +2267,18 @@ export const PortalDealOutput = z.object({
       link: z.string().nullable(),
       facts: z.record(z.string(), z.unknown()),
       status: z.string(),
+      /** What the MLS says of it, with its MLS's notice (round five); null when the feed hasn't brought it. */
+      mls: z
+        .object({
+          statusWords: z.string().nullable(),
+          listPriceCents: z.number().int().nullable(),
+          photos: z.array(z.object({ url: z.string(), caption: z.string().nullable() })),
+          description: z.string().nullable(),
+          courtesy: z.string().nullable(),
+          notice: z.string().nullable(),
+          logoUrl: z.string().nullable(),
+        })
+        .nullable(),
       addedByMe: z.boolean(),
       mine: z.enum(['saved', 'passed']).nullable(),
       others: z.array(z.object({ name: z.string(), reaction: z.enum(['saved', 'passed']) })),
@@ -3487,4 +3499,70 @@ export const WorkloadOutput = z.object({
       atRiskDeals: z.number().int(),
     }),
   ),
+});
+
+// ---------- saved searches and new matches (round five, step 5) ----------
+
+export const SearchSetInput = z.object({ ...inDeal, on: z.boolean() });
+export const SearchSetOutput = z.object({ dealId: uuid, on: z.boolean(), changed: z.boolean() });
+
+/** The worker: what one check of a buyer's search found. */
+export const SearchFoundInput = z.object({
+  ...inDeal,
+  listings: z.array(MlsSnapshotSchema).max(100).default([]),
+  /** No feed is connected (or answers here): nothing changes but the time. */
+  noFeed: z.boolean().default(false),
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+export const SearchFoundOutput = z.object({
+  dealId: uuid,
+  added: z.int(),
+  changed: z.int(),
+  /** New ones came, and today's Home card for this buyer hasn't gone up yet. */
+  cardDue: z.boolean(),
+  /** How many wait on the agent now. */
+  waiting: z.int(),
+});
+
+export const MatchSendInput = z.object({ workspaceId: uuid, matchId: uuid });
+export const MatchSendOutput = z.object({ matchId: uuid, homeId: uuid });
+export const MatchDismissInput = z.object({ workspaceId: uuid, matchId: uuid });
+export const MatchDismissOutput = z.object({ matchId: uuid, changed: z.boolean() });
+
+export const MatchesInput = z.object({
+  ...inDeal,
+  state: z.enum(['new', 'sent', 'dismissed']).optional(),
+});
+export const MatchesOutput = z.object({
+  search: z.object({
+    /** The buyer's profile is asked of the feed while the deal is open. */
+    on: z.boolean(),
+    /** It can't be asked yet: what the profile needs. */
+    missing: z.string().nullable(),
+    words: z.string(),
+    feedConnected: z.boolean(),
+    checkedAt: isoDateTime.nullable(),
+    failure: z.string().nullable(),
+  }),
+  matches: z.array(
+    z.object({
+      id: uuid,
+      state: z.enum(['new', 'sent', 'dismissed']),
+      address: z.string(),
+      mls: MlsOut,
+      fit: z.object({
+        lines: z.array(FitLineOut),
+        met: z.number().int(),
+        missed: z.number().int(),
+        unknown: z.number().int(),
+      }),
+      foundAt: isoDateTime,
+      /** The MLS changed it since it was found. */
+      changedAt: isoDateTime.nullable(),
+      homeId: uuid.nullable(),
+      decidedBy: z.object({ id: uuid, fullName: z.string() }).nullable(),
+      decidedAt: isoDateTime.nullable(),
+    }),
+  ),
+  counts: z.object({ new: z.int(), sent: z.int(), dismissed: z.int() }),
 });
