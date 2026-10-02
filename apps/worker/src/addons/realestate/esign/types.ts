@@ -53,6 +53,8 @@ export interface EsignService {
   copies(externalId: string, signal: AbortSignal): Promise<EsignCopies>;
   /** Stops it at the service, so nobody can sign it. A draft is thrown away. */
   void(externalId: string, reason: string, draft: boolean, signal: AbortSignal): Promise<void>;
+  /** Sends it again to whoever hasn't signed yet, when the service can (DocuSign). */
+  remind?(externalId: string, signal: AbortSignal): Promise<void>;
 }
 
 /** The service didn't answer, or answered with trouble of its own: try again later. */

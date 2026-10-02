@@ -42,6 +42,7 @@ import { esignCommands, esignQueries } from './ops/esign';
 import { feedCommands } from './ops/feed';
 import { showingCommands, showingQueries } from './ops/showings';
 import { vendorCommands, vendorQueries } from './ops/vendors';
+import { connectionQueries } from './ops/connections';
 import { searchCommands, searchQueries } from './ops/searches';
 
 export const realestateAddonServer: AddonServerModule = {
@@ -112,6 +113,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...esignQueries,
     ...showingQueries,
     ...vendorQueries,
+    ...connectionQueries,
     ...contingencyQueries,
     ...coordinateQueries,
     ...searchQueries,

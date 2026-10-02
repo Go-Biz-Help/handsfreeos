@@ -133122,6 +133122,120 @@
         }
       }
     },
+    "/v1/queries/realestate.connections.uses": {
+      "post": {
+        "operationId": "query_realestate_connections_uses",
+        "summary": "What the business’s Real Estate connections are used for: the open listings and buyers’ searches on the listing feed, the documents out for signing, and the ShowingTime emails read this month.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "listingData": {
+                      "type": "object",
+                      "properties": {
+                        "listings": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "searches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "words": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "listings",
+                        "searches",
+                        "words"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "esign": {
+                      "type": "object",
+                      "properties": {
+                        "out": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "words": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "out",
+                        "words"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "showingTime": {
+                      "type": "object",
+                      "properties": {
+                        "on": {
+                          "type": "boolean"
+                        },
+                        "readThisMonth": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "words": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "on",
+                        "readThisMonth",
+                        "words"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "listingData",
+                    "esign",
+                    "showingTime"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/realestate.contingencies": {
       "post": {
         "operationId": "query_realestate_contingencies",

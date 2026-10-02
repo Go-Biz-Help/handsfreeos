@@ -487,5 +487,19 @@ describe('ShowingTime’s emails', () => {
           where workspace_id = ${ws} and status = 'pending' and payload->>'showingId' = ${sam.id}`,
     );
     expect(n!.n).toBe(0);
+
+    // Turned off in Deal settings → Connections, they're left in the Inbox as they are.
+    await rows(
+      admin(),
+      sql`update app.addon_installations set settings = settings || '{"showingTimeEmails": false}'::jsonb
+          where workspace_id = ${ws} and addon_id = 'realestate'`,
+    );
+    const before = (await run('realestate.showing.list', { dealId: deal })).showings.length;
+    await receive(
+      'Showing Request',
+      body(['Showing ID: 99901']).replace('Sam Ortiz', 'Pat Lee').replace('1:30 PM', '3:30 PM'),
+    );
+    await drain();
+    expect((await run('realestate.showing.list', { dealId: deal })).showings).toHaveLength(before);
   });
 });

@@ -481,6 +481,15 @@ export async function showingTimeEmail(ctx: AddonEventContext): Promise<void> {
     ),
   );
   if (!m || !isShowingTimeEmail(m.from_address, m.subject)) return;
+  // The business can turn reading them off (Deal settings → Connections).
+  const [on] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ on: boolean | null }>(
+      tx,
+      sql`select (settings ->> 'showingTimeEmails')::boolean as on from app.addon_installations
+          where workspace_id = ${ctx.scope.workspaceId} and addon_id = ${ctx.manifest.id}`,
+    ),
+  );
+  if (on?.on === false) return;
   const read = readShowingTimeEmail(m.subject, m.body_text);
   if (!read) return;
   // The listing it's about: one of ours, by its address.

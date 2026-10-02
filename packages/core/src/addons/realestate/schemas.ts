@@ -4085,3 +4085,16 @@ export const DutyVendorQuoteInput = z.object({
 export const DutyVendorAppointmentInput = z.object({ ...inPick, appointmentId: uuid.nullable() });
 export const DutyUnpickVendorInput = z.object({ ...inPick, reason });
 export const DutyVendorOutput = z.object({ pickId: uuid, dutyId: uuid, vendorId: uuid });
+
+// ---------- round five, step 10: what the connections are used for ----------
+
+export const RealestateConnectionsUsesInput = z.object({ workspaceId: uuid });
+export const RealestateConnectionsUsesOutput = z.object({
+  listingData: z.object({
+    listings: z.number().int(),
+    searches: z.number().int(),
+    words: z.string(),
+  }),
+  esign: z.object({ out: z.number().int(), words: z.string() }),
+  showingTime: z.object({ on: z.boolean(), readThisMonth: z.number().int(), words: z.string() }),
+});

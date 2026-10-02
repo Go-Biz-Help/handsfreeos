@@ -28,5 +28,7 @@ export const RealestateSettingsSchema = z.object({
     .default({ under_contract: true, inspection_done: true, clear_to_close: true, closed: true }),
   /** The calendar tours go on (round two). None: the agent's own calendar, when they're on just one. */
   tourCalendarId: z.uuid().nullable().default(null),
+  /** Round five: ShowingTime's emails read into showings and feedback, for listings already on it. */
+  showingTimeEmails: z.boolean().default(true),
 });
 export type RealestateSettings = z.infer<typeof RealestateSettingsSchema>;

@@ -23,6 +23,8 @@ export interface StandinEnvelope {
   sentAt: string | null;
   completedAt: string | null;
   voidReason: string | null;
+  /** How many times it was sent again to whoever hadn't signed. */
+  reminded: number;
 }
 
 const envelopes = new Map<string, StandinEnvelope>();
@@ -117,6 +119,7 @@ export function createStandinEsign(opts: {
         sentAt: null,
         completedAt: null,
         voidReason: null,
+        reminded: 0,
       });
       // Like a Dotloop loop, the stand-in's page is always the same; DocuSign's is made each time.
       return { externalId: id, openUrl: opts.provider === 'dotloop' ? page(id) : null };
@@ -163,5 +166,14 @@ export function createStandinEsign(opts: {
       e.state = 'voided';
       e.voidReason = reason;
     },
+    ...(opts.provider === 'docusign'
+      ? {
+          async remind(externalId: string) {
+            const e = envelopes.get(externalId);
+            if (!e) throw lost();
+            e.reminded += 1;
+          },
+        }
+      : {}),
   };
 }

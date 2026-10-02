@@ -614,6 +614,36 @@ export const ESIGN_ACTIONS: Readonly<Record<string, AddonWorkerAction>> = {
       }
     },
   },
+  'realestate.esign.remind': {
+    permission: 'realestate.use',
+    input: OpenInput,
+    async run(ctx, input: z.infer<typeof OpenInput>) {
+      const row = await personsEnvelope(ctx, input.envelopeId);
+      if (!row.external_id || row.state !== 'sent')
+        throw HfosError.rule(
+          'realestate_esign_not_out',
+          409,
+          `“${row.title}” isn’t out for signing, so there’s nobody to remind. Refresh to see where it stands.`,
+        );
+      const { connection, gone } = await connectionOf(ctx, row);
+      if (!connection) throw HfosError.rule('realestate_esign_sign_in', 409, gone);
+      try {
+        const { service } = await serviceFor(ctx, connection);
+        if (!service.remind)
+          throw HfosError.rule(
+            'realestate_esign_no_remind',
+            409,
+            `${serviceName(row.provider)} doesn’t take reminders from here. Remind them from the loop in ${serviceName(row.provider)}.`,
+          );
+        await service.remind(row.external_id, AbortSignal.timeout(30_000));
+        await worked(ctx, connection);
+        return { envelopeId: row.id, reminded: true };
+      } catch (e) {
+        if (known(e)) await worked(ctx, connection, e);
+        return asRefusal(e);
+      }
+    },
+  },
   'realestate.esign.check': {
     permission: 'realestate.use',
     input: OpenInput,

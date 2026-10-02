@@ -306,6 +306,14 @@ describe('sending a document for signing', () => {
     expect(sent.headers.location).toBe(back);
     e = await envelopeOf(made.envelopeId);
     expect(e).toMatchObject({ state: 'sent', stateLabel: 'Out for signing' });
+    // Whoever hasn't signed can be reminded from here.
+    expect(
+      (await action('realestate.esign.remind', { envelopeId: made.envelopeId })).json(),
+    ).toEqual({
+      envelopeId: made.envelopeId,
+      reminded: true,
+    });
+    expect(standinEnvelope(external)!.reminded).toBe(1);
     expect(e.signers.map((x: Any) => x.state)).toEqual(['sent', 'sent']);
     expect((await documents()).find((d: Any) => d.title === 'Buyer agreement').status).toBe('sent');
 

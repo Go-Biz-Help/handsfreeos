@@ -14717,6 +14717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.connections.uses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the business’s Real Estate connections are used for: the open listings and buyers’ searches on the listing feed, the documents out for signing, and the ShowingTime emails read this month.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_connections_uses"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.contingencies": {
         parameters: {
             query?: never;
@@ -52572,6 +52592,48 @@ export interface operations {
                             status: "draft" | "final" | "shared";
                             subjectAddress: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_connections_uses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        esign: {
+                            out: number;
+                            words: string;
+                        };
+                        listingData: {
+                            listings: number;
+                            searches: number;
+                            words: string;
+                        };
+                        showingTime: {
+                            on: boolean;
+                            readThisMonth: number;
+                            words: string;
+                        };
                     };
                 };
             };

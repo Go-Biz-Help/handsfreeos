@@ -314,6 +314,10 @@ export function createDocusign(opts: {
           signal,
         );
     },
+    async remind(externalId, signal) {
+      // DocuSign sends it again to each signer whose turn it is and who hasn't signed.
+      await send(`${envelope(externalId)}?resend_envelope=true`, 'PUT', {}, signal);
+    },
   };
 }
 

@@ -465,5 +465,15 @@ describe('ShowingTime’s emails', () => {
       (s: Any) => s.id === asked.showingId,
     );
     expect(sam.checked).toBe(true);
+    // Deal settings → Connections says what hangs on each connection.
+    const uses = await runAs(human(owner), api(), 'realestate.connections.uses', {});
+    expect(uses).toMatchObject({
+      listingData: { listings: 1, searches: 0, words: '1 listing uses it.' },
+      esign: { out: 0, words: 'Nothing is out for signing.' },
+      showingTime: { on: true, readThisMonth: 1 },
+    });
+    expect(await refused(runAs(human(agent), api(), 'realestate.connections.uses', {}))).toBe(
+      'forbidden',
+    );
   });
 });

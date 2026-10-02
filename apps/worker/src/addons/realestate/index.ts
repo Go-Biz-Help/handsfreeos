@@ -44,6 +44,7 @@ import {
   esignSignedReported,
   esignVoided,
 } from './esign/index';
+import { FEED_ACTIONS } from './feed/actions';
 import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
 import { armFeedCheck, FEED_CHECK, feedCheckJob, matchDecided } from './feed/searches';
@@ -353,7 +354,7 @@ export const realestateAddonWorker: AddonWorkerModule = {
   // a person opens an envelope there, or has it looked at now, through the worker (./esign/index.ts).
   oauth: { [ESIGN]: ESIGN_OAUTH },
   webhooks: { [ESIGN]: { docusign: DOCUSIGN_UPDATES } },
-  actions: ESIGN_ACTIONS,
+  actions: { ...ESIGN_ACTIONS, ...FEED_ACTIONS },
   // Playwright's: an at-risk duty aged, and the stand-in e-signature page (./test-routes.ts).
   testRoutes: registerRealestateTestRoutes,
 };
