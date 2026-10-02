@@ -343,3 +343,14 @@ export async function dealClients(
         order by rel.created_at`,
   );
 }
+
+/** Whether the business has a listing feed it can ask (round five): the worker finds out whether it answers. */
+export async function feedConnected(ctx: Ctx): Promise<boolean> {
+  const [r] = await rows<{ n: number }>(
+    ctx.tx,
+    sql`select count(*)::int as n
+        from private.addon_connection_live(${ctx.scope.workspaceId!}::uuid, 'realestate', 'listing_data')
+        where status in ('active', 'error')`,
+  );
+  return (r?.n ?? 0) > 0;
+}

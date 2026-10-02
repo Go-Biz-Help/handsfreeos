@@ -33,6 +33,8 @@ import {
 } from './client-updates';
 import { contractDecided, contractReadFinished, contractReadRequested } from './contract';
 import { LISTING_DATA, listingDataTesters } from './feed/index';
+import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
+import { registerRealestateTestRoutes } from './test-routes';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
 import {
@@ -229,8 +231,15 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.deal.stage_changed': milestoneReached,
     'realestate.deal.event_recorded': milestoneReached,
     'realestate.deal.closed': milestoneReached,
-    // Round two: a home's facts, read from its pasted listing words.
-    'realestate.home.added': homeAdded,
+    // Round two: a home's facts, read from its pasted listing words; round five: looked up on the listing feed.
+    'realestate.home.added': async (ctx) => {
+      await homeAdded(ctx);
+      await homeLookup(ctx);
+    },
+    // Round five: the listing feed asked, for a home, our listing, or a CMA's comps (./feed/lookups.ts).
+    'realestate.home.lookup_requested': homeLookup,
+    'realestate.listing.lookup_requested': listingLookup,
+    'realestate.cma.comps_requested': compsRequested,
     // Buyer memory: what the client says, read for what to remember (./memory.ts).
     'message.received': clientSpoke,
     'call.transcribed': clientSpoke,
@@ -290,4 +299,6 @@ export const realestateAddonWorker: AddonWorkerModule = {
   },
   // Round five: a pasted key for its listing feed, tried with the supplier before it's kept (./feed/index.ts).
   connectors: { [LISTING_DATA]: listingDataTesters() },
+  // Playwright's: an at-risk duty aged (./test-routes.ts).
+  testRoutes: registerRealestateTestRoutes,
 };

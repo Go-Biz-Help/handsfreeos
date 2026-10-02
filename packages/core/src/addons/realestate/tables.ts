@@ -38,6 +38,17 @@ import type { DealRole, DealLinkKind } from './words';
 
 export const addonRealestate = pgSchema('addon_realestate');
 
+/** What a listing feed said about a home or a listing, and where looking it up stands (round five, step 4). */
+const mlsColumns = () => ({
+  mls: jsonb('mls').$type<Record<string, unknown>>(),
+  mlsState: text('mls_state')
+    .notNull()
+    .default('none')
+    .$type<'none' | 'looking' | 'found' | 'not_found' | 'failed'>(),
+  mlsCheckedAt: ts('mls_checked_at'),
+  mlsFailure: text('mls_failure'),
+});
+
 /** Who did something, as the add-on's history says: a person, HandsFreeOS, the AI, or the client in their portal. */
 export type HistoryActor = 'person' | 'system' | 'ai' | 'client';
 
@@ -645,6 +656,8 @@ export const homes = addonRealestate.table(
     addedByPersonId: uuid('added_by_person_id').references(() => people.id, {
       onDelete: 'set null',
     }),
+    // Round five, step 4: what the listing feed says about it, as it said it.
+    ...mlsColumns(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -864,6 +877,14 @@ export const cmas = addonRealestate.table(
     finalizedAt: ts('finalized_at'),
     sharedBy: userRef('shared_by'),
     sharedAt: ts('shared_at'),
+    // Round five, step 4: comps from the feed, asked for, found, or why not.
+    compsState: text('comps_state')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'finding' | 'found' | 'none_found' | 'failed'>(),
+    compsAsked: jsonb('comps_asked').$type<Record<string, unknown>>(),
+    compsFoundAt: ts('comps_found_at'),
+    compsFailure: text('comps_failure'),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -906,6 +927,9 @@ export const cmaComps = addonRealestate.table(
     used: boolean('used').notNull().default(true),
     note: text('note'),
     source: text('source').notNull().default('agent').$type<'agent' | 'mls'>(),
+    // Round five, step 4: a comp from the feed, by its MLS number, with what the MLS asks to be shown with it.
+    mlsNumber: text('mls_number'),
+    mls: jsonb('mls').$type<Record<string, unknown>>(),
     position: integer('position').notNull(),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -1255,7 +1279,7 @@ export const clientTaskCompletions = addonRealestate.table(
 
 /** Where one of a listing's confirmed facts came from. */
 export interface ListingFactSource {
-  readonly from: 'seller' | 'pasted' | 'agent';
+  readonly from: 'seller' | 'pasted' | 'agent' | 'mls';
   /** The pasted words it was found in. */
   readonly quote?: string;
 }
@@ -1304,6 +1328,8 @@ export const listings = addonRealestate.table(
     matchesSuggested: integer('matches_suggested').notNull().default(0),
     matchesAdded: integer('matches_added').notNull().default(0),
     matchedAt: ts('matched_at'),
+    // Round five, step 4: what the listing feed says about it, as it said it.
+    ...mlsColumns(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

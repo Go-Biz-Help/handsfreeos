@@ -16,6 +16,7 @@ import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { feedFacts, mlsOut, mlsStateWords, type MlsSnapshot } from '../feed';
 import {
   factChoices,
   streetOf,
@@ -190,7 +191,15 @@ export async function listingView(ctx: Ctx, deal: Deal) {
       seller: q?.state === 'submitted' ? (answers.facts ?? null) : null,
       pasted: pastedFacts,
       pastedQuotes: (l?.pastedSources ?? {}) as Record<string, string>,
+      mls: l?.mls ? (feedFacts(l.mls as unknown as MlsSnapshot) as Record<string, unknown>) : null,
     }),
+    feed: {
+      state: l?.mlsState ?? 'none',
+      words: l ? mlsStateWords(l.mlsState, l.mlsFailure) : null,
+      mls: l?.mls
+        ? mlsOut(l.mls as unknown as MlsSnapshot, (l.facts ?? {}) as ListingHomeFacts)
+        : null,
+    },
     pasted: {
       state: l?.pastedState ?? 'none',
       failure: l?.pastedFailure ?? null,

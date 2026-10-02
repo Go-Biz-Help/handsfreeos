@@ -23,6 +23,8 @@ export const FACT_FROM = {
   seller: 'From the seller’s questionnaire',
   pasted: 'From the old listing',
   agent: 'Typed by you',
+  // Round five: the listing as the MLS has it, from the business's feed.
+  mls: 'From the MLS',
 } as const;
 export type FactFrom = keyof typeof FACT_FROM;
 export const FACT_FROM_KEYS = Object.keys(FACT_FROM) as [FactFrom, ...FactFrom[]];
@@ -70,6 +72,8 @@ export function factChoices(input: {
   readonly seller: ListingHomeFacts | null;
   readonly pasted: Record<string, unknown>;
   readonly pastedQuotes: Record<string, string>;
+  /** What the MLS says, from the business's listing feed (round five). */
+  readonly mls?: Record<string, unknown> | null;
 }): FactChoice[] {
   return LISTING_HOME_FACT_KEYS.map((key) => {
     const candidates: FactCandidate[] = [];
@@ -88,6 +92,14 @@ export function factChoices(input: {
         value: pasted,
         quote: input.pastedQuotes[key] ?? null,
         words: factWords(key, pasted),
+      });
+    const fromMls = input.mls?.[key];
+    if (fromMls !== undefined && fromMls !== null)
+      candidates.push({
+        from: 'mls',
+        value: fromMls,
+        quote: null,
+        words: factWords(key, fromMls),
       });
     const value = input.confirmed[key];
     const source = input.confirmedSources[key];

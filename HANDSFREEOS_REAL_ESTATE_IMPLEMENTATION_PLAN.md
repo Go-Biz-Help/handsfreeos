@@ -1900,6 +1900,17 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
     and HandsFreeOS's own account works there without a key.
 
 - **Step 4:** a home's facts and photos from the feed; sold comps for a CMA.
+
+  **As built** (`20261021000300`): with a feed connected, each new buyer's home is looked up (by its MLS number or
+  its address) and `realestate.home.lookup` asks again; our listing has `realestate.listing.lookup`. The MLS's
+  listing is kept on the home or listing as it said it (`mls`, with `mls_state`), fills a home's empty facts as
+  suggestions, and is one more source ("From the MLS") for a listing's facts; `differs` names the facts where it
+  and what a person confirmed disagree. `realestate.cma.find_comps` asks for homes sold within the miles and months
+  given, similar ones first (the same kind, within a fifth of its size), placed by the home's MLS listing or its ZIP;
+  they come in nearest first as comps from the MLS that don't count until ticked, never twice. Round four's
+  browser-test route now registers through the worker module's `testRoutes`, so core never imports the add-on's
+  folder (the boundaries test caught it).
+
 - **Step 5:** buyers' saved searches and new matches; what the client sees.
 - **Step 6:** our listings' status from the feed.
 - **Step 7:** e-sign (DocuSign and Dotloop).

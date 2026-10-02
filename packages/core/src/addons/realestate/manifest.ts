@@ -362,6 +362,13 @@ export const realestateAddon = defineAddon({
       'realestate.duty.linked',
       'realestate.duty.unlinked',
       'realestate.duty.chased',
+      // Round five: listing data from the feed.
+      'realestate.home.lookup_requested',
+      'realestate.home.mls_found',
+      'realestate.listing.lookup_requested',
+      'realestate.listing.mls_found',
+      'realestate.cma.comps_requested',
+      'realestate.cma.comps_found',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -427,6 +434,10 @@ export const realestateAddon = defineAddon({
       'realestate.contract.value_rejected',
       // A contingency recorded: its card goes now, not at the next sweep.
       'realestate.contingency.resolved',
+      // Round five: the feed asked, by the worker, which holds its keys.
+      'realestate.home.lookup_requested',
+      'realestate.listing.lookup_requested',
+      'realestate.cma.comps_requested',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.

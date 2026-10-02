@@ -6437,6 +6437,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.cma.find_comps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the business’s listing feed for homes sold near a draft CMA’s home: they come in as comps from the MLS that don’t count until the agent ticks them.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.cma.comps_requested.
+         */
+        post: operations["command_realestate_cma_find_comps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.cma.remove_comp": {
         parameters: {
             query?: never;
@@ -7697,6 +7717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.home.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look a buyer’s home up on the business’s listing feed again, by its address or an MLS number: its facts, photos and where it stands on the MLS, for the agent to check.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.home.lookup_requested.
+         */
+        post: operations["command_realestate_home_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.home.set_status": {
         parameters: {
             query?: never;
@@ -7931,6 +7971,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.use. Emits realestate.listing.description_sent, realestate.client_task.added.
          */
         post: operations["command_realestate_listing_description_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look the deal’s own listing up on the business’s listing feed, by its MLS number or address: what the MLS says of its facts, beside the seller’s and the old listing’s, and where it stands there.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.listing.lookup_requested.
+         */
+        post: operations["command_realestate_listing_lookup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29637,6 +29697,44 @@ export interface operations {
             };
         };
     };
+    command_realestate_cma_find_comps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** @default 1 */
+                    miles?: number;
+                    /** @default 6 */
+                    months?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {boolean} */
+                        finding: true;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_cma_remove_comp: {
         parameters: {
             query?: never;
@@ -32103,6 +32201,7 @@ export interface operations {
                     /** Format: uuid */
                     dealId: string;
                     link?: string;
+                    mlsNumber?: string;
                     note?: string;
                     pastedText?: string;
                     /** Format: uuid */
@@ -32121,6 +32220,8 @@ export interface operations {
                         filling: boolean;
                         /** Format: uuid */
                         homeId: string;
+                        /** @default false */
+                        looking: boolean;
                     };
                 };
             };
@@ -32167,6 +32268,41 @@ export interface operations {
                         confirmedAt: string;
                         /** Format: uuid */
                         homeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    homeId: string;
+                    mlsNumber?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        homeId: string;
+                        /** @enum {boolean} */
+                        looking: true;
                     };
                 };
             };
@@ -32432,7 +32568,7 @@ export interface operations {
                     highlights?: string | null;
                     /** @default {} */
                     sources?: {
-                        [key: string]: "seller" | "pasted" | "agent";
+                        [key: string]: "seller" | "pasted" | "agent" | "mls";
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -32669,6 +32805,41 @@ export interface operations {
                         /** @enum {string} */
                         state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
                         version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    mlsNumber?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {boolean} */
+                        looking: true;
                     };
                 };
             };
@@ -51031,6 +51202,13 @@ export interface operations {
                                 distanceMiles: number | null;
                                 /** Format: uuid */
                                 id: string;
+                                mls: {
+                                    courtesy: string | null;
+                                    mlsNumber: string;
+                                    notice: string | null;
+                                    photoUrl: string | null;
+                                    sourceWords: string;
+                                } | null;
                                 note: string | null;
                                 priceCents: number;
                                 soldOn: string | null;
@@ -51069,6 +51247,16 @@ export interface operations {
                                 }[];
                             };
                             finalizedAt: string | null;
+                            findComps: {
+                                asked: {
+                                    miles: number;
+                                    months: number;
+                                } | null;
+                                at: string | null;
+                                /** @enum {string} */
+                                state: "none" | "finding" | "found" | "none_found" | "failed";
+                                words: string | null;
+                            };
                             homeId: string | null;
                             /** Format: uuid */
                             id: string;
@@ -52334,6 +52522,45 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             link: string | null;
+                            mls: {
+                                /** Format: date-time */
+                                checkedAt: string;
+                                daysOnMarket: number | null;
+                                description: string | null;
+                                differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                display: {
+                                    courtesy: string | null;
+                                    logoUrl: string | null;
+                                    notice: string | null;
+                                };
+                                facts: {
+                                    baths?: number;
+                                    beds?: number;
+                                    garage_spaces?: number;
+                                    hoa_monthly_cents?: number;
+                                    lot_sqft?: number;
+                                    price_cents?: number;
+                                    /** @enum {string} */
+                                    property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                    sqft?: number;
+                                    year_built?: number;
+                                };
+                                listPriceCents: number | null;
+                                mlsNumber: string;
+                                photos: {
+                                    caption: string | null;
+                                    url: string;
+                                }[];
+                                soldOn: string | null;
+                                soldPriceCents: number | null;
+                                sourceWords: string;
+                                /** @enum {string} */
+                                status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                statusWords: string;
+                            } | null;
+                            /** @enum {string} */
+                            mlsState: "none" | "looking" | "found" | "not_found" | "failed";
+                            mlsWords: string | null;
                             reactions: {
                                 /** Format: date-time */
                                 at: string;
@@ -52478,14 +52705,14 @@ export interface operations {
                             choices: {
                                 candidates: {
                                     /** @enum {string} */
-                                    from: "seller" | "pasted" | "agent";
+                                    from: "seller" | "pasted" | "agent" | "mls";
                                     quote: string | null;
                                     value: unknown;
                                     words: string;
                                 }[];
                                 confirmed: {
                                     /** @enum {string} */
-                                    from: "seller" | "pasted" | "agent";
+                                    from: "seller" | "pasted" | "agent" | "mls";
                                     quote: string | null;
                                     value: unknown;
                                     words: string;
@@ -52571,6 +52798,47 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            feed: {
+                                mls: {
+                                    /** Format: date-time */
+                                    checkedAt: string;
+                                    daysOnMarket: number | null;
+                                    description: string | null;
+                                    differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                    display: {
+                                        courtesy: string | null;
+                                        logoUrl: string | null;
+                                        notice: string | null;
+                                    };
+                                    facts: {
+                                        baths?: number;
+                                        beds?: number;
+                                        garage_spaces?: number;
+                                        hoa_monthly_cents?: number;
+                                        lot_sqft?: number;
+                                        price_cents?: number;
+                                        /** @enum {string} */
+                                        property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                        sqft?: number;
+                                        year_built?: number;
+                                    };
+                                    listPriceCents: number | null;
+                                    mlsNumber: string;
+                                    photos: {
+                                        caption: string | null;
+                                        url: string;
+                                    }[];
+                                    soldOn: string | null;
+                                    soldPriceCents: number | null;
+                                    sourceWords: string;
+                                    /** @enum {string} */
+                                    status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                    statusWords: string;
+                                } | null;
+                                /** @enum {string} */
+                                state: "none" | "looking" | "found" | "not_found" | "failed";
+                                words: string | null;
+                            };
                             highlights: string | null;
                             listPriceCents: number | null;
                             matches: {

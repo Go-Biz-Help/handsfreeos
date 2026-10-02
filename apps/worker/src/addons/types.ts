@@ -5,6 +5,8 @@
  * kernel is done as the system acting for it: refused the moment it is off, and marked as its own in history.
  */
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
+import type { FastifyInstance } from 'fastify';
+import type { HttpDeps } from '../http/common';
 import type { ConnectionTester } from './connections';
 import type { AddonWebhookReceiver } from './webhooks';
 import type { Tx } from '@hfos/db/client';
@@ -92,4 +94,9 @@ export interface AddonWorkerModule {
    * `webhooks`): checked and kept once by the worker's route, then handed here one at a time.
    */
   readonly webhooks?: Readonly<Record<string, Readonly<Record<string, AddonWebhookReceiver>>>>;
+  /**
+   * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
+   * providers, never in production.
+   */
+  readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
 }

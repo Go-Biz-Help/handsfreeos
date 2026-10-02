@@ -11,7 +11,7 @@
  * Browser-safe and pure: the worker's adapters build these, the commands check them, the screens show them.
  */
 import { z } from 'zod';
-import { HOME_TYPE_KEYS, type HomeType, type ListingFacts } from './homes';
+import { HOME_TYPE_KEYS, LISTING_FACT_KEYS, type HomeType, type ListingFacts } from './homes';
 
 /** Where a listing stands on the MLS, in our words. */
 export const FEED_STATUSES = {
@@ -231,4 +231,101 @@ export function feedFacts(listing: Pick<FeedListing, 'facts'>): ListingFacts {
 export function feedAddressWords(a: FeedListing['address']): string {
   const place = [a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   return [a.line, a.unit ? `Unit ${a.unit}` : null, place].filter(Boolean).join(', ');
+}
+
+/** A listing as the add-on keeps it on a home, a listing or a comp: what the feed said, and when it was asked. */
+export const MlsSnapshotSchema = FeedListingSchema.extend({ checkedAt: z.string().max(40) });
+export type MlsSnapshot = z.infer<typeof MlsSnapshotSchema>;
+
+/** Each supplier's name, as people read it. */
+export const FEED_SUPPLIERS: Readonly<Record<string, string>> = {
+  repliers: 'Repliers',
+  anyprop: 'AnyProp',
+  reso: 'your MLS’s feed',
+  standin: 'the stand-in MLS',
+};
+
+/** "From the MLS (Unlock MLS, through Repliers)": where a value from the feed came from. */
+export function mlsSourceWords(s: Pick<FeedListing, 'provider' | 'mls'>): string {
+  const supplier = FEED_SUPPLIERS[s.provider] ?? s.provider;
+  const mls = s.mls.name && s.mls.name !== s.mls.id ? s.mls.name : null;
+  if (s.provider === 'standin') return 'From the stand-in MLS';
+  if (s.provider === 'reso') return mls ? `From the MLS (${mls})` : 'From the MLS';
+  return mls ? `From the MLS (${mls}, through ${supplier})` : `From the MLS, through ${supplier}`;
+}
+
+/** Where looking a home or listing up on the feed stands, in words; null when there's nothing to say. */
+export function mlsStateWords(
+  state: 'none' | 'looking' | 'found' | 'not_found' | 'failed',
+  failure: string | null,
+): string | null {
+  switch (state) {
+    case 'looking':
+      return 'Looking it up on the MLS…';
+    case 'not_found':
+      return 'The MLS has no listing at this address. Check the address, or look it up by its MLS number.';
+    case 'failed':
+      return failure ?? 'The MLS couldn’t be asked just now. Try again in a few minutes.';
+    default:
+      return null;
+  }
+}
+
+export const MLS_STATE_KEYS = ['none', 'looking', 'found', 'not_found', 'failed'] as const;
+export type MlsState = (typeof MLS_STATE_KEYS)[number];
+
+/** The facts where the feed and what's kept disagree: each with both values, for a person to pick. */
+export function mlsDiffers(
+  kept: ListingFacts,
+  mls: ListingFacts,
+  keys: readonly (keyof ListingFacts)[],
+): (keyof ListingFacts)[] {
+  return keys.filter((k) => {
+    const a = kept[k];
+    const b = mls[k];
+    return a !== undefined && a !== null && b !== undefined && b !== null && a !== b;
+  });
+}
+
+/** What the screens show of a kept snapshot, beside the facts a person kept. */
+export function mlsOut(snapshot: MlsSnapshot, kept: ListingFacts) {
+  const facts = feedFacts(snapshot);
+  return {
+    mlsNumber: snapshot.mlsNumber,
+    status: snapshot.status,
+    statusWords: FEED_STATUSES[snapshot.status],
+    sourceWords: mlsSourceWords(snapshot),
+    listPriceCents: snapshot.listPriceCents,
+    soldPriceCents: snapshot.soldPriceCents,
+    soldOn: snapshot.soldOn,
+    daysOnMarket: snapshot.daysOnMarket,
+    facts,
+    photos: snapshot.photos.slice(0, 12),
+    description: snapshot.description,
+    differs: mlsDiffers(kept, facts, LISTING_FACT_KEYS),
+    display: snapshot.display,
+    checkedAt: snapshot.checkedAt,
+  };
+}
+
+/** Where finding comps on the feed stands, in words; null when there's nothing to say. */
+export function compsStateWords(
+  state: 'none' | 'finding' | 'found' | 'none_found' | 'failed',
+  failure: string | null,
+  added?: number,
+): string | null {
+  switch (state) {
+    case 'finding':
+      return 'Finding homes sold nearby on the MLS…';
+    case 'found':
+      return added === undefined
+        ? 'Homes sold nearby came from the MLS. Tick the ones to count.'
+        : `${added} ${added === 1 ? 'home' : 'homes'} sold nearby came from the MLS. Tick the ones to count.`;
+    case 'none_found':
+      return 'The MLS had no homes sold that close in that time. Look further out, or further back.';
+    case 'failed':
+      return failure ?? 'The MLS couldn’t be asked just now. Try again in a few minutes.';
+    default:
+      return null;
+  }
 }

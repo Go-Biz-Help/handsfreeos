@@ -170,7 +170,9 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   - Letting one go (`addon_connection.disconnect`) wipes its key there and then. Uninstalling the add-on wipes every
     key it holds; purging its data deletes the rows.
   - Locally and in tests, `ADDON_CONNECTORS=fake` (the default outside production) tells each tester to use its
-    stand-in, and nothing leaves the worker.
+    stand-in, and nothing leaves the worker; HandsFreeOS's own account works there without a key.
+- **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
+  worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
 - **A service's updates** (Real Estate round five, step 2): a service that sends updates says so in the manifest
   (`webhooks: true` on its provider), and the add-on's worker half has a receiver for it (`webhooks[key][service]`:
   `verify`, `parse`, `handle`; apps/worker/src/addons/webhooks.ts).

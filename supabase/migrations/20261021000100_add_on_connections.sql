@@ -106,7 +106,8 @@ grant select (id, workspace_id, addon_id, connector, provider, auth, status, per
 grant select, insert, update, delete on app.addon_connections to service_actor;
 
 -- What an add-on's screens may know about one of its connections, for anyone who uses the add-on (not only those
--- who manage it): which service, whether it works, and since when it doesn't. Never a secret.
+-- who manage it) and for the worker in that business: which service, whether it works, and since when it doesn't.
+-- Never a secret.
 create or replace function private.addon_connection_live(p_ws uuid, p_addon text, p_connector text)
 returns table (id uuid, provider text, auth text, status text, label text, last_success_at timestamptz,
                failing_since timestamptz, last_error text)
@@ -115,7 +116,7 @@ language sql stable security definer set search_path = '' as $$
   from app.addon_connections c
   where c.workspace_id = p_ws and c.addon_id = p_addon and c.connector = p_connector
     and c.status <> 'disconnected'
-    and p_ws in (select private.accessible_workspace_ids())
+    and private.may_ask_about(p_ws)
     and private.addon_in_use(p_ws, p_addon, false)
   order by (c.auth = 'platform'), c.connected_at desc nulls last
 $$;

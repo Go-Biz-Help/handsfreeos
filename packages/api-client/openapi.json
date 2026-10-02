@@ -56933,6 +56933,11 @@
                     "type": "string",
                     "maxLength": 20000
                   },
+                  "mlsNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
                   "note": {
                     "type": "string",
                     "maxLength": 1000
@@ -56962,11 +56967,16 @@
                     },
                     "filling": {
                       "type": "boolean"
+                    },
+                    "looking": {
+                      "default": false,
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "homeId",
-                    "filling"
+                    "filling",
+                    "looking"
                   ],
                   "additionalProperties": false
                 }
@@ -62374,7 +62384,8 @@
                       "enum": [
                         "seller",
                         "pasted",
-                        "agent"
+                        "agent",
+                        "mls"
                       ]
                     }
                   },
@@ -65712,6 +65723,226 @@
                     "dealId",
                     "dutyId",
                     "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.home.lookup": {
+      "post": {
+        "operationId": "command_realestate_home_lookup",
+        "summary": "Look a buyer’s home up on the business’s listing feed again, by its address or an MLS number: its facts, photos and where it stands on the MLS, for the agent to check.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires realestate.use. Emits realestate.home.lookup_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "homeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mlsNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "homeId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "homeId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "looking": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "homeId",
+                    "looking"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.listing.lookup": {
+      "post": {
+        "operationId": "command_realestate_listing_lookup",
+        "summary": "Look the deal’s own listing up on the business’s listing feed, by its MLS number or address: what the MLS says of its facts, beside the seller’s and the old listing’s, and where it stands there.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires realestate.use. Emits realestate.listing.lookup_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mlsNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "looking": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "looking"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.cma.find_comps": {
+      "post": {
+        "operationId": "command_realestate_cma_find_comps",
+        "summary": "Ask the business’s listing feed for homes sold near a draft CMA’s home: they come in as comps from the MLS that don’t count until the agent ticks them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires realestate.use. Emits realestate.cma.comps_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "cmaId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "miles": {
+                    "default": 1,
+                    "type": "number",
+                    "minimum": 0.25,
+                    "maximum": 10
+                  },
+                  "months": {
+                    "default": 6,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "cmaId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cmaId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "finding": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "cmaId",
+                    "finding"
                   ],
                   "additionalProperties": false
                 }
@@ -122246,6 +122477,248 @@
                           "hasPastedText": {
                             "type": "boolean"
                           },
+                          "mls": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "mlsNumber": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "coming_soon",
+                                      "active",
+                                      "pending",
+                                      "sold",
+                                      "off_market"
+                                    ]
+                                  },
+                                  "statusWords": {
+                                    "type": "string"
+                                  },
+                                  "sourceWords": {
+                                    "type": "string"
+                                  },
+                                  "listPriceCents": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "soldPriceCents": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "soldOn": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "daysOnMarket": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "facts": {
+                                    "type": "object",
+                                    "properties": {
+                                      "price_cents": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100000000000
+                                      },
+                                      "beds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "baths": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      },
+                                      "sqft": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 10000000
+                                      },
+                                      "lot_sqft": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      },
+                                      "year_built": {
+                                        "type": "integer",
+                                        "minimum": 1700,
+                                        "maximum": 2100
+                                      },
+                                      "hoa_monthly_cents": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100000000000
+                                      },
+                                      "property_type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "single_family",
+                                          "condo",
+                                          "townhouse",
+                                          "multi_family",
+                                          "manufactured",
+                                          "land"
+                                        ]
+                                      },
+                                      "garage_spaces": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  "photos": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "type": "string"
+                                        },
+                                        "caption": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "caption"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "differs": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "price_cents",
+                                        "beds",
+                                        "baths",
+                                        "sqft",
+                                        "lot_sqft",
+                                        "year_built",
+                                        "hoa_monthly_cents",
+                                        "property_type",
+                                        "garage_spaces"
+                                      ]
+                                    }
+                                  },
+                                  "display": {
+                                    "type": "object",
+                                    "properties": {
+                                      "notice": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "logoUrl": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "courtesy": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "notice",
+                                      "logoUrl",
+                                      "courtesy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "checkedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "mlsNumber",
+                                  "status",
+                                  "statusWords",
+                                  "sourceWords",
+                                  "listPriceCents",
+                                  "soldPriceCents",
+                                  "soldOn",
+                                  "daysOnMarket",
+                                  "facts",
+                                  "photos",
+                                  "description",
+                                  "differs",
+                                  "display",
+                                  "checkedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "mlsState": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "looking",
+                              "found",
+                              "not_found",
+                              "failed"
+                            ]
+                          },
+                          "mlsWords": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "fit": {
                             "type": "object",
                             "properties": {
@@ -122417,6 +122890,9 @@
                           "factsState",
                           "factsFailure",
                           "hasPastedText",
+                          "mls",
+                          "mlsState",
+                          "mlsWords",
                           "fit",
                           "reactions",
                           "addedBy",
@@ -123504,6 +123980,50 @@
                                   "mls"
                                 ]
                               },
+                              "mls": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mlsNumber": {
+                                        "type": "string"
+                                      },
+                                      "sourceWords": {
+                                        "type": "string"
+                                      },
+                                      "photoUrl": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "courtesy": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "notice": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "mlsNumber",
+                                      "sourceWords",
+                                      "photoUrl",
+                                      "courtesy",
+                                      "notice"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "valueCents": {
                                 "anyOf": [
                                   {
@@ -123562,6 +124082,7 @@
                               "used",
                               "note",
                               "source",
+                              "mls",
                               "valueCents",
                               "adjustmentCents",
                               "weight",
@@ -123768,6 +124289,71 @@
                             "null"
                           ]
                         },
+                        "findComps": {
+                          "type": "object",
+                          "properties": {
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "finding",
+                                "found",
+                                "none_found",
+                                "failed"
+                              ]
+                            },
+                            "words": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "asked": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "miles": {
+                                      "type": "number"
+                                    },
+                                    "months": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "miles",
+                                    "months"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "state",
+                            "words",
+                            "asked",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
                         "finalizedAt": {
                           "anyOf": [
                             {
@@ -123813,6 +124399,7 @@
                         "summary",
                         "fairHousing",
                         "shareBlocked",
+                        "findComps",
                         "finalizedAt",
                         "sharedAt",
                         "createdAt"
@@ -125598,7 +126185,8 @@
                                         "enum": [
                                           "seller",
                                           "pasted",
-                                          "agent"
+                                          "agent",
+                                          "mls"
                                         ]
                                       },
                                       "value": {},
@@ -125635,7 +126223,8 @@
                                       "enum": [
                                         "seller",
                                         "pasted",
-                                        "agent"
+                                        "agent",
+                                        "mls"
                                       ]
                                     },
                                     "value": {},
@@ -125833,6 +126422,259 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "feed": {
+                          "type": "object",
+                          "properties": {
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "looking",
+                                "found",
+                                "not_found",
+                                "failed"
+                              ]
+                            },
+                            "words": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "mls": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "mlsNumber": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": [
+                                        "coming_soon",
+                                        "active",
+                                        "pending",
+                                        "sold",
+                                        "off_market"
+                                      ]
+                                    },
+                                    "statusWords": {
+                                      "type": "string"
+                                    },
+                                    "sourceWords": {
+                                      "type": "string"
+                                    },
+                                    "listPriceCents": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "soldPriceCents": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "soldOn": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "daysOnMarket": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "facts": {
+                                      "type": "object",
+                                      "properties": {
+                                        "price_cents": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000000000
+                                        },
+                                        "beds": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100
+                                        },
+                                        "baths": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 100
+                                        },
+                                        "sqft": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 10000000
+                                        },
+                                        "lot_sqft": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 1000000000
+                                        },
+                                        "year_built": {
+                                          "type": "integer",
+                                          "minimum": 1700,
+                                          "maximum": 2100
+                                        },
+                                        "hoa_monthly_cents": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000000000
+                                        },
+                                        "property_type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "single_family",
+                                            "condo",
+                                            "townhouse",
+                                            "multi_family",
+                                            "manufactured",
+                                            "land"
+                                          ]
+                                        },
+                                        "garage_spaces": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    },
+                                    "photos": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "url": {
+                                            "type": "string"
+                                          },
+                                          "caption": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "url",
+                                          "caption"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "description": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "differs": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "price_cents",
+                                          "beds",
+                                          "baths",
+                                          "sqft",
+                                          "lot_sqft",
+                                          "year_built",
+                                          "hoa_monthly_cents",
+                                          "property_type",
+                                          "garage_spaces"
+                                        ]
+                                      }
+                                    },
+                                    "display": {
+                                      "type": "object",
+                                      "properties": {
+                                        "notice": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "logoUrl": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "courtesy": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "notice",
+                                        "logoUrl",
+                                        "courtesy"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "checkedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "mlsNumber",
+                                    "status",
+                                    "statusWords",
+                                    "sourceWords",
+                                    "listPriceCents",
+                                    "soldPriceCents",
+                                    "soldOn",
+                                    "daysOnMarket",
+                                    "facts",
+                                    "photos",
+                                    "description",
+                                    "differs",
+                                    "display",
+                                    "checkedAt"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "state",
+                            "words",
+                            "mls"
+                          ],
+                          "additionalProperties": false
                         },
                         "page": {
                           "type": "object",
@@ -126238,6 +127080,7 @@
                         "questionnaire",
                         "photos",
                         "mls",
+                        "feed",
                         "page",
                         "listPriceCents",
                         "matches",

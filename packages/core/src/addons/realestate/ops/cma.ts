@@ -29,6 +29,7 @@ import {
   type CmaSubject,
 } from '../cma';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
+import { compsStateWords, mlsSourceWords, type MlsSnapshot } from '../feed';
 import { addressKey } from '../homes';
 import { realestateAddon } from '../manifest';
 import {
@@ -77,7 +78,20 @@ type Check = typeof fairHousingChecks.$inferSelect;
 
 const num = (v: string | number | null): number | null => (v === null ? null : Number(v));
 
-async function loadCma(ctx: Ctx, cmaId: string, lock = false): Promise<{ cma: Cma; deal: Deal }> {
+/** A comp from the feed as the screens show it: its number, first photo and its MLS's lines. */
+const compMls = (mlsNumber: string, s: MlsSnapshot) => ({
+  mlsNumber,
+  sourceWords: mlsSourceWords(s),
+  photoUrl: s.photos?.[0]?.url ?? null,
+  courtesy: s.display?.courtesy ?? null,
+  notice: s.display?.notice ?? null,
+});
+
+export async function loadCma(
+  ctx: Ctx,
+  cmaId: string,
+  lock = false,
+): Promise<{ cma: Cma; deal: Deal }> {
   const q = ctx.tx
     .select()
     .from(cmas)
@@ -90,7 +104,7 @@ async function loadCma(ctx: Ctx, cmaId: string, lock = false): Promise<{ cma: Cm
   return { cma, deal: await loadDeal(ctx, cma.dealRecordId) };
 }
 
-async function compsOf(ctx: Ctx, cmaId: string): Promise<CompRow[]> {
+export async function compsOf(ctx: Ctx, cmaId: string): Promise<CompRow[]> {
   return ctx.tx
     .select()
     .from(cmaComps)
@@ -121,7 +135,7 @@ const compOf = (r: CompRow): CmaComp => ({
 });
 
 /** Only a draft's comps and home change. */
-function requireDraft(cma: Cma): void {
+export function requireDraft(cma: Cma): void {
   if (cma.status !== 'draft')
     throw HfosError.rule(
       'realestate_cma_final',
@@ -355,6 +369,8 @@ export const cmaStart = defineAddonCommand(realestateAddon, {
             used: c.used,
             note: c.note,
             source: c.source,
+            mlsNumber: c.mlsNumber,
+            mls: c.mls,
             position: c.position,
             createdBy: actorUserId(ctx),
           })),
@@ -1056,6 +1072,8 @@ export const cmaGet = defineAddonQuery(realestateAddon, {
             used: r.used,
             note: r.note,
             source: r.source,
+            mls:
+              r.mls && r.mlsNumber ? compMls(r.mlsNumber, r.mls as unknown as MlsSnapshot) : null,
             valueCents: v.valueCents,
             adjustmentCents: v.adjustmentCents,
             weight: Math.round(v.weight * 1000) / 1000,
@@ -1090,6 +1108,17 @@ export const cmaGet = defineAddonQuery(realestateAddon, {
               : null,
         },
         shareBlocked: cma.status === 'shared' ? null : (blocked?.words ?? null),
+        findComps: {
+          state: cma.compsState,
+          words: compsStateWords(cma.compsState, cma.compsFailure),
+          asked: cma.compsAsked
+            ? {
+                miles: Number(cma.compsAsked['miles'] ?? 1),
+                months: Number(cma.compsAsked['months'] ?? 6),
+              }
+            : null,
+          at: cma.compsFoundAt?.toISOString() ?? null,
+        },
         finalizedAt: cma.finalizedAt?.toISOString() ?? null,
         sharedAt: cma.sharedAt?.toISOString() ?? null,
         createdAt: cma.createdAt.toISOString(),

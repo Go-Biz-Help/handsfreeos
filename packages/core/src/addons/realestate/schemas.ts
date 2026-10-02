@@ -32,7 +32,8 @@ import {
   FINDING_SEVERITY_KEYS,
   INSPECTION_KIND_KEYS,
 } from './closing';
-import { HOME_STATUS_KEYS, HOME_TYPE_KEYS } from './homes';
+import { FEED_STATUS_KEYS, MLS_STATE_KEYS, MlsSnapshotSchema } from './feed';
+import { HOME_STATUS_KEYS, HOME_TYPE_KEYS, LISTING_FACT_KEYS } from './homes';
 import { FACT_FROM_KEYS, LISTING_HOME_FACT_KEYS } from './listing';
 import { SELLER_CHOICE_KEYS } from './net';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
@@ -1102,12 +1103,16 @@ export const HomeAddInput = z.object({
     .trim()
     .max(20_000, 'Paste up to 20,000 characters of the listing.')
     .optional(),
+  /** Its MLS number, when the agent has it: the listing feed looks it up by that (round five). */
+  mlsNumber: z.string().trim().min(1).max(80).optional(),
   note: optionalNote,
 });
 export const HomeAddOutput = z.object({
   homeId: uuid,
   /** The AI is reading the pasted text for its facts. */
   filling: z.boolean(),
+  /** The listing feed is looking it up (round five). */
+  looking: z.boolean().default(false),
 });
 
 export const HomeFillFactsInput = z.object({
@@ -1150,6 +1155,92 @@ export const FitLineOut = z.object({
   met: z.boolean().nullable(),
   words: z.string(),
 });
+/** What a listing feed said about a home, a listing or a comp, for the screens (round five). */
+export const MlsOut = z.object({
+  mlsNumber: z.string(),
+  status: z.enum(FEED_STATUS_KEYS),
+  statusWords: z.string(),
+  /** "From the MLS (Unlock MLS, through Repliers)" */
+  sourceWords: z.string(),
+  listPriceCents: z.number().int().nullable(),
+  soldPriceCents: z.number().int().nullable(),
+  soldOn: z.string().nullable(),
+  daysOnMarket: z.number().int().nullable(),
+  facts: ListingFactsIn,
+  photos: z.array(z.object({ url: z.string(), caption: z.string().nullable() })),
+  description: z.string().nullable(),
+  /** The facts where the feed and what's kept disagree, for a person to pick. */
+  differs: z.array(z.enum(LISTING_FACT_KEYS)),
+  display: z.object({
+    notice: z.string().nullable(),
+    logoUrl: z.string().nullable(),
+    courtesy: z.string().nullable(),
+  }),
+  checkedAt: isoDateTime,
+});
+
+export const HomeLookupInput = z.object({
+  workspaceId: uuid,
+  homeId: uuid,
+  /** Look it up by this MLS number rather than its address. */
+  mlsNumber: z.string().trim().min(1).max(80).optional(),
+});
+export const HomeLookupOutput = z.object({ homeId: uuid, looking: z.literal(true) });
+
+/** The worker: what the listing feed found for a home or a listing, or why it couldn't look. */
+export const MlsFoundInput = z.object({
+  workspaceId: uuid,
+  /** A home's id, or a listing's deal. */
+  homeId: uuid.optional(),
+  dealId: uuid.optional(),
+  listing: MlsSnapshotSchema.nullable(),
+  /** No feed is connected (or HandsFreeOS's own account has no key here): back to as it was. */
+  noFeed: z.boolean().default(false),
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+export const MlsFoundOutput = z.object({
+  state: z.enum([...MLS_STATE_KEYS, 'skipped']),
+  /** Facts the feed filled in that were empty. */
+  filled: z.array(z.enum(LISTING_FACT_KEYS)),
+});
+
+export const ListingLookupInput = z.object({
+  ...inDeal,
+  mlsNumber: z.string().trim().min(1).max(80).optional(),
+});
+export const ListingLookupOutput = z.object({ dealId: uuid, looking: z.literal(true) });
+
+export const CmaFindCompsInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  /** How far from the home. */
+  miles: z.number().min(0.25).max(10).default(1),
+  /** Sold in the last this many months. */
+  months: z.int().min(1).max(24).default(6),
+});
+export const CmaFindCompsOutput = z.object({ cmaId: uuid, finding: z.literal(true) });
+
+/** The worker: sold homes the feed found near a CMA's home, or why it couldn't look. */
+export const CmaCompsFoundInput = z.object({
+  workspaceId: uuid,
+  cmaId: uuid,
+  comps: z
+    .array(
+      z.object({
+        listing: MlsSnapshotSchema,
+        distanceMiles: z.number().min(0).max(500).nullable(),
+      }),
+    )
+    .max(40),
+  noFeed: z.boolean().default(false),
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+export const CmaCompsFoundOutput = z.object({
+  cmaId: uuid,
+  state: z.enum(['none', 'found', 'none_found', 'failed', 'skipped']),
+  added: z.int(),
+});
+
 export const HomeOut = z.object({
   id: uuid,
   address: z.string(),
@@ -1163,6 +1254,11 @@ export const HomeOut = z.object({
   factsState: z.enum(['none', 'filling', 'suggested', 'confirmed', 'failed']),
   factsFailure: z.string().nullable(),
   hasPastedText: z.boolean(),
+  /** What the listing feed says about it (round five): null until it's been found there. */
+  mls: MlsOut.nullable(),
+  mlsState: z.enum(MLS_STATE_KEYS),
+  /** Where looking it up stands, in words; null when there's nothing to say. */
+  mlsWords: z.string().nullable(),
   fit: z.object({
     lines: z.array(FitLineOut),
     met: z.number().int(),
@@ -1546,6 +1642,16 @@ export const CmaCompOut = z.object({
   used: z.boolean(),
   note: z.string().nullable(),
   source: z.enum(['agent', 'mls']),
+  /** A comp from the feed (round five): its MLS number, first photo, and what its MLS asks to be shown with it. */
+  mls: z
+    .object({
+      mlsNumber: z.string(),
+      sourceWords: z.string(),
+      photoUrl: z.string().nullable(),
+      courtesy: z.string().nullable(),
+      notice: z.string().nullable(),
+    })
+    .nullable(),
   /** Its value for the home, and what it was adjusted by. */
   valueCents: z.number().int().nullable(),
   adjustmentCents: z.number().int().nullable(),
@@ -1593,6 +1699,13 @@ export const CmaOut = z.object({
   }),
   /** Why it can't be shared yet, when it can't. */
   shareBlocked: z.string().nullable(),
+  /** Finding comps on the business's listing feed (round five). */
+  findComps: z.object({
+    state: z.enum(['none', 'finding', 'found', 'none_found', 'failed']),
+    words: z.string().nullable(),
+    asked: z.object({ miles: z.number(), months: z.number().int() }).nullable(),
+    at: isoDateTime.nullable(),
+  }),
   finalizedAt: isoDateTime.nullable(),
   sharedAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
@@ -2382,6 +2495,12 @@ export const ListingOut = z.object({
   ),
   /** Live on the MLS: nothing public goes before it. */
   mls: z.object({ number: z.string(), liveOn: z.string() }).nullable(),
+  /** The listing as the business's feed has it (round five): looked up, and what it says. */
+  feed: z.object({
+    state: z.enum(MLS_STATE_KEYS),
+    words: z.string().nullable(),
+    mls: MlsOut.nullable(),
+  }),
   page: z.object({
     state: z.enum(['none', 'published', 'down']),
     slug: z.string().nullable(),

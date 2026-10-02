@@ -38,6 +38,7 @@ import { contractCommands, contractQueries } from './ops/contract';
 import { contingencyCommands, contingencyQueries } from './ops/contingencies';
 import { waitCommands } from './ops/waits';
 import { coordinateQueries } from './ops/coordinate';
+import { feedCommands } from './ops/feed';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
@@ -73,6 +74,8 @@ export const realestateAddonServer: AddonServerModule = {
     ...contractCommands,
     ...contingencyCommands,
     ...waitCommands,
+    // Round five: listing data from the feed.
+    ...feedCommands,
   ],
   queries: [
     ...realestateQueries,

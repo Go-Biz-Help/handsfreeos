@@ -199,6 +199,16 @@ Round four (Chris, 2026-10-02):
 - **Coordinate's views** cover the deals the person sees; Workload is about people, so it needs See every deal.
   Exceptions stay until they're fixed, not when someone opens them.
 
+Round five (Chris, 2026-10-02):
+
+- **Listing data: HandsFreeOS's own Repliers account by default**, turned on by staff; a brokerage can connect its
+  own Repliers, AnyProp or MLS feed instead, and it's used first. Only the worker holds the keys.
+- **A feed is a source of facts, never of authority.** What it says is kept as it said it, with its supplier, MLS
+  and time, and shown as "From the MLS". It fills only facts still empty, as suggestions to confirm; what a person
+  confirmed is never overwritten, and where they disagree both are shown. A feed that's down marks nothing done.
+- **Comps from the MLS don't count until the agent ticks them.**
+- **Each MLS's notice, logo and courtesy line go with its listings** wherever they're shown.
+
 ## Handing it to a test business
 
 1. A HandsFreeOS staff member with `platform.addons.manage` opens **/admin/businesses/<business>** and presses

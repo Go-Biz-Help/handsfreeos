@@ -1,6 +1,6 @@
 /**
- * Playwright's route for Real Estate Agent (round four's spec), under the worker's test-route guard:
- * http/test-routes.ts registers it only with the fake providers, and never in production.
+ * Playwright's route for Real Estate Agent (round four's spec), under the worker's test-route guard: its worker
+ * module's `testRoutes`, which http/test-routes.ts registers only with the fake providers, never in production.
  *
  * POST /test/realestate/at-risk-since { workspaceId, dutyId, hours } says an at-risk duty has been at risk for so many
  * hours, so a browser test sees it go to the business's alert people at the next sweep without waiting a business

@@ -45,11 +45,13 @@ import {
   HomeSetStatusOutput,
 } from '../schemas';
 import type { HomeOut } from '../schemas';
+import { mlsOut, mlsStateWords, type MlsSnapshot } from '../feed';
 import { buyerProfiles, buyerProfileVersions, homeReactions, homes } from '../tables';
 import {
   actorKind,
   actorUserId,
   dealLine,
+  feedConnected,
   historyLine,
   inWorkspace,
   loadDeal,
@@ -270,8 +272,10 @@ export async function addHome(
     readonly pastedText?: string | undefined;
     readonly source: 'agent' | 'client' | 'our_listing';
     readonly personId?: string | null;
+    /** Look it up on the listing feed by this MLS number rather than its address (round five). */
+    readonly mlsNumber?: string | undefined;
   },
-): Promise<{ homeId: string; filling: boolean }> {
+): Promise<{ homeId: string; filling: boolean; looking: boolean }> {
   requireNotArchived(deal);
   requireBuyerSide(deal);
   const key = addressKey(input.address);
@@ -293,6 +297,8 @@ export async function addHome(
       `${input.address} is already on ${deal.name}. Open it there to change it.`,
     );
   const pasted = input.pastedText?.trim() || null;
+  // Round five: a business with a listing feed has each new home looked up on it.
+  const looking = await feedConnected(ctx);
   const [h] = await ctx.tx
     .insert(homes)
     .values({
@@ -304,6 +310,7 @@ export async function addHome(
       link: input.link ?? null,
       pastedText: pasted,
       factsState: pasted ? 'filling' : 'none',
+      mlsState: looking ? 'looking' : 'none',
       addedBy: actorUserId(ctx),
       addedByPersonId: input.source === 'client' ? (input.personId ?? null) : null,
     })
@@ -315,7 +322,12 @@ export async function addHome(
     type: 'realestate.home.added',
     entityType: 'realestate_deal',
     entityId: deal.recordId,
-    payload: { homeId: h!.id, fill: !!pasted, source: input.source },
+    payload: {
+      homeId: h!.id,
+      fill: !!pasted,
+      source: input.source,
+      ...(looking ? { lookup: true, mlsNumber: input.mlsNumber ?? null } : {}),
+    },
     after: { address: input.address.trim() },
   });
   await dealLine(
@@ -326,7 +338,7 @@ export async function addHome(
       : `added ${input.address.trim()} to the homes`,
     { eventId },
   );
-  return { homeId: h!.id, filling: !!pasted };
+  return { homeId: h!.id, filling: !!pasted, looking };
 }
 
 export const homeAdd = defineAddonCommand(realestateAddon, {
@@ -350,6 +362,7 @@ export const homeAdd = defineAddonCommand(realestateAddon, {
       address: input.address,
       link: input.link,
       pastedText: input.pastedText,
+      mlsNumber: input.mlsNumber,
       source: 'agent',
     });
   },
@@ -582,6 +595,9 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
           factsState: h.factsState,
           factsFailure: h.factsFailure,
           hasPastedText: !!h.pastedText,
+          mls: h.mls ? mlsOut(h.mls as unknown as MlsSnapshot, facts) : null,
+          mlsState: h.mlsState,
+          mlsWords: mlsStateWords(h.mlsState, h.mlsFailure),
           fit: (({ lines, ...counts }) => ({ ...counts, lines: [...lines] }))(
             homeFit(profile, facts, h.address),
           ),
