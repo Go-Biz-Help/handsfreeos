@@ -55,6 +55,8 @@ describe('the registry', () => {
       ['record_answers', 'qualify', 'auto'],
       ['ask_form', 'qualify', 'auto'],
       ['answer_form', 'qualify', 'auto'],
+      ['ask_for_file', 'qualify', 'auto'],
+      ['save_file', 'qualify', 'auto'],
       ['move_stage', 'qualify', 'auto'],
       ['open_deal', 'deals', 'auto'],
       ['set_deal_value', 'deals', 'auto'],
@@ -313,6 +315,35 @@ describe('teammateTools', () => {
     );
   });
 
+  it('asks for a file only while a question asks for one, by link only by text, and saves none on a call', () => {
+    const withFile = applyTeammatePatch(coordinator, {
+      qualify: {
+        enabled: true,
+        questions: [
+          ...coordinator.qualify.questions,
+          { id: 'bill', question: 'Your latest electric bill', kind: 'file' },
+        ],
+      },
+    });
+    const tools = (c: TeammateConfig, opts: { texting?: boolean; phone?: boolean } = {}) =>
+      teammateTools(c, opts).map((t) => t.name);
+    expect(tools(withFile, { texting: true })).toEqual(
+      expect.arrayContaining(['ask_for_file', 'save_file']),
+    );
+    // By email: no link, but what they attach is saved.
+    expect(tools(withFile)).toContain('save_file');
+    expect(tools(withFile)).not.toContain('ask_for_file');
+    // On a call there's nothing to save, and no link to send.
+    expect(tools(withFile, { texting: true, phone: true })).not.toContain('ask_for_file');
+    expect(tools(withFile, { phone: true })).not.toContain('save_file');
+    // No file question: neither.
+    const without = applyTeammatePatch(withFile, {
+      qualify: { questions: withFile.qualify.questions.filter((q) => q.kind !== 'file') },
+    });
+    expect(tools(without, { texting: true })).not.toContain('ask_for_file');
+    expect(tools(without, { texting: true })).not.toContain('save_file');
+  });
+
   it('offers the chat code tools only to an unverified chat visitor', () => {
     for (const only of UNVERIFIED_CHAT_ONLY) {
       expect(names(coordinator, true)).toContain(only);
@@ -321,7 +352,16 @@ describe('teammateTools', () => {
   });
 
   it('writes nothing for a customer on file whose number an unverified chat visitor typed', () => {
-    const qualifier = teammateConfigFromPreset('lead_qualifier', presetContext);
+    const preset = teammateConfigFromPreset('lead_qualifier', presetContext);
+    // With a file question, so save_file is on to be hidden.
+    const qualifier = applyTeammatePatch(preset, {
+      qualify: {
+        questions: [
+          ...preset.qualify.questions,
+          { id: 'bill', question: 'Your latest electric bill', kind: 'file' },
+        ],
+      },
+    });
     const stranger = teammateTools(qualifier, { unverifiedChat: true, strangerInChat: true }).map(
       (t) => t.name,
     );

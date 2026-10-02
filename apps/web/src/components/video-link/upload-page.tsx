@@ -6,9 +6,12 @@
  *
  * Loaded from the customer's browser, so the worker's per-address limits count per customer. Opening the page
  * changes nothing; only picking a video does.
+ *
+ * A link can ask for a file instead (20261018000400): a photo or PDF that answers a question the AI teammate asked,
+ * like a photo of their electric bill. The page says what was asked, and takes photos and PDFs.
  */
-import { VIDEO_LINK_WORDS } from '@hfos/core';
-import { CircleCheck, Clock, Link2Off, Video } from 'lucide-react';
+import { FILE_LINK_ACCEPT, FILE_LINK_WORDS, VIDEO_LINK_WORDS } from '@hfos/core';
+import { CircleCheck, Clock, FileUp, Link2Off, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PublicFrame, PublicState } from '@/components/booking/public-shell';
 import { Button } from '@/components/ui/button';
@@ -46,7 +49,11 @@ export function VideoUploadPage({ token }: { token: string }) {
   useEffect(() => {
     let live = true;
     getVideoLink(token).then(
-      (view) => live && setState({ kind: 'ready', view }),
+      (view) => {
+        if (!live) return;
+        if (view.asksFor === 'file') document.title = 'Send a file';
+        setState({ kind: 'ready', view });
+      },
       (e: unknown) => live && setState({ kind: 'missing', message: wordsOf(e) }),
     );
     return () => {
@@ -98,6 +105,20 @@ export function VideoUploadPage({ token }: { token: string }) {
     );
 
   const { view } = state;
+  // What it asks for decides the words, the icon and what can be picked.
+  const file = view.asksFor === 'file';
+  const Icon = file ? FileUp : Video;
+  const words = {
+    heading: file
+      ? FILE_LINK_WORDS.heading(view.business)
+      : VIDEO_LINK_WORDS.heading(view.business),
+    intro: file ? FILE_LINK_WORDS.intro(view.ask ?? '') : VIDEO_LINK_WORDS.intro,
+    choose: file ? FILE_LINK_WORDS.choose : VIDEO_LINK_WORDS.choose,
+    note: file ? FILE_LINK_WORDS.note : VIDEO_LINK_WORDS.note,
+    sending: file ? FILE_LINK_WORDS.sending : VIDEO_LINK_WORDS.sending,
+    sent: file ? FILE_LINK_WORDS.sent(view.business) : VIDEO_LINK_WORDS.sent(view.business),
+    another: file ? FILE_LINK_WORDS.another : VIDEO_LINK_WORDS.another,
+  };
   if (state.kind === 'ready' && view.problem)
     return (
       <PublicFrame business={null}>
@@ -117,7 +138,7 @@ export function VideoUploadPage({ token }: { token: string }) {
       <input
         ref={input}
         type="file"
-        accept="video/*"
+        accept={file ? FILE_LINK_ACCEPT : 'video/*'}
         className="sr-only"
         tabIndex={-1}
         aria-hidden
@@ -138,7 +159,7 @@ export function VideoUploadPage({ token }: { token: string }) {
         className="h-12 px-6 text-[15px]"
         data-testid="video-link-choose"
       >
-        <Video className="h-[18px] w-[18px]" strokeWidth={1.5} />
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
         {label}
       </Button>
     </>
@@ -151,9 +172,9 @@ export function VideoUploadPage({ token }: { token: string }) {
         <PublicState
           tone="success"
           icon={<CircleCheck size={20} />}
-          title={VIDEO_LINK_WORDS.sent(view.business)}
+          title={words.sent}
           testId="video-link-sent"
-          action={room ? chooser(VIDEO_LINK_WORDS.another) : undefined}
+          action={room ? chooser(words.another) : undefined}
         />
       </PublicFrame>
     );
@@ -164,8 +185,8 @@ export function VideoUploadPage({ token }: { token: string }) {
       <PublicFrame business={null}>
         <PublicState
           tone="accent"
-          icon={<Video size={20} />}
-          title={VIDEO_LINK_WORDS.sending(state.percent)}
+          icon={<Icon size={20} />}
+          title={words.sending(state.percent)}
           testId="video-link-sending"
           action={
             <div
@@ -182,7 +203,7 @@ export function VideoUploadPage({ token }: { token: string }) {
             </div>
           }
         >
-          {VIDEO_LINK_WORDS.note}
+          {words.note}
         </PublicState>
       </PublicFrame>
     );
@@ -191,8 +212,8 @@ export function VideoUploadPage({ token }: { token: string }) {
     <PublicFrame business={null}>
       <PublicState
         tone="accent"
-        icon={<Video size={20} />}
-        title={VIDEO_LINK_WORDS.heading(view.business)}
+        icon={<Icon size={20} />}
+        title={words.heading}
         testId="video-link-ready"
         action={
           <div className="flex flex-col items-center gap-3">
@@ -205,19 +226,19 @@ export function VideoUploadPage({ token }: { token: string }) {
                 {VIDEO_LINK_WORDS.tryAgain}
               </Button>
             ) : (
-              chooser(VIDEO_LINK_WORDS.choose)
+              chooser(words.choose)
             )}
             {state.kind === 'failed' ? (
               <p className="max-w-sm text-[13px] text-danger-text" role="alert">
                 {state.message}
               </p>
             ) : (
-              <p className="text-[13px] text-text-3">{VIDEO_LINK_WORDS.note}</p>
+              <p className="text-[13px] text-text-3">{words.note}</p>
             )}
           </div>
         }
       >
-        {VIDEO_LINK_WORDS.intro}
+        {words.intro}
       </PublicState>
     </PublicFrame>
   );

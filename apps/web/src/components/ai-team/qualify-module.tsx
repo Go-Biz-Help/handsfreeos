@@ -28,6 +28,7 @@ const KIND_NAMES: Readonly<Record<QuestionKind, string>> = {
   yes_no: 'Yes or no',
   number: 'Number',
   text: 'Text',
+  file: 'File',
 };
 const MAX_QUESTIONS = 10;
 const MAX_CHOICES = 20;
@@ -41,28 +42,34 @@ function newId(taken: readonly string[]): string {
   return id;
 }
 
-/** A question as another kind, keeping what still fits (choices need two, yes/no rules out one answer). */
+/**
+ * A question as another kind, keeping what still fits (choices need two, yes/no rules out one answer). Only a file
+ * question tells anyone when it's answered: owners and admins, until someone picks otherwise.
+ */
 function withKind(q: QualifyingQuestion, kind: QuestionKind): QualifyingQuestion {
   const none = { answers: [], below: null, above: null };
+  const base = { ...q, notify: null };
   switch (kind) {
     case 'choice': {
       const options = q.options.length >= 2 ? q.options : ['Option 1', 'Option 2'];
       const answers = q.notAFitIf.answers.filter((a) => options.includes(a));
-      return { ...q, kind, options, notAFitIf: { ...none, answers } };
+      return { ...base, kind, options, notAFitIf: { ...none, answers } };
     }
     case 'yes_no': {
       const answers = q.notAFitIf.answers.filter((a) => a === 'yes' || a === 'no').slice(0, 1);
-      return { ...q, kind, options: [], notAFitIf: { ...none, answers } };
+      return { ...base, kind, options: [], notAFitIf: { ...none, answers } };
     }
     case 'number':
       return {
-        ...q,
+        ...base,
         kind,
         options: [],
         notAFitIf: { ...none, below: q.notAFitIf.below, above: q.notAFitIf.above },
       };
     case 'text':
-      return { ...q, kind, options: [], notAFitIf: none };
+      return { ...base, kind, options: [], notAFitIf: none };
+    case 'file':
+      return { ...q, kind, options: [], notAFitIf: none, notify: q.notify ?? { kind: 'admins' } };
   }
 }
 
@@ -103,6 +110,7 @@ export function QualifyModule({ draft, patch, catalogs }: ModuleProps) {
             index={i}
             count={list.length}
             name={name}
+            members={catalogs.members}
             onChange={(next, label, options) =>
               set(
                 list.map((x, j) => (j === i ? next : x)),
@@ -142,6 +150,7 @@ export function QualifyModule({ draft, patch, catalogs }: ModuleProps) {
                   options: [],
                   required: true,
                   notAFitIf: { answers: [], below: null, above: null },
+                  notify: null,
                 },
               ],
               'Add a question',
@@ -177,6 +186,7 @@ function QuestionCard({
   index,
   count,
   name,
+  members,
   onChange,
   onMove,
   onRemove,
@@ -185,6 +195,7 @@ function QuestionCard({
   index: number;
   count: number;
   name: string;
+  members: ModuleProps['catalogs']['members'];
   onChange: Change;
   onMove: (d: -1 | 1) => void;
   onRemove: () => void;
@@ -332,9 +343,29 @@ function QuestionCard({
           />
           Required
         </label>
-        <NotAFit q={q} n={n} onChange={onChange} />
+        {q.kind === 'file' ? (
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            Tell when it arrives
+            <NotifyPicker
+              value={q.notify}
+              members={members}
+              label={`Question ${n}: who hears when the file arrives`}
+              testId={`question-${n}-notify`}
+              onChange={(notify) =>
+                onChange({ ...q, notify }, 'Change who hears when a file arrives')
+              }
+            />
+          </span>
+        ) : (
+          <NotAFit q={q} n={n} onChange={onChange} />
+        )}
       </div>
-      {q.kind === 'text' ? (
+      {q.kind === 'file' ? (
+        <p className="text-[12.5px] text-text-3">
+          {name} texts them a link to send a photo or PDF, or saves the one they text or email. It
+          goes on the lead’s Files.
+        </p>
+      ) : q.kind === 'text' ? (
         <p className="text-[12.5px] text-text-3">Saved as they wrote it.</p>
       ) : rulesOut(q) ? (
         <p className="text-[12.5px] text-text-3">
@@ -470,36 +501,6 @@ function WhenQualified({
   const w = draft.qualify.whenQualified;
   const pipelines = catalogs.pipelines ?? [];
   const stage = stageOf(w.stageId, catalogs);
-  const notify = w.notify;
-  const members = catalogs.members.filter((m) => m.active);
-  const single =
-    notify?.kind === 'users' && notify.userIds.length === 1 && typeof notify.userIds[0] === 'string'
-      ? notify.userIds[0]
-      : null;
-  const value = !notify
-    ? 'none'
-    : notify.kind === 'users'
-      ? single
-        ? `user:${single}`
-        : 'several'
-      : notify.kind;
-  const setNotify = (v: string) => {
-    if (v === 'several') return;
-    const next: NotifyWho | null =
-      v === 'none'
-        ? null
-        : v === 'admins'
-          ? { kind: 'admins' }
-          : v === 'lead_assignee'
-            ? { kind: 'lead_assignee' }
-            : v === 'person_owner'
-              ? { kind: 'person_owner' }
-              : { kind: 'users', userIds: [v.slice('user:'.length)] };
-    patch(
-      { qualify: { whenQualified: { notify: next } } },
-      'Change who hears about qualified leads',
-    );
-  };
   return (
     <div className="mt-5 border-t border-border pt-4" data-testid="qualify-when-qualified">
       <h3 className="text-[15px] font-semibold">When a lead qualifies</h3>
@@ -542,30 +543,19 @@ function WhenQualified({
         </Select>
       </SetRow>
       <SetRow center title="Tell">
-        <Select
-          selectSize="sm"
+        <NotifyPicker
+          value={w.notify}
+          members={catalogs.members}
+          label="Who hears about qualified leads"
+          testId="qualify-notify"
           className="w-[190px]"
-          aria-label="Who hears about qualified leads"
-          value={value}
-          data-testid="qualify-notify"
-          onChange={(e) => setNotify(e.target.value)}
-        >
-          <option value="none">No one</option>
-          <option value="admins">Owners and admins</option>
-          <option value="lead_assignee">The lead’s assignee</option>
-          <option value="person_owner">The customer’s owner</option>
-          {value === 'several' ? (
-            <option value="several">{notifyWords(notify, catalogs.members)}</option>
-          ) : null}
-          {single && !members.some((m) => m.userId === single) ? (
-            <option value={`user:${single}`}>A former teammate</option>
-          ) : null}
-          {members.map((m) => (
-            <option key={m.userId} value={`user:${m.userId}`}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
+          onChange={(next) =>
+            patch(
+              { qualify: { whenQualified: { notify: next } } },
+              'Change who hears about qualified leads',
+            )
+          }
+        />
       </SetRow>
       <SetRow
         center
@@ -588,6 +578,74 @@ function WhenQualified({
         Workflows can start from this too, with the trigger “A lead is qualified”.
       </Note>
     </div>
+  );
+}
+
+/** Who hears about something: no one, owners and admins, the lead's assignee, the customer's owner, or someone. */
+function NotifyPicker({
+  value: notify,
+  members: all,
+  label,
+  testId,
+  className,
+  onChange,
+}: {
+  value: NotifyWho | null;
+  members: ModuleProps['catalogs']['members'];
+  label: string;
+  testId: string;
+  className?: string;
+  onChange: (next: NotifyWho | null) => void;
+}) {
+  const members = all.filter((m) => m.active);
+  const single =
+    notify?.kind === 'users' && notify.userIds.length === 1 && typeof notify.userIds[0] === 'string'
+      ? notify.userIds[0]
+      : null;
+  const value = !notify
+    ? 'none'
+    : notify.kind === 'users'
+      ? single
+        ? `user:${single}`
+        : 'several'
+      : notify.kind;
+  const set = (v: string) => {
+    if (v === 'several') return;
+    onChange(
+      v === 'none'
+        ? null
+        : v === 'admins'
+          ? { kind: 'admins' }
+          : v === 'lead_assignee'
+            ? { kind: 'lead_assignee' }
+            : v === 'person_owner'
+              ? { kind: 'person_owner' }
+              : { kind: 'users', userIds: [v.slice('user:'.length)] },
+    );
+  };
+  return (
+    <Select
+      selectSize="sm"
+      className={className ?? 'w-[190px]'}
+      aria-label={label}
+      value={value}
+      data-testid={testId}
+      onChange={(e) => set(e.target.value)}
+    >
+      <option value="none">No one</option>
+      <option value="admins">Owners and admins</option>
+      <option value="lead_assignee">The lead’s assignee</option>
+      <option value="person_owner">The customer’s owner</option>
+      {value === 'several' ? <option value="several">{notifyWords(notify, all)}</option> : null}
+      {single && !members.some((m) => m.userId === single) ? (
+        <option value={`user:${single}`}>A former teammate</option>
+      ) : null}
+      {members.map((m) => (
+        <option key={m.userId} value={`user:${m.userId}`}>
+          {m.name}
+        </option>
+      ))}
+    </Select>
   );
 }
 

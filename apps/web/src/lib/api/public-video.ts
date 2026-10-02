@@ -12,6 +12,12 @@ import { ApiError } from './errors';
 
 export interface VideoLinkView {
   readonly business: string;
+  /**
+   * 20261018000400: a link that asks for a file (a photo or PDF that answers a qualifying question) rather than a
+   * video, with the question's words as asked. A worker from before then sends neither: it's a video link.
+   */
+  readonly asksFor?: 'video' | 'file';
+  readonly ask?: string | null;
   readonly expiresAt: string;
   readonly maxUploads: number;
   readonly received: number;
@@ -59,9 +65,13 @@ const post = <T>(token: string, suffix: string, body: unknown) =>
 
 export const getVideoLink = (token: string) => call<VideoLinkView>(token, '', { method: 'GET' });
 
+/** A file's name to send: its own, else what it is (a phone's camera may hand over one with none). */
+const nameOf = (file: File) =>
+  file.name.slice(0, 200) || (file.type.startsWith('video/') ? 'video' : 'file');
+
 export const startVideoUpload = (token: string, file: File) =>
   post<VideoUploadStart>(token, '/start', {
-    name: file.name.slice(0, 200) || 'video',
+    name: nameOf(file),
     contentType: file.type,
     sizeBytes: file.size,
   });
@@ -70,7 +80,7 @@ export const finishVideoUpload = (token: string, start: VideoUploadStart, file: 
   post<{ sent: true; duplicate: boolean }>(token, '/done', {
     uploadId: start.uploadId,
     objectPath: start.objectPath,
-    name: file.name.slice(0, 200) || 'video',
+    name: nameOf(file),
   });
 
 /**

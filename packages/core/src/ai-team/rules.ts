@@ -361,6 +361,35 @@ function notifyRules({ config, catalogs, push }: Ctx): void {
         },
       ],
     });
+
+  // 20261018000400: a file question names who hears when the file arrives.
+  if (config.qualify.enabled)
+    for (const [i, q] of config.qualify.questions.entries()) {
+      if (q.kind !== 'file' || !q.notify || reaches(q.notify, catalogs.members)) continue;
+      const withNotify = (notify: NotifyWho | null) => ({
+        qualify: {
+          questions: config.qualify.questions.map((x) => (x.id === q.id ? { ...x, notify } : x)),
+        },
+      });
+      push({
+        code: 'nobody_to_notify',
+        severity: 'warning',
+        message: `Nobody hears when a file comes in for “${q.question}”`,
+        fields: [`qualify.questions.${i}.notify`],
+        fixes: [
+          ...(admins && q.notify.kind !== 'admins'
+            ? [
+                {
+                  id: `notify_admins_${q.id}`,
+                  label: 'Tell owners and admins',
+                  patch: withNotify({ kind: 'admins' }),
+                },
+              ]
+            : []),
+          { id: `notify_nobody_${q.id}`, label: 'Don’t tell anyone', patch: withNotify(null) },
+        ],
+      });
+    }
 }
 
 function knowledgeRules({ config, catalogs, push }: Ctx): void {

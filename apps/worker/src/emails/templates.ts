@@ -1603,3 +1603,56 @@ export function aiSwitchEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A customer sent the file a qualifying question asks for, like a photo of their electric bill (20261018000400): one
+ * email to each person the question says hears about it.
+ */
+export function fileReceivedEmail(input: {
+  customer: string;
+  /** The question, as it was asked. */
+  question: string;
+  /** The files' names. */
+  files: readonly string[];
+  /** It came through the link the AI teammate texted, or by text or email. */
+  via: 'file_link' | 'message';
+  /** Where it is now: the lead's page, else the customer's. */
+  link: string;
+  /** It answered the question on their lead (false when the lead has gone since). */
+  onLead: boolean;
+}): EmailContent {
+  const n = input.files.length;
+  const what = n === 1 ? `“${input.files[0]}”` : `${n} files`;
+  const subject = `${input.customer} sent ${n === 1 ? 'a file' : `${n} files`}`;
+  const how = input.via === 'file_link' ? 'through the link you texted them' : 'by message';
+  const opening = `${input.customer} sent ${what} ${how}, for “${input.question}”`;
+  const where = input.onLead
+    ? 'It’s on their lead, under Files.'
+    : 'It’s on the customer, under Files.';
+  const why =
+    'You’re getting this because the AI teammate’s question names you. To change who hears, open AI teammate, then Qualify.';
+  const label = input.onLead ? 'Open the lead' : 'Open the customer';
+  const text = [
+    `${opening}. ${where}`,
+    '',
+    ...(n > 1 ? [...input.files.map((f) => `- ${f}`), ''] : []),
+    `${label}: ${input.link}`,
+    '',
+    why,
+  ].join('\n');
+  const html = shell(
+    preheader(input.question) +
+      wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;"><strong>${escapeHtml(input.customer)}</strong>${escapeHtml(
+        opening.slice(input.customer.length),
+      )}. ${escapeHtml(where)}</p>` +
+      (n > 1
+        ? `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 0;">${input.files
+            .map((f, i) => detailRow(String(i + 1), f))
+            .join('')}</table>`
+        : '') +
+      button(input.link, label) +
+      small(escapeHtml(why)),
+  );
+  return { subject, text, html };
+}

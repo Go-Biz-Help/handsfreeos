@@ -50,6 +50,7 @@ import {
   onUnmatchedClaimed,
 } from './email';
 import { onFileDeleted } from './file-removed';
+import { onFileReceived } from './file-received';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
 import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
@@ -135,6 +136,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An agency's reminder to a client business's owners.
     'onboarding.remind_requested': onOnboardingRemindRequested,
     'file.deleted': onFileDeleted,
+    // 20261018000400: a customer's file for a file question: copied onto the lead, and the question's people told.
+    'file.received': onFileReceived,
     'import.requested': onImportRequested,
     'phone_number.purchase_requested': onPurchaseRequested,
     'phone_number.release_requested': onReleaseRequested,

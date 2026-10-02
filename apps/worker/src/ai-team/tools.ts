@@ -36,6 +36,7 @@ import {
   leadCreate,
   leadMoveStage,
   leadRecordAnswers,
+  leadSaveFileAnswer,
   leadUpdate,
   nextQuestion,
   parseStoredForm,
@@ -156,6 +157,8 @@ export interface RunState {
   photos: number;
   /** It asked them for a video: a link to send one goes at the end of its reply (20261018000300). */
   videoLink: boolean;
+  /** It asked them for a file a question asks for: that link goes at the end of its reply (20261018000400). */
+  fileLink: { readonly questionId: string; readonly leadId: string } | null;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -172,6 +175,7 @@ export function newRunState(): RunState {
     verified: false,
     photos: 0,
     videoLink: false,
+    fileLink: null,
     end: null,
     abort: null,
   };
@@ -188,6 +192,7 @@ interface Effect {
   readonly openedLeadId?: string;
   readonly verified?: boolean;
   readonly videoLink?: boolean;
+  readonly fileLink?: { readonly questionId: string; readonly leadId: string };
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
 }
@@ -213,6 +218,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
   if (effect.verified) state.verified = true;
   if (effect.videoLink) state.videoLink = true;
+  if (effect.fileLink) state.fileLink = effect.fileLink;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
     state.end = effect.end;
@@ -490,6 +496,20 @@ const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
+const NO_FILE_LEAD =
+  'This customer has no lead for the file to answer a question on. Ask your other questions first, or hand off if they want work done.';
+
+/** A file question of the teammate's settings (20261018000400), or why it isn't one. */
+function fileQuestionOf(
+  d: ExecutorDeps,
+  questionId: string,
+): { id: string; question: string } | { error: string } {
+  const q = d.rc.config.qualify.questions.find((x) => x.id === questionId);
+  if (!q) return { error: 'Use a question id from the qualifying questions in your context.' };
+  if (q.kind !== 'file')
+    return { error: `“${q.question}” isn’t a file question. Save its answer with record_answers.` };
+  return { id: q.id, question: q.question };
+}
 
 // ---- The forms the teammate may ask ----
 
@@ -1415,6 +1435,81 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         note: 'The link goes at the end of your reply for you. Don’t write a link yourself: say what to film, and ask them to tap the link to send it.',
       },
       effect: { videoLink: true },
+    };
+  },
+
+  /**
+   * A link for them to send what a file question asks for (20261018000400). As with a video, nothing is made yet:
+   * the link is made as its reply goes out (or waits as a draft), for this question and their lead.
+   */
+  async ask_for_file(d, _tx, args) {
+    if (d.rc.conversation.channel !== 'sms' || !d.ai.conversationId)
+      return refused({
+        error:
+          'A file link goes by text, and this conversation isn’t by text. Ask them to attach it to their reply instead, then save it with save_file.',
+      });
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_FILE_LEAD });
+    const question = fileQuestionOf(d, String(args['questionId']));
+    if ('error' in question) return refused(question);
+    if (d.state.fileLink && d.state.fileLink.questionId !== question.id)
+      return refused({
+        error: 'One file link per reply. Ask for the next one after they send this.',
+      });
+    return {
+      status: 'done',
+      content: {
+        added: true,
+        note: 'The link goes at the end of your reply for you. Don’t write a link yourself: say what to send, and ask them to tap the link to send a photo or PDF of it.',
+      },
+      effect: { fileLink: { questionId: question.id, leadId } },
+    };
+  },
+
+  /** The photo or PDF they texted or emailed, saved as the answer to a file question (20261018000400). */
+  async save_file(d, tx, args) {
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_FILE_LEAD });
+    if (!d.ai.conversationId) return refused({ error: 'Wait until they send it, then save it.' });
+    const question = fileQuestionOf(d, String(args['questionId']));
+    if ('error' in question) return refused(question);
+    // Their newest message with a photo or PDF on it, in this conversation.
+    const [m] = await rows<{ id: string }>(
+      tx,
+      sql`select m.id from app.messages m
+          where m.workspace_id = ${d.scope.workspaceId} and m.conversation_id = ${d.ai.conversationId}
+            and m.direction = 'inbound' and m.private_to is null
+            and m.occurred_at > now() - interval '30 days'
+            and exists (select 1 from jsonb_array_elements(m.media) x
+                        where x ->> 'contentType' like 'image/%' or x ->> 'contentType' = 'application/pdf')
+          order by m.occurred_at desc, m.created_at desc limit 1`,
+    );
+    if (!m)
+      return refused({
+        error:
+          'They haven’t sent a photo or PDF here yet. Ask them to send it, with ask_for_file when you’re texting.',
+      });
+    const r = await executeCommandIn(
+      tx,
+      leadSaveFileAnswer,
+      { workspaceId: d.scope.workspaceId, leadId, questionId: question.id, messageId: m.id },
+      d.ai,
+      d.meta,
+    );
+    const stage = d.rc.config.qualify.whenQualified.stageId;
+    return {
+      status: 'done',
+      command: 'lead.save_file_answer',
+      content: {
+        saved: r.output.files.map((f) => f.name),
+        alreadySaved: r.output.duplicate,
+        status: r.output.status,
+        missing: r.output.missing,
+        qualified: r.output.qualified,
+        ...(r.output.qualified && stage
+          ? { next: `Move the lead with move_stage (stage id ${stage}).` }
+          : {}),
+      },
     };
   },
 

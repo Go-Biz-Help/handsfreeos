@@ -3,6 +3,10 @@
  * it goes up as it is, straight to Storage, through a link this worker signs for one path at a time. Then the page
  * says it's done, and the video lands in the conversation as their reply (core's video_link.receive_upload).
  *
+ * A link can ask for a file instead (20261018000400): a photo or PDF that answers one of the AI teammate's qualifying
+ * questions, like their electric bill. The same routes take it; core's commands check the kind and size, and put it
+ * on the lead as well as in the conversation.
+ *
  * What stops abuse: the token itself (only its hash is kept, and a link is found by nothing else), per-address
  * limits, a honeypot field, a week's life, three videos and ten uploads started at most per link, Storage's own
  * 250 MB limit on the bucket, and checking what Storage says arrived, not what the page says it sent.
@@ -11,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
   executeCommand,
+  FILE_LINK_WORDS,
   HfosError,
   VIDEO_LINK_MAX_STARTS,
   VIDEO_LINK_WORDS,
@@ -41,6 +46,9 @@ interface LinkState extends Record<string, unknown> {
   readonly max_uploads: number;
   readonly uploads_started: number;
   readonly uploads_received: number;
+  /** 20261018000400: what it asks for, and for a file the question's words as asked. */
+  readonly asks_for: 'video' | 'file';
+  readonly ask: string | null;
 }
 
 const StartBody = z.object({
@@ -68,7 +76,13 @@ function problemOf(link: LinkState): { rule: string; message: string } | null {
       message: VIDEO_LINK_WORDS.expired(link.business, videoLinkDay(expiresAt, link.timezone)),
     };
   if (link.uploads_received >= link.max_uploads)
-    return { rule: 'link_full', message: VIDEO_LINK_WORDS.full(link.business, link.max_uploads) };
+    return {
+      rule: 'link_full',
+      message: (link.asks_for === 'file' ? FILE_LINK_WORDS : VIDEO_LINK_WORDS).full(
+        link.business,
+        link.max_uploads,
+      ),
+    };
   if (link.uploads_started >= VIDEO_LINK_MAX_STARTS)
     return { rule: 'too_many_starts', message: VIDEO_LINK_WORDS.tooManyTries(link.business) };
   return null;
@@ -104,7 +118,8 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
     const [state] = await asWorker(deps.httpDb, scope, (tx) =>
       rows<LinkState>(
         tx,
-        sql`select w.name as business, w.timezone, l.expires_at, l.max_uploads, l.uploads_started, l.uploads_received
+        sql`select w.name as business, w.timezone, l.expires_at, l.max_uploads, l.uploads_started, l.uploads_received,
+              l.asks_for, l.ask
             from app.video_links l join app.workspaces w on w.id = l.workspace_id
             where l.id = ${linkId}`,
       ),
@@ -125,6 +140,9 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
         const state = await stateOf(linkId, scope);
         return {
           business: state.business,
+          // A link that asks for a file shows the question it answers, and takes photos and PDFs.
+          asksFor: state.asks_for,
+          ask: state.asks_for === 'file' ? state.ask : null,
           expiresAt: new Date(state.expires_at).toISOString(),
           maxUploads: state.max_uploads,
           received: state.uploads_received,
@@ -133,7 +151,7 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
       },
     );
 
-    /** A video is about to go up: checked, counted, and handed a signed link to its one path. */
+    /** A video (or a file) is about to go up: checked, counted, and handed a signed link to its one path. */
     pub.post<{ Params: { token: string } }>(
       '/public/video/:token/start',
       { config: { rateLimit: limits.start } },
@@ -161,7 +179,7 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
 
     /**
      * The page says it's up. What Storage says arrived is what's filed: its size and type, not the page's. A video
-     * the link can't take after all (full, not a video, too big) is taken back out of storage.
+     * (or file) the link can't take after all (full, not a kind it takes, too big) is taken back out of storage.
      */
     pub.post<{ Params: { token: string } }>(
       '/public/video/:token/done',

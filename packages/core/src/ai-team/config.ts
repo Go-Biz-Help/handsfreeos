@@ -86,7 +86,11 @@ const Answer = z.object({
   whenUnsure: z.enum(UNSURE_ACTIONS).default('hand_off'),
 });
 
-export const QUESTION_KINDS = ['text', 'choice', 'yes_no', 'number'] as const;
+/**
+ * `file`: something the customer sends rather than says, like a photo of their electric bill. It goes on the lead's
+ * Files, and counts as answered once it's there (20261018000400).
+ */
+export const QUESTION_KINDS = ['text', 'choice', 'yes_no', 'number', 'file'] as const;
 export type QuestionKind = (typeof QUESTION_KINDS)[number];
 
 const choiceText = z.string().trim().min(1).max(100);
@@ -117,6 +121,8 @@ export const QualifyingQuestion = z
     /** Needed before the lead counts as qualified. */
     required: z.boolean().default(true),
     notAFitIf: NotAFitIf.prefault({}),
+    /** file: who hears the moment it arrives; null tells no one. */
+    notify: NotifyWho.nullable().default(null),
   })
   .superRefine((q, ctx) => {
     const add = (message: string, path: (string | number)[]) =>
@@ -131,7 +137,7 @@ export const QualifyingQuestion = z
       (answers.length > 1 || answers.some((a) => a !== 'yes' && a !== 'no'))
     )
       add('Pick yes or no.', ['notAFitIf', 'answers']);
-    if ((q.kind === 'text' || q.kind === 'number') && answers.length)
+    if ((q.kind === 'text' || q.kind === 'number' || q.kind === 'file') && answers.length)
       add('Only choice and yes/no questions rule a lead out by its answer.', [
         'notAFitIf',
         'answers',
@@ -140,6 +146,8 @@ export const QualifyingQuestion = z
       add('Only number questions have a range.', ['notAFitIf']);
     if (below !== null && above !== null && below > above)
       add('The low end is above the high end.', ['notAFitIf', 'above']);
+    if (q.kind !== 'file' && q.notify !== null)
+      add('Only a file question tells anyone when it’s answered.', ['notify']);
   });
 export type QualifyingQuestion = z.infer<typeof QualifyingQuestion>;
 export type QualifyingQuestionInput = z.input<typeof QualifyingQuestion>;

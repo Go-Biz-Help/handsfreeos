@@ -99,7 +99,11 @@ export function QualificationCard({
               <dt className="text-[13px] text-text-2">{a.question}</dt>
               <dd className="flex min-w-0 flex-col gap-px">
                 <span className="text-[13px] font-medium [overflow-wrap:anywhere]">{a.answer}</span>
-                <span className="text-xs text-text-3">{by(a.by)}</span>
+                <span className="text-xs text-text-3">
+                  {by(a.by)}
+                  {/* A file question's answer (20261018000400): the files themselves are on the lead. */}
+                  {a.files?.length ? ' · in Files' : ''}
+                </span>
               </dd>
             </div>
           ))}

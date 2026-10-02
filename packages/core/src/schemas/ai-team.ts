@@ -242,6 +242,13 @@ export const LeadQualification = z.object({
         answer: z.string(),
         answeredAt: isoDateTime,
         by: z.enum(['ai', 'person']),
+        /**
+         * A file question's answer (20261018000400): the files it put on the lead, each with the customer's message
+         * it came in, so the same message is never filed twice.
+         */
+        files: z
+          .array(z.object({ fileId: uuid, name: z.string(), messageId: uuid.nullable() }))
+          .default(() => []),
       }),
     )
     .default(() => ({})),

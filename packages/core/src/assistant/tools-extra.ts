@@ -40,7 +40,12 @@ const questionId = z
 
 const QuestionInput = z.object({
   question: text(200).describe('In the owner’s words; the teammate asks it in its own'),
-  kind: z.enum(QUESTION_KINDS).optional().describe('text (the default), choice, yes_no or number'),
+  kind: z
+    .enum(QUESTION_KINDS)
+    .optional()
+    .describe(
+      'text (the default), choice, yes_no, number, or file: something they send, like a photo or PDF of their electric bill',
+    ),
   choices: z
     .array(text(100))
     .max(20)
@@ -67,6 +72,18 @@ const QuestionInput = z.object({
     .nullable()
     .optional()
     .describe('Number questions: an answer above this rules the lead out; null for no limit'),
+  fileTell: z
+    .enum(TELL)
+    .optional()
+    .describe(
+      'File questions: who hears the moment the file arrives (owners and admins unless said)',
+    ),
+  fileTellUserIds: z
+    .array(uuid)
+    .min(1)
+    .max(20)
+    .optional()
+    .describe('For fileTell people; from list_team'),
 });
 
 const PUSH_WORDS =
@@ -77,7 +94,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_ai_teammate_rules',
     description:
-      'Change the AI teammate’s finer rules, as its screen sections have them. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, channels, hours and skills are manage_ai_teammate. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
+      'Change the AI teammate’s finer rules, as its screen sections have them. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, channels, hours and skills are manage_ai_teammate. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
     input: z.object({
       // Qualify
       qualifies: z.boolean().optional().describe('The Qualify skill on or off'),

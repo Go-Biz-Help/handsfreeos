@@ -79,8 +79,22 @@ const promptItem = (m: RunContext['matches'][number]) => ({
   sourceUrl: m.sourceUrl,
 });
 
-/** `texting`: a conversation by text, not a live call (only a text can carry a video link). */
-function skillLines(rc: RunContext, texting: boolean): string[] {
+/**
+ * How it gets the file a file question asks for (20261018000400): a link by text, an attachment by email, and a
+ * photo texted to the business from a chat or after a call. Whatever comes as a photo or attachment, it saves.
+ */
+function fileAsk(texting: boolean, call: boolean, channel: string): string {
+  if (call)
+    return 'A file they send, like a photo of a bill: you can’t take one on a call, so ask them to text a photo of it to this number afterwards.';
+  if (texting)
+    return 'A file they send, like a photo or PDF of a bill: ask with ask_for_file (the link goes at the end of your reply). If they text a photo of it instead, save it with save_file.';
+  if (channel === 'email')
+    return 'A file they send, like a photo or PDF of a bill: ask them to attach it to their reply, then save it with save_file.';
+  return 'A file they send, like a photo of a bill: ask them to text a photo of it to the business’s number.';
+}
+
+/** `texting`: a conversation by text, not a live call (only a text can carry a video link). `call`: a live call. */
+function skillLines(rc: RunContext, texting: boolean, call = false): string[] {
   const { config } = rc;
   const out: string[] = [];
   out.push(
@@ -105,7 +119,9 @@ function skillLines(rc: RunContext, texting: boolean): string[] {
             ? ' Yes or no.'
             : q.kind === 'number'
               ? ' A number.'
-              : '';
+              : q.kind === 'file'
+                ? ` ${fileAsk(texting, call, rc.conversation.channel)}`
+                : '';
       out.push(
         `  - ${quoteData(q.question)} (question id ${q.id})${q.required ? '' : ' (optional)'}.${choices}${
           answered ? ` Already answered: “${quoteData(answered)}”.` : ''
@@ -384,7 +400,7 @@ function standingLines(rc: RunContext, call: boolean): string[] {
       ),
     )}” When they write in a language other than English, pass that sentence translated faithfully as translatedLine, with nothing added.`,
     'What you do:',
-    ...skillLines(rc, call ? false : rc.conversation.channel === 'sms'),
+    ...skillLines(rc, call ? false : rc.conversation.channel === 'sms', !!call),
     ...customerLines(rc),
   ];
 }

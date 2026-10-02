@@ -279,6 +279,36 @@ describe('who hears about things', () => {
     expect(validateTeammate(quiet, catalogs, NOW)).toEqual([]);
   });
 
+  it('warns when nobody hears that a file came in, and fixes just that question', () => {
+    const patch: TeammatePatch = {
+      qualify: {
+        enabled: true,
+        questions: [
+          { id: 'q', question: 'Budget?' },
+          {
+            id: 'bill',
+            question: 'Your latest electric bill',
+            kind: 'file',
+            notify: { kind: 'users', userIds: [JESS] },
+          },
+        ],
+      },
+    };
+    const issue = issueOf(patch, 'nobody_to_notify');
+    expect(issue).toMatchObject({
+      severity: 'warning',
+      message: 'Nobody hears when a file comes in for “Your latest electric bill”',
+      fields: ['qualify.questions.1.notify'],
+    });
+    expect(issue.fixes.map((f) => f.id)).toEqual(['notify_admins_bill', 'notify_nobody_bill']);
+    const fixed = applyTeammatePatch(
+      applyTeammatePatch(base(), patch),
+      (issue.fixes[0] as { patch: TeammatePatch }).patch,
+    );
+    expect(fixed.qualify.questions.map((q) => q.notify)).toEqual([null, { kind: 'admins' }]);
+    expect(validateTeammate(fixed, catalogs, NOW)).toEqual([]);
+  });
+
   it('can’t know the lead’s assignee ahead of time, so it trusts it', () => {
     expect(codes({ handOff: { notify: { kind: 'lead_assignee' } } })).toEqual([]);
   });

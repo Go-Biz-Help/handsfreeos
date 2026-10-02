@@ -178,6 +178,12 @@ export const PUSH_CATEGORIES = {
   /** Something the business connected stopped working (Automations' "Connection broke"): Open goes to fix it. */
   connection: { switch: 'connections', buttons: ['open'] },
   /**
+   * A customer sent the file a qualifying question asks for, like a photo of their electric bill (20261018000400),
+   * to whoever the question names. On the customer's-messages switch, since it's something they sent; Open goes to
+   * their lead.
+   */
+  customer_file: { switch: 'customerWaiting', buttons: ['open'] },
+  /**
    * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
    * no business; Open goes to the ticket on the support desk.
    */

@@ -255,6 +255,11 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
     );
     if (q.whenNotAFit.tellTeam && q.questions.some(rulesOut))
       out.push('Tells the team when a lead isn’t a fit, so someone can mark it lost.');
+    const files = q.questions.filter((x) => x.kind === 'file');
+    if (files.length)
+      out.push(
+        `Asks for ${files.length === 1 ? 'a file' : `${files.length} files`}, like a photo of a bill, and puts what comes on the lead.`,
+      );
   }
 
   const b = config.book;
@@ -479,6 +484,8 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   add_to_appointment: 'Added to a visit',
   cancel: 'Cancelled a visit',
   record_answers: 'Recorded qualifying answers',
+  ask_for_file: 'Asked for a file',
+  save_file: 'Saved the file they sent',
   ask_form: 'Started a form',
   answer_form: 'Saved a form answer',
   move_stage: 'Moved the lead',
