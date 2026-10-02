@@ -22,7 +22,8 @@ export default async function RealestateOfferSummaryPage({
       api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
     ]);
     const offer = offers.offers.find((o) => o.id === offerId);
-    if (!offer) notFound();
+    // A listing's seller sees its offers side by side instead of one buyer's summary.
+    if (!offer || deal.deal.side === 'listing') notFound();
     return (
       <OfferSummaryPage
         workspaceId={workspaceId}

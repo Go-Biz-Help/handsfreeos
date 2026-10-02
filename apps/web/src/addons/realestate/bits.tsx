@@ -4,6 +4,7 @@
  * same thing.
  */
 import { DUTY_STATUS_LABELS, type DutyStatus } from '@hfos/core/addons/realestate/states';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -91,5 +92,14 @@ export function Line({ label, children }: { label: ReactNode; children: ReactNod
       <span className="text-text-2">{label}</span>
       <span className="text-right">{children}</span>
     </div>
+  );
+}
+
+/** A card's link to its own page: "All", "Open", "Side by side". */
+export function HeadLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="text-[13px] text-accent-text hover:underline">
+      {children}
+    </Link>
   );
 }

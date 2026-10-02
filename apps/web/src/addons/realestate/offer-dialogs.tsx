@@ -3,6 +3,10 @@
  * Entering an offer's terms: a new offer on one of the deal's homes, a counter (ours or the seller's), and the
  * answer to it. The contract itself is filled in the agent's forms software and uploaded to the deal's documents;
  * here it's picked, and the terms are typed in.
+ *
+ * On a listing (round three) it's the other way round: an offer comes in from buyers (no home of ours to pick, their
+ * names instead), "them" is the buyers and "us" the seller, and the terms a seller weighs are there too (down
+ * payment, a home to sell first, an escalation clause, possession, and what their agent asks the seller to pay).
  */
 import { localInstant, minutesToClock, TIME_OPTIONS } from '@hfos/core';
 import {
@@ -41,12 +45,25 @@ interface Terms {
   respondTime: number;
   documentId: string;
   note: string;
+  // Round three: what a seller weighs.
+  downPct: string;
+  homeSale: 'yes' | 'no' | '';
+  escCap: string;
+  escStep: string;
+  possession: string;
+  feeKind: 'pct' | 'amount';
+  fee: string;
 }
+
+export type DealSideKind = 'buyer' | 'listing';
 
 const dollars = (c: number | null | undefined) =>
   c === null || c === undefined ? '' : String(c / 100);
 const str = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
 const int = (s: string) => (s.trim() ? Math.round(Number(s.replace(/,/g, ''))) : null);
+const num = (s: string) => (s.trim() ? Number(s.replace(/[,%\s]/g, '')) : null);
+const yesNo = (b: boolean | null | undefined): 'yes' | 'no' | '' =>
+  b === null || b === undefined ? '' : b ? 'yes' : 'no';
 
 function fromVersion(v: OfferVersion | undefined): Terms {
   return {
@@ -69,6 +86,19 @@ function fromVersion(v: OfferVersion | undefined): Terms {
     respondTime: 1080,
     documentId: '',
     note: '',
+    downPct: str(v?.downPaymentPct),
+    homeSale: yesNo(v?.homeSaleContingency),
+    escCap: dollars(v?.escalationCapCents),
+    escStep: dollars(v?.escalationStepCents),
+    possession: v?.possession ?? '',
+    feeKind:
+      v?.buyerAgentFeeCents !== null && v?.buyerAgentFeeCents !== undefined ? 'amount' : 'pct',
+    fee:
+      v?.buyerAgentFeeCents !== null && v?.buyerAgentFeeCents !== undefined
+        ? dollars(v.buyerAgentFeeCents)
+        : v?.buyerAgentFeeBp !== null && v?.buyerAgentFeeBp !== undefined
+          ? String(v.buyerAgentFeeBp / 100)
+          : '',
   };
 }
 
@@ -85,6 +115,14 @@ function termsBody(t: Terms, timeZone: string) {
       appraisalContingency: t.appraisal === '' ? null : t.appraisal === 'yes',
       closingDate: t.closingDate || null,
       otherTerms: t.other.trim() || null,
+      downPaymentPct: t.loanType === 'cash' ? null : num(t.downPct),
+      homeSaleContingency: t.homeSale === '' ? null : t.homeSale === 'yes',
+      escalationCapCents: t.escCap.trim() ? parseMoney(t.escCap) : null,
+      escalationStepCents: t.escStep.trim() ? parseMoney(t.escStep) : null,
+      possession: t.possession.trim() || null,
+      buyerAgentFeeBp:
+        t.feeKind === 'pct' && t.fee.trim() ? Math.round((num(t.fee) ?? 0) * 100) : null,
+      buyerAgentFeeCents: t.feeKind === 'amount' && t.fee.trim() ? parseMoney(t.fee) : null,
     },
     respondBy: t.respondDate
       ? new Date(localInstant(t.respondDate, minutesToClock(t.respondTime), timeZone)).toISOString()
@@ -99,13 +137,16 @@ function TermsFields({
   set,
   errors,
   documents,
+  side = 'buyer',
 }: {
   t: Terms;
   set: (patch: Partial<Terms>) => void;
   errors: Record<string, string>;
   documents: readonly DealDocument[];
+  side?: DealSideKind;
 }) {
   const e = (k: string) => errors[`terms.${k}`] ?? errors[k];
+  const listing = side === 'listing';
   return (
     <>
       <Field label="Price" htmlFor="t-price" error={e('priceCents')}>
@@ -175,6 +216,18 @@ function TermsFields({
           disabled={t.loanType === 'cash'}
         />
       </Field>
+      {listing ? (
+        <Field label="Down payment (%)" htmlFor="t-down" error={e('downPaymentPct')}>
+          <Input
+            id="t-down"
+            inputMode="decimal"
+            value={t.downPct}
+            onChange={(x) => set({ downPct: x.target.value })}
+            disabled={t.loanType === 'cash'}
+            placeholder="20"
+          />
+        </Field>
+      ) : null}
       <Field label="Appraisal condition" htmlFor="t-appr">
         <Select
           id="t-appr"
@@ -186,6 +239,75 @@ function TermsFields({
           <option value="no">None</option>
         </Select>
       </Field>
+      {listing ? (
+        <>
+          <Field label="A home to sell first" htmlFor="t-homesale">
+            <Select
+              id="t-homesale"
+              value={t.homeSale}
+              onChange={(x) => set({ homeSale: x.target.value as Terms['homeSale'] })}
+            >
+              <option value="">Not said</option>
+              <option value="yes">Yes, it depends on selling theirs</option>
+              <option value="no">No</option>
+            </Select>
+          </Field>
+          <div>
+            <Label htmlFor="t-fee">Their agent’s fee, asked of the seller</Label>
+            <div className="flex gap-2">
+              <Input
+                id="t-fee"
+                inputMode="decimal"
+                value={t.fee}
+                onChange={(x) => set({ fee: x.target.value })}
+                className="min-w-0 flex-1"
+                placeholder={t.feeKind === 'pct' ? '2.5' : '$'}
+                data-testid="offer-fee"
+              />
+              <Select
+                aria-label="Fee as"
+                value={t.feeKind}
+                onChange={(x) => set({ feeKind: x.target.value as Terms['feeKind'] })}
+                className="w-[120px]"
+              >
+                <option value="pct">% of price</option>
+                <option value="amount">Dollars</option>
+              </Select>
+            </div>
+            {e('buyerAgentFeeCents') || e('buyerAgentFeeBp') ? (
+              <p className="mt-1 text-[12.5px] text-danger-text">
+                {e('buyerAgentFeeCents') ?? e('buyerAgentFeeBp')}
+              </p>
+            ) : null}
+          </div>
+          <Field label="Escalation, up to" htmlFor="t-esc-cap" error={e('escalationCapCents')}>
+            <Input
+              id="t-esc-cap"
+              inputMode="decimal"
+              value={t.escCap}
+              onChange={(x) => set({ escCap: x.target.value })}
+              placeholder="$"
+            />
+          </Field>
+          <Field label="Escalation, by" htmlFor="t-esc-step" error={e('escalationStepCents')}>
+            <Input
+              id="t-esc-step"
+              inputMode="decimal"
+              value={t.escStep}
+              onChange={(x) => set({ escStep: x.target.value })}
+              placeholder="$"
+            />
+          </Field>
+          <Field label="Possession" htmlFor="t-possession" error={e('possession')}>
+            <Input
+              id="t-possession"
+              value={t.possession}
+              onChange={(x) => set({ possession: x.target.value })}
+              placeholder="At closing"
+            />
+          </Field>
+        </>
+      ) : null}
       <Field label="Closing" htmlFor="t-close" error={e('closingDate')}>
         <Input
           id="t-close"
@@ -267,6 +389,7 @@ export function StartOfferDialog({
   homes,
   documents,
   homeId,
+  side = 'buyer',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -276,9 +399,12 @@ export function StartOfferDialog({
   homes: readonly Home[];
   documents: readonly DealDocument[];
   homeId?: string | null;
+  side?: DealSideKind;
 }) {
   const router = useRouter();
+  const listing = side === 'listing';
   const [home, setHome] = useState(homeId ?? '');
+  const [buyers, setBuyers] = useState('');
   const [agent, setAgent] = useState('');
   const [brokerage, setBrokerage] = useState('');
   const [email, setEmail] = useState('');
@@ -288,6 +414,7 @@ export function StartOfferDialog({
   if (open && seen !== homeId) {
     setSeen(homeId);
     setHome(homeId ?? '');
+    setBuyers('');
     const price = homes.find((h) => h.id === homeId)?.facts.price_cents;
     setT({ ...fromVersion(undefined), price: dollars(price) });
   }
@@ -295,8 +422,12 @@ export function StartOfferDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Make an offer"
-        description="Type in the terms from the contract. Every version is kept as it was sent."
+        title={listing ? 'Add an offer' : 'Make an offer'}
+        description={
+          listing
+            ? 'Type in the terms from the buyers’ contract. Every version is kept as it came in.'
+            : 'Type in the terms from the contract. Every version is kept as it was sent.'
+        }
         className="w-[min(720px,calc(100vw-32px))]"
       >
         <form
@@ -311,7 +442,8 @@ export function StartOfferDialog({
                     body: {
                       workspaceId,
                       dealId,
-                      homeId: home,
+                      homeId: listing ? undefined : home,
+                      buyerNames: listing ? buyers.trim() : undefined,
                       theirAgentName: agent.trim() || undefined,
                       theirBrokerage: brokerage.trim() || undefined,
                       theirEmail: email.trim() || undefined,
@@ -323,28 +455,47 @@ export function StartOfferDialog({
                 onOpenChange(false);
                 router.push(dealHref(workspaceId, dealId, `offers/${out.offerId}`));
               },
-              'Offer recorded. Its clock is running.',
+              listing
+                ? 'Offer added. Its clock is running.'
+                : 'Offer recorded. Its clock is running.',
             );
           }}
         >
-          <Field label="Home" htmlFor="o-home" error={errors.homeId} className="sm:col-span-2">
-            <Select
-              id="o-home"
-              value={home}
-              onChange={(e) => setHome(e.target.value)}
-              data-testid="offer-home"
+          {listing ? (
+            <Field
+              label="Buyers"
+              htmlFor="o-buyers"
+              error={errors.buyerNames}
+              className="sm:col-span-2"
             >
-              <option value="">Pick one of the deal’s homes</option>
-              {homes
-                .filter((h) => h.status !== 'removed')
-                .map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.address}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-          <Field label="Listing agent" htmlFor="o-agent">
+              <Input
+                id="o-buyers"
+                value={buyers}
+                onChange={(e) => setBuyers(e.target.value)}
+                placeholder="Jordan and Priya Patel"
+                data-testid="offer-buyers"
+              />
+            </Field>
+          ) : (
+            <Field label="Home" htmlFor="o-home" error={errors.homeId} className="sm:col-span-2">
+              <Select
+                id="o-home"
+                value={home}
+                onChange={(e) => setHome(e.target.value)}
+                data-testid="offer-home"
+              >
+                <option value="">Pick one of the deal’s homes</option>
+                {homes
+                  .filter((h) => h.status !== 'removed')
+                  .map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.address}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+          )}
+          <Field label={listing ? 'Their agent' : 'Listing agent'} htmlFor="o-agent">
             <Input id="o-agent" value={agent} onChange={(e) => setAgent(e.target.value)} />
           </Field>
           <Field label="Their brokerage" htmlFor="o-brokerage">
@@ -370,6 +521,7 @@ export function StartOfferDialog({
             set={(p) => setT({ ...t, ...p })}
             errors={errors}
             documents={documents}
+            side={side}
           />
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -378,7 +530,7 @@ export function StartOfferDialog({
             <Button
               type="submit"
               loading={busy === 'start'}
-              disabled={!home}
+              disabled={listing ? !buyers.trim() : !home}
               data-testid="offer-start"
             >
               Record the offer
@@ -397,6 +549,7 @@ export function VersionDialog({
   workspaceId,
   timeZone,
   documents,
+  dealSide = 'buyer',
 }: {
   offer: Offer;
   open: boolean;
@@ -404,7 +557,9 @@ export function VersionDialog({
   workspaceId: string;
   timeZone: string;
   documents: readonly DealDocument[];
+  dealSide?: DealSideKind;
 }) {
+  const listing = dealSide === 'listing';
   const newest = offer.versions.at(-1);
   const [side, setSide] = useState<'us' | 'them'>(newest?.side === 'us' ? 'them' : 'us');
   const [t, setT] = useState<Terms>(() => fromVersion(newest));
@@ -418,7 +573,7 @@ export function VersionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title={`Counter on ${street(offer.address)}`}
+        title={listing ? `Counter on offer ${offer.number}` : `Counter on ${street(offer.address)}`}
         description="Starts from the newest terms. Change what changed."
         className="w-[min(720px,calc(100vw-32px))]"
       >
@@ -444,7 +599,7 @@ export function VersionDialog({
               onChange={setSide}
               ariaLabel="Whose counter"
               options={[
-                { value: 'them', label: 'The seller’s counter' },
+                { value: 'them', label: listing ? 'The buyers’ counter' : 'The seller’s counter' },
                 { value: 'us', label: 'Our counter' },
               ]}
             />
@@ -454,6 +609,7 @@ export function VersionDialog({
             set={(p) => setT({ ...t, ...p })}
             errors={errors}
             documents={documents}
+            side={dealSide}
           />
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -475,13 +631,16 @@ export function AnswerDialog({
   onOpenChange,
   workspaceId,
   timeZone,
+  dealSide = 'buyer',
 }: {
   offer: Offer;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   timeZone: string;
+  dealSide?: DealSideKind;
 }) {
+  const listing = dealSide === 'listing';
   const newest = offer.versions.at(-1);
   const [outcome, setOutcome] = useState<'accepted' | 'declined' | 'expired'>('accepted');
   const [versionId, setVersionId] = useState(newest?.id ?? '');
@@ -501,11 +660,15 @@ export function AnswerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Record their answer"
+        title={listing ? `Record our answer to offer ${offer.number}` : 'Record their answer'}
         description={
           outcome === 'accepted'
-            ? 'Its terms go to Key dates for you to confirm, and the deal moves to under contract.'
-            : 'The offer ends, and the deal goes back to touring with its history kept.'
+            ? listing
+              ? 'Its terms go to Key dates for you to confirm, and the listing moves to under contract.'
+              : 'Its terms go to Key dates for you to confirm, and the deal moves to under contract.'
+            : listing
+              ? 'The offer ends; the listing stays on the market, with the offer kept.'
+              : 'The offer ends, and the deal goes back to touring with its history kept.'
         }
       >
         <form
@@ -536,11 +699,11 @@ export function AnswerDialog({
           <Segmented
             value={outcome}
             onChange={setOutcome}
-            ariaLabel="Their answer"
+            ariaLabel={listing ? 'Our answer' : 'Their answer'}
             options={[
               { value: 'accepted', label: 'Accepted' },
               { value: 'declined', label: 'Declined' },
-              { value: 'expired', label: 'No answer in time' },
+              { value: 'expired', label: listing ? 'It passed' : 'No answer in time' },
             ]}
           />
           {outcome === 'accepted' && offer.versions.length > 1 ? (
@@ -552,7 +715,8 @@ export function AnswerDialog({
               >
                 {[...offer.versions].reverse().map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.number} · {v.side === 'us' ? 'ours' : 'the seller’s'}
+                    {v.number} ·{' '}
+                    {v.side === 'us' ? 'ours' : listing ? 'the buyers’' : 'the seller’s'}
                   </option>
                 ))}
               </Select>

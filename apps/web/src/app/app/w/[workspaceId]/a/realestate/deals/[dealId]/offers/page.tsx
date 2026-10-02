@@ -5,7 +5,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Offers' };
 
-/** A buyer deal's offers and CMAs, and making an offer (`?start=<homeId>`). */
+/** A deal's offers and CMAs, and making an offer (`?start=<homeId>` on a buyer deal). */
 export default async function RealestateOffersPage({
   params,
 }: {
@@ -15,12 +15,16 @@ export default async function RealestateOffersPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
-    const [got, deal, offers, cmas, homes, documents] = await Promise.all([
+    const deal = await api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage);
+    const side = deal.deal.side;
+    const [got, offers, cmas, homes, documents] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-      api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
-      api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage),
+      // A listing has no homes of a buyer's: its offers come in on the listing itself.
+      side === 'buyer'
+        ? api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage)
+        : Promise.resolve({ homes: [] }),
       api.POST('/v1/queries/realestate.document.list', inDeal).then(unwrapPage),
     ]);
     return (
@@ -34,6 +38,7 @@ export default async function RealestateOffersPage({
         homes={homes.homes}
         documents={documents.documents}
         live={!deal.deal.outcome && !deal.deal.archived}
+        side={side}
       />
     );
   });

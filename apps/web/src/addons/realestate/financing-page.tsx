@@ -50,6 +50,7 @@ export function FinancingPage({
   documents,
   files,
   live,
+  side = 'buyer',
 }: {
   workspaceId: string;
   dealId: string;
@@ -59,17 +60,20 @@ export function FinancingPage({
   documents: readonly DealDocument[];
   files: readonly ProofFile[];
   live: boolean;
+  side?: 'buyer' | 'listing';
 }) {
   useLiveRefresh(['custom_record']);
+  // On a listing it's the buyers' loan the deal waits on (round three).
+  const title = side === 'listing' ? 'The buyer’s loan' : 'Financing';
   const [step, setStep] = useState<{ s: FinancingStep; done: boolean } | null>(null);
   const [reopening, setReopening] = useState<FinancingStep | null>(null);
   const [lender, setLender] = useState(false);
   const l = f.lender;
   return (
     <div data-testid="realestate-financing">
-      <DealCrumb workspaceId={workspaceId} dealId={dealId} dealName={dealName} here="Financing" />
+      <DealCrumb workspaceId={workspaceId} dealId={dealId} dealName={dealName} here={title} />
       <PageHeader
-        title="Financing"
+        title={title}
         description={[
           dealName,
           address ? street(address) : null,

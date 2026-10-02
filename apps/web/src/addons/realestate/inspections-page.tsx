@@ -3,6 +3,9 @@
  * A buyer deal's inspections (board 23, design/realestate/Inspections.dc.html): each inspection and its report,
  * what it found with the client's priority and what to ask for, and the repair request drafted from them, its
  * versions and the seller's answers. Every version and answer is kept.
+ *
+ * On a listing (round three) it's the other way round: the buyer's inspector comes to the home, the buyers' repair
+ * request comes in and is kept as it came, and our seller's answer goes out.
  */
 import { fmtDateShort, fmtMonthDay, localInstant, money } from '@hfos/core';
 import {
@@ -51,6 +54,7 @@ export function InspectionsPage({
   documents,
   clients,
   live,
+  side = 'buyer',
 }: {
   workspaceId: string;
   dealId: string;
@@ -60,8 +64,11 @@ export function InspectionsPage({
   documents: readonly DealDocument[];
   clients: readonly string[];
   live: boolean;
+  side?: 'buyer' | 'listing';
 }) {
   useLiveRefresh(['custom_record']);
+  const listing = side === 'listing';
+  const [receiving, setReceiving] = useState(false);
   const [adding, setAdding] = useState(false);
   const [reportFor, setReportFor] = useState<Inspection | null>(null);
   const [canceling, setCanceling] = useState<Inspection | null>(null);
@@ -74,6 +81,10 @@ export function InspectionsPage({
   const active = data.inspections.filter((i) => i.status !== 'canceled');
   const findings = active.flatMap((i) => i.findings.map((f) => ({ i, f })));
   const last = data.repairs.at(-1);
+  // Whose turn it is: the request is ours on a buyer deal, the buyers' on a listing; the answer is the other side's.
+  const asked = listing ? 'them' : 'us';
+  const outcomeWords = (o: 'agreed' | 'countered' | 'refused') =>
+    `${listing ? 'Your seller' : 'The seller'} ${o === 'agreed' ? 'agreed' : o === 'refused' ? 'refused' : 'countered'}`;
   return (
     <div data-testid="realestate-inspections">
       <DealCrumb workspaceId={workspaceId} dealId={dealId} dealName={dealName} here="Inspections" />
@@ -94,13 +105,19 @@ export function InspectionsPage({
               >
                 Add an inspection
               </Button>
-              <Button
-                onClick={() => setSending(true)}
-                disabled={!data.draft.items && !last}
-                data-testid="repair-draft"
-              >
-                {last ? 'Send another version' : 'Draft the repair request'}
-              </Button>
+              {listing ? (
+                <Button onClick={() => setReceiving(true)} data-testid="repair-receive">
+                  {last ? 'Keep their new request' : 'Keep the buyers’ request'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setSending(true)}
+                  disabled={!data.draft.items && !last}
+                  data-testid="repair-draft"
+                >
+                  {last ? 'Send another version' : 'Draft the repair request'}
+                </Button>
+              )}
             </>
           ) : null
         }
@@ -108,8 +125,9 @@ export function InspectionsPage({
       <div className="space-y-4">
         {active.length === 0 ? (
           <Card className="p-5 text-[13.5px] text-text-2">
-            No inspections yet. Add each one with its inspector and day; when its report is in, add
-            what it found and the repair request drafts itself from them.
+            {listing
+              ? 'No inspections yet. Add the buyer’s inspection with its inspector and day, so the home is ready for them.'
+              : 'No inspections yet. Add each one with its inspector and day; when its report is in, add what it found and the repair request drafts itself from them.'}
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -152,13 +170,15 @@ export function InspectionsPage({
                         The report’s in
                       </Button>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setFinding({ inspection: i, f: null })}
-                    >
-                      Add a finding
-                    </Button>
+                    {listing ? null : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setFinding({ inspection: i, f: null })}
+                      >
+                        Add a finding
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => setCanceling(i)}>
                       Cancel
                     </Button>
@@ -168,7 +188,7 @@ export function InspectionsPage({
             ))}
           </div>
         )}
-        {findings.length ? (
+        {findings.length && !listing ? (
           <Card className="overflow-x-auto p-0" data-testid="inspection-findings">
             <table className="w-full min-w-[640px] text-left text-[13.5px]">
               <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-text-3">
@@ -221,34 +241,40 @@ export function InspectionsPage({
         ) : null}
         <Card className="p-4 md:p-5" data-testid="repair-request">
           <CardHead
-            title="Repair request"
+            title={listing ? 'The buyers’ repair request' : 'Repair request'}
             action={
               last ? (
                 <Badge variant={last.outcome === 'agreed' ? 'ok' : 'pending'}>
-                  {last.side === 'us'
-                    ? `Version ${last.number} sent ${day(dateOf(last.at, timeZone))}${last.respondBy ? ` · answer due ${day(dateOf(last.respondBy, timeZone))}` : ''}`
-                    : last.outcome === 'agreed'
-                      ? 'The seller agreed'
-                      : last.outcome === 'refused'
-                        ? 'The seller refused'
-                        : 'The seller countered'}
+                  {last.side === asked && !last.outcome
+                    ? `${listing ? 'Request' : 'Version'} ${last.number} ${listing ? 'came in' : 'sent'} ${day(dateOf(last.at, timeZone))}${last.respondBy ? ` · answer due ${day(dateOf(last.respondBy, timeZone))}` : ''}`
+                    : last.outcome
+                      ? outcomeWords(last.outcome)
+                      : 'Answered'}
                 </Badge>
               ) : null
             }
           />
           {data.repairs.length === 0 ? (
             <p className="text-[13.5px] text-text-2">
-              {data.draft.items
-                ? `Ready to draft from ${data.draft.items} ${data.draft.items === 1 ? 'finding' : 'findings'}${data.draft.creditCents ? `, with ${money(data.draft.creditCents)} in credits` : ''}. You’ll edit it before it’s kept.`
-                : 'Add what the inspections found, with what to ask for, and it drafts itself from them.'}
+              {listing
+                ? 'When the buyers send their repair request, keep it here as it came in; then your seller’s answer.'
+                : data.draft.items
+                  ? `Ready to draft from ${data.draft.items} ${data.draft.items === 1 ? 'finding' : 'findings'}${data.draft.creditCents ? `, with ${money(data.draft.creditCents)} in credits` : ''}. You’ll edit it before it’s kept.`
+                  : 'Add what the inspections found, with what to ask for, and it drafts itself from them.'}
             </p>
           ) : (
             <ol className="space-y-3">
               {data.repairs.map((r) => (
                 <li key={r.id} className="text-[13.5px]">
                   <div className="font-medium">
-                    {r.side === 'us' ? `Our request, version ${r.number}` : 'The seller’s answer'} ·{' '}
-                    {day(dateOf(r.at, timeZone))}
+                    {listing
+                      ? r.side === 'them'
+                        ? `The buyers’ request, version ${r.number}`
+                        : 'Our answer'
+                      : r.side === 'us'
+                        ? `Our request, version ${r.number}`
+                        : 'The seller’s answer'}{' '}
+                    · {day(dateOf(r.at, timeZone))}
                     {r.creditCents ? ` · ${money(r.creditCents)} credit` : ''}
                     {r.outcome
                       ? ` · ${r.outcome === 'agreed' ? 'Agreed' : r.outcome === 'refused' ? 'Refused' : 'Countered'}`
@@ -259,18 +285,21 @@ export function InspectionsPage({
               ))}
             </ol>
           )}
-          {live && last && last.side === 'us' ? (
+          {live && last && last.side === asked && !last.outcome ? (
             <Button
               size="sm"
               variant="secondary"
               className="mt-3"
               onClick={() => setAnswering(true)}
+              data-testid="repair-answer"
             >
-              Record the seller’s answer
+              {listing ? 'Record your seller’s answer' : 'Record the seller’s answer'}
             </Button>
           ) : null}
           <p className="mt-2 text-[12.5px] text-text-3">
-            Each version and the seller’s answer are kept.
+            {listing
+              ? 'Each request and your seller’s answer are kept.'
+              : 'Each version and the seller’s answer are kept.'}
           </p>
         </Card>
       </div>
@@ -313,6 +342,16 @@ export function InspectionsPage({
           onClose={() => setAnswering(false)}
           workspaceId={workspaceId}
           dealId={dealId}
+          listing={listing}
+        />
+      ) : null}
+      {receiving ? (
+        <ReceiveRepairDialog
+          onClose={() => setReceiving(false)}
+          workspaceId={workspaceId}
+          dealId={dealId}
+          timeZone={timeZone}
+          documents={documents}
         />
       ) : null}
       <ReasonDialog
@@ -755,14 +794,125 @@ function RepairDialog({
   );
 }
 
-function AnswerRepairDialog({
+/** On a listing: the buyers' repair request, kept as it came in. */
+function ReceiveRepairDialog({
   onClose,
   workspaceId,
   dealId,
+  timeZone,
+  documents,
 }: {
   onClose: () => void;
   workspaceId: string;
   dealId: string;
+  timeZone: string;
+  documents: readonly DealDocument[];
+}) {
+  const [words, setWords] = useState('');
+  const [credit, setCredit] = useState('');
+  const [due, setDue] = useState('');
+  const [documentId, setDocumentId] = useState('');
+  const { busy, errors, act } = useAct(onClose);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        title="The buyers’ repair request"
+        description="Type in what they ask for, as it came in. It brings the duties for answering it."
+        className="w-[min(640px,calc(100vw-32px))]"
+      >
+        <form
+          className="mt-4 flex flex-col gap-3.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act(
+              'receive',
+              async () =>
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/realestate.repair.receive', {
+                    body: {
+                      workspaceId,
+                      dealId,
+                      words,
+                      creditCents: credit.trim() ? (parseMoney(credit) ?? undefined) : undefined,
+                      respondBy: due
+                        ? new Date(
+                            localInstant(due.slice(0, 10), due.slice(11, 16), timeZone),
+                          ).toISOString()
+                        : null,
+                      documentId: documentId || undefined,
+                    },
+                  }),
+                ),
+              'Kept as it came in.',
+            );
+          }}
+        >
+          <Field label="What they ask for" htmlFor="rq-words" error={errors.words}>
+            <Textarea
+              id="rq-words"
+              rows={6}
+              value={words}
+              onChange={(e) => setWords(e.target.value)}
+              data-testid="repair-receive-words"
+            />
+          </Field>
+          <Field label="Credit they ask for (optional)" htmlFor="rq-credit">
+            <Input
+              id="rq-credit"
+              inputMode="decimal"
+              value={credit}
+              onChange={(e) => setCredit(e.target.value)}
+              placeholder="$"
+            />
+          </Field>
+          <Field label="Answer due by (optional)" htmlFor="rq-due">
+            <Input
+              id="rq-due"
+              type="datetime-local"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Their request, uploaded (optional)"
+            htmlFor="rq-doc"
+            hint="Upload it under Documents, then pick it here."
+          >
+            <Select id="rq-doc" value={documentId} onChange={(e) => setDocumentId(e.target.value)}>
+              <option value="">Not uploaded</option>
+              {documents
+                .filter((d) => d.status !== 'void' && d.status !== 'superseded')
+                .map((d) => (
+                  <option key={d.documentId} value={d.documentId}>
+                    {d.title}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy === 'receive'} data-testid="repair-receive-save">
+              Keep it
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AnswerRepairDialog({
+  onClose,
+  workspaceId,
+  dealId,
+  listing = false,
+}: {
+  onClose: () => void;
+  workspaceId: string;
+  dealId: string;
+  listing?: boolean;
 }) {
   const [outcome, setOutcome] = useState<'agreed' | 'countered' | 'refused'>('agreed');
   const [words, setWords] = useState('');
@@ -770,7 +920,14 @@ function AnswerRepairDialog({
   const { busy, errors, act } = useAct(onClose);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title="The seller’s answer">
+      <DialogContent
+        title={listing ? 'Your seller’s answer' : 'The seller’s answer'}
+        description={
+          listing
+            ? 'What your seller will do about the buyers’ request, as you’re sending it.'
+            : undefined
+        }
+      >
         <form
           className="mt-4 flex flex-col gap-3.5"
           onSubmit={(e) => {
@@ -796,7 +953,7 @@ function AnswerRepairDialog({
           <Segmented
             value={outcome}
             onChange={setOutcome}
-            ariaLabel="Their answer"
+            ariaLabel={listing ? 'Your seller’s answer' : 'Their answer'}
             options={[
               { value: 'agreed', label: 'Agreed' },
               { value: 'countered', label: 'Countered' },

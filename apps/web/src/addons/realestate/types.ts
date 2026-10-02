@@ -67,3 +67,32 @@ export interface BuyerSide {
   readonly offers: readonly Offer[];
   readonly cmas: readonly CmaRow[];
 }
+
+// Round three: the listing's side.
+export type ListingView = Ok<'/v1/queries/realestate.listing'>['listing'];
+export type ListingPhoto = ListingView['photos'][number];
+export type ListingChoice = ListingView['choices'][number];
+export type ListingDescription = ListingView['description'];
+export type Marketing = Ok<'/v1/queries/realestate.listing.marketing'>;
+export type Flyer = Ok<'/v1/queries/realestate.listing.flyer'>;
+export type Prices = Ok<'/v1/queries/realestate.listing.prices'>;
+export type PriceChange = Prices['history'][number];
+export type OpenHouseList = Ok<'/v1/queries/realestate.open_houses'>;
+export type OpenHouse = OpenHouseList['openHouses'][number];
+export type Compare = Ok<'/v1/queries/realestate.offers.compare'>;
+export type CompareRow = Compare['rows'][number];
+export type Suggestions = Ok<'/v1/queries/realestate.suggestions'>;
+export type Suggestion = Suggestions['suggestions'][number];
+
+/** A listing deal's own side, as the deal page reads it. */
+export interface ListingSide {
+  readonly listing: ListingView;
+  readonly marketing: Marketing;
+  readonly prices: Prices;
+  readonly openHouses: OpenHouseList;
+  readonly compare: Compare;
+  readonly tasks: ClientTaskList;
+  readonly cmas: readonly CmaRow[];
+  /** The first photo's file, signed for showing. */
+  readonly coverUrl: string | null;
+}

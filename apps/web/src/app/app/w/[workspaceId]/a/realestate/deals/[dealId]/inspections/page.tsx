@@ -5,7 +5,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Inspections' };
 
-/** A buyer deal's inspections, what they found, and the repair request. */
+/** A deal's inspections and the repair request: ours on a buyer deal, the buyers' on a listing. */
 export default async function RealestateInspectionsPage({
   params,
 }: {
@@ -31,6 +31,7 @@ export default async function RealestateInspectionsPage({
         documents={documents.documents}
         clients={deal.parties.filter((p) => p.role === 'client').map((p) => p.name)}
         live={!deal.deal.outcome && !deal.deal.archived}
+        side={deal.deal.side}
       />
     );
   });

@@ -3,13 +3,16 @@
  * Offers on a buyer deal (boards 20 and 21, design/realestate/Offers.dc.html and OfferSummary.dc.html): every offer
  * and its versions side by side, the clock on the one waiting for an answer, recording the answer, and the one-page
  * summary the client sees in their portal. The deal's CMAs are listed beside them.
+ *
+ * On a listing (round three) one offer's page reads the other way round: the buyers' offer and counters against
+ * ours, our answer to record, and no one-page summary (the seller sees the offers side by side instead).
  */
 import { fmtMonthDay, money } from '@hfos/core';
 import { CMA_STATUSES } from '@hfos/core/addons/realestate/cma';
 import {
   LIVE_OFFER_STATUSES,
   LOAN_TYPES,
-  OFFER_STATUSES,
+  offerStatusWords,
 } from '@hfos/core/addons/realestate/offer-words';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -31,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { CardHead, dealHref } from './bits';
 import { DealCrumb, firstNames, street } from './buyer-bits';
 import { ReasonDialog } from './deal-dialogs';
-import { AnswerDialog, StartOfferDialog, VersionDialog } from './offer-dialogs';
+import { AnswerDialog, StartOfferDialog, VersionDialog, type DealSideKind } from './offer-dialogs';
 import type { CmaRow, DealDocument, Home, Offer, OfferVersion } from './types';
 import { useAct } from './use-act';
 import { useQueryState } from './use-query-state';
@@ -57,6 +60,7 @@ export function OffersPage({
   homes,
   documents,
   live,
+  side = 'buyer',
 }: {
   workspaceId: string;
   dealId: string;
@@ -67,8 +71,10 @@ export function OffersPage({
   homes: readonly Home[];
   documents: readonly DealDocument[];
   live: boolean;
+  side?: DealSideKind;
 }) {
   useLiveRefresh(['custom_record']);
+  const listing = side === 'listing';
   const [start, setStart] = useQueryState('start');
   const sorted = [...offers].sort(
     (a, b) =>
@@ -84,7 +90,7 @@ export function OffersPage({
         actions={
           live ? (
             <Button onClick={() => setStart('')} data-testid="offers-start">
-              Make an offer
+              {listing ? 'Add an offer' : 'Make an offer'}
             </Button>
           ) : null
         }
@@ -108,17 +114,22 @@ export function OffersPage({
                   <Card className="flex items-start justify-between gap-3 p-4 hover:bg-card-2 md:p-5">
                     <div className="min-w-0">
                       <div className="text-[15px] font-semibold">
-                        Offer {o.number} · {street(o.address)}
+                        Offer {o.number} ·{' '}
+                        {listing ? (o.buyerNames ?? 'Buyers') : street(o.address)}
                       </div>
                       <div className="text-[13px] text-text-2">
                         {money(v.priceCents)} · version {v.number}
-                        {o.theirAgentName ? ` · to ${o.theirAgentName}` : ''}
+                        {o.theirAgentName
+                          ? ` · ${listing ? 'from' : 'to'} ${o.theirAgentName}`
+                          : ''}
                       </div>
                       {o.clock?.words ? (
                         <div className="text-[13px] text-text-2">{o.clock.words}</div>
                       ) : null}
                     </div>
-                    <Badge variant={statusVariant(o.status)}>{OFFER_STATUSES[o.status]}</Badge>
+                    <Badge variant={statusVariant(o.status)}>
+                      {offerStatusWords(o.status, side)}
+                    </Badge>
                   </Card>
                 </Link>
               );
@@ -129,14 +140,20 @@ export function OffersPage({
           <CardHead title="CMAs" />
           {cmas.length === 0 ? (
             <p className="text-[13.5px] text-text-2">
-              None yet. Start one from a home on{' '}
-              <Link
-                href={dealHref(workspaceId, dealId, 'homes')}
-                className="text-accent-text hover:underline"
-              >
-                Homes
-              </Link>
-              .
+              {listing ? (
+                'None yet. Start one from the deal’s page.'
+              ) : (
+                <>
+                  None yet. Start one from a home on{' '}
+                  <Link
+                    href={dealHref(workspaceId, dealId, 'homes')}
+                    className="text-accent-text hover:underline"
+                  >
+                    Homes
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -175,6 +192,7 @@ export function OffersPage({
         homes={homes}
         documents={documents}
         homeId={start || null}
+        side={side}
       />
     </div>
   );
@@ -221,9 +239,34 @@ const ROWS = (timeZone: string): Row[] => [
           : 'No condition',
   },
   {
+    label: 'Down payment',
+    value: (v) => (v.downPaymentPct === null ? '—' : `${v.downPaymentPct}%`),
+  },
+  {
+    label: 'Home to sell first',
+    value: (v) => (v.homeSaleContingency === null ? '—' : v.homeSaleContingency ? 'Yes' : 'No'),
+  },
+  {
+    label: 'Their agent’s fee',
+    value: (v) =>
+      v.buyerAgentFeeBp !== null
+        ? `${v.buyerAgentFeeBp / 100}%`
+        : v.buyerAgentFeeCents !== null
+          ? money(v.buyerAgentFeeCents)
+          : '—',
+  },
+  {
+    label: 'Escalation',
+    value: (v) =>
+      v.escalationCapCents === null
+        ? '—'
+        : `Up to ${money(v.escalationCapCents)}${v.escalationStepCents ? `, by ${money(v.escalationStepCents)}` : ''}`,
+  },
+  {
     label: 'Closing',
     value: (v) => (v.closingDate ? fmtMonthDay(v.closingDate, thisYear()) : '—'),
   },
+  { label: 'Possession', value: (v) => v.possession ?? '—' },
   { label: 'Other', value: (v) => v.otherTerms ?? '—' },
   { label: 'Respond by', value: (v) => (v.respondBy ? respondWords(v.respondBy, timeZone) : '—') },
 ];
@@ -237,6 +280,7 @@ export function OfferPage({
   clients,
   documents,
   live,
+  side = 'buyer',
 }: {
   workspaceId: string;
   dealId: string;
@@ -246,8 +290,10 @@ export function OfferPage({
   clients: readonly string[];
   documents: readonly DealDocument[];
   live: boolean;
+  side?: DealSideKind;
 }) {
   useLiveRefresh(['custom_record']);
+  const listing = side === 'listing';
   const [dialog, setDialog] = useState<'answer' | 'version' | 'withdraw' | null>(null);
   const { busy, act } = useAct();
   const who = firstNames(clients) || 'the client';
@@ -255,6 +301,9 @@ export function OfferPage({
   const newest = o.versions.at(-1)!;
   const rows = ROWS(timeZone).filter((r) => o.versions.some((v) => r.value(v) !== '—'));
   const to = [o.theirAgentName, o.theirBrokerage].filter(Boolean).join(', ');
+  const name = listing
+    ? `Offer ${o.number}${o.buyerNames ? ` · ${o.buyerNames}` : ''}`
+    : street(o.address);
   return (
     <div data-testid="realestate-offer">
       <DealCrumb
@@ -262,24 +311,26 @@ export function OfferPage({
         dealId={dealId}
         dealName={dealName}
         middle={{ label: 'Offers', path: 'offers' }}
-        here={street(o.address)}
+        here={name}
       />
       <PageHeader
-        title={`Offer · ${street(o.address)}`}
-        description={`${dealName}${to ? ` · to ${to}` : ''} · ${OFFER_STATUSES[o.status]}`}
+        title={listing ? name : `Offer · ${name}`}
+        description={`${dealName}${to ? ` · ${listing ? 'from' : 'to'} ${to}` : ''} · ${offerStatusWords(o.status, side)}`}
         actions={
           <>
-            <ButtonLink
-              variant="secondary"
-              href={dealHref(workspaceId, dealId, `offers/${o.id}/summary`)}
-              data-testid="offer-summary-link"
-            >
-              {o.shared?.current ? `Summary shared with ${who}` : `Share a summary with ${who}`}
-            </ButtonLink>
+            {listing ? null : (
+              <ButtonLink
+                variant="secondary"
+                href={dealHref(workspaceId, dealId, `offers/${o.id}/summary`)}
+                data-testid="offer-summary-link"
+              >
+                {o.shared?.current ? `Summary shared with ${who}` : `Share a summary with ${who}`}
+              </ButtonLink>
+            )}
             {live && open ? (
               <>
                 <Button onClick={() => setDialog('answer')} data-testid="offer-answer">
-                  Record their answer
+                  {listing ? 'Record our answer' : 'Record their answer'}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -290,7 +341,7 @@ export function OfferPage({
                       Add a counter…
                     </DropdownMenuItem>
                     <DropdownMenuItem danger onSelect={() => setDialog('withdraw')}>
-                      Withdraw the offer…
+                      {listing ? 'The buyers withdrew it…' : 'Withdraw the offer…'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -302,11 +353,15 @@ export function OfferPage({
       {o.clock ? (
         <Callout tone="warning" className="mb-4" data-testid="offer-clock">
           <div className="font-semibold text-text">
-            {o.clock.waitingOn === 'them' ? 'The seller’s answer' : 'Our answer'}
+            {o.clock.waitingOn === 'them'
+              ? listing
+                ? 'The buyers’ answer'
+                : 'The seller’s answer'
+              : 'Our answer'}
             {o.clock.words ? ` is ${o.clock.words.replace(/^Due/, 'due')}` : ' has no deadline'}
           </div>
           <div>
-            From {newest.side === 'us' ? 'our' : 'the seller’s'}{' '}
+            From {newest.side === 'us' ? 'our' : listing ? 'the buyers’' : 'the seller’s'}{' '}
             {newest.number === 1 ? 'offer' : 'counter'} (version {newest.number}).
             {o.clock.respondBy
               ? ' You’ll hear 2 hours before, at the deadline, and if it passes.'
@@ -315,7 +370,7 @@ export function OfferPage({
         </Callout>
       ) : o.endedReason ? (
         <Callout tone="neutral" className="mb-4">
-          {OFFER_STATUSES[o.status]}: {o.endedReason}
+          {offerStatusWords(o.status, side)}: {o.endedReason}
         </Callout>
       ) : null}
       <Card className="overflow-x-auto p-0">
@@ -326,8 +381,18 @@ export function OfferPage({
               {o.versions.map((v, i) => (
                 <th key={v.id} className="px-3 py-3 font-semibold">
                   {v.number} ·{' '}
-                  {v.side === 'us' ? (i === 0 ? 'Our offer' : 'Our counter') : 'Seller’s counter'} ·{' '}
-                  {fmtMonthDay(dateOf(v.at, timeZone), thisYear())}
+                  {listing
+                    ? v.side === 'them'
+                      ? i === 0
+                        ? 'Their offer'
+                        : 'Their counter'
+                      : 'Our counter'
+                    : v.side === 'us'
+                      ? i === 0
+                        ? 'Our offer'
+                        : 'Our counter'
+                      : 'Seller’s counter'}{' '}
+                  · {fmtMonthDay(dateOf(v.at, timeZone), thisYear())}
                   {o.acceptedVersionId === v.id ? ' · accepted' : ''}
                 </th>
               ))}
@@ -386,9 +451,9 @@ export function OfferPage({
         </table>
       </Card>
       <p className="mt-3 text-[12.5px] text-text-3">
-        Every version is kept as it was sent. The contract itself is filled in your forms software
-        and uploaded; HandsFreeOS keeps the terms, the documents and the clock. When it’s accepted,
-        its terms go to Key dates for you to confirm.
+        Every version is kept as it was {listing ? 'sent or received' : 'sent'}. The contract itself
+        is filled in your forms software and uploaded; HandsFreeOS keeps the terms, the documents
+        and the clock. When it’s accepted, its terms go to Key dates for you to confirm.
       </p>
       <AnswerDialog
         offer={o}
@@ -396,6 +461,7 @@ export function OfferPage({
         onOpenChange={(x) => !x && setDialog(null)}
         workspaceId={workspaceId}
         timeZone={timeZone}
+        dealSide={side}
       />
       <VersionDialog
         offer={o}
@@ -404,13 +470,18 @@ export function OfferPage({
         workspaceId={workspaceId}
         timeZone={timeZone}
         documents={documents}
+        dealSide={side}
       />
       <ReasonDialog
         open={dialog === 'withdraw'}
         onOpenChange={(x) => !x && setDialog(null)}
-        title="Withdraw the offer?"
-        description="It ends here, and its versions are kept."
-        submit="Withdraw it"
+        title={listing ? 'Did the buyers withdraw their offer?' : 'Withdraw the offer?'}
+        description={
+          listing
+            ? 'It ends here with its versions kept, and the listing stays on the market.'
+            : 'It ends here, and its versions are kept.'
+        }
+        submit={listing ? 'Mark it withdrawn' : 'Withdraw it'}
         danger
         done="Withdrawn."
         run={async (reason) =>

@@ -182,9 +182,12 @@ export function ClientTasksPage({
                     )}
                     {live && t.status === 'open' ? (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => setMarking(t)}>
-                          Mark done
-                        </Button>
+                        {/* A sign-off and a seller's questionnaire are the client's own. */}
+                        {t.kind === 'sign_off' || t.kind === 'questionnaire' ? null : (
+                          <Button size="sm" variant="ghost" onClick={() => setMarking(t)}>
+                            Mark done
+                          </Button>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => setCanceling(t)}>
                           Cancel
                         </Button>

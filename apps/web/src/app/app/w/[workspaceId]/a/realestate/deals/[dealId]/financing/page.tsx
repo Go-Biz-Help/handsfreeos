@@ -35,6 +35,7 @@ export default async function RealestateFinancingPage({
         documents={documents.documents}
         files={files.files.map((f) => ({ id: f.id, name: f.name }))}
         live={!deal.deal.outcome && !deal.deal.archived}
+        side={deal.deal.side}
       />
     );
   });

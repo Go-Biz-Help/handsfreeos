@@ -402,7 +402,7 @@ export function DealPage({
             <>
               <AgreementCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
               <FinancingCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
-              <ClientTodoCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+              <ClientTodoCard workspaceId={workspaceId} dealId={dealId} list={buyer.tasks} />
               <OffersCmaCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
             </>
           ) : null}

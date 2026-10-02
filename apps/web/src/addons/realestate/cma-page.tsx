@@ -96,7 +96,8 @@ export function CmaPage({
     act('another', async () => {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/realestate.cma.start', {
-          body: { workspaceId, dealId, homeId: cma.homeId!, fromCmaId: cma.id },
+          // A listing's CMA is for its own home: no home of a buyer's to name.
+          body: { workspaceId, dealId, homeId: cma.homeId ?? undefined, fromCmaId: cma.id },
         }),
       );
       router.push(dealHref(workspaceId, dealId, `cma/${out.cmaId}`));
@@ -179,7 +180,7 @@ export function CmaPage({
                 >
                   Reopen
                 </Button>
-              ) : cma.homeId ? (
+              ) : (
                 <Button
                   variant="secondary"
                   onClick={() => void startAnother()}
@@ -187,7 +188,7 @@ export function CmaPage({
                 >
                   Start another from it
                 </Button>
-              ) : null}
+              )}
             </>
           ) : null
         }

@@ -11,25 +11,16 @@ import { LIVE_OFFER_STATUSES, OFFER_STATUSES } from '@hfos/core/addons/realestat
 import { TOUR_STATUSES } from '@hfos/core/addons/realestate/tours';
 import { Home as HomeIcon } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { CardHead, dealHref, Line } from './bits';
+import { CardHead, dealHref, HeadLink, Line } from './bits';
 import { firstNames, FitList, homeFactsLine, profileLines, street } from './buyer-bits';
-import type { BuyerSide, Home, Tour } from './types';
+import type { BuyerSide, ClientTaskList, Home, Tour } from './types';
 
 const thisYear = () => new Date().getFullYear();
-
-function HeadLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link href={href} className="text-[13px] text-accent-text hover:underline">
-      {children}
-    </Link>
-  );
-}
 
 export function WhatTheyWantCard({
   workspaceId,
@@ -349,26 +340,27 @@ export function FinancingCard({
 export function ClientTodoCard({
   workspaceId,
   dealId,
-  buyer,
+  list,
+  title = 'Client’s to-do',
+  empty = 'Nothing asked of them yet. Ask for their preapproval letter or ID, and they do it in their portal.',
 }: {
   workspaceId: string;
   dealId: string;
-  buyer: BuyerSide;
+  list: ClientTaskList;
+  title?: string;
+  empty?: string;
 }) {
   const href = dealHref(workspaceId, dealId, 'client-tasks');
-  const { tasks, clients } = buyer.tasks;
+  const { tasks, clients } = list;
   const shown = [...tasks]
     .sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
     .slice(0, 4);
   const notIn = clients.filter((c) => c.portal === 'none' || c.portal === 'revoked');
   return (
     <Card className="p-4 md:p-5" data-testid="buyer-todo">
-      <CardHead title="Client’s to-do" action={<HeadLink href={href}>All</HeadLink>} />
+      <CardHead title={title} action={<HeadLink href={href}>All</HeadLink>} />
       {shown.length === 0 ? (
-        <p className="text-[13.5px] text-text-2">
-          Nothing asked of them yet. Ask for their preapproval letter or ID, and they do it in their
-          portal.
-        </p>
+        <p className="text-[13.5px] text-text-2">{empty}</p>
       ) : (
         <ul className="space-y-1.5">
           {shown.map((t) => (

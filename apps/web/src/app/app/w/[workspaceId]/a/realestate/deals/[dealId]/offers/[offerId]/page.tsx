@@ -34,6 +34,7 @@ export default async function RealestateOfferPage({
         clients={deal.parties.filter((p) => p.role === 'client').map((p) => p.name)}
         documents={documents.documents}
         live={!deal.deal.outcome && !deal.deal.archived}
+        side={deal.deal.side}
       />
     );
   });
