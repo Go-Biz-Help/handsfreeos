@@ -67,7 +67,7 @@ describe('a listing’s facts, pure', () => {
     expect(listingSlugFrom('12 Café Ct. #4, Austin')).toBe('12-cafe-ct-4');
     expect(streetOf('2207 Juniper Trail, Austin, TX')).toBe('2207 Juniper Trail');
     expect(notOnMlsWords('2207 Juniper Trail, Austin, TX')).toBe(
-      '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.',
+      '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live under Marketing once it is.',
     );
   });
 });
@@ -710,7 +710,7 @@ const asVisitor = (name: string, input: Record<string, unknown>): Promise<Any> =
 describe('before the MLS', () => {
   it('holds everything public: the page, the flyer and an email or text to contacts', async () => {
     const hold =
-      '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.';
+      '2207 Juniper Trail isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live under Marketing once it is.';
     const m = await ask(agent, 'realestate.listing.marketing', { dealId: listing });
     expect(m.mls).toBeNull();
     expect(m.hold).toBe(hold);

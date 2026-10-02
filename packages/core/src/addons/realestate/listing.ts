@@ -128,7 +128,7 @@ export const streetOf = (address: string): string => (address.split(',')[0] ?? a
  * posts, the open house sign-in and matching all wait until the listing is live on it.
  */
 export function notOnMlsWords(address: string): string {
-  return `${streetOf(address)} isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live on the listing page once it is.`;
+  return `${streetOf(address)} isn’t live on the MLS yet, so it can’t be shared outside your office. Mark it live under Marketing once it is.`;
 }
 
 /** A listing's public page, under the business's site: `/a/<site>/realestate/<slug>`. Browser-safe. */

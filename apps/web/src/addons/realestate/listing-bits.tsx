@@ -7,7 +7,7 @@
 import { fmtMonthDay, localDayOf as dateOf, money } from '@hfos/core';
 import { HOME_TYPES, type HomeType } from '@hfos/core/addons/realestate/homes';
 import { Image as ImageIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { FileItem } from '@/lib/api/types';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -88,5 +88,28 @@ export function SignedPhoto({
       <ImageIcon className="h-5 w-5" strokeWidth={1.5} />
       {label ? <span className="text-xs font-semibold">{label}</span> : null}
     </div>
+  );
+}
+
+/** The words, with each flagged phrase marked (a description, a social post). */
+export function Marked({ words, phrases }: { words: string; phrases: readonly string[] }) {
+  const found = phrases.filter((p) => p && words.toLowerCase().includes(p.toLowerCase()));
+  if (!found.length) return <>{words}</>;
+  const pattern = new RegExp(
+    `(${found.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi',
+  );
+  return (
+    <>
+      {words.split(pattern).map((part, i) =>
+        found.some((p) => p.toLowerCase() === part.toLowerCase()) ? (
+          <mark key={i} className="rounded-[3px] bg-warning-soft px-0.5 text-text">
+            {part}
+          </mark>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </>
   );
 }

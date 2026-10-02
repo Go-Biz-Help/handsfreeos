@@ -9,7 +9,7 @@ import { fmtMonthDay, localDayOf as dateOf } from '@hfos/core';
 import { Check, Circle, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -21,35 +21,13 @@ import { cn } from '@/lib/utils';
 import { CardHead, dealHref } from './bits';
 import { DealCrumb, firstNames } from './buyer-bits';
 import { ReasonDialog } from './deal-dialogs';
+import { Marked } from './listing-bits';
 import type { ListingView } from './types';
 import { useAct } from './use-act';
 
 const thisYear = () => new Date().getFullYear();
 
 type Working = NonNullable<ListingView['description']['working']>;
-
-/** The words, with each flagged phrase marked. */
-function Marked({ words, phrases }: { words: string; phrases: readonly string[] }) {
-  const found = phrases.filter((p) => p && words.toLowerCase().includes(p.toLowerCase()));
-  if (!found.length) return <>{words}</>;
-  const pattern = new RegExp(
-    `(${found.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-    'gi',
-  );
-  return (
-    <>
-      {words.split(pattern).map((part, i) =>
-        found.some((p) => p.toLowerCase() === part.toLowerCase()) ? (
-          <mark key={i} className="rounded-[3px] bg-warning-soft px-0.5 text-text">
-            {part}
-          </mark>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        ),
-      )}
-    </>
-  );
-}
 
 function Step({
   done,

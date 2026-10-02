@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { CardHead, dealHref, HeadLink } from './bits';
+import { CardHead, dealHref, HeadLink, Line } from './bits';
 import { firstNames, street } from './buyer-bits';
 import { listingFactsLine, priceWas, SignedPhoto } from './listing-bits';
 import type { ListingSide } from './types';
@@ -141,6 +141,58 @@ export function ListingCard({
           </div>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/** The listing's marketing at a glance (board 32's Marketing): what's up, and what waits for the MLS. */
+export function MarketingCard({
+  workspaceId,
+  dealId,
+  side,
+}: {
+  workspaceId: string;
+  dealId: string;
+  side: ListingSide;
+}) {
+  const m = side.marketing;
+  const drafts = m.posts.items.length;
+  return (
+    <Card className="p-4 md:p-5" data-testid="listing-marketing">
+      <CardHead
+        title="Marketing"
+        action={<HeadLink href={dealHref(workspaceId, dealId, 'marketing')}>Open</HeadLink>}
+      />
+      {!m.mls ? (
+        <p className="mb-1 text-[13px] text-text-2">
+          Nothing goes outside your office until it’s live on the MLS.
+        </p>
+      ) : null}
+      <Line label="Public page">
+        {m.page.state === 'published' ? (
+          <Badge variant="ok">Published</Badge>
+        ) : m.page.state === 'down' ? (
+          <Badge variant="gray">Taken down</Badge>
+        ) : (
+          <span className="text-text-2">Not up yet</span>
+        )}
+      </Line>
+      <Line label="Flyer">
+        {m.mls && m.ready.description ? (
+          'Ready to print'
+        ) : (
+          <span className="text-text-2">Not yet</span>
+        )}
+      </Line>
+      <Line label="Social posts">
+        {m.posts.state === 'drafting' ? (
+          'Drafting…'
+        ) : drafts ? (
+          `${drafts} ${drafts === 1 ? 'draft' : 'drafts'}`
+        ) : (
+          <span className="text-text-2">None yet</span>
+        )}
+      </Line>
     </Card>
   );
 }

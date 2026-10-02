@@ -60,7 +60,7 @@ import {
   WhatTheyWantCard,
 } from './buyer-cards';
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
-import { ListingCard, ListingCmasCard, MatchingCard } from './listing-cards';
+import { ListingCard, ListingCmasCard, MarketingCard, MatchingCard } from './listing-cards';
 import { DutyDrawer } from './duty-drawer';
 import type {
   BuyerSide,
@@ -204,6 +204,15 @@ export function DealPage({
             <ButtonLink href={dealHref(workspaceId, dealId, 'documents')} variant="secondary">
               Documents
             </ButtonLink>
+            {listing ? (
+              <ButtonLink
+                href={dealHref(workspaceId, dealId, 'marketing')}
+                variant="secondary"
+                data-testid="deal-marketing"
+              >
+                Marketing
+              </ButtonLink>
+            ) : null}
             {buyer && live ? (
               <ButtonLink
                 href={dealHref(workspaceId, dealId, 'tours?plan=1')}
@@ -428,6 +437,7 @@ export function DealPage({
           ) : null}
           {listing ? (
             <>
+              <MarketingCard workspaceId={workspaceId} dealId={dealId} side={listing} />
               <ClientTodoCard
                 workspaceId={workspaceId}
                 dealId={dealId}
