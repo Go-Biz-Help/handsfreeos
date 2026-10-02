@@ -6557,6 +6557,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.contingency.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Track a contingency on a deal: one of the usual kinds (inspection, financing, appraisal, the sale of the buyer’s home, HOA documents, title review), ending on its key date, or one the contract names, with its own end date.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contingency.added.
+         */
+        post: operations["command_realestate_contingency_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contingency.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record how a contingency ended: satisfied, waived or expired, with the signed removal form from the deal’s documents. An owner or admin can record it without the form, with a reason. The client sees it in their portal.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_contingency_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.contract.confirm": {
         parameters: {
             query?: never;
@@ -14111,6 +14151,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_cmas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contingencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s contingencies: when each ends, whether it’s open, ending soon or past its end, and how each ended, with the form.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contingencies"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29610,6 +29670,87 @@ export interface operations {
                         cmaId: string;
                         /** @enum {string} */
                         status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contingency_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    date?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: date */
+                    endsOn?: string;
+                    /** @enum {string} */
+                    kind: "inspection" | "financing" | "appraisal" | "home_sale" | "hoa" | "title" | "other";
+                    label?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        contingencyId: string;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contingency_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    contingencyId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** @enum {string} */
+                    how: "satisfied" | "waived" | "expired";
+                    note?: string;
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        contingencyId: string;
+                        /** Format: uuid */
+                        dealId: string;
                     };
                 };
             };
@@ -50554,6 +50695,67 @@ export interface operations {
                             status: "draft" | "final" | "shared";
                             subjectAddress: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_contingencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        can: {
+                            except: boolean;
+                        };
+                        contingencies: {
+                            /** @enum {string} */
+                            clock: "unknown" | "passed" | "ending" | "open";
+                            document: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            endConfirmed: boolean;
+                            endKey: string | null;
+                            endsOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "inspection" | "financing" | "appraisal" | "home_sale" | "hoa" | "title" | "other";
+                            label: string;
+                            note: string | null;
+                            overrideReason: string | null;
+                            resolvedAt: string | null;
+                            resolvedByName: string | null;
+                            /** @enum {string} */
+                            source: "offer" | "contract" | "typed";
+                            /** @enum {string} */
+                            state: "open" | "satisfied" | "waived" | "expired";
+                            stateWords: string;
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
                     };
                 };
             };

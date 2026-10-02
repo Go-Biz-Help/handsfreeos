@@ -59,6 +59,7 @@ import {
 import { dealMoveStage, dealOfferLost, dealRecordEvent, dealSetFacts } from './deals';
 import { loadHome } from './homes';
 import { listingAddress } from './listing';
+import { ensureContingencies } from './risk';
 import { termEnter } from './terms';
 import { addProof, documentProof, PROOF_EVENTS } from './proof-hooks';
 import type { z } from 'zod';
@@ -490,6 +491,13 @@ async function enterTerms(
       : []),
     ...(v.closingDate ? [{ key: 'closing', date: v.closingDate }] : []),
   ];
+  // Its contingencies are tracked from here, whatever their dates turn out to be (round four).
+  await ensureContingencies(ctx, deal, [
+    ...(v.inspectionDays ? [{ kind: 'inspection' as const, source: 'offer' as const }] : []),
+    ...(v.financingDays !== null ? [{ kind: 'financing' as const, source: 'offer' as const }] : []),
+    ...(v.appraisalContingency ? [{ kind: 'appraisal' as const, source: 'offer' as const }] : []),
+    ...(v.homeSaleContingency ? [{ kind: 'home_sale' as const, source: 'offer' as const }] : []),
+  ]);
   for (const e of entries) await executeCommandWithin(ctx, termEnter, { ...base, ...e });
   return entries.length;
 }

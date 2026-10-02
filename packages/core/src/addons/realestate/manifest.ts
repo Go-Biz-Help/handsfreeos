@@ -231,6 +231,7 @@ export const realestateAddon = defineAddon({
     'listing_suggestions',
     // Round four: coordinator and risk.
     'contract_reads',
+    'contingencies',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -356,6 +357,8 @@ export const realestateAddon = defineAddon({
       'realestate.contract.read_finished',
       'realestate.contract.confirmed',
       'realestate.contract.value_rejected',
+      'realestate.contingency.added',
+      'realestate.contingency.resolved',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -419,6 +422,8 @@ export const realestateAddon = defineAddon({
       'realestate.contract.read_finished',
       'realestate.contract.confirmed',
       'realestate.contract.value_rejected',
+      // A contingency recorded: its card goes now, not at the next sweep.
+      'realestate.contingency.resolved',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.

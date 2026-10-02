@@ -149,7 +149,7 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
           tx,
           sql`select key, severity, acknowledged_at is not null as acknowledged from app.addon_alerts
               where workspace_id = ${ctx.scope.workspaceId} and addon_id = ${ctx.manifest.id}
-                and key like 'duty:%' and cleared_at is null`,
+                and key ~ '^(duty|contingency|blocker|chase|linked):' and cleared_at is null`,
         ),
       )
     ).map((a) => [a.key, a]),
@@ -187,6 +187,22 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
       needsAck: say.needsAck,
       notify: say.notify && !quiet,
       email: say.email,
+    });
+  }
+  // Round four: what else on a deal needs someone, each its own card until it's gone.
+  for (const r of output.risks) {
+    wanted.add(r.key);
+    await raiseAddonAlert(ctx, {
+      key: r.key,
+      severity: r.severity,
+      title: r.title.slice(0, 200),
+      detail: r.detail,
+      href: r.href,
+      permission: 'realestate.use',
+      customRecordId: r.dealId,
+      audienceUserIds: r.audienceUserIds,
+      assigneeUserId: r.assigneeUserId,
+      dueAt: r.dueAt ? new Date(r.dueAt) : null,
     });
   }
   for (const key of current.keys()) if (!wanted.has(key)) await clearAddonAlert(ctx, key, 'done');
@@ -252,6 +268,10 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.contract.read_finished': contractReadFinished,
     'realestate.contract.confirmed': contractDecided,
     'realestate.contract.value_rejected': contractDecided,
+    'realestate.contingency.resolved': async (ctx) => {
+      const id = payloadOf(ctx)['contingencyId'];
+      if (typeof id === 'string') await clearAddonAlert(ctx, `contingency:${id}`, 'done');
+    },
   },
   jobs: {
     [SWEEP]: runSweep,

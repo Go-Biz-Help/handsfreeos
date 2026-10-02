@@ -47,6 +47,7 @@ import {
 import type { DealRole } from '../words';
 import { checkDealDates, type DateProblem } from '../dates/conflicts';
 import { healthOf } from '../health';
+import { riskFactsOf, syncContingencies } from './risk';
 import {
   actorKind,
   actorUserId,
@@ -663,6 +664,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         .where(and(eq(deals.recordId, deal.recordId), eq(deals.workspaceId, deal.workspaceId)));
       deal = { ...deal, expectedCommissionCents: expected };
     }
+    // Each contingency whose end date the deal now has is tracked (round four).
+    await syncContingencies(ctx, deal, terms);
     await refreshHealth();
     return counts;
   }
@@ -692,6 +695,7 @@ export async function openWork(ctx: CommandContext, start: Deal) {
       now,
       today,
       calendar,
+      ...(await riskFactsOf(ctx, deal, keyDates)),
     });
     const reasons = health.reasons as unknown as unknown[];
     if (

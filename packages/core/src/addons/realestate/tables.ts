@@ -32,6 +32,7 @@ import {
   users,
   workspaces,
 } from '@hfos/db/schema';
+import type { ContingencyKind, ContingencyState } from './contingencies';
 import type { MemoryKind } from './memory';
 import type { DealRole, DealLinkKind } from './words';
 
@@ -1754,6 +1755,41 @@ export const contractReads = addonRealestate.table(
   ],
 );
 
+/** One of a deal's contingencies (round four, step 3): when it ends, and how it ended. */
+export const contingencies = addonRealestate.table(
+  'contingencies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull().$type<ContingencyKind>(),
+    label: text('label'),
+    endKey: text('end_key'),
+    endsOn: date('ends_on', { mode: 'string' }),
+    source: text('source').notNull().$type<'offer' | 'contract' | 'typed'>(),
+    state: text('state').notNull().default('open').$type<ContingencyState>(),
+    resolvedAt: ts('resolved_at'),
+    resolvedBy: userRef('resolved_by'),
+    documentId: uuid('document_id'),
+    note: text('note'),
+    overrideReason: text('override_reason'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table, for the test that holds the mirror to the live columns. */
 export const REALESTATE_TABLES = {
   deals,
@@ -1804,4 +1840,5 @@ export const REALESTATE_TABLES = {
   listingPrices,
   listingSuggestions,
   contractReads,
+  contingencies,
 } as const;

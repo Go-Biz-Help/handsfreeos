@@ -39,6 +39,7 @@ import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { CONTRACT_DATE_KEYS, CONTRACT_KEYS, READ_KINDS } from './contract-read';
+import { CONTINGENCY_ENDINGS, CONTINGENCY_KIND_KEYS, CONTINGENCY_STATES } from './contingencies';
 import { TERM_KEYS } from './terms';
 import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
@@ -846,6 +847,23 @@ export const SweepOutput = z.object({
       accountableUserId: uuid.nullable(),
       mainAgentUserId: uuid.nullable(),
       coordinatorUserIds: z.array(uuid),
+    }),
+  ),
+  /**
+   * Round four: what else on a deal needs someone, each its own alert, cleared once it's gone: a contingency past its
+   * end with nothing recorded, a blocker past its review, a wait past its chase, a linked deal that disagrees.
+   */
+  risks: z.array(
+    z.object({
+      dealId: uuid,
+      key: z.string().regex(/^(contingency|blocker|chase|linked):[0-9a-f-]{36}$/),
+      severity: z.enum(['attention', 'at_risk', 'critical']),
+      title: z.string(),
+      detail: z.string(),
+      href: z.string(),
+      audienceUserIds: z.array(uuid),
+      assigneeUserId: uuid.nullable(),
+      dueAt: isoDateTime.nullable(),
     }),
   ),
 });
@@ -2075,6 +2093,17 @@ export const PortalDealOutput = z.object({
     closed: z.boolean(),
   }),
   keyDates: z.array(PortalKeyDate),
+  /** Round four: their contingencies, when each ends and how each ended. */
+  contingencies: z.array(
+    z.object({
+      id: uuid,
+      label: z.string(),
+      meaning: z.string(),
+      state: z.enum(['open', 'satisfied', 'waived', 'expired']),
+      endsOn: z.string().nullable(),
+      words: z.string(),
+    }),
+  ),
   tasks: z.array(ClientTaskOut.omit({ completions: true }).extend({ mine: z.boolean() })),
   homes: z.array(
     z.object({
@@ -3097,3 +3126,60 @@ export const ContractReadsOutput = z.object({
     }),
   ),
 });
+
+// ---------- round four: contingencies ----------
+
+export const ContingencyAddInput = z
+  .object({
+    ...inDeal,
+    kind: z.enum(CONTINGENCY_KIND_KEYS),
+    /** What it is, for one the agent names. */
+    label: z.string().trim().min(1).max(120).optional(),
+    /** When one the agent names ends. */
+    endsOn: localDate.optional(),
+    /** When a named kind ends, if its key date isn't entered yet: entered on the key dates, confirmed. */
+    date: localDate.optional(),
+  })
+  .refine((i) => i.kind !== 'other' || (!!i.label && !!i.endsOn), {
+    error: 'Say what it is and when it ends.',
+    path: ['label'],
+  });
+export const ContingencyOutput = z.object({ dealId: uuid, contingencyId: uuid });
+
+export const ContingencyResolveInput = z.object({
+  workspaceId: uuid,
+  contingencyId: uuid,
+  how: z.enum(CONTINGENCY_ENDINGS),
+  /** The signed removal form, one of the deal's documents. */
+  documentId: uuid.optional(),
+  note: optionalNote,
+  /** Recorded without the form: why (owners and admins only). */
+  reason: reason.optional(),
+});
+
+export const ContingenciesInput = z.object({ ...inDeal });
+const ContingencyOut = z.object({
+  id: uuid,
+  kind: z.enum(CONTINGENCY_KIND_KEYS),
+  label: z.string(),
+  endKey: z.string().nullable(),
+  endsOn: localDate.nullable(),
+  /** A person confirmed the date it ends. */
+  endConfirmed: z.boolean(),
+  state: z.enum(CONTINGENCY_STATES),
+  /** "Open · ends Oct 8", "Satisfied Oct 1". */
+  stateWords: z.string(),
+  clock: z.enum(['unknown', 'passed', 'ending', 'open']),
+  source: z.enum(['offer', 'contract', 'typed']),
+  resolvedAt: isoDateTime.nullable(),
+  resolvedByName: z.string().nullable(),
+  document: z.object({ id: uuid, title: z.string() }).nullable(),
+  note: z.string().nullable(),
+  overrideReason: z.string().nullable(),
+});
+export const ContingenciesOutput = z.object({
+  dealId: uuid,
+  contingencies: z.array(ContingencyOut),
+  can: z.object({ except: z.boolean() }),
+});
+export type ContingencyOut = z.infer<typeof ContingencyOut>;

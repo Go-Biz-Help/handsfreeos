@@ -5,7 +5,9 @@
  * the worker to raise through core's add-on alerts. `deal.risks` answers "what could stop this closing?" with every
  * open material duty, who answers for it, when it's due and what's missing.
  */
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
+import type { z } from 'zod';
+import { fmtDateShort } from '../../../calendar/when';
 import { rows, sql } from '@hfos/db/client';
 import { localDateOf } from '../../../calendar/engine/zoned';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
@@ -16,7 +18,8 @@ import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps } from '../proof';
 import { DealRisksInput, DealRisksOutput, SweepInput, SweepOutput } from '../schemas';
 import { isOpenDuty, isOverdue, type DutyStatus } from '../states';
-import { duties } from '../tables';
+import { contingencies, duties } from '../tables';
+import { contingencyClock, contingencyEnd, contingencyLabel, inSentence } from '../contingencies';
 import { conflictsOf, keyDatesOf, termsNow } from '../terms';
 import {
   businessCalendarOf,
@@ -29,7 +32,8 @@ import {
   type Deal,
 } from './common';
 import { dealProofFactsOf, evidenceFactsOf } from './duties';
-import { dateProblemsOf, openWork, termEntriesOf } from './engine';
+import { dateProblemsOf, openWork, termEntriesOf, type Work } from './engine';
+import { riskFactsOf } from './risk';
 
 /** A deal's health as things stand this moment, without writing anything. */
 export async function healthNow(ctx: Ctx, deal: Deal, now = Date.now()) {
@@ -64,6 +68,7 @@ export async function healthNow(ctx: Ctx, deal: Deal, now = Date.now()) {
     now,
     today,
     calendar,
+    ...(await riskFactsOf(ctx, deal, keyDates)),
   });
   return { health, duties: list };
 }
@@ -168,6 +173,7 @@ export const sweep = defineAddonCommand(realestateAddon, {
           order by d.record_id`,
     );
     const alerts = [];
+    const risks: SweepRisk[] = [];
     for (const { id } of ids) {
       const deal = await loadDeal(ctx, id, { lock: true });
       const w = await openWork(ctx, deal);
@@ -210,10 +216,49 @@ export const sweep = defineAddonCommand(realestateAddon, {
           coordinatorUserIds: coordinators,
         });
       }
+      risks.push(...(await dealRisksOf(ctx, w, coordinators, today)));
     }
-    return { deals: ids.length, alertPersonUserIds: await alertPeopleOf(ctx), alerts };
+    return { deals: ids.length, alertPersonUserIds: await alertPeopleOf(ctx), alerts, risks };
   },
 });
+
+type SweepRisk = z.infer<typeof SweepOutput>['risks'][number];
+
+/** What else on a deal needs someone this sweep, each its own alert (round four). */
+async function dealRisksOf(
+  ctx: Ctx,
+  w: Work,
+  coordinators: readonly string[],
+  today: string,
+): Promise<SweepRisk[]> {
+  const deal = w.deal;
+  const team = [...new Set([deal.ownerUserId, ...coordinators].filter((u): u is string => !!u))];
+  const out: SweepRisk[] = [];
+  const open = await ctx.tx
+    .select()
+    .from(contingencies)
+    .where(and(eq(contingencies.dealRecordId, deal.recordId), eq(contingencies.state, 'open')));
+  for (const c of open) {
+    const end = contingencyEnd(c, w.keyDates).date;
+    if (contingencyClock(end, today, w.calendar) !== 'passed') continue;
+    const label = contingencyLabel(c);
+    out.push({
+      dealId: deal.recordId,
+      key: `contingency:${c.id}`,
+      severity: 'at_risk',
+      title: `${deal.name}: the ${inSentence(label)} contingency ended with nothing recorded`.slice(
+        0,
+        200,
+      ),
+      detail: `It ended ${fmtDateShort(end!)}. Record whether it was satisfied, waived or expired, with the signed form.`,
+      href: `/a/realestate/deals/${deal.recordId}/contingencies`,
+      audienceUserIds: team,
+      assigneeUserId: deal.ownerUserId,
+      dueAt: null,
+    });
+  }
+  return out;
+}
 
 /**
  * The people told of critical alerts besides a deal's own team: those the business picked (Settings → Real Estate),

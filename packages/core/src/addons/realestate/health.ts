@@ -13,6 +13,7 @@
  */
 import { fmtDateShort } from '../../calendar/when';
 import type { Materiality } from './catalog/types';
+import { contingencyClock, inSentence } from './contingencies';
 import { businessDaysBetween, type BusinessCalendar } from './dates/business-days';
 import type { DateProblem } from './dates/conflicts';
 import { KEY_DATES, type KeyDateKey, type KeyDates } from './dates/key-dates';
@@ -37,6 +38,13 @@ export const HEALTH_CODES = [
   'date_missing',
   'nobody_accountable',
   'date_warning',
+  // Round four.
+  'contingency_passed',
+  'linked_conflict',
+  'contingency_ending',
+  'prerequisite_open',
+  'read_waiting',
+  'waiting_long',
 ] as const;
 export type HealthCode = (typeof HEALTH_CODES)[number];
 
@@ -66,6 +74,29 @@ export interface HealthDuty {
   readonly accountableRole: 'agent' | 'coordinator' | 'broker';
   readonly accountableUserId: string | null;
   readonly blocker: string | null;
+  /** Waiting on someone outside: who, and the day to chase them (round four). */
+  readonly waitingOn?: string | null;
+  readonly chaseAt?: string | null;
+}
+
+/** An open contingency and the day it ends (round four). */
+export interface HealthContingency {
+  readonly id: string;
+  readonly label: string;
+  readonly end: string | null;
+}
+
+/** A duty that can't be done before another on the deal (round four). */
+export interface HealthWait {
+  readonly dutyId: string;
+  readonly dependsOnId: string;
+}
+
+/** Something the deal's linked sale or purchase breaks, in words (round four). */
+export interface HealthLinked {
+  readonly words: string;
+  readonly next: string;
+  readonly keys: readonly string[];
 }
 
 export interface HealthInput {
@@ -78,6 +109,12 @@ export interface HealthInput {
   /** Today, where the business is. */
   readonly today: string;
   readonly calendar?: BusinessCalendar;
+  // Round four.
+  readonly contingencies?: readonly HealthContingency[];
+  /** Values read from the deal's contracts, waiting for a person to confirm them. */
+  readonly readsWaiting?: number;
+  readonly waits?: readonly HealthWait[];
+  readonly linked?: readonly HealthLinked[];
 }
 
 export interface Health {
@@ -253,6 +290,71 @@ export function healthOf(input: HealthInput): Health {
       next: 'Check the dates with the other side, and correct whichever is wrong.',
       keys: [...p.keys],
     });
+
+  // Round four: contingencies, what duties wait on, the linked deal, what was read, and waits past their chase.
+  for (const c of input.contingencies ?? []) {
+    const clock = contingencyClock(c.end, today, cal);
+    const what = `The ${inSentence(c.label)} contingency`;
+    if (clock === 'passed')
+      red.push({
+        code: 'contingency_passed',
+        level: 'red',
+        words: `${what} ended ${fmtDateShort(c.end!)}, and how it ended isn’t recorded.`,
+        next: 'Record whether it was satisfied, waived or expired, with the signed form.',
+        keys: [`contingency:${c.id}`],
+      });
+    else if (clock === 'ending')
+      yellow.push({
+        code: 'contingency_ending',
+        level: 'yellow',
+        words: `${what} ends ${c.end === today ? 'today' : fmtDateShort(c.end!)}.`,
+        next: 'Get the signed form, then record how it ended.',
+        keys: [`contingency:${c.id}`],
+      });
+  }
+  const byId = new Map(duties.map((d) => [d.id, d]));
+  for (const w of input.waits ?? []) {
+    const d = byId.get(w.dutyId);
+    const first = byId.get(w.dependsOnId);
+    if (!d || !first || !isOpenDuty(d.status) || isDoneDuty(first.status) || !d.dueDate) continue;
+    if (bdFromToday(d.dueDate) > 3) continue;
+    const late = !!first.dueAt && Date.parse(first.dueAt) <= now;
+    (late ? red : yellow).push({
+      code: 'prerequisite_open',
+      level: late ? 'red' : 'yellow',
+      words: `“${d.title}” is due ${d.dueDate === today ? 'today' : fmtDateShort(d.dueDate)} and waits on “${first.title}”, which is ${late ? 'overdue' : 'still open'}.`,
+      next: late
+        ? `Get “${first.title}” done first, or move what waits on it.`
+        : `Make sure “${first.title}” is done first.`,
+      ...at(d),
+    });
+  }
+  for (const l of input.linked ?? [])
+    red.push({
+      code: 'linked_conflict',
+      level: 'red',
+      words: l.words,
+      next: l.next,
+      keys: [...l.keys],
+    });
+  const read = input.readsWaiting ?? 0;
+  if (read > 0)
+    yellow.push({
+      code: 'read_waiting',
+      level: 'yellow',
+      words: `${read} ${plural(read, 'value', 'values')} read from the deal’s contracts ${plural(read, 'waits', 'wait')} to be confirmed.`,
+      next: 'Check each one beside its clause, then confirm it.',
+    });
+  for (const d of duties) {
+    if (d.status !== 'waiting_external' || !d.chaseAt || Date.parse(d.chaseAt) > now) continue;
+    yellow.push({
+      code: 'waiting_long',
+      level: 'yellow',
+      words: `“${d.title}” is waiting on ${d.waitingOn ?? 'someone outside'}, past the day to chase them.`,
+      next: 'Chase them, then say when you did.',
+      ...at(d),
+    });
+  }
 
   return {
     level: red.length ? 'red' : yellow.length ? 'yellow' : 'green',

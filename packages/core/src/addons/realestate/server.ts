@@ -35,6 +35,7 @@ import { dealPeopleCommands } from './ops/people';
 import { realestateQueries } from './ops/queries';
 import { termCommands } from './ops/terms';
 import { contractCommands, contractQueries } from './ops/contract';
+import { contingencyCommands, contingencyQueries } from './ops/contingencies';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
@@ -68,6 +69,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...sellerPortalCommands,
     // Round four: coordinator and risk.
     ...contractCommands,
+    ...contingencyCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -93,5 +95,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...matchingQueries,
     ...sellerPortalQueries,
     ...contractQueries,
+    ...contingencyQueries,
   ],
 };

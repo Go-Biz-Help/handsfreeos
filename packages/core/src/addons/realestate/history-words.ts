@@ -3,6 +3,7 @@
  * add-on keeps names what changed as a code with its before and after; these say it as a sentence, without who did
  * it (the screen adds that). Browser-safe and pure: the web, the phone and the Assistant say the same thing.
  */
+import { CONTINGENCY_KINDS, inSentence, type ContingencyKind } from './contingencies';
 import { DOCUMENT_KINDS } from './catalog/types';
 import {
   FINANCING_STEPS,
@@ -49,6 +50,14 @@ const eventWords = (v: unknown) =>
     .map((e) => (EVENT_WORDS as Readonly<Record<string, string>>)[str(e)])
     .filter(Boolean)
     .join(', ');
+
+/** A contingency as a sentence names it. */
+const contingencyWords = (a: Record<string, unknown>) =>
+  inSentence(
+    a.kind === 'other'
+      ? str(a.label)
+      : (CONTINGENCY_KINDS[a.kind as ContingencyKind]?.label ?? str(a.kind)),
+  );
 
 /** One line of a deal's history: "Moved it to Under contract", "Confirmed closing: Oct 14, 2026". */
 export function dealHistoryWords(what: string, before: Bag, after: Bag): string {
@@ -297,6 +306,10 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `Confirmed values read from “${str(a.title)}”`;
     case 'contract_value_rejected':
       return 'Set aside a value read from a contract';
+    case 'contingency_added':
+      return `Started tracking the ${contingencyWords(a)} contingency${a.source === 'offer' ? ', from the accepted offer' : a.source === 'contract' ? ', from the contract' : ''}`;
+    case 'contingency_resolved':
+      return `Recorded the ${contingencyWords(a)} contingency as ${str(a.state)}${a.withoutForm ? ', without the signed form' : ''}`;
     default:
       return what.replace(/_/g, ' ');
   }

@@ -9,6 +9,14 @@
  *   the deal is theirs first. Each is recorded as the client's, on the portal channel.
  * - Co-buyers each have their own sign-in: each one's save or pass, feedback and sign-off is their own.
  */
+import { localDateOf } from '../../../calendar/engine/zoned';
+import {
+  contingencyLabel,
+  contingencyMeaning,
+  contingencyStateWords,
+  type ContingencyKind,
+  type ContingencyState,
+} from '../contingencies';
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
@@ -192,6 +200,21 @@ export const portalDeal = defineAddonQuery(realestateAddon, {
     const tz = w?.timezone ?? 'America/Chicago';
     const agents = await agentNames(ctx);
     const agentName = agents.get(deal) ?? null;
+    const dates = await keyDatesOf(ctx, [deal]);
+    // Round four: their contingencies and how each ended; never the agent's note.
+    const contingencyRows = await rows<{
+      id: string;
+      kind: ContingencyKind;
+      label: string | null;
+      end_key: string | null;
+      ends_on: string | null;
+      state: ContingencyState;
+      resolved_at: string | null;
+    }>(
+      ctx.tx,
+      sql`select id, kind, label, end_key, ends_on::text, state, resolved_at::text
+          from addon_realestate.contingencies where deal_record_id = ${deal} order by created_at`,
+    );
     const people = await rows<{ person_id: string; first_name: string }>(
       ctx.tx,
       sql`select person_id, first_name from portal.record_people() where record_id = ${deal}`,
@@ -327,12 +350,26 @@ export const portalDeal = defineAddonQuery(realestateAddon, {
         agentName,
         closed: d.outcome !== null,
       },
-      keyDates: (await keyDatesOf(ctx, [deal])).map(({ key, label, date, time }) => ({
-        key,
-        label,
-        date,
-        time,
-      })),
+      keyDates: dates.map(({ key, label, date, time }) => ({ key, label, date, time })),
+      contingencies: contingencyRows.map((c) => {
+        const end =
+          c.kind === 'other' ? c.ends_on : (dates.find((k) => k.key === c.end_key)?.date ?? null);
+        return {
+          id: c.id,
+          label: contingencyLabel({ kind: c.kind, label: c.label }),
+          meaning: contingencyMeaning(c.kind, d.side),
+          state: c.state,
+          endsOn: end,
+          words: contingencyStateWords(
+            {
+              state: c.state,
+              resolvedOn: c.resolved_at ? localDateOf(Date.parse(c.resolved_at), tz) : null,
+            },
+            end,
+            localDateOf(Date.now(), tz),
+          ),
+        };
+      }),
       tasks: tasks.map((t) => ({
         id: t.id,
         kind: t.kind,

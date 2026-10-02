@@ -315,6 +315,8 @@ export const contractReadDone = defineAddonCommand(realestateAddon, {
         : `read the ${kindWords(read.kind)} “${doc.title}”: ${found.length} ${found.length === 1 ? 'value' : 'values'} to confirm`,
       { eventId, ...(failure ? { body: failure, tone: 'warning' as const } : {}) },
     );
+    // Values waiting are a reason on the deal's health.
+    await (await openWork(ctx, deal)).refreshHealth();
     return { readId: read.id, state: failure ? ('failed' as const) : ('read' as const) };
   },
 });
@@ -523,6 +525,7 @@ export const contractReject = defineAddonCommand(realestateAddon, {
       payload: { name: deal.name, readId: read.id, documentId: doc.id, key: v.key, left },
       broadcast: false,
     });
+    await (await openWork(ctx, deal)).refreshHealth();
     return { readId: read.id, dealId: deal.recordId };
   },
 });
