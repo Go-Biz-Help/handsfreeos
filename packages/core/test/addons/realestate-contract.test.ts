@@ -399,6 +399,12 @@ describe('Reading a contract', () => {
           worked: { days: 9, business: false, from: 'acceptance', fromDate: '2026-09-24' },
         }),
         value('closing', { date: '2026-10-30', clause: '§9A', page: 5 }),
+        value('possession', {
+          date: '2026-10-30',
+          clause: '§10',
+          page: 5,
+          worked: { days: 0, business: false, from: 'closing', fromDate: '2026-10-30' },
+        }),
       ],
       unclear: [{ what: 'Survey: within a reasonable time', quote: null, page: 3, clause: '§6C' }],
       dropped: 1,
@@ -431,6 +437,9 @@ describe('Reading a contract', () => {
     expect(read.values.find((x: Any) => x.key === 'inspection_end').worked).toBe(
       '9 days after the contract accepted (Sep 24, 2026)',
     );
+    expect(read.values.find((x: Any) => x.key === 'possession').worked).toBe(
+      'On the closing (Oct 30, 2026)',
+    );
     expect(read.unclear).toHaveLength(1);
     // Nothing on the deal changed.
     const [entries] = await rows<{ n: number }>(
@@ -439,7 +448,7 @@ describe('Reading a contract', () => {
     );
     expect(entries!.n).toBe(1);
     const list = await ask(agent, 'realestate.contract.reads', { dealId: deal });
-    expect(list.reads[0]).toMatchObject({ readId, waiting: 4, confirmed: 0, unclear: 1 });
+    expect(list.reads[0]).toMatchObject({ readId, waiting: 5, confirmed: 0, unclear: 1 });
   });
 
   it('puts each confirmed value on the key dates with its words, replacing what was there', async () => {
@@ -453,7 +462,7 @@ describe('Reading a contract', () => {
     });
     expect(one.confirmed).toBe(1);
     const rest = await run(agent, 'realestate.contract.confirm', { readId });
-    expect(rest.confirmed).toBe(3);
+    expect(rest.confirmed).toBe(4);
     // Confirmed already: nothing more.
     expect((await run(agent, 'realestate.contract.confirm', { readId })).confirmed).toBe(0);
     const live = await rows<{
@@ -482,7 +491,13 @@ describe('Reading a contract', () => {
       read_id: readId,
       confirmed: true,
     });
-    expect(live.map((e) => e.key)).toEqual(['acceptance', 'closing', 'inspection_end', 'price']);
+    expect(live.map((e) => e.key)).toEqual([
+      'acceptance',
+      'closing',
+      'inspection_end',
+      'possession',
+      'price',
+    ]);
     // The offer's closing is kept, replaced.
     const [old] = await rows<{ superseded: boolean }>(
       admin(),
@@ -529,6 +544,15 @@ describe('Reading a contract', () => {
       nowFrom: 'the contract',
       same: false,
     });
+    // The contract counts possession from the closing, so it moves with it, in the contract's own words.
+    expect(read.values.find((x: Any) => x.key === 'possession')).toMatchObject({
+      value: 'Nov 4, 2026',
+      worked: 'On the closing (Nov 4, 2026)',
+      clause: '§10 of the contract',
+      page: null,
+      now: 'Oct 30, 2026',
+      state: 'waiting',
+    });
     expect(read.moves.length).toBeGreaterThan(0);
     const closingDuty = read.moves.find((m: Any) => m.title === 'Final walkthrough workspace');
     expect(closingDuty).toMatchObject({ from: 'Oct 29', to: 'Nov 3', why: '1 day before closing' });
@@ -550,6 +574,12 @@ describe('Reading a contract', () => {
           where deal_record_id = ${deal} and key = 'closing' and superseded_at is null`,
     );
     expect(closing).toEqual({ source: 'amendment', scan: true });
+    const [possession] = await rows<{ date: string }>(
+      admin(),
+      sql`select value_date::text as date from addon_realestate.term_entries
+          where deal_record_id = ${deal} and key = 'possession' and superseded_at is null`,
+    );
+    expect(possession!.date).toBe('2026-11-04');
     const history = await rows<{ what: string }>(
       admin(),
       sql`select what from addon_realestate.deal_history where deal_record_id = ${deal} order by at`,

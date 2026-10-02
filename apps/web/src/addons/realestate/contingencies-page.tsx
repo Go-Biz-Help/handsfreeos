@@ -71,7 +71,10 @@ export function ContingenciesPage({
   const open = items.filter((c) => c.state === 'open');
   const fileById = useMemo(() => new Map(files.map((f) => [f.id, f])), [files]);
   const docById = useMemo(() => new Map(documents.map((x) => [x.documentId, x])), [documents]);
-  const clients = firstNames(deal.parties.filter((p) => p.role === 'client').map((p) => p.name));
+  const clientList = deal.parties.filter((p) => p.role === 'client').map((p) => p.name);
+  const clients = firstNames(clientList);
+  // "Jamie keeps going", "Jamie and Chris keep going".
+  const one = clientList.length === 1;
   // The one to act on first: past its end, then ending soonest.
   const urgent =
     open.find((c) => c.clock === 'passed') ??
@@ -117,12 +120,12 @@ export function ContingenciesPage({
           <div className="font-medium">
             {urgent.clock === 'passed'
               ? `The ${inSentence(urgent.label)} contingency ended ${urgent.endsOn ? fmtMonthDay(urgent.endsOn, thisYear) : ''}, and nothing is recorded`
-              : `The ${inSentence(urgent.label)} contingency ${urgent.stateWords.replace(/^Open · /, '').toLowerCase()}`}
+              : `The ${inSentence(urgent.label)} contingency ${urgent.stateWords.replace(/^Open · /, '').replace(/^E/, 'e')}`}
           </div>
           <div>
             {urgent.clock === 'passed'
               ? 'Record whether it was satisfied, waived or expired, with the signed form. It’s red on the deal until you do.'
-              : `Record whether ${clients || 'the clients'} keep going, with the signed form, before it ends. After that it’s red on the deal until you do.`}
+              : `Record whether ${clients || 'the clients'} ${one ? 'keeps' : 'keep'} going, with the signed form, before it ends. After that it’s red on the deal until you do.`}
           </div>
         </Callout>
       ) : null}
@@ -228,8 +231,8 @@ export function ContingenciesPage({
       </Card>
       <p className="mt-3 text-[12.5px] text-text-3">
         Each ends on its date under Key dates, so moving the date moves it.{' '}
-        {clients ? `${clients} see` : 'The clients see'} each one, and how it ended, in their
-        portal.
+        {clients ? `${clients} ${one ? 'sees' : 'see'}` : 'The clients see'} each one, and how it
+        ended, in their portal.
       </p>
 
       <RecordDialog

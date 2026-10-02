@@ -255,6 +255,17 @@ describe('a scan', () => {
       'Smith purchase: 1 value from “Amendment 1” to confirm',
     );
   });
+
+  it('isn’t a short amendment with words on its page: that one is read from its words', async () => {
+    const short = textPdf([['AMENDMENT 2', '§2 Closing Date is changed to November 6, 2026']]);
+    const doc = await add(await pdfOn('amendment-2.pdf', short), 'amendment', 'Amendment 2');
+    await drain();
+    const read = await readOf(doc.documentId);
+    expect(read).toMatchObject({ state: 'read', scan: false, pages: 1 });
+    expect(read.values.map((v: Any) => [v.key, v.value, v.clause])).toEqual([
+      ['closing', 'Nov 6, 2026', '§2'],
+    ]);
+  });
 });
 
 describe('a document that can’t be read', () => {

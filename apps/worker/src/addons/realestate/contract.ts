@@ -30,8 +30,8 @@ import type { AddonEventContext } from '../types';
 
 /** The largest contract read: its words are read whatever its size; a scan must also fit what the model takes. */
 export const CONTRACT_MAX_BYTES = 25 * 1024 * 1024;
-/** Fewer words than this in the whole PDF and it's a scan. */
-const SCAN_BELOW_CHARS = 200;
+/** Fewer characters of text than this a page, on average, and it's a scan (a one-page amendment can be short). */
+const SCAN_BELOW_CHARS_A_PAGE = 40;
 
 const payloadOf = (ctx: AddonEventContext) => (ctx.event.payload ?? {}) as Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
@@ -110,7 +110,7 @@ export async function contractReadRequested(ctx: AddonEventContext): Promise<voi
     return;
   }
   const words = pdf.pages.reduce((n, page) => n + page.length, 0);
-  const scan = words < SCAN_BELOW_CHARS;
+  const scan = words < SCAN_BELOW_CHARS_A_PAGE * Math.max(1, pdf.total);
   if (scan && (file.bytes.length > AI_DOCUMENT_MAX_BYTES || pdf.total > AI_DOCUMENT_MAX_PAGES)) {
     await record({
       scan,

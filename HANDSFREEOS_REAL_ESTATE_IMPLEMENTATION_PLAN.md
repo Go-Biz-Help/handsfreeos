@@ -1673,8 +1673,11 @@ also reads a PDF page by page (`pdfPages`), so each value can say its page; `fil
 - `contract-read.ts` holds the prompt and `checkedContractRead`: a date stated outright must be in its words
   (`dateStatedIn`: "October 10, 2026", "Oct. 10", "10/10/26", "the 10th day of October"; with no year, only near
   today); a date counted from another is worked out here, in rounds, from this document or the deal's dates.
-- A document under 200 characters of words is a scan. One reading at a time per document; reading again sets aside
-  what still waited in the older one ("Read again.").
+- A document with under 40 characters of words a page, on average, is a scan (a one-page amendment can be short).
+  One reading at a time per document; reading again sets aside what still waited in the older one ("Read again.").
+- An amendment that moves a date brings the dates the contract counts from it, worked out again ("possession at
+  closing and funding" moves with the closing), in the contract's words, waiting with the rest. Only while the
+  contract's value is still the one that counts.
 - Ops: `realestate.document.read`, `realestate.contract.read_done` (system), `realestate.contract.confirm`,
   `realestate.contract.reject_value`, and the queries `realestate.contract.read` and `realestate.contract.reads`.
 

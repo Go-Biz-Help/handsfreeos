@@ -14,12 +14,14 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import type { z } from 'zod';
 import { files } from '@hfos/db/schema';
+import { addDays } from '../../../calendar/engine/zoned';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { DOCUMENT_KINDS, type DocumentKind, type DutyDef } from '../catalog/types';
 import { READ_KINDS, type ContractKey, type ReadKind } from '../contract-read';
+import { addBusinessDays } from '../dates/business-days';
 import { resolveDue } from '../dates/due';
 import { KEY_DATES, type KeyDateKey, type KeyDates } from '../dates/key-dates';
 import { realestateAddon } from '../manifest';
@@ -232,6 +234,9 @@ export const contractReadDone = defineAddonCommand(realestateAddon, {
           decidedAt: null,
           reason: null,
         }));
+    // An amendment that moves a date moves the dates the contract counts from it, to confirm with the rest.
+    if (!failure && read.kind !== 'contract')
+      found.push(...(await countedFromMoved(ctx, read.id, read.dealRecordId, found)));
     await ctx.tx
       .update(contractReads)
       .set({
@@ -320,6 +325,62 @@ export const contractReadDone = defineAddonCommand(realestateAddon, {
     return { readId: read.id, state: failure ? ('failed' as const) : ('read' as const) };
   },
 });
+
+/**
+ * The dates an earlier reading worked out from a date this one moves ("possession: at closing and funding"), worked
+ * out again from the new one. Only while that earlier value is still what counts, and only where it changes. They
+ * keep the contract's own words and clause, and wait for a person like every other value.
+ */
+async function countedFromMoved(
+  ctx: CommandContext,
+  readId: string,
+  dealId: string,
+  found: readonly ContractValue[],
+): Promise<ContractValue[]> {
+  const moved = new Map(
+    found.filter((v) => v.date && v.key in KEY_DATES).map((v) => [v.key, v.date!] as const),
+  );
+  if (!moved.size) return [];
+  const earlier = await ctx.tx
+    .select({ found: contractReads.found })
+    .from(contractReads)
+    .where(
+      and(
+        eq(contractReads.dealRecordId, dealId),
+        ne(contractReads.id, readId),
+        eq(contractReads.state, 'read'),
+      ),
+    );
+  const terms = termsNow(await termEntriesOf(ctx, dealId));
+  const calendar = await businessCalendarOf(ctx);
+  const out: ContractValue[] = [];
+  for (const v of earlier.flatMap((r) => r.found)) {
+    const w = v.worked;
+    if (v.state !== 'confirmed' || !w || !moved.has(w.from)) continue;
+    if (found.some((f) => f.key === v.key) || out.some((o) => o.key === v.key)) continue;
+    if (terms.get(v.key as TermKey)?.current?.id !== v.entryId) continue;
+    const fromDate = moved.get(w.from)!;
+    const date = w.business
+      ? addBusinessDays(fromDate, w.days, calendar).date
+      : addDays(fromDate, w.days);
+    if (date === v.date) continue;
+    out.push({
+      ...v,
+      id: randomUUID(),
+      date,
+      worked: { ...w, fromDate },
+      // The words are the contract's, not this document's: no page here to open.
+      clause: v.clause ? `${v.clause} of the contract` : 'The contract',
+      page: null,
+      state: 'waiting',
+      entryId: null,
+      decidedBy: null,
+      decidedAt: null,
+      reason: null,
+    });
+  }
+  return out;
+}
 
 /** Where a value is in its document, as a key date entry keeps it. */
 const placeOf = (v: ContractValue) =>
@@ -541,11 +602,13 @@ export const valueWords = (v: Pick<ContractValue, 'date' | 'time' | 'cents' | 't
     valueText: v.text,
   });
 
-/** "9 days after the contract accepted (Sep 24, 2026)". */
-const workedWords = (w: ContractValue['worked']) =>
-  w
-    ? `${w.days} ${w.business ? (w.days === 1 ? 'business day' : 'business days') : w.days === 1 ? 'day' : 'days'} after the ${KEY_DATES[w.from as KeyDateKey].label.toLowerCase()} (${termValueWords({ valueDate: w.fromDate, valueTime: null, valueCents: null, valueText: null })})`
-    : null;
+/** "9 days after the contract accepted (Sep 24, 2026)", or "on the closing (Oct 30, 2026)". */
+const workedWords = (w: ContractValue['worked']) => {
+  if (!w) return null;
+  const from = `the ${KEY_DATES[w.from as KeyDateKey].label.toLowerCase()} (${termValueWords({ valueDate: w.fromDate, valueTime: null, valueCents: null, valueText: null })})`;
+  if (w.days === 0) return `On ${from}`;
+  return `${w.days} ${w.business ? (w.days === 1 ? 'business day' : 'business days') : w.days === 1 ? 'day' : 'days'} after ${from}`;
+};
 
 /** Each open duty whose due time would move if these values counted. */
 async function movesOf(

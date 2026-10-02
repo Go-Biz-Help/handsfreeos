@@ -45,7 +45,7 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   page,
   browser,
 }) => {
-  test.setTimeout(600_000);
+  test.setTimeout(900_000);
   const business = 'Hill Country Realty';
   const { email } = await signUpAndConfirm(page, 'realestate-coordinator');
   const workspaceId = await createBusiness(page, { name: business });
@@ -59,10 +59,15 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
     const res = await fetch(`${WORKER}/test/scheduled-jobs/run-due`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ workspaceId, dedupeKeys: [`realestate.sweep:${workspaceId}`] }),
+      // An add-on's jobs are kept under the business.
+      body: JSON.stringify({
+        workspaceId,
+        dedupeKeys: [`${workspaceId}:realestate.sweep:${workspaceId}`],
+      }),
     });
     expect(res.status).toBe(200);
-    const ran = (await res.json()) as { ran: { failed: number } };
+    const ran = (await res.json()) as { moved: unknown[]; ran: { failed: number } };
+    expect(ran.moved).toHaveLength(1);
     expect(ran.ran.failed).toBe(0);
   };
 
@@ -129,13 +134,19 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
 
   // 2. The amendment moves the closing: what it changes, then applied.
   await addDocument('amendment-1.pdf', 'amendment', 'Amendment 1', textPdf(AMENDMENT));
-  await expect(page.getByTestId('document-read').last()).toContainText('1 value to confirm', {
-    timeout: 90_000,
-  });
-  await page.getByTestId('document-read').last().click();
+  await expect(
+    page.getByRole('row', { name: /Amendment 1/ }).getByTestId('document-read'),
+  ).toContainText('2 values to confirm', { timeout: 90_000 });
+  await page
+    .getByRole('row', { name: /Amendment 1/ })
+    .getByTestId('document-read')
+    .click();
   await expect(page.getByRole('heading', { name: 'Amendment 1: what it changes' })).toBeVisible();
   await expect(value('closing')).toContainText('Nov 4, 2026');
   await expect(value('closing')).toContainText('Was: Oct 30, 2026');
+  // The contract gives possession at closing, so it moves with it.
+  await expect(value('possession')).toContainText('Nov 4, 2026');
+  await expect(value('possession')).toContainText('On the closing');
   const moves = page.getByTestId('contract-moves');
   await expect(moves).toContainText('→');
   await page.getByTestId('contract-confirm-all').click();
@@ -159,7 +170,7 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   await expect(page.getByText('Recorded.')).toBeVisible();
   await expect(inspection).toHaveAttribute('data-state', 'satisfied');
   await expect(inspection).toContainText('Inspection: signed form');
-  await page.goto(dealUrl);
+  await page.goto(`${dealUrl}/client-tasks`);
   await page.getByTestId('portal-invite').click();
   const invited = Date.now();
   await page.getByTestId('invite-send').click();
@@ -225,7 +236,7 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   const saleClosing = await run<{ entryId: string }>('realestate.term.enter', {
     dealId: saleId,
     key: 'closing',
-    date: '2026-11-02',
+    date: '2026-11-04',
   });
   await page.goto(dealUrl);
   await page.getByTestId('deal-link-open').click();
@@ -234,7 +245,8 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   await page.getByTestId('deal-link-save').click();
   const linked = page.getByTestId('deal-linked');
   await expect(linked).toContainText('Linked: their sale');
-  await expect(linked).toContainText('Nov 2');
+  // Both close the same day: nothing to warn about.
+  await expect(linked).toContainText('Nov 4');
   await expect(page.getByTestId('deal-linked-problems')).toHaveCount(0);
   await run('realestate.term.enter', {
     dealId: saleId,
@@ -248,7 +260,7 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   );
   await page.goto(dealUrl);
   await expect(page.getByTestId('deal-linked')).toContainText('Nov 6');
-  await expect(page.getByTestId('deal-key-dates')).toContainText('sale closes Nov 6');
+  await expect(page.getByTestId('deal-key-dates')).toContainText(/sale closes \w{3}, Nov 6/);
 
   // 6. Coordinate: the purchase's lender is waited on; the Waiting room lists it, and Chased moves the chase on.
   const lender = got.duties.find((d) => d.status === 'not_started' && d.dutyId !== waits)!;

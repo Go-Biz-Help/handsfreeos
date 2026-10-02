@@ -5,7 +5,7 @@
  * POST /test/realestate/at-risk-since { workspaceId, dutyId, hours } says an at-risk duty has been at risk for so many
  * hours, so a browser test sees it go to the business's alert people at the next sweep without waiting a business
  * day. The duty must be at risk already (a sweep marked it); run the sweep after with /test/scheduled-jobs/run-due
- * and the dedupe key `realestate.sweep:<workspaceId>`.
+ * and the dedupe key `<workspaceId>:realestate.sweep:<workspaceId>`.
  */
 import { HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';

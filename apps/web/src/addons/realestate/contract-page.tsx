@@ -482,8 +482,13 @@ function PdfView({ file, page, title }: { file: DealFile | null; page: number; t
           key={page}
           src={`${url}#page=${page}`}
           title={title}
-          className="block h-[72vh] w-full bg-card-2"
+          className="hidden h-[72vh] w-full bg-card-2 lg:block"
         />
+      ) : null}
+      {url && inline ? (
+        <p className="px-4 py-3 text-[13px] text-text-2 lg:hidden">
+          Open the PDF to check each value against its page.
+        </p>
       ) : (
         <p className="px-4 py-6 text-[13.5px] text-text-2">
           {url
