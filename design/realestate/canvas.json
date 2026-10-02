@@ -487,6 +487,118 @@
       "y": 15200,
       "w": 390,
       "h": 844
+    },
+    {
+      "file": "Connections.dc.html",
+      "title": "62 \u00b7 Connections: listing data, e-sign and ShowingTime, each with its health",
+      "x": 0,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ConnectionKey.dc.html",
+      "title": "63 \u00b7 Your own account: tried, then sealed; and one that stopped working",
+      "x": 1360,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedHome.dc.html",
+      "title": "64 \u00b7 A home from the MLS, by address or number: facts, photos and each MLS\u2019s notice",
+      "x": 2720,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedMatches.dc.html",
+      "title": "65 \u00b7 A buyer\u2019s search on the MLS: new matches go to the agent first",
+      "x": 4080,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalFeedHome.dc.html",
+      "title": "66 \u00b7 Portal: a home the agent sent, with its MLS\u2019s notice",
+      "x": 0,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FeedComps.dc.html",
+      "title": "67 \u00b7 A CMA\u2019s comps from the MLS\u2019s sold homes, picked by the agent",
+      "x": 0,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedStatus.dc.html",
+      "title": "68 \u00b7 Our listing\u2019s status from the MLS: live marked from the feed; a mismatch flagged",
+      "x": 1360,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "EsignSend.dc.html",
+      "title": "69 \u00b7 Send a document for signing with DocuSign or Dotloop",
+      "x": 2720,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "EsignStatus.dc.html",
+      "title": "70 \u00b7 Where each signing stands, and the signed copy back, locked",
+      "x": 4080,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ShowingRequest.dc.html",
+      "title": "71 \u00b7 The listing\u2019s page: a buyer\u2019s agent asks for a showing",
+      "x": 470,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalShowing.dc.html",
+      "title": "72 \u00b7 Portal: the seller says yes to a showing",
+      "x": 940,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Showings.dc.html",
+      "title": "73 \u00b7 A listing\u2019s showings and feedback, from our page and from ShowingTime",
+      "x": 0,
+      "y": 18200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ShowingFeedback.dc.html",
+      "title": "74 \u00b7 Feedback from the buyer\u2019s agent, by its link",
+      "x": 1410,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Vendors.dc.html",
+      "title": "75 \u00b7 The vendors directory, and picking one on a duty",
+      "x": 1360,
+      "y": 18200,
+      "w": 1280,
+      "h": 900
     }
   ]
 }

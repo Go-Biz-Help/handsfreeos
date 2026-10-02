@@ -1791,3 +1791,94 @@ duty, so the escalation shows at the next sweep without waiting a business day.
 - Reading inspection reports and the closing disclosure.
 - Exporting a whole transaction (round six).
 - The MLS, e-sign, lender, title and insurance connectors (round five), so contracts arrive by upload or email.
+
+# Round five: Ecosystem
+
+The spec's **Ecosystem + optimization** release (§23): connectors to the MLS, forms and e-sign, showings, lenders,
+title, insurance and vendors (§19). Its exit outcome: automation expands without changing what anyone is responsible
+for. Chris decided the questions below on 2026-10-02, after round four's walkthrough. He added that listing data
+shouldn't mean only the MLS: suppliers such as Repliers and AnyProp sell one feed across hundreds of MLSs.
+
+Each connector is a source of facts and evidence, never of authority (§19): every value it brings says where it came
+from and when, a person still confirms what matters, and a connector that's down never marks anything done; it says
+which deals it affects.
+
+## Decisions (Chris, 2026-10-02)
+
+| Question                       | Answer                                                                                                                                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Listing data suppliers         | **Repliers, AnyProp and a direct MLS feed (RESO Web API: MLS Grid, Bridge, Trestle)**, all behind one listing-data connector, so more can be added.                                                                                              |
+| Whose account                  | **Both.** HandsFreeOS's own account by default; a brokerage can connect its own instead, and its MLS license stays its own.                                                                                                                      |
+| HandsFreeOS's own account      | **Repliers**: it handles each MLS's data agreement and sends updates as they happen.                                                                                                                                                             |
+| What the listing data does     | **All four:** fill in a home's facts by address or MLS number; run each buyer's saved search and bring new matches to the agent; pull sold comps into a CMA; read our listings' status (live, price change, pending, sold) from the feed.        |
+| Other connectors this round    | **Listing data first, then e-sign, showings and a vendors directory.** Lender, title and insurance keep working by upload and email.                                                                                                             |
+| E-sign                         | **DocuSign and Dotloop**, one e-sign connector with both behind it.                                                                                                                                                                              |
+| Showings                       | **Both:** our own showing page (a buyer's agent asks for a time on the listing's page, the seller says yes in the portal, then access and a feedback link), and ShowingTime's emails read into showings and feedback for listings already on it. |
+| What clients see from the feed | **What the agent sends.** New matches go to the agent first; the client sees only homes the agent sent, with each MLS's required notice and logo.                                                                                                |
+
+Chosen for Chris, open to change:
+
+- HandsFreeOS's Repliers account is turned on for a business by staff when they hand it the add-on, the way testing
+  grants are; its use is counted. A business that connects its own account uses that one instead.
+- A value from the feed is marked "from the MLS" with its supplier and time. It fills what's empty; where it
+  disagrees with what a person confirmed, both are shown and a person picks, as with any two values that disagree.
+- The feed is read from a supplier's updates where it sends them, and every 15 minutes otherwise.
+- New matches for a buyer come to the agent as they arrive, at most one Home card a day per buyer, never to the client.
+- Our listings' status: the feed showing it Active with its MLS number marks it live on the MLS (round three's hold
+  lifts), with the feed as proof. A price or status on the feed that differs from ours is flagged, never copied over.
+  HandsFreeOS still never writes to the MLS.
+- E-sign uses the agent's or brokerage's own DocuSign or Dotloop account (they sign in with it). The signed copy and
+  its certificate come back to Documents on their own, locked, as proof.
+- A showing asked for on our page waits for the seller's yes unless the listing says "confirm on its own"; the
+  access instructions go only to the confirmed agent, just before the showing.
+- The vendors directory is the business's own list (inspectors, photographers, stagers, contractors, lenders, title),
+  each with their services, areas, approval and any disclosure; the agent picks one on a duty, and their quote,
+  appointment and proof attach to it.
+- Analytics and a brokerage template marketplace (also in the spec's release) wait.
+
+## How it works
+
+- **Core first: an add-on's connections.** A business can give an add-on an account at another service: a key it
+  pastes, or a sign-in (OAuth). The worker tests and seals it (as Twilio keys and calendar tokens are), owners and
+  admins manage it, and nobody can read it back. Each connection shows its health: connected, last good sync, what's
+  failing and since when. An add-on's manifest names the services it connects to.
+- **Core: an add-on's webhooks.** Each connection gets its own address for the service's updates. The worker checks
+  the service's signature, keeps the delivery once (by the service's event id) and hands it to the add-on's worker
+  half, under the same guard as everything an add-on does: off, and it's ignored.
+- **One listing-data connector.** Repliers, AnyProp and RESO Web API feeds each have an adapter that turns what they
+  send into one shape (RESO's field names where there are some), with each field's source and time, and each MLS's
+  notice, logo and display rules. Tests use a stand-in supplier.
+- **What it feeds:** a home's facts and photos by address or MLS number; buyers' saved searches and new matches; sold
+  comps for a CMA; our listings' status and a check that the MLS and we agree.
+- **E-sign:** send a document from Documents for signing (signers and order), watch where it stands, and get the
+  signed copy and certificate back, locked, as proof for the duty that needs it.
+- **Showings:** a request page on the listing's public page, the seller's yes in the portal, access instructions and
+  a feedback link; ShowingTime's emails read into the same showings and feedback. Showings and feedback join the
+  listing's activity, the seller's report and the price review.
+- **Vendors:** the business's directory, picked on a duty, with quotes, appointments and proof.
+
+## Build order (round five)
+
+Round five's migrations follow round four's, from `20261021000100`. None of rounds two to five's migrations is on the
+hosted database; they go there, renumbered above `main`'s, with Chris's OK before anything reaches `main`. Screens wait
+for Chris to approve the boards; the server steps go ahead meanwhile.
+
+- **Step 0:** this part, and the boards in `design/realestate` (numbers 62 onward).
+- **Step 1 (core):** an add-on's connections: keys and sign-ins, sealed by the worker, with their health.
+- **Step 2 (core):** an add-on's webhooks: an address per connection, checked, kept once, handed to the add-on.
+- **Step 3:** the listing-data connector and its three adapters (Repliers, AnyProp, RESO Web API), with a stand-in
+  for tests.
+- **Step 4:** a home's facts and photos from the feed; sold comps for a CMA.
+- **Step 5:** buyers' saved searches and new matches; what the client sees.
+- **Step 6:** our listings' status from the feed.
+- **Step 7:** e-sign (DocuSign and Dotloop).
+- **Step 8:** showings: our page and ShowingTime's emails.
+- **Step 9:** the vendors directory.
+- **Step 10:** the screens. **Step 11:** the docs, the browser test and a short video.
+
+## Not in round five
+
+- Lender, title and insurance connectors (they keep working by upload and email).
+- Writing to the MLS (the spec allows it only where the MLS supports it and policy says so).
+- Analytics and a brokerage template marketplace.
+- Clients searching the feed themselves (a VOW).
