@@ -7417,6 +7417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.duty.pick_vendor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick an approved vendor on a duty (the inspector on “Schedule inspections”, say). Their disclosure is said on the deal; their quote and appointment can be added after.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.vendor_picked.
+         */
+        post: operations["command_realestate_duty_pick_vendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.duty.reopen": {
         parameters: {
             query?: never;
@@ -7491,6 +7511,66 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.duty.unlinked.
          */
         post: operations["command_realestate_duty_unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.unpick_vendor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a vendor off a duty, with the reason. What was kept on it stays, marked.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_unpick_vendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.vendor_appointment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which appointment on the calendar is a picked vendor’s for the duty, or none.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_vendor_appointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.vendor_quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a picked vendor’s quote on the duty: the amount, and the quote itself as one of the deal’s documents.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_vendor_quote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9311,6 +9391,66 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.tour.stops_changed.
          */
         post: operations["command_realestate_tour_set_stops"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a vendor for the business’s deals, or take the approval back. Only approved vendors are offered on a duty.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.vendor.saved.
+         */
+        post: operations["command_realestate_vendor_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a vendor out of the directory: they’re no longer offered on a duty. The duties they were picked on keep them, as they were.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.vendor.saved.
+         */
+        post: operations["command_realestate_vendor_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a vendor to the business’s directory, or change one: the company (one in Contacts, or a new one), what they do, where, and any disclosure the client must be told of (an affiliation, a referral fee). A new vendor waits for approval.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created.
+         */
+        post: operations["command_realestate_vendor_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14797,6 +14937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.duty.vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vendors on a duty: what it needs, every approved vendor that does it (those working where the home is first, each with any disclosure), and the ones picked with their quotes and appointments.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_vendors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.esign.list": {
         parameters: {
             query?: never;
@@ -15311,6 +15471,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_tours"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.vendor.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s vendors: what each does and where, whether it’s approved, any disclosure, and how often deals used them.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_vendor_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31955,6 +32135,47 @@ export interface operations {
             };
         };
     };
+    command_realestate_duty_pick_vendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
     command_realestate_duty_reopen: {
         parameters: {
             query?: never;
@@ -32116,6 +32337,118 @@ export interface operations {
                         dutyId: string;
                         /** Format: uuid */
                         waitsOnId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_unpick_vendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pickId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_vendor_appointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appointmentId: string | null;
+                    /** Format: uuid */
+                    pickId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_vendor_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cents: number | null;
+                    documentId?: string | null;
+                    /** Format: uuid */
+                    pickId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
                     };
                 };
             };
@@ -36094,6 +36427,124 @@ export interface operations {
                         status: "planned" | "done" | "canceled";
                         /** Format: uuid */
                         tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    approved: boolean;
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    areas?: string[];
+                    /** Format: uuid */
+                    companyId?: string;
+                    disclosure?: string | null;
+                    /** Format: email */
+                    email?: string;
+                    name?: string;
+                    note?: string | null;
+                    phone?: string;
+                    services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                    /** Format: uuid */
+                    vendorId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
                     };
                 };
             };
@@ -53078,6 +53529,113 @@ export interface operations {
             };
         };
     };
+    query_realestate_duty_vendors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        fits: {
+                            approved: boolean;
+                            approvedAt: string | null;
+                            archived: boolean;
+                            areas: string[];
+                            /** Format: uuid */
+                            companyId: string;
+                            disclosure: string | null;
+                            disclosureWords: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            inArea: boolean | null;
+                            lastUsedAt: string | null;
+                            name: string;
+                            note: string | null;
+                            phone: string | null;
+                            services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                            servicesWords: string;
+                            uses: number;
+                        }[];
+                        picks: {
+                            appointment: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                                title: string | null;
+                            } | null;
+                            note: string | null;
+                            /** Format: date-time */
+                            pickedAt: string;
+                            pickedByName: string | null;
+                            /** Format: uuid */
+                            pickId: string;
+                            quoteCents: number | null;
+                            quoteDocument: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            quoteWords: string | null;
+                            removedAt: string | null;
+                            removedReason: string | null;
+                            /** @enum {string} */
+                            service: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                            serviceLabel: string;
+                            vendor: {
+                                approved: boolean;
+                                approvedAt: string | null;
+                                archived: boolean;
+                                areas: string[];
+                                /** Format: uuid */
+                                companyId: string;
+                                disclosure: string | null;
+                                disclosureWords: string;
+                                email: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lastUsedAt: string | null;
+                                name: string;
+                                note: string | null;
+                                phone: string | null;
+                                services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                                servicesWords: string;
+                                uses: number;
+                            };
+                        }[];
+                        service: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other") | null;
+                        serviceLabel: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_realestate_esign_list: {
         parameters: {
             query?: never;
@@ -55204,6 +55762,58 @@ export interface operations {
                                 status: "planned" | "visited" | "skipped";
                                 visitedAt: string | null;
                             }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_vendor_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        vendors: {
+                            approved: boolean;
+                            approvedAt: string | null;
+                            archived: boolean;
+                            areas: string[];
+                            /** Format: uuid */
+                            companyId: string;
+                            disclosure: string | null;
+                            disclosureWords: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastUsedAt: string | null;
+                            name: string;
+                            note: string | null;
+                            phone: string | null;
+                            services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                            servicesWords: string;
+                            uses: number;
                         }[];
                     };
                 };

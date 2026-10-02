@@ -27,6 +27,7 @@ import {
   appointments,
   bytea,
   calendars,
+  companies,
   customRecords,
   files,
   leads,
@@ -37,6 +38,7 @@ import {
 } from '@hfos/db/schema';
 import type { ContingencyKind, ContingencyState } from './contingencies';
 import type { MemoryKind } from './memory';
+import type { VendorService } from './vendors';
 import type { DealRole, DealLinkKind } from './words';
 
 export const addonRealestate = pgSchema('addon_realestate');
@@ -2027,6 +2029,74 @@ export const showings = addonRealestate.table(
     foreignKey({
       columns: [t.workspaceId, t.dealRecordId],
       foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A vendor in the business's directory: a core company, with its services, areas, approval and any disclosure. */
+export const vendors = addonRealestate.table(
+  'vendors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    services: text('services').array().notNull().$type<VendorService[]>(),
+    areas: text('areas')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    approved: boolean('approved').notNull().default(false),
+    approvedBy: userRef('approved_by'),
+    approvedAt: ts('approved_at'),
+    disclosure: text('disclosure'),
+    note: text('note'),
+    archivedAt: ts('archived_at'),
+    archivedBy: userRef('archived_by'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.companyId)],
+);
+
+/** A vendor picked on a duty, with their quote and appointment. */
+export const dutyVendors = addonRealestate.table(
+  'duty_vendors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    dutyId: uuid('duty_id').notNull(),
+    vendorId: uuid('vendor_id').notNull(),
+    service: text('service').notNull().$type<VendorService>(),
+    quoteCents: bigint('quote_cents', { mode: 'number' }),
+    quoteDocumentId: uuid('quote_document_id'),
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
+    note: text('note'),
+    pickedBy: userRef('picked_by'),
+    pickedAt: ts('picked_at').notNull().defaultNow(),
+    removedAt: ts('removed_at'),
+    removedBy: userRef('removed_by'),
+    removedReason: text('removed_reason'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.dutyId],
+      foreignColumns: [duties.workspaceId, duties.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.vendorId],
+      foreignColumns: [vendors.workspaceId, vendors.id],
     }).onDelete('cascade'),
   ],
 );

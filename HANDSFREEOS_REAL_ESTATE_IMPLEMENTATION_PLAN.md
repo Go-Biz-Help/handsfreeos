@@ -1988,6 +1988,24 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
     the answers. Feedback reaches the seller's portal only once the agent shares it.
 
 - **Step 9:** the vendors directory.
+
+  **As built** (`20261021000800`): `addon_realestate.vendors` (a core company, its services from a fixed list, areas,
+  approval, disclosure, note, archived) and `duty_vendors` (a vendor picked on a duty, with the service, quote amount
+  and quote document, appointment, and when it was let go and why).
+  - `realestate.vendor.save` adds one (a company from Contacts, or a new one through `company.create`; the same name
+    is the same company) or changes it; changing an approved vendor's disclosure takes the approval back unless an
+    approver changed it. `realestate.vendor.approve` and `.archive` need `realestate.manage`. `.list` counts how often
+    deals used each.
+  - `realestate.duty.vendors` (its own query beside the duty drawer's) works out the duty's service from its title
+    (`serviceForDuty`), or takes the one asked, and offers every approved, unarchived vendor that does it, those whose
+    areas are in the home's address first (`inArea`).
+  - `realestate.duty.pick_vendor` takes only an approved vendor for a service they do, once per duty, and says their
+    disclosure on the deal's timeline. `.vendor_quote` (an amount, and the quote as one of the deal's documents),
+    `.vendor_appointment` and `.unpick_vendor` (with a reason; what was kept stays) change it. Each is in the duty's
+    own history.
+  - Not yet: sharing the list of vendors that fit with the client in their portal; the screens show the agent the
+    whole list with each disclosure to give them.
+
 - **Step 10:** the screens. **Step 11:** the docs, the browser test and a short video.
 
 ## Not in round five

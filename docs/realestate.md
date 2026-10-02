@@ -36,6 +36,7 @@ admins then add it from their Add-ons page. It's free; its AI use is counted.
 | Listing data from a feed (round five) | `feed.ts` (the one shape every supplier is read into, RESO's names, money in cents); the worker's adapters in `apps/worker/src/addons/realestate/feed/` (Repliers, a RESO Web API, AnyProp, and the stand-in MLS), the look-ups and the 15-minute feed check; `searches.ts` (a buyer's profile as a saved search)                                                                      |
 | E-sign (round five)                   | `esign.ts` (where a signing stands, in words); `ops/esign.ts`; the worker's DocuSign, Dotloop and stand-in adapters in `apps/worker/src/addons/realestate/esign/`, DocuSign's updates, the 15-minute check, and the actions that open an envelope there                                                                                                                                |
 | Showings (round five)                 | `showings.ts` (the seller's open times, where a showing stands, what buyers said); `ops/showings.ts` (the listing's page, the seller's portal, feedback by link or by hand); the worker's `showings.ts` (who hears what, the access and feedback emails, buyers' words grouped) and `showingtime.ts` (ShowingTime's emails read by their labels)                                       |
+| Vendors (round five)                  | `vendors.ts` (services, a duty's service from its title, areas, disclosures in words); `ops/vendors.ts` (the directory, and the vendor picked on a duty with their quote and appointment)                                                                                                                                                                                              |
 | Commands and queries                  | `packages/core/src/addons/realestate/ops/` (the engine that makes and dates duties is `ops/engine.ts`); all of them in `server.ts`                                                                                                                                                                                                                                                     |
 | Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`, round four's from `20261020001100`                                                                                                                                                                 |
 | Worker                                | `apps/worker/src/addons/realestate/`: the sweep and the alert ladder, the wiring alert, client-update drafting and checking; reading pasted listings, buyer memory, tours following the calendar, the CMA summary, the offer clock; `listing.ts` (a listing's facts, description, posts and reminders) and `matching.ts` (our buyers); `contract.ts` (reading a contract or amendment) |
@@ -226,6 +227,10 @@ Round five (Chris, 2026-10-02):
   feedback link an hour after. ShowingTime's emails are read into the same showings and feedback, each marked to be
   checked. Feedback reaches the seller only when the agent shares it; the AI groups buyers' words into themes with
   their own quotes only, and the counts join the price review.
+- **Vendors: the business's own directory.** Each vendor is a company in Contacts with its services, areas and any
+  disclosure (an affiliation, a referral fee). Anyone working deals adds one; only someone who runs the deal settings
+  approves or archives it. On a duty every approved vendor that does it is offered, those where the home is, first;
+  the picked one's disclosure is said on the deal, and their quote and appointment stay with the duty.
 
 ## Handing it to a test business
 
@@ -260,8 +265,8 @@ pnpm openapi                                                        # after chan
   reports on competing listings.
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
 - Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors. Round five has
-  built listing data, e-sign and showings on core's connections, a service's updates and worker actions
-  (docs/addon-architecture.md); the vendors directory is next, then the screens for all of it.
+  built listing data, e-sign, showings and the vendors directory on core's connections, a service's updates and
+  worker actions (docs/addon-architecture.md); the screens for all of it are next.
 - Phone screens for deals and Coordinate. Their links are ready: the manifest's `ui.phone` names the deal pages the phone will
   draw, and a push, an email link or a Home card opens them there once the phone has them (the web until then).
 - The AI teammate using the add-on, and workflow steps and triggers from it.

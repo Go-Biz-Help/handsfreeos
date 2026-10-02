@@ -44,6 +44,7 @@ import { CONTINGENCY_ENDINGS, CONTINGENCY_KIND_KEYS, CONTINGENCY_STATES } from '
 import { ESIGN_PROVIDER_KEYS, ESIGN_STATE_KEYS, SIGNER_STATE_KEYS } from './esign';
 import { PRICE_FEEL_KEYS, SHOWING_SOURCE_KEYS, SHOWING_STATE_KEYS } from './showings';
 import { TERM_KEYS } from './terms';
+import { VENDOR_SERVICE_KEYS } from './vendors';
 import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
 const reason = z
@@ -3975,3 +3976,112 @@ export const ShowingFromEmailOutput = z.object({
 });
 export const ShowingThemesSaveInput = z.object({ ...inDeal, themes: ShowingThemesSchema });
 export const ShowingThemesSaveOutput = z.object({ dealId: uuid });
+
+// ---------- round five, step 9: the vendors directory ----------
+
+const vendorService = z.enum(VENDOR_SERVICE_KEYS);
+export const VendorSaveInput = z
+  .object({
+    workspaceId: uuid,
+    /** Changing one already here. */
+    vendorId: uuid.optional(),
+    /** A company already in Contacts; or its name, to add one. */
+    companyId: uuid.optional(),
+    name: z.string().trim().min(1, 'Enter the vendor’s name.').max(120).optional(),
+    email: z.email({ error: 'Enter an email like hello@vendor.com.' }).max(254).optional(),
+    phone: z.string().trim().min(7, 'Enter a phone number.').max(40).optional(),
+    services: z.array(vendorService).min(1, 'Pick at least one thing they do.').max(9),
+    areas: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+    disclosure: z.string().trim().min(1).max(500).nullable().optional(),
+    note: z.string().trim().min(1).max(1000).nullable().optional(),
+  })
+  .refine((v) => !!v.vendorId || !!v.companyId || !!v.name, {
+    path: ['name'],
+    message: 'Enter the vendor’s name, or pick a company from Contacts.',
+  });
+export const VendorOutput = z.object({
+  vendorId: uuid,
+  companyId: uuid,
+  approved: z.boolean(),
+});
+export const VendorApproveInput = z.object({
+  workspaceId: uuid,
+  vendorId: uuid,
+  approved: z.boolean(),
+});
+export const VendorArchiveInput = z.object({
+  workspaceId: uuid,
+  vendorId: uuid,
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+const VendorRow = z.object({
+  id: uuid,
+  companyId: uuid,
+  name: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  services: z.array(vendorService),
+  servicesWords: z.string(),
+  areas: z.array(z.string()),
+  approved: z.boolean(),
+  approvedAt: isoDateTime.nullable(),
+  disclosure: z.string().nullable(),
+  disclosureWords: z.string(),
+  note: z.string().nullable(),
+  archived: z.boolean(),
+  uses: z.number().int(),
+  lastUsedAt: isoDateTime.nullable(),
+});
+export const VendorListInput = z.object({
+  workspaceId: uuid,
+  service: vendorService.optional(),
+  includeArchived: z.boolean().default(false),
+});
+export const VendorListOutput = z.object({ vendors: z.array(VendorRow) });
+
+export const DutyVendorsInput = z.object({ ...inDuty, service: vendorService.optional() });
+export const DutyVendorsOutput = z.object({
+  dutyId: uuid,
+  dealId: uuid,
+  /** What the duty needs, from its title or as asked; null when the agent should say. */
+  service: vendorService.nullable(),
+  serviceLabel: z.string().nullable(),
+  address: z.string().nullable(),
+  /** Every approved vendor that does it, those working where the home is first. */
+  fits: z.array(VendorRow.extend({ inArea: z.boolean().nullable() })),
+  picks: z.array(
+    z.object({
+      pickId: uuid,
+      vendor: VendorRow,
+      service: vendorService,
+      serviceLabel: z.string(),
+      quoteCents: z.number().int().nullable(),
+      quoteWords: z.string().nullable(),
+      quoteDocument: z.object({ id: uuid, title: z.string() }).nullable(),
+      appointment: z
+        .object({ id: uuid, title: z.string().nullable(), startsAt: isoDateTime })
+        .nullable(),
+      note: z.string().nullable(),
+      pickedAt: isoDateTime,
+      pickedByName: z.string().nullable(),
+      removedAt: isoDateTime.nullable(),
+      removedReason: z.string().nullable(),
+    }),
+  ),
+});
+export const DutyPickVendorInput = z.object({
+  ...inDuty,
+  vendorId: uuid,
+  service: vendorService.optional(),
+  note: z.string().trim().min(1).max(1000).optional(),
+});
+const inPick = { workspaceId: uuid, pickId: uuid };
+export const DutyVendorQuoteInput = z.object({
+  ...inPick,
+  cents: cents.nullable(),
+  /** The quote itself, one of the deal's documents. */
+  documentId: uuid.nullable().optional(),
+});
+export const DutyVendorAppointmentInput = z.object({ ...inPick, appointmentId: uuid.nullable() });
+export const DutyUnpickVendorInput = z.object({ ...inPick, reason });
+export const DutyVendorOutput = z.object({ pickId: uuid, dutyId: uuid, vendorId: uuid });

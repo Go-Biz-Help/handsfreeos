@@ -236,6 +236,9 @@ export const realestateAddon = defineAddon({
     'feed_matches',
     'esign_envelopes',
     'showings',
+    // And the vendors directory, and the vendor picked on a duty.
+    'vendors',
+    'duty_vendors',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -390,6 +393,9 @@ export const realestateAddon = defineAddon({
       'realestate.showing.decided',
       'realestate.showing.feedback_received',
       'realestate.showing.feedback_shared',
+      // The vendors directory.
+      'realestate.vendor.saved',
+      'realestate.duty.vendor_picked',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
