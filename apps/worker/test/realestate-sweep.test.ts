@@ -220,4 +220,41 @@ describe('The sweep', () => {
     expect(await alertOf(late)).toMatchObject({ acknowledged: true, cleared: false });
     expect(await alertOf(days)).toMatchObject({ cleared: true });
   });
+
+  it('sends an at-risk duty nobody acknowledged for a business day to the alert people (round four)', async () => {
+    const quiet = await add('Send the lender the appraisal', -3);
+    await sweepNow(0);
+    const first = await alertOf(quiet);
+    expect(first).toMatchObject({ severity: 'at_risk' });
+    // The owner is the alert person by default: not on it yet.
+    expect(first!.audience_user_ids).not.toContain(owner.id);
+    const [mark] = await rows<{ since: boolean; escalated: boolean }>(
+      admin(),
+      sql`select at_risk_since is not null as since, escalated_at is not null as escalated
+          from addon_realestate.duties where id = ${quiet}`,
+    );
+    expect(mark).toEqual({ since: true, escalated: false });
+    // A business day and more on, still nobody has acknowledged it.
+    await rows(
+      admin(),
+      sql`update addon_realestate.duties set at_risk_since = now() - interval '5 days' where id = ${quiet}`,
+    );
+    await sweepNow(0);
+    const raised = await alertOf(quiet);
+    // At risk, so it's pushed in business hours, as before; now to the alert people too.
+    expect(raised).toMatchObject({ severity: 'at_risk', needs_ack: true });
+    expect(raised!.audience_user_ids).toContain(owner.id);
+    const [detail] = await rows<{ detail: string }>(
+      admin(),
+      sql`select detail from app.addon_alerts where workspace_id = ${ws} and key = ${`duty:${quiet}`}`,
+    );
+    expect(detail!.detail).toBe(
+      'Lagoon purchase. Nobody acknowledged it within a business day, so it went to the business’s alert people too.',
+    );
+    const log = await rows<{ what: string }>(
+      admin(),
+      sql`select what from addon_realestate.duty_log where duty_id = ${quiet} and what = 'escalated'`,
+    );
+    expect(log).toHaveLength(1);
+  });
 });

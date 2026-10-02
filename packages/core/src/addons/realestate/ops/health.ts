@@ -5,20 +5,22 @@
  * the worker to raise through core's add-on alerts. `deal.risks` answers "what could stop this closing?" with every
  * open material duty, who answers for it, when it's due and what's missing.
  */
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import { fmtDateShort } from '../../../calendar/when';
 import { rows, sql } from '@hfos/db/client';
-import { localDateOf } from '../../../calendar/engine/zoned';
+import { localDateOf, localInstant, zonedParts } from '../../../calendar/engine/zoned';
+import type { CommandContext } from '../../../kernel/types';
+import { addBusinessDays, type BusinessCalendar } from '../dates/business-days';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { ProofRule, ResolvedDuty } from '../catalog/types';
 import { healthOf, type HealthReason } from '../health';
-import { rungOf } from '../ladder';
+import { ladderAlert, rungOf } from '../ladder';
 import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps } from '../proof';
 import { DealRisksInput, DealRisksOutput, SweepInput, SweepOutput } from '../schemas';
 import { isOpenDuty, isOverdue, type DutyStatus } from '../states';
-import { contingencies, duties } from '../tables';
+import { contingencies, duties, dutyLog } from '../tables';
 import { contingencyClock, contingencyEnd, contingencyLabel, inSentence } from '../contingencies';
 import { conflictsOf, keyDatesOf, termsNow } from '../terms';
 import {
@@ -61,6 +63,8 @@ export async function healthNow(ctx: Ctx, deal: Deal, now = Date.now()) {
       accountableRole: d.accountableRole as 'agent' | 'coordinator' | 'broker',
       accountableUserId: d.accountableUserId,
       blocker: d.blocker,
+      waitingOn: d.waitingOn,
+      chaseAt: d.chaseAt?.toISOString() ?? null,
     })),
     keyDates,
     conflicts: conflictsOf(terms),
@@ -182,6 +186,20 @@ export const sweep = defineAddonCommand(realestateAddon, {
       const today = localDateOf(now, w.timeZone);
       const roles = await rolesOf(ctx, deal);
       const coordinators = [...roles].filter(([, r]) => r === 'coordinator').map(([u]) => u);
+      // Round four: when each duty became at risk, and whether that went further.
+      const marks = new Map(
+        (
+          await ctx.tx
+            .select({
+              id: duties.id,
+              atRiskSince: duties.atRiskSince,
+              escalatedAt: duties.escalatedAt,
+              acknowledgedAt: duties.acknowledgedAt,
+            })
+            .from(duties)
+            .where(eq(duties.dealRecordId, deal.recordId))
+        ).map((m) => [m.id, m]),
+      );
       for (const d of w.duties) {
         const dueAt = d.dueAt?.toISOString() ?? null;
         const rung = rungOf(
@@ -199,8 +217,18 @@ export const sweep = defineAddonCommand(realestateAddon, {
           w.calendar,
           d.definition.reminders ?? [7, 3, 1],
         );
+        const escalated = await markRisk(
+          ctx,
+          { id: d.id, title: d.title, dealRecordId: deal.recordId, workspaceId: deal.workspaceId },
+          marks.get(d.id),
+          rung && dueAt ? ladderAlert(rung, { ...d, key: d.dutyKey, dueAt }).severity : null,
+          w.at,
+          w.timeZone,
+          w.calendar,
+        );
         if (!rung || !dueAt) continue;
         alerts.push({
+          escalated,
           dealId: deal.recordId,
           dealName: deal.name,
           dutyId: d.id,
@@ -257,7 +285,105 @@ async function dealRisksOf(
       dueAt: null,
     });
   }
+  // A blocker past the time to look at it again, and a wait past the day to chase.
+  const now = w.at.getTime();
+  const held = await ctx.tx
+    .select()
+    .from(duties)
+    .where(
+      and(
+        eq(duties.dealRecordId, deal.recordId),
+        inArray(duties.status, ['blocked', 'waiting_external']),
+      ),
+    );
+  for (const d of held) {
+    const who = d.accountableUserId ?? deal.ownerUserId;
+    const audience = [...new Set([who, deal.ownerUserId].filter((u): u is string => !!u))];
+    if (d.status === 'blocked' && d.blockerReviewAt && d.blockerReviewAt.getTime() <= now)
+      out.push({
+        dealId: deal.recordId,
+        key: `blocker:${d.id}`,
+        severity: 'attention',
+        title: `${deal.name}: look again at “${d.title}”`.slice(0, 200),
+        detail: `It’s blocked${d.blocker ? `: ${d.blocker}` : ''}${d.blockerOwner ? ` (${d.blockerOwner} to clear)` : ''}. Clear it, or set when to look again.`,
+        href: `/a/realestate/deals/${deal.recordId}?duty=${d.id}`,
+        audienceUserIds: audience,
+        assigneeUserId: who,
+        dueAt: d.blockerReviewAt.toISOString(),
+      });
+    if (d.status === 'waiting_external' && d.chaseAt && d.chaseAt.getTime() <= now)
+      out.push({
+        dealId: deal.recordId,
+        key: `chase:${d.id}`,
+        severity: 'attention',
+        title:
+          `${deal.name}: chase ${d.waitingOn ?? 'whoever it’s waiting on'} about “${d.title}”`.slice(
+            0,
+            200,
+          ),
+        detail: 'Then say you chased them, and the next day to chase moves on.',
+        href: `/a/realestate/deals/${deal.recordId}?duty=${d.id}`,
+        audienceUserIds: audience,
+        assigneeUserId: who,
+        dueAt: d.chaseAt.toISOString(),
+      });
+  }
   return out;
+}
+
+/**
+ * Keeps when a duty became at risk, and whether that went to the alert people: once its alert has said at risk for
+ * a business day and nobody acknowledged it (Chris, 2026-10-02). Back off at risk, both are cleared. True while it's
+ * escalated.
+ */
+async function markRisk(
+  ctx: CommandContext,
+  d: { id: string; title: string; dealRecordId: string; workspaceId: string },
+  was:
+    { atRiskSince: Date | null; escalatedAt: Date | null; acknowledgedAt: Date | null } | undefined,
+  severity: 'info' | 'attention' | 'at_risk' | 'critical' | null,
+  at: Date,
+  timeZone: string,
+  calendar: BusinessCalendar,
+): Promise<boolean> {
+  const atRisk = severity === 'at_risk';
+  if (!atRisk) {
+    if (was?.atRiskSince)
+      await ctx.tx
+        .update(duties)
+        .set({ atRiskSince: null, escalatedAt: null })
+        .where(eq(duties.id, d.id));
+    return false;
+  }
+  const since = was?.atRiskSince ?? at;
+  if (!was?.atRiskSince)
+    await ctx.tx.update(duties).set({ atRiskSince: since }).where(eq(duties.id, d.id));
+  if (was?.acknowledgedAt) return false;
+  if (was?.escalatedAt) return true;
+  if (at.getTime() < escalatesAt(since, timeZone, calendar)) return false;
+  await ctx.tx.update(duties).set({ escalatedAt: at }).where(eq(duties.id, d.id));
+  await ctx.tx.insert(dutyLog).values({
+    workspaceId: d.workspaceId,
+    dealRecordId: d.dealRecordId,
+    dutyId: d.id,
+    at,
+    actorType: 'system',
+    actorUserId: null,
+    what: 'escalated',
+    before: null,
+    after: { atRiskSince: since.toISOString() },
+    note: null,
+  });
+  return true;
+}
+
+/** A business day after a moment: the same time of day, on the next business day where the business is. */
+export function escalatesAt(since: Date, timeZone: string, calendar: BusinessCalendar): number {
+  const day = localDateOf(since.getTime(), timeZone);
+  const next = addBusinessDays(day, 1, calendar).date;
+  const p = zonedParts(since, timeZone);
+  const clock = `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+  return localInstant(next, clock, timeZone);
 }
 
 /**

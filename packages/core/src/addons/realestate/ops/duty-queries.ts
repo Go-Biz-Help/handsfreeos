@@ -3,6 +3,7 @@
  * finishes it and what's missing, its proof and its history), the duties someone answers for across their deals
  * (My duties), and a deal's documents. Row security keeps each to the deals the person sees.
  */
+import { waitsOf } from './waits';
 import { desc, eq, type SQL } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { scopeCan } from '../../../kernel/execute';
@@ -129,6 +130,8 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
             }
           : null,
         waitingOn: duty.waitingOn,
+        waitingSince: duty.waitingSince?.toISOString() ?? null,
+        chaseAt: duty.chaseAt?.toISOString() ?? null,
         finishedAt: duty.finishedAt?.toISOString() ?? null,
         finishReason: duty.finishReason,
         exception: duty.exception,
@@ -172,6 +175,7 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
         after: l.after,
         note: l.note,
       })),
+      ...(await waitsOf(ctx, duty)),
       can: { except: scopeCan(ctx.scope, 'realestate.except' as Permission) },
     };
   },

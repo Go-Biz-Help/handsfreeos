@@ -359,6 +359,9 @@ export const realestateAddon = defineAddon({
       'realestate.contract.value_rejected',
       'realestate.contingency.added',
       'realestate.contingency.resolved',
+      'realestate.duty.linked',
+      'realestate.duty.unlinked',
+      'realestate.duty.chased',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [

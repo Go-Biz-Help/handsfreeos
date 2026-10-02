@@ -536,6 +536,8 @@ export const DutySetStatusInput = z
       })
       .optional(),
     note: optionalNote,
+    /** Waiting on someone: the day to chase them (round four); two business days on when not given. */
+    chaseOn: localDate.optional(),
   })
   .refine((i) => i.status !== 'waiting_external' || !!i.waitingOn, {
     error: 'Say who it’s waiting on.',
@@ -630,6 +632,19 @@ export const DealReportWireChangeInput = z.object({
 export const DealReportWireChangeOutput = z.object({ dealId: uuid, dutyId: uuid });
 
 export const DutyGetInput = z.object(inDuty);
+const WaitLine = z.object({
+  dutyId: uuid,
+  title: z.string(),
+  status: z.enum(DUTY_STATUSES),
+  accountableName: z.string().nullable(),
+  dueAt: isoDateTime.nullable(),
+  overdue: z.boolean(),
+  /** Waiting on someone outside: who. */
+  waitingOn: z.string().nullable(),
+  /** In every deal; otherwise who said so. */
+  builtIn: z.boolean(),
+  addedByName: z.string().nullable(),
+});
 export const DutyGetOutput = z.object({
   duty: z.object({
     dutyId: uuid,
@@ -669,11 +684,18 @@ export const DutyGetOutput = z.object({
       })
       .nullable(),
     waitingOn: z.string().nullable(),
+    /** Round four: waiting on someone outside since, and the day to chase them. */
+    waitingSince: isoDateTime.nullable(),
+    chaseAt: isoDateTime.nullable(),
     finishedAt: isoDateTime.nullable(),
     finishReason: z.string().nullable(),
     exception: z.boolean(),
     acknowledgedAt: isoDateTime.nullable(),
   }),
+  /** Round four: what it waits on, what waits on it, and what moves if it slips. */
+  waitsOn: z.array(WaitLine),
+  waitingOnThis: z.array(WaitLine),
+  ifItSlips: z.object({ waiting: z.array(z.string()), sameDate: z.array(z.string()) }),
   proof: z.object({
     /** What finishes it, in words; empty when marking it done is enough. */
     needs: z.string(),
@@ -847,6 +869,8 @@ export const SweepOutput = z.object({
       accountableUserId: uuid.nullable(),
       mainAgentUserId: uuid.nullable(),
       coordinatorUserIds: z.array(uuid),
+      /** Round four: at risk for a business day with nobody acknowledging it, so the alert people hear too. */
+      escalated: z.boolean(),
     }),
   ),
   /**
@@ -3183,3 +3207,18 @@ export const ContingenciesOutput = z.object({
   can: z.object({ except: z.boolean() }),
 });
 export type ContingencyOut = z.infer<typeof ContingencyOut>;
+
+// ---------- round four: what a duty waits on ----------
+
+export const DutyLinkInput = z.object({
+  ...inDuty,
+  /** The duty it can't be done before. */
+  waitsOnId: uuid,
+});
+export const DutyLinkOutput = z.object({ dealId: uuid, dutyId: uuid, waitsOnId: uuid });
+export const DutyChasedInput = z.object({
+  ...inDuty,
+  /** The next day to chase them; two business days on when not given. */
+  nextOn: localDate.optional(),
+  note: optionalNote,
+});

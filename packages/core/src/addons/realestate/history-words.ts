@@ -349,6 +349,15 @@ export function dutyLogWords(what: string, _before: Bag, after: Bag): string {
       return 'Due date changed with the deal’s dates';
     case 'redefined':
       return 'Changed by a newer duty list';
+    // Round four.
+    case 'waits_on_added':
+      return `Said it waits on “${str(a.title)}”`;
+    case 'waits_on_removed':
+      return 'Took back what it waits on';
+    case 'chased':
+      return a.waitingOn ? `Chased ${str(a.waitingOn)}` : 'Chased whoever it waits on';
+    case 'escalated':
+      return 'Went to the business’s alert people: nobody acknowledged it within a business day';
     default:
       return what.replace(/_/g, ' ');
   }

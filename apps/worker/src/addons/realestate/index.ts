@@ -165,8 +165,9 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
     if (was?.acknowledged && SEVERITY_RANK[say.severity] > SEVERITY_RANK[was.severity]) continue;
     const answering = a.accountableUserId ?? a.mainAgentUserId;
     // Critical: the deal's team and the business's alert person (its owners, unless it picked someone).
+    // At risk for a business day with nobody acknowledging it: the alert people hear too (round four).
     const audience =
-      say.audience === 'escalated'
+      say.audience === 'escalated' || a.escalated
         ? [answering, a.mainAgentUserId, ...a.coordinatorUserIds, ...output.alertPersonUserIds]
         : say.audience === 'team'
           ? [answering, a.mainAgentUserId, ...a.coordinatorUserIds]
@@ -177,14 +178,17 @@ async function runSweep(ctx: AddonJobContext): Promise<JobResult> {
       key,
       severity: say.severity,
       title: say.title.slice(0, 200),
-      detail: `${a.dealName}.`,
+      detail:
+        a.escalated && say.audience !== 'escalated'
+          ? `${a.dealName}. Nobody acknowledged it within a business day, so it went to the business’s alert people too.`
+          : `${a.dealName}.`,
       href: `/a/realestate/deals/${a.dealId}?duty=${a.dutyId}`,
       permission: 'realestate.use',
       customRecordId: a.dealId,
       audienceUserIds: [...new Set(audience.filter((u): u is string => !!u))],
       assigneeUserId: a.accountableUserId,
       dueAt: new Date(a.dueAt),
-      needsAck: say.needsAck,
+      needsAck: say.needsAck || a.escalated,
       notify: say.notify && !quiet,
       email: say.email,
     });

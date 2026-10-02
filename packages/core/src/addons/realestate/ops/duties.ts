@@ -47,12 +47,14 @@ import {
   inWorkspace,
   loadDeal,
   requireNotArchived,
+  timeZoneOf,
   userNames,
   type Ctx,
   type Deal,
 } from './common';
 import { openWork, termEntriesOf } from './engine';
 import { propertyOf } from './people';
+import { chaseDefault, chaseOn } from './chase';
 
 export type DutyRow = typeof duties.$inferSelect;
 
@@ -226,7 +228,8 @@ export const dutySetStatus = defineAddonCommand(realestateAddon, {
     if (isDoneDuty(from)) throw finished(duty);
     const same =
       from === input.status &&
-      (input.status !== 'waiting_external' || duty.waitingOn === input.waitingOn) &&
+      (input.status !== 'waiting_external' ||
+        (duty.waitingOn === input.waitingOn && !input.chaseOn)) &&
       input.status !== 'blocked';
     if (same) return answer(duty);
     if (from !== input.status && !canMoveDuty(from, input.status))
@@ -239,10 +242,21 @@ export const dutySetStatus = defineAddonCommand(realestateAddon, {
       );
     const at = changeMoment(ctx.meta);
     const blocked = input.status === 'blocked' ? input.blocker! : null;
+    // Waiting on someone outside: since when, and the day to chase them (round four).
+    const waiting = input.status === 'waiting_external';
+    const chaseAt = !waiting
+      ? null
+      : input.chaseOn
+        ? chaseOn(input.chaseOn, await timeZoneOf(ctx))
+        : from === 'waiting_external' && duty.chaseAt
+          ? duty.chaseAt
+          : await chaseDefault(ctx, at);
     await ctx.tx
       .update(duties)
       .set({
         status: input.status,
+        waitingSince: waiting ? (from === 'waiting_external' ? duty.waitingSince : at) : null,
+        chaseAt,
         waitingOn: input.status === 'waiting_external' ? input.waitingOn! : null,
         blocker: blocked?.what ?? null,
         blockerOwner: blocked?.owner ?? null,

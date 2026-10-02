@@ -34,7 +34,16 @@ import type { BusinessCalendar } from '../dates/business-days';
 import { resolveDue } from '../dates/due';
 import { KEY_DATES, type KeyDateKey, type KeyDates } from '../dates/key-dates';
 import { isDoneDuty, type DealStage, type DutyStatus } from '../states';
-import { dealHistory, deals, duties, dutyLog, templateItems, termEntries } from '../tables';
+import {
+  dealHistory,
+  deals,
+  duties,
+  dutyLinks,
+  dutyLog,
+  templateItems,
+  termEntries,
+} from '../tables';
+import { waitsOnOf } from '../catalog/order';
 import {
   conflictsOf,
   keyDatesOf,
@@ -158,6 +167,8 @@ interface DutyRow {
   materiality: 'standard' | 'material' | 'critical';
   dueDate: string | null;
   blocker: string | null;
+  waitingOn: string | null;
+  chaseAt: Date | null;
 }
 
 /** How much a command's work changed. */
@@ -239,6 +250,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     materiality: d.materiality as DutyRow['materiality'],
     dueDate: d.dueDate,
     blocker: d.blocker,
+    waitingOn: d.waitingOn,
+    chaseAt: d.chaseAt,
   }));
   const counts: Counts = { created: 0, cancelled: 0, activated: 0, redated: 0, handedOver: 0 };
   const who = { actorType: actorKind(ctx), actorUserId: actorUserId(ctx) };
@@ -379,6 +392,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         materiality: d.materiality as DutyRow['materiality'],
         dueDate: d.dueDate,
         blocker: d.blocker,
+        waitingOn: d.waitingOn,
+        chaseAt: d.chaseAt,
       });
     counts.created += inserted.length;
     return inserted;
@@ -664,10 +679,40 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         .where(and(eq(deals.recordId, deal.recordId), eq(deals.workspaceId, deal.workspaceId)));
       deal = { ...deal, expectedCommissionCents: expected };
     }
-    // Each contingency whose end date the deal now has is tracked (round four).
+    // Each contingency whose end date the deal now has is tracked, and the built-in order of its duties written
+    // (round four).
     await syncContingencies(ctx, deal, terms);
+    await linkOrders();
     await refreshHealth();
     return counts;
+  }
+
+  /** The catalog's order between the deal's duties, once both are on it: the newest time through each. */
+  async function linkOrders() {
+    const newest = new Map<string, DutyRow>();
+    for (const d of existing) {
+      if (d.status === 'cancelled') continue;
+      const had = newest.get(d.dutyKey);
+      if (!had || d.pass > had.pass) newest.set(d.dutyKey, d);
+    }
+    const wanted = [...newest.values()].flatMap((d) =>
+      waitsOnOf(d.dutyKey).flatMap((pre) => {
+        const first = newest.get(pre);
+        return first ? [{ dutyId: d.id, dependsOnId: first.id }] : [];
+      }),
+    );
+    if (!wanted.length) return;
+    await ctx.tx
+      .insert(dutyLinks)
+      .values(
+        wanted.map((w) => ({
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          ...w,
+          kind: 'finish_to_start',
+        })),
+      )
+      .onConflictDoNothing();
   }
 
   /** The deal's health as things stand now, kept on the deal; a line in its history when its colour changes. */
@@ -688,6 +733,8 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         accountableRole: d.accountableRole,
         accountableUserId: d.accountableUserId,
         blocker: d.blocker,
+        waitingOn: d.waitingOn,
+        chaseAt: d.chaseAt?.toISOString() ?? null,
       })),
       keyDates,
       conflicts: conflictsOf(terms),

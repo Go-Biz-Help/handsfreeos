@@ -7277,6 +7277,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.duty.chased": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you chased whoever a duty is waiting on outside. The next day to chase moves on two business days, or to the day given.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.chased.
+         */
+        post: operations["command_realestate_duty_chased"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.duty.complete": {
         parameters: {
             query?: never;
@@ -7311,6 +7331,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.except. Emits realestate.duty.completed.
          */
         post: operations["command_realestate_duty_complete_with_exception"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a duty can’t be done before another on the same deal. Its drawer shows what it waits on and who has it, and the deal turns yellow when it’s due soon with that one still open.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.linked.
+         */
+        post: operations["command_realestate_duty_link"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7371,6 +7411,26 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed.
          */
         post: operations["command_realestate_duty_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back that a duty waits on another, when a person said so. The built-in order of duties stays.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.unlinked.
+         */
+        post: operations["command_realestate_duty_unlink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31139,6 +31199,45 @@ export interface operations {
             };
         };
     };
+    command_realestate_duty_chased: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: date */
+                    nextOn?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
     command_realestate_duty_complete: {
         parameters: {
             query?: never;
@@ -31208,6 +31307,44 @@ export interface operations {
                         dutyId: string;
                         /** @enum {string} */
                         status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    waitsOnId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        waitsOnId: string;
                     };
                 };
             };
@@ -31309,6 +31446,8 @@ export interface operations {
                         reviewAt: string;
                         what: string;
                     };
+                    /** Format: date */
+                    chaseOn?: string;
                     /** Format: uuid */
                     dutyId: string;
                     note?: string;
@@ -31334,6 +31473,44 @@ export interface operations {
                         dutyId: string;
                         /** @enum {string} */
                         status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    waitsOnId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        waitsOnId: string;
                     };
                 };
             };
@@ -51445,6 +51622,7 @@ export interface operations {
                                 reviewAt: string | null;
                                 what: string;
                             } | null;
+                            chaseAt: string | null;
                             /** Format: uuid */
                             dealId: string;
                             dealName: string;
@@ -51480,6 +51658,7 @@ export interface operations {
                             title: string;
                             tracker: string;
                             waitingOn: string | null;
+                            waitingSince: string | null;
                             warnings: unknown[];
                         };
                         evidence: {
@@ -51502,6 +51681,10 @@ export interface operations {
                             withdrawnAt: string | null;
                             withdrawnReason: string | null;
                         }[];
+                        ifItSlips: {
+                            sameDate: string[];
+                            waiting: string[];
+                        };
                         log: {
                             actor: {
                                 name: string;
@@ -51526,6 +51709,32 @@ export interface operations {
                             missing: string;
                             needs: string;
                         };
+                        waitingOnThis: {
+                            accountableName: string | null;
+                            addedByName: string | null;
+                            builtIn: boolean;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            waitingOn: string | null;
+                        }[];
+                        waitsOn: {
+                            accountableName: string | null;
+                            addedByName: string | null;
+                            builtIn: boolean;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            waitingOn: string | null;
+                        }[];
                     };
                 };
             };

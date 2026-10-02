@@ -333,6 +333,12 @@ export const duties = addonRealestate.table(
     acknowledgedBy: userRef('acknowledged_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
+    /** Round four: waiting on someone outside since when, and the day to chase them. */
+    waitingSince: ts('waiting_since'),
+    chaseAt: ts('chase_at'),
+    /** Round four: when its alert first said at risk, and when that went to the alert people. */
+    atRiskSince: ts('at_risk_since'),
+    escalatedAt: ts('escalated_at'),
   },
   (t) => [
     unique().on(t.dealRecordId, t.dutyKey, t.pass),
@@ -355,6 +361,8 @@ export const dutyLinks = addonRealestate.table(
     dependsOnId: uuid('depends_on_id').notNull(),
     kind: text('kind').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** Who said it waits (round four); none for the built-in order. */
+    addedBy: userRef('added_by'),
   },
   (t) => [
     unique().on(t.dutyId, t.dependsOnId),
