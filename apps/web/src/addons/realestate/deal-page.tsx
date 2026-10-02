@@ -60,8 +60,17 @@ import {
   WhatTheyWantCard,
 } from './buyer-cards';
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
+import { ListingCard, ListingCmasCard, MatchingCard } from './listing-cards';
 import { DutyDrawer } from './duty-drawer';
-import type { BuyerSide, DealDuty, DealGet, DealRisks, Draft, Teammate } from './types';
+import type {
+  BuyerSide,
+  DealDuty,
+  DealGet,
+  DealRisks,
+  Draft,
+  ListingSide,
+  Teammate,
+} from './types';
 import { useAct } from './use-act';
 
 type Dialog =
@@ -85,6 +94,7 @@ export function DealPage({
   members,
   canManage,
   buyer,
+  listing,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -95,6 +105,8 @@ export function DealPage({
   canManage: boolean;
   /** A buyer deal's own side: what they want, homes, tours, financing, the client's to-do, offers. */
   buyer?: BuyerSide | null;
+  /** A listing deal's own side (round three): the listing, its marketing, offers and open houses, the seller. */
+  listing?: ListingSide | null;
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
@@ -150,7 +162,7 @@ export function DealPage({
 
   const main = deal.team.find((t) => t.main);
   const others = deal.team.filter((t) => !t.main);
-  const clients = buyer?.tasks.clients ?? [];
+  const clients = buyer?.tasks.clients ?? listing?.tasks.clients ?? [];
   const inPortal = clients
     .map((c) => c.portalSince)
     .filter((x): x is string => !!x)
@@ -389,6 +401,14 @@ export function DealPage({
               />
             </>
           ) : null}
+          {listing ? (
+            <ListingCard
+              workspaceId={workspaceId}
+              dealId={dealId}
+              timeZone={timeZone}
+              side={listing}
+            />
+          ) : null}
           <RisksCard risks={risks} onOpen={openDuty} workspaceId={workspaceId} dealId={dealId} />
           <DutiesCard
             duties={deal.duties}
@@ -404,6 +424,24 @@ export function DealPage({
               <FinancingCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
               <ClientTodoCard workspaceId={workspaceId} dealId={dealId} list={buyer.tasks} />
               <OffersCmaCard workspaceId={workspaceId} dealId={dealId} buyer={buyer} />
+            </>
+          ) : null}
+          {listing ? (
+            <>
+              <ClientTodoCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                list={listing.tasks}
+                title="Seller’s to-do"
+                empty="Nothing asked of them yet. Ask them about their home from the facts page, and they answer in their portal."
+              />
+              <MatchingCard side={listing} />
+              <ListingCmasCard
+                workspaceId={workspaceId}
+                dealId={dealId}
+                side={listing}
+                live={live}
+              />
             </>
           ) : null}
           <KeyDatesCard workspaceId={workspaceId} deal={deal} />

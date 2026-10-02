@@ -2,7 +2,7 @@
  * Real Estate Agent's answers, as its screens get them from the API (packages/api-client, generated from the
  * add-on's schemas in packages/core/src/addons/realestate/schemas.ts).
  */
-import type { Ok } from '@/lib/api/types';
+import type { FileItem, Ok } from '@/lib/api/types';
 
 export type DealList = Ok<'/v1/queries/realestate.deal.list'>;
 export type DealRow = DealList['deals'][number];
@@ -93,6 +93,6 @@ export interface ListingSide {
   readonly compare: Compare;
   readonly tasks: ClientTaskList;
   readonly cmas: readonly CmaRow[];
-  /** The first photo's file, signed for showing. */
-  readonly coverUrl: string | null;
+  /** The deal's files: its photos are signed for showing from these. */
+  readonly files: readonly FileItem[];
 }

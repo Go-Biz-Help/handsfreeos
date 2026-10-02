@@ -10,6 +10,7 @@ export const metadata: Metadata = { title: 'Deal' };
  * One deal, and a duty on it in the drawer (`?duty=<id>`): where every alert about the deal opens. A deal the person
  * isn't on and can't see is the business's not-found page, like any record they can't see. A buyer deal also shows
  * the buyer's side: what they want, their homes and tours, the agreement, financing, their to-do, offers and CMAs.
+ * A listing deal shows the listing's side (round three): the listing, the seller's to-do, matching and CMAs.
  */
 export default async function RealestateDealPage({
   params,
@@ -49,6 +50,32 @@ export default async function RealestateDealPage({
             cmas: cmas.cmas,
           }))
         : null;
+    const listing =
+      deal.deal.side === 'listing'
+        ? await Promise.all([
+            api.POST('/v1/queries/realestate.listing', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.listing.marketing', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.listing.prices', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.open_houses', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.offers.compare', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.client_tasks', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
+            api
+              .POST('/v1/queries/file.list', {
+                body: { workspaceId, recordType: 'custom_record', recordId: dealId },
+              })
+              .then(unwrapPage),
+          ]).then(([l, marketing, prices, openHouses, compare, tasks, cmas, files]) => ({
+            listing: l.listing,
+            marketing,
+            prices,
+            openHouses,
+            compare,
+            tasks,
+            cmas: cmas.cmas,
+            files: files.files,
+          }))
+        : null;
     return (
       <DealPage
         workspaceId={workspaceId}
@@ -59,6 +86,7 @@ export default async function RealestateDealPage({
         members={assigneeOptions(members)}
         canManage={got.workspace.permissions.includes('realestate.manage')}
         buyer={buyer}
+        listing={listing}
       />
     );
   });

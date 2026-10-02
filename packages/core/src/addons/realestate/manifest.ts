@@ -467,6 +467,9 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/financing' },
       { path: 'deals/:dealId/inspections' },
       { path: 'deals/:dealId/client-tasks', query: ['invite'] },
+      // Round three: the listing's side.
+      { path: 'deals/:dealId/facts' },
+      { path: 'deals/:dealId/photos' },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
     // Homes and To do are places in the portal's menu (pages without an id); the rest open from them.
