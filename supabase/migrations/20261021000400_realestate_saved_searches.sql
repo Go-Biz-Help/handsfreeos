@@ -36,16 +36,16 @@ create table addon_realestate.feed_matches (
   changed_at timestamptz,
   decided_by uuid references app.users (id) on delete set null,
   decided_at timestamptz,
-  -- The deal's home it became, once sent.
+  -- The deal's home it became, once sent (cleared if that home is removed; it stays sent, so it isn't found again).
   home_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (workspace_id, deal_record_id, provider, listing_key),
   foreign key (workspace_id, deal_record_id) references addon_realestate.deals (workspace_id, record_id)
     on delete cascade,
-  foreign key (workspace_id, home_id) references addon_realestate.homes (workspace_id, id),
-  check ((state = 'new') = (decided_at is null)),
-  check (state <> 'sent' or home_id is not null)
+  foreign key (workspace_id, home_id) references addon_realestate.homes (workspace_id, id)
+    on delete set null (home_id),
+  check ((state = 'new') = (decided_at is null))
 );
 create index feed_matches_deal_idx on addon_realestate.feed_matches (workspace_id, deal_record_id, state);
 create index feed_matches_decided_by_idx on addon_realestate.feed_matches (decided_by) where decided_by is not null;

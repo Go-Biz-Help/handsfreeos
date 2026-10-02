@@ -32,6 +32,18 @@ import {
   milestoneReached,
 } from './client-updates';
 import { contractDecided, contractReadFinished, contractReadRequested } from './contract';
+import {
+  armEsignCheckIfOpen,
+  DOCUSIGN_UPDATES,
+  ESIGN,
+  ESIGN_ACTIONS,
+  ESIGN_CHECK,
+  ESIGN_OAUTH,
+  esignCheckJob,
+  esignRequested,
+  esignSignedReported,
+  esignVoided,
+} from './esign/index';
 import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
 import { armFeedCheck, FEED_CHECK, feedCheckJob, matchDecided } from './feed/searches';
@@ -287,6 +299,10 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.contract.read_finished': contractReadFinished,
     'realestate.contract.confirmed': contractDecided,
     'realestate.contract.value_rejected': contractDecided,
+    // Round five: documents sent for signing through DocuSign or Dotloop (./esign/index.ts).
+    'realestate.esign.requested': esignRequested,
+    'realestate.esign.signed_reported': esignSignedReported,
+    'realestate.esign.voided': esignVoided,
     'realestate.contingency.resolved': async (ctx) => {
       const id = payloadOf(ctx)['contingencyId'];
       if (typeof id === 'string') await clearAddonAlert(ctx, `contingency:${id}`, 'done');
@@ -296,6 +312,8 @@ export const realestateAddonWorker: AddonWorkerModule = {
     [SWEEP]: runSweep,
     // Round five: buyers' saved searches on the listing feed (./feed/searches.ts).
     [FEED_CHECK]: feedCheckJob,
+    // And open DocuSign envelopes, beside DocuSign's own updates (./esign/index.ts).
+    [ESIGN_CHECK]: esignCheckJob,
     [MEMORY_JOB]: memoryJob,
     [OFFER_CLOCK]: offerClockJob,
     [OPEN_HOUSE_FOLLOW_UP]: openHouseFollowUpJob,
@@ -304,9 +322,15 @@ export const realestateAddonWorker: AddonWorkerModule = {
     await armSweep(ctx);
     await armOfferClocks(ctx);
     await armFeedCheck(ctx);
+    await armEsignCheckIfOpen(ctx);
   },
   // Round five: a pasted key for its listing feed, tried with the supplier before it's kept (./feed/index.ts).
   connectors: { [LISTING_DATA]: listingDataTesters() },
-  // Playwright's: an at-risk duty aged (./test-routes.ts).
+  // E-sign: the brokerage signs in to DocuSign or Dotloop; DocuSign's updates arrive at the connection's address;
+  // a person opens an envelope there, or has it looked at now, through the worker (./esign/index.ts).
+  oauth: { [ESIGN]: ESIGN_OAUTH },
+  webhooks: { [ESIGN]: { docusign: DOCUSIGN_UPDATES } },
+  actions: ESIGN_ACTIONS,
+  // Playwright's: an at-risk duty aged, and the stand-in e-signature page (./test-routes.ts).
   testRoutes: registerRealestateTestRoutes,
 };

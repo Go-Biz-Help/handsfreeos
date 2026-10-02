@@ -41,6 +41,7 @@ import { MEMORY_KIND_KEYS } from './memory';
 import { DEAL_SIDES, DUTY_STATUSES } from './states';
 import { CONTRACT_DATE_KEYS, CONTRACT_KEYS, READ_KINDS } from './contract-read';
 import { CONTINGENCY_ENDINGS, CONTINGENCY_KIND_KEYS, CONTINGENCY_STATES } from './contingencies';
+import { ESIGN_PROVIDER_KEYS, ESIGN_STATE_KEYS, SIGNER_STATE_KEYS } from './esign';
 import { TERM_KEYS } from './terms';
 import { MAX_TOUR_STOPS, STOP_STATUS_KEYS, TOUR_INTEREST_KEYS, TOUR_STATUS_KEYS } from './tours';
 
@@ -3582,4 +3583,124 @@ export const ListingFeedStatusOutput = z.object({
   /** The MLS showed it Active, so it's marked live here now. */
   live: z.boolean(),
   differences: z.array(z.object({ key: z.enum(['price', 'status']), words: z.string() })),
+});
+
+// ---------- round five, step 7: e-sign through DocuSign or Dotloop ----------
+
+const EsignSignerIn = z.object({
+  name: z.string().trim().min(1, 'Enter the signer’s name.').max(120),
+  email: z.email({ error: 'Enter the signer’s email, like sam@example.com.' }).max(254),
+  /** Who signs first: 1, 2… Left out, they sign in the order listed. */
+  order: z.number().int().min(1).max(10).optional(),
+});
+export const EsignSignerSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().min(1).max(254),
+  order: z.number().int().min(1).max(10),
+  state: z.enum(SIGNER_STATE_KEYS),
+  signedAt: isoDateTime.nullable(),
+});
+const inEnvelope = { workspaceId: uuid, envelopeId: uuid };
+
+export const EsignPrepareInput = z.object({
+  ...inDocument,
+  /** DocuSign or Dotloop. Left out: the one that's connected. */
+  provider: z.enum(ESIGN_PROVIDER_KEYS).optional(),
+  /** The email's subject line. Left out: “Please sign: <the document's title>”. */
+  subject: z.string().trim().min(1).max(200).optional(),
+  message: z.string().trim().max(2000, 'Keep the message under 2,000 characters.').optional(),
+  signers: z
+    .array(EsignSignerIn)
+    .min(1, 'Add at least one person to sign it.')
+    .max(10, 'Up to 10 people can sign one document.'),
+});
+export const EsignOutput = z.object({
+  envelopeId: uuid,
+  dealId: uuid,
+  documentId: uuid,
+  provider: z.enum(ESIGN_PROVIDER_KEYS),
+  state: z.enum(ESIGN_STATE_KEYS),
+});
+/** Worker: the envelope or loop made at the service, or why it couldn't be. */
+export const EsignPreparedInput = z.object({
+  ...inEnvelope,
+  externalId: z.string().trim().min(1).max(200).optional(),
+  openUrl: z
+    .url({ protocol: /^https?$/ })
+    .max(2000)
+    .optional(),
+  failure: z.string().trim().min(1).max(500).optional(),
+});
+/** Worker: where it stands at the service now. Final states stay as they are; a failure to ask is kept as words. */
+export const EsignStatusInput = z.object({
+  ...inEnvelope,
+  state: z.enum(['draft', 'sent', 'declined', 'voided']).optional(),
+  signers: z.array(EsignSignerSchema).max(10).optional(),
+  sentAt: isoDateTime.optional(),
+  /** Why it couldn't be asked, fetched or voided just now; null clears it. */
+  failure: z.string().trim().min(1).max(500).nullable().optional(),
+});
+export const EsignStatusOutput = z.object({
+  envelopeId: uuid,
+  state: z.enum(ESIGN_STATE_KEYS),
+  changed: z.boolean(),
+});
+/** Worker: everyone signed; the signed copy (and DocuSign's certificate) are on the deal as files. */
+export const EsignCompletedInput = z.object({
+  ...inEnvelope,
+  signedFileId: uuid,
+  certificateFileId: uuid.optional(),
+  completedAt: isoDateTime.optional(),
+});
+export const EsignCompletedOutput = z.object({
+  envelopeId: uuid,
+  state: z.enum(ESIGN_STATE_KEYS),
+  signedDocumentId: uuid.nullable(),
+  certificateDocumentId: uuid.nullable(),
+});
+export const EsignMarkSignedInput = z.object({ ...inEnvelope });
+export const EsignVoidInput = z.object({ ...inEnvelope, reason });
+
+export const EsignListInput = z.object({ ...inDeal });
+export const EsignListOutput = z.object({
+  dealId: uuid,
+  /** The e-signature services connected here, healthy or not. */
+  connected: z.array(
+    z.object({
+      provider: z.enum(ESIGN_PROVIDER_KEYS),
+      label: z.string(),
+      account: z.string().nullable(),
+      failing: z.boolean(),
+    }),
+  ),
+  envelopes: z.array(
+    z.object({
+      id: uuid,
+      documentId: uuid,
+      documentTitle: z.string(),
+      provider: z.enum(ESIGN_PROVIDER_KEYS),
+      providerLabel: z.string(),
+      state: z.enum(ESIGN_STATE_KEYS),
+      stateLabel: z.string(),
+      words: z.string(),
+      subject: z.string(),
+      message: z.string().nullable(),
+      signers: z.array(EsignSignerSchema),
+      signersWords: z.string(),
+      failure: z.string().nullable(),
+      preparedAt: isoDateTime.nullable(),
+      sentAt: isoDateTime.nullable(),
+      completedAt: isoDateTime.nullable(),
+      checkedAt: isoDateTime.nullable(),
+      signedDocumentId: uuid.nullable(),
+      certificateDocumentId: uuid.nullable(),
+      createdByName: z.string().nullable(),
+      createdAt: isoDateTime,
+      can: z.object({
+        open: z.boolean(),
+        markSigned: z.boolean(),
+        void: z.boolean(),
+      }),
+    }),
+  ),
 });

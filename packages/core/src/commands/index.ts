@@ -165,7 +165,7 @@ import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
-import { fileBeginUpload, fileConfirm, fileDelete, fileLock } from './file';
+import { fileBeginUpload, fileConfirm, fileDelete, fileLock, fileStore } from './file';
 import { importCancel, importCreate, importStart } from './import';
 import { invitationAccept } from './invitation.accept';
 import { invitationResend } from './invitation.resend';
@@ -512,6 +512,7 @@ export {
   fileConfirm,
   fileDelete,
   fileLock,
+  fileStore,
   importCancel,
   importCreate,
   importStart,
@@ -614,6 +615,7 @@ export { emailReceive, emailSuppressionRecord };
 export { videoLinkCreate, videoLinkStartUpload, videoLinkReceiveUpload };
 export { videoLinkTokenHash, videoUploadPath, fileUploadPath } from './video-link';
 export { fileLinkCreate, leadSaveFileAnswer, fileFinishCopy };
+export { storedFilePath } from './file';
 
 export const commands: readonly CommandDef[] = [
   organizationCreate,
@@ -677,6 +679,7 @@ export const commands: readonly CommandDef[] = [
   fileConfirm,
   fileDelete,
   fileLock,
+  fileStore,
   importCreate,
   importStart,
   importCancel,

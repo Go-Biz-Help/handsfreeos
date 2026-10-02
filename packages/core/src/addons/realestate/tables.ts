@@ -22,6 +22,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import {
+  addonConnections,
   appointments,
   calendars,
   customRecords,
@@ -1912,5 +1913,53 @@ export const feedMatches = addonRealestate.table(
       columns: [t.workspaceId, t.homeId],
       foreignColumns: [homes.workspaceId, homes.id],
     }),
+  ],
+);
+
+/** A deal's document sent for signing through DocuSign or Dotloop, and where it stands (round five, step 7). */
+export const esignEnvelopes = addonRealestate.table(
+  'esign_envelopes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    documentId: uuid('document_id').notNull(),
+    provider: text('provider').notNull().$type<'docusign' | 'dotloop'>(),
+    connectionId: uuid('connection_id').references(() => addonConnections.id, {
+      onDelete: 'set null',
+    }),
+    externalId: text('external_id'),
+    openUrl: text('open_url'),
+    state: text('state')
+      .notNull()
+      .default('preparing')
+      .$type<'preparing' | 'draft' | 'sent' | 'completed' | 'declined' | 'voided' | 'failed'>(),
+    subject: text('subject').notNull(),
+    message: text('message'),
+    signers: jsonb('signers')
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    failure: text('failure'),
+    preparedAt: ts('prepared_at'),
+    sentAt: ts('sent_at'),
+    completedAt: ts('completed_at'),
+    checkedAt: ts('checked_at'),
+    signedDocumentId: uuid('signed_document_id'),
+    certificateDocumentId: uuid('certificate_document_id'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.provider, t.externalId),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
   ],
 );

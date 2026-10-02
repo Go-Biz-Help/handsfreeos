@@ -19,6 +19,8 @@ import {
   FileDeleteOutput,
   FileLockInput,
   FileLockOutput,
+  FileStoreInput,
+  FileStoreOutput,
 } from '../schemas/file';
 import { scopeCan } from '../kernel/execute';
 
@@ -106,7 +108,13 @@ export const fileBeginUpload = defineCommand({
       );
     await requireRecord(ctx, input.recordType, input.recordId);
     const fileId = input.id ?? randomUUID();
-    const objectPath = `${workspaceId}/${input.recordType}/${input.recordId}/${fileId}/${safeFileName(input.name)}`;
+    const objectPath = storedFilePath(
+      workspaceId,
+      input.recordType,
+      input.recordId,
+      fileId,
+      input.name,
+    );
     const [row] = await insertWithId('files', input.id, () =>
       ctx.tx
         .insert(files)
@@ -128,6 +136,94 @@ export const fileBeginUpload = defineCommand({
     );
     if (!row) throw HfosError.forbidden();
     return { fileId, bucket: 'attachments', objectPath };
+  },
+});
+
+/** Where a file on a record is kept in storage: what `file.begin_upload` reserves, and where the worker stores one. */
+export const storedFilePath = (
+  workspaceId: string,
+  recordType: string,
+  recordId: string,
+  fileId: string,
+  name: string,
+) => `${workspaceId}/${recordType}/${recordId}/${fileId}/${safeFileName(name)}`;
+
+export const fileStore = defineCommand({
+  name: 'file.store',
+  description:
+    'Worker: a file it fetched or made for a record (a document signed at DocuSign, say), already uploaded to its place in storage. Kept ready, as storage measured it, and put on the timeline.',
+  risk: 1,
+  input: FileStoreInput,
+  output: FileStoreOutput,
+  permission: 'records.write',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  emits: ['file.attached'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const [earlier] = await ctx.tx
+      .select({ id: files.id, sizeBytes: files.sizeBytes, recordId: files.recordId })
+      .from(files)
+      .where(eq(files.id, input.id));
+    if (earlier) {
+      if (earlier.recordId !== input.recordId) throw HfosError.forbidden();
+      return { fileId: earlier.id, sizeBytes: Number(earlier.sizeBytes ?? 0), changed: false };
+    }
+    await requireRecord(ctx, input.recordType, input.recordId);
+    const objectPath = storedFilePath(
+      workspaceId,
+      input.recordType,
+      input.recordId,
+      input.id,
+      input.name,
+    );
+    const [info] = await rows<{ size_bytes: number | null; mime_type: string | null }>(
+      ctx.tx,
+      sql`select size_bytes, mime_type from private.storage_object_info('attachments', ${objectPath})`,
+    );
+    if (!info)
+      throw HfosError.rule(
+        'file_not_uploaded',
+        409,
+        `${input.name} isn’t in storage yet, so it can’t be kept. It’s tried again on its own.`,
+      );
+    const sizeBytes = Math.max(1, Number(info.size_bytes ?? 0));
+    await ctx.tx.insert(files).values({
+      id: input.id,
+      workspaceId,
+      recordType: input.recordType,
+      recordId: input.recordId,
+      bucket: 'attachments',
+      objectPath,
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes,
+      status: 'ready',
+      createdBy: null,
+    });
+    const eventId = await ctx.emit({
+      type: 'file.attached',
+      entityType: input.recordType,
+      entityId: input.recordId,
+      payload: { fileId: input.id, name: input.name, mimeType: input.mimeType, sizeBytes },
+      after: { name: input.name, mimeType: input.mimeType, sizeBytes },
+    });
+    await logSystemActivity(ctx, {
+      subtype: 'file_added',
+      personId: input.recordType === 'person' ? input.recordId : null,
+      companyId: input.recordType === 'company' ? input.recordId : null,
+      leadId: input.recordType === 'lead' ? input.recordId : null,
+      customRecordId: input.recordType === 'custom_record' ? input.recordId : null,
+      body: input.name,
+      meta: {
+        fileId: input.id,
+        mimeType: input.mimeType,
+        sizeBytes,
+        ...(input.from ? { from: input.from } : {}),
+      },
+      eventId,
+    });
+    return { fileId: input.id, sizeBytes, changed: true };
   },
 });
 

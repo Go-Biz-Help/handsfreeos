@@ -41,6 +41,7 @@ import { registerChatRoutes } from './chat';
 import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonPublicRoutes } from './addon-public';
 import { registerAddonSignInRoutes } from './addon-sign-ins';
@@ -283,6 +284,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerAddonConnectionRoutes(app, deps, deps.addonConnections);
   await registerAddonWebhookRoutes(app, deps, deps.addonConnections);
   registerAddonSignInRoutes(app, deps, deps.addonConnections);
+  registerAddonActionRoutes(app, deps, deps.addonConnections);
   // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);

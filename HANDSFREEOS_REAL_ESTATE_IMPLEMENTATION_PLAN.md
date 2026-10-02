@@ -1933,6 +1933,37 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   nothing is written to the MLS. `realestate.deal.move_stage` now also runs as the system, for this.
 
 - **Step 7:** e-sign (DocuSign and Dotloop).
+
+  **As built** (`20261021000500`, `20261021000600`): the manifest's `esign` connector (`many`: DocuSign, with
+  updates, and Dotloop, both by sign-in). Core gained sign-ins for any add-on (`oauth` in a provider's `auth`; PKCE,
+  a one-time state, finished only by whoever pressed Connect), worker actions (`POST /v1/addons/<id>/actions/<name>`,
+  for what only the worker can ask now) and `file.store` (a file the worker brings back, kept on its record).
+  - `realestate.esign.prepare` (a PDF document that isn't signed or replaced, one or more signers in order, DocuSign
+    or Dotloop when both are connected) makes an `addon_realestate.esign_envelopes` row in `preparing`; the worker
+    makes a DocuSign draft (`status: created`, its updates sent to the connection's own address) or a Dotloop loop
+    (Loop-It, a "HandsFreeOS" folder, the PDF) and core keeps where to open it. One signing at a time per document.
+  - The agent opens it with the action `realestate.esign.open` (DocuSign's sending page, made fresh, coming back to
+    the deal's Documents with `?esign=`; Dotloop's loop) and sends it there; `realestate.esign.check` looks again at
+    once for when they're back.
+  - DocuSign's updates aren't signed with a key HandsFreeOS holds, so each one only names the envelope, which is read
+    back from DocuSign; `realestate.esign_check` looks at every open DocuSign envelope every fifteen minutes, and
+    stops when none is open. Dotloop says nothing about signing, so its agent presses “It's signed”
+    (`realestate.esign.mark_signed`) and the worker fetches the document from the loop.
+  - Done, the signed copy (DocuSign's combined PDF) and DocuSign's certificate are stored on the deal and filed by
+    `realestate.esign.completed`: the copy as the document's newer version, marked signed and locked (so it's proof,
+    and a contract's copy is read like any other), the certificate as an "Other document", locked. Their file ids
+    come from the envelope's, so trying again keeps one of each.
+  - `realestate.esign.void` (with a reason) voids it at DocuSign (a draft goes to its deleted folder); a failure to
+    is kept on the envelope, saying to void it there too. Voided while it was being made, it's thrown away there once
+    made. A Dotloop loop is the agent's to archive.
+  - `realestate.esign.list` says where each stands (`esignWords`, `signersWords`) and which services are connected.
+    Prepare is risk 2 for the AI (a person's OK first); the list is a look-up.
+  - The stand-in (`ADDON_CONNECTORS=fake`) keeps envelopes in memory; its page `/test/realestate/esign/:id` sends
+    them and plays the signers, and the business hears at once.
+  - HandsFreeOS's apps at DocuSign and Dotloop are `ADDON_PLATFORM_KEYS` `realestate.docusign` and
+    `realestate.dotloop` (`clientId`, `clientSecret`; DocuSign's `environment: demo` for a developer account), with the
+    redirect URI `<WORKER_PUBLIC_URL>/oauth/addon/callback` (docs/operations.md).
+
 - **Step 8:** showings: our page and ShowingTime's emails.
 - **Step 9:** the vendors directory.
 - **Step 10:** the screens. **Step 11:** the docs, the browser test and a short video.

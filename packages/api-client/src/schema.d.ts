@@ -7537,6 +7537,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.esign.mark_signed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a document in Dotloop has been signed by everyone, so its signed copy is fetched from the loop and kept, locked. (DocuSign says so itself.)
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.signed_reported.
+         */
+        post: operations["command_realestate_esign_mark_signed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.esign.prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get one of a deal’s documents ready for signing in the brokerage’s DocuSign or Dotloop, with who signs it and in what order. The agent then opens it there, places the fields and sends it; nothing is sent to the signers yet.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.requested.
+         */
+        post: operations["command_realestate_esign_prepare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.esign.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a signing, with the reason: it’s voided at DocuSign (nobody can sign it any more) and marked voided here. A Dotloop loop is left for the agent to archive there.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.voided.
+         */
+        post: operations["command_realestate_esign_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.financing.mark_done": {
         parameters: {
             query?: never;
@@ -14611,6 +14671,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_duty_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.esign.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s documents sent for signing through DocuSign or Dotloop, newest first: where each stands, who has signed, and which services are connected here.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_esign_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31973,6 +32053,137 @@ export interface operations {
                         /** Format: uuid */
                         evidenceId: string;
                         missing: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_mark_signed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    envelopeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_prepare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    message?: string;
+                    /** @enum {string} */
+                    provider?: "docusign" | "dotloop";
+                    signers: {
+                        /** Format: email */
+                        email: string;
+                        name: string;
+                        order?: number;
+                    }[];
+                    subject?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    envelopeId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
                     };
                 };
             };
@@ -52468,6 +52679,85 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
                             title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_esign_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected: {
+                            account: string | null;
+                            failing: boolean;
+                            label: string;
+                            /** @enum {string} */
+                            provider: "docusign" | "dotloop";
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                        envelopes: {
+                            can: {
+                                markSigned: boolean;
+                                open: boolean;
+                                void: boolean;
+                            };
+                            certificateDocumentId: string | null;
+                            checkedAt: string | null;
+                            completedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdByName: string | null;
+                            /** Format: uuid */
+                            documentId: string;
+                            documentTitle: string;
+                            failure: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            message: string | null;
+                            preparedAt: string | null;
+                            /** @enum {string} */
+                            provider: "docusign" | "dotloop";
+                            providerLabel: string;
+                            sentAt: string | null;
+                            signedDocumentId: string | null;
+                            signers: {
+                                email: string;
+                                name: string;
+                                order: number;
+                                signedAt: string | null;
+                                /** @enum {string} */
+                                state: "waiting" | "sent" | "opened" | "signed" | "declined";
+                            }[];
+                            signersWords: string;
+                            /** @enum {string} */
+                            state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                            stateLabel: string;
+                            subject: string;
+                            words: string;
                         }[];
                     };
                 };

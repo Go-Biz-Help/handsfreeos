@@ -42,6 +42,27 @@ export const FileDeleteInput = z.object({ workspaceId: uuid, fileId: uuid });
 export const FileDeleteOutput = z.object({ fileId: uuid });
 
 /** Why a file is locked: a signed document, a final version, or something kept as a record. */
+/**
+ * Worker: a file it fetched or made for a record (a document signed at DocuSign, say), already uploaded to its place
+ * (`storedFilePath`). The id is the worker's, so asking again keeps one file.
+ */
+export const FileStoreInput = z.object({
+  workspaceId: uuid,
+  id: uuid,
+  recordType: attachableRecordType,
+  recordId: uuid,
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.enum(ATTACHMENT_TYPES, { error: 'That file type is not supported.' }),
+  /** What it came from, for the timeline: `docusign`, say. */
+  from: z.string().trim().min(1).max(60).optional(),
+});
+export const FileStoreOutput = z.object({
+  fileId: uuid,
+  sizeBytes: z.number().int(),
+  /** False when it was kept already: asked again. */
+  changed: z.boolean(),
+});
+
 export const FILE_LOCK_REASONS = ['signed', 'final', 'record'] as const;
 export type FileLockReason = (typeof FILE_LOCK_REASONS)[number];
 export const FileLockInput = z.object({

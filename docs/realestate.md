@@ -34,6 +34,7 @@ admins then add it from their Add-ons page. It's free; its AI use is counted.
 | Round four, in words                  | `contract-read.ts` (what the AI is asked and how its answer is checked), `contingencies.ts`, `catalog/order.ts` (which duties wait on which), `dates/linked.ts` (what a linked sale or purchase breaks)                                                                                                                                                                                |
 | The listing's side, in words          | `listing.ts` (facts and where each came from, the hold, the page's address, the campaign's words, the questionnaire), `net.ts` (the seller's estimate), `offer-words.ts` (offers side by side)                                                                                                                                                                                         |
 | Listing data from a feed (round five) | `feed.ts` (the one shape every supplier is read into, RESO's names, money in cents); the worker's adapters in `apps/worker/src/addons/realestate/feed/` (Repliers, a RESO Web API, AnyProp, and the stand-in MLS), the look-ups and the 15-minute feed check; `searches.ts` (a buyer's profile as a saved search)                                                                      |
+| E-sign (round five)                   | `esign.ts` (where a signing stands, in words); `ops/esign.ts`; the worker's DocuSign, Dotloop and stand-in adapters in `apps/worker/src/addons/realestate/esign/`, DocuSign's updates, the 15-minute check, and the actions that open an envelope there                                                                                                                                |
 | Commands and queries                  | `packages/core/src/addons/realestate/ops/` (the engine that makes and dates duties is `ops/engine.ts`); all of them in `server.ts`                                                                                                                                                                                                                                                     |
 | Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`, round four's from `20261020001100`                                                                                                                                                                 |
 | Worker                                | `apps/worker/src/addons/realestate/`: the sweep and the alert ladder, the wiring alert, client-update drafting and checking; reading pasted listings, buyer memory, tours following the calendar, the CMA summary, the offer clock; `listing.ts` (a listing's facts, description, posts and reminders) and `matching.ts` (our buyers); `contract.ts` (reading a contract or amendment) |
@@ -212,6 +213,12 @@ Round five (Chris, 2026-10-02):
 - **Our listing seen Active on the MLS is marked live here**, with the feed as proof. A price or status on the MLS
   that differs from the deal's is flagged on a Home card, never copied over. HandsFreeOS never writes to the MLS.
 - **Each MLS's notice, logo and courtesy line go with its listings** wherever they're shown.
+- **E-sign: both DocuSign and Dotloop**, the brokerage's own accounts, signed in to under Connections. A document is
+  prepared there (the PDF and its signers, in order) and the agent places the fields and sends it from there:
+  nothing is signed or sent on anyone's behalf. DocuSign says where it stands (its updates, read back, and a look
+  every fifteen minutes); Dotloop doesn't, so its agent presses “It's signed”. The signed copy comes back as the
+  document's newer version, signed and locked, with DocuSign's certificate beside it, and counts as proof.
+  Voided here, it's voided at DocuSign; a Dotloop loop is archived there by the agent.
 
 ## Handing it to a test business
 
@@ -245,9 +252,9 @@ pnpm openapi                                                        # after chan
 - Showings and their feedback (round five, with the showing connector); vendors and booking the photographer;
   reports on competing listings.
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
-- Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors. Round five is
-  building listing data (its connector and adapters are in), e-sign and showings on core's connections and a
-  service's updates (docs/addon-architecture.md).
+- Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors. Round five has
+  built listing data and e-sign on core's connections, a service's updates and worker actions
+  (docs/addon-architecture.md); showings and the vendors directory are next, then the screens for all of it.
 - Phone screens for deals and Coordinate. Their links are ready: the manifest's `ui.phone` names the deal pages the phone will
   draw, and a push, an email link or a Home card opens them there once the phone has them (the web until then).
 - The AI teammate using the add-on, and workflow steps and triggers from it.

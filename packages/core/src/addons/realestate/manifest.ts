@@ -232,8 +232,9 @@ export const realestateAddon = defineAddon({
     // Round four: coordinator and risk.
     'contract_reads',
     'contingencies',
-    // Round five: buyers' new matches from the listing feed.
+    // Round five: buyers' new matches from the listing feed, and documents sent for signing.
     'feed_matches',
+    'esign_envelopes',
   ],
   // What its commands say happened, for history, the worker and other add-ons (its test holds the list to them).
   events: {
@@ -376,6 +377,13 @@ export const realestateAddon = defineAddon({
       'realestate.search.matched',
       'realestate.match.sent',
       'realestate.match.dismissed',
+      // Round five: documents sent for signing through DocuSign or Dotloop.
+      'realestate.esign.requested',
+      'realestate.esign.prepared',
+      'realestate.esign.changed',
+      'realestate.esign.signed_reported',
+      'realestate.esign.completed',
+      'realestate.esign.voided',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -448,6 +456,10 @@ export const realestateAddon = defineAddon({
       // A buyer's search: its Home card comes down when nothing waits on the agent.
       'realestate.match.sent',
       'realestate.match.dismissed',
+      // E-sign: made at the service, its signed copy fetched, and voided there, by the worker.
+      'realestate.esign.requested',
+      'realestate.esign.signed_reported',
+      'realestate.esign.voided',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
@@ -458,6 +470,8 @@ export const realestateAddon = defineAddon({
     'realestate.open_house_follow_up',
     // Round five: the listing feed asked every fifteen minutes for each buyer's search.
     'realestate.feed_check',
+    // And open DocuSign envelopes looked at every fifteen minutes, beside its updates.
+    'realestate.esign_check',
   ],
   // Round five: listing data from a feed (Chris, 2026-10-02). HandsFreeOS's own Repliers account by default, turned
   // on by staff; a brokerage can connect its own Repliers or AnyProp account, or its MLS's own RESO Web API, instead.
@@ -530,6 +544,18 @@ export const realestateAddon = defineAddon({
             },
           ],
         },
+      ],
+    },
+    // E-sign (Chris, 2026-10-02): the brokerage's own DocuSign or Dotloop, or both, signed in to. A document is
+    // prepared there and the agent sends it from there; the signed copy comes back to the deal, locked.
+    {
+      key: 'esign',
+      label: 'E-signature',
+      permission: 'realestate.manage',
+      many: true,
+      providers: [
+        { id: 'docusign', label: 'DocuSign', auth: ['oauth'], webhooks: true },
+        { id: 'dotloop', label: 'Dotloop', auth: ['oauth'] },
       ],
     },
   ],

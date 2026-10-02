@@ -71,6 +71,7 @@ export function addonWorkerModuleIssues(
     connectors = {},
     webhooks = {},
     oauth = {},
+    actions = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -119,6 +120,16 @@ export function addonWorkerModuleIssues(
             `${m.id} signs in to ${id} for ${key}, which its manifest doesn't connect by sign-in`,
           );
       }
+    // Its actions are its own, each asking one of its own permissions.
+    const permissions = new Set(m.permissions.map((p) => p.key));
+    for (const [name, action] of Object.entries(actions)) {
+      if (!name.startsWith(`${m.id}.`))
+        issues.push(`${m.id} has an action ${name} not named for it`);
+      if (!permissions.has(action.permission))
+        issues.push(
+          `${m.id}'s action ${name} asks ${action.permission}, which isn't one of its permissions`,
+        );
+    }
     // Every service that sends updates has a receiver, and nothing else does.
     for (const c of m.connectors ?? [])
       for (const p of c.providers)

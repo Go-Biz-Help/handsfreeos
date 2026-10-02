@@ -129,6 +129,8 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
   input: DocumentAddInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  // The worker files a document signed at DocuSign or Dotloop (round five).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   emits: ['realestate.document.added', ...READ_EVENTS],
   async handler(ctx, input) {
@@ -283,6 +285,8 @@ export const documentMarkSigned = defineAddonCommand(realestateAddon, {
   input: DocumentSignedInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  // The worker files a document signed at DocuSign or Dotloop (round five).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   emits: ['realestate.document.signed', ...PROOF_EVENTS],
   async handler(ctx, input) {

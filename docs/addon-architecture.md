@@ -185,6 +185,14 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   - `signedInTokens(ctx, connection, provider)` renews the tokens when they're about to lapse; a renewal turned down
     asks for the sign-in again (`reauth_required`).
   - With the stand-ins the sign-in page is the worker's own (`/oauth/fake/addon/…`) and the tokens are made up.
+- **Its worker actions** (Real Estate round five, step 7): something a person needs from a connected service right
+  now, which only the worker can ask, is one of its worker module's `actions` (`permission`, `input`, `run`), at
+  `POST /v1/addons/<id>/actions/<name>` (apps/worker/src/http/addon-actions.ts). The add-on must be on and the person
+  must hold the permission; it runs as the system acting for the add-on, on their behalf, and checks they may see
+  what it's about (`private.user_sees_record`). DocuSign's sending page, made fresh for whoever opens it, is one.
+- **A file the worker brings back** (a document signed at DocuSign, say) is uploaded to its place on the record
+  (`storedFilePath`) and kept with core's `file.store`, as storage measured it, on the timeline. The add-on then
+  files it its own way (Real Estate makes it a locked document).
 - **A service's updates** (Real Estate round five, step 2): a service that sends updates says so in the manifest
   (`webhooks: true` on its provider), and the add-on's worker half has a receiver for it (`webhooks[key][service]`:
   `verify`, `parse`, `handle`; apps/worker/src/addons/webhooks.ts).
