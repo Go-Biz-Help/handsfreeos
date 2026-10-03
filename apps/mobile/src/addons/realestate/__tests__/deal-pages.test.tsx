@@ -316,6 +316,13 @@ describe('a duty (board 79)', () => {
       />,
     );
 
+  it('offers a vendor for a duty a vendor does, and not for the rest (board 89)', async () => {
+    await renderDuty({ sheet: sheet({ title: 'Schedule the home inspection' }) });
+    expect(screen.getByTestId('re-duty-vendor')).toHaveTextContent('Pick a vendor');
+    await renderDuty({ sheet: sheet({ title: 'Send the buyers the HOA documents' }) });
+    expect(screen.queryByTestId('re-duty-vendor')).toBeNull();
+  });
+
   it('shows its proof checklist first, and Mark done waits for its proof', async () => {
     await renderDuty();
     expect(screen.getByTestId('re-duty-title')).toHaveTextContent(

@@ -7,8 +7,10 @@ import {
 import { dutyLogWords } from '@hfos/core/addons/realestate/history-words';
 import { RE_PHONE_WORDS } from '@hfos/core/addons/realestate/phone-words';
 import { RE_DUTY_WORDS } from '@hfos/core/addons/realestate/phone-words-deals';
+import { RE_DUTY_VENDOR_WORDS } from '@hfos/core/addons/realestate/phone-words-listing';
 import { dueWords, PERFORMER_LABELS, traceWords } from '@hfos/core/addons/realestate/rule-words';
 import { isDoneDuty } from '@hfos/core/addons/realestate/states';
+import { serviceForDuty } from '@hfos/core/addons/realestate/vendors';
 import { documentsOfCopy, type DealDocument } from '@hfos/core/addons/realestate/views/documents';
 import {
   dutySheetOfCopy,
@@ -19,7 +21,7 @@ import {
 import * as React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
-import { Camera, Check, FileText, Paperclip } from '@/components/icons';
+import { Camera, Check, FileText, Paperclip, Wrench } from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +38,7 @@ import { useColors } from '@/theme';
 import { useRealestateCopy } from './copy';
 import { addEvidence, addPhotoEvidence, completeDuty, completeWithException } from './deal-actions';
 import { Footnote, GroupLabel, useReChanges, WaitStrip, type ReChange } from './deal-bits';
+import { DutyVendorPicker } from './duty-vendors';
 import { NeedsSignalCard, RE_EXCEPT, SignalButton, useReContext } from './kit';
 
 /**
@@ -107,7 +110,7 @@ export function DutyView({
   now: number;
   canExcept: boolean;
 }) {
-  const [adding, setAdding] = React.useState<'photo' | 'other' | 'except' | null>(null);
+  const [adding, setAdding] = React.useState<'photo' | 'other' | 'except' | 'vendor' | null>(null);
   const [kept, setKept] = React.useState<string | null>(() =>
     sheet ? (deviceStore.get<string>(keptKey(sheet.duty.dutyId)) ?? null) : null,
   );
@@ -268,6 +271,17 @@ export function DutyView({
           >
             {RE_DUTY_WORDS.markDone}
           </Button>
+          {/* A duty a vendor does (an inspection, repairs, photos…): pick one from the business's vendors (board 89). */}
+          {serviceForDuty(d.title) ? (
+            <Button
+              variant="secondary"
+              icon={Wrench}
+              onPress={() => setAdding('vendor')}
+              testID="re-duty-vendor"
+            >
+              {RE_DUTY_VENDOR_WORDS.title}
+            </Button>
+          ) : null}
           {!checklist.complete ? (
             <Button variant="ghost" onPress={() => setAdding('except')} testID="re-duty-except">
               {RE_DUTY_WORDS.withoutProof}
@@ -294,6 +308,13 @@ export function DutyView({
       ) : null}
 
       <DutyDetails sheet={sheet} timeZone={timeZone} />
+
+      <DutyVendorPicker
+        open={adding === 'vendor'}
+        onClose={() => setAdding(null)}
+        dealId={d.dealId}
+        dutyId={d.dutyId}
+      />
 
       <Sheet
         open={adding === 'photo'}
