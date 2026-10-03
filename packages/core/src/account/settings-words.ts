@@ -42,6 +42,8 @@ export const MORE_WORDS = {
   title: 'More',
   switch: 'Switch',
   changes: 'Changes on this phone',
+  /** Over the business's own rows, once an add-on's places sit above them. */
+  yourBusiness: 'Your business',
   customers: 'Contacts',
   tasks: 'Tasks',
   money: 'Money',

@@ -1,5 +1,4 @@
 import { fmtTime, JOB_STATUS_WORDS, type JobStatus } from '@hfos/core';
-import * as Location from 'expo-location';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -11,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { hereOrNull } from '@/lib/location';
 
 type Step = 'on_the_way' | 'in_progress' | 'waiting_on_parts' | 'done';
 const STEPS: readonly { status: Step; label: string }[] = [
@@ -19,24 +19,6 @@ const STEPS: readonly { status: Step; label: string }[] = [
   { status: 'waiting_on_parts', label: 'Waiting on parts' },
   { status: 'done', label: 'Job done' },
 ];
-
-/**
- * Where the phone is, for On my way's arrival time: asked for the first time it's tapped, one quick reading, and
- * nothing when the tech says no or it takes too long — On my way still goes, without a time.
- */
-async function hereOrNull(): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const asked = await Location.requestForegroundPermissionsAsync();
-    if (!asked.granted) return null;
-    const got = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-    ]);
-    return got ? { lat: got.coords.latitude, lng: got.coords.longitude } : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * M18: a visit's job on the phone. The tech moves it along — On my way (with where they are, for when the customer

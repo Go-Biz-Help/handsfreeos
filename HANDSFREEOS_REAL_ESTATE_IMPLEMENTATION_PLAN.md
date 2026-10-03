@@ -2110,8 +2110,8 @@ Chosen for Chris, open to change:
 ## Build order (round six)
 
 Round six's migrations follow round five's, from `20261022000100`. The sync change can't reach `main` before rounds
-two to six's migrations are on the hosted database (Chris's OK). Phone screens wait for Chris to approve the boards;
-the server steps go ahead meanwhile.
+two to six's migrations are on the hosted database (Chris's OK). **Chris approved boards 76–93 on 2026-10-03**, with
+fair housing saying it checks with signal (boards 81, 87, 88) and an outside contact agreeing by replying OK (board 91).
 
 - **Step 0:** this part, and boards 76–93 in `design/realestate`, in the phone app's own look.
 - **Step 1:** a check that PowerSync 1.26.1 filters a key lookup together with a viewer list, and how many buckets an
@@ -2150,7 +2150,7 @@ the server steps go ahead meanwhile.
   walkthrough (its list, checking, finishing into duties, X-24's proof), and the export (a zip made without a
   library, every file's SHA-256 checked against its stored fingerprint, a manifest, an alert when ready). Recordings
   (audio) are now a file type people can upload; only the worker stores a zip.
-- Next: the phone screens and the web's screens for holds, safety and the export, once the boards are approved.
+- Next: the phone screens and the web's screens for holds, safety and the export (boards approved 2026-10-03).
 
 **While the boards wait** (steps 12–17, the parts that aren't screens):
 

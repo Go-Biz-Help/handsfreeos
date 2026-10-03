@@ -13,4 +13,8 @@ export const ADDON_PHONE_WORDS = {
   cancel: 'Cancel',
   cantNow: 'That can’t be done right now.',
   notFound: 'That add-on isn’t here. It may have been taken out of HandsFreeOS.',
+  /** An add-on's screen for someone who doesn't have it here (off, or not given to them): the phone can't tell which. */
+  unavailableTitle: 'This isn’t available here',
+  unavailable: (name: string) =>
+    `${name} isn’t on for you in this business. If you need it, ask an owner or an admin.`,
 } as const;
