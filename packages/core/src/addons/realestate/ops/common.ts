@@ -335,7 +335,7 @@ export async function dealClients(
         join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_client'
         join app.people p on p.id = rel.a_person_id
         where rel.b_custom_record_id = ${dealId}
-        order by rel.created_at`,
+        order by rel.created_at, rel.id`,
   );
 }
 

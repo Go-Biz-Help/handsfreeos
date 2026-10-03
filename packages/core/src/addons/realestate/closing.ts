@@ -59,6 +59,15 @@ export function cdDeadline(closing: string): string {
   return at;
 }
 
+/** A message as a step's proof is named: its subject, or who it's from. */
+export const messageProofLabel = (m: {
+  readonly subject: string | null;
+  readonly counterpart: string;
+}): string => m.subject?.trim() || `Message from ${m.counterpart}`;
+
+/** A step's proof that isn't there anymore. */
+export const PROOF_REMOVED = 'Removed since';
+
 const day = (d: string) => fmtMonthDay(d);
 
 /** A step's line, as the financing page says it: "Up to $425,000 · ends Nov 12", "6.125% until Nov 10". */
@@ -168,6 +177,17 @@ export interface FindingFacts {
   readonly creditCents: number | null;
   readonly estimateCents: number | null;
 }
+
+/** What the repair request is drafted from, out of a finding as kept (the server's row or the phone's). */
+export const findingFacts = (f: FindingFacts): FindingFacts => ({
+  id: f.id,
+  title: f.title,
+  location: f.location,
+  clientPriority: f.clientPriority,
+  ask: f.ask,
+  creditCents: f.creditCents,
+  estimateCents: f.estimateCents,
+});
 
 /** One thing a repair request asks for. */
 export interface RepairItem {

@@ -247,7 +247,7 @@ export const fieldNotesList = defineAddonQuery(realestateAddon, {
           ...(input.aboutId ? [eq(fieldNotes.aboutId, input.aboutId)] : []),
         ),
       )
-      .orderBy(desc(fieldNotes.notedAt))
+      .orderBy(desc(fieldNotes.notedAt), desc(fieldNotes.id))
       .limit(200);
     return {
       notes: list.map((n) => ({
@@ -658,14 +658,18 @@ export const walkthroughGet = defineAddonQuery(realestateAddon, {
       .select()
       .from(walkthroughs)
       .where(eq(walkthroughs.dealRecordId, deal.recordId))
-      .orderBy(dsql`(${walkthroughs.state} <> 'done') desc`, desc(walkthroughs.createdAt))
+      .orderBy(
+        dsql`(${walkthroughs.state} <> 'done') desc`,
+        desc(walkthroughs.createdAt),
+        desc(walkthroughs.id),
+      )
       .limit(1);
     if (!w) return { walkthrough: null };
     const items = await ctx.tx
       .select()
       .from(itemsTable)
       .where(eq(itemsTable.walkthroughId, w.id))
-      .orderBy(asc(itemsTable.position));
+      .orderBy(asc(itemsTable.position), asc(itemsTable.id));
     return {
       walkthrough: {
         id: w.id,

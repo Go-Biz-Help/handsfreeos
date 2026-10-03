@@ -18,7 +18,7 @@ import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { INSPECTION_KINDS, repairDraft, type FindingFacts, type InspectionKind } from '../closing';
+import { findingFacts, INSPECTION_KINDS, repairDraft, type InspectionKind } from '../closing';
 import type { DealEvent } from '../catalog/types';
 import { realestateAddon } from '../manifest';
 import {
@@ -133,16 +133,6 @@ async function moment(
     throw e;
   }
 }
-
-const findingFacts = (f: Finding): FindingFacts => ({
-  id: f.id,
-  title: f.title,
-  location: f.location,
-  clientPriority: f.clientPriority,
-  ask: f.ask,
-  creditCents: f.creditCents,
-  estimateCents: f.estimateCents,
-});
 
 async function liveFindings(ctx: Ctx, dealId: string): Promise<Finding[]> {
   const list = await ctx.tx
@@ -721,7 +711,7 @@ export const inspectionsList = defineAddonQuery(realestateAddon, {
       .select()
       .from(inspections)
       .where(eq(inspections.dealRecordId, deal.recordId))
-      .orderBy(asc(inspections.createdAt));
+      .orderBy(asc(inspections.createdAt), asc(inspections.id));
     const findings = list.length
       ? await ctx.tx
           .select()
@@ -732,7 +722,7 @@ export const inspectionsList = defineAddonQuery(realestateAddon, {
               list.map((i) => i.id),
             ),
           )
-          .orderBy(asc(inspectionFindings.position))
+          .orderBy(asc(inspectionFindings.position), asc(inspectionFindings.id))
       : [];
     const reportIds = list.map((i) => i.reportDocumentId).filter((x): x is string => !!x);
     const reports = reportIds.length
@@ -745,7 +735,7 @@ export const inspectionsList = defineAddonQuery(realestateAddon, {
       .select()
       .from(repairRequests)
       .where(eq(repairRequests.dealRecordId, deal.recordId))
-      .orderBy(asc(repairRequests.number));
+      .orderBy(asc(repairRequests.number), asc(repairRequests.id));
     const terms = termsNow(await termEntriesOf(ctx, deal.recordId));
     const live = findings.filter(
       (f) => list.find((i) => i.id === f.inspectionId)?.status !== 'canceled',

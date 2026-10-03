@@ -272,7 +272,7 @@ export const contingencyList = defineAddonQuery(realestateAddon, {
       .from(contingencies)
       .leftJoin(documents, eq(documents.id, contingencies.documentId))
       .where(eq(contingencies.dealRecordId, deal.recordId))
-      .orderBy(asc(contingencies.createdAt));
+      .orderBy(asc(contingencies.createdAt), asc(contingencies.id));
     const keyDates = keyDatesOf(termsNow(await termEntriesOf(ctx, deal.recordId)));
     const timeZone = await timeZoneOf(ctx);
     const calendar = await businessCalendarOf(ctx);

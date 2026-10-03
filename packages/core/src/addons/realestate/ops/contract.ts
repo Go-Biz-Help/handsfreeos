@@ -780,7 +780,7 @@ export const contractReadsList = defineAddonQuery(realestateAddon, {
       .from(contractReads)
       .innerJoin(documents, eq(documents.id, contractReads.documentId))
       .where(eq(contractReads.dealRecordId, deal.recordId))
-      .orderBy(desc(contractReads.requestedAt));
+      .orderBy(desc(contractReads.requestedAt), desc(contractReads.id));
     return {
       reads: list.map(({ read, title }) => ({
         readId: read.id,

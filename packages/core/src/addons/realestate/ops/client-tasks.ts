@@ -361,7 +361,7 @@ export const clientTasksList = defineAddonQuery(realestateAddon, {
           ...(input.includeCanceled ? [] : [inArray(clientTasks.status, ['open', 'done'])]),
         ),
       )
-      .orderBy(asc(clientTasks.createdAt));
+      .orderBy(asc(clientTasks.createdAt), asc(clientTasks.id));
     const parts = list.length
       ? await ctx.tx
           .select()
@@ -372,6 +372,7 @@ export const clientTasksList = defineAddonQuery(realestateAddon, {
               list.map((t) => t.id),
             ),
           )
+          .orderBy(asc(clientTaskCompletions.at), asc(clientTaskCompletions.id))
       : [];
     const fileIds = parts.map((p) => p.fileId).filter((x): x is string => !!x);
     const filesById = new Map(

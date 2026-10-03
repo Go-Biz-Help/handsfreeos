@@ -21,6 +21,8 @@ import {
   cdDeadline,
   FINANCING_STEP_KEYS,
   FINANCING_STEPS,
+  messageProofLabel,
+  PROOF_REMOVED,
   stepWords,
   type FinancingStep,
 } from '../closing';
@@ -138,7 +140,7 @@ async function proofLabel(
     sql`select m.subject, c.counterpart from app.messages m join app.conversations c on c.id = m.conversation_id
         where m.id = ${proof.id} and m.workspace_id = ${deal.workspaceId}`,
   );
-  return m ? m.subject?.trim() || `Message from ${m.counterpart}` : null;
+  return m ? messageProofLabel(m) : null;
 }
 
 /** A date from a step that the deal's duties rest on, entered as the lender's when it's new. */
@@ -389,7 +391,7 @@ export const financingGet = defineAddonQuery(realestateAddon, {
       if (s.proofKind && s.proofId)
         proofs.set(
           s.id,
-          (await proofLabel(ctx, deal, { kind: s.proofKind, id: s.proofId })) ?? 'Removed since',
+          (await proofLabel(ctx, deal, { kind: s.proofKind, id: s.proofId })) ?? PROOF_REMOVED,
         );
     return {
       lender: {
