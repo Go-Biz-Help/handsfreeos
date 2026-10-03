@@ -42,6 +42,7 @@ export const SETTINGS_AREAS = [
   'knowledge',
   'my_account',
   'my_calendar',
+  'safety',
   'imports',
   'migrations',
 ] as const;
@@ -826,6 +827,29 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     howTo: [
       'Block time off: Settings → My calendar, press Add time off',
       'Set someone else’s hours (owners and admins): Members, ⋯ beside them, then Edit hours',
+    ],
+  },
+  safety: {
+    label: 'Safety',
+    what: 'check-ins for visits (showings, open houses, tours): how long after someone’s planned end they are asked if they are OK, how long after that their contacts are told, and the business’s safety person, who is told when someone has no contacts',
+    where: ['Settings', 'Safety'],
+    onScreen: [
+      'Ask after: minutes past the planned end before the person is asked',
+      'Tell their contacts after: minutes with no answer before their contacts are told',
+      'Safety person: who is told when someone has no contacts of their own',
+      'What each person sees',
+    ],
+    path: '/settings/safety',
+    permission: 'workspace.update',
+    canChange: [],
+    handovers: [],
+    howTo: [
+      'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety',
+      'Check in for a visit: in the phone app, open the appointment and press Check in',
+    ],
+    notHere: [
+      'Seeing other people’s safety contacts or where they checked in: only each person sees their own',
+      'HandsFreeOS calling 911: it never does; Help on the phone opens its own calling',
     ],
   },
   imports: {
