@@ -18,6 +18,12 @@ import {
   type RealestateSource,
 } from '../../src/addons/realestate/views/synced';
 import { dealPageOfCopy } from '../../src/addons/realestate/views/deal-page';
+import {
+  exceptionsOfCopy,
+  todayOfCopy,
+  waitingRoomOfCopy,
+  type CoordinateFilter,
+} from '../../src/addons/realestate/views/coordinate';
 import { documentsOfCopy } from '../../src/addons/realestate/views/documents';
 import { dutySheetOfCopy } from '../../src/addons/realestate/views/duty-sheet';
 import { historyOfCopy } from '../../src/addons/realestate/views/history';
@@ -287,6 +293,25 @@ beforeAll(async () => {
   // One waits on another, added by hand.
   await run('realestate.duty.link', { dutyId: open[3]!.id, waitsOnId: open[2]!.id }, agent);
   dutyIds = open.slice(0, 4).map((d) => d.id);
+  // A contingency past its end, and a blocker past its day to look again.
+  await run(
+    'realestate.contingency.add',
+    { dealId: nguyen, kind: 'other', label: 'Sale of the buyers’ condo', endsOn: day(-3) },
+    agent,
+  );
+  await rows(
+    admin(),
+    sql`update addon_realestate.duties set blocker_review_at = now() - interval '1 hour'
+        where id = ${open[1]!.id}`,
+  );
+  // The business is closed the day after tomorrow.
+  await rows(
+    admin(),
+    sql`update app.addon_installations
+        set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('closedDays',
+              jsonb_build_object(${day(2)}::text, 'Staff day'))
+        where workspace_id = ${ws} and addon_id = 'realestate'`,
+  );
   // Documents: an agreement, and a disclosure in two versions.
   const fileOn = async (name: string) => {
     const up = await executeCommand(
@@ -574,5 +599,55 @@ describe('a deal’s documents and history on the phone', () => {
         expect(historyOfCopy(copy, nguyen)).toEqual([]);
       }
     }
+  });
+});
+
+describe('Coordinate on the phone', () => {
+  const FILTERS: CoordinateFilter[] = [{}, { mine: true }];
+
+  it('answers Today, Exceptions and the Waiting room as the server does', async () => {
+    for (const u of [agent, owner]) {
+      const copy = await phoneCopy(u);
+      expect(copy.settings).toMatchObject({ closedDays: expect.any(Object) });
+      for (const f of [...FILTERS, { agentUserId: agent.id }]) {
+        const ctx = { userId: u.id, now: Date.now(), today };
+        const label = `${u.email} ${JSON.stringify(f)}`;
+        expect(todayOfCopy(copy, f, ctx), label).toEqual(await ask('realestate.today', f, u));
+        expect(waitingRoomOfCopy(copy, f, ctx), label).toEqual(
+          await ask('realestate.waiting_room', f, u),
+        );
+        const server = await ask('realestate.exceptions', f, u);
+        const { partial, ...phone } = exceptionsOfCopy(copy, f, ctx);
+        if (u === agent) {
+          expect(partial, label).toBe(false);
+          expect(phone, label).toEqual(server);
+        } else {
+          // The owner keeps the agent's deals as summaries: proof, contingencies and reads only for their own.
+          const own = new Set(
+            (await ask('realestate.deal.list', { mine: true }, u)).deals.map(
+              (d: { dealId: string }) => d.dealId,
+            ),
+          );
+          const mineOnly = <T extends { dealId: string }>(xs: T[]) =>
+            xs.filter((x) => own.has(x.dealId));
+          expect(partial, label).toBe(true);
+          expect(phone, label).toEqual({
+            ...server,
+            reads: mineOnly(server.reads),
+            noProof: mineOnly(server.noProof),
+            contingencies: mineOnly(server.contingencies),
+          });
+        }
+      }
+    }
+  });
+
+  it('isn’t equal by being empty', async () => {
+    const copy = await phoneCopy(agent);
+    const ctx = { userId: agent.id, now: Date.now(), today };
+    const ex = exceptionsOfCopy(copy, {}, ctx);
+    expect(ex.contingencies.map((c) => c.label)).toEqual(['Sale of the buyers’ condo']);
+    expect(ex.blocked.map((b) => b.blocker)).toEqual(['Survey not ordered']);
+    expect(waitingRoomOfCopy(copy, {}, ctx).items.length).toBe(2);
   });
 });

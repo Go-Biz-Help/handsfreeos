@@ -114,7 +114,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   Its migration says the same with `private.addon_phone_addon(...)` and `private.addon_phone_table(...)`, which
   installs triggers that copy just those columns into `app.addon_phone_rows` with the record's seals, and a test
   holds the two equal. Its private records, and the tasks, files, appointments, portal threads and Home cards on
-  them, reach the same people through the same stream (`apps/sync/README.md`, `records_v1`). Turning the add-on off
+  them, and the links between them (a deal's client and home, 20261022000700), reach the same people through the
+  same stream (`apps/sync/README.md`, `records_v1`). Settings a page rests on (Real Estate's closed days) go too when
+  `offline.settings` names them and the migration calls `private.addon_phone_settings(...)`: just those keys, as one
+  `_settings` row per business (20261022000800). Turning the add-on off
   takes its permissions, so its keys, and every row leaves phones with nothing deleted. A record leaves phones
   earlier when the add-on says so (`private.record_phone_window`). An operation a phone may queue says
   `offline: 'anytime'` (or `freshMinutes`) and takes the phone's id for anything it makes.

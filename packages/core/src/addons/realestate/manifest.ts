@@ -257,6 +257,8 @@ export const realestateAddon = defineAddon({
   // (20261022000500_realestate_on_the_phone) registers the same; a test holds them equal.
   offline: {
     permission: 'realestate.use',
+    // Business days around the days the business is closed: Coordinate's, on the phone.
+    settings: ['closedDays'],
     tables: [
       {
         table: 'deals',
@@ -465,7 +467,17 @@ export const realestateAddon = defineAddon({
       {
         table: 'contract_reads',
         record: 'deal_record_id',
-        columns: ['document_id', 'kind', 'state', 'scan', 'pages', 'found', 'unclear', 'read_at'],
+        columns: [
+          'document_id',
+          'kind',
+          'state',
+          'requested_at',
+          'scan',
+          'pages',
+          'found',
+          'unclear',
+          'read_at',
+        ],
       },
       {
         table: 'drafts',

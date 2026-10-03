@@ -16,6 +16,7 @@ import {
   closeAll,
   createTestUser,
   dbs,
+  expectPgError,
   type TestUser,
 } from './harness';
 
@@ -479,5 +480,44 @@ describe('once it does', () => {
     expect((await seals(between)).sync_window).toBe(false);
     await worker()((tx) => rows(tx, sql`select private.record_phone_window(${ws}, ${deal}, true)`));
     await inStep();
+  });
+
+  it('keeps only the settings an add-on names, open to its key (20261022000800)', async () => {
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.addon_installations
+            set settings = '{"closedDays": {"2026-12-24": "Christmas Eve"}, "alertEmail": "broker@hfos.test"}'::jsonb
+            where workspace_id = ${ws} and addon_id = ${ADDON}`,
+      ),
+    );
+    const row = () =>
+      rows<{ data: unknown; seal_scope: string; seal_open: boolean }>(
+        admin$,
+        sql`select data, seal_scope, seal_open from app.addon_phone_rows
+            where id = ${`_settings:${ADDON}:${ws}`}`,
+      );
+    expect(await row()).toEqual([]);
+    await rows(admin$, sql`select private.addon_phone_settings(${ADDON}, array['closedDays'])`);
+    expect(await row()).toEqual([
+      {
+        data: { closedDays: { '2026-12-24': 'Christmas Eve' } },
+        seal_scope: `${ws}:${USE}`,
+        seal_open: true,
+      },
+    ]);
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.addon_installations set settings = settings || '{"closedDays": {}}'::jsonb
+            where workspace_id = ${ws} and addon_id = ${ADDON}`,
+      ),
+    );
+    expect((await row())[0]!.data).toEqual({ closedDays: {} });
+    await inStep();
+    const refused = await expectPgError(() =>
+      rows(admin$, sql`select private.addon_phone_settings(${ADDON}, array['apiToken'])`),
+    );
+    expect(refused.message).toContain('looks like a secret');
   });
 });

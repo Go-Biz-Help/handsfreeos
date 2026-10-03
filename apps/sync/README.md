@@ -142,6 +142,9 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
   home, its lender. A link to one record takes that record's seals; a link between two goes to who may see both
   (open when both are, the people on both when both are private); a link to a kind phones don't keep, or between two
   add-ons' records, reaches no phone. A record's seals or window moving moves its links.
+- **Settings** an add-on names (`offline.settings`; 20261022000800): those keys of its business settings, as one
+  `addon_phone_rows` row per business (source `_settings`, no record), open to its key. Real Estate keeps its closed
+  days, for Coordinate's business days.
 
 `private.sync_key_mismatches(business)`, `private.sync_seal_mismatches(business)` and
 `private.addon_phone_mismatches(business)` say where stored keys or seals disagree with the permissions and records;

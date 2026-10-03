@@ -24,6 +24,7 @@ import {
   WorkloadOutput,
 } from '../schemas';
 import type { DutyStatus } from '../states';
+import { byName, byText } from '../views/synced';
 import {
   businessCalendarOf,
   inWorkspace,
@@ -83,13 +84,14 @@ async function openDutiesOf(
                                where x.deal_record_id = t.deal_record_id and x.user_id = ${me}))`
                 : sql`and false`
               : sql``
-          }`,
+          }
+        order by t.due_at nulls last, t.created_at, t.id`,
   );
 }
 
-/** The deals the person sees, with their stored health. */
+/** The deals the person sees, with their stored health, by name (as the phone orders them: views/synced.ts). */
 async function dealsOf(ctx: Ctx, input: { readonly agentUserId?: string | undefined }) {
-  return rows<{
+  const list = await rows<{
     id: string;
     name: string;
     health: 'green' | 'yellow' | 'red';
@@ -101,9 +103,9 @@ async function dealsOf(ctx: Ctx, input: { readonly agentUserId?: string | undefi
         from addon_realestate.deals d
         join app.custom_records r on r.id = d.record_id
         where d.workspace_id = ${ctx.scope.workspaceId!} and r.archived_at is null and d.outcome is null
-          ${input.agentUserId ? sql`and r.owner_user_id = ${input.agentUserId}` : sql``}
-        order by r.name`,
+          ${input.agentUserId ? sql`and r.owner_user_id = ${input.agentUserId}` : sql``}`,
   );
+  return list.sort((a, b) => byName(a.name, b.name) || byText(a.id, b.id));
 }
 
 /** Health reasons that aren't about one duty being late: what Today lists as at risk. */
@@ -236,7 +238,7 @@ export const coordinateExceptions = defineAddonQuery(realestateAddon, {
             join addon_realestate.documents doc on doc.id = c.document_id
             join app.custom_records r on r.id = c.deal_record_id
             where c.workspace_id = ${ws} and c.state = 'read'
-            order by c.scan desc, c.requested_at`,
+            order by c.scan desc, c.requested_at, c.id`,
       )
     ).filter((r) => r.waiting > 0 && seen.has(r.deal));
     const disagree = deals.flatMap((d) =>

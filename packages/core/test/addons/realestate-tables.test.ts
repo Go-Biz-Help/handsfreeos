@@ -141,11 +141,12 @@ describe('Real Estate Agent’s tables', () => {
   });
 
   it('are kept on phones exactly as the manifest’s offline says (round six)', async () => {
-    const [addon] = await rows<{ permission: string }>(
+    const [addon] = await rows<{ permission: string; settings_keys: string[] }>(
       admin(),
-      sql`select permission from app.addon_phone_addons where addon_id = 'realestate'`,
+      sql`select permission, settings_keys from app.addon_phone_addons where addon_id = 'realestate'`,
     );
     expect(addon?.permission).toBe(realestateAddon.offline?.permission);
+    expect(addon?.settings_keys).toEqual(realestateAddon.offline?.settings ?? []);
     const registered = await rows<{
       source: string;
       key_column: string;

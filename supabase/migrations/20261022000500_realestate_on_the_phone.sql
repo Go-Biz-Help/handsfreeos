@@ -178,10 +178,10 @@ select private.addon_phone_table('addon_realestate.documents', 'deal_record_id',
   'offer_version_id', 'created_at']);
 select private.addon_phone_table('addon_realestate.esign_envelopes', 'deal_record_id', array['document_id',
   'provider', 'state', 'subject', 'signers', 'sent_at', 'completed_at', 'signed_document_id']);
-select private.addon_phone_table('addon_realestate.contingencies', 'deal_record_id', array['kind', 'label',
-  'end_key', 'ends_on', 'source', 'state', 'resolved_at', 'document_id', 'note']);
+select private.addon_phone_table('addon_realestate.contingencies', 'deal_record_id', array['kind', 'label', 'end_key',
+  'ends_on', 'source', 'state', 'resolved_at', 'document_id', 'note']);
 select private.addon_phone_table('addon_realestate.contract_reads', 'deal_record_id', array['document_id', 'kind',
-  'state', 'scan', 'pages', 'found', 'unclear', 'read_at']);
+  'state', 'requested_at', 'scan', 'pages', 'found', 'unclear', 'read_at']);
 select private.addon_phone_table('addon_realestate.drafts', 'deal_record_id', array['kind', 'milestone', 'person_id',
   'subject', 'body', 'status', 'edited_at', 'flags_acknowledged_at', 'sent_at']);
 select private.addon_phone_table('addon_realestate.buyer_profiles', 'deal_record_id', array['budget_min_cents',

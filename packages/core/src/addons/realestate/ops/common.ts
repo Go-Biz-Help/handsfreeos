@@ -15,7 +15,7 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { addonTimelineLine } from '../../server';
 import type { DealFact } from '../catalog/types';
 import type { BusinessCalendar } from '../dates/business-days';
-import { NO_CLOSED_DAYS } from '../dates/business-days';
+import { calendarOf } from '../dates/business-days';
 import { realestateAddon } from '../manifest';
 import { STAGE_LABELS, type DealSide, type DealStage } from '../states';
 import { dealHistory, dealRoles, deals } from '../tables';
@@ -265,12 +265,7 @@ export async function businessCalendarOf(ctx: Ctx): Promise<BusinessCalendar> {
     sql`select settings -> 'closedDays' as closed from app.addon_installations
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = 'realestate'`,
   );
-  const closed = i?.closed;
-  if (!closed || typeof closed !== 'object' || Array.isArray(closed)) return NO_CLOSED_DAYS;
-  const days = Object.entries(closed as Record<string, unknown>).filter(
-    (e): e is [string, string] => /^\d{4}-\d{2}-\d{2}$/.test(e[0]) && typeof e[1] === 'string',
-  );
-  return { closedDays: new Map(days) };
+  return calendarOf(i?.closed);
 }
 
 /** Today's date where the business is. */

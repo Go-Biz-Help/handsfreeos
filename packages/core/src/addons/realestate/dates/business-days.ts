@@ -13,6 +13,15 @@ export interface BusinessCalendar {
 
 export const NO_CLOSED_DAYS: BusinessCalendar = { closedDays: new Map() };
 
+/** The business's closed days as Deal settings keeps them (`closedDays`: date → name); anything else is none. */
+export function calendarOf(closed: unknown): BusinessCalendar {
+  if (!closed || typeof closed !== 'object' || Array.isArray(closed)) return NO_CLOSED_DAYS;
+  const days = Object.entries(closed as Record<string, unknown>).filter(
+    (e): e is [string, string] => /^\d{4}-\d{2}-\d{2}$/.test(e[0]) && typeof e[1] === 'string',
+  );
+  return { closedDays: new Map(days) };
+}
+
 /** Why a day isn't a business day. */
 export type DayOff =
   | { readonly reason: 'weekend' }

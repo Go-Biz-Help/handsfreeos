@@ -135,6 +135,8 @@ const joined = (a: Cell, b: Cell) => {
 };
 const isSet = (v: unknown) => v !== null && v !== undefined;
 export const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+/** Names in reading order, the same on the server and every phone (English rules, not the device's). */
+export const byName = (a: string, b: string) => a.localeCompare(b, 'en');
 
 // ---------- what the screens work from ----------
 
@@ -198,6 +200,8 @@ export interface CopyLink {
 }
 
 export interface RealestateCopy {
+  /** The business's settings phones keep (the manifest's `offline.settings`: its closed days). */
+  readonly settings: Readonly<Record<string, unknown>>;
   readonly deals: ReadonlyMap<string, CopyDeal>;
   readonly duties: ReadonlyMap<string, readonly CopyDuty[]>;
   readonly terms: ReadonlyMap<string, readonly CopyTerm[]>;
@@ -247,7 +251,12 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
   const dealData = new Map<string, Record<string, unknown>>();
   const duties = new Map<string, CopyDuty[]>();
   const terms = new Map<string, CopyTerm[]>();
+  let settings: Record<string, unknown> = {};
   for (const row of source.rows) {
+    if (text(row.source) === '_settings') {
+      settings = obj(row.data);
+      continue;
+    }
     const record = text(row.record_id);
     if (!record) continue;
     const d = obj(row.data);
@@ -353,6 +362,7 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
   }
 
   return {
+    settings,
     deals,
     duties,
     terms,

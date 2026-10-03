@@ -359,6 +359,8 @@ export interface AddonManifest {
   readonly offline?: {
     readonly permission: string;
     readonly tables: readonly AddonOfflineTable[];
+    /** Keys of the business's settings the phone keeps too (20261022000800), for pages that rest on them. */
+    readonly settings?: readonly string[];
   };
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
@@ -620,6 +622,15 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       'offline table',
       m.offline.tables.map((t) => t.table),
     );
+    for (const k of m.offline.settings ?? []) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(k))
+        say(`offline setting "${k}" isn't a settings key`);
+      if (SECRET_COLUMN.test(k)) say(`offline setting "${k}" looks like a secret`);
+      const shape = (m.settings?.workspace as { shape?: Record<string, unknown> } | undefined)
+        ?.shape;
+      if (!shape || !(k in shape)) say(`offline setting "${k}" isn't one of its settings`);
+    }
+    unique('offline setting', m.offline.settings ?? []);
   }
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {
