@@ -137,6 +137,11 @@ export interface AddonUi {
   readonly portal?: AddonPortalUi;
   /** Its public pages, for anyone with the link. */
   readonly public?: AddonPublicUi;
+  /**
+   * Where it shows its connections (round five), as a path under its own pages (`a/<id>/<path>`). A sign-in comes back
+   * to core's `addons/<id>/connections`, which sends the person on to here. Absent: core's page shows them.
+   */
+  readonly connections?: string;
 }
 
 /** Every add-on's UI, by add-on id. */
@@ -155,6 +160,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       'record.panels': () => import('./realestate/record-panel'),
     },
     settings: () => import('./realestate/settings-link'),
+    connections: 'settings?tab=connections',
     portal: {
       home: () => import('./realestate/portal/home-panel'),
       pages: () => import('./realestate/portal/pages'),

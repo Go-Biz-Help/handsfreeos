@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ComponentProps } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
+import { AddonConnections } from '@/components/addons/connections';
 import { SupportAccessCard } from '@/components/settings/support-access-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import type { AddonConnectionList, Ok } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { realestateHref } from './bits';
@@ -26,7 +28,7 @@ import { DutyList } from './duty-list';
 import type { TemplateList, TemplateVersions, Teammate } from './types';
 import { useAct } from './use-act';
 
-export type SettingsTab = 'duties' | 'alerts' | 'versions' | 'support';
+export type SettingsTab = 'duties' | 'alerts' | 'connections' | 'versions' | 'support';
 
 const MILESTONES: { key: keyof RealestateSettings['milestoneDrafts']; label: string }[] = [
   { key: 'under_contract', label: 'Under contract' },
@@ -44,6 +46,7 @@ export function DealSettings({
   settings,
   members,
   calendars = [],
+  connections = null,
   support,
 }: {
   workspaceId: string;
@@ -55,6 +58,12 @@ export function DealSettings({
   members: readonly (Teammate & { role: string })[];
   /** The business's calendars, for where tours go. */
   calendars?: readonly { readonly id: string; readonly name: string }[];
+  /** The Connections tab: the add-on's connections, what each is used for, and what a sign-in came back with. */
+  connections?: {
+    readonly list: AddonConnectionList;
+    readonly uses: ConnectionUses;
+    readonly back: ComponentProps<typeof AddonConnections>['back'];
+  } | null;
   support: ComponentProps<typeof SupportAccessCard> | null;
 }) {
   useLiveRefresh(['addon']);
@@ -63,6 +72,7 @@ export function DealSettings({
   const tabs: { key: SettingsTab; label: string }[] = [
     { key: 'duties', label: 'Duty list' },
     { key: 'alerts', label: 'Alerts & dates' },
+    { key: 'connections', label: 'Connections' },
     { key: 'versions', label: 'Versions' },
     { key: 'support', label: 'Support access' },
   ];
@@ -79,9 +89,11 @@ export function DealSettings({
               : 'Duty list · not published yet: new deals use the list as HandsFreeOS ships it'
             : tab === 'alerts'
               ? 'Alerts, business days and client updates'
-              : tab === 'versions'
-                ? 'Every published version of the duty list'
-                : 'HandsFreeOS support can’t see private deals unless you let them'
+              : tab === 'connections'
+                ? 'What Real Estate connects to: listing data, e-sign and ShowingTime'
+                : tab === 'versions'
+                  ? 'Every published version of the duty list'
+                  : 'HandsFreeOS support can’t see private deals unless you let them'
         }
         actions={
           tab === 'duties' && list ? (
@@ -116,7 +128,10 @@ export function DealSettings({
           ) : null
         }
       />
-      <nav aria-label="Deal settings" className="mb-5 flex gap-1 border-b border-border">
+      <nav
+        aria-label="Deal settings"
+        className="mb-5 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-border"
+      >
         {tabs.map((t) => (
           <Link
             key={t.key}
@@ -154,6 +169,35 @@ export function DealSettings({
           calendars={calendars}
         />
       ) : null}
+      {tab === 'connections' && connections && settings ? (
+        <AddonConnections
+          workspaceId={workspaceId}
+          addonId="realestate"
+          list={connections.list}
+          back={connections.back}
+          about={{
+            listing_data: 'Homes, buyers’ searches, sold comps, your listings’ status',
+            esign: 'Send documents for signing; the signed copy comes back to Documents',
+          }}
+          uses={{
+            listing_data: {
+              words: connections.uses.listingData.words,
+              count: connections.uses.listingData.listings + connections.uses.listingData.searches,
+            },
+            esign: { words: connections.uses.esign.words, count: connections.uses.esign.out },
+          }}
+          ownAccount={{
+            listing_data:
+              'Your own Repliers, AnyProp or MLS feed (RESO Web API: MLS Grid, Bridge, Trestle) replaces it; your MLS license is then your own.',
+          }}
+        >
+          <ShowingTimeCard
+            workspaceId={workspaceId}
+            settings={settings}
+            words={connections.uses.showingTime.words}
+          />
+        </AddonConnections>
+      ) : null}
       {tab === 'versions' && versions ? <Versions versions={versions} timeZone={timeZone} /> : null}
       {tab === 'support' && support ? (
         <div className="max-w-3xl">
@@ -165,6 +209,76 @@ export function DealSettings({
         </div>
       ) : null}
     </div>
+  );
+}
+
+type ConnectionUses = Ok<'/v1/queries/realestate.connections.uses'>;
+
+/** ShowingTime (board 62): its emails read into showings for listings already on it, on or off. */
+function ShowingTimeCard({
+  workspaceId,
+  settings,
+  words,
+}: {
+  workspaceId: string;
+  settings: RealestateSettings;
+  words: string;
+}) {
+  const router = useRouter();
+  const { busy, act } = useAct();
+  const on = settings.showingTimeEmails;
+  return (
+    <Card className="p-5" data-testid="connector-showingtime">
+      <h2 className="text-[15px] font-semibold">ShowingTime</h2>
+      <p className="text-[13px] text-text-2">Showings and feedback for listings already on it</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-border p-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card-2 text-[12px] font-semibold text-text-2">
+          ST
+        </span>
+        <div className="min-w-[11rem] flex-1 basis-[12rem]">
+          <p className="font-medium">
+            ShowingTime’s emails <Badge variant={on ? 'ok' : 'gray'}>{on ? 'On' : 'Off'}</Badge>
+          </p>
+          <p className="text-[13px] text-text-2">
+            {on
+              ? 'Read from the emails that come into your Inbox'
+              : 'Left in your Inbox as emails; nothing becomes a showing'}
+          </p>
+          <p className="text-[12.5px] text-text-3">{words}</p>
+        </div>
+        <Button
+          size="sm"
+          variant={on ? 'ghost' : 'secondary'}
+          loading={busy === 'showingtime'}
+          onClick={() =>
+            void act(
+              'showingtime',
+              async () => {
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/addon.save_settings', {
+                    body: {
+                      workspaceId,
+                      addonId: 'realestate',
+                      settings: { ...settings, showingTimeEmails: !on } as unknown as Record<
+                        string,
+                        unknown
+                      >,
+                    },
+                  }),
+                );
+                router.refresh();
+              },
+              on
+                ? 'ShowingTime’s emails stay in the Inbox now.'
+                : 'ShowingTime’s emails become showings again.',
+            )
+          }
+          data-testid="showingtime-switch"
+        >
+          {on ? 'Turn off' : 'Turn on'}
+        </Button>
+      </div>
+    </Card>
   );
 }
 

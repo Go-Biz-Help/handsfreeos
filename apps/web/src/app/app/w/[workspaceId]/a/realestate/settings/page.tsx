@@ -7,9 +7,12 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Deal settings' };
 
-const TABS: readonly SettingsTab[] = ['duties', 'alerts', 'versions', 'support'];
+const TABS: readonly SettingsTab[] = ['duties', 'alerts', 'connections', 'versions', 'support'];
 
-/** Deal settings (`?tab=`): the duty list, alerts and dates, versions, and support access. Owners and admins. */
+/**
+ * Deal settings (`?tab=`): the duty list, alerts and dates, connections (round five; a sign-in elsewhere comes back
+ * here with `?connected=` or `?signin=`), versions, and support access. Owners and admins.
+ */
 export default async function RealestateSettingsPage({
   params,
   searchParams,
@@ -25,33 +28,47 @@ export default async function RealestateSettingsPage({
     : 'duties';
   return addonPage(workspaceId, 'realestate', 'realestate.manage', async () => {
     const { api, userId } = await apiServer();
-    const [got, list, versions, settings, members, support, calendars] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-      tab === 'duties'
-        ? api
-            .POST('/v1/queries/realestate.template.list', { body: { workspaceId } })
-            .then(unwrapPage)
-        : null,
-      tab === 'versions'
-        ? api
-            .POST('/v1/queries/realestate.template.versions', { body: { workspaceId } })
-            .then(unwrapPage)
-        : null,
-      tab === 'alerts'
-        ? api
-            .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'realestate' } })
-            .then(unwrapPage)
-        : null,
-      tab === 'alerts'
-        ? api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage)
-        : null,
-      tab === 'support'
-        ? api.POST('/v1/queries/support_access.list', { body: { workspaceId } }).then(unwrapPage)
-        : null,
-      tab === 'alerts'
-        ? api.POST('/v1/queries/calendar.list', { body: { workspaceId } }).then(unwrapPage)
-        : null,
-    ]);
+    const [got, list, versions, settings, members, support, calendars, connections, uses] =
+      await Promise.all([
+        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        tab === 'duties'
+          ? api
+              .POST('/v1/queries/realestate.template.list', { body: { workspaceId } })
+              .then(unwrapPage)
+          : null,
+        tab === 'versions'
+          ? api
+              .POST('/v1/queries/realestate.template.versions', { body: { workspaceId } })
+              .then(unwrapPage)
+          : null,
+        tab === 'alerts' || tab === 'connections'
+          ? api
+              .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'realestate' } })
+              .then(unwrapPage)
+          : null,
+        tab === 'alerts'
+          ? api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage)
+          : null,
+        tab === 'support'
+          ? api.POST('/v1/queries/support_access.list', { body: { workspaceId } }).then(unwrapPage)
+          : null,
+        tab === 'alerts'
+          ? api.POST('/v1/queries/calendar.list', { body: { workspaceId } }).then(unwrapPage)
+          : null,
+        tab === 'connections'
+          ? api
+              .POST('/v1/queries/addon_connection.list', {
+                body: { workspaceId, addonId: 'realestate' },
+              })
+              .then(unwrapPage)
+          : null,
+        tab === 'connections'
+          ? api
+              .POST('/v1/queries/realestate.connections.uses', { body: { workspaceId } })
+              .then(unwrapPage)
+          : null,
+      ]);
+    const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : null);
     // Who may hear about critical alerts: owners, and people who see every deal.
     const candidates = (members?.members ?? [])
       .filter((m) => m.role === 'owner' || m.permissions.includes('realestate.all_deals'))
@@ -69,6 +86,15 @@ export default async function RealestateSettingsPage({
         calendars={(calendars?.items ?? [])
           .filter((c) => c.status === 'active')
           .map((c) => ({ id: c.id, name: c.name }))}
+        connections={
+          connections && uses
+            ? {
+                list: connections,
+                uses,
+                back: { connected: one(sp.connected), signin: one(sp.signin) },
+              }
+            : null
+        }
         support={
           support
             ? {
