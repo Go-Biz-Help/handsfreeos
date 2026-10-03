@@ -842,7 +842,17 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/safety',
     permission: 'workspace.update',
     canChange: [],
-    handovers: [],
+    handovers: [
+      {
+        what: 'change how long before someone is asked if they are OK, or before their contacts are told, or the safety person',
+        why: 'who is told when someone may be in danger is set by an owner or admin on the screen itself, never by the Assistant',
+        steps: [
+          'Open Settings → Safety.',
+          'Set Ask them after and Then tell their contacts after, and choose who is told when someone has nobody to tell.',
+          'Press Save. Check-ins use the new times from then on.',
+        ],
+      },
+    ],
     howTo: [
       'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety',
       'Check in for a visit: in the phone app, open the appointment and press Check in',

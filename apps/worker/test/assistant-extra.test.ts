@@ -444,7 +444,7 @@ describe('your own alerts and side menu', () => {
 
     await confirm('update_my_alerts', parsed);
     const after = (await me()).user.settings;
-    expect(Object.keys(after['push'])).toHaveLength(12);
+    expect(Object.keys(after['push'])).toHaveLength(13);
     expect(pushSwitchesOf(after)).toMatchObject({ payment: true, missedCall: false, urgent: true });
     expect(after['notifications']).toEqual({ agencyDigest: false });
     await expect(prepare('update_my_alerts', { turnOn: ['payment'] })).rejects.toThrow(
