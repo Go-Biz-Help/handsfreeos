@@ -198,10 +198,29 @@ export const buyerProfileSave = defineAddonCommand(realestateAddon, {
     if (before && same) return { dealId: deal.recordId, version: before.version, changed: false };
     const version = (before?.version ?? 0) + 1;
     const at = changeMoment(ctx.meta);
+    // What their saved search asks changed (round five): it starts again from a first look, so homes already on
+    // the market in a new area or price range come too, not only what the MLS changes from now on.
+    const asks = (x: typeof values | NonNullable<typeof before>) =>
+      JSON.stringify([
+        x.budgetMinCents,
+        x.budgetMaxCents,
+        x.areas,
+        x.homeTypes,
+        x.bedsMin,
+        x.bathsMin === null ? null : Number(x.bathsMin),
+        x.sqftMin,
+      ]);
+    const searchChanged = !before || asks(before) !== asks(values);
     if (before)
       await ctx.tx
         .update(buyerProfiles)
-        .set({ ...values, version, updatedBy: actorUserId(ctx), updatedAt: at })
+        .set({
+          ...values,
+          version,
+          updatedBy: actorUserId(ctx),
+          updatedAt: at,
+          ...(searchChanged ? { searchCheckedAt: null, searchFailure: null } : {}),
+        })
         .where(
           and(
             eq(buyerProfiles.workspaceId, deal.workspaceId),
@@ -231,7 +250,7 @@ export const buyerProfileSave = defineAddonCommand(realestateAddon, {
       type: 'realestate.buyer_profile.saved',
       entityType: 'realestate_deal',
       entityId: deal.recordId,
-      payload: { version },
+      payload: { version, searchChanged },
       after: { version },
     });
     return { dealId: deal.recordId, version, changed: true };

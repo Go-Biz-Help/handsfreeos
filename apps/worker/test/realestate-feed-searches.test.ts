@@ -6,7 +6,8 @@
  * - A Home card for the agent at most once a day per buyer, taken down once nothing waits. Never to the client.
  * - The same listing is one match; one the MLS changed since is marked.
  * - Sending a match makes it one of the deal's homes, with what the MLS said; setting it aside keeps it from coming
- *   back. A search that's off, or a profile without an area, asks nothing.
+ *   back. A search that's off, or a profile without an area, asks nothing; one turned on is asked at once, and one
+ *   whose profile changed starts again from a first look.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -309,5 +310,61 @@ describe('a buyer’s saved search', () => {
     await run('realestate.search.set', { dealId: deal, on: true });
     await check();
     expect((await matches()).matches.some((x: Any) => x.mls.mlsNumber === 'NEW-2')).toBe(true);
+  });
+
+  it('asks at once when it’s turned on, not at the next quarter hour', async () => {
+    await run('realestate.search.set', { dealId: deal, on: false });
+    await drain();
+    const one = (
+      await createStandinFeed().search(
+        FeedSearchSchema.parse({ zips: ['78704'], bedsMin: 3, limit: 1 }),
+        AbortSignal.timeout(1000),
+      )
+    ).listings[0]!;
+    putStandinListing({
+      ...one,
+      mlsNumber: 'NEW-3',
+      listingKey: 'standin-new-3',
+      address: { ...one.address, line: '6 Right Away Ln' },
+      updatedAt: new Date().toISOString(),
+    });
+    // The next check is a quarter hour off.
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now() + interval '15 minutes'
+          where status = 'pending' and workspace_id = ${ws} and kind = ${FEED_CHECK}`,
+    );
+    await run('realestate.search.set', { dealId: deal, on: true });
+    await drain();
+    expect((await matches()).matches.some((x: Any) => x.mls.mlsNumber === 'NEW-3')).toBe(true);
+  });
+
+  it('starts again from a first look, at once, when what it asks changes', async () => {
+    await check();
+    // A home in 78745, on the market since before the last check: a new area brings it too.
+    const one = (
+      await createStandinFeed().search(
+        FeedSearchSchema.parse({ zips: ['78745'], bedsMin: 3, limit: 1 }),
+        AbortSignal.timeout(1000),
+      )
+    ).listings[0]!;
+    putStandinListing({
+      ...one,
+      mlsNumber: 'OLD-1',
+      listingKey: 'standin-old-1',
+      address: { ...one.address, line: '8 Been Here Ln' },
+      updatedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+    });
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now() + interval '15 minutes'
+          where status = 'pending' and workspace_id = ${ws} and kind = ${FEED_CHECK}`,
+    );
+    await run('realestate.buyer_profile.save', {
+      dealId: deal,
+      profile: { bedsMin: 3, areas: ['78704', '78745'], budgetMaxCents: 200_000_000 },
+    });
+    await drain();
+    expect((await matches()).matches.some((x: Any) => x.mls.mlsNumber === 'OLD-1')).toBe(true);
   });
 });

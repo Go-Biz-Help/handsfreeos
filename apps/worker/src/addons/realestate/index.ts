@@ -47,7 +47,13 @@ import {
 import { FEED_ACTIONS } from './feed/actions';
 import { LISTING_DATA, listingDataTesters } from './feed/index';
 import { compsRequested, homeLookup, listingLookup } from './feed/lookups';
-import { armFeedCheck, FEED_CHECK, feedCheckJob, matchDecided } from './feed/searches';
+import {
+  armFeedCheck,
+  FEED_CHECK,
+  feedCheckJob,
+  matchDecided,
+  searchChanged,
+} from './feed/searches';
 import {
   SHOWING_ACCESS,
   SHOWING_FEEDBACK,
@@ -268,6 +274,7 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.home.lookup_requested': homeLookup,
     'realestate.listing.lookup_requested': listingLookup,
     'realestate.cma.comps_requested': compsRequested,
+    'realestate.search.changed': searchChanged,
     'realestate.match.sent': matchDecided,
     'realestate.match.dismissed': matchDecided,
     // Buyer memory: what the client says, read for what to remember (./memory.ts).
@@ -305,7 +312,11 @@ export const realestateAddonWorker: AddonWorkerModule = {
     },
     // Our listings matched to our buyers (./matching.ts).
     'realestate.listing.live': matchListing,
-    'realestate.buyer_profile.saved': matchBuyer,
+    // And their saved search on the listing feed, asked again at once when what it asks changed (./feed/searches.ts).
+    'realestate.buyer_profile.saved': async (ctx) => {
+      await matchBuyer(ctx);
+      await searchChanged(ctx);
+    },
     'realestate.suggestion.decided': suggestionDecided,
     'realestate.listing.suggested': listingSuggested,
     // The seller's questionnaire: their agent hears, until the facts are confirmed (./listing.ts).

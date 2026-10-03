@@ -32,8 +32,12 @@ export const FEED_CHECK_EVERY = 15 * 60_000;
 /** How far back each check also looks, past the last one. */
 const OVERLAP_MS = 60 * 60_000;
 
-/** Arms the feed check (a no-op while one is waiting). */
-export async function armFeedCheck(ctx: AddonScopeContext, at = new Date()): Promise<void> {
+/** Arms the feed check (a no-op while one is waiting, unless `now` pulls the waiting one in). */
+export async function armFeedCheck(
+  ctx: AddonScopeContext,
+  at = new Date(),
+  opts: { readonly now?: boolean } = {},
+): Promise<void> {
   await asWorker(ctx.db, ctx.scope, (tx) =>
     scheduleAddonJob(
       tx,
@@ -46,8 +50,19 @@ export async function armFeedCheck(ctx: AddonScopeContext, at = new Date()): Pro
         workspaceId: ctx.scope.workspaceId,
         organizationId: ctx.scope.organizationId,
       },
+      { pullEarlier: opts.now ?? false },
     ),
   );
+}
+
+/**
+ * A buyer's search turned on (`realestate.search.changed`), or what it asks changed (`realestate.buyer_profile.saved`
+ * with `searchChanged`): asked at once, not at the next quarter hour. The check asks only searches that are on.
+ */
+export async function searchChanged(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  if (p['on'] === true || p['searchChanged'] === true)
+    await armFeedCheck(ctx, new Date(), { now: true });
 }
 
 interface SearchRow extends Record<string, unknown> {

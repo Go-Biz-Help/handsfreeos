@@ -465,7 +465,8 @@ export const realestateAddon = defineAddon({
       'realestate.home.lookup_requested',
       'realestate.listing.lookup_requested',
       'realestate.cma.comps_requested',
-      // A buyer's search: its Home card comes down when nothing waits on the agent.
+      // A buyer's search: asked at once when it's turned on, and its Home card down when nothing waits on the agent.
+      'realestate.search.changed',
       'realestate.match.sent',
       'realestate.match.dismissed',
       // E-sign: made at the service, its signed copy fetched, and voided there, by the worker.
