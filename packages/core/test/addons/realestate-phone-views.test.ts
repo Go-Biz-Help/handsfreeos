@@ -17,7 +17,9 @@ import {
   type RealestateCopy,
   type RealestateSource,
 } from '../../src/addons/realestate/views/synced';
+import { dealPageOfCopy } from '../../src/addons/realestate/views/deal-page';
 import {
+  companyCreate,
   executeCommand,
   executeQuery,
   personCreate,
@@ -58,6 +60,7 @@ let agent: TestUser;
 let mate: TestUser;
 let ws: string;
 let today: string;
+let nguyen: string;
 
 /** A cell as the phone keeps it: text, 0/1, or nothing; arrays and JSON as JSON text; times as PowerSync writes them. */
 function cell(v: unknown): string | number | null {
@@ -80,7 +83,7 @@ async function phoneRows(u: TestUser): Promise<RealestateSource> {
     records: cells(
       await rows(
         tx,
-        sql`select r.id, r.name, r.archived_at, r.owner_user_id, r.team_user_ids, r.updated_at
+        sql`select r.id, r.name, r.notes, r.archived_at, r.owner_user_id, r.team_user_ids, r.updated_at
             from app.custom_records r join app.custom_record_types t on t.id = r.type_id
             where r.workspace_id = ${ws} and t.key = 'realestate_deal' and r.sync_window`,
       ),
@@ -95,7 +98,8 @@ async function phoneRows(u: TestUser): Promise<RealestateSource> {
     links: cells(
       await rows(
         tx,
-        sql`select l.id, t.addon_key, l.a_person_id, l.a_custom_record_id, l.b_custom_record_id, l.created_at
+        sql`select l.id, t.addon_id, t.addon_key, t.position, l.a_person_id, l.a_company_id, l.a_custom_record_id,
+              l.b_custom_record_id, l.note, l.created_at
             from app.relationships l join app.relationship_types t on t.id = l.type_id
             where l.workspace_id = ${ws}`,
       ),
@@ -105,6 +109,9 @@ async function phoneRows(u: TestUser): Promise<RealestateSource> {
         tx,
         sql`select id, first_name, last_name, email from app.people where workspace_id = ${ws}`,
       ),
+    ),
+    companies: cells(
+      await rows(tx, sql`select id, name from app.companies where workspace_id = ${ws}`),
     ),
     users: cells(await rows(tx, sql`select id, full_name, email from app.users`)),
     recordNames: cells(
@@ -146,7 +153,7 @@ beforeAll(async () => {
   const day = (n: number) =>
     new Date(Date.parse(`${today}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
-  const nguyen = (
+  nguyen = (
     await run(
       'realestate.deal.open',
       {
@@ -197,6 +204,27 @@ beforeAll(async () => {
         reviewAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
       },
     },
+    agent,
+  );
+
+  const lender = (
+    await executeCommand(
+      api(),
+      companyCreate,
+      { workspaceId: ws, name: 'Hill Country Lending' },
+      human(agent),
+      meta(),
+    )
+  ).output.companyId as string;
+  await run(
+    'realestate.party.add',
+    { dealId: nguyen, role: 'lender', companyId: lender, note: 'Rate locked to Oct 13' },
+    agent,
+  );
+  await run('realestate.party.add', { dealId: nguyen, role: 'client', personId: ann }, agent);
+  await run(
+    'realestate.duty.add_evidence',
+    { dutyId: open[2]!.id, kind: 'note', body: 'Called the lender; binder on its way.' },
     agent,
   );
 
@@ -319,5 +347,55 @@ describe('My duties on the phone', () => {
     expect(
       dutyListOfCopy(await phoneCopy(agent), {}, { userId: agent.id, now: Date.now() }).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe('a deal’s page on the phone', () => {
+  it('answers what the server answers about the deal, its team, home, people, terms and duties', async () => {
+    for (const u of [agent, owner]) {
+      const server = await ask('realestate.deal.get', { dealId: nguyen }, u);
+      const page = dealPageOfCopy(await phoneCopy(u), nguyen, { userId: u.id, now: Date.now() });
+      expect(page, u.email).not.toBeNull();
+      const { full, ...shown } = page!;
+      const want = {
+        deal: server.deal,
+        team: server.team,
+        property: server.property,
+        parties: server.parties,
+        terms: server.terms,
+        duties: server.duties,
+      };
+      if (u === agent) {
+        expect(full).toBe(true);
+        expect(shown).toEqual(want);
+      } else {
+        // Whoever sees every deal keeps another agent's deal as its summary: proof waits for signal.
+        expect(full).toBe(false);
+        expect(shown).toEqual({
+          ...want,
+          duties: want.duties.map((t: { proofMissing: string }) => ({ ...t, proofMissing: '' })),
+        });
+      }
+    }
+  });
+
+  it('isn’t equal by being empty', async () => {
+    const page = dealPageOfCopy(await phoneCopy(agent), nguyen, {
+      userId: agent.id,
+      now: Date.now(),
+    })!;
+    expect(page.parties.map((p) => [p.label, p.name, p.note])).toEqual(
+      expect.arrayContaining([
+        ['Lender', 'Hill Country Lending', 'Rate locked to Oct 13'],
+        ['Client', 'Linh Nguyen', null],
+        ['Client', 'Ann Smith', null],
+      ]),
+    );
+    expect(page.terms.map((t) => t.key)).toEqual(expect.arrayContaining(['closing', 'price']));
+    expect(page.duties.some((t) => t.proofMissing !== '')).toBe(true);
+    expect(page.duties.some((t) => t.proof !== '')).toBe(true);
+    expect(page.team).toEqual([
+      { userId: agent.id, name: 'Dana Reyes', role: 'agent', main: true },
+    ]);
   });
 });

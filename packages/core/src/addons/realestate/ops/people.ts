@@ -299,7 +299,7 @@ export async function propertyOf(
         join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = ${PROPERTY_TYPE_KEY}
         join app.custom_records pr on pr.id = rel.b_custom_record_id
         where rel.workspace_id = ${ctx.scope.workspaceId!} and rel.a_custom_record_id = ${dealId}
-        order by rel.created_at desc limit 1`,
+        order by rel.created_at desc, rel.id desc limit 1`,
   );
   return p
     ? { relationshipId: p.relationship_id, propertyId: p.property_id, address: p.address }

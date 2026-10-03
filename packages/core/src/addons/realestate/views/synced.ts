@@ -17,6 +17,7 @@ export type Cell = string | number | null | undefined;
 export interface SyncedDealRecord {
   readonly id: Cell;
   readonly name: Cell;
+  readonly notes?: Cell;
   readonly archived_at: Cell;
   readonly owner_user_id: Cell;
   readonly team_user_ids: Cell;
@@ -31,14 +32,23 @@ export interface SyncedPhoneRow {
   readonly data: Cell;
 }
 
-/** A link (`relationships`), with its kind's `addon_key`. */
+/** A link (`relationships`), with its kind's `addon_id`, `addon_key` and `position`. */
 export interface SyncedLink {
   readonly id: Cell;
+  readonly addon_id?: Cell;
   readonly addon_key: Cell;
+  readonly position?: Cell;
   readonly a_person_id: Cell;
+  readonly a_company_id?: Cell;
   readonly a_custom_record_id: Cell;
   readonly b_custom_record_id: Cell;
+  readonly note?: Cell;
   readonly created_at: Cell;
+}
+
+export interface SyncedCompany {
+  readonly id: Cell;
+  readonly name: Cell;
 }
 
 export interface SyncedPerson {
@@ -66,6 +76,7 @@ export interface RealestateSource {
   readonly rows: readonly SyncedPhoneRow[];
   readonly links: readonly SyncedLink[];
   readonly people: readonly SyncedPerson[];
+  readonly companies?: readonly SyncedCompany[];
   readonly users: readonly SyncedUser[];
   /** Records the links point at (homes); deal records may be among them. */
   readonly recordNames: readonly SyncedRecordName[];
@@ -123,6 +134,7 @@ export const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 export interface CopyDeal {
   readonly id: string;
   readonly name: string;
+  readonly notes: string | null;
   readonly archived: boolean;
   readonly ownerUserId: string | null;
   readonly teamUserIds: readonly string[];
@@ -159,6 +171,25 @@ export interface CopyTerm {
   readonly live: boolean;
 }
 
+/** One of Real Estate's rows: its own key and its columns. */
+export interface CopyRow {
+  readonly id: string;
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+/** A link to a deal, as the deal page lists its people. */
+export interface CopyLink {
+  readonly id: string;
+  readonly addonId: string | null;
+  readonly addonKey: string | null;
+  readonly position: number;
+  readonly personId: string | null;
+  readonly companyId: string | null;
+  readonly dealId: string;
+  readonly note: string | null;
+  readonly at: number;
+}
+
 export interface RealestateCopy {
   readonly deals: ReadonlyMap<string, CopyDeal>;
   readonly duties: ReadonlyMap<string, readonly CopyDuty[]>;
@@ -167,10 +198,17 @@ export interface RealestateCopy {
   readonly clients: ReadonlyMap<string, string>;
   /** A deal's latest home: its record. */
   readonly homes: ReadonlyMap<string, string>;
+  /** The links whose far end is the deal (its clients and the rest of its people), in no order. */
+  readonly linksTo: ReadonlyMap<string, readonly CopyLink[]>;
+  /** Any of Real Estate's rows for a deal, by source ('deal_roles', 'documents', …). */
+  rows(source: string, dealId: string): readonly CopyRow[];
   /** A member's name, as the server's queries give it (their name, else their email). */
   user(id: string): string | null;
   /** A customer's name, as the server's queries give it ("Customer" when there's nothing). */
   person(id: string): string | null;
+  /** A customer's name as a deal's people list gives it: their name, else their email, else nothing. */
+  personPlain(id: string): string | null;
+  company(id: string): string | null;
   record(id: string): string | null;
 }
 
@@ -181,9 +219,11 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
   const people = new Map(
     source.people.map((p) => [
       text(p.id) ?? '',
-      joined(p.first_name, p.last_name) ?? text(p.email) ?? 'Customer',
+      joined(p.first_name, p.last_name) ?? text(p.email),
     ]),
   );
+  const companies = new Map((source.companies ?? []).map((c) => [text(c.id) ?? '', text(c.name)]));
+  const bySource = new Map<string, Map<string, CopyRow[]>>();
   const recordNames = new Map(source.recordNames.map((r) => [text(r.id) ?? '', text(r.name)]));
 
   const dealData = new Map<string, Record<string, unknown>>();
@@ -193,7 +233,11 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     const record = text(row.record_id);
     if (!record) continue;
     const d = obj(row.data);
-    switch (text(row.source)) {
+    const src = text(row.source) ?? '';
+    const forSource = bySource.get(src) ?? new Map<string, CopyRow[]>();
+    bySource.set(src, forSource);
+    forSource.set(record, [...(forSource.get(record) ?? []), { id: keyOf(row.id), data: d }]);
+    switch (src) {
       case 'deals':
         dealData.set(record, d);
         break;
@@ -240,6 +284,7 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     deals.set(id, {
       id,
       name: text(r.name) ?? '',
+      notes: text(r.notes),
       archived: text(r.archived_at) !== null,
       ownerUserId: text(r.owner_user_id),
       teamUserIds: ids(r.team_user_ids),
@@ -251,10 +296,27 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
   // A deal's first client and its latest home, as the server's queries pick them.
   const clients = new Map<string, { person: string; at: number; id: string }>();
   const homes = new Map<string, { home: string; at: number; id: string }>();
+  const linksTo = new Map<string, CopyLink[]>();
   for (const l of source.links) {
     const key = text(l.addon_key);
     const id = text(l.id) ?? '';
     const at = ms(l.created_at) ?? 0;
+    const to = text(l.b_custom_record_id);
+    if (to)
+      linksTo.set(to, [
+        ...(linksTo.get(to) ?? []),
+        {
+          id,
+          addonId: text(l.addon_id),
+          addonKey: key,
+          position: Number(l.position ?? 0) || 0,
+          personId: text(l.a_person_id),
+          companyId: text(l.a_company_id),
+          dealId: to,
+          note: text(l.note),
+          at,
+        },
+      ]);
     if (key === 'realestate_client') {
       const deal = text(l.b_custom_record_id);
       const person = text(l.a_person_id);
@@ -278,8 +340,12 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     terms,
     clients: new Map([...clients].map(([deal, c]) => [deal, c.person])),
     homes: new Map([...homes].map(([deal, h]) => [deal, h.home])),
+    linksTo,
+    rows: (src, dealId) => bySource.get(src)?.get(dealId) ?? [],
     user: (id) => users.get(id) ?? null,
-    person: (id) => people.get(id) ?? null,
+    person: (id) => (people.has(id) ? (people.get(id) ?? 'Customer') : null),
+    personPlain: (id) => people.get(id) ?? null,
+    company: (id) => companies.get(id) ?? null,
     record: (id) => recordNames.get(id) ?? null,
   };
 }

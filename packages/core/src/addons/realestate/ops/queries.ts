@@ -401,7 +401,7 @@ export const dealGet = defineAddonQuery(realestateAddon, {
           left join app.companies c on c.id = rel.a_company_id
           where rel.workspace_id = ${ctx.scope.workspaceId!} and rel.b_custom_record_id = ${deal.recordId}
             and rt.addon_key <> 'realestate_property_of'
-          order by rt.position, rel.created_at`,
+          order by rt.position, rel.created_at, rel.id`,
     );
     const links = await rows<{
       other: string;
@@ -428,7 +428,7 @@ export const dealGet = defineAddonQuery(realestateAddon, {
       .select()
       .from(duties)
       .where(eq(duties.dealRecordId, deal.recordId))
-      .orderBy(asc(duties.dueAt), asc(duties.createdAt));
+      .orderBy(asc(duties.dueAt), asc(duties.createdAt), asc(duties.id));
     const names = await userNames(
       ctx,
       dutyRows.map((t) => t.accountableUserId),
