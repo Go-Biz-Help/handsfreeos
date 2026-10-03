@@ -119,7 +119,10 @@ export function PortalMessagesPage() {
         throughMessageId: newest.id,
       }).catch(() => null);
   }, [data?.conversationId, data?.unread, newest, op]);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [list.length]);
+  // A block, so the effect returns nothing: newer browsers' scrollIntoView returns a promise, which React refuses.
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [list.length]);
   const send = () =>
     act('send', async () => {
       await op('portal.message_send', { body, clientId: crypto.randomUUID() });
