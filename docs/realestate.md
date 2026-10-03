@@ -14,7 +14,10 @@ page, flyer, campaign and social posts, open houses, price changes the seller si
 the seller's estimate, matching to the business's own buyers, and the seller's portal. Round four (**Coordinator and
 risk**) reads contracts and amendments, tracks contingencies, knows which duties wait on others, watches a client's
 linked sale and purchase, raises at-risk work to the alert people after a business day, and adds Coordinate: Today,
-Exceptions, the Waiting room and Team workload.
+Exceptions, the Waiting room and Team workload. Round five (**Ecosystem**) connects it to other services: listing data from
+HandsFreeOS's Repliers account or the brokerage's own Repliers, AnyProp or MLS feed (homes and their facts, buyers'
+saved searches and new matches, comps, our listings' status), e-sign through DocuSign and Dotloop, showings from the
+listing's own page and ShowingTime's emails, and the business's vendors directory.
 
 It's in **beta**: offered to nobody on its own. HandsFreeOS staff hand it to a test business, whose owners and
 admins then add it from their Add-ons page. It's free; its AI use is counted.
@@ -38,13 +41,13 @@ admins then add it from their Add-ons page. It's free; its AI use is counted.
 | Showings (round five)                 | `showings.ts` (the seller's open times, where a showing stands, what buyers said); `ops/showings.ts` (the listing's page, the seller's portal, feedback by link or by hand); the worker's `showings.ts` (who hears what, the access and feedback emails, buyers' words grouped) and `showingtime.ts` (ShowingTime's emails read by their labels)                                       |
 | Vendors (round five)                  | `vendors.ts` (services, a duty's service from its title, areas, disclosures in words); `ops/vendors.ts` (the directory, and the vendor picked on a duty with their quote and appointment)                                                                                                                                                                                              |
 | Commands and queries                  | `packages/core/src/addons/realestate/ops/` (the engine that makes and dates duties is `ops/engine.ts`); all of them in `server.ts`                                                                                                                                                                                                                                                     |
-| Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`, round four's from `20261020001100`                                                                                                                                                                 |
+| Its own tables                        | `tables.ts` (Drizzle mirror of schema `addon_realestate`); migrations `20261013002500` to `20261013003000`, round two's from `20261014000800`, round three's from `20261020000100`, round four's from `20261020001100`, round five's from `20261021000100`                                                                                                                             |
 | Worker                                | `apps/worker/src/addons/realestate/`: the sweep and the alert ladder, the wiring alert, client-update drafting and checking; reading pasted listings, buyer memory, tours following the calendar, the CMA summary, the offer clock; `listing.ts` (a listing's facts, description, posts and reminders) and `matching.ts` (our buyers); `contract.ts` (reading a contract or amendment) |
-| Web                                   | components in `apps/web/src/addons/realestate/`; pages under `apps/web/src/app/app/w/[workspaceId]/a/realestate/`; panels and menu icons in `apps/web/src/addons/registry.ts`                                                                                                                                                                                                          |
+| Web                                   | components in `apps/web/src/addons/realestate/`; pages under `apps/web/src/app/app/w/[workspaceId]/a/realestate/`; panels and menu icons in `apps/web/src/addons/registry.ts`; any add-on's connections in core's `apps/web/src/components/addons/connections.tsx`                                                                                                                     |
 | The client's portal                   | its pages in `apps/web/src/addons/realestate/portal/` (the seller's in `listing.tsx`); core's shell, sign-in, Home, Messages and Files in `apps/web/src/components/portal/` and `apps/web/src/app/c/[token]/`                                                                                                                                                                          |
 | The public pages                      | `apps/web/src/addons/realestate/public/`, drawn by core's `apps/web/src/app/a/[site]/[addonId]/[...path]/`; their operations in `ops/public.ts` and `ops/open-houses.ts`                                                                                                                                                                                                               |
 | Design boards                         | `design/realestate` (approved 2026-09-30)                                                                                                                                                                                                                                                                                                                                              |
-| Tests                                 | `packages/core/test/addons/realestate-*.test.ts`; `apps/worker/test/realestate-*.test.ts`; `packages/db/test/private-records-rls.test.ts`; `apps/web/e2e/realestate.spec.ts`, `realestate-buyer.spec.ts`, `realestate-listing.spec.ts`, `realestate-coordinator.spec.ts`                                                                                                               |
+| Tests                                 | `packages/core/test/addons/realestate-*.test.ts`; `apps/worker/test/realestate-*.test.ts`; `packages/db/test/private-records-rls.test.ts`; `apps/web/e2e/realestate.spec.ts`, `realestate-buyer.spec.ts`, `realestate-listing.spec.ts`, `realestate-coordinator.spec.ts`, `realestate-ecosystem.spec.ts`                                                                               |
 
 The core pieces it needed are core's, usable by any add-on: private records and support access
 (docs/relationships.md), add-on alerts on Home, push and email, locked files, and staff grants
@@ -90,6 +93,30 @@ The core pieces it needed are core's, usable by any add-on: private records and 
   each narrowed by `?mine=1` or `?agent=<id>`. **Deals** takes filters in its address: `agent`, `side`, `stage`,
   `closing` (days), `waiting` (`outside`, `blocked`, `either`) and `health`.
 - **The client's portal** shows their contingencies on their deal, and how each ended.
+- **Round five: connections.** Deal settings → **Connections** (`?tab=connections`, owners and admins): listing
+  data (HandsFreeOS's Repliers account, or the brokerage's own by key), DocuSign and Dotloop (sign in), and
+  ShowingTime's emails on or off; a connection that stops working says what it affects and what to do, with Paste a
+  new key, Sign in again or Switch back to HandsFreeOS's account. A sign-in at a service comes back to core's
+  `/app/w/<business>/addons/realestate/connections`, which sends the person on to the tab with `?connected=` or
+  `?signin=`.
+- **Round five: listing data.** Add a home → **From the MLS** (type an address or MLS number; Paste a listing
+  instead); a home's dialog shows what the MLS has, where it disagrees with the confirmed facts (Use the MLS's), and
+  Look it up on the MLS. **New matches** (`…/deals/<id>/matches`) lists a buyer's saved search's homes to send or
+  skip, with the search on or off; the Homes page says when new ones wait. A CMA's **Comps from the MLS** finds sold
+  homes near it, each marked, unticked. A listing where the MLS and the deal disagree says so on its deal page, with
+  It's changed to ask again. The portal shows a home's MLS photo, price and notice.
+- **Round five: e-sign.** Documents → a document's More → **Send for signing…** (who signs, in order or at the same
+  time, and a message), then Place the fields and send in DocuSign or Dotloop; the Signing column and each
+  envelope's panel (open it there, Remind them, It's signed, Look again, Void it…). Coming back from the service
+  (`…/documents?esign=<envelope>`) looks again at once.
+- **Round five: showings.** A listing's **Showings** (`…/deals/<id>/showings`, and a card on its deal page): every
+  request, its state and feedback, Copy the request link, Add a showing, check one read from ShowingTime's email,
+  share feedback with the seller, what buyers said, and how showings work here. Signed out: **Request a showing**
+  (`/a/<site>/realestate/<slug>/showing`) and the feedback link (`…/showing-feedback/<token>`). The seller's portal:
+  **Showings** (`deals/<id>/showings`) to answer yes, another time or no, and a card on their home's page.
+- **Round five: vendors.** **Vendors** (`/a/realestate/vendors`) in Real Estate's menu: add, approve (owners and
+  admins), archive. A duty that needs one ("Recommend inspectors and vendors") offers every approved vendor that fits
+  in its drawer, to pick, with the quote kept.
 
 ## Rules worth knowing before changing anything
 
@@ -231,6 +258,11 @@ Round five (Chris, 2026-10-02):
   disclosure (an affiliation, a referral fee). Anyone working deals adds one; only someone who runs the deal settings
   approves or archives it. On a duty every approved vendor that does it is offered, those where the home is, first;
   the picked one's disclosure is said on the deal, and their quote and appointment stay with the duty.
+- **A buyer's saved search is asked at once** when it's turned on or what it asks changes (a new area, a new price),
+  not at the next quarter hour, and a changed search starts again from a first look, so homes already on the market
+  come too.
+- **A document out for signing at DocuSign or Dotloop isn't marked signed by hand here**; it's signed there, and the
+  signed copy is what marks it.
 
 ## Handing it to a test business
 
@@ -261,14 +293,13 @@ pnpm openapi                                                        # after chan
 
 ## Not yet
 
-- Showings and their feedback (round five, with the showing connector); vendors and booking the photographer;
-  reports on competing listings.
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
-- Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors. Round five has
-  built listing data, e-sign, showings and the vendors directory on core's connections, a service's updates and
-  worker actions (docs/addon-architecture.md); the screens for all of it are next.
-- Phone screens for deals and Coordinate. Their links are ready: the manifest's `ui.phone` names the deal pages the phone will
-  draw, and a push, an email link or a Home card opens them there once the phone has them (the web until then).
+- Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors; booking a vendor's
+  appointment from the duty (it's booked on the calendar, and linked there); reports on competing listings.
+- A showing's access by smart lockbox; ShowingTime's own API (its emails are read instead).
+- Phone screens for deals, Coordinate and round five. Their links are ready: the manifest's `ui.phone` names the deal
+  pages the phone will draw, and a push, an email link or a Home card opens them there once the phone has them (the
+  web until then).
 - The AI teammate using the add-on, and workflow steps and triggers from it.
 - State rules, a brokerage rule engine beyond the duty editor, retention and legal holds, and exporting a whole
   transaction.

@@ -2006,7 +2006,30 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
   - Not yet: sharing the list of vendors that fit with the client in their portal; the screens show the agent the
     whole list with each disclosure to give them.
 
-- **Step 10:** the screens. **Step 11:** the docs, the browser test and a short video.
+- **Step 10:** the screens (boards 62–75, approved 2026-10-02).
+
+  **As built** (no migration): what the boards needed from the server first (`fec9f3e`): the worker action
+  `realestate.feed.search` (the feed asked while the agent types an address or MLS number, nothing kept),
+  `realestate.esign.remind` (DocuSign sends it again to whoever hasn't signed), `showingTimeEmails` in the settings
+  (ShowingTime's emails read, or left in the Inbox), and `realestate.connections.uses` (what hangs on each
+  connection, for when one stops working).
+  - **Connections** (boards 62, 63): a core panel any add-on with `connectors` gets
+    (`apps/web/src/components/addons/connections.tsx`), shown as Deal settings → Connections, with ShowingTime's
+    emails. A sign-in comes back to core's `addons/<id>/connections`, which sends the person to the registry's
+    `connections` path.
+  - **Listing data** (64–68): From the MLS in Add a home; the MLS on a home's dialog; New matches
+    (`deals/<id>/matches`); Comps from the MLS on a CMA; a listing where the MLS and the deal disagree; the MLS's
+    photo, price and notice in the portal.
+  - **E-sign** (69, 70): Send for signing on Documents, the Signing column and each envelope's panel.
+  - **Showings** (71–74): the listing's Showings page and deal card, the public request and feedback pages, and the
+    seller's Showings in the portal.
+  - **Vendors** (75): Vendors in the menu, and the vendor section in a duty's drawer.
+  - Found while building them: a buyer's search waited up to 15 minutes after being turned on, and a changed search
+    asked only for what the MLS changed since, missing homes already listed in a new area; now it's asked at once
+    (`realestate.search.changed`, and `realestate.buyer_profile.saved` with `searchChanged`) and a changed search
+    starts from a first look. The web's address-kept dialogs (`?home=`) lost their address after a refresh; fixed.
+
+- **Step 11:** the docs, the browser test and a short video.
 
 ## Not in round five
 
