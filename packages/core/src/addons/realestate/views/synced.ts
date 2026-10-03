@@ -49,6 +49,8 @@ export interface SyncedLink {
 export interface SyncedCompany {
   readonly id: Cell;
   readonly name: Cell;
+  readonly email?: Cell;
+  readonly phone?: Cell;
 }
 
 export interface SyncedPerson {
@@ -83,7 +85,11 @@ export interface RealestateSource {
     readonly name: Cell;
     readonly locked_at?: Cell;
   }[];
-  readonly appointments?: readonly { readonly id: Cell; readonly title: Cell }[];
+  readonly appointments?: readonly {
+    readonly id: Cell;
+    readonly title: Cell;
+    readonly starts_at?: Cell;
+  }[];
   readonly users: readonly SyncedUser[];
   /** Records the links point at (homes); deal records may be among them. */
   readonly recordNames: readonly SyncedRecordName[];
@@ -213,6 +219,8 @@ export interface RealestateCopy {
   readonly linksTo: ReadonlyMap<string, readonly CopyLink[]>;
   /** Any of Real Estate's rows for a deal, by source ('deal_roles', 'documents', …). */
   rows(source: string, dealId: string): readonly CopyRow[];
+  /** The business's own rows of a source, on no deal ('vendors'). */
+  businessRows(source: string): readonly CopyRow[];
   /** A member's name, as the server's queries give it (their name, else their email). */
   user(id: string): string | null;
   /** A customer's name, as the server's queries give it ("Customer" when there's nothing). */
@@ -220,11 +228,14 @@ export interface RealestateCopy {
   /** A customer's name as a deal's people list gives it: their name, else their email, else nothing. */
   personPlain(id: string): string | null;
   company(id: string): string | null;
+  /** How to reach a company: its email and phone, as kept. */
+  companyContact(id: string): { readonly email: string | null; readonly phone: string | null };
   record(id: string): string | null;
   file(id: string): string | null;
   /** Whether a file is locked (signed and kept as it is), or null when the phone doesn't hold it. */
   fileLocked(id: string): boolean | null;
   appointment(id: string): string | null;
+  appointmentStart(id: string): string | null;
 }
 
 export function realestateCopyOf(source: RealestateSource): RealestateCopy {
@@ -238,6 +249,15 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     ]),
   );
   const companies = new Map((source.companies ?? []).map((c) => [text(c.id) ?? '', text(c.name)]));
+  const contacts = new Map(
+    (source.companies ?? []).map((c) => [
+      text(c.id) ?? '',
+      { email: text(c.email), phone: text(c.phone) },
+    ]),
+  );
+  const starts = new Map(
+    (source.appointments ?? []).map((a) => [text(a.id) ?? '', ms(a.starts_at)]),
+  );
   const files = new Map((source.files ?? []).map((f) => [text(f.id) ?? '', text(f.name)]));
   const locked = new Map(
     (source.files ?? []).map((f) => [text(f.id) ?? '', text(f.locked_at) !== null]),
@@ -258,12 +278,16 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
       continue;
     }
     const record = text(row.record_id);
-    if (!record) continue;
     const d = obj(row.data);
     const src = text(row.source) ?? '';
     const forSource = bySource.get(src) ?? new Map<string, CopyRow[]>();
     bySource.set(src, forSource);
-    forSource.set(record, [...(forSource.get(record) ?? []), { id: keyOf(row.id), data: d }]);
+    // The business's own rows sit under '' (no deal).
+    forSource.set(record ?? '', [
+      ...(forSource.get(record ?? '') ?? []),
+      { id: keyOf(row.id), data: d },
+    ]);
+    if (!record) continue;
     switch (src) {
       case 'deals':
         dealData.set(record, d);
@@ -369,14 +393,20 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     clients: new Map([...clients].map(([deal, c]) => [deal, c.person])),
     homes: new Map([...homes].map(([deal, h]) => [deal, h.home])),
     linksTo,
-    rows: (src, dealId) => bySource.get(src)?.get(dealId) ?? [],
+    rows: (src, dealId) => (dealId ? (bySource.get(src)?.get(dealId) ?? []) : []),
+    businessRows: (src) => bySource.get(src)?.get('') ?? [],
     user: (id) => users.get(id) ?? null,
     person: (id) => (people.has(id) ? (people.get(id) ?? 'Customer') : null),
     personPlain: (id) => people.get(id) ?? null,
     company: (id) => companies.get(id) ?? null,
+    companyContact: (id) => contacts.get(id) ?? { email: null, phone: null },
     record: (id) => recordNames.get(id) ?? null,
     file: (id) => files.get(id) ?? null,
     fileLocked: (id) => locked.get(id) ?? null,
     appointment: (id) => appointments.get(id) ?? null,
+    appointmentStart: (id) => {
+      const t = starts.get(id);
+      return t === null || t === undefined ? null : iso(t);
+    },
   };
 }

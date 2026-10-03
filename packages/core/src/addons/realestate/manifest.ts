@@ -413,7 +413,9 @@ export const realestateAddon = defineAddon({
           'appointment_id',
           'note',
           'picked_at',
+          'picked_by',
           'removed_at',
+          'removed_reason',
         ],
       },
       {
@@ -913,6 +915,7 @@ export const realestateAddon = defineAddon({
           'services',
           'areas',
           'approved',
+          'approved_at',
           'disclosure',
           'note',
           'archived_at',

@@ -57,6 +57,7 @@ import {
 } from './common';
 import { loadDuty, logLine } from './duties';
 import { listingAddress } from './listing';
+import { byName, byText } from '../views/synced';
 
 type Vendor = typeof vendors.$inferSelect;
 type Pick = typeof dutyVendors.$inferSelect;
@@ -106,7 +107,8 @@ async function vendorRows(
         ...(where.archived ? [] : [isNull(vendors.archivedAt)]),
       ),
     )
-    .orderBy(companies.name);
+    // By name in English reading order, as a phone sorts them (views/synced.ts).
+    .then((l) => l.sort((a, b) => byName(a.name, b.name) || byText(a.v.id, b.v.id)));
   const used = list.length
     ? await rows<{ vendor_id: string; uses: number; last: string | null }>(
         ctx.tx,
@@ -380,7 +382,7 @@ export const dutyVendorsGet = defineAddonQuery(realestateAddon, {
       .select()
       .from(dutyVendors)
       .where(eq(dutyVendors.dutyId, duty.id))
-      .orderBy(desc(dutyVendors.pickedAt));
+      .orderBy(desc(dutyVendors.pickedAt), desc(dutyVendors.id));
     const picked = new Map(
       (
         await vendorRows(ctx, { ids: [...new Set(picks.map((p) => p.vendorId))], archived: true })

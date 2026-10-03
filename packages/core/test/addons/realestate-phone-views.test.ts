@@ -27,6 +27,7 @@ import {
 import { documentsOfCopy } from '../../src/addons/realestate/views/documents';
 import { dutySheetOfCopy } from '../../src/addons/realestate/views/duty-sheet';
 import { historyOfCopy } from '../../src/addons/realestate/views/history';
+import { dutyVendorsOfCopy, vendorListOfCopy } from '../../src/addons/realestate/views/vendors';
 import {
   companyCreate,
   executeCommand,
@@ -72,6 +73,7 @@ let ws: string;
 let today: string;
 let nguyen: string;
 let dutyIds: string[] = [];
+let inspectDuty: string;
 
 /** A cell as the phone keeps it: text, 0/1, or nothing; arrays and JSON as JSON text; times as PowerSync writes them. */
 function cell(v: unknown): string | number | null {
@@ -151,7 +153,10 @@ async function phoneRows(u: TestUser): Promise<RealestateSource> {
       ),
     ),
     companies: cells(
-      await rows(db, sql`select id, name from app.companies where workspace_id = ${ws}`),
+      await rows(
+        db,
+        sql`select id, name, email, phone from app.companies where workspace_id = ${ws}`,
+      ),
     ),
     files: cells(
       await rows(
@@ -163,7 +168,7 @@ async function phoneRows(u: TestUser): Promise<RealestateSource> {
     appointments: cells(
       await rows(
         db,
-        sql`select a.id, a.title from app.appointments a
+        sql`select a.id, a.title, a.starts_at from app.appointments a
             where a.workspace_id = ${ws} and ${toItsPeople('a')}`,
       ),
     ),
@@ -293,6 +298,29 @@ beforeAll(async () => {
   // One waits on another, added by hand.
   await run('realestate.duty.link', { dutyId: open[3]!.id, waitsOnId: open[2]!.id }, agent);
   dutyIds = open.slice(0, 4).map((d) => d.id);
+  // Vendors: two inspectors (one approved, working in Austin) and a photographer; one inspector on a duty.
+  const vendor = async (name: string, services: string[], areas: string[], approve: boolean) => {
+    const v = (await run('realestate.vendor.save', { name, services, areas }, owner))
+      .vendorId as string;
+    if (approve) await run('realestate.vendor.approve', { vendorId: v, approved: true }, owner);
+    return v;
+  };
+  const lone = await vendor('Lone Star Inspections', ['inspection'], ['Austin'], true);
+  await vendor('Bluebonnet Home Inspectors', ['inspection'], ['Dallas'], true);
+  await vendor('Lens & Light', ['photos'], [], false);
+  const inspect = (
+    await ask('realestate.duty.list', { dealId: nguyen, mine: false, status: 'open' }, agent)
+  ).duties.find((d: { title: string }) => /inspect/i.test(d.title));
+  inspectDuty = inspect?.dutyId ?? open[0]!.id;
+  const pick = (
+    await run(
+      'realestate.duty.pick_vendor',
+      { dutyId: inspectDuty, vendorId: lone, service: 'inspection', note: 'Can do Thursday' },
+      agent,
+    )
+  ).pickId;
+  await run('realestate.duty.vendor_quote', { pickId: pick, cents: 45_000 }, agent);
+
   // A contingency past its end, and a blocker past its day to look again.
   await run(
     'realestate.contingency.add',
@@ -649,5 +677,42 @@ describe('Coordinate on the phone', () => {
     expect(ex.contingencies.map((c) => c.label)).toEqual(['Sale of the buyers’ condo']);
     expect(ex.blocked.map((b) => b.blocker)).toEqual(['Survey not ordered']);
     expect(waitingRoomOfCopy(copy, {}, ctx).items.length).toBe(2);
+  });
+});
+
+describe('vendors on the phone', () => {
+  it('answer what the server answers: the directory, and a duty’s vendors', async () => {
+    for (const u of [agent, owner]) {
+      const copy = await phoneCopy(u);
+      for (const f of [{}, { service: 'inspection' as const }, { includeArchived: true }]) {
+        const server = (await ask('realestate.vendor.list', f, u)).vendors;
+        const { vendors, partial } = vendorListOfCopy(copy, f, { userId: u.id });
+        if (u === agent) {
+          expect(partial).toBe(false);
+          expect(vendors, JSON.stringify(f)).toEqual(server);
+        } else {
+          // How often each was used counts only the deals the phone holds whole, until signal.
+          expect(partial).toBe(true);
+          expect(vendors.map(({ uses: _u, lastUsedAt: _l, ...v }) => v)).toEqual(
+            server.map(
+              ({ uses: _u, lastUsedAt: _l, ...v }: { uses: number; lastUsedAt: string }) => v,
+            ),
+          );
+        }
+      }
+    }
+    const server = await ask('realestate.duty.vendors', { dutyId: inspectDuty }, agent);
+    const phone = dutyVendorsOfCopy(await phoneCopy(agent), inspectDuty, { userId: agent.id });
+    expect(phone).toEqual(server);
+    // Neither works where 2207 Juniper Trail is (no town in its address): by name.
+    expect(phone!.fits.map((v) => v.name)).toEqual([
+      'Bluebonnet Home Inspectors',
+      'Lone Star Inspections',
+    ]);
+    expect(phone!.picks.map((p) => [p.vendor.name, p.quoteWords])).toEqual([
+      ['Lone Star Inspections', '$450'],
+    ]);
+    // Not on the deal: the owner's phone keeps its summary, and the duty's vendors wait for signal.
+    expect(dutyVendorsOfCopy(await phoneCopy(owner), inspectDuty, { userId: owner.id })).toBeNull();
   });
 });

@@ -172,7 +172,8 @@ select private.addon_phone_table('addon_realestate.duty_links', 'deal_record_id'
 select private.addon_phone_table('addon_realestate.duty_log', 'deal_record_id', array['duty_id', 'at', 'actor_type',
   'actor_user_id', 'what', 'before', 'after', 'note']);
 select private.addon_phone_table('addon_realestate.duty_vendors', 'deal_record_id', array['duty_id', 'vendor_id',
-  'service', 'quote_cents', 'quote_document_id', 'appointment_id', 'note', 'picked_at', 'removed_at']);
+  'service', 'quote_cents', 'quote_document_id', 'appointment_id', 'note', 'picked_at', 'picked_by', 'removed_at',
+  'removed_reason']);
 select private.addon_phone_table('addon_realestate.documents', 'deal_record_id', array['file_id', 'kind', 'title',
   'lineage_id', 'version', 'supersedes_id', 'status', 'controlling', 'signed_at', 'voided_at', 'void_reason',
   'offer_version_id', 'created_at']);
@@ -261,4 +262,4 @@ select private.addon_phone_table('addon_realestate.walkthrough_items', 'deal_rec
 
 -- The business's own: its vendors.
 select private.addon_phone_table('addon_realestate.vendors', null, array['company_id', 'services', 'areas',
-  'approved', 'disclosure', 'note', 'archived_at']);
+  'approved', 'approved_at', 'disclosure', 'note', 'archived_at']);
