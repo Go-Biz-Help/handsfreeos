@@ -3,8 +3,10 @@
  * core"; the spec's X-04 "Seller net sheet"). An estimate, never a settlement statement: the price, less the listing's
  * fee, what the buyer's agent asks the seller to pay, the seller's credit, what's owed on the mortgage, title and
  * escrow, transfer tax and other costs. Whole cents throughout; a share of the price rounds to the nearest cent.
- * Browser-safe and pure: the agent's page, the seller's portal and the Assistant work it out the same way.
+ * Browser-safe and pure: the agent's page, the seller's portal, the phone and the Assistant work it out the same way.
  */
+import type { z } from 'zod';
+import type { OffersCompareOutput } from './schemas';
 
 /** The figures the agent keeps for the estimate. */
 export interface NetFigures {
@@ -99,6 +101,53 @@ export const EMPTY_NET_FIGURES: NetFigures = {
   otherCents: 0,
   otherNote: null,
 };
+
+/** A save of the figures, as the server reads it and a phone keeps it (its time as a `Date` or ISO text). */
+export interface NetSheetRow {
+  readonly version: number;
+  readonly payoffCents: number;
+  readonly listingFeeBp: number | null;
+  readonly listingFeeCents: number | null;
+  readonly titleEscrowCents: number;
+  readonly transferTaxBp: number;
+  readonly otherCents: number;
+  readonly otherNote: string | null;
+  readonly note: string | null;
+  readonly savedAt: Date | string;
+  readonly savedBy: string | null;
+}
+
+/** The figures an estimate uses: those of a save, or nothing yet. */
+export const netFiguresOf = (s: NetSheetRow | undefined): NetFigures =>
+  s
+    ? {
+        payoffCents: s.payoffCents,
+        listingFeeBp: s.listingFeeBp,
+        listingFeeCents: s.listingFeeCents,
+        titleEscrowCents: s.titleEscrowCents,
+        transferTaxBp: s.transferTaxBp,
+        otherCents: s.otherCents,
+        otherNote: s.otherNote,
+      }
+    : EMPTY_NET_FIGURES;
+
+/** A save of the figures as the offers side by side show it; `savedByName` is null when they've left. */
+export const netSheetOut = (
+  s: NetSheetRow,
+  savedByName: string | null,
+): z.infer<typeof OffersCompareOutput>['figureHistory'][number] => ({
+  version: s.version,
+  payoffCents: s.payoffCents,
+  listingFeeBp: s.listingFeeBp,
+  listingFeeCents: s.listingFeeCents,
+  titleEscrowCents: s.titleEscrowCents,
+  transferTaxBp: s.transferTaxBp,
+  otherCents: s.otherCents,
+  otherNote: s.otherNote,
+  note: s.note,
+  savedAt: new Date(s.savedAt).toISOString(),
+  savedBy: s.savedBy ? { id: s.savedBy, fullName: savedByName ?? 'Former member' } : null,
+});
 
 /** The four things a seller can say about an offer in their portal. */
 export const SELLER_CHOICES = {

@@ -1,8 +1,8 @@
 /**
  * The CMA (HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md, "Round two: Buyer core"): what a home is worth next to
  * homes sold nearby. Chris decided (2026-09-30): the agent adds the comps, HandsFreeOS works out the range, and the
- * AI drafts the summary for the agent to check. Browser-safe and pure: the commands, the screens, the portal and the
- * Assistant all read the same numbers.
+ * AI drafts the summary for the agent to check. Browser-safe and pure: the commands, the screens, the portal, the phone
+ * and the Assistant all read the same numbers, and the server and the phone build a CMA's page the same way.
  *
  * Method 1, "adjusted price per square foot, recent sales weighted more":
  *
@@ -13,7 +13,10 @@
  *   up and likely to the nearest $1,000.
  * - A comp still for sale or pending is shown for context and never counted.
  */
+import type { z } from 'zod';
 import { money } from '../../money/format';
+import { compsStateWords, mlsSourceWords, type MlsSnapshot } from './feed';
+import type { CmaOut, CmasOutput } from './schemas';
 
 export const CMA_METHOD = 1;
 export const CMA_METHOD_WORDS = 'Adjusted price per square foot, recent sales weighted more.';
@@ -204,4 +207,201 @@ export function unsupportedAmounts(
     if (!near && !inside && !out.includes(m[0].trim())) out.push(m[0].trim());
   }
   return out;
+}
+
+// ---------- a CMA as its pages show it ----------
+
+/** A numeric column: text from the server, a number on the phone. */
+const num = (v: string | number | null): number | null => (v === null ? null : Number(v));
+
+/** A CMA's row, as the server reads it and a phone keeps it (times as a `Date` or ISO text). */
+export interface CmaRow {
+  readonly id: string;
+  readonly dealRecordId: string;
+  readonly homeId: string | null;
+  readonly number: number;
+  readonly status: CmaStatus;
+  readonly asOf: string;
+  readonly subjectAddress: string;
+  readonly subjectBeds: number | null;
+  readonly subjectBaths: string | number | null;
+  readonly subjectSqft: number | null;
+  readonly subjectListPriceCents: number | null;
+  readonly subjectYearBuilt: number | null;
+  readonly lowCents: number | null;
+  readonly likelyCents: number | null;
+  readonly highCents: number | null;
+  readonly perSqftCents: number | null;
+  readonly summary: string | null;
+  readonly summaryState: 'none' | 'drafting' | 'ready' | 'failed';
+  readonly summaryFailure: string | null;
+  readonly summaryEditedAt: Date | string | null;
+  readonly compsState: 'none' | 'finding' | 'found' | 'none_found' | 'failed';
+  readonly compsAsked: Readonly<Record<string, unknown>> | null;
+  readonly compsFoundAt: Date | string | null;
+  readonly compsFailure: string | null;
+  readonly finalizedAt: Date | string | null;
+  readonly sharedAt: Date | string | null;
+  readonly createdAt: Date | string;
+}
+
+/** A comp's row, as the server reads it and a phone keeps it (numeric columns as text or numbers). */
+export interface CmaCompRow {
+  readonly id: string;
+  readonly address: string;
+  readonly priceCents: number;
+  readonly status: CompStatus;
+  readonly soldOn: string | null;
+  readonly beds: number | null;
+  readonly baths: string | number | null;
+  readonly sqft: number | null;
+  readonly yearBuilt: number | null;
+  readonly distanceMiles: string | number | null;
+  readonly adjustments: readonly CompAdjustment[];
+  readonly used: boolean;
+  readonly note: string | null;
+  readonly source: 'agent' | 'mls';
+  readonly mlsNumber: string | null;
+  readonly mls: Readonly<Record<string, unknown>> | null;
+}
+
+/** The home a CMA is for, from its row. */
+export const cmaSubjectOf = (c: CmaRow): CmaSubject => ({
+  beds: c.subjectBeds,
+  baths: num(c.subjectBaths),
+  sqft: c.subjectSqft,
+  listPriceCents: c.subjectListPriceCents,
+  yearBuilt: c.subjectYearBuilt,
+});
+
+/** A comp as the range reads it, from its row. */
+export const cmaCompOf = (r: CmaCompRow): CmaComp => ({
+  id: r.id,
+  address: r.address,
+  priceCents: r.priceCents,
+  status: r.status,
+  soldOn: r.soldOn,
+  beds: r.beds,
+  baths: num(r.baths),
+  sqft: r.sqft,
+  distanceMiles: num(r.distanceMiles),
+  adjustments: r.adjustments,
+  used: r.used,
+});
+
+/** A comp from the feed as the screens show it: its number, first photo and its MLS's lines. */
+const compMls = (mlsNumber: string, s: MlsSnapshot) => ({
+  mlsNumber,
+  sourceWords: mlsSourceWords(s),
+  photoUrl: s.photos?.[0]?.url ?? null,
+  courtesy: s.display?.courtesy ?? null,
+  notice: s.display?.notice ?? null,
+});
+
+/**
+ * A CMA as its page shows it, but for its fair-housing checks and whether it can be shared yet, which rest on those
+ * checks: the server adds them. Its comps in their order.
+ */
+export type CmaPage = Omit<z.infer<typeof CmaOut>, 'fairHousing' | 'shareBlocked'>;
+
+export function cmaPage(cma: CmaRow, rows: readonly CmaCompRow[]): CmaPage {
+  const subject = cmaSubjectOf(cma);
+  const result = cmaValues(subject, rows.map(cmaCompOf), cma.asOf);
+  const range =
+    cma.status === 'draft'
+      ? result.range
+      : {
+          lowCents: cma.lowCents!,
+          likelyCents: cma.likelyCents!,
+          highCents: cma.highCents!,
+          perSqftCents: cma.perSqftCents ?? result.range?.perSqftCents ?? 0,
+          counted: result.range?.counted ?? 0,
+        };
+  const figures = [
+    ...(subject.listPriceCents ? [subject.listPriceCents] : []),
+    ...rows.map((r) => r.priceCents),
+    ...result.comps.flatMap((v) => [v.valueCents ?? 0, v.adjustmentCents ?? 0]),
+    ...rows.flatMap((r) => r.adjustments.map((a) => a.cents)),
+    ...(range ? [range.lowCents, range.likelyCents, range.highCents, range.perSqftCents] : []),
+  ];
+  return {
+    id: cma.id,
+    dealId: cma.dealRecordId,
+    homeId: cma.homeId,
+    number: cma.number,
+    status: cma.status,
+    asOf: cma.asOf,
+    method: CMA_METHOD_WORDS,
+    subject: { address: cma.subjectAddress, ...subject },
+    comps: rows.map((r, i) => {
+      const v = result.comps[i]!;
+      return {
+        id: r.id,
+        address: r.address,
+        priceCents: r.priceCents,
+        status: r.status,
+        soldOn: r.soldOn,
+        beds: r.beds,
+        baths: num(r.baths),
+        sqft: r.sqft,
+        yearBuilt: r.yearBuilt,
+        distanceMiles: num(r.distanceMiles),
+        adjustments: [...r.adjustments],
+        used: r.used,
+        note: r.note,
+        source: r.source,
+        mls: r.mls && r.mlsNumber ? compMls(r.mlsNumber, r.mls as unknown as MlsSnapshot) : null,
+        valueCents: v.valueCents,
+        adjustmentCents: v.adjustmentCents,
+        weight: Math.round(v.weight * 1000) / 1000,
+        counted: v.counted,
+        why: v.why,
+        warnings: [...v.warnings],
+      };
+    }),
+    range,
+    missing: range ? null : result.missing,
+    summary: {
+      state: cma.summaryState,
+      text: cma.summary,
+      failure: cma.summaryFailure,
+      byAi: cma.summaryState === 'ready' && cma.summaryEditedAt === null,
+      unsupportedAmounts: cma.summary ? unsupportedAmounts(cma.summary, figures, range) : [],
+    },
+    findComps: {
+      state: cma.compsState,
+      words: compsStateWords(cma.compsState, cma.compsFailure),
+      asked: cma.compsAsked
+        ? {
+            miles: Number(cma.compsAsked['miles'] ?? 1),
+            months: Number(cma.compsAsked['months'] ?? 6),
+          }
+        : null,
+      at: cma.compsFoundAt ? new Date(cma.compsFoundAt).toISOString() : null,
+    },
+    finalizedAt: cma.finalizedAt ? new Date(cma.finalizedAt).toISOString() : null,
+    sharedAt: cma.sharedAt ? new Date(cma.sharedAt).toISOString() : null,
+    createdAt: new Date(cma.createdAt).toISOString(),
+  };
+}
+
+export type CmaLine = z.infer<typeof CmasOutput>['cmas'][number];
+
+/** A CMA as the deal's list shows it, with how many comps it has. A draft's range is what its comps give now. */
+export function cmaLine(c: CmaRow, comps: number): CmaLine {
+  const range =
+    c.status === 'draft'
+      ? null
+      : { lowCents: c.lowCents, likelyCents: c.likelyCents, highCents: c.highCents };
+  return {
+    id: c.id,
+    number: c.number,
+    subjectAddress: c.subjectAddress,
+    status: c.status,
+    likelyCents: range?.likelyCents ?? null,
+    lowCents: range?.lowCents ?? null,
+    highCents: range?.highCents ?? null,
+    comps,
+    createdAt: new Date(c.createdAt).toISOString(),
+  };
 }

@@ -20,16 +20,15 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   CMA_METHOD,
-  CMA_METHOD_WORDS,
+  cmaCompOf,
+  cmaLine,
+  cmaPage,
+  cmaSubjectOf,
   cmaValues,
   MAX_COMPS,
   rangeWords,
-  unsupportedAmounts,
-  type CmaComp,
-  type CmaSubject,
 } from '../cma';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
-import { compsStateWords, mlsSourceWords, type MlsSnapshot } from '../feed';
 import { addressKey } from '../homes';
 import { realestateAddon } from '../manifest';
 import {
@@ -76,17 +75,6 @@ type Cma = typeof cmas.$inferSelect;
 type CompRow = typeof cmaComps.$inferSelect;
 type Check = typeof fairHousingChecks.$inferSelect;
 
-const num = (v: string | number | null): number | null => (v === null ? null : Number(v));
-
-/** A comp from the feed as the screens show it: its number, first photo and its MLS's lines. */
-const compMls = (mlsNumber: string, s: MlsSnapshot) => ({
-  mlsNumber,
-  sourceWords: mlsSourceWords(s),
-  photoUrl: s.photos?.[0]?.url ?? null,
-  courtesy: s.display?.courtesy ?? null,
-  notice: s.display?.notice ?? null,
-});
-
 export async function loadCma(
   ctx: Ctx,
   cmaId: string,
@@ -109,30 +97,8 @@ export async function compsOf(ctx: Ctx, cmaId: string): Promise<CompRow[]> {
     .select()
     .from(cmaComps)
     .where(eq(cmaComps.cmaId, cmaId))
-    .orderBy(asc(cmaComps.position));
+    .orderBy(asc(cmaComps.position), asc(cmaComps.id));
 }
-
-const subjectOf = (c: Cma): CmaSubject => ({
-  beds: c.subjectBeds,
-  baths: num(c.subjectBaths),
-  sqft: c.subjectSqft,
-  listPriceCents: c.subjectListPriceCents,
-  yearBuilt: c.subjectYearBuilt,
-});
-
-const compOf = (r: CompRow): CmaComp => ({
-  id: r.id,
-  address: r.address,
-  priceCents: r.priceCents,
-  status: r.status,
-  soldOn: r.soldOn,
-  beds: r.beds,
-  baths: num(r.baths),
-  sqft: r.sqft,
-  distanceMiles: num(r.distanceMiles),
-  adjustments: r.adjustments,
-  used: r.used,
-});
 
 /** Only a draft's comps and home change. */
 export function requireDraft(cma: Cma): void {
@@ -602,7 +568,11 @@ export const cmaFinalize = defineAddonCommand(realestateAddon, {
     const { cma, deal } = await loadCma(ctx, input.cmaId, true);
     requireNotArchived(deal);
     requireDraft(cma);
-    const result = cmaValues(subjectOf(cma), (await compsOf(ctx, cma.id)).map(compOf), cma.asOf);
+    const result = cmaValues(
+      cmaSubjectOf(cma),
+      (await compsOf(ctx, cma.id)).map(cmaCompOf),
+      cma.asOf,
+    );
     if (!result.range)
       throw HfosError.rule(
         'realestate_cma_no_range',
@@ -985,24 +955,7 @@ export const cmasList = defineAddonQuery(realestateAddon, {
           .where(eq(cmaComps.dealRecordId, deal.recordId))
       : [];
     return {
-      cmas: list.map((c) => {
-        // A draft's range is what its comps give now.
-        const range =
-          c.status === 'draft'
-            ? null
-            : { lowCents: c.lowCents, likelyCents: c.likelyCents, highCents: c.highCents };
-        return {
-          id: c.id,
-          number: c.number,
-          subjectAddress: c.subjectAddress,
-          status: c.status,
-          likelyCents: range?.likelyCents ?? null,
-          lowCents: range?.lowCents ?? null,
-          highCents: range?.highCents ?? null,
-          comps: comps.filter((x) => x.cmaId === c.id).length,
-          createdAt: c.createdAt.toISOString(),
-        };
-      }),
+      cmas: list.map((c) => cmaLine(c, comps.filter((x) => x.cmaId === c.id).length)),
     };
   },
 });
@@ -1021,76 +974,14 @@ export const cmaGet = defineAddonQuery(realestateAddon, {
   },
   async handler(ctx, input) {
     const { cma } = await loadCma(ctx, input.cmaId);
-    const rows = await compsOf(ctx, cma.id);
-    const subject = subjectOf(cma);
-    const result = cmaValues(subject, rows.map(compOf), cma.asOf);
-    const range =
-      cma.status === 'draft'
-        ? result.range
-        : {
-            lowCents: cma.lowCents!,
-            likelyCents: cma.likelyCents!,
-            highCents: cma.highCents!,
-            perSqftCents: cma.perSqftCents ?? result.range?.perSqftCents ?? 0,
-            counted: result.range?.counted ?? 0,
-          };
+    const page = cmaPage(cma, await compsOf(ctx, cma.id));
     const checks = await checksOf(ctx, cma.id);
     const now = currentChecks(cma, checks);
     const names = await userNames(ctx, [cma.flagsAcknowledgedBy]);
-    const figures = [
-      ...(subject.listPriceCents ? [subject.listPriceCents] : []),
-      ...rows.map((r) => r.priceCents),
-      ...result.comps.flatMap((v) => [v.valueCents ?? 0, v.adjustmentCents ?? 0]),
-      ...rows.flatMap((r) => r.adjustments.map((a) => a.cents)),
-      ...(range ? [range.lowCents, range.likelyCents, range.highCents, range.perSqftCents] : []),
-    ];
     const blocked = shareBlock(cma, checks);
     return {
       cma: {
-        id: cma.id,
-        dealId: cma.dealRecordId,
-        homeId: cma.homeId,
-        number: cma.number,
-        status: cma.status,
-        asOf: cma.asOf,
-        method: CMA_METHOD_WORDS,
-        subject: { address: cma.subjectAddress, ...subject },
-        comps: rows.map((r, i) => {
-          const v = result.comps[i]!;
-          return {
-            id: r.id,
-            address: r.address,
-            priceCents: r.priceCents,
-            status: r.status,
-            soldOn: r.soldOn,
-            beds: r.beds,
-            baths: num(r.baths),
-            sqft: r.sqft,
-            yearBuilt: r.yearBuilt,
-            distanceMiles: num(r.distanceMiles),
-            adjustments: r.adjustments,
-            used: r.used,
-            note: r.note,
-            source: r.source,
-            mls:
-              r.mls && r.mlsNumber ? compMls(r.mlsNumber, r.mls as unknown as MlsSnapshot) : null,
-            valueCents: v.valueCents,
-            adjustmentCents: v.adjustmentCents,
-            weight: Math.round(v.weight * 1000) / 1000,
-            counted: v.counted,
-            why: v.why,
-            warnings: [...v.warnings],
-          };
-        }),
-        range,
-        missing: range ? null : result.missing,
-        summary: {
-          state: cma.summaryState,
-          text: cma.summary,
-          failure: cma.summaryFailure,
-          byAi: cma.summaryState === 'ready' && cma.summaryEditedAt === null,
-          unsupportedAmounts: cma.summary ? unsupportedAmounts(cma.summary, figures, range) : [],
-        },
+        ...page,
         fairHousing: {
           checked: !!now.words && !!now.model,
           flags: now.flags,
@@ -1108,20 +999,6 @@ export const cmaGet = defineAddonQuery(realestateAddon, {
               : null,
         },
         shareBlocked: cma.status === 'shared' ? null : (blocked?.words ?? null),
-        findComps: {
-          state: cma.compsState,
-          words: compsStateWords(cma.compsState, cma.compsFailure),
-          asked: cma.compsAsked
-            ? {
-                miles: Number(cma.compsAsked['miles'] ?? 1),
-                months: Number(cma.compsAsked['months'] ?? 6),
-              }
-            : null,
-          at: cma.compsFoundAt?.toISOString() ?? null,
-        },
-        finalizedAt: cma.finalizedAt?.toISOString() ?? null,
-        sharedAt: cma.sharedAt?.toISOString() ?? null,
-        createdAt: cma.createdAt.toISOString(),
       },
     };
   },

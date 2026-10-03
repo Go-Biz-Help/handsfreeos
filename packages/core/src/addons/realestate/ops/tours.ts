@@ -46,13 +46,15 @@ import {
   TourSetStopsInput,
 } from '../schemas';
 import { documents, homes, tourFeedback, tours, tourStops } from '../tables';
-import { termsNow } from '../terms';
 import {
+  agreementEndsOn,
+  agreementOut,
   agreementState,
   agreementWords,
   defaultTourMinutes,
   TOUR_INTEREST,
   tourNotes,
+  tourOut,
   tourTitle,
   type AgreementFacts,
 } from '../tours';
@@ -80,10 +82,7 @@ type Home = typeof homes.$inferSelect;
 // ---------- the agreement ----------
 
 /** The deal's signed buyer agreement and when it ends, as the rule reads them. */
-export async function agreementFactsOf(
-  ctx: Ctx,
-  dealId: string,
-): Promise<AgreementFacts & { readonly signedTitle: string | null }> {
+export async function agreementFactsOf(ctx: Ctx, dealId: string): Promise<AgreementFacts> {
   const [doc] = await ctx.tx
     .select({ id: documents.id, title: documents.title })
     .from(documents)
@@ -94,22 +93,11 @@ export async function agreementFactsOf(
         eq(documents.status, 'signed'),
       ),
     )
-    .orderBy(desc(documents.controlling), desc(documents.signedAt))
+    .orderBy(desc(documents.controlling), desc(documents.signedAt), desc(documents.id))
     .limit(1);
-  const term = termsNow(await termEntriesOf(ctx, dealId)).get('buyer_agreement_expiry');
-  // Two entries that disagree: the earlier date, until a person settles it.
-  const ends = term
-    ? (term.current?.valueDate ??
-      term.live
-        .map((e) => e.valueDate)
-        .filter((d): d is string => !!d)
-        .sort()[0] ??
-      null)
-    : null;
   return {
     signed: doc ? { documentId: doc.id, title: doc.title } : null,
-    signedTitle: doc?.title ?? null,
-    endsOn: ends,
+    endsOn: agreementEndsOn(await termEntriesOf(ctx, dealId)),
   };
 }
 
@@ -847,8 +835,6 @@ export const toursList = defineAddonQuery(realestateAddon, {
     const deal = await loadDeal(ctx, input.dealId);
     const tz = await timeZoneOf(ctx);
     const facts = await agreementFactsOf(ctx, deal.recordId);
-    const today = todayIn(tz);
-    const state = agreementState(facts, today);
     const list = await ctx.tx
       .select()
       .from(tours)
@@ -858,7 +844,7 @@ export const toursList = defineAddonQuery(realestateAddon, {
           ...(input.includeCanceled ? [] : [inArray(tours.status, ['planned', 'done'])]),
         ),
       )
-      .orderBy(desc(tours.startsAt));
+      .orderBy(desc(tours.startsAt), desc(tours.id));
     const ids = list.map((t) => t.id);
     const stops = ids.length
       ? await ctx.tx
@@ -866,10 +852,14 @@ export const toursList = defineAddonQuery(realestateAddon, {
           .from(tourStops)
           .innerJoin(homes, eq(homes.id, tourStops.homeId))
           .where(inArray(tourStops.tourId, ids))
-          .orderBy(asc(tourStops.position))
+          .orderBy(asc(tourStops.position), asc(tourStops.id))
       : [];
     const feedback = ids.length
-      ? await ctx.tx.select().from(tourFeedback).where(inArray(tourFeedback.tourId, ids))
+      ? await ctx.tx
+          .select()
+          .from(tourFeedback)
+          .where(inArray(tourFeedback.tourId, ids))
+          .orderBy(asc(tourFeedback.createdAt), asc(tourFeedback.id))
       : [];
     const clients = await clientsOf(ctx, deal.recordId);
     const people = new Map(clients);
@@ -885,54 +875,14 @@ export const toursList = defineAddonQuery(realestateAddon, {
       ...list.flatMap((t) => [t.agentUserId, t.exceptionBy]),
       ...feedback.map((f) => f.recordedBy),
     ]);
-    const who = (id: string | null) =>
-      id ? { id, fullName: names.get(id) ?? 'Former member' } : null;
+    const named = {
+      user: (id: string) => names.get(id) ?? null,
+      person: (id: string) => people.get(id) ?? 'A client',
+    };
+    const stopRows = stops.map(({ s, address }) => ({ ...s, address }));
     return {
-      agreement: {
-        ok: state.ok,
-        rule: state.ok ? null : state.rule,
-        words: state.ok ? null : agreementWords(state, deal.name, today),
-        signedTitle: facts.signedTitle,
-        endsOn: facts.endsOn,
-      },
-      tours: list.map((t) => ({
-        id: t.id,
-        status: t.status,
-        startsAt: t.startsAt.toISOString(),
-        endsAt: t.endsAt.toISOString(),
-        appointmentId: t.appointmentId,
-        calendarId: t.calendarId,
-        agent: who(t.agentUserId),
-        note: t.note,
-        exception:
-          t.exceptionReason && t.exceptionAt
-            ? { reason: t.exceptionReason, by: who(t.exceptionBy), at: t.exceptionAt.toISOString() }
-            : null,
-        canceledReason: t.canceledReason,
-        stops: stops
-          .filter((x) => x.s.tourId === t.id)
-          .map(({ s, address }) => ({
-            id: s.id,
-            homeId: s.homeId,
-            address,
-            position: s.position,
-            status: s.status,
-            visitedAt: s.visitedAt?.toISOString() ?? null,
-            note: s.note,
-            feedback: feedback
-              .filter((f) => f.stopId === s.id)
-              .map((f) => ({
-                id: f.id,
-                personId: f.personId,
-                name: people.get(f.personId) ?? 'A client',
-                interest: f.interest,
-                rating: f.rating,
-                words: f.words,
-                recordedBy: who(f.recordedBy),
-                at: f.updatedAt.toISOString(),
-              })),
-          })),
-      })),
+      agreement: agreementOut(facts, deal.name, todayIn(tz)),
+      tours: list.map((t) => tourOut(t, stopRows, feedback, named)),
       can: { except: scopeCan(ctx.scope, 'realestate.except' as Permission) },
     };
   },

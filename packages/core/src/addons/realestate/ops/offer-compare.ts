@@ -14,11 +14,10 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { requireCustomer } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import { money } from '../../../money/format';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { realestateAddon } from '../manifest';
-import { EMPTY_NET_FIGURES, netEstimate, SELLER_CHOICES, type NetFigures } from '../net';
-import { LIVE_OFFER_STATUSES, LOAN_TYPES } from '../offer-words';
+import { netFiguresOf, netSheetOut, SELLER_CHOICES, type NetFigures } from '../net';
+import { compareRows, LIVE_OFFER_STATUSES } from '../offer-words';
 import {
   ListingInput,
   NetSheetSaveInput,
@@ -45,7 +44,6 @@ import { listingAddress, requireListingSide } from './listing';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 
 type Sheet = typeof netSheets.$inferSelect;
-type Version = typeof offerVersions.$inferSelect;
 
 async function sheetsOf(ctx: Ctx, dealId: string): Promise<Sheet[]> {
   return ctx.tx
@@ -55,32 +53,8 @@ async function sheetsOf(ctx: Ctx, dealId: string): Promise<Sheet[]> {
     .orderBy(desc(netSheets.version));
 }
 
-const figuresOf = (s: Sheet | undefined): NetFigures =>
-  s
-    ? {
-        payoffCents: s.payoffCents,
-        listingFeeBp: s.listingFeeBp,
-        listingFeeCents: s.listingFeeCents,
-        titleEscrowCents: s.titleEscrowCents,
-        transferTaxBp: s.transferTaxBp,
-        otherCents: s.otherCents,
-        otherNote: s.otherNote,
-      }
-    : EMPTY_NET_FIGURES;
-
-const pct = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
-
-/** How the buyer pays, in words: "Cash", "Conventional · 20% down". */
-function payingWords(v: Version): string {
-  if (!v.loanType) return 'Not said';
-  const down = v.downPaymentPct === null ? null : Number(v.downPaymentPct);
-  return v.loanType === 'cash' || down === null
-    ? LOAN_TYPES[v.loanType]
-    : `${LOAN_TYPES[v.loanType]} · ${pct(down)} down`;
-}
-
-/** Each open offer's newest version, side by side, with the seller's estimate for it. */
-async function compareRows(ctx: Ctx, deal: Deal, f: NetFigures): Promise<CompareRowOut[]> {
+/** Each open offer's version that counts, side by side, with the seller's estimate for it. */
+async function compareRowsOf(ctx: Ctx, deal: Deal, f: NetFigures): Promise<CompareRowOut[]> {
   const list = await ctx.tx
     .select()
     .from(offers)
@@ -100,66 +74,7 @@ async function compareRows(ctx: Ctx, deal: Deal, f: NetFigures): Promise<Compare
         list.map((o) => o.id),
       ),
     );
-  const rows = list.map((o) => {
-    const mine = versions.filter((v) => v.offerId === o.id).sort((a, b) => a.number - b.number);
-    const v =
-      o.status === 'accepted'
-        ? (mine.find((x) => x.id === o.acceptedVersionId) ?? mine.at(-1)!)
-        : mine.at(-1)!;
-    const net = netEstimate(
-      {
-        priceCents: v.priceCents,
-        sellerCreditCents: v.sellerCreditCents,
-        buyerAgentFeeBp: v.buyerAgentFeeBp,
-        buyerAgentFeeCents: v.buyerAgentFeeCents,
-      },
-      f,
-    );
-    return {
-      offerId: o.id,
-      number: o.number,
-      buyers: o.buyerNames,
-      agent: o.theirAgentName,
-      brokerage: o.theirBrokerage,
-      status: o.status,
-      versionId: v.id,
-      versionNumber: v.number,
-      priceCents: v.priceCents,
-      paying: payingWords(v),
-      emdCents: v.emdCents,
-      sellerCreditCents: v.sellerCreditCents,
-      buyerAgentFee:
-        v.buyerAgentFeeBp !== null
-          ? `${pct(v.buyerAgentFeeBp / 100)} · ${money(Math.round((v.priceCents * v.buyerAgentFeeBp) / 10_000))}`
-          : v.buyerAgentFeeCents !== null
-            ? money(v.buyerAgentFeeCents)
-            : null,
-      inspection: v.inspectionDays !== null ? `${v.inspectionDays} days` : null,
-      financing:
-        v.loanType === 'cash'
-          ? null
-          : [
-              v.financingDays !== null ? `${v.financingDays} days` : null,
-              v.appraisalContingency ? 'appraisal contingency' : null,
-            ]
-              .filter(Boolean)
-              .join(' · ') || null,
-      homeSale: v.homeSaleContingency,
-      escalation:
-        v.escalationCapCents !== null
-          ? `Up to ${money(v.escalationCapCents)}${v.escalationStepCents ? `, by ${money(v.escalationStepCents)}` : ''}`
-          : null,
-      closingDate: v.closingDate,
-      possession: v.possession,
-      respondBy: v.respondBy?.toISOString() ?? null,
-      net,
-      best: false,
-    };
-  });
-  const top = Math.max(...rows.map((r) => r.net.netCents));
-  return rows
-    .map((r) => ({ ...r, best: rows.length > 1 && r.net.netCents === top }))
-    .sort((a, b) => b.net.netCents - a.net.netCents || a.number - b.number);
+  return compareRows(list, versions, f);
 }
 
 async function figuresOut(ctx: Ctx, list: readonly Sheet[]) {
@@ -167,21 +82,7 @@ async function figuresOut(ctx: Ctx, list: readonly Sheet[]) {
     ctx,
     list.map((s) => s.savedBy),
   );
-  return list.map((s) => ({
-    version: s.version,
-    payoffCents: s.payoffCents,
-    listingFeeBp: s.listingFeeBp,
-    listingFeeCents: s.listingFeeCents,
-    titleEscrowCents: s.titleEscrowCents,
-    transferTaxBp: s.transferTaxBp,
-    otherCents: s.otherCents,
-    otherNote: s.otherNote,
-    note: s.note,
-    savedAt: s.savedAt.toISOString(),
-    savedBy: s.savedBy
-      ? { id: s.savedBy, fullName: names.get(s.savedBy) ?? 'Former member' }
-      : null,
-  }));
+  return list.map((s) => netSheetOut(s, s.savedBy ? (names.get(s.savedBy) ?? null) : null));
 }
 
 // ---------- the team's ----------
@@ -258,19 +159,19 @@ export const offersCompare = defineAddonQuery(realestateAddon, {
       .select({ id: offerComparisons.id, at: offerComparisons.sharedAt })
       .from(offerComparisons)
       .where(eq(offerComparisons.dealRecordId, deal.recordId))
-      .orderBy(desc(offerComparisons.sharedAt))
+      .orderBy(desc(offerComparisons.sharedAt), desc(offerComparisons.id))
       .limit(1);
     const said = await ctx.tx
       .select()
       .from(offerChoices)
       .where(eq(offerChoices.dealRecordId, deal.recordId))
-      .orderBy(desc(offerChoices.at));
+      .orderBy(desc(offerChoices.at), desc(offerChoices.id));
     const clients = await dealClients(ctx, deal.recordId);
     return {
       dealId: deal.recordId,
       figures: figures[0] ?? null,
       figureHistory: figures.slice(1),
-      rows: await compareRows(ctx, deal, figuresOf(sheets[0])),
+      rows: await compareRowsOf(ctx, deal, netFiguresOf(sheets[0])),
       shared: shared ? { comparisonId: shared.id, at: shared.at.toISOString() } : null,
       choices: said.map((c) => ({
         offerId: c.offerId,
@@ -303,7 +204,7 @@ export const offersShareComparison = defineAddonCommand(realestateAddon, {
     requireOpen(deal);
     requireListingSide(deal);
     const sheets = await sheetsOf(ctx, deal.recordId);
-    const rows = (await compareRows(ctx, deal, figuresOf(sheets[0]))).filter(
+    const rows = (await compareRowsOf(ctx, deal, netFiguresOf(sheets[0]))).filter(
       (r) => r.status !== 'accepted',
     );
     if (!rows.length)

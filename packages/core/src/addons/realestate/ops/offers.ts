@@ -14,7 +14,7 @@
  */
 import { and, asc, desc, eq, inArray, max } from 'drizzle-orm';
 import { addDays } from '../../../calendar/engine/zoned';
-import { fmtAt, localDayOf } from '../../../calendar/when';
+import { localDayOf } from '../../../calendar/when';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
@@ -23,10 +23,10 @@ import { money } from '../../../money/format';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { realestateAddon } from '../manifest';
 import {
-  clockWords,
+  agentFirstNameOf,
   LIVE_OFFER_STATUSES,
   LOAN_TYPES,
-  offerSummary,
+  offerOut,
   type OfferStatus,
 } from '../offer-words';
 import {
@@ -752,106 +752,20 @@ export const offersList = defineAddonQuery(realestateAddon, {
           })
           .from(documents)
           .where(eq(documents.dealRecordId, deal.recordId))
+          .orderBy(asc(documents.createdAt), asc(documents.id))
       : [];
-    /** A version's document as it stands now: the newest version of what was attached. */
-    const docOf = (versionId: string) => {
-      const attached = docs.filter((d) => d.offerVersionId === versionId);
-      if (!attached.length) return null;
-      const lineage = attached[0]!.lineageId;
-      const newest = docs
-        .filter((d) => d.lineageId === lineage && d.status !== 'void')
-        .sort((a, b) => b.version - a.version)[0];
-      const d = newest ?? attached[0]!;
-      return { id: d.id, title: d.title, status: d.status, signed: d.status === 'signed' };
-    };
     const owner = await userNames(ctx, [deal.ownerUserId]);
-    const agentFirstName = (owner.get(deal.ownerUserId ?? '') ?? 'Your agent').split(/\s+/)[0]!;
+    const agentFirstName = agentFirstNameOf(owner.get(deal.ownerUserId ?? '') ?? null);
     return {
-      offers: list.map(({ o, address }) => {
-        const vs = versions.filter((v) => v.offerId === o.id);
-        const newest = vs.at(-1)!;
-        const shown =
-          o.status === 'accepted'
-            ? (vs.find((v) => v.id === o.acceptedVersionId) ?? newest)
-            : newest;
-        const respondBy = newest.respondBy?.toISOString() ?? null;
-        return {
-          id: o.id,
-          number: o.number,
-          homeId: o.homeId,
-          buyerNames: o.buyerNames,
+      offers: list.map(({ o, address }) =>
+        offerOut(
+          o,
           address,
-          status: o.status,
-          theirAgentName: o.theirAgentName,
-          theirBrokerage: o.theirBrokerage,
-          theirEmail: o.theirEmail,
-          theirPhone: o.theirPhone,
-          versions: vs.map((v) => ({
-            id: v.id,
-            number: v.number,
-            side: v.side,
-            at: v.at.toISOString(),
-            priceCents: v.priceCents,
-            emdCents: v.emdCents,
-            emdDays: v.emdDays,
-            sellerCreditCents: v.sellerCreditCents,
-            inspectionDays: v.inspectionDays,
-            loanType: v.loanType,
-            financingDays: v.financingDays,
-            appraisalContingency: v.appraisalContingency,
-            closingDate: v.closingDate,
-            otherTerms: v.otherTerms,
-            downPaymentPct: v.downPaymentPct === null ? null : Number(v.downPaymentPct),
-            homeSaleContingency: v.homeSaleContingency,
-            escalationCapCents: v.escalationCapCents,
-            escalationStepCents: v.escalationStepCents,
-            possession: v.possession,
-            buyerAgentFeeBp: v.buyerAgentFeeBp,
-            buyerAgentFeeCents: v.buyerAgentFeeCents,
-            respondBy: v.respondBy?.toISOString() ?? null,
-            note: v.note,
-            document: docOf(v.id),
-          })),
-          acceptedVersionId: o.acceptedVersionId,
-          endedAt: o.endedAt?.toISOString() ?? null,
-          endedReason: o.endedReason,
-          clock: isLive(o.status)
-            ? {
-                waitingOn: o.status === 'waiting_them' ? ('them' as const) : ('us' as const),
-                respondBy,
-                words: respondBy
-                  ? `Due ${fmtAt(respondBy, tz)} · ${clockWords(respondBy, now)}`
-                  : null,
-              }
-            : null,
-          shared:
-            o.sharedVersionId && o.sharedAt
-              ? {
-                  versionId: o.sharedVersionId,
-                  at: o.sharedAt.toISOString(),
-                  current: o.sharedVersionId === shown.id,
-                }
-              : null,
-          summary: offerSummary(
-            {
-              number: shown.number,
-              side: shown.side,
-              respondBy: shown.respondBy?.toISOString() ?? null,
-              priceCents: shown.priceCents,
-              emdCents: shown.emdCents,
-              emdDays: shown.emdDays,
-              sellerCreditCents: shown.sellerCreditCents,
-              inspectionDays: shown.inspectionDays,
-              loanType: shown.loanType,
-              financingDays: shown.financingDays,
-              appraisalContingency: shown.appraisalContingency,
-              closingDate: shown.closingDate,
-              otherTerms: shown.otherTerms,
-            },
-            { address, status: o.status, agentFirstName, timeZone: tz, now },
-          ),
-        };
-      }),
+          versions.filter((v) => v.offerId === o.id),
+          docs,
+          { agentFirstName, timeZone: tz, now },
+        ),
+      ),
     };
   },
 });

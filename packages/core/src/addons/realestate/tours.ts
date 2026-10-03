@@ -1,13 +1,16 @@
 /**
  * Tours on a buyer deal (HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md, "Round two: Buyer core"): the agreement
- * rule, and a tour's words on the calendar. Browser-safe and pure: the commands, the screens, the portal and the
- * Assistant say the same thing.
+ * rule, a tour's words on the calendar, and a tour as the tours page shows it. Browser-safe and pure: the commands,
+ * the screens, the portal, the phone and the Assistant say the same thing.
  *
  * Chris decided (2026-09-30): a tour needs a signed buyer agreement that hasn't ended by the tour's day. An owner or
  * admin (Approve exceptions) can let one through with a reason.
  */
+import type { z } from 'zod';
 import { parseLocalDate } from '../../calendar/engine/zoned';
 import { fmtMonthDay } from '../../calendar/when';
+import type { AgreementOut, TourOut } from './schemas';
+import { termsNow, type TermEntry } from './terms';
 
 export const TOUR_STATUSES = { planned: 'Planned', done: 'Done', canceled: 'Canceled' } as const;
 export type TourStatus = keyof typeof TOUR_STATUSES;
@@ -74,6 +77,39 @@ export function agreementWords(
   return `The buyer agreement on ${dealName} ends ${fmtMonthDay(state.endsOn!, year)}, before this tour on ${fmtMonthDay(tourDate, year)}. Add the signed extension under Documents and change “Buyer agreement ends” under Key dates. ${letThrough}`;
 }
 
+/**
+ * When the buyer agreement ends, from the deal's term entries ("Buyer agreement ends"). Two entries that disagree:
+ * the earlier date, until a person settles it.
+ */
+export function agreementEndsOn(entries: readonly TermEntry[]): string | null {
+  const term = termsNow(entries).get('buyer_agreement_expiry');
+  if (!term) return null;
+  return (
+    term.current?.valueDate ??
+    term.live
+      .map((e) => e.valueDate)
+      .filter((d): d is string => !!d)
+      .sort()[0] ??
+    null
+  );
+}
+
+/** Whether a tour today may go ahead, as the tours page says it. */
+export function agreementOut(
+  facts: AgreementFacts,
+  dealName: string,
+  today: string,
+): z.infer<typeof AgreementOut> {
+  const state = agreementState(facts, today);
+  return {
+    ok: state.ok,
+    rule: state.ok ? null : state.rule,
+    words: state.ok ? null : agreementWords(state, dealName, today),
+    signedTitle: facts.signed?.title ?? null,
+    endsOn: facts.endsOn,
+  };
+}
+
 /** The appointment's title: "Home tour: 418 Maple Ave" or "Home tour: 418 Maple Ave and 2 more". */
 export function tourTitle(addresses: readonly string[]): string {
   const first = (addresses[0] ?? '').split(',')[0]!.trim() || 'homes';
@@ -85,4 +121,102 @@ export function tourTitle(addresses: readonly string[]): string {
 export function tourNotes(addresses: readonly string[], note?: string | null): string {
   const list = addresses.map((a, i) => `${i + 1}. ${a}`).join('\n');
   return note?.trim() ? `${list}\n\n${note.trim()}` : list;
+}
+
+// ---------- a tour as the tours page shows it ----------
+
+/** A tour's row, as the server reads it and a phone keeps it (times as a `Date` or ISO text). */
+export interface TourRow {
+  readonly id: string;
+  readonly status: TourStatus;
+  readonly startsAt: Date | string;
+  readonly endsAt: Date | string;
+  readonly appointmentId: string | null;
+  readonly calendarId: string | null;
+  readonly agentUserId: string | null;
+  readonly note: string | null;
+  readonly exceptionReason: string | null;
+  readonly exceptionBy: string | null;
+  readonly exceptionAt: Date | string | null;
+  readonly canceledReason: string | null;
+}
+
+/** A stop's row, with its home's address. */
+export interface TourStopRow {
+  readonly id: string;
+  readonly tourId: string;
+  readonly homeId: string;
+  readonly address: string;
+  readonly position: number;
+  readonly status: StopStatus;
+  readonly visitedAt: Date | string | null;
+  readonly note: string | null;
+}
+
+/** What a client thought of a stop, as kept. */
+export interface TourFeedbackRow {
+  readonly id: string;
+  readonly stopId: string;
+  readonly personId: string;
+  readonly interest: TourInterest;
+  readonly rating: number | null;
+  readonly words: string | null;
+  readonly recordedBy: string | null;
+  readonly updatedAt: Date | string;
+}
+
+/**
+ * A tour as the tours page shows it: its stops in their order, each with what the clients thought. `user` names a
+ * member (null when they're gone); `person` names whoever gave feedback.
+ */
+export function tourOut(
+  t: TourRow,
+  stops: readonly TourStopRow[],
+  feedback: readonly TourFeedbackRow[],
+  names: { user(id: string): string | null; person(id: string): string },
+): z.infer<typeof TourOut> {
+  const who = (id: string | null) =>
+    id ? { id, fullName: names.user(id) ?? 'Former member' } : null;
+  return {
+    id: t.id,
+    status: t.status,
+    startsAt: new Date(t.startsAt).toISOString(),
+    endsAt: new Date(t.endsAt).toISOString(),
+    appointmentId: t.appointmentId,
+    calendarId: t.calendarId,
+    agent: who(t.agentUserId),
+    note: t.note,
+    exception:
+      t.exceptionReason && t.exceptionAt
+        ? {
+            reason: t.exceptionReason,
+            by: who(t.exceptionBy),
+            at: new Date(t.exceptionAt).toISOString(),
+          }
+        : null,
+    canceledReason: t.canceledReason,
+    stops: stops
+      .filter((s) => s.tourId === t.id)
+      .map((s) => ({
+        id: s.id,
+        homeId: s.homeId,
+        address: s.address,
+        position: s.position,
+        status: s.status,
+        visitedAt: s.visitedAt ? new Date(s.visitedAt).toISOString() : null,
+        note: s.note,
+        feedback: feedback
+          .filter((f) => f.stopId === s.id)
+          .map((f) => ({
+            id: f.id,
+            personId: f.personId,
+            name: names.person(f.personId),
+            interest: f.interest,
+            rating: f.rating,
+            words: f.words,
+            recordedBy: who(f.recordedBy),
+            at: new Date(f.updatedAt).toISOString(),
+          })),
+      })),
+  };
 }
