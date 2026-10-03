@@ -10,7 +10,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { feedAddressWords, mlsOut, type MlsSnapshot } from '../feed';
-import { addressKey, homeFit } from '../homes';
+import { addressKey, fitProfileOf, homeFit } from '../homes';
 import { realestateAddon } from '../manifest';
 import {
   MatchDismissInput,
@@ -24,7 +24,7 @@ import {
   SearchSetInput,
   SearchSetOutput,
 } from '../schemas';
-import { profileSearch, searchWords } from '../searches';
+import { searchMissing, searchWords } from '../searches';
 import { buyerProfiles, feedMatches, homes } from '../tables';
 import {
   actorUserId,
@@ -38,7 +38,7 @@ import {
   userNames,
   type Ctx,
 } from './common';
-import { addHome, fitProfileOf, requireBuyerSide } from './homes';
+import { addHome, requireBuyerSide } from './homes';
 
 type Match = typeof feedMatches.$inferSelect;
 
@@ -343,7 +343,7 @@ export const dealMatches = defineAddonQuery(realestateAddon, {
           ...(input.state ? [eq(feedMatches.state, input.state)] : []),
         ),
       )
-      .orderBy(desc(feedMatches.foundAt));
+      .orderBy(desc(feedMatches.foundAt), desc(feedMatches.id));
     const all = input.state
       ? await ctx.tx
           .select({ state: feedMatches.state })
@@ -360,11 +360,10 @@ export const dealMatches = defineAddonQuery(realestateAddon, {
       list.map((m) => m.decidedBy),
     );
     const order = { new: 0, sent: 1, dismissed: 2 } as const;
-    const ready = profileSearch(profile);
     return {
       search: {
         on: p?.searchOn ?? false,
-        missing: p ? ready.missing : 'Fill in what the buyer wants, and their search can start.',
+        missing: searchMissing(p ? profile : null),
         words: searchWords(profile),
         feedConnected: await feedConnected(ctx),
         checkedAt: p?.searchCheckedAt?.toISOString() ?? null,

@@ -21,9 +21,10 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { checkWords } from '../fair-housing';
 import {
   addressKey,
+  buyerProfileOut,
+  fitProfileOf,
   HOME_STATUSES,
   homeFit,
-  type FitProfile,
   type HomeStatus,
   type ListingFacts,
 } from '../homes';
@@ -111,22 +112,6 @@ export function refuseFairHousingWords(texts: readonly string[]): void {
     );
 }
 
-const profileOut = (p: Profile, updatedBy: { id: string; fullName: string } | null) => ({
-  budgetMinCents: p.budgetMinCents,
-  budgetMaxCents: p.budgetMaxCents,
-  areas: p.areas,
-  homeTypes: p.homeTypes,
-  bedsMin: p.bedsMin,
-  bathsMin: p.bathsMin === null ? null : Number(p.bathsMin),
-  sqftMin: p.sqftMin,
-  moveBy: p.moveBy,
-  mustHaves: p.mustHaves,
-  dealBreakers: p.dealBreakers,
-  version: p.version,
-  updatedAt: p.updatedAt.toISOString(),
-  updatedBy,
-});
-
 export async function profileOf(ctx: Ctx, dealId: string): Promise<Profile | null> {
   const [p] = await ctx.tx
     .select()
@@ -140,15 +125,8 @@ export async function profileOf(ctx: Ctx, dealId: string): Promise<Profile | nul
   return p ?? null;
 }
 
-export const fitProfileOf = (p: Profile | null): FitProfile => ({
-  budgetMinCents: p?.budgetMinCents ?? null,
-  budgetMaxCents: p?.budgetMaxCents ?? null,
-  areas: p?.areas ?? [],
-  homeTypes: p?.homeTypes ?? [],
-  bedsMin: p?.bedsMin ?? null,
-  bathsMin: p?.bathsMin === null || p?.bathsMin === undefined ? null : Number(p.bathsMin),
-  sqftMin: p?.sqftMin ?? null,
-});
+// What fit reads of a profile lives in ../homes.ts, shared with the phone; still here for what imports it from here.
+export { fitProfileOf };
 
 export const buyerProfileSave = defineAddonCommand(realestateAddon, {
   name: 'realestate.buyer_profile.save',
@@ -278,8 +256,8 @@ export const buyerProfileGet = defineAddonQuery(realestateAddon, {
     if (!p) return { profile: null };
     const names = await userNames(ctx, [p.updatedBy]);
     return {
-      profile: profileOut(
-        p,
+      profile: buyerProfileOut(
+        { ...p, updatedAt: p.updatedAt.toISOString() },
         p.updatedBy
           ? { id: p.updatedBy, fullName: names.get(p.updatedBy) ?? 'Former member' }
           : null,
@@ -625,7 +603,7 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
           ...(input.includeRemoved ? [] : [ne(homes.status, 'removed')]),
         ),
       )
-      .orderBy(asc(homes.createdAt));
+      .orderBy(asc(homes.createdAt), asc(homes.id));
     const profile = fitProfileOf(await profileOf(ctx, deal.recordId));
     const ids = list.map((h) => h.id);
     const reactions = ids.length
@@ -642,6 +620,7 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
           .from(homeReactions)
           .innerJoin(people, eq(people.id, homeReactions.personId))
           .where(inArray(homeReactions.homeId, ids))
+          .orderBy(asc(homeReactions.reactedAt), asc(homeReactions.id))
       : [];
     const clients = list.flatMap((h) => (h.addedByPersonId ? [h.addedByPersonId] : []));
     const clientNames = clients.length

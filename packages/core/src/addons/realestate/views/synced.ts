@@ -242,6 +242,8 @@ export interface RealestateCopy {
   person(id: string): string | null;
   /** A customer's name as a deal's people list gives it: their name, else their email, else nothing. */
   personPlain(id: string): string | null;
+  /** A customer's first and last name alone, trimmed, or nothing when they have neither. */
+  personName(id: string): string | null;
   company(id: string): string | null;
   /** How to reach a company: its email and phone, as kept. */
   companyContact(id: string): { readonly email: string | null; readonly phone: string | null };
@@ -271,6 +273,12 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     source.people.map((p) => [
       text(p.id) ?? '',
       joined(p.first_name, p.last_name) ?? text(p.email),
+    ]),
+  );
+  const names = new Map(
+    source.people.map((p) => [
+      text(p.id) ?? '',
+      text(`${String(p.first_name ?? '')} ${String(p.last_name ?? '')}`.trim()),
     ]),
   );
   const companies = new Map((source.companies ?? []).map((c) => [text(c.id) ?? '', text(c.name)]));
@@ -435,6 +443,7 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     user: (id) => users.get(id) ?? null,
     person: (id) => (people.has(id) ? (people.get(id) ?? 'Customer') : null),
     personPlain: (id) => people.get(id) ?? null,
+    personName: (id) => names.get(id) ?? null,
     company: (id) => companies.get(id) ?? null,
     companyContact: (id) => contacts.get(id) ?? { email: null, phone: null },
     record: (id) => recordNames.get(id) ?? null,

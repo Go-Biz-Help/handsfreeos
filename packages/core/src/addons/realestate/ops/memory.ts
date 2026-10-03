@@ -312,7 +312,7 @@ export const memoryList = defineAddonQuery(realestateAddon, {
           ...(input.includeClosed ? [] : [inArray(memoryItems.status, ['suggested', 'confirmed'])]),
         ),
       )
-      .orderBy(desc(memoryItems.createdAt));
+      .orderBy(desc(memoryItems.createdAt), desc(memoryItems.id));
     const names = await userNames(
       ctx,
       list.flatMap((i) => [i.createdBy, i.decidedBy]),

@@ -47,6 +47,13 @@ export function profileSearch(
   };
 }
 
+/** What a buyer's search still needs before it can be asked: a profile, then an area. Null once it can be. */
+export function searchMissing(profile: FitProfile | null): string | null {
+  return profile
+    ? profileSearch(profile).missing
+    : 'Fill in what the buyer wants, and their search can start.';
+}
+
 /** "3+ beds, 2+ baths, $450,000 to $600,000, townhouse or condo, in 78704 or Austin" */
 export function searchWords(p: FitProfile): string {
   const parts: string[] = [];

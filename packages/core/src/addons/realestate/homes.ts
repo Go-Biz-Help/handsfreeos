@@ -97,6 +97,62 @@ export interface FitProfile {
   readonly sqftMin: number | null;
 }
 
+/**
+ * A buyer's profile as kept (`buyer_profiles`), the same whether the server reads its row or a phone its copy. Baths
+ * are a decimal: text from the database, a number from the phone's JSON.
+ */
+export interface BuyerProfileFields {
+  readonly budgetMinCents: number | null;
+  readonly budgetMaxCents: number | null;
+  readonly areas: string[];
+  readonly homeTypes: string[];
+  readonly bedsMin: number | null;
+  readonly bathsMin: string | number | null;
+  readonly sqftMin: number | null;
+  readonly moveBy: string | null;
+  readonly mustHaves: string[];
+  readonly dealBreakers: string[];
+  readonly version: number;
+  /** ISO time. */
+  readonly updatedAt: string;
+}
+
+/** What the buyer wants, as the screens show it, with who saved it last. */
+export const buyerProfileOut = (
+  p: BuyerProfileFields,
+  updatedBy: { id: string; fullName: string } | null,
+) => ({
+  budgetMinCents: p.budgetMinCents,
+  budgetMaxCents: p.budgetMaxCents,
+  areas: p.areas,
+  homeTypes: p.homeTypes,
+  bedsMin: p.bedsMin,
+  bathsMin: p.bathsMin === null ? null : Number(p.bathsMin),
+  sqftMin: p.sqftMin,
+  moveBy: p.moveBy,
+  mustHaves: p.mustHaves,
+  dealBreakers: p.dealBreakers,
+  version: p.version,
+  updatedAt: p.updatedAt,
+  updatedBy,
+});
+
+/** What fit reads of a buyer's profile; nothing asked for when there's no profile yet. */
+export const fitProfileOf = (
+  p: Pick<
+    BuyerProfileFields,
+    'budgetMinCents' | 'budgetMaxCents' | 'areas' | 'homeTypes' | 'bedsMin' | 'bathsMin' | 'sqftMin'
+  > | null,
+): FitProfile => ({
+  budgetMinCents: p?.budgetMinCents ?? null,
+  budgetMaxCents: p?.budgetMaxCents ?? null,
+  areas: p?.areas ?? [],
+  homeTypes: p?.homeTypes ?? [],
+  bedsMin: p?.bedsMin ?? null,
+  bathsMin: p?.bathsMin === null || p?.bathsMin === undefined ? null : Number(p.bathsMin),
+  sqftMin: p?.sqftMin ?? null,
+});
+
 /** One thing the buyer asked for, against the home: met, missed, or not known yet. */
 export interface FitLine {
   readonly key: 'budget' | 'area' | 'type' | 'beds' | 'baths' | 'sqft';
