@@ -367,4 +367,14 @@ describe('a buyer’s saved search', () => {
     await drain();
     expect((await matches()).matches.some((x: Any) => x.mls.mlsNumber === 'OLD-1')).toBe(true);
   });
+
+  it('settles a waiting match when the agent adds that home by hand', async () => {
+    const waiting = (await matches()).matches.filter((x: Any) => x.state === 'new');
+    expect(waiting.length).toBeGreaterThan(0);
+    const one = waiting[0];
+    const { homeId } = await run('realestate.home.add', { dealId: deal, address: one.address });
+    await drain();
+    const now = (await matches()).matches.find((x: Any) => x.id === one.id);
+    expect(now).toMatchObject({ state: 'sent', homeId });
+  });
 });

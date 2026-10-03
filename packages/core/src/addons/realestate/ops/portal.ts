@@ -49,6 +49,7 @@ import type { DealStage } from '../states';
 import { homeReactions, homes, tourFeedback, tourStops, tours } from '../tables';
 import { historyLine, inWorkspace, loadDeal, requireOpen, type Ctx, type Deal } from './common';
 import { completeTask, loadTask, SIGN_OFF_EVENTS } from './client-tasks';
+import { settleMatchesFor } from './homes';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 import { feedbackWords } from './tours';
 
@@ -534,6 +535,7 @@ export const portalHomeAdd = defineAddonCommand(realestateAddon, {
         addedByPersonId: me.personId,
       })
       .returning({ id: homes.id });
+    await settleMatchesFor(ctx, deal, key, row!.id);
     await ctx.tx.insert(homeReactions).values({
       workspaceId: deal.workspaceId,
       dealRecordId: deal.recordId,

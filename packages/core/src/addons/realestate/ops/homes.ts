@@ -45,8 +45,15 @@ import {
   HomeSetStatusOutput,
 } from '../schemas';
 import type { HomeOut } from '../schemas';
-import { feedFacts, mlsOut, mlsSourceWords, mlsStateWords, type MlsSnapshot } from '../feed';
-import { buyerProfiles, buyerProfileVersions, homeReactions, homes } from '../tables';
+import {
+  feedAddressWords,
+  feedFacts,
+  mlsOut,
+  mlsSourceWords,
+  mlsStateWords,
+  type MlsSnapshot,
+} from '../feed';
+import { buyerProfiles, buyerProfileVersions, feedMatches, homeReactions, homes } from '../tables';
 import {
   actorKind,
   actorUserId,
@@ -281,6 +288,38 @@ export const buyerProfileGet = defineAddonQuery(realestateAddon, {
   },
 });
 
+/**
+ * A home now on a deal settles any new match for it still waiting on the agent (round five): it's there, as if sent,
+ * so the search doesn't offer it again. The worker takes the deal's Home card down once nothing waits
+ * (`realestate.home.added`).
+ */
+export async function settleMatchesFor(
+  ctx: CommandContext,
+  deal: { readonly workspaceId: string; readonly recordId: string },
+  key: string,
+  homeId: string,
+): Promise<number> {
+  const waiting = await ctx.tx
+    .select({ id: feedMatches.id, mls: feedMatches.mls })
+    .from(feedMatches)
+    .where(
+      and(
+        eq(feedMatches.workspaceId, deal.workspaceId),
+        eq(feedMatches.dealRecordId, deal.recordId),
+        eq(feedMatches.state, 'new'),
+      ),
+    );
+  const same = waiting
+    .filter((m) => addressKey(feedAddressWords((m.mls as unknown as MlsSnapshot).address)) === key)
+    .map((m) => m.id);
+  if (!same.length) return 0;
+  await ctx.tx
+    .update(feedMatches)
+    .set({ state: 'sent', homeId, decidedBy: actorUserId(ctx), decidedAt: new Date() })
+    .where(inArray(feedMatches.id, same));
+  return same.length;
+}
+
 /** A new home on a deal: refused when the deal already has it. */
 export async function addHome(
   ctx: CommandContext,
@@ -354,6 +393,7 @@ export async function addHome(
       addedByPersonId: input.source === 'client' ? (input.personId ?? null) : null,
     })
     .returning({ id: homes.id });
+  await settleMatchesFor(ctx, deal, key, h!.id);
   await historyLine(ctx, deal, 'home_added', {
     after: { address: input.address.trim(), source: input.source },
   });

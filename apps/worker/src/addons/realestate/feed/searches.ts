@@ -173,9 +173,13 @@ async function buyerSearches(ctx: AddonJobContext): Promise<'stop' | 'go'> {
   return 'go';
 }
 
-/** `realestate.match.sent` / `.dismissed`: the deal's card comes down once nothing waits on the agent. */
+/**
+ * `realestate.match.sent` / `.dismissed`, and `realestate.home.added` (a home added by hand settles its match): the
+ * deal's card comes down once nothing waits on the agent.
+ */
 export async function matchDecided(ctx: AddonEventContext): Promise<void> {
-  const dealId = (ctx.event.payload as Record<string, unknown> | null)?.['dealId'];
+  const dealId =
+    (ctx.event.payload as Record<string, unknown> | null)?.['dealId'] ?? ctx.event.entityId;
   if (typeof dealId !== 'string') return;
   const [left] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ n: number }>(

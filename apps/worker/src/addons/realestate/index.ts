@@ -269,6 +269,7 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.home.added': async (ctx) => {
       await homeAdded(ctx);
       await homeLookup(ctx);
+      await matchDecided(ctx);
     },
     // Round five: the listing feed asked, for a home, our listing, or a CMA's comps (./feed/lookups.ts).
     'realestate.home.lookup_requested': homeLookup,
