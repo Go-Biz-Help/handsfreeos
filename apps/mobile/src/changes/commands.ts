@@ -428,7 +428,9 @@ export const PHONE_COMMANDS = {
   'realestate.status_email.send': command(FRESH, StatusEmailDraftInput, StatusEmailOutput),
   'realestate.suggestion.add': command(ONLINE, SuggestionInput, SuggestionChangeOutput),
   'realestate.suggestion.not_a_fit': command(
-    ONLINE, SuggestionNotAFitInput, SuggestionChangeOutput,
+    ONLINE,
+    SuggestionNotAFitInput,
+    SuggestionChangeOutput,
   ),
   'realestate.tour.feedback': command(ANYTIME, TourFeedbackInput, TourFeedbackOutput),
   'realestate.tour.plan': command(ONLINE, TourPlanInput, TourPlanOutput),
