@@ -28,10 +28,12 @@ import {
   actorKind,
   actorUserId,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   userNames,
+  withPhoneId,
   type Ctx,
 } from './common';
 import { refuseFairHousingWords, requireBuyerSide } from './homes';
@@ -76,8 +78,29 @@ export const memoryAdd = defineAddonCommand(realestateAddon, {
     tool: 'realestate_remember',
     description: 'Suggest something to remember about what a buyer wants; the agent confirms it.',
   },
+  offline: 'anytime',
   emits: ['realestate.memory.added'],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: what it remembered, as it was kept then.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({
+          id: memoryItems.id,
+          dealRecordId: memoryItems.dealRecordId,
+          suggestedBy: memoryItems.suggestedBy,
+        })
+        .from(memoryItems)
+        .where(
+          and(eq(memoryItems.id, input.id), eq(memoryItems.workspaceId, ctx.scope.workspaceId!)),
+        );
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return {
+          itemId: had.id,
+          status: had.suggestedBy === 'ai' ? ('suggested' as const) : ('confirmed' as const),
+        };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
     requireBuyerSide(deal);
@@ -91,20 +114,23 @@ export const memoryAdd = defineAddonCommand(realestateAddon, {
     // The AI only ever suggests (Chris); a person's own is kept as they said it.
     const byAi = actorKind(ctx) === 'ai';
     const at = changeMoment(ctx.meta);
-    const [row] = await ctx.tx
-      .insert(memoryItems)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        kind: input.kind,
-        words: input.words,
-        sourceKind: 'typed',
-        status: byAi ? 'suggested' : 'confirmed',
-        suggestedBy: byAi ? 'ai' : 'person',
-        createdBy: actorUserId(ctx),
-        ...(byAi ? {} : { decidedBy: actorUserId(ctx), decidedAt: at }),
-      })
-      .returning({ id: memoryItems.id });
+    const [row] = await withPhoneId('memory_items', () =>
+      ctx.tx
+        .insert(memoryItems)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          kind: input.kind,
+          words: input.words,
+          sourceKind: 'typed',
+          status: byAi ? 'suggested' : 'confirmed',
+          suggestedBy: byAi ? 'ai' : 'person',
+          createdBy: actorUserId(ctx),
+          ...(byAi ? {} : { decidedBy: actorUserId(ctx), decidedAt: at }),
+        })
+        .returning({ id: memoryItems.id }),
+    );
     await ctx.emit({
       type: 'realestate.memory.added',
       entityType: 'realestate_deal',

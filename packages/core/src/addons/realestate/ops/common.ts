@@ -7,11 +7,15 @@ import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customRecords } from '@hfos/db/schema';
 import { localDateOf } from '../../../calendar/engine/zoned';
+import { idUnavailable } from '../../../crm/client-ids';
 import type { AddonLineTone } from '../../../crm/timeline-words';
 import { HfosError } from '../../../errors';
+import { waitInWords } from '../../../kernel/app-request';
 import { scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
+import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
+import { ONLINE_MINUTES } from '../../../mobile';
 import { addonTimelineLine } from '../../server';
 import type { DealFact } from '../catalog/types';
 import type { BusinessCalendar } from '../dates/business-days';
@@ -138,6 +142,49 @@ export function requireOpen(deal: Deal): void {
 }
 
 export const stageWords = (stage: DealStage) => STAGE_LABELS[stage] ?? stage;
+
+// ---------- made on the phone ----------
+
+/**
+ * An insert with the id the phone made for the row (round six), so what it makes with no signal is the same thing
+ * when it arrives. The command looks for that id in the business first and answers what the first send made; an id
+ * still taken here, by a row this person can't see or one in another business, is refused as unusable, the same
+ * whoever holds it. `table` is the add-on's table name, whose own key and `(workspace_id, id)` key hold the id.
+ */
+export async function withPhoneId<T>(table: string, insert: () => Promise<T>): Promise<T> {
+  try {
+    return await insert();
+  } catch (e) {
+    if (
+      isUniqueViolation(e, `${table}_pkey`) ||
+      isUniqueViolation(e, `${table}_workspace_id_id_key`)
+    )
+      throw idUnavailable();
+    throw e;
+  }
+}
+
+export { idUnavailable };
+
+/**
+ * A part of a command that may wait on a phone which needs signal of its own (an exception an owner or admin makes,
+ * which HandsFreeOS checks before it counts): refused, as an online-only command is (`online_only`, final), once the
+ * change waited more than a couple of minutes. `what` is what needs signal ("Recording the inspection contingency
+ * without the signed form"); `instead`, what to do now.
+ */
+export function requireNoWait(ctx: CommandContext, what: string, instead: string): void {
+  const at = ctx.meta.occurredAt;
+  if (!at) return;
+  const waited = Date.now() - at.getTime();
+  if (waited > ONLINE_MINUTES * 60_000)
+    throw new HfosError(
+      'rule_violation',
+      409,
+      `${what} needs signal, and this waited ${waitInWords(waited)} to go, so it wasn’t done. ${instead}`,
+      { occurredAt: at.toISOString() },
+      'online_only',
+    );
+}
 
 /**
  * Who did it, as the add-on's history says: a person, HandsFreeOS, the AI (the Assistant or the teammate), or the

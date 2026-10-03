@@ -53653,7 +53653,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -53788,7 +53788,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -53802,6 +53802,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dutyId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -53900,7 +53905,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54080,7 +54085,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged.",
+        "description": "Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54160,7 +54165,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.completed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.duty.completed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54926,7 +54931,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54940,6 +54945,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -57423,7 +57433,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.status_email.saved.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.status_email.saved. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -57631,7 +57641,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.status_email.sent.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.status_email.sent. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -57783,7 +57793,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -57982,7 +57992,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.home.added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.home.added. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -57996,6 +58006,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -58196,7 +58211,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.home.status_changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.home.status_changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58287,7 +58302,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.memory.added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.memory.added. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58301,6 +58316,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -58977,7 +58997,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -59063,7 +59083,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -61457,7 +61477,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -61629,7 +61649,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -61829,7 +61849,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -61936,7 +61956,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -61950,6 +61970,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -62029,7 +62054,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -62300,7 +62325,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -62309,6 +62334,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -62444,7 +62474,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -62586,7 +62616,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -62998,7 +63028,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.client_task.added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -63012,6 +63042,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -63597,7 +63632,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -63611,6 +63646,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -63676,7 +63716,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -65259,7 +65299,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -65273,6 +65313,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -65463,7 +65508,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -66396,7 +66441,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.contingency.added.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.contingency.added. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -66410,6 +66455,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -66489,7 +66539,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -67548,7 +67598,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.showing.decided.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -67562,6 +67612,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -67662,7 +67717,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.showing.decided.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -67838,7 +67893,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68041,7 +68096,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68055,6 +68110,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "vendorId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -68755,7 +68815,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added.",
+        "description": "Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68820,7 +68880,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.match.dismissed.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.match.dismissed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {

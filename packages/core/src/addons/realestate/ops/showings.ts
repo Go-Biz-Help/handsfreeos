@@ -19,6 +19,7 @@ import { HfosError } from '../../../errors';
 import { requireCustomer, requirePublic } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
+import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { showingRequestPath, streetOf } from '../listing';
 import { realestateAddon } from '../manifest';
@@ -72,11 +73,13 @@ import {
   dealClients,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   requireOpen,
   timeZoneOf,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -273,8 +276,22 @@ export const showingAdd = defineAddonCommand(realestateAddon, {
   output: ShowingOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Its confirmation goes to the buyer's agent at once: another agent, so with no signal it waits and asks again after
+  // 30 minutes. The phone's id is the showing's.
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['realestate.showing.decided'],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the showing it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select()
+        .from(showings)
+        .where(and(eq(showings.id, input.id), eq(showings.workspaceId, ctx.scope.workspaceId!)));
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return out(had);
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
     requireListingSide(deal);
@@ -282,26 +299,29 @@ export const showingAdd = defineAddonCommand(realestateAddon, {
     const starts = new Date(input.startsAt);
     const ends = new Date(starts.getTime() + (input.minutes ?? settingsOf(l).minutes) * MINUTE);
     const at = changeMoment(ctx.meta);
-    const [s] = await ctx.tx
-      .insert(showings)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        source: 'agent',
-        state: 'confirmed',
-        startsAt: starts,
-        endsAt: ends,
-        agentName: input.agentName,
-        brokerage: input.brokerage ?? null,
-        license: input.license ?? null,
-        agentEmail: input.agentEmail ?? null,
-        agentPhone: input.agentPhone ?? null,
-        requestedAt: at,
-        decidedAt: at,
-        decidedBy: actorUserId(ctx),
-        createdBy: actorUserId(ctx),
-      })
-      .returning();
+    const [s] = await withPhoneId('showings', () =>
+      ctx.tx
+        .insert(showings)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          source: 'agent',
+          state: 'confirmed',
+          startsAt: starts,
+          endsAt: ends,
+          agentName: input.agentName,
+          brokerage: input.brokerage ?? null,
+          license: input.license ?? null,
+          agentEmail: input.agentEmail ?? null,
+          agentPhone: input.agentPhone ?? null,
+          requestedAt: at,
+          decidedAt: at,
+          decidedBy: actorUserId(ctx),
+          createdBy: actorUserId(ctx),
+        })
+        .returning(),
+    );
     const tz = await timeZoneOf(ctx);
     await historyLine(ctx, deal, 'showing_added', { after: { showingId: s!.id } });
     const eventId = await showingEvent(ctx, 'realestate.showing.decided', s!, deal, {
@@ -325,6 +345,8 @@ export const showingDecide = defineAddonCommand(realestateAddon, {
     tool: 'realestate_answer_showing',
     description: 'Confirm, turn down or cancel a showing of a listing, for the seller.',
   },
+  // The buyer's agent hears: answering waits on the phone and asks again after 30 minutes (board 89).
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['realestate.showing.decided'],
   async handler(ctx, input) {
     const { s, deal } = await loadShowing(ctx, input.showingId);
@@ -462,6 +484,8 @@ export const showingFeedback = defineAddonCommand(realestateAddon, {
   output: ShowingOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // What the buyer's agent said on the phone, noted with no signal. Their own answer, given after it, stays.
+  offline: 'anytime',
   emits: ['realestate.showing.feedback_received'],
   async handler(ctx, input) {
     const { s, deal } = await loadShowing(ctx, input.showingId);
@@ -471,6 +495,17 @@ export const showingFeedback = defineAddonCommand(realestateAddon, {
         'realestate_showing_settled',
         409,
         `That showing was ${SHOWING_STATE_WORDS(s.state)}, so there’s no feedback to keep.`,
+      );
+    if (
+      s.feedbackSource &&
+      s.feedbackSource !== 'agent' &&
+      s.feedbackAt &&
+      s.feedbackAt.getTime() > changeMoment(ctx.meta).getTime()
+    )
+      throw HfosError.rule(
+        'realestate_showing_feedback_theirs',
+        409,
+        `${s.agentName} ${s.feedbackSource === 'page' ? 'answered the feedback link' : 'sent feedback through ShowingTime'} ${showingWhen(s.feedbackAt, await timeZoneOf(ctx))}, after you noted it here, so theirs stays. Add what you heard as a note on the showing.`,
       );
     const was = (s.feedback ?? {}) as Partial<ShowingFeedback>;
     const feedback: ShowingFeedback = {

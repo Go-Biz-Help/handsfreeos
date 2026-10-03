@@ -278,6 +278,17 @@ Round five (Chris, 2026-10-02):
   walkthrough's list is built once, with signal, from the repairs agreed (not the credits), what the contract says
   stays and goes (`included_items`, `excluded_items`), the inspection's findings nobody asked to fix, and each room;
   finishing turns each thing that isn't right into a duty before closing, and the agent's own word counts for X-24.
+- **What waits on a phone** (boards 76–93, Chris, 2026-10-03). Field work waits for signal as long as it takes and
+  counts from when it was done on the phone: a duty's proof, status, alert and marking it done; contingencies added or
+  resolved (what they move moves on arrival); a document from a photo; financing steps; inspections and findings;
+  homes, what the buyer wants and setting a match aside; memory; the listing's photos and their order; net sheets;
+  vendors; tour stops and reactions; showing feedback; editing a client update; field notes and the walkthrough.
+  What it makes keeps the phone's id, so sent twice it's one. What reaches a client or another agent goes while fresh
+  and asks "Still send?" after 30 minutes: a client update, a client's task, a match sent, a price for the seller to
+  sign off, a showing added or answered. A contingency recorded without its form still needs signal, and feedback a
+  client or buyer's agent gave themselves after the phone noted theirs stays. The AI's drafts, exceptions, a
+  contract's terms, offers, signing, moving a stage, export and holds need signal. The phone's list is
+  `PHONE_COMMANDS`; `realestate-offline.test.ts` holds it to the server.
 - **The export is the whole transaction**: every file on the deal with its SHA-256, checked against the fingerprint
   taken when it was stored; every record of the deal's as JSON; and `manifest.json` (`hfos.transaction-export`,
   version 1). Secrets and the network addresses on audit lines are left out. Owners and admins ask for it

@@ -8,6 +8,8 @@
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
+import { changeMoment } from '../../../kernel/moment';
+import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { feedAddressWords, mlsOut, type MlsSnapshot } from '../feed';
 import { addressKey, fitProfileOf, homeFit } from '../homes';
@@ -259,6 +261,8 @@ export const matchSend = defineAddonCommand(realestateAddon, {
     tool: 'realestate_send_match',
     description: 'Send a home from a buyer’s new matches to the client, as one of their homes.',
   },
+  // "Send to Linh" reaches the client's portal: with no signal it waits, and asks again after 30 minutes (board 82).
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['realestate.match.sent', 'realestate.home.added'],
   async handler(ctx, input) {
     const m = await loadMatch(ctx, input.matchId);
@@ -272,7 +276,12 @@ export const matchSend = defineAddonCommand(realestateAddon, {
     });
     await ctx.tx
       .update(feedMatches)
-      .set({ state: 'sent', homeId, decidedBy: actorUserId(ctx), decidedAt: new Date() })
+      .set({
+        state: 'sent',
+        homeId,
+        decidedBy: actorUserId(ctx),
+        decidedAt: changeMoment(ctx.meta),
+      })
       .where(eq(feedMatches.id, m.id));
     const eventId = await ctx.emit({
       type: 'realestate.match.sent',
@@ -296,6 +305,8 @@ export const matchDismiss = defineAddonCommand(realestateAddon, {
   output: MatchDismissOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // "Not for Linh": the client never sees it, so it waits for signal as long as it takes.
+  offline: 'anytime',
   emits: ['realestate.match.dismissed'],
   async handler(ctx, input) {
     const m = await loadMatch(ctx, input.matchId);
@@ -304,7 +315,11 @@ export const matchDismiss = defineAddonCommand(realestateAddon, {
     await loadDeal(ctx, m.dealRecordId);
     await ctx.tx
       .update(feedMatches)
-      .set({ state: 'dismissed', decidedBy: actorUserId(ctx), decidedAt: new Date() })
+      .set({
+        state: 'dismissed',
+        decidedBy: actorUserId(ctx),
+        decidedAt: changeMoment(ctx.meta),
+      })
       .where(eq(feedMatches.id, m.id));
     await ctx.emit({
       type: 'realestate.match.dismissed',

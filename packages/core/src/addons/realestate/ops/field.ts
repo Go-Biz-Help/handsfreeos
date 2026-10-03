@@ -16,9 +16,7 @@ import { files } from '@hfos/db/schema';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
-import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext } from '../../../kernel/types';
-import { idUnavailable } from '../../../crm/client-ids';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { realestateAddon } from '../manifest';
 import {
@@ -54,10 +52,12 @@ import {
   actorKind,
   actorUserId,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   requireOpen,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -98,16 +98,6 @@ async function requireDealFiles(
     );
 }
 
-/** An insert with the phone's id: one already taken beyond this person's sight is refused as unusable. */
-async function withPhoneId<T>(constraint: string, insert: () => Promise<T>): Promise<T> {
-  try {
-    return await insert();
-  } catch (e) {
-    if (isUniqueViolation(e, constraint)) throw idUnavailable();
-    throw e;
-  }
-}
-
 // ---------- field notes ----------
 
 export const fieldNoteAdd = defineAddonCommand(realestateAddon, {
@@ -137,7 +127,7 @@ export const fieldNoteAdd = defineAddonCommand(realestateAddon, {
     if (input.audioFileId) await requireDealFiles(ctx, deal, [input.audioFileId], 'recording');
     await requireDealFiles(ctx, deal, input.photoFileIds, 'photo');
     const at = changeMoment(ctx.meta);
-    await withPhoneId('field_notes_pkey', () =>
+    await withPhoneId('field_notes', () =>
       ctx.tx.insert(fieldNotes).values({
         id: input.id,
         workspaceId: ws,
@@ -375,7 +365,7 @@ export const walkthroughPlan = defineAddonCommand(realestateAddon, {
         `${deal.name} already has a walkthrough that isn’t finished. Open it from the deal, or finish it first.`,
       );
     const drafts = walkthroughItems(await walkthroughFacts(ctx, deal));
-    await withPhoneId('walkthroughs_pkey', () =>
+    await withPhoneId('walkthroughs', () =>
       ctx.tx.insert(walkthroughs).values({
         id: input.id,
         workspaceId: deal.workspaceId,
@@ -539,7 +529,7 @@ export const walkthroughAddItem = defineAddonCommand(realestateAddon, {
       .select({ n: max(itemsTable.position) })
       .from(itemsTable)
       .where(eq(itemsTable.walkthroughId, w.id));
-    await withPhoneId('walkthrough_items_pkey', () =>
+    await withPhoneId('walkthrough_items', () =>
       ctx.tx.insert(itemsTable).values({
         id: input.id,
         workspaceId: w.workspaceId,

@@ -38,12 +38,15 @@ import {
   businessCalendarOf,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
+  requireNoWait,
   requireNotArchived,
   timeZoneOf,
   todayIn,
   userNames,
+  withPhoneId,
 } from './common';
 import { openWork, termEntriesOf } from './engine';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
@@ -60,8 +63,26 @@ export const contingencyAdd = defineAddonCommand(realestateAddon, {
   output: ContingencyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Saves with no signal, with the phone's id; the dates and duties that rest on it move when it arrives.
+  offline: 'anytime',
   emits: ['realestate.contingency.added'],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the contingency it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: contingencies.id, dealRecordId: contingencies.dealRecordId })
+        .from(contingencies)
+        .where(
+          and(
+            eq(contingencies.id, input.id),
+            eq(contingencies.workspaceId, ctx.scope.workspaceId!),
+          ),
+        );
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return { dealId: had.dealRecordId, contingencyId: had.id };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
     if (input.kind !== 'other') {
@@ -79,20 +100,23 @@ export const contingencyAdd = defineAddonCommand(realestateAddon, {
         );
     }
     const endKey = CONTINGENCY_KINDS[input.kind].endKey;
-    const [made] = await ctx.tx
-      .insert(contingencies)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        kind: input.kind,
-        label: input.kind === 'other' ? input.label! : null,
-        endKey,
-        endsOn: input.kind === 'other' ? input.endsOn! : null,
-        source: 'typed',
-        createdBy: actorUserId(ctx),
-        createdAt: changeMoment(ctx.meta),
-      })
-      .returning();
+    const [made] = await withPhoneId('contingencies', () =>
+      ctx.tx
+        .insert(contingencies)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          kind: input.kind,
+          label: input.kind === 'other' ? input.label! : null,
+          endKey,
+          endsOn: input.kind === 'other' ? input.endsOn! : null,
+          source: 'typed',
+          createdBy: actorUserId(ctx),
+          createdAt: changeMoment(ctx.meta),
+        })
+        .returning(),
+    );
     await historyLine(ctx, deal, 'contingency_added', {
       after: { kind: input.kind, label: input.label ?? null, source: 'typed' },
     });
@@ -128,6 +152,10 @@ export const contingencyResolve = defineAddonCommand(realestateAddon, {
   output: ContingencyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Resolved with no signal, with the signed form (a photo of it added as a document on the phone); anything it
+  // moves, dates and duties, moves when it arrives, from the moment it was resolved (board 80). Without the form it's
+  // an exception, which needs signal.
+  offline: 'anytime',
   emits: ['realestate.contingency.resolved', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const [row] = await ctx.tx
@@ -186,6 +214,11 @@ export const contingencyResolve = defineAddonCommand(realestateAddon, {
           'Only an owner or admin (Approve exceptions) can record how a contingency ended without the signed form. Ask one of them, or add the form.',
           'realestate_contingency_exception_permission',
         );
+      requireNoWait(
+        ctx,
+        `Recording the ${inSentence(label)} contingency without the signed form`,
+        'Record it again with signal, or add the form and pick it.',
+      );
     }
     const at = changeMoment(ctx.meta);
     await ctx.tx

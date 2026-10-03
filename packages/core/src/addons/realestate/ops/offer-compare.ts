@@ -33,10 +33,12 @@ import {
   actorUserId,
   dealClients,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireOpen,
   userNames,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -96,28 +98,48 @@ export const netSheetSave = defineAddonCommand(realestateAddon, {
   output: NetSheetSaveOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // A new estimate saves with no signal (board 88), with the phone's id for the save.
+  offline: 'anytime',
   emits: ['realestate.net_sheet.saved', ...PROOF_EVENTS],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the save it made.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({
+          id: netSheets.id,
+          dealRecordId: netSheets.dealRecordId,
+          version: netSheets.version,
+        })
+        .from(netSheets)
+        .where(and(eq(netSheets.id, input.id), eq(netSheets.workspaceId, ctx.scope.workspaceId!)));
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return { dealId: had.dealRecordId, version: had.version };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
     requireListingSide(deal);
     const [last] = await sheetsOf(ctx, deal.recordId);
     const version = (last?.version ?? 0) + 1;
-    await ctx.tx.insert(netSheets).values({
-      workspaceId: deal.workspaceId,
-      dealRecordId: deal.recordId,
-      version,
-      payoffCents: input.payoffCents,
-      listingFeeBp: input.listingFeeBp,
-      listingFeeCents: input.listingFeeCents,
-      titleEscrowCents: input.titleEscrowCents,
-      transferTaxBp: input.transferTaxBp,
-      otherCents: input.otherCents,
-      otherNote: input.otherNote,
-      note: input.note,
-      savedBy: actorUserId(ctx),
-      savedAt: changeMoment(ctx.meta),
-    });
+    await withPhoneId('net_sheets', () =>
+      ctx.tx.insert(netSheets).values({
+        ...(input.id ? { id: input.id } : {}),
+        workspaceId: deal.workspaceId,
+        dealRecordId: deal.recordId,
+        version,
+        payoffCents: input.payoffCents,
+        listingFeeBp: input.listingFeeBp,
+        listingFeeCents: input.listingFeeCents,
+        titleEscrowCents: input.titleEscrowCents,
+        transferTaxBp: input.transferTaxBp,
+        otherCents: input.otherCents,
+        otherNote: input.otherNote,
+        note: input.note,
+        savedBy: actorUserId(ctx),
+        savedAt: changeMoment(ctx.meta),
+      }),
+    );
     await historyLine(ctx, deal, 'net_sheet', { after: { version } });
     // X-04 "Seller net sheet": the figures, kept.
     await addProof(

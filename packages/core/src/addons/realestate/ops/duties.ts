@@ -44,11 +44,13 @@ import {
   actorUserId,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   timeZoneOf,
   userNames,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -220,6 +222,8 @@ export const dutySetStatus = defineAddonCommand(realestateAddon, {
       'Say where a duty stands: in progress, waiting on someone, or blocked with what’s in the way. Asks the person first.',
     autonomy: 'confirm',
   },
+  // Where it stands, said in the field: nothing reaches a client, and its due date never moves for it.
+  offline: 'anytime',
   emits: ['realestate.duty.status_changed'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -304,9 +308,27 @@ export const dutyAddEvidence = defineAddonCommand(realestateAddon, {
       'Add proof to a duty: a note, or one of the deal’s documents or files. It never gives the person’s word for them. Asks the person first.',
     autonomy: 'confirm',
   },
+  // A photo, a file or a note goes on with no signal, with the phone's id (board 79).
+  offline: 'anytime',
   emits: ['realestate.duty.evidence_added'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
+    // Sent again after its answer was lost: the proof it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: dutyEvidence.id, dutyId: dutyEvidence.dutyId })
+        .from(dutyEvidence)
+        .where(and(eq(dutyEvidence.id, input.id), eq(dutyEvidence.workspaceId, duty.workspaceId)));
+      if (had) {
+        if (had.dutyId !== duty.id) throw idUnavailable();
+        return {
+          dealId: deal.recordId,
+          dutyId: duty.id,
+          evidenceId: had.id,
+          missing: await missingProof(ctx, duty, deal),
+        };
+      }
+    }
     requireNotArchived(deal);
     if (isDoneDuty(duty.status as DutyStatus)) throw finished(duty);
     // Only a person says, in their own name, that they did something (spec §22: it never claims to have attended).
@@ -355,22 +377,25 @@ export const dutyAddEvidence = defineAddonCommand(realestateAddon, {
         .where(and(eq(messages.id, input.messageId!), eq(messages.workspaceId, ws)));
       if (!m) throw HfosError.notFound('That message isn’t there anymore. Pick another.');
     }
-    const [row] = await ctx.tx
-      .insert(dutyEvidence)
-      .values({
-        workspaceId: ws,
-        dealRecordId: deal.recordId,
-        dutyId: duty.id,
-        kind: input.kind,
-        documentId: input.kind === 'document' ? input.documentId! : null,
-        fileId: input.kind === 'file' ? input.fileId! : null,
-        appointmentId: input.kind === 'appointment' ? input.appointmentId! : null,
-        messageId: input.kind === 'message' ? input.messageId! : null,
-        body: input.body ?? null,
-        addedBy: actorUserId(ctx),
-        addedAt: changeMoment(ctx.meta),
-      })
-      .returning({ id: dutyEvidence.id });
+    const [row] = await withPhoneId('duty_evidence', () =>
+      ctx.tx
+        .insert(dutyEvidence)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: ws,
+          dealRecordId: deal.recordId,
+          dutyId: duty.id,
+          kind: input.kind,
+          documentId: input.kind === 'document' ? input.documentId! : null,
+          fileId: input.kind === 'file' ? input.fileId! : null,
+          appointmentId: input.kind === 'appointment' ? input.appointmentId! : null,
+          messageId: input.kind === 'message' ? input.messageId! : null,
+          body: input.body ?? null,
+          addedBy: actorUserId(ctx),
+          addedAt: changeMoment(ctx.meta),
+        })
+        .returning({ id: dutyEvidence.id }),
+    );
     await logLine(ctx, duty, 'evidence_added', {
       after: { evidenceId: row!.id, kind: input.kind },
     });
@@ -396,6 +421,7 @@ export const dutyWithdrawEvidence = defineAddonCommand(realestateAddon, {
   output: DutyEvidenceOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.duty.evidence_withdrawn'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -493,6 +519,7 @@ export const dutyAcknowledge = defineAddonCommand(realestateAddon, {
   output: DutyOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.duty.acknowledged'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
@@ -610,10 +637,15 @@ export const dutyComplete = defineAddonCommand(realestateAddon, {
     description: 'Mark a duty done once it has its proof. Asks the person first.',
     autonomy: 'confirm',
   },
+  // Done right away on the phone, marked as waiting; it counts when it arrives, with the time it was done there
+  // (board 79). Done without its proof is an exception, and needs signal.
+  offline: 'anytime',
   emits: ['realestate.duty.completed'],
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId, { lock: true });
     requireNotArchived(deal);
+    // Already done (by someone else while this waited, or this change sent again): nothing more to do.
+    if (duty.status === 'completed') return answer(duty);
     requireWorkable(duty);
     const missing = await missingProof(ctx, duty, deal);
     if (missing)

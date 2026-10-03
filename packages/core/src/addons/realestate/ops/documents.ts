@@ -28,9 +28,11 @@ import {
   actorUserId,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
+  withPhoneId,
   type Deal,
 } from './common';
 import { isPdf, READ_EVENTS, startRead } from './contract';
@@ -132,8 +134,22 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
   // The worker files a document signed at DocuSign or Dotloop (round five).
   actors: ['human', 'system'],
   scope: inWorkspace,
+  // A photo of a paper adds a document with no signal, with the phone's id, so resolving a contingency with it can
+  // wait beside it (boards 80 and 81). Opening one needs signal.
+  offline: 'anytime',
   emits: ['realestate.document.added', ...READ_EVENTS],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the document it made.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select()
+        .from(documents)
+        .where(and(eq(documents.id, input.id), eq(documents.workspaceId, ctx.scope.workspaceId!)));
+      if (had) {
+        if (had.dealRecordId !== input.dealId || had.fileId !== input.fileId) throw idUnavailable();
+        return out(had);
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
     const [file] = await ctx.tx
@@ -199,21 +215,24 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
       version = prev.version + 1;
       supersedesId = prev.id;
     }
-    const [doc] = await ctx.tx
-      .insert(documents)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        fileId: file.id,
-        kind: input.kind,
-        title: input.title ?? file.name,
-        lineageId,
-        version,
-        supersedesId,
-        status: input.status,
-        createdBy: actorUserId(ctx),
-      })
-      .returning();
+    const [doc] = await withPhoneId('documents', () =>
+      ctx.tx
+        .insert(documents)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          fileId: file.id,
+          kind: input.kind,
+          title: input.title ?? file.name,
+          lineageId,
+          version,
+          supersedesId,
+          status: input.status,
+          createdBy: actorUserId(ctx),
+        })
+        .returning(),
+    );
     await historyLine(ctx, deal, 'document_added', {
       after: { documentId: doc!.id, kind: input.kind, version, supersedesId },
     });

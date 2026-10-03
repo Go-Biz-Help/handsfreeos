@@ -34,8 +34,12 @@ const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
  * Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft);
  * calling a customer through the person's own cell, cancelling that call, and verifying that cell; deleting the
  * account; the Assistant's consent; registering the phone for push notifications, or removing it; adding a lesson
- * from correcting the AI to what it knows, from its Home card; deleting a form's answer sheet; and moving an email
- * thread between the Inbox, Other mail and Spam, or sharing one's own mail with the team (M19).
+ * from correcting the AI to what it knows, from its Home card; deleting a form's answer sheet; moving an email
+ * thread between the Inbox, Other mail and Spam, or sharing one's own mail with the team (M19); asking for help, or
+ * saving and removing one's own safety contacts, from the safety screens (round six); Got it on an add-on's alert,
+ * from its Home card (round six); and on Real Estate's buyer pages (round six, boards 82–84), looking a home up on the
+ * MLS, adding or setting aside one of our listings, planning a tour or changing its homes, writing a counter, sharing
+ * an offer's summary, and finding a CMA's comps or asking for its summary.
  */
 const ONLINE_COMMANDS = [
   'estimate.create',
@@ -54,10 +58,24 @@ const ONLINE_COMMANDS = [
   'form_response.delete',
   'conversation.move',
   'conversation.share',
+  'safety.help',
+  'safety_contact.save',
+  'safety_contact.remove',
+  'addon_alert.acknowledge',
+  'realestate.home.lookup',
+  'realestate.suggestion.add',
+  'realestate.suggestion.not_a_fit',
+  'realestate.tour.plan',
+  'realestate.tour.set_stops',
+  'realestate.offer.add_version',
+  'realestate.offer.share_summary',
+  'realestate.cma.find_comps',
+  'realestate.cma.request_summary',
 ];
 /**
  * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
- * all of them for a spreadsheet), and the business's link name and own domain for the form's link and QR code.
+ * all of them for a spreadsheet), and the business's link name and own domain for the form's link and QR code; and
+ * Real Estate's buyer pages for a deal the phone keeps only as its summary (round six), loaded with signal.
  */
 const QUERIES = [
   'account.me',
@@ -70,6 +88,14 @@ const QUERIES = [
   'form.response_export',
   'form.response_get',
   'form.response_list',
+  'realestate.buyer_profile.get',
+  'realestate.cma',
+  'realestate.homes',
+  'realestate.matches',
+  'realestate.memory',
+  'realestate.offers',
+  'realestate.offers.compare',
+  'realestate.tours',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

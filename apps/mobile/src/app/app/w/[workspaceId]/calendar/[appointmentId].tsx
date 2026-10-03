@@ -23,6 +23,7 @@ import {
   statusOf,
   zoneLabel,
   type CalendarConfig,
+  SAFETY_PHONE_WORDS,
 } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
@@ -31,9 +32,10 @@ import { Linking, Platform, View } from 'react-native';
 import { cancelVisit, confirmSeat, setVisitStatus } from '@/calendar/actions';
 import { addressOf, useAppointment, useNow, useVisitInvoices } from '@/calendar/use-calendar';
 import { useCalendarZone } from '@/calendar/use-calendar';
-import { Check, CircleDollarSign, MapPin, Undo2 } from '@/components/icons';
+import { Check, CircleDollarSign, MapPin, ShieldCheck, Undo2 } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { VisitJob } from '@/components/calendar/visit-job';
+import { CheckInSheet } from '@/components/safety/check-in-sheet';
 import { Screen } from '@/components/shell/screen';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +63,7 @@ export default function Appointment() {
   const { appointment: a, loading } = useAppointment(appointmentId);
   const invoices = useVisitInvoices(appointmentId);
   const [cancelling, setCancelling] = React.useState(false);
+  const [checkingIn, setCheckingIn] = React.useState(false);
   const [working, setWorking] = React.useState(false);
 
   if (!a)
@@ -282,6 +285,15 @@ export default function Appointment() {
 
       {a.status === 'scheduled' ? (
         <View className="gap-2 pt-1">
+          {/* Showing safety (round six): check in for the visit, with a planned end and who's told. */}
+          <Button
+            variant="secondary"
+            icon={ShieldCheck}
+            onPress={() => setCheckingIn(true)}
+            testID="appointment-check-in"
+          >
+            {SAFETY_PHONE_WORDS.checkIn}
+          </Button>
           <Button
             variant="secondary"
             loading={working}
@@ -312,6 +324,16 @@ export default function Appointment() {
         </Text>
       ) : null}
 
+      <CheckInSheet
+        open={checkingIn}
+        onClose={() => setCheckingIn(false)}
+        workspaceId={business.id}
+        appointmentId={appointmentId}
+        place={address ?? a.title}
+        about={address ? `${a.title} · ${address}` : a.title}
+        startsAt={a.startsAt}
+        endsAt={a.endsAt}
+      />
       <CancelSheet
         open={cancelling}
         onClose={() => setCancelling(false)}

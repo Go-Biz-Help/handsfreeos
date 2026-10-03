@@ -2,6 +2,7 @@ import type { Href } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { CheckInBanner } from '@/components/safety/check-in-banner';
 import { ViewStrip } from '@/components/view-as/view-strip';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +59,8 @@ export function Screen({
       />
       <StatusStrip />
       <ViewStrip />
+      {/* Checked in for showing safety: on every screen until they check out (round six). */}
+      <CheckInBanner />
       {scroll ? (
         <ScrollView
           className="flex-1"

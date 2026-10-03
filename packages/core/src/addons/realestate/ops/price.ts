@@ -15,6 +15,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
+import { FRESH_MINUTES } from '../../../mobile';
 import { money } from '../../../money/format';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { streetOf } from '../listing';
@@ -215,6 +216,9 @@ export const pricePropose = defineAddonCommand(realestateAddon, {
     description:
       'Ask a listing’s seller to sign off a new list price in their portal. Always asks the person first.',
   },
+  // Asking the seller reaches their portal: with no signal it waits, and asks again after 30 minutes (board 88). One
+  // waits at a time, so a second ask is refused rather than made twice.
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['realestate.listing.price_proposed', 'realestate.client_task.added'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

@@ -2171,6 +2171,12 @@ fair housing saying it checks with signal (boards 81, 87, 88) and an outside con
 - The phone: its reader (`apps/mobile/src/addons/realestate/copy.ts`), I'm OK and +15 min from the lock screen, and
   checking in, adding time and checking out with no signal, with a reminder at the planned end that the server's push
   replaces. The location and microphone wording now covers check-ins and voice notes.
+- Each field command's offline class, once the boards were approved (step 7's last part): 35 more Real Estate
+  commands may wait on a phone, each taking the phone's id for what it makes and the moment it was done. Six that
+  reach a client or another agent ask again after 30 minutes, adding a showing among them, since it emails the
+  buyer's agent. Moving a stage stays online for now, though board 78 lets it wait: a late one could undo a
+  termination recorded meanwhile, so it first needs to say which stage it moved from. Findings' photos (board 85)
+  need a column of their own.
 - Chris decided (2026-10-03): **phones get the team's permissions**, so Team workload works with no signal: each
   add-on key now says its add-on and the person's role, and whoever sees every record of a kind may read who holds
   the add-on (20261022001200); records_v1 sends it to them alone. **The boards say fair housing checks with signal**

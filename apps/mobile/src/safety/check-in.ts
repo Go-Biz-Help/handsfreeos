@@ -150,3 +150,24 @@ export function reminderData(c: {
     body: words.body,
   });
 }
+
+const QUARTER = 15 * 60_000;
+
+/**
+ * The planned ends to choose from when checking in: the appointment's end and a quarter and half an hour after it
+ * (board 90: 4:30, 4:45, 5:00), or, with no appointment or one already over, the next quarter hour at least half an
+ * hour away and the two after it. The second is chosen first: a little time to spare.
+ */
+export function checkOutChoices(endsAt: string | null, now: number): string[] {
+  const end = endsAt ? Date.parse(endsAt) : NaN;
+  const base =
+    Number.isFinite(end) && end > now ? end : Math.ceil((now + 30 * 60_000) / QUARTER) * QUARTER;
+  return [0, 1, 2].map((n) => new Date(base + n * QUARTER).toISOString());
+}
+
+/** Other planned ends, counted from now: an hour, an hour and a half, two hours, three. */
+export function laterChoices(now: number): string[] {
+  return [60, 90, 120, 180].map((m) =>
+    new Date(Math.ceil((now + m * 60_000) / QUARTER) * QUARTER).toISOString(),
+  );
+}

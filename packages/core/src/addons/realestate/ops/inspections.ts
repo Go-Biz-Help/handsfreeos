@@ -45,12 +45,14 @@ import { termsNow } from '../terms';
 import {
   actorUserId,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   requireOpen,
   timeZoneOf,
   todayIn,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -185,23 +187,41 @@ export const inspectionAdd = defineAddonCommand(realestateAddon, {
     description:
       'Add an inspection to a deal, with the inspector and when (on a listing, the buyer’s inspection at the home).',
   },
+  // At the inspection, with no signal: the phone's id, so its findings can wait beside it (board 85).
+  offline: 'anytime',
   emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the inspection it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: inspections.id, dealRecordId: inspections.dealRecordId })
+        .from(inspections)
+        .where(
+          and(eq(inspections.id, input.id), eq(inspections.workspaceId, ctx.scope.workspaceId!)),
+        );
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return { inspectionId: had.id };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
-    const [row] = await ctx.tx
-      .insert(inspections)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        kind: input.kind,
-        inspector: input.inspector ?? null,
-        scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
-        reportExpectedOn: input.reportExpectedOn ?? null,
-        note: input.note ?? null,
-        createdBy: actorUserId(ctx),
-      })
-      .returning({ id: inspections.id });
+    const [row] = await withPhoneId('inspections', () =>
+      ctx.tx
+        .insert(inspections)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          kind: input.kind,
+          inspector: input.inspector ?? null,
+          scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
+          reportExpectedOn: input.reportExpectedOn ?? null,
+          note: input.note ?? null,
+          createdBy: actorUserId(ctx),
+        })
+        .returning({ id: inspections.id }),
+    );
     await historyLine(ctx, deal, 'inspection_added', { after: { kind: input.kind } });
     if (input.scheduledAt)
       await inspectionProof(ctx, deal, input.kind, input.scheduledAt, input.inspector);
@@ -223,6 +243,7 @@ export const inspectionUpdate = defineAddonCommand(realestateAddon, {
   output: InspectionChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const i = await loadInspection(ctx, input.inspectionId, true);
@@ -363,9 +384,27 @@ export const findingAdd = defineAddonCommand(realestateAddon, {
     description:
       'Add a finding from an inspection report to the deal, with where it is and how serious.',
   },
+  // Taken at the inspection, often in a basement or attic: works with no signal, with the phone's id (board 85).
+  offline: 'anytime',
   emits: ['realestate.inspection.changed'],
   async handler(ctx, input) {
     const i = await loadInspection(ctx, input.inspectionId, true);
+    // Sent again after its answer was lost: the finding it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: inspectionFindings.id, inspectionId: inspectionFindings.inspectionId })
+        .from(inspectionFindings)
+        .where(
+          and(
+            eq(inspectionFindings.id, input.id),
+            eq(inspectionFindings.workspaceId, i.workspaceId),
+          ),
+        );
+      if (had) {
+        if (had.inspectionId !== i.id) throw idUnavailable();
+        return { findingId: had.id };
+      }
+    }
     const deal = await loadDeal(ctx, i.dealRecordId);
     requireNotArchived(deal);
     requireNotCanceled(i);
@@ -373,24 +412,27 @@ export const findingAdd = defineAddonCommand(realestateAddon, {
       .select({ n: max(inspectionFindings.position) })
       .from(inspectionFindings)
       .where(eq(inspectionFindings.inspectionId, i.id));
-    const [row] = await ctx.tx
-      .insert(inspectionFindings)
-      .values({
-        workspaceId: i.workspaceId,
-        dealRecordId: i.dealRecordId,
-        inspectionId: i.id,
-        title: input.title,
-        location: input.location ?? null,
-        severity: input.severity,
-        estimateCents: input.estimateCents ?? null,
-        clientPriority: input.clientPriority ?? null,
-        ask: input.ask ?? 'not_asked',
-        creditCents: input.creditCents ?? null,
-        position: (last?.n ?? 0) + 1,
-        note: input.note ?? null,
-        createdBy: actorUserId(ctx),
-      })
-      .returning({ id: inspectionFindings.id });
+    const [row] = await withPhoneId('inspection_findings', () =>
+      ctx.tx
+        .insert(inspectionFindings)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: i.workspaceId,
+          dealRecordId: i.dealRecordId,
+          inspectionId: i.id,
+          title: input.title,
+          location: input.location ?? null,
+          severity: input.severity,
+          estimateCents: input.estimateCents ?? null,
+          clientPriority: input.clientPriority ?? null,
+          ask: input.ask ?? 'not_asked',
+          creditCents: input.creditCents ?? null,
+          position: (last?.n ?? 0) + 1,
+          note: input.note ?? null,
+          createdBy: actorUserId(ctx),
+        })
+        .returning({ id: inspectionFindings.id }),
+    );
     await ctx.emit({
       type: 'realestate.inspection.changed',
       entityType: 'realestate_deal',
@@ -410,6 +452,7 @@ export const findingUpdate = defineAddonCommand(realestateAddon, {
   output: FindingChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.inspection.changed'],
   async handler(ctx, input) {
     const f = await loadFinding(ctx, input.findingId);
@@ -447,6 +490,7 @@ export const findingRemove = defineAddonCommand(realestateAddon, {
   output: FindingChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.inspection.changed'],
   async handler(ctx, input) {
     const f = await loadFinding(ctx, input.findingId);

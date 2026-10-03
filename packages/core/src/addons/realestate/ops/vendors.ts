@@ -53,6 +53,7 @@ import {
   inWorkspace,
   requireNotArchived,
   userNames,
+  withPhoneId,
   type Ctx,
 } from './common';
 import { loadDuty, logLine } from './duties';
@@ -156,8 +157,19 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
   output: VendorOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Adding works with no signal, with the phone's id for a new one; approving one needs an owner or admin with signal
+  // (board 89).
+  offline: 'anytime',
   emits: ['realestate.vendor.saved', 'company.created'],
   async handler(ctx, input) {
+    // A new one sent again after its answer was lost: the vendor it added.
+    if (!input.vendorId && input.id) {
+      const [had] = await ctx.tx
+        .select()
+        .from(vendors)
+        .where(and(eq(vendors.id, input.id), eq(vendors.workspaceId, ctx.scope.workspaceId!)));
+      if (had) return vendorOut(had);
+    }
     const at = changeMoment(ctx.meta);
     const facts = {
       services: [...new Set(input.services)],
@@ -230,18 +242,21 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
           409,
           'That company is in the directory already. Change it there instead.',
         );
-      [v] = (await ctx.tx
-        .insert(vendors)
-        .values({
-          workspaceId: ctx.scope.workspaceId!,
-          companyId,
-          services: facts.services,
-          areas: facts.areas,
-          disclosure: input.disclosure ?? null,
-          note: input.note ?? null,
-          createdBy: actorUserId(ctx),
-        })
-        .returning()) as [Vendor];
+      [v] = (await withPhoneId('vendors', () =>
+        ctx.tx
+          .insert(vendors)
+          .values({
+            ...(input.id ? { id: input.id } : {}),
+            workspaceId: ctx.scope.workspaceId!,
+            companyId,
+            services: facts.services,
+            areas: facts.areas,
+            disclosure: input.disclosure ?? null,
+            note: input.note ?? null,
+            createdBy: actorUserId(ctx),
+          })
+          .returning(),
+      )) as [Vendor];
     }
     await ctx.emit({
       type: 'realestate.vendor.saved',

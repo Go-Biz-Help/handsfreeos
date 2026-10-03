@@ -15,6 +15,7 @@ import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
+import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   CLIENT_TASK_PRESETS,
@@ -40,11 +41,13 @@ import {
   dealClients,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   requireOpen,
   userNames,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -180,8 +183,24 @@ export const clientTaskAdd = defineAddonCommand(realestateAddon, {
     description:
       'Give a buyer something to do in their portal: upload a document, sign off, or do something.',
   },
+  // A new one reaches the client's portal: with no signal it waits, and asks again after 30 minutes (board 85). The
+  // phone's id is the task's.
+  offline: { freshMinutes: FRESH_MINUTES },
   emits: ['realestate.client_task.added'],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the task it gave.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: clientTasks.id, dealRecordId: clientTasks.dealRecordId })
+        .from(clientTasks)
+        .where(
+          and(eq(clientTasks.id, input.id), eq(clientTasks.workspaceId, ctx.scope.workspaceId!)),
+        );
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return { taskId: had.id };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireOpen(deal);
     const clients = await dealClients(ctx, deal.recordId);
@@ -209,22 +228,25 @@ export const clientTaskAdd = defineAddonCommand(realestateAddon, {
         [{ path: 'signOffWords', message: 'Write the words the client signs off on.' }],
         'Write the words the client signs off on.',
       );
-    const [row] = await ctx.tx
-      .insert(clientTasks)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        kind,
-        title: input.title ?? preset!.title,
-        detail: input.detail ?? (preset ? withAgent(preset.detail, agent) : null),
-        signOffWords: kind === 'sign_off' ? signOff : null,
-        forPersonId: input.forPersonId ?? null,
-        dueOn: input.dueOn ?? null,
-        documentKind:
-          kind === 'upload' ? (input.documentKind ?? preset?.documentKind ?? null) : null,
-        createdBy: actorUserId(ctx),
-      })
-      .returning({ id: clientTasks.id, title: clientTasks.title });
+    const [row] = await withPhoneId('client_tasks', () =>
+      ctx.tx
+        .insert(clientTasks)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          kind,
+          title: input.title ?? preset!.title,
+          detail: input.detail ?? (preset ? withAgent(preset.detail, agent) : null),
+          signOffWords: kind === 'sign_off' ? signOff : null,
+          forPersonId: input.forPersonId ?? null,
+          dueOn: input.dueOn ?? null,
+          documentKind:
+            kind === 'upload' ? (input.documentKind ?? preset?.documentKind ?? null) : null,
+          createdBy: actorUserId(ctx),
+        })
+        .returning({ id: clientTasks.id, title: clientTasks.title }),
+    );
     await historyLine(ctx, deal, 'client_task_added', { after: { title: row!.title } });
     await ctx.emit({
       type: 'realestate.client_task.added',

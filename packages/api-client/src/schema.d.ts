@@ -6308,7 +6308,7 @@ export interface paths {
         put?: never;
         /**
          * Save what a buyer wants: their price range, areas, kinds of home, bedrooms, baths, size, when they need to move, must-haves and deal-breakers. Each save is kept. Words about who lives in an area, rather than the home, are refused.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_buyer_profile_save"];
         delete?: never;
@@ -6328,7 +6328,7 @@ export interface paths {
         put?: never;
         /**
          * Give a deal’s client something to do in their portal: upload a document (a preapproval letter, an ID), sign off on words, or do something; for one client or all of them.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_client_task_add"];
         delete?: never;
@@ -6628,7 +6628,7 @@ export interface paths {
         put?: never;
         /**
          * Track a contingency on a deal: one of the usual kinds (inspection, financing, appraisal, the sale of the buyer’s home, HOA documents, title review), ending on its key date, or one the contract names, with its own end date.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.contingency.added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contingency.added. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_contingency_add"];
         delete?: never;
@@ -6648,7 +6648,7 @@ export interface paths {
         put?: never;
         /**
          * Record how a contingency ended: satisfied, waived or expired, with the signed removal form from the deal’s documents. An owner or admin can record it without the form, with a reason. The client sees it in their portal.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_contingency_resolve"];
         delete?: never;
@@ -7148,7 +7148,7 @@ export interface paths {
         put?: never;
         /**
          * Make one of a deal’s files one of its documents: its kind (purchase contract, amendment, inspection report…), its title, and the document it’s a newer version of.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_document_add"];
         delete?: never;
@@ -7268,7 +7268,7 @@ export interface paths {
         put?: never;
         /**
          * Say you’ve seen that a duty is at risk. The alert stops asking; the duty still needs doing.
-         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_duty_acknowledge"];
         delete?: never;
@@ -7308,7 +7308,7 @@ export interface paths {
         put?: never;
         /**
          * Add proof to a duty: one of the deal’s documents or files, a note, the person’s own word (an attestation), an appointment or a message. Answers what’s still missing.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_duty_add_evidence"];
         delete?: never;
@@ -7388,7 +7388,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a duty done. Refused until it has the proof its rule asks for, saying what’s missing; an owner or admin can mark it done without it, with a reason.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.completed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.completed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_duty_complete"];
         delete?: never;
@@ -7508,7 +7508,7 @@ export interface paths {
         put?: never;
         /**
          * Say where a duty stands: not started, in progress, waiting on someone (who), or blocked (by what, whose it is to clear, what it holds up, when to look again). Its due date never moves for it.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_duty_set_status"];
         delete?: never;
@@ -7628,7 +7628,7 @@ export interface paths {
         put?: never;
         /**
          * Take back proof added to a duty by mistake, with why. It stays in the duty’s history and no longer counts.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_duty_withdraw_evidence"];
         delete?: never;
@@ -7728,7 +7728,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a financing step done, with its proof: the lender’s letter or email, or one of the deal’s documents. Only a person marks a step done.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_financing_mark_done"];
         delete?: never;
@@ -7748,7 +7748,7 @@ export interface paths {
         put?: never;
         /**
          * Take back a financing step marked done, with the reason. Kept in the deal’s history.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_financing_reopen_step"];
         delete?: never;
@@ -7788,7 +7788,7 @@ export interface paths {
         put?: never;
         /**
          * Keep where a financing step stands: when it started or is expected, the amount (preapproval, appraisal), the locked rate, when it ends, and a note.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_financing_update_step"];
         delete?: never;
@@ -7808,7 +7808,7 @@ export interface paths {
         put?: never;
         /**
          * Add what an inspection found: what and where, how serious, the estimate, the client’s priority and what to ask for.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_finding_add"];
         delete?: never;
@@ -7828,7 +7828,7 @@ export interface paths {
         put?: never;
         /**
          * Take off a finding typed in by mistake.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_finding_remove"];
         delete?: never;
@@ -7848,7 +7848,7 @@ export interface paths {
         put?: never;
         /**
          * Change a finding: its words, how serious, the estimate, the client’s priority or what to ask for.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_finding_update"];
         delete?: never;
@@ -7868,7 +7868,7 @@ export interface paths {
         put?: never;
         /**
          * Add a home to a buyer deal: its address, a listing’s link (kept for people to open, never read) and, if there is one, the listing’s pasted words, which the AI reads for the home’s facts for the agent to confirm.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_home_add"];
         delete?: never;
@@ -7928,7 +7928,7 @@ export interface paths {
         put?: never;
         /**
          * Say where a home stands for the buyer: saved, shortlisted, toured, offer made, passed, or removed from the deal.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.home.status_changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.status_changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_home_set_status"];
         delete?: never;
@@ -7948,7 +7948,7 @@ export interface paths {
         put?: never;
         /**
          * Add an inspection on a deal: its kind, the inspector, when, and when the report is expected. On a listing, it’s the buyer’s inspection at the home.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_inspection_add"];
         delete?: never;
@@ -8008,7 +8008,7 @@ export interface paths {
         put?: never;
         /**
          * Change an inspection’s inspector, time, expected report date or note.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_inspection_update"];
         delete?: never;
@@ -8268,7 +8268,7 @@ export interface paths {
         put?: never;
         /**
          * Add one of the deal’s uploaded photos to the listing, at the end. It’s on the public page and the flyer unless it’s kept for the agent and the seller.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_listing_photo_add"];
         delete?: never;
@@ -8308,7 +8308,7 @@ export interface paths {
         put?: never;
         /**
          * Put a listing’s photos in order, with their captions, and say which the public page shows. Every photo is listed, in the order shown.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_listing_photos_arrange"];
         delete?: never;
@@ -8388,7 +8388,7 @@ export interface paths {
         put?: never;
         /**
          * Ask the seller to sign off a new list price in their portal, with its exact words (“Change the list price of 418 Maple Ave from $409,000 to $399,000.”). The new price is used only once they sign.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_listing_price_propose"];
         delete?: never;
@@ -8448,7 +8448,7 @@ export interface paths {
         put?: never;
         /**
          * Set aside one of a buyer’s new matches: the client never sees it, and it doesn’t come back.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.match.dismissed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.match.dismissed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_match_dismiss"];
         delete?: never;
@@ -8468,7 +8468,7 @@ export interface paths {
         put?: never;
         /**
          * Send a buyer’s new match to the client: it becomes one of the deal’s homes, with what the MLS says of it, and the client sees it in their portal with the MLS’s notice.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_match_send"];
         delete?: never;
@@ -8488,7 +8488,7 @@ export interface paths {
         put?: never;
         /**
          * Remember something a buyer wants or said (“A fenced yard for the dog”, “Must close by June 30”) on their deal. A person’s is kept; the AI’s waits for a person to confirm.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.added.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.added. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_memory_add"];
         delete?: never;
@@ -8548,7 +8548,7 @@ export interface paths {
         put?: never;
         /**
          * Save the figures for a listing’s seller’s estimate: what’s owed on the mortgage, the listing fee, title and escrow, transfer tax and other costs. Each save is kept beside the estimates it made.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_net_sheet_save"];
         delete?: never;
@@ -8888,7 +8888,7 @@ export interface paths {
         put?: never;
         /**
          * Add a showing of a listing by hand (one booked by phone, say), confirmed: the buyer’s agent, the time, and how to reach them for the access instructions and feedback link.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.decided.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_showing_add"];
         delete?: never;
@@ -8928,7 +8928,7 @@ export interface paths {
         put?: never;
         /**
          * Answer a showing request for the seller (confirm or turn it down), or cancel a showing, with a note. The buyer’s agent hears.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.decided.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_showing_decide"];
         delete?: never;
@@ -8948,7 +8948,7 @@ export interface paths {
         put?: never;
         /**
          * Record what a buyer’s agent said about a showing (their buyers’ interest, what they liked, what gave them pause, how the price felt), when they said it by phone or text.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_showing_feedback"];
         delete?: never;
@@ -9068,7 +9068,7 @@ export interface paths {
         put?: never;
         /**
          * Save the agent’s edits to a client update. Its words are checked again for fair-housing risk (the list at once, the model a moment later), and any earlier confirmation of flags no longer counts.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.saved.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.saved. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_status_email_save"];
         delete?: never;
@@ -9088,7 +9088,7 @@ export interface paths {
         put?: never;
         /**
          * Send a client update the agent has reviewed, as an email to the deal’s client, from the agent’s own mailbox if they have one, else the team inbox. Refused while its fair-housing flags are neither fixed nor confirmed.
-         * @description Risk level 2. Requires realestate.use. Emits realestate.status_email.sent.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.status_email.sent. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_realestate_status_email_send"];
         delete?: never;
@@ -9348,7 +9348,7 @@ export interface paths {
         put?: never;
         /**
          * Keep what a client thought of a home they saw on a tour (loved it, maybe, not for us), as the agent heard it.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_tour_feedback"];
         delete?: never;
@@ -9388,7 +9388,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a home on a tour seen or skipped, with a note for the team. Once every home is, the tour is done.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_tour_record_visit"];
         delete?: never;
@@ -9488,7 +9488,7 @@ export interface paths {
         put?: never;
         /**
          * Add a vendor to the business’s directory, or change one: the company (one in Contacts, or a new one), what they do, where, and any disclosure the client must be told of (an affiliation, a referral fee). A new vendor waits for approval.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_vendor_save"];
         delete?: never;
@@ -30460,6 +30460,8 @@ export interface operations {
                     dueOn?: string;
                     /** Format: uuid */
                     forPersonId?: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind?: "upload" | "sign_off" | "do";
                     /** @enum {string} */
@@ -31036,6 +31038,8 @@ export interface operations {
                     dealId: string;
                     /** Format: date */
                     endsOn?: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind: "inspection" | "financing" | "appraisal" | "home_sale" | "hoa" | "title" | "other";
                     label?: string;
@@ -32069,6 +32073,8 @@ export interface operations {
                     dealId: string;
                     /** Format: uuid */
                     fileId: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
                     /**
@@ -32415,6 +32421,8 @@ export interface operations {
                     dutyId: string;
                     /** Format: uuid */
                     fileId?: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind: "document" | "file" | "note" | "attestation" | "appointment" | "message";
                     /** Format: uuid */
@@ -33431,6 +33439,8 @@ export interface operations {
                     creditCents?: number | null;
                     estimateCents?: number | null;
                     /** Format: uuid */
+                    id?: string;
+                    /** Format: uuid */
                     inspectionId: string;
                     location?: string | null;
                     note?: string | null;
@@ -33544,6 +33554,8 @@ export interface operations {
                     address: string;
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    id?: string;
                     link?: string;
                     mlsNumber?: string;
                     note?: string;
@@ -33702,6 +33714,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    id?: string;
                     inspector?: string;
                     /** @enum {string} */
                     kind: "general" | "termite" | "roof" | "sewer" | "radon" | "mold" | "pool" | "hvac" | "structural" | "other";
@@ -34351,6 +34365,8 @@ export interface operations {
                     dealId: string;
                     /** Format: uuid */
                     fileId: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @default true */
                     public?: boolean;
                     /** Format: uuid */
@@ -34787,6 +34803,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind: "likes" | "dislikes" | "must_have" | "deal_breaker" | "timing" | "money" | "other";
                     words: string;
@@ -34896,6 +34914,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @default null */
                     listingFeeBp?: number | null;
                     /** @default null */
@@ -35678,6 +35698,8 @@ export interface operations {
                     brokerage?: string;
                     /** Format: uuid */
                     dealId: string;
+                    /** Format: uuid */
+                    id?: string;
                     license?: string;
                     minutes?: number;
                     /** Format: date-time */
@@ -37101,6 +37123,8 @@ export interface operations {
                     disclosure?: string | null;
                     /** Format: email */
                     email?: string;
+                    /** Format: uuid */
+                    id?: string;
                     name?: string;
                     note?: string | null;
                     phone?: string;

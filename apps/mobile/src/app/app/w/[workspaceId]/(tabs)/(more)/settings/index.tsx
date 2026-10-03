@@ -5,6 +5,7 @@ import {
   keptBusinessesLine,
   MY_CELL_WORDS,
   PHONE_SETTINGS_WORDS,
+  SAFETY_PHONE_WORDS,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -18,6 +19,7 @@ import {
   LogOut,
   Moon,
   ScanFace,
+  ShieldCheck,
   Smartphone,
   User,
   UserX,
@@ -164,6 +166,13 @@ export default function Settings() {
 
       <ListLabel>{PHONE_SETTINGS_WORDS.you}</ListLabel>
       <List>
+        <ListRow
+          icon={ShieldCheck}
+          label={SAFETY_PHONE_WORDS.mySafety}
+          detail={SAFETY_PHONE_WORDS.mySafetyDetail}
+          onPress={() => router.push(businessHref(business.id, 'settings/safety'))}
+          testID="setting-my-safety"
+        />
         <ListRow
           icon={Bell}
           label={PHONE_SETTINGS_WORDS.notifications}

@@ -589,6 +589,8 @@ export const tourRecordVisit = defineAddonCommand(realestateAddon, {
   output: TourRecordVisitOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // At each stop, with no signal (board 83): seen when it was marked, by the phone's clock.
+  offline: 'anytime',
   emits: ['realestate.tour.visited', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const stop = await loadStop(ctx, input.stopId);
@@ -659,6 +661,9 @@ export const tourFeedbackAdd = defineAddonCommand(realestateAddon, {
   output: TourFeedbackOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // The client's reaction, as heard at the stop with no signal (board 83). The client's own from their portal, given
+  // after it, stays (board 79).
+  offline: 'anytime',
   emits: ['realestate.tour.feedback_added', ...PROOF_EVENTS],
   async handler(ctx, input) {
     const stop = await loadStop(ctx, input.stopId);
@@ -682,9 +687,24 @@ export const tourFeedbackAdd = defineAddonCommand(realestateAddon, {
       );
     if (input.words) refuseFairHousingWords([input.words]);
     const [before] = await ctx.tx
-      .select({ id: tourFeedback.id })
+      .select({
+        id: tourFeedback.id,
+        recordedBy: tourFeedback.recordedBy,
+        updatedAt: tourFeedback.updatedAt,
+      })
       .from(tourFeedback)
       .where(and(eq(tourFeedback.stopId, stop.id), eq(tourFeedback.personId, input.personId)));
+    // What the client said themselves, in their portal after this was noted on a phone, isn't written over.
+    if (
+      before &&
+      before.recordedBy === null &&
+      before.updatedAt.getTime() > changeMoment(ctx.meta).getTime()
+    )
+      throw HfosError.rule(
+        'realestate_tour_feedback_theirs',
+        409,
+        `${name} sent their own feedback on ${home.address} from the portal, ${fmtAt(before.updatedAt.getTime(), await timeZoneOf(ctx))}, after you noted it here, so theirs stays. Add what you heard as a note on the home.`,
+      );
     const values = {
       interest: input.interest,
       rating: input.rating ?? null,

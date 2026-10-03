@@ -13,6 +13,7 @@ import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
+import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
 import { realestateAddon } from '../manifest';
@@ -261,6 +262,8 @@ export const statusEmailSave = defineAddonCommand(realestateAddon, {
   output: StatusEmailSavedOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Checking and editing one works anywhere; its words are checked for fair housing when it arrives (board 81).
+  offline: 'anytime',
   emits: ['realestate.status_email.saved'],
   async handler(ctx, input) {
     const { draft, deal } = await loadDraft(ctx, input.draftId, true);
@@ -396,6 +399,9 @@ export const statusEmailSend = defineAddonCommand(realestateAddon, {
   permission: 'realestate.use',
   scope: inWorkspace,
   emits: ['realestate.status_email.sent'],
+  // It reaches the client: OK'd with no signal, it goes while fresh, and one that waited more than 30 minutes asks
+  // again first (board 81).
+  offline: { freshMinutes: FRESH_MINUTES },
   ai: {
     tool: 'realestate_send_client_update',
     description:

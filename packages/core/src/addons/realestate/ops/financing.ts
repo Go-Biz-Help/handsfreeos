@@ -218,6 +218,8 @@ export const financingUpdateStep = defineAddonCommand(realestateAddon, {
     description:
       'Note where a buyer’s financing step stands (dates, amount, rate), on a buyer deal or the buyer’s loan on a listing. It doesn’t mark it done.',
   },
+  // The loan's steps are ticked when the lender calls, signal or not (board 85).
+  offline: 'anytime',
   emits: ['realestate.financing.changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -246,6 +248,7 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
   output: FinancingChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.financing.step_done', ...PROOF_EVENTS],
   async handler(ctx, input) {
     if (actorKind(ctx) !== 'person')
@@ -265,7 +268,9 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
             ? `That file isn’t on ${deal.name}, or it hasn’t finished uploading. Upload it to the deal, then pick it.`
             : 'That message isn’t in this business’s Inbox. Pick the lender’s email from the Inbox.',
       );
-    const doneOn = input.doneOn ?? todayIn(await timeZoneOf(ctx));
+    // Not given: the day it was marked, where the business is, even when that change arrives a day later.
+    const at = changeMoment(ctx.meta);
+    const doneOn = input.doneOn ?? todayIn(await timeZoneOf(ctx), at);
     const row = await putStep(ctx, deal, input.step, {
       ...fieldsOf(input),
       status: 'done',
@@ -273,7 +278,7 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
       proofKind: input.proof.kind,
       proofId: input.proof.id,
       doneBy: actorUserId(ctx),
-      doneAt: changeMoment(ctx.meta),
+      doneAt: at,
     });
     let termsEntered = 0;
     if (input.step === 'preapproval')
@@ -321,6 +326,7 @@ export const financingReopen = defineAddonCommand(realestateAddon, {
   output: FinancingChangeOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  offline: 'anytime',
   emits: ['realestate.financing.changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

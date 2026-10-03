@@ -49,10 +49,12 @@ import {
   actorUserId,
   dealLine,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   userNames,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -468,8 +470,27 @@ export const listingPhotoAdd = defineAddonCommand(realestateAddon, {
   output: ListingPhotosOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Photos taken with no signal go on once they've uploaded, with the phone's id, so their order and cover can wait
+  // beside them (board 87).
+  offline: 'anytime',
   emits: ['realestate.listing.photos_changed', ...PROOF_EVENTS],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the photo it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: listingPhotos.id, dealRecordId: listingPhotos.dealRecordId })
+        .from(listingPhotos)
+        .where(
+          and(
+            eq(listingPhotos.id, input.id),
+            eq(listingPhotos.workspaceId, ctx.scope.workspaceId!),
+          ),
+        );
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return { dealId: had.dealRecordId, photos: await photoCount(ctx, had.dealRecordId) };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
     await ensureListing(ctx, deal);
@@ -490,18 +511,24 @@ export const listingPhotoAdd = defineAddonCommand(realestateAddon, {
         `${f.name} isn’t a photo. Add a JPEG, PNG or WebP image.`,
       );
     const n = await photoCount(ctx, deal.recordId);
-    await ctx.tx
-      .insert(listingPhotos)
-      .values({
-        workspaceId: deal.workspaceId,
-        dealRecordId: deal.recordId,
-        fileId: f.id,
-        position: n,
-        caption: input.caption ?? null,
-        public: input.public,
-        addedBy: actorUserId(ctx),
-      })
-      .onConflictDoNothing();
+    // A photo already on the listing stays as it is; an id the phone made that's taken is refused.
+    await withPhoneId('listing_photos', () =>
+      ctx.tx
+        .insert(listingPhotos)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          fileId: f.id,
+          position: n,
+          caption: input.caption ?? null,
+          public: input.public,
+          addedBy: actorUserId(ctx),
+        })
+        .onConflictDoNothing({
+          target: [listingPhotos.workspaceId, listingPhotos.dealRecordId, listingPhotos.fileId],
+        }),
+    );
     // S-18 "Organize listing photos": the listing's photos are its record.
     await addProof(
       ctx,
@@ -534,6 +561,8 @@ export const listingPhotosArrange = defineAddonCommand(realestateAddon, {
   output: ListingPhotosOutput,
   permission: 'realestate.use',
   scope: inWorkspace,
+  // Order and cover save with no signal too; photos changed since are refused, to put in order again.
+  offline: 'anytime',
   emits: ['realestate.listing.photos_changed'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });

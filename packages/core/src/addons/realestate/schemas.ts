@@ -74,6 +74,13 @@ export const RECORDED_EVENTS = [
 
 const inDeal = { workspaceId: uuid, dealId: uuid };
 
+/**
+ * The id the phone made for what a command makes (round six), so one made with no signal is the same one when it
+ * arrives, and what the phone does with it meanwhile can point at it. Sent again, the command answers what the first
+ * made. The web leaves it out.
+ */
+const phoneId = uuid.optional();
+
 // ---------- deals ----------
 
 export const DealOpenInput = z.object({
@@ -582,6 +589,8 @@ export const EVIDENCE_KINDS = [
 export const DutyAddEvidenceInput = z
   .object({
     ...inDuty,
+    /** The proof's own id, made on the phone. */
+    id: phoneId,
     kind: z.enum(EVIDENCE_KINDS),
     documentId: uuid.optional(),
     fileId: uuid.optional(),
@@ -788,6 +797,8 @@ const inDocument = { workspaceId: uuid, documentId: uuid };
 
 export const DocumentAddInput = z.object({
   ...inDeal,
+  /** The document's own id, made on the phone (a photo of a paper taken with no signal). */
+  id: phoneId,
   /** A file already on the deal. */
   fileId: uuid,
   kind: z.enum(DOCUMENT_KIND_KEYS),
@@ -1092,6 +1103,8 @@ export const ListingFactsIn = z.object({
 
 export const HomeAddInput = z.object({
   ...inDeal,
+  /** The home's own id, made on the phone. */
+  id: phoneId,
   address: z.string().trim().min(3, 'Enter the home’s address.').max(300),
   /** A listing's link: kept for people to open, never read by HandsFreeOS. */
   link: z
@@ -1288,6 +1301,8 @@ export const HomesOutput = z.object({ homes: z.array(HomeOut) });
 
 export const MemoryAddInput = z.object({
   ...inDeal,
+  /** What's remembered, its own id, made on the phone. */
+  id: phoneId,
   kind: z.enum(MEMORY_KIND_KEYS),
   words: z
     .string()
@@ -1983,6 +1998,8 @@ export const FinancingOutput = z.object({
 
 export const InspectionAddInput = z.object({
   ...inDeal,
+  /** The inspection's own id, made on the phone. */
+  id: phoneId,
   kind: z.enum(INSPECTION_KIND_KEYS),
   inspector: z.string().trim().max(200).optional(),
   scheduledAt: isoDateTime.optional(),
@@ -2024,6 +2041,8 @@ const FindingFields = {
 };
 export const FindingAddInput = z.object({
   workspaceId: uuid,
+  /** The finding's own id, made on the phone (at the inspection, in a basement with no signal). */
+  id: phoneId,
   inspectionId: uuid,
   ...FindingFields,
 });
@@ -2139,6 +2158,8 @@ export const InspectionsOutput = z.object({
 export const ClientTaskAddInput = z
   .object({
     ...inDeal,
+    /** The task's own id, made on the phone. */
+    id: phoneId,
     /** One of the usual tasks, ready made; its words can still be changed below. */
     preset: z.enum(CLIENT_TASK_PRESET_KEYS).optional(),
     kind: z.enum(CLIENT_TASK_KIND_KEYS).optional(),
@@ -2434,6 +2455,8 @@ export const ListingConfirmFactsOutput = z.object({ dealId: uuid, confirmedAt: i
 
 export const ListingPhotoAddInput = z.object({
   ...inDeal,
+  /** The listing photo's own id, made on the phone, so its order and cover can be saved before it's sent. */
+  id: phoneId,
   /** One of the deal's files: a photo already uploaded to it. */
   fileId: uuid,
   caption: z.string().trim().max(120, 'Keep a caption under 120 characters.').optional(),
@@ -2900,6 +2923,8 @@ export const PublicOpenHouseSignInOutput = z.object({
 export const NetSheetSaveInput = z
   .object({
     ...inDeal,
+    /** This save's own id, made on the phone. */
+    id: phoneId,
     payoffCents: money0.default(0),
     /** The listing's fee: a share of the price (basis points), or an amount. */
     listingFeeBp: z.int().min(0).max(10_000).nullable().default(null),
@@ -3318,6 +3343,8 @@ export const ContractReadsOutput = z.object({
 export const ContingencyAddInput = z
   .object({
     ...inDeal,
+    /** The contingency's own id, made on the phone. */
+    id: phoneId,
     kind: z.enum(CONTINGENCY_KIND_KEYS),
     /** What it is, for one the agent names. */
     label: z.string().trim().min(1).max(120).optional(),
@@ -3767,6 +3794,8 @@ export const ShowingSettingsOutput = z.object({
 
 export const ShowingAddInput = z.object({
   ...inDeal,
+  /** The showing's own id, made on the phone. */
+  id: phoneId,
   startsAt: isoDateTime,
   minutes: z.number().int().min(15).max(240).optional(),
   agentName,
@@ -3985,6 +4014,8 @@ export const VendorSaveInput = z
     workspaceId: uuid,
     /** Changing one already here. */
     vendorId: uuid.optional(),
+    /** A new vendor's own id, made on the phone. */
+    id: phoneId,
     /** A company already in Contacts; or its name, to add one. */
     companyId: uuid.optional(),
     name: z.string().trim().min(1, 'Enter the vendor’s name.').max(120).optional(),

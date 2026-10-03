@@ -61,10 +61,12 @@ import {
   dealLine,
   feedConnected,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
   requireNotArchived,
   userNames,
+  withPhoneId,
   type Ctx,
   type Deal,
 } from './common';
@@ -142,6 +144,8 @@ export const buyerProfileSave = defineAddonCommand(realestateAddon, {
     description: 'Save what a buyer wants on their deal. Asks the person first.',
     autonomy: 'confirm',
   },
+  // Changes wait on the phone; the search runs again when they arrive (board 82).
+  offline: 'anytime',
   emits: ['realestate.buyer_profile.saved'],
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
@@ -303,6 +307,8 @@ export async function addHome(
   ctx: CommandContext,
   deal: Deal,
   input: {
+    /** The id the phone made for it. */
+    readonly id?: string | undefined;
     readonly address: string;
     readonly link?: string | undefined;
     readonly pastedText?: string | undefined;
@@ -339,38 +345,43 @@ export async function addHome(
   const looking = !input.mls && (await feedConnected(ctx));
   const fromFeed = input.mls ? feedFacts(input.mls) : null;
   const fromFeedWords = input.mls ? mlsSourceWords(input.mls) : null;
-  const [h] = await ctx.tx
-    .insert(homes)
-    .values({
-      workspaceId: deal.workspaceId,
-      dealRecordId: deal.recordId,
-      address: input.address.trim(),
-      addressKey: key,
-      source: input.source,
-      link: input.link ?? null,
-      pastedText: pasted,
-      factsState: pasted
-        ? 'filling'
-        : fromFeed && Object.keys(fromFeed).length
-          ? 'suggested'
-          : 'none',
-      ...(fromFeed && !pasted
-        ? {
-            facts: fromFeed as Record<string, unknown>,
-            factSources: Object.fromEntries(Object.keys(fromFeed).map((k) => [k, fromFeedWords!])),
-          }
-        : {}),
-      mlsState: input.mls ? 'found' : looking ? 'looking' : 'none',
-      ...(input.mls
-        ? {
-            mls: input.mls as unknown as Record<string, unknown>,
-            mlsCheckedAt: new Date(input.mls.checkedAt),
-          }
-        : {}),
-      addedBy: actorUserId(ctx),
-      addedByPersonId: input.source === 'client' ? (input.personId ?? null) : null,
-    })
-    .returning({ id: homes.id });
+  const [h] = await withPhoneId('homes', () =>
+    ctx.tx
+      .insert(homes)
+      .values({
+        ...(input.id ? { id: input.id } : {}),
+        workspaceId: deal.workspaceId,
+        dealRecordId: deal.recordId,
+        address: input.address.trim(),
+        addressKey: key,
+        source: input.source,
+        link: input.link ?? null,
+        pastedText: pasted,
+        factsState: pasted
+          ? 'filling'
+          : fromFeed && Object.keys(fromFeed).length
+            ? 'suggested'
+            : 'none',
+        ...(fromFeed && !pasted
+          ? {
+              facts: fromFeed as Record<string, unknown>,
+              factSources: Object.fromEntries(
+                Object.keys(fromFeed).map((k) => [k, fromFeedWords!]),
+              ),
+            }
+          : {}),
+        mlsState: input.mls ? 'found' : looking ? 'looking' : 'none',
+        ...(input.mls
+          ? {
+              mls: input.mls as unknown as Record<string, unknown>,
+              mlsCheckedAt: new Date(input.mls.checkedAt),
+            }
+          : {}),
+        addedBy: actorUserId(ctx),
+        addedByPersonId: input.source === 'client' ? (input.personId ?? null) : null,
+      })
+      .returning({ id: homes.id }),
+  );
   await settleMatchesFor(ctx, deal, key, h!.id);
   await historyLine(ctx, deal, 'home_added', {
     after: { address: input.address.trim(), source: input.source },
@@ -412,10 +423,33 @@ export const homeAdd = defineAddonCommand(realestateAddon, {
     description:
       'Add a home a buyer is interested in to their deal, with its address and any listing text.',
   },
+  // Added with no signal, with the phone's id; it's looked up and read when it arrives (board 82).
+  offline: 'anytime',
   emits: ['realestate.home.added'],
   async handler(ctx, input) {
+    // Sent again after its answer was lost: the home it added.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({
+          id: homes.id,
+          dealRecordId: homes.dealRecordId,
+          factsState: homes.factsState,
+          mlsState: homes.mlsState,
+        })
+        .from(homes)
+        .where(and(eq(homes.id, input.id), eq(homes.workspaceId, ctx.scope.workspaceId!)));
+      if (had) {
+        if (had.dealRecordId !== input.dealId) throw idUnavailable();
+        return {
+          homeId: had.id,
+          filling: had.factsState === 'filling',
+          looking: had.mlsState === 'looking',
+        };
+      }
+    }
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     return addHome(ctx, deal, {
+      id: input.id,
       address: input.address,
       link: input.link,
       pastedText: input.pastedText,
@@ -531,6 +565,7 @@ export const homeSetStatus = defineAddonCommand(realestateAddon, {
       'Say where a home stands for the buyer (shortlisted, passed…). Asks the person first.',
     autonomy: 'confirm',
   },
+  offline: 'anytime',
   emits: ['realestate.home.status_changed'],
   async handler(ctx, input) {
     const home = await loadHome(ctx, input.homeId, { lock: true });
