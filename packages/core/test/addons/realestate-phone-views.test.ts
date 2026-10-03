@@ -12,11 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import { dealListOfCopy, type DealListFilter } from '../../src/addons/realestate/views/deal-list';
 import { dutyListOfCopy, type DutyListFilter } from '../../src/addons/realestate/views/duty-list';
-import {
-  realestateCopyOf,
-  type RealestateCopy,
-  type RealestateSource,
-} from '../../src/addons/realestate/views/synced';
+import { phoneCopy } from './realestate-phone-fixture';
 import { dealPageOfCopy } from '../../src/addons/realestate/views/deal-page';
 import {
   exceptionsOfCopy,
@@ -74,119 +70,6 @@ let today: string;
 let nguyen: string;
 let dutyIds: string[] = [];
 let inspectDuty: string;
-
-/** A cell as the phone keeps it: text, 0/1, or nothing; arrays and JSON as JSON text; times as PowerSync writes them. */
-function cell(v: unknown): string | number | null {
-  if (v === null || v === undefined) return null;
-  if (v instanceof Date) return v.toISOString().replace('T', ' ');
-  if (typeof v === 'boolean') return v ? 1 : 0;
-  if (typeof v === 'object') return JSON.stringify(v);
-  return v as string | number;
-}
-const cells = <T extends Record<string, unknown>>(list: T[]) =>
-  list.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, cell(v)])));
-
-/** What `u`'s phone holds of Real Estate, read the way its screens read it. */
-async function phoneCopy(u: TestUser): Promise<RealestateCopy> {
-  return realestateCopyOf(await phoneRows(u));
-}
-
-/**
- * The rows records_v1 sends `u` (apps/sync/sync-config.yaml): by their keys and the seals, as PowerSync filters them,
- * not by row security, which lets an owner read more than their phone keeps. Customers, companies and names come
- * from business_v1, which sends a business's people to everyone in it.
- */
-async function phoneRows(u: TestUser): Promise<RealestateSource> {
-  const keys = await rows<{ kind: string; key: string }>(
-    admin(),
-    sql`select kind, key from app.sync_keys where user_id = ${u.id} and workspace_id = ${ws}`,
-  );
-  const use = `{${keys
-    .filter((k) => k.kind === 'use')
-    .map((k) => `"${k.key}"`)
-    .join(',')}}`;
-  const all = `{${keys
-    .filter((k) => k.kind === 'all')
-    .map((k) => `"${k.key}"`)
-    .join(',')}}`;
-  /** records_v1's three arms for a record, a link or one of the add-on's rows. */
-  const sealed = (t: string) =>
-    sql.raw(`((${t}.seal_scope = any('${use}'::text[]) and ${t}.seal_open)
-      or ${t}.seal_all = any('${all}'::text[])
-      or (${t}.seal_scope = any('${use}'::text[]) and '${u.id}'::uuid = any(${t}.seal_viewer_ids)))
-      and ${t}.sync_window`);
-  /** What hangs off a private record: to its people. */
-  const toItsPeople = (t: string) =>
-    sql.raw(`${t}.sealed and ${t}.seal_scope = any('${use}'::text[])
-      and '${u.id}'::uuid = any(${t}.seal_viewer_ids)`);
-  const db = admin();
-  return {
-    records: cells(
-      await rows(
-        db,
-        sql`select r.id, r.name, r.notes, r.archived_at, r.owner_user_id, r.team_user_ids, r.updated_at
-            from app.custom_records r join app.custom_record_types t on t.id = r.type_id
-            where r.workspace_id = ${ws} and t.key = 'realestate_deal' and ${sealed('r')}`,
-      ),
-    ),
-    rows: cells(
-      await rows(
-        db,
-        sql`select p.id, p.source, p.record_id, p.data from app.addon_phone_rows p
-            where p.workspace_id = ${ws} and p.addon_id = 'realestate' and ${sealed('p')}`,
-      ),
-    ),
-    links: cells(
-      await rows(
-        db,
-        sql`select l.id, t.addon_id, t.addon_key, t.position, l.a_person_id, l.a_company_id, l.a_custom_record_id,
-              l.b_custom_record_id, l.note, l.created_at
-            from app.relationships l join app.relationship_types t on t.id = l.type_id
-            where l.workspace_id = ${ws} and ${sealed('l')}
-              and t.seal_scope = any(${use}::text[])`,
-      ),
-    ),
-    people: cells(
-      await rows(
-        db,
-        sql`select id, first_name, last_name, email from app.people where workspace_id = ${ws}`,
-      ),
-    ),
-    companies: cells(
-      await rows(
-        db,
-        sql`select id, name, email, phone from app.companies where workspace_id = ${ws}`,
-      ),
-    ),
-    files: cells(
-      await rows(
-        db,
-        sql`select f.id, f.name, f.locked_at from app.files f
-            where f.workspace_id = ${ws} and f.deleted_at is null and ${toItsPeople('f')}`,
-      ),
-    ),
-    appointments: cells(
-      await rows(
-        db,
-        sql`select a.id, a.title, a.starts_at from app.appointments a
-            where a.workspace_id = ${ws} and ${toItsPeople('a')}`,
-      ),
-    ),
-    users: cells(
-      await rows(
-        db,
-        sql`select u.id, u.full_name, u.email from app.users u
-            join app.workspace_memberships m on m.user_id = u.id where m.workspace_id = ${ws}`,
-      ),
-    ),
-    recordNames: cells(
-      await rows(
-        db,
-        sql`select r.id, r.name from app.custom_records r where r.workspace_id = ${ws} and ${sealed('r')}`,
-      ),
-    ),
-  } as unknown as RealestateSource;
-}
 
 beforeAll(async () => {
   [owner, agent, mate] = await Promise.all([
@@ -437,7 +320,7 @@ describe('the Deals list on the phone', () => {
 
   it('answers what the server answers, for an agent, a teammate and an owner who sees every deal', async () => {
     for (const u of [agent, mate, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       for (const f of [...FILTERS, { agentUserId: agent.id, status: 'all' as const }]) {
         const server = (await ask('realestate.deal.list', f, u)).deals;
         const phone = dealListOfCopy(copy, f, { userId: u.id, now: Date.now(), today });
@@ -448,7 +331,7 @@ describe('the Deals list on the phone', () => {
 
   it('isn’t equal by being empty: the deal has its client, home, dates, duties and what it waits on', async () => {
     const [deal] = dealListOfCopy(
-      await phoneCopy(agent),
+      await phoneCopy(agent, ws),
       { search: 'juniper' },
       { userId: agent.id, now: Date.now(), today },
     );
@@ -467,7 +350,7 @@ describe('the Deals list on the phone', () => {
     expect(deal!.closing).not.toBeNull();
     // The teammate sees the listing they're on, and not the agent's purchase.
     const mates = dealListOfCopy(
-      await phoneCopy(mate),
+      await phoneCopy(mate, ws),
       { status: 'all' },
       {
         userId: mate.id,
@@ -493,7 +376,7 @@ describe('My duties on the phone', () => {
   it('answers what the server answers, for each person and filter, on every deal and on one', async () => {
     const [deal] = (await ask('realestate.deal.list', { search: 'juniper' }, agent)).deals;
     for (const u of [agent, mate, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       for (const f of [...FILTERS, { mine: false, dealId: deal.dealId as string }]) {
         const server = (await ask('realestate.duty.list', f, u)).duties;
         const phone = dutyListOfCopy(copy, f, { userId: u.id, now: Date.now() });
@@ -502,7 +385,7 @@ describe('My duties on the phone', () => {
     }
     // Not equal by being empty.
     expect(
-      dutyListOfCopy(await phoneCopy(agent), {}, { userId: agent.id, now: Date.now() }).length,
+      dutyListOfCopy(await phoneCopy(agent, ws), {}, { userId: agent.id, now: Date.now() }).length,
     ).toBeGreaterThan(0);
   });
 });
@@ -511,7 +394,10 @@ describe('a deal’s page on the phone', () => {
   it('answers what the server answers about the deal, its team, home, people, terms and duties', async () => {
     for (const u of [agent, owner]) {
       const server = await ask('realestate.deal.get', { dealId: nguyen }, u);
-      const page = dealPageOfCopy(await phoneCopy(u), nguyen, { userId: u.id, now: Date.now() });
+      const page = dealPageOfCopy(await phoneCopy(u, ws), nguyen, {
+        userId: u.id,
+        now: Date.now(),
+      });
       expect(page, u.email).not.toBeNull();
       const { full, ...shown } = page!;
       const want = {
@@ -537,7 +423,7 @@ describe('a deal’s page on the phone', () => {
   });
 
   it('isn’t equal by being empty', async () => {
-    const page = dealPageOfCopy(await phoneCopy(agent), nguyen, {
+    const page = dealPageOfCopy(await phoneCopy(agent, ws), nguyen, {
       userId: agent.id,
       now: Date.now(),
     })!;
@@ -560,7 +446,7 @@ describe('a deal’s page on the phone', () => {
 describe('one duty on the phone', () => {
   it('answers what the server answers: the duty, its proof, what it waits on and its log', async () => {
     for (const u of [agent, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       for (const dutyId of dutyIds) {
         const { can: _can, ...server } = await ask('realestate.duty.get', { dutyId }, u);
         const sheet = dutySheetOfCopy(copy, dutyId, { userId: u.id, now: Date.now() });
@@ -587,7 +473,7 @@ describe('one duty on the phone', () => {
   });
 
   it('isn’t equal by being empty', async () => {
-    const copy = await phoneCopy(agent);
+    const copy = await phoneCopy(agent, ws);
     const proved = dutySheetOfCopy(copy, dutyIds[2]!, { userId: agent.id, now: Date.now() })!;
     expect(proved.evidence.map((e) => [e.kind, e.label, e.body])).toEqual([
       ['note', 'Note', 'Called the lender; binder on its way.'],
@@ -608,7 +494,7 @@ describe('one duty on the phone', () => {
 describe('a deal’s documents and history on the phone', () => {
   it('answer what the server answers for the deal’s agent, and wait for signal on a summary', async () => {
     for (const u of [agent, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       const docs = (await ask('realestate.document.list', { dealId: nguyen }, u)).documents;
       const lines = (await ask('realestate.deal.history', { dealId: nguyen }, u)).lines;
       if (u === agent) {
@@ -635,7 +521,7 @@ describe('Coordinate on the phone', () => {
 
   it('answers Today, Exceptions and the Waiting room as the server does', async () => {
     for (const u of [agent, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       expect(copy.settings).toMatchObject({ closedDays: expect.any(Object) });
       for (const f of [...FILTERS, { agentUserId: agent.id }]) {
         const ctx = { userId: u.id, now: Date.now(), today };
@@ -671,7 +557,7 @@ describe('Coordinate on the phone', () => {
   });
 
   it('isn’t equal by being empty', async () => {
-    const copy = await phoneCopy(agent);
+    const copy = await phoneCopy(agent, ws);
     const ctx = { userId: agent.id, now: Date.now(), today };
     const ex = exceptionsOfCopy(copy, {}, ctx);
     expect(ex.contingencies.map((c) => c.label)).toEqual(['Sale of the buyers’ condo']);
@@ -683,7 +569,7 @@ describe('Coordinate on the phone', () => {
 describe('vendors on the phone', () => {
   it('answer what the server answers: the directory, and a duty’s vendors', async () => {
     for (const u of [agent, owner]) {
-      const copy = await phoneCopy(u);
+      const copy = await phoneCopy(u, ws);
       for (const f of [{}, { service: 'inspection' as const }, { includeArchived: true }]) {
         const server = (await ask('realestate.vendor.list', f, u)).vendors;
         const { vendors, partial } = vendorListOfCopy(copy, f, { userId: u.id });
@@ -702,7 +588,7 @@ describe('vendors on the phone', () => {
       }
     }
     const server = await ask('realestate.duty.vendors', { dutyId: inspectDuty }, agent);
-    const phone = dutyVendorsOfCopy(await phoneCopy(agent), inspectDuty, { userId: agent.id });
+    const phone = dutyVendorsOfCopy(await phoneCopy(agent, ws), inspectDuty, { userId: agent.id });
     expect(phone).toEqual(server);
     // Neither works where 2207 Juniper Trail is (no town in its address): by name.
     expect(phone!.fits.map((v) => v.name)).toEqual([
@@ -713,6 +599,8 @@ describe('vendors on the phone', () => {
       ['Lone Star Inspections', '$450'],
     ]);
     // Not on the deal: the owner's phone keeps its summary, and the duty's vendors wait for signal.
-    expect(dutyVendorsOfCopy(await phoneCopy(owner), inspectDuty, { userId: owner.id })).toBeNull();
+    expect(
+      dutyVendorsOfCopy(await phoneCopy(owner, ws), inspectDuty, { userId: owner.id }),
+    ).toBeNull();
   });
 });
