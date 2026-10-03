@@ -1,0 +1,385 @@
+/**
+ * What a phone may keep of an add-on (Real Estate round six, 20261022000100): the keys each person holds, the seals
+ * on a private record and everything hanging off it, and the add-on's own rows copied for phones. A fixture add-on
+ * with a private kind (a deal) and a table that follows it; an owner, the deal's agent and teammate, a member not on
+ * it, a member given See every deal, and a stranger. Every change ends with the mismatch functions empty: the
+ * stored keys and seals say what the permissions and records say.
+ */
+import { randomInt } from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { rows, sql } from '../src/client';
+import { workspaceMemberships } from '../src/schema/index';
+import {
+  as,
+  asService,
+  bootstrapOrganization,
+  closeAll,
+  createTestUser,
+  dbs,
+  type TestUser,
+} from './harness';
+
+const letters = (n: number) =>
+  Array.from({ length: n }, () => String.fromCharCode(97 + randomInt(26))).join('');
+const ADDON = `fx${letters(8)}`;
+const USE = `${ADDON}.use`;
+const SEE_ALL = `${ADDON}.all_deals`;
+const admin$ = dbs.admin.db;
+
+let owner: TestUser;
+let agent: TestUser;
+let teammate: TestUser;
+let member: TestUser;
+let broker: TestUser;
+let stranger: TestUser;
+let ws: string;
+let org: string;
+let kind: string;
+let deal: string;
+let task: string;
+let thread: string;
+
+const worker = () => asService({ workspaceId: ws, organizationId: org });
+const one = async (found: Promise<{ id: string }[]>): Promise<string> => (await found)[0]!.id;
+const sortedIds = (...users: TestUser[]) => users.map((u) => u.id).sort();
+
+async function keysOf(u: TestUser): Promise<string[]> {
+  const found = await rows<{ k: string }>(
+    admin$,
+    sql`select kind || ' ' || key as k from app.sync_keys where user_id = ${u.id} and workspace_id = ${ws}`,
+  );
+  return found.map((r) => r.k).sort();
+}
+
+async function inStep(): Promise<void> {
+  expect(await rows(admin$, sql`select * from private.sync_key_mismatches(${ws})`)).toEqual([]);
+  expect(await rows(admin$, sql`select * from private.sync_seal_mismatches(${ws})`)).toEqual([]);
+  expect(await rows(admin$, sql`select * from private.addon_phone_mismatches(${ws})`)).toEqual([]);
+}
+
+const setPerPerson = (on: boolean) =>
+  rows(
+    admin$,
+    sql`update app.workspaces
+        set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('inbox',
+              coalesce(settings -> 'inbox', '{}'::jsonb) || jsonb_build_object('perPerson', ${on}::boolean))
+        where id = ${ws}`,
+  );
+
+beforeAll(async () => {
+  [owner, agent, teammate, member, broker, stranger] = await Promise.all([
+    createTestUser('phone-owner'),
+    createTestUser('phone-agent'),
+    createTestUser('phone-teammate'),
+    createTestUser('phone-member'),
+    createTestUser('phone-broker'),
+    createTestUser('phone-stranger'),
+  ]);
+  ({ wsId: ws, orgId: org } = await bootstrapOrganization(
+    owner,
+    'Hill Country',
+    'Hill Country Realty',
+  ));
+  await bootstrapOrganization(stranger, 'Elsewhere', 'Elsewhere Realty');
+  await admin$.insert(workspaceMemberships).values([
+    { workspaceId: ws, userId: agent.id, role: 'member' },
+    { workspaceId: ws, userId: teammate.id, role: 'member' },
+    { workspaceId: ws, userId: member.id, role: 'member' },
+    { workspaceId: ws, userId: broker.id, role: 'member' },
+  ]);
+  await rows(
+    admin$,
+    sql`select private.register_addon_permissions(${ADDON}, ${JSON.stringify([
+      { key: USE, defaultRoles: ['admin', 'member'], requires: [] },
+      { key: SEE_ALL, defaultRoles: ['admin'], requires: [USE] },
+    ])}::jsonb)`,
+  );
+  await as(owner)((tx) =>
+    rows(tx, sql`select * from private.addon_move(${ws}, ${ADDON}, 'installing', '1.0.0', 1, 1)`),
+  );
+  await worker()((tx) =>
+    rows(
+      tx,
+      sql`update app.addon_installations set state = 'enabled' where workspace_id = ${ws} and addon_id = ${ADDON}`,
+    ),
+  );
+  await rows(
+    admin$,
+    sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+        values (${ws}, ${broker.id}, ${SEE_ALL}, true)`,
+  );
+
+  // The add-on's own table, as its migration makes it, following a deal; and what phones keep of it.
+  await rows(admin$, sql`select private.create_addon_schema(${ADDON})`);
+  await rows(
+    admin$,
+    sql.raw(`create table addon_${ADDON}.items (
+      id uuid primary key default gen_random_uuid(),
+      workspace_id uuid not null references app.workspaces (id) on delete cascade,
+      deal_id uuid references app.custom_records (id) on delete cascade,
+      title text not null,
+      private_note text,
+      updated_at timestamptz not null default now())`),
+  );
+  await rows(
+    admin$,
+    sql`select private.addon_table_policies(${`addon_${ADDON}.items`}::regclass, ${USE}, ${USE}, ${USE}, 'deal_id')`,
+  );
+
+  kind = await one(
+    worker()((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.custom_record_types (workspace_id, key, singular, plural, addon_id, write_permission,
+            kept_to_team, see_all_permission)
+          values (${ws}, ${`${ADDON}_deal`}, 'Deal', 'Deals', ${ADDON}, ${USE}, true, ${SEE_ALL})
+          returning id`,
+      ),
+    ),
+  );
+  deal = await one(
+    as(agent)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.custom_records (workspace_id, type_id, name, created_by, team_user_ids)
+          values (${ws}, ${kind}, 'Smith purchase', ${agent.id}, array[${teammate.id}]::uuid[]) returning id`,
+      ),
+    ),
+  );
+  task = await one(
+    as(agent)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.tasks (workspace_id, title, custom_record_id, created_by)
+          values (${ws}, 'Order the appraisal', ${deal}, ${agent.id}) returning id`,
+      ),
+    ),
+  );
+  const person = await one(
+    rows<{ id: string }>(
+      admin$,
+      sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, 'Ann', 'Smith') returning id`,
+    ),
+  );
+  thread = await one(
+    worker()((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, status, custom_record_id)
+          values (${ws}, 'portal', ${`portal:${person}:${deal}`}, ${person}, 'open', ${deal}) returning id`,
+      ),
+    ),
+  );
+  await worker()((tx) =>
+    rows(
+      tx,
+      sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text)
+          values (${ws}, ${thread}, 'portal', 'inbound', 'received', 'Is the roof something we should push on?')`,
+    ),
+  );
+});
+afterAll(closeAll);
+
+describe('before an add-on asks phones to keep anything', () => {
+  it('nobody holds a key and nothing is sealed for phones', async () => {
+    expect(await keysOf(owner)).toEqual([]);
+    const [r] = await rows<{ seal_scope: string | null; seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_scope, seal_viewer_ids from app.custom_records where id = ${deal}`,
+    );
+    expect(r).toEqual({ seal_scope: null, seal_viewer_ids: [] });
+    await inStep();
+  });
+});
+
+describe('once it does', () => {
+  beforeAll(async () => {
+    await rows(admin$, sql`select private.addon_phone_addon(${ADDON}, ${USE})`);
+    await rows(
+      admin$,
+      sql`select private.addon_phone_table(${`addon_${ADDON}.items`}::regclass, 'deal_id', array['title'], 'all')`,
+    );
+  });
+
+  it('gives each person keys from what they may do', async () => {
+    expect(await keysOf(owner)).toEqual([`all ${ws}:${SEE_ALL}`, `use ${ws}:${USE}`].sort());
+    expect(await keysOf(agent)).toEqual([`use ${ws}:${USE}`]);
+    expect(await keysOf(member)).toEqual([`use ${ws}:${USE}`]);
+    expect(await keysOf(broker)).toEqual([`all ${ws}:${SEE_ALL}`, `use ${ws}:${USE}`].sort());
+    expect(await keysOf(stranger)).toEqual([]);
+    await inStep();
+  });
+
+  it('seals the deal to its people, and its task and portal thread with it', async () => {
+    const [r] = await rows<{
+      seal_scope: string;
+      seal_open: boolean;
+      seal_viewer_ids: string[];
+      seal_all: string;
+    }>(
+      admin$,
+      sql`select seal_scope, seal_open, seal_viewer_ids, seal_all from app.custom_records where id = ${deal}`,
+    );
+    expect(r).toEqual({
+      seal_scope: `${ws}:${USE}`,
+      seal_open: false,
+      seal_viewer_ids: sortedIds(agent, teammate),
+      seal_all: `${ws}:${SEE_ALL}`,
+    });
+    const [t] = await rows<{ seal_scope: string; seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_scope, seal_viewer_ids from app.tasks where id = ${task}`,
+    );
+    expect(t).toEqual({ seal_scope: `${ws}:${USE}`, seal_viewer_ids: sortedIds(agent, teammate) });
+    const msgs = await rows<{ seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_viewer_ids from app.messages where conversation_id = ${thread}`,
+    );
+    expect(msgs).toEqual([{ seal_viewer_ids: sortedIds(agent, teammate) }]);
+    await inStep();
+  });
+
+  it('copies only the declared columns of the add-on’s rows, with the deal’s seals', async () => {
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`insert into ${sql.raw(`addon_${ADDON}.items`)} (workspace_id, deal_id, title, private_note)
+            values (${ws}, ${deal}, 'Binder to the lender', 'not for phones')`,
+      ),
+    );
+    const found = await rows<{
+      data: Record<string, unknown>;
+      seal_viewer_ids: string[];
+      seal_all: string;
+    }>(
+      admin$,
+      sql`select data, seal_viewer_ids, seal_all from app.addon_phone_rows where addon_id = ${ADDON}`,
+    );
+    expect(found).toEqual([
+      {
+        data: { title: 'Binder to the lender' },
+        seal_viewer_ids: sortedIds(agent, teammate),
+        seal_all: `${ws}:${SEE_ALL}`,
+      },
+    ]);
+    await inStep();
+  });
+
+  it('moves every seal when someone joins the deal', async () => {
+    await as(agent)((tx) =>
+      rows(
+        tx,
+        sql`update app.custom_records set team_user_ids = array[${teammate.id}, ${member.id}]::uuid[] where id = ${deal}`,
+      ),
+    );
+    const want = sortedIds(agent, teammate, member);
+    const [t] = await rows<{ seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_viewer_ids from app.tasks where id = ${task}`,
+    );
+    expect(t!.seal_viewer_ids).toEqual(want);
+    const [p] = await rows<{ seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_viewer_ids from app.addon_phone_rows where addon_id = ${ADDON}`,
+    );
+    expect(p!.seal_viewer_ids).toEqual(want);
+    await inStep();
+  });
+
+  it('narrows a portal thread further when the business narrows its inbox', async () => {
+    await setPerPerson(true);
+    const [c] = await rows<{ seal_viewer_ids: string[]; member_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_viewer_ids, member_viewer_ids from app.conversations where id = ${thread}`,
+    );
+    expect(c!.seal_viewer_ids.every((u) => c!.member_viewer_ids.includes(u))).toBe(true);
+    await inStep();
+    await setPerPerson(false);
+    await inStep();
+  });
+
+  it('seals an add-on’s Home card by its permission and audience', async () => {
+    const alert = await one(
+      worker()((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.addon_alerts (workspace_id, addon_id, key, severity, title, href, permission)
+              values (${ws}, ${ADDON}, 'everyone', 'attention', 'For everyone', ${`/a/${ADDON}`}, ${USE}) returning id`,
+        ),
+      ),
+    );
+    const card = await one(
+      worker()((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)
+              values (${ws}, 'addon_alert', 'addon_alert', ${alert}, 'For everyone', ${`a:${alert}`}) returning id`,
+        ),
+      ),
+    );
+    const [open] = await rows<{ seal_scope: string; seal_open: boolean }>(
+      admin$,
+      sql`select seal_scope, seal_open from app.attention_items where id = ${card}`,
+    );
+    expect(open).toEqual({ seal_scope: `${ws}:${USE}`, seal_open: true });
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.addon_alerts set audience_user_ids = array[${broker.id}]::uuid[] where id = ${alert}`,
+      ),
+    );
+    const [aimed] = await rows<{ seal_open: boolean; seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_open, seal_viewer_ids from app.attention_items where id = ${card}`,
+    );
+    expect(aimed).toEqual({ seal_open: false, seal_viewer_ids: [broker.id] });
+    // Under another of its permissions: exactly who holds that one.
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.addon_alerts set audience_user_ids = '{}', permission = ${SEE_ALL} where id = ${alert}`,
+      ),
+    );
+    const [holders] = await rows<{ seal_open: boolean; seal_viewer_ids: string[] }>(
+      admin$,
+      sql`select seal_open, seal_viewer_ids from app.attention_items where id = ${card}`,
+    );
+    expect(holders).toEqual({ seal_open: false, seal_viewer_ids: sortedIds(owner, broker) });
+    await inStep();
+  });
+
+  it('takes a deal off phones when its add-on narrows the window', async () => {
+    await worker()((tx) =>
+      rows(tx, sql`select private.record_phone_window(${ws}, ${deal}, false)`),
+    );
+    const found = await rows<{ sync_window: boolean }>(
+      admin$,
+      sql`select sync_window from app.addon_phone_rows where addon_id = ${ADDON}`,
+    );
+    expect(found).toEqual([{ sync_window: false }]);
+    await worker()((tx) => rows(tx, sql`select private.record_phone_window(${ws}, ${deal}, true)`));
+    await inStep();
+  });
+
+  it('drops a deleted row from what phones keep', async () => {
+    await worker()((tx) =>
+      rows(tx, sql`delete from ${sql.raw(`addon_${ADDON}.items`)} where workspace_id = ${ws}`),
+    );
+    expect(
+      await rows(admin$, sql`select id from app.addon_phone_rows where addon_id = ${ADDON}`),
+    ).toEqual([]);
+    await inStep();
+  });
+
+  it('takes every key away while the add-on is off, and gives them back', async () => {
+    await as(owner)((tx) =>
+      rows(tx, sql`select * from private.addon_move(${ws}, ${ADDON}, 'disabled', '1.0.0', 1, 1)`),
+    );
+    for (const u of [owner, agent, member, broker]) expect(await keysOf(u)).toEqual([]);
+    await as(owner)((tx) =>
+      rows(tx, sql`select * from private.addon_move(${ws}, ${ADDON}, 'enabled', '1.0.0', 1, 1)`),
+    );
+    expect(await keysOf(agent)).toEqual([`use ${ws}:${USE}`]);
+    await inStep();
+  });
+});

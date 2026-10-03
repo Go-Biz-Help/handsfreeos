@@ -22,7 +22,9 @@ export function useAct(after?: () => void) {
         await run();
         if (done) toast.success(done);
         after?.();
-        router.refresh();
+        // Closing a dialog changes the address (useQueryState), and Next drops a refresh still loading when the
+        // address changes after it starts; so the refresh waits for that change to land first.
+        setTimeout(() => router.refresh(), 0);
         return true;
       } catch (e) {
         const fe = fieldErrors(e);

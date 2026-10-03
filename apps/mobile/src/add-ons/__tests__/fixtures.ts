@@ -305,6 +305,7 @@ export function impactOf(over: Partial<AddonImpact> & Pick<AddonImpact, 'addonId
       ownRows: 0,
       usageEvents: 0,
     },
+    kept: null,
     ...over,
   } satisfies AddonImpact;
 }

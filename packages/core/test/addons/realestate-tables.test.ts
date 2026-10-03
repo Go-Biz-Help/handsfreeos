@@ -10,8 +10,9 @@ import { asUser, rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { AddonOfflineTable } from '../../src/addons/manifest';
 import { realestateAddon } from '../../src/addons/realestate/manifest';
-import { REALESTATE_TABLES } from '../../src/addons/realestate/tables';
+import { REALESTATE_TABLES_ALL } from '../../src/addons/realestate/tables';
 import {
   customRecordCreate,
   executeCommand,
@@ -118,7 +119,7 @@ afterAll(closeTestDbs);
 
 describe('Real Estate Agent’s tables', () => {
   it('are mirrored in Drizzle exactly, and named in the manifest', async () => {
-    for (const table of Object.values(REALESTATE_TABLES)) {
+    for (const table of Object.values(REALESTATE_TABLES_ALL)) {
       const live = await rows<{ column_name: string }>(
         admin(),
         sql`select column_name from information_schema.columns
@@ -137,6 +138,36 @@ describe('Real Estate Agent’s tables', () => {
           where c.relnamespace = 'addon_realestate'::regnamespace and c.relkind = 'r' order by 1`,
     );
     expect(tables.map((t) => t.name)).toEqual([...(realestateAddon.tables ?? [])].sort());
+  });
+
+  it('are kept on phones exactly as the manifest’s offline says (round six)', async () => {
+    const [addon] = await rows<{ permission: string }>(
+      admin(),
+      sql`select permission from app.addon_phone_addons where addon_id = 'realestate'`,
+    );
+    expect(addon?.permission).toBe(realestateAddon.offline?.permission);
+    const registered = await rows<{
+      source: string;
+      key_column: string;
+      record_column: string | null;
+      columns: string[];
+      reach: string;
+    }>(
+      admin(),
+      sql`select source, key_column, record_column, columns, reach from app.addon_phone_tables
+          where addon_id = 'realestate' order by source collate "C"`,
+    );
+    expect(registered).toEqual(
+      [...((realestateAddon.offline?.tables ?? []) as readonly AddonOfflineTable[])]
+        .sort((a, b) => (a.table < b.table ? -1 : 1))
+        .map((t) => ({
+          source: t.table,
+          key_column: t.key ?? 'id',
+          record_column: t.record ?? null,
+          columns: [...t.columns],
+          reach: t.reach ?? 'team',
+        })),
+    );
   });
 
   it('keep a deal’s rows to the people who see the deal', async () => {

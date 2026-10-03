@@ -26,7 +26,7 @@ export const PROOF_EVENTS = [
 ] as const;
 
 export interface Proof {
-  readonly kind: 'document' | 'appointment' | 'note' | 'record';
+  readonly kind: 'document' | 'appointment' | 'note' | 'attestation' | 'record';
   readonly documentId?: string | null;
   readonly appointmentId?: string | null;
   readonly body?: string | null;

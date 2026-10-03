@@ -141,6 +141,16 @@ export const AddonImpactOutput = z.object({
   optionalFor: z.array(z.object({ addonId, name: z.string() })),
   /** Capabilities working now that would stop: none from an add-on that is already off. */
   capabilitiesLost: z.array(z.object({ id: z.string(), label: z.string() })),
+  /** Records the business holds (round six): while any are, its data can't be deleted. Null when none are. */
+  kept: z
+    .object({
+      records: z.number().int(),
+      openRecords: z.number().int(),
+      heldUntil: z.string().nullable(),
+      legal: z.number().int(),
+      plural: z.string().nullable().optional(),
+    })
+    .nullable(),
   /** What it holds here now. */
   holds: z.object({
     records: z.number().int(),

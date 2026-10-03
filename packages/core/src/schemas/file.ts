@@ -14,8 +14,16 @@ export const ATTACHMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
   'text/csv',
+  // A voice note recorded on a phone (Real Estate round six): AAC in an MP4 box from iPhones and Androids, and the
+  // web's own recordings.
+  'audio/mp4',
+  'audio/aac',
+  'audio/mpeg',
+  'audio/webm',
 ] as const;
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+/** What the worker may keep on a record beside what people upload: a transaction export's zip (round six). */
+export const STORED_TYPES = [...ATTACHMENT_TYPES, 'application/zip'] as const;
 
 export const FileBeginUploadInput = z.object({
   workspaceId: uuid,
@@ -52,7 +60,7 @@ export const FileStoreInput = z.object({
   recordType: attachableRecordType,
   recordId: uuid,
   name: z.string().trim().min(1).max(200),
-  mimeType: z.enum(ATTACHMENT_TYPES, { error: 'That file type is not supported.' }),
+  mimeType: z.enum(STORED_TYPES, { error: 'That file type is not supported.' }),
   /** What it came from, for the timeline: `docusign`, say. */
   from: z.string().trim().min(1).max(60).optional(),
 });

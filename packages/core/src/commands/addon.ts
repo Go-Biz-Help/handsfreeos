@@ -17,7 +17,14 @@ import { addonSuggestionDismissals, addonUserSettings } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { findAddon, type Catalog } from '../addons/graph';
 import type { LifecycleAction } from '../addons/lifecycle';
-import { capabilityContextOf, loadGrants, loadInstallations, loadOverrides } from '../addons/load';
+import {
+  capabilityContextOf,
+  loadGrants,
+  loadInstallations,
+  loadKept,
+  loadOverrides,
+} from '../addons/load';
+import { addonDataHeldMessage } from '../addons/words';
 import type { AddonManifest } from '../addons/manifest';
 import { planTransition } from '../addons/plan';
 import { requireHuman } from '../kernel/actor';
@@ -57,7 +64,7 @@ async function makeMoves(
   addonId: string,
   action: LifecycleAction,
   include: readonly string[],
-  agreed?: () => void,
+  agreed?: () => void | Promise<void>,
 ): Promise<{ moved: Moved[] }> {
   const workspaceId = ctx.scope.workspaceId!;
   const [installations, overrides, grants] = await Promise.all([
@@ -82,7 +89,7 @@ async function makeMoves(
     throw HfosError.rule(plan.rule, plan.rule === 'addon_unknown' ? 404 : 409, plan.message);
   if (plan.kind === 'needs')
     throw new HfosError('rule_violation', 409, plan.message, { addons: plan.addons }, plan.rule);
-  agreed?.();
+  await agreed?.();
   const moved: Moved[] = [];
   for (const mv of plan.moves) {
     // Undefined only for a retired add-on on its way out, whose versions matter to nothing but installing.
@@ -231,12 +238,18 @@ export function addonLifecycleCommands(catalog: Catalog) {
     async handler(ctx, input) {
       // A retired add-on (its code gone from HandsFreeOS) goes by its id, as `addon.list` names it.
       const name = findAddon(catalog, input.addonId)?.name ?? input.addonId;
-      return makeMoves(ctx, catalog, input.addonId, 'purge', [], () => {
+      return makeMoves(ctx, catalog, input.addonId, 'purge', [], async () => {
         if (input.confirmName.trim().toLowerCase() !== name.trim().toLowerCase())
           throw HfosError.validation(
             [{ path: 'confirmName', message: `Type ${name} to confirm.` }],
             `Type ${name} to confirm.`,
           );
+        // Records the business holds keep the add-on's data (round six); the database refuses it too.
+        const held = addonDataHeldMessage(
+          name,
+          await loadKept(ctx.tx, ctx.scope.workspaceId!, input.addonId),
+        );
+        if (held) throw HfosError.rule('addon_data_held', 409, held);
       });
     },
   });

@@ -2031,6 +2031,14 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 
 - **Step 11:** the docs, the browser test and a short video.
 
+  **As built:** done. The whole browser suite ran (168 tests): 161 passed. Of the seven that didn't, one was ours and
+  is fixed: closing a dialog changes the page's address, and Next drops a refresh still loading when the address
+  changes, so the listing's Marketing page could stay on "isn't live on the MLS yet" after it was marked live
+  (`use-act.ts` now refreshes once the address has changed); every Real Estate test then passed. The others aren't
+  this branch's: two need a headless browser this container lacks (voice), two need Cloudflare's bot check, which
+  this container's proxy breaks for the browser after its first request (booking, calendar resources), the chat's
+  "Try it" fails here as it did before round four on main's code, and the chat on a phone passes alone.
+
 ## Not in round five
 
 - Lender, title and insurance connectors (they keep working by upload and email).
@@ -2126,6 +2134,23 @@ the server steps go ahead meanwhile.
   contract, documents, history and client update; the buyer's pages; financing, inspections, the client's to-do and
   the walkthrough; the listing's pages and showings; safety, holds and export on both apps.
 - **Step 19:** a phone flow (Maestro), the browser test for the web parts, the docs and a video.
+
+**Where it stands** (steps 1–11, the server): built and tested, migrations `20261022000100` to `000600`.
+
+- What phones keep: keys, seals and add-on rows, with three mismatch checks a test holds empty (they found a thread's
+  messages not following its viewers when the inbox's setting moved them, now fixed); `records_v1` checked by
+  PowerSync's own compiler; the phone subscribes to it beside `business_v1`.
+- Holds and retention: a retention hold on every deal (open: no end; ended: plus the years kept), redone nightly and
+  when Keeping records changes; legal holds; deleting the add-on's data or the business refused while held.
+- Check-ins: the commands (check in, add time, check out work offline), the ladder (ask, tell, repeat), teammates by
+  push and email, someone outside by text and email after agreeing by text, their link's page, the all-clear, and
+  Settings → Safety's times and safety person. **One change from the boards:** an outside contact agrees by replying
+  OK, not YES, because YES is a carrier keyword the carrier answers itself (the codebase's rule for every text).
+- Field notes (typed, spoken, photographed; a recording's words from the transcriber, billed as speech), the
+  walkthrough (its list, checking, finishing into duties, X-24's proof), and the export (a zip made without a
+  library, every file's SHA-256 checked against its stored fingerprint, a manifest, an alert when ready). Recordings
+  (audio) are now a file type people can upload; only the worker stores a zip.
+- Next: the phone screens and the web's screens for holds, safety and the export, once the boards are approved.
 
 ## Not in round six
 

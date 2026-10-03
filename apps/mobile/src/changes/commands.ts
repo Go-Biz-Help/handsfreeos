@@ -127,8 +127,24 @@ import {
   UserUpdateProfileOutput,
   WorkflowDecideApprovalInput,
   WorkflowDecideApprovalOutput,
+  SafetyCheckInInput,
+  SafetyCheckInOutput,
+  SafetyCheckInRef,
+  SafetyExtendInput,
   type OfflineClass,
 } from '@hfos/core';
+// Real Estate's own changes the phone may make (round six): its schemas live with the add-on in core.
+import {
+  FieldNoteAddInput,
+  FieldNoteAddOutput,
+  WalkthroughAddItemInput,
+  WalkthroughCheckInput,
+  WalkthroughFinishInput,
+  WalkthroughFinishOutput,
+  WalkthroughItemOutput,
+  WalkthroughOutput,
+  WalkthroughRef,
+} from '@hfos/core/addons/realestate/schemas';
 
 /**
  * The commands the phone may send: exactly the phone's contract (`packages/core/test/contract/mobile-contract.json`),
@@ -255,8 +271,30 @@ export const PHONE_COMMANDS = {
   'person.update': command(ANYTIME, PersonUpdateInput, PersonUpdateOutput),
   'push_device.register': command(ONLINE, PushDeviceRegisterInput, PushDeviceRegisterOutput),
   'push_device.remove': command(ONLINE, PushDeviceRemoveInput, PushDeviceRemoveOutput),
+  // Real Estate in the field (round six): notes and the final walkthrough, with no signal.
+  'realestate.field_note.add': command(ANYTIME, FieldNoteAddInput, FieldNoteAddOutput),
+  'realestate.walkthrough.add_item': command(
+    ANYTIME,
+    WalkthroughAddItemInput,
+    WalkthroughItemOutput,
+  ),
+  'realestate.walkthrough.check_item': command(
+    ANYTIME,
+    WalkthroughCheckInput,
+    WalkthroughItemOutput,
+  ),
+  'realestate.walkthrough.finish': command(
+    ANYTIME,
+    WalkthroughFinishInput,
+    WalkthroughFinishOutput,
+  ),
+  'realestate.walkthrough.start': command(ANYTIME, WalkthroughRef, WalkthroughOutput),
   'record.add_tag': command(ANYTIME, RecordTagInput, RecordTagOutput),
   'record.remove_tag': command(ANYTIME, RecordTagInput, RecordTagOutput),
+  // Check-ins (round six): checking in, adding time and checking out work with no signal.
+  'safety.check_in': command(ANYTIME, SafetyCheckInInput, SafetyCheckInOutput),
+  'safety.check_out': command(ANYTIME, SafetyCheckInRef, SafetyCheckInOutput),
+  'safety.extend': command(ANYTIME, SafetyExtendInput, SafetyCheckInOutput),
   'subscription.request_card': command(FRESH, SubscriptionRequestCardInput, SubscriptionCardOutput),
   'task.complete': command(ANYTIME, TaskCompleteInput, TaskCompleteOutput),
   'task.create': command(ANYTIME, TaskCreateInput, TaskCreateOutput),

@@ -12,9 +12,16 @@ import {
 } from '@hfos/db/schema';
 import { addonRuns, capabilitySets, grantedHere } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
-import { capabilityContextOf, loadGrants, loadInstallations, loadOverrides } from '../addons/load';
+import {
+  capabilityContextOf,
+  loadGrants,
+  loadInstallations,
+  loadKept,
+  loadOverrides,
+} from '../addons/load';
 import { planTransition } from '../addons/plan';
 import { suggestAddon, type SuggestionChoice } from '../addons/suggest';
+import { addonDataHeldMessage } from '../addons/words';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -121,10 +128,11 @@ export function addonQueries(catalog: Catalog) {
     permission: 'addons.manage',
     scope,
     async handler(ctx, input) {
-      const [installations, overrides, grants, counts] = await Promise.all([
+      const [installations, overrides, grants, kept, counts] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
         loadGrants(ctx.tx, input.workspaceId),
+        loadKept(ctx.tx, input.workspaceId, input.addonId),
         rows<{
           records: string;
           relationships: string;
@@ -153,12 +161,19 @@ export function addonQueries(catalog: Catalog) {
         grants,
       );
       const first = planTransition(cctx, input.addonId, input.action);
+      const name = (id: string) => findAddon(catalog, id)?.name ?? id;
+      // Records the business holds keep its data (round six): said before anyone types the name.
+      const held =
+        input.action === 'purge' ? addonDataHeldMessage(name(input.addonId), kept) : null;
       // With every add-on it asks about agreed to, so the plan shown is the one that would run after "yes".
-      const plan =
+      const planned =
         first.kind === 'needs'
           ? planTransition(cctx, input.addonId, input.action, first.addons)
           : first;
-      const name = (id: string) => findAddon(catalog, id)?.name ?? id;
+      const plan =
+        held && planned.kind === 'plan'
+          ? { kind: 'refused' as const, rule: 'addon_data_held', message: held }
+          : planned;
       const moving = plan.kind === 'plan' ? plan.moves : [];
       const stopping = new Set(
         moving
@@ -195,6 +210,7 @@ export function addonQueries(catalog: Catalog) {
         capabilitiesLost: catalog
           .filter((a) => stopping.has(a.id) && addonRuns(cctx, a.id))
           .flatMap((a) => a.capabilities.map((cap) => ({ id: cap.id, label: cap.label }))),
+        kept: kept.records > 0 ? kept : null,
         holds: {
           records: Number(c?.records ?? 0),
           relationships: Number(c?.relationships ?? 0),

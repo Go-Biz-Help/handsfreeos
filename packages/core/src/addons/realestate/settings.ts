@@ -30,5 +30,15 @@ export const RealestateSettingsSchema = z.object({
   tourCalendarId: z.uuid().nullable().default(null),
   /** Round five: ShowingTime's emails read into showings and feedback, for listings already on it. */
   showingTimeEmails: z.boolean().default(true),
+  /**
+   * Round six: years a closed deal is kept after it ends (Chris, 2026-10-03: 7 by default). Until then nobody can
+   * delete Real Estate's data; nothing is ever deleted on its own.
+   */
+  keepClosedYears: z
+    .number()
+    .int()
+    .min(1, 'Keep closed deals at least 1 year.')
+    .max(30, 'Keep closed deals at most 30 years.')
+    .default(7),
 });
 export type RealestateSettings = z.infer<typeof RealestateSettingsSchema>;

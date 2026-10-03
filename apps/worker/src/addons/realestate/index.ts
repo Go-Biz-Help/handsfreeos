@@ -66,6 +66,9 @@ import {
   showingThemesJob,
   showingTimeEmail,
 } from './showings';
+import { armRecordsPass, dealKept, RECORDS_PASS, recordsPassJob, settingsSaved } from './records';
+import { fieldNoteAdded } from './field';
+import { EXPORT_JOB, exportJob, exportRequested } from './export';
 import { registerRealestateTestRoutes } from './test-routes';
 import { homeAdded } from './homes';
 import { listingSuggested, matchBuyer, matchListing, suggestionDecided } from './matching';
@@ -264,7 +267,20 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'realestate.status_email.discarded': draftClosed,
     'realestate.deal.stage_changed': milestoneReached,
     'realestate.deal.event_recorded': milestoneReached,
-    'realestate.deal.closed': milestoneReached,
+    'realestate.deal.closed': async (ctx) => {
+      await milestoneReached(ctx);
+      await dealKept(ctx);
+    },
+    // Round six: a deal's retention hold and whether phones keep it (./records.ts).
+    'realestate.deal.opened': dealKept,
+    'realestate.deal.terminated': dealKept,
+    'realestate.deal.ended': dealKept,
+    'realestate.deal.reopened': dealKept,
+    'addon.settings_saved': settingsSaved,
+    // A field note's recording, in words (./field.ts).
+    'realestate.field_note.added': fieldNoteAdded,
+    // The whole transaction, exported (./export.ts).
+    'realestate.deal.export_requested': exportRequested,
     // Round two: a home's facts, read from its pasted listing words; round five: looked up on the listing feed.
     'realestate.home.added': async (ctx) => {
       await homeAdded(ctx);
@@ -353,12 +369,15 @@ export const realestateAddonWorker: AddonWorkerModule = {
     [MEMORY_JOB]: memoryJob,
     [OFFER_CLOCK]: offerClockJob,
     [OPEN_HOUSE_FOLLOW_UP]: openHouseFollowUpJob,
+    [RECORDS_PASS]: recordsPassJob,
+    [EXPORT_JOB]: exportJob,
   },
   onEnable: async (ctx) => {
     await armSweep(ctx);
     await armOfferClocks(ctx);
     await armFeedCheck(ctx);
     await armEsignCheckIfOpen(ctx);
+    await armRecordsPass(ctx);
   },
   // Round five: a pasted key for its listing feed, tried with the supplier before it's kept (./feed/index.ts).
   connectors: { [LISTING_DATA]: listingDataTesters() },

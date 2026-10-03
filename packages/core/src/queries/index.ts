@@ -10,6 +10,8 @@ import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
 import { supportAccessList } from './support-access';
+import { recordHoldQueries } from './record-hold';
+import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { teammateViewQueries } from './teammate-view';
@@ -339,6 +341,8 @@ export const queries: readonly QueryDef[] = [
   ...relationshipQueries,
   // HandsFreeOS support let into private records (Real Estate step 4).
   supportAccessList,
+  ...recordHoldQueries,
+  ...safetyQueries,
   // Ideas, the roadmap and What's new (0102).
   ...ideaQueries,
   // Add-ons (0108).
@@ -420,5 +424,7 @@ export * from './founding';
 export * from './offer';
 export * from './relationship';
 export * from './support-access';
+export * from './record-hold';
+export * from './safety';
 export * from './onboarding';
 export * from './ideas';

@@ -425,22 +425,35 @@ describe('HandsFreeOS support', () => {
 });
 
 describe('the phone', () => {
-  it('is never sent a sealed row: every stream of what hangs off a record leaves them out', () => {
+  // Round six (20261022000100): sealed rows and add-on cards reach phones through records_v1 alone, each behind the
+  // key of its add-on's permission and its record's viewers. Every other stream still leaves them out.
+  const keyed = /seal_(scope|all) IN addon_(use|all)/;
+
+  it('is sent a sealed row only through records_v1, behind its seals', () => {
     const { queries } = readSyncConfig();
     const hanging = queries.filter(
       (q) => !q.cte && ['tasks', 'activities', 'files', 'attention_items'].includes(q.table),
     );
     expect(hanging.length).toBeGreaterThanOrEqual(5);
-    for (const q of hanging) expect(q.where, `${q.stream} ${q.table}`).toMatch(/sealed = false/);
-    // And nothing sends a private record itself.
-    expect(queries.some((q) => q.table === 'custom_records')).toBe(false);
+    for (const q of hanging)
+      if (q.stream === 'records_v1') expect(q.where, `${q.stream} ${q.table}`).toMatch(keyed);
+      else expect(q.where, `${q.stream} ${q.table}`).toMatch(/sealed = false/);
+    // A private record itself goes only there, behind the same key.
+    const records = queries.filter((q) => !q.cte && q.table === 'custom_records');
+    expect(records.length).toBeGreaterThan(0);
+    for (const q of records) {
+      expect(q.stream).toBe('records_v1');
+      expect(q.where).toMatch(keyed);
+    }
   });
 
-  it('is never sent an add-on’s Home card, nor its alerts (Real Estate step 5)', () => {
+  it('is sent an add-on’s Home card only through records_v1, and never its alerts (Real Estate step 5)', () => {
     const { queries } = readSyncConfig();
     const cards = queries.filter((q) => !q.cte && q.table === 'attention_items');
     expect(cards.length).toBeGreaterThanOrEqual(2);
-    for (const q of cards) expect(q.where, q.stream).toMatch(/kind != 'addon_alert'/);
+    for (const q of cards)
+      if (q.stream === 'records_v1') expect(q.where, q.stream).toMatch(keyed);
+      else expect(q.where, q.stream).toMatch(/kind != 'addon_alert'/);
     expect(queries.some((q) => q.table === 'addon_alerts')).toBe(false);
   });
 });

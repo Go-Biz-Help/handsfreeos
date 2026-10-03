@@ -301,6 +301,54 @@ export function addonHoldsLines(action: LifecycleAction, holds: AddonHoldings): 
   return lines;
 }
 
+/** What an add-on's records on hold keep here (round six): private.addon_holds(). */
+export interface AddonKept {
+  /** Records held: kept for a while yet, or under a legal hold. */
+  readonly records: number;
+  /** Of those, still open: kept with no end yet. */
+  readonly openRecords: number;
+  /** The latest a retention hold ends (ISO), or null. */
+  readonly heldUntil: string | null;
+  /** Records under a legal hold. */
+  readonly legal: number;
+  /** What its records are called ("deals"), or null for "records". */
+  readonly plural?: string | null;
+}
+
+const monthYear = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+/**
+ * Why an add-on's data can't be deleted yet, and when it can (Chris, 2026-10-03: a business keeps closed records the
+ * years it sets, and a legal hold until it's lifted): "Real Estate Agent keeps 214 deals your business holds: 12
+ * are still open and the rest are kept until as late as October 2033, and 1 is on legal hold. Its data can be
+ * deleted once those end. An owner or admin lifts a legal hold from the deal’s page." Null when nothing is held.
+ */
+export function addonDataHeldMessage(addonName: string, kept: AddonKept): string | null {
+  if (kept.records <= 0) return null;
+  const plural = kept.plural?.trim() || 'records';
+  const singular = plural.replace(/s$/, '');
+  const parts: string[] = [];
+  const closed = kept.records - kept.openRecords - kept.legal;
+  if (kept.openRecords > 0)
+    parts.push(
+      `${kept.openRecords.toLocaleString('en-US')} ${kept.openRecords === 1 ? 'is' : 'are'} still open`,
+    );
+  if (kept.heldUntil && closed > 0)
+    parts.push(
+      `${parts.length ? 'the rest are' : `${closed === 1 ? 'it is' : 'they are'}`} kept until as late as ${monthYear(kept.heldUntil)}`,
+    );
+  if (kept.legal > 0)
+    parts.push(
+      `${kept.legal.toLocaleString('en-US')} ${kept.legal === 1 ? 'is' : 'are'} on legal hold`,
+    );
+  const head = `${addonName} keeps ${count(kept.records, singular, plural)} your business holds`;
+  const why = parts.length ? `: ${joinNames(parts)}` : '';
+  const lift =
+    kept.legal > 0 ? ` An owner or admin lifts a legal hold from the ${singular}’s page.` : '';
+  return `${head}${why}. Its data can be deleted once those end.${lift}`;
+}
+
 /** Add-ons that use this one when it's there: "Content Creator uses it and does less without it." */
 export function addonOptionalLine(names: readonly string[]): string | null {
   if (!names.length) return null;

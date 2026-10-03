@@ -49,6 +49,8 @@ describe('the notification categories', () => {
       customer_file: ['Open'],
       lead_qualified: ['Open'],
       support_ticket: ['Open'],
+      safety_check: ['I’m OK', '+15 min'],
+      safety_alert: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });
@@ -87,6 +89,13 @@ describe('the notification categories', () => {
         isDestructive: false,
       },
       still_there: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: false,
+        isDestructive: false,
+      },
+      // A check-in's "Still there?", answered from the lock screen: whoever holds the phone is the one asked.
+      im_ok: { opensAppToForeground: false, isAuthenticationRequired: false, isDestructive: false },
+      add_15: {
         opensAppToForeground: false,
         isAuthenticationRequired: false,
         isDestructive: false,

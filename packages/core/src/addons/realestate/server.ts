@@ -44,6 +44,8 @@ import { showingCommands, showingQueries } from './ops/showings';
 import { vendorCommands, vendorQueries } from './ops/vendors';
 import { connectionQueries } from './ops/connections';
 import { searchCommands, searchQueries } from './ops/searches';
+import { fieldCommands, fieldQueries } from './ops/field';
+import { exportCommands, exportQueries } from './ops/export';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
@@ -85,6 +87,8 @@ export const realestateAddonServer: AddonServerModule = {
     ...showingCommands,
     ...vendorCommands,
     ...searchCommands,
+    ...fieldCommands,
+    ...exportCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -117,5 +121,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...contingencyQueries,
     ...coordinateQueries,
     ...searchQueries,
+    ...fieldQueries,
+    ...exportQueries,
   ],
 };

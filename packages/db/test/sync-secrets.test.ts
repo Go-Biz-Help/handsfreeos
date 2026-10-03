@@ -22,6 +22,11 @@ const admin$ = dbs.admin.db;
 /** What phones need (plan: "How much is on the phone"), and so what may be published and read by hfos_sync. */
 const PUBLISHED = [
   'activities',
+  // Round six: what an add-on's phones keep (records_v1).
+  'addon_phone_rows',
+  'custom_record_types',
+  'custom_records',
+  'sync_keys',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',
@@ -98,6 +103,8 @@ const SECRET_TABLES = [
   'portal_sessions',
   // M16: the sign-in to a Google Business Profile or a Facebook Page. No phone ever needs it.
   'review_connections',
+  // Round six: a safety contact's link to a missed check-out, kept only as its token's hash. No phone needs it.
+  'safety_escalations',
   'telephony_accounts',
   // A Twilio account a business connected to bring its numbers in: its auth token or API key secret, sealed.
   'twilio_connections',

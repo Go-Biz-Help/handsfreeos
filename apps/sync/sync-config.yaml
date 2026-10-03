@@ -181,6 +181,50 @@ streams:
       - SELECT id, workspace_id, payment_id, invoice_id, amount_cents, currency, reason, provider, status, failure_code, refunded_at, requested_by, created_at, updated_at FROM app.refunds WHERE workspace_id IN managed AND sync_window = true
       - SELECT id, workspace_id, plan_id, plan_name, price_cents, currency, "interval", interval_count, taxable, includes, person_id, lead_id, provider, status, started_on, current_period_start, current_period_end, next_billing_on, paused_at, cancelled_at, cancel_reason, ended_on, failed_cycles, last_error, card_brand, card_last4, card_expiry_month, card_expiry_year, card_requested_at, created_by, created_at, updated_at FROM app.subscriptions WHERE workspace_id IN managed
 
+  # Round six: what an add-on's phones keep with no signal (20261022000100). The app subscribes it beside
+  # business_v1 with the same {workspace_id}; old builds never do, so it is a new stream, not a new version.
+  # Who keeps what comes from rows the database keeps equal to RLS: app.sync_keys (a person's keys, from the
+  # permissions they hold; turning an add-on off takes them away) and the seals each row carries (seal_scope,
+  # seal_open, seal_viewer_ids, seal_all), held to the records by private.sync_seal_mismatches().
+  #   - `addon_use`: the keys for an add-on's permissions; `addon_all`: the See-every keys of its private kinds.
+  #   - A private record and everything sealed to it: its main person and team (seal_viewer_ids). Whoever sees
+  #     every record of its kind keeps the record itself and the add-on rows its add-on marks `all` (summary,
+  #     duties, dates: Chris, 2026-10-03), not its threads, files or history.
+  #   - An add-on's own rows come through app.addon_phone_rows: their declared columns as JSON, never its tables.
+  #   - Sealed threads, messages and Home cards were narrowed by the inbox's own rule when their seals were kept.
+  # Keys exist only while the person can open the business (they follow app.workspace_access), so no `access`
+  # lookup is needed. Buckets: one per use key (open rows), one per all key, and one per use key and viewer (the
+  # narrow arms). For Real Estate: three for someone who sees every deal, two otherwise, per business kept.
+  records_v1:
+    with:
+      addon_use: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'use'
+      addon_all: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'all'
+    queries:
+      # The add-on's kinds of records, and its records: shared ones to everyone with its key, private ones to their
+      # people and to whoever sees every one of their kind.
+      - SELECT id, workspace_id, key, singular, plural, name_label, icon, position, archived_at, addon_id, kept_to_team, created_at, updated_at FROM app.custom_record_types WHERE seal_scope IN addon_use
+      - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_scope IN addon_use AND seal_open = true AND sync_window = true
+      - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_all IN addon_all AND sync_window = true
+      - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sync_window = true
+      # Its own rows, as JSON: the business's own (its vendors), a private record's `all` rows, and the rest to the
+      # record's people.
+      - SELECT id, workspace_id, addon_id, source, record_id, data, updated_at FROM app.addon_phone_rows WHERE seal_scope IN addon_use AND seal_open = true AND sync_window = true
+      - SELECT id, workspace_id, addon_id, source, record_id, data, updated_at FROM app.addon_phone_rows WHERE seal_all IN addon_all AND sync_window = true
+      - SELECT id, workspace_id, addon_id, source, record_id, data, updated_at FROM app.addon_phone_rows WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sync_window = true
+      # What hangs off a private record, back for its people (20261013002400 and round two took them off phones):
+      # the same columns as business_v1's, byte for byte, with the same windows.
+      - SELECT id, workspace_id, title, notes, due_at, all_day, assignee_user_id, person_id, company_id, lead_id, done_at, done_by, field_times, created_by, created_at, updated_at FROM app.tasks WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND sync_window = true
+      - SELECT id, workspace_id, kind, subtype, person_id, company_id, lead_id, body, occurred_at, author_user_id, actor_type, meta, created_at, updated_at FROM app.activities WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND sync_window = true
+      - SELECT id, workspace_id, record_type, record_id, bucket, object_path, name, mime_type, size_bytes, status, locked_at, created_by, created_at, updated_at FROM app.files WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND deleted_at IS NULL
+      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, job_id, created_by, created_at, updated_at FROM app.appointments WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND sync_window = true
+      - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND sync_window = true
+      - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, archived_at, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at, folder, private_to FROM app.conversations WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND private_to IS NULL
+      - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, transport, read_at, rich, button_reply, failed_attempt, created_at, updated_at FROM app.messages WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND private_to IS NULL AND sync_window = true
+      # Home cards: an add-on's for everyone holding its permission, and the rest (an audience, a private record)
+      # to exactly whom they're for.
+      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE seal_scope IN addon_use AND seal_open = true AND state != 'resolved'
+      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND state != 'resolved'
+
   # The agencies a person belongs to: the agency, its people and their roles and names (whom only the agency's own
   # people may see). Nothing for someone who belongs to none.
   agency_v1:

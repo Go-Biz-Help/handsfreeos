@@ -2100,3 +2100,140 @@ export const dutyVendors = addonRealestate.table(
     }).onDelete('cascade'),
   ],
 );
+
+/** What an agent notes at a stop, a showing or an open house (round six, B-07): typed, spoken or photographed. */
+export const fieldNotes = addonRealestate.table(
+  'field_notes',
+  {
+    /** Made on the phone. */
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    aboutKind: text('about_kind')
+      .notNull()
+      .$type<'deal' | 'home' | 'tour_stop' | 'showing' | 'open_house' | 'walkthrough'>(),
+    aboutId: uuid('about_id'),
+    body: text('body'),
+    audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
+    transcript: text('transcript'),
+    transcriptState: text('transcript_state')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'waiting' | 'done' | 'failed'>(),
+    photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+    createdBy: userRef('created_by'),
+    notedAt: ts('noted_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** The final walkthrough (round six, X-24), checked on the phone. */
+export const walkthroughs = addonRealestate.table(
+  'walkthroughs',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
+    scheduledAt: ts('scheduled_at'),
+    state: text('state').notNull().default('planned').$type<'planned' | 'started' | 'done'>(),
+    startedAt: ts('started_at'),
+    finishedAt: ts('finished_at'),
+    clientsAgreedAt: ts('clients_agreed_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** One thing to check on a walkthrough: a repair agreed, an item that stays or goes, a finding, a room. */
+export const walkthroughItems = addonRealestate.table(
+  'walkthrough_items',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    walkthroughId: uuid('walkthrough_id')
+      .notNull()
+      .references(() => walkthroughs.id, { onDelete: 'cascade' }),
+    source: text('source')
+      .notNull()
+      .$type<'repair' | 'included' | 'excluded' | 'finding' | 'room' | 'added'>(),
+    sourceRef: uuid('source_ref'),
+    title: text('title').notNull(),
+    detail: text('detail'),
+    state: text('state')
+      .notNull()
+      .default('unchecked')
+      .$type<'unchecked' | 'ok' | 'not_ok' | 'unsure'>(),
+    note: text('note'),
+    photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+    checkedBy: userRef('checked_by'),
+    checkedAt: ts('checked_at'),
+    dutyId: uuid('duty_id'),
+    position: integer('position').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A whole transaction exported (round six): the zip, a core file on the deal, and its manifest's fingerprint. */
+export const exports = addonRealestate.table(
+  'exports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    state: text('state').notNull().default('building').$type<'building' | 'ready' | 'failed'>(),
+    fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+    manifestSha256: text('manifest_sha256'),
+    counts: jsonb('counts').$type<Record<string, number>>().notNull().default({}),
+    failure: text('failure'),
+    requestedBy: userRef('requested_by'),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    readyAt: ts('ready_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Every table above, round five's and six's too, for the test that holds the mirror to the live columns. */
+export const REALESTATE_TABLES_ALL = {
+  ...REALESTATE_TABLES,
+  feedMatches,
+  esignEnvelopes,
+  showings,
+  vendors,
+  dutyVendors,
+  fieldNotes,
+  walkthroughs,
+  walkthroughItems,
+  exports,
+} as const;

@@ -102,10 +102,27 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `addons`) and an email (`addonEmail`) once per thing it says, critical at any hour and the rest while the business
   is open. `info` only goes on Home. A person acknowledges one from its card (`addon_alert.acknowledged` reaches that
   add-on alone). Which severity, when to raise it higher and who the top alerts go to are the add-on's to decide.
-  Phones keep no add-on cards yet. The push opens the add-on's screen on a phone that has it and the web until then:
+  Phones keep the cards through `records_v1` (round six, below). The push opens the add-on's screen on a phone that
+  has it and the web until then:
   an add-on names the pages the phone draws in its manifest (`ui.phone`), and the phone's build lists the screens it
   has (`apps/mobile/src/links/addon-screens.ts`), so no link changes when a screen arrives. Turning the add-on off
   clears its alerts (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
+- **What phones keep of an add-on** (Real Estate round six, 20261022000100). An add-on that works with no signal says
+  so in its manifest's `offline`: the permission whose holders' phones keep it, and each of its tables with the
+  record column it follows, the columns a phone needs (`manifestIssues` refuses one that looks like a secret) and its
+  reach (`team`: the record's owner and team; `all`: also whoever sees every record of the kind, for summary rows).
+  Its migration says the same with `private.addon_phone_addon(...)` and `private.addon_phone_table(...)`, which
+  installs triggers that copy just those columns into `app.addon_phone_rows` with the record's seals, and a test
+  holds the two equal. Its private records, and the tasks, files, appointments, portal threads and Home cards on
+  them, reach the same people through the same stream (`apps/sync/README.md`, `records_v1`). Turning the add-on off
+  takes its permissions, so its keys, and every row leaves phones with nothing deleted. A record leaves phones
+  earlier when the add-on says so (`private.record_phone_window`). An operation a phone may queue says
+  `offline: 'anytime'` (or `freshMinutes`) and takes the phone's id for anything it makes.
+- **Holds** (round six, 20261022000200). A record can be on hold: `retention` while the add-on keeps it (Real Estate:
+  open deals, and closed ones for the years its settings say), set by the add-on as the system
+  (`private.set_retention_hold`); `legal` placed and lifted by owners and admins (`records.hold`, a reason to lift).
+  While any hold lasts, purging the add-on's data is refused with how many records and until when, and a legal hold
+  also stops its files and timeline lines being deleted and the whole business being deleted.
 - **A customer's portal** (Real Estate round two, steps 2–3). Core signs customers in: a business lets one in
   (`portal_access.give`), the worker emails a private link, and each new device types a six-digit code emailed to
   the address on file. A signed-in device is a `customer` actor. An add-on shows a customer its records like this:
@@ -385,5 +402,7 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
 - **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
   duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
   the seller's portal; reading contracts, contingencies, duty order, linked deals, escalation and Coordinate) are
-  built and in beta (docs/realestate.md). Its fifth (listing data, e-sign, showings and vendors) is being built
-  on connections and a service's updates (The pieces). Everyone else still sees it as Coming soon.
+  built and in beta (docs/realestate.md), and so is its fifth (listing data, e-sign, showings and vendors, on
+  connections and a service's updates). Its sixth, the phone and the finish, has its server built (what phones keep,
+  holds, check-ins, field notes, the walkthrough and the export); its phone screens wait on their boards. Everyone
+  else still sees it as Coming soon.

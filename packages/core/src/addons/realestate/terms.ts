@@ -35,6 +35,9 @@ export const TEXT_TERMS = {
   /** The parties as the contract names them (round four: read from the contract). */
   buyer_names: { label: 'Buyers on the contract', sides: ['buyer', 'listing'], contract: true },
   seller_names: { label: 'Sellers on the contract', sides: ['buyer', 'listing'], contract: true },
+  /** Round six: what stays with the home and what goes, as the contract lists them (the walkthrough checks them). */
+  included_items: { label: 'Items that stay', sides: ['buyer', 'listing'], contract: true },
+  excluded_items: { label: 'Items that go', sides: ['buyer', 'listing'], contract: true },
 } as const satisfies Record<string, TermDef>;
 export type TextTermKey = keyof typeof TEXT_TERMS;
 

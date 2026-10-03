@@ -26,6 +26,8 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 
 `qualifying` (20261018000400) is the AI teammate's qualifying, to the people its settings name: a lead qualifies, or a customer sends the file a question asks for. Its row shows to everyone; an older app build that saves fewer switches leaves it on.
 
+`safety` isn't a switch anyone sees or saves: a check-in's pushes always go (`private.push_on` answers true), since a missed one is a false alarm or nobody told.
+
 `supportTickets` is for HandsFreeOS's own support people. Settings → Notifications shows its row, New support tickets, only to someone `platform.me` says answers support (the web's Settings → Account and the phone's alike); everyone's save carries it anyway, since a save sends every switch.
 
 ## Kinds of push
@@ -48,6 +50,16 @@ Both are for people, can be sent again safely, and are online-only (refused if m
 | `customer_file`          | Open                                        | `qualifying`      | A customer sent the file a qualifying question asks for (`file.received`), like a photo or PDF of their electric bill, through the AI teammate's file link or by text or email                                                                              | The people the question's "Tell when it arrives" names who still work in the business (owners and admins, the lead's assignee, the customer's owner, or one person)                                                                         | `/app/w/<ws>/leads/<leadId>`; the customer's page when the lead has gone                                                                                   |
 | `lead_qualified`         | Open                                        | `qualifying`      | A lead qualifies (`lead.qualified`): every required qualifying answer is in and none rules the lead out, whether the AI teammate or a person recorded the last one                                                                                          | The people "When a lead qualifies → Tell" names who still work in the business, except a person who recorded the last answer themselves                                                                                                     | `/app/w/<ws>/leads/<leadId>`                                                                                                                               |
 | `support_ticket`         | Open                                        | `supportTickets`  | Someone writes to HandsFreeOS support and starts a new ticket: from inside the app, or by mail to support@ (see "A new support ticket")                                                                                                                     | Every active support person with the switch on, except whoever wrote in                                                                                                                                                                     | `/admin/tickets/<ticketId>`: the phone's Support desk, `/app/admin/tickets/<ticketId>`                                                                     |
+
+### A missed check-out (round six)
+
+A person checked in somewhere alone (`safety.check_in`) and didn't check out by the planned end (apps/worker/src/safety/ladder.ts):
+
+- **`safety_check`** ("Still at 2207 Juniper Trail?") to the person alone, at the planned end plus the business's "ask after" minutes, with **I’m OK** (`safety.check_out`) and **+15 min** (`safety.extend`, 15 minutes). Neither needs an unlock: whoever holds the phone is the one asked. Lives an hour (`PUSH_TTL_SECONDS`) and is time-sensitive.
+- **`safety_alert`** to each teammate they named as a contact, with nobody answering the business's "tell after" minutes later, then every ten minutes for an hour; with no contact who'd hear, the business's safety person, else its owners and admins. Open shows the alert (`/app/w/<ws>/safety/<checkInId>`). "<Name> is OK" follows on the same notification (`collapseId: safety-<checkInId>`) once they check out, add time or someone reaches them.
+- Both carry `refs.checkInId`, and never more than the place, the planned end and the person's phone: the words are core's (`safetyAskWords`, `safetyAlertPushWords`), the same the phone shows.
+
+Someone outside is told by text and email instead, never a push, and only after agreeing by text (Reply OK).
 
 ### A customer's new message
 

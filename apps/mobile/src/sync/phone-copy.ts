@@ -13,7 +13,7 @@ import { peopleWithCopies, removeCopy, type CopyFiles } from './files';
 import type { CopyKeys } from './keys';
 import { beforeOpening, onSignOut, wantedBusinesses } from './rules';
 import {
-  BUSINESS_STREAM,
+  BUSINESS_STREAMS,
   BusinessSubscriptions,
   businessParameters,
   readBusinessSubscriptions,
@@ -421,8 +421,15 @@ export class PhoneCopy {
 
   private streamsOf(db: AbstractPowerSyncDatabase): BusinessStreams {
     return {
-      subscribe: (businessId, ttl) =>
-        db.syncStream(BUSINESS_STREAM, businessParameters(businessId)).subscribe({ ttl }),
+      // A business's copy is both streams, held and let go together.
+      subscribe: async (businessId, ttl) => {
+        const handles = await Promise.all(
+          BUSINESS_STREAMS.map((name) =>
+            db.syncStream(name, businessParameters(businessId)).subscribe({ ttl }),
+          ),
+        );
+        return { unsubscribe: () => handles.forEach((h) => h.unsubscribe()) };
+      },
       subscribed: () => readBusinessSubscriptions(db),
     };
   }

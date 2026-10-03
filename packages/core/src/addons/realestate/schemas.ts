@@ -4098,3 +4098,165 @@ export const RealestateConnectionsUsesOutput = z.object({
   esign: z.object({ out: z.number().int(), words: z.string() }),
   showingTime: z.object({ on: z.boolean(), readThisMonth: z.number().int(), words: z.string() }),
 });
+
+// ---------- round six: notes in the field and the final walkthrough ----------
+
+export const FIELD_NOTE_ABOUT = [
+  'deal',
+  'home',
+  'tour_stop',
+  'showing',
+  'open_house',
+  'walkthrough',
+] as const;
+
+/** A note taken in the field (B-07): typed, spoken or photographed, made on the phone with its own id. */
+export const FieldNoteAddInput = z
+  .object({
+    ...inDeal,
+    id: uuid,
+    aboutKind: z.enum(FIELD_NOTE_ABOUT).default('deal'),
+    aboutId: uuid.optional(),
+    body: z.string().trim().max(4000, 'Keep a note to 4,000 characters.').optional(),
+    /** A recording, already added to the deal's files; its words come later. */
+    audioFileId: uuid.optional(),
+    photoFileIds: z.array(uuid).max(20, 'Up to 20 photos on a note.').default([]),
+  })
+  .refine((v) => !!v.body || !!v.audioFileId || v.photoFileIds.length > 0, {
+    message: 'Write a note, record one or add a photo.',
+    path: ['body'],
+  });
+export const FieldNoteAddOutput = z.object({ noteId: uuid });
+/** The worker's: a recording's words, or that they couldn't be made. */
+export const FieldNoteTranscribedInput = z.object({
+  workspaceId: uuid,
+  noteId: uuid,
+  transcript: z.string().max(20000).nullable(),
+});
+
+export const WalkthroughPlanInput = z.object({
+  ...inDeal,
+  id: uuid,
+  scheduledAt: isoDateTime.optional(),
+  appointmentId: uuid.optional(),
+});
+export const WalkthroughOutput = z.object({ walkthroughId: uuid, items: z.number().int() });
+export const WalkthroughRef = z.object({ workspaceId: uuid, walkthroughId: uuid });
+export const WalkthroughCheckInput = z.object({
+  workspaceId: uuid,
+  itemId: uuid,
+  state: z.enum(['ok', 'not_ok', 'unsure', 'unchecked']),
+  note: z.string().trim().max(2000).optional(),
+  photoFileIds: z.array(uuid).max(10, 'Up to 10 photos on an item.').optional(),
+});
+export const WalkthroughAddItemInput = z.object({
+  workspaceId: uuid,
+  id: uuid,
+  walkthroughId: uuid,
+  title: z.string().trim().min(1, 'Say what to check.').max(200, 'Keep it to 200 characters.'),
+  detail: z.string().trim().max(1000).optional(),
+});
+export const WalkthroughItemOutput = z.object({ itemId: uuid });
+export const WalkthroughFinishInput = WalkthroughRef.extend({
+  /** The clients said it's as agreed, ticked on the phone with them. */
+  clientsAgreed: z.boolean().default(false),
+});
+export const WalkthroughFinishOutput = z.object({
+  walkthroughId: uuid,
+  summary: z.string(),
+  dutiesAdded: z.number().int(),
+});
+export const FieldNoteTranscribedOutput = z.object({
+  noteId: uuid,
+  state: z.enum(['done', 'failed', 'skipped']),
+});
+export const FieldNotesInput = z.object({
+  ...inDeal,
+  aboutKind: z.enum(FIELD_NOTE_ABOUT).optional(),
+  aboutId: uuid.optional(),
+});
+export const FieldNotesOutput = z.object({
+  notes: z.array(
+    z.object({
+      id: uuid,
+      aboutKind: z.enum(FIELD_NOTE_ABOUT),
+      aboutId: uuid.nullable(),
+      body: z.string().nullable(),
+      audioFileId: uuid.nullable(),
+      transcript: z.string().nullable(),
+      transcriptState: z.enum(['none', 'waiting', 'done', 'failed']),
+      photoFileIds: z.array(uuid),
+      createdBy: uuid.nullable(),
+      notedAt: isoDateTime,
+    }),
+  ),
+});
+export const WalkthroughGetInput = z.object(inDeal);
+export const WalkthroughGetOutput = z.object({
+  walkthrough: z
+    .object({
+      id: uuid,
+      state: z.enum(['planned', 'started', 'done']),
+      appointmentId: uuid.nullable(),
+      scheduledAt: isoDateTime.nullable(),
+      startedAt: isoDateTime.nullable(),
+      finishedAt: isoDateTime.nullable(),
+      clientsAgreedAt: isoDateTime.nullable(),
+      summary: z.string(),
+      items: z.array(
+        z.object({
+          id: uuid,
+          source: z.enum(['repair', 'included', 'excluded', 'finding', 'room', 'added']),
+          sourceRef: uuid.nullable(),
+          title: z.string(),
+          detail: z.string().nullable(),
+          state: z.enum(['unchecked', 'ok', 'not_ok', 'unsure']),
+          note: z.string().nullable(),
+          photoFileIds: z.array(uuid),
+          checkedBy: uuid.nullable(),
+          checkedAt: isoDateTime.nullable(),
+          dutyId: uuid.nullable(),
+        }),
+      ),
+    })
+    .nullable(),
+});
+
+// ---------- the whole transaction, exported (round six, step 10) ----------
+
+export const DealExportInput = z.object(inDeal);
+export const DealExportOutput = z.object({
+  exportId: uuid,
+  state: z.enum(['building', 'ready', 'failed']),
+});
+export const ExportFinishedInput = z.object({
+  workspaceId: uuid,
+  exportId: uuid,
+  fileId: uuid.optional(),
+  manifestSha256: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  counts: z.record(z.string(), z.number().int().min(0)).optional(),
+  failure: z.string().max(500).optional(),
+});
+export const ExportFinishedOutput = z.object({
+  exportId: uuid,
+  state: z.enum(['building', 'ready', 'failed']),
+});
+export const ExportsInput = z.object(inDeal);
+export const ExportsOutput = z.object({
+  exports: z.array(
+    z.object({
+      id: uuid,
+      state: z.enum(['building', 'ready', 'failed']),
+      fileId: uuid.nullable(),
+      manifestSha256: z.string().nullable(),
+      counts: z.record(z.string(), z.number()),
+      failure: z.string().nullable(),
+      requestedBy: uuid.nullable(),
+      requestedAt: isoDateTime,
+      readyAt: isoDateTime.nullable(),
+    }),
+  ),
+});

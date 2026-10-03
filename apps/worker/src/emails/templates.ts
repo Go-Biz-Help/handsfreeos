@@ -1824,3 +1824,71 @@ export function leadQualifiedEmail(input: {
 /** A question above its answer: the question can be long, so it doesn't sit in a narrow label column. */
 const answerRow = (question: string, answer: string) =>
   `<tr><td colspan="2" style="padding: 6px 0; border-top: 1px solid #e4e8ee;"><div style="color: #676c75;">${escapeHtml(question)}</div><div>${escapeHtml(answer)}</div></td></tr>`;
+
+/**
+ * A safety contact's email when the person they look out for missed a check-out (round six): the place, the
+ * planned end and how to reach them, with the link to say they're OK. It comes from HandsFreeOS for the business.
+ */
+export function safetyAlertEmail(input: {
+  person: string;
+  business: string;
+  place: string;
+  plannedEnd: string;
+  phone: string | null;
+  help: boolean;
+  link: string;
+  map: string | null;
+  /** A teammate, told in the app: the link opens the alert there. */
+  teammate?: boolean;
+}): EmailContent {
+  const first = input.person.split(/\s+/)[0] ?? input.person;
+  const subject = input.help
+    ? `${input.person} asked for help`
+    : `${input.person} hasn’t checked out`;
+  const opening = input.help
+    ? `${input.person} pressed Help at ${input.place}.`
+    : `${input.person} hasn’t checked out of ${input.place}. They planned to leave by ${input.plannedEnd}.`;
+  const call = input.phone ? `Call ${first}: ${input.phone}.` : `Try to reach ${first}.`;
+  const danger = `If you think ${first} is in danger, call 911. HandsFreeOS doesn’t call anyone for you.`;
+  const why = input.teammate
+    ? `You’re getting this because ${input.person} made you a safety contact at ${input.business}.`
+    : `You’re getting this because ${input.person} at ${input.business} made you a safety contact, and you agreed by text.`;
+  const text = [
+    opening,
+    '',
+    call,
+    ...(input.map ? [`Where their phone was: ${input.map}`] : []),
+    '',
+    input.teammate ? `Open the alert: ${input.link}` : `Tell us you reached them: ${input.link}`,
+    '',
+    danger,
+    why,
+  ].join('\n');
+  const html = shell(
+    preheader(`${opening} ${call}`) +
+      wordmark +
+      para(`<strong>${escapeHtml(opening)}</strong>`) +
+      para(escapeHtml(call)) +
+      (input.map ? para(`<a href="${escapeHtml(input.map)}">Where their phone was</a>`) : '') +
+      button(input.link, input.teammate ? 'Open the alert' : `I reached ${first}`) +
+      small(escapeHtml(danger)) +
+      small(escapeHtml(why)),
+  );
+  return { subject, text, html };
+}
+
+/** The all-clear, to a safety contact who was told. */
+export function safetyOkEmail(input: { person: string; business: string }): EmailContent {
+  const subject = `${input.person} is OK`;
+  const line = `${input.person} is OK: they checked out, or someone reached them. Nothing more to do. Thanks for looking out.`;
+  const text = [line, '', `You’re a safety contact for ${input.person} at ${input.business}.`].join(
+    '\n',
+  );
+  const html = shell(
+    preheader(line) +
+      wordmark +
+      para(escapeHtml(line)) +
+      small(escapeHtml(`You’re a safety contact for ${input.person} at ${input.business}.`)),
+  );
+  return { subject, text, html };
+}

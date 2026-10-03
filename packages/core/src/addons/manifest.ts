@@ -188,6 +188,24 @@ export interface AddonNavItem {
 }
 
 /**
+ * One of the add-on's tables a phone keeps offline (round six): which columns, the record each row follows, and who
+ * beyond that record's people gets it. A migration registers the same with `private.addon_phone_table()`; a test
+ * holds the two equal. What a phone keeps changes by migration, never by a change to the sync config.
+ */
+export interface AddonOfflineTable {
+  /** The table's name in the add-on's schema, one of `tables`. Needs a `workspace_id` column. */
+  readonly table: string;
+  /** The column naming each row: `id` (the default), or the record for a table with one row per record. */
+  readonly key?: string;
+  /** The column naming the record each row follows (a deal); absent for the business's own rows (its vendors). */
+  readonly record?: string;
+  /** What the phone keeps of each row, beside `id` and `workspace_id`. Never a secret. */
+  readonly columns: readonly string[];
+  /** `team` (the default): only the people on the record. `all`: also whoever sees every record of its kind. */
+  readonly reach?: 'team' | 'all';
+}
+
+/**
  * One of the add-on's pages the phone draws too. Its links (an alert's push, an email, a Home card) open that screen
  * on a phone whose build has it, and the web on one that doesn't yet, so they never change when the screen arrives.
  */
@@ -334,6 +352,14 @@ export interface AddonManifest {
   readonly resources?: readonly string[];
   /** The services it connects to, and what for (round five). */
   readonly connectors?: readonly AddonConnector[];
+  /**
+   * What phones keep with no signal (round six): the permission a person needs before their phone keeps any of it,
+   * and its tables. Its kinds of records come too, private ones to the people on them; anything not here loads live.
+   */
+  readonly offline?: {
+    readonly permission: string;
+    readonly tables: readonly AddonOfflineTable[];
+  };
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
     readonly nav?: readonly AddonNavItem[];
@@ -364,6 +390,9 @@ export interface AddonIssue {
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9a-z.-]+)?$/;
 const KEY_UNDER = (id: string) => new RegExp(`^${id}_[a-z][a-z0-9_]{0,38}$`);
 const DOTTED_UNDER = (id: string) => new RegExp(`^${id}(\\.[a-z][a-z_]*)+$`);
+/** Column names that hold a secret (packages/db/test/sync-secrets.test.ts asks the same of core's tables). */
+const SECRET_COLUMN =
+  /(_enc$|secret|password|pkce|oauth_state|token_hash|_hmac$|(^|_)key_id$|^token$|client_state)/;
 const TABLE_NAME = /^[a-z][a-z0-9_]{0,62}$/;
 
 /** Everything wrong with one manifest on its own. An empty list is a valid manifest. */
@@ -566,6 +595,31 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     const shape = page.path.replace(/:[^/]+/g, ':');
     if (publicShapes.has(shape)) say(`public page "${page.path}" is declared twice`);
     publicShapes.add(shape);
+  }
+  if (m.offline) {
+    if (!permissionKeys.has(m.offline.permission))
+      say(`offline.permission "${m.offline.permission}" isn't one of its permissions`);
+    for (const t of m.offline.tables) {
+      if (!(m.tables ?? []).includes(t.table))
+        say(`offline table "${t.table}" isn't one of its tables`);
+      if (!t.columns.length || t.columns.length > 80)
+        say(`offline table "${t.table}" keeps 1–80 columns`);
+      for (const c of t.columns) {
+        if (!/^[a-z][a-z0-9_]{0,62}$/.test(c))
+          say(`offline table "${t.table}" column "${c}" isn't a column name`);
+        if (SECRET_COLUMN.test(c))
+          say(`offline table "${t.table}" keeps "${c}", which looks like a secret`);
+        if (c === 'id' || c === 'workspace_id')
+          say(`offline table "${t.table}" keeps "${c}" already`);
+      }
+      unique(`offline table "${t.table}" column`, t.columns);
+      if (t.record !== undefined && !/^[a-z][a-z0-9_]{0,62}$/.test(t.record))
+        say(`offline table "${t.table}" record "${t.record}" isn't a column name`);
+    }
+    unique(
+      'offline table',
+      m.offline.tables.map((t) => t.table),
+    );
   }
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {

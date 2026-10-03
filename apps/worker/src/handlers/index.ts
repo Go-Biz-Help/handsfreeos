@@ -6,6 +6,7 @@ import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
 import { onPortalReplySent } from '../portal/replies';
 import { onPortalAccessGiven } from '../portal/invite';
+import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
@@ -358,6 +359,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'contact_ai.sweep_started': onSweepStarted,
     // A client let into their portal, or sent the link again: the email with the signed link (portal/invite.ts).
     'portal.access_given': onPortalAccessGiven,
+    // Check-ins (round six): the ladder at the planned end, Help at once, the all-clear to whoever was told, and
+    // someone outside asked to agree by text (safety/ladder.ts).
+    'safety.checked_in': onCheckedIn,
+    'safety.extended': onAllClear,
+    'safety.checked_out': onAllClear,
+    'safety.resolved': onAllClear,
+    'safety.help': onHelp,
+    'safety_contact.saved': onContactSaved,
   }),
 );
 

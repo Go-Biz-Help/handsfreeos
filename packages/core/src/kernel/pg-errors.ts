@@ -470,6 +470,27 @@ const RULES: Record<string, { status: number; message: string }> = {
   addon_week_decided: { status: 409, message: 'That week already has its pick.' },
   addon_not_tied: { status: 409, message: 'Choose one of the add-ons that tied.' },
   addon_already_picked: { status: 409, message: 'That add-on is already coming soon.' },
+  // Real Estate round six: records on hold.
+  record_on_hold: {
+    status: 409,
+    message:
+      'This record is under a legal hold, so its files and history can’t be changed or deleted. You can still add new ones. An owner or admin lifts the hold from the record’s page.',
+  },
+  record_hold_fixed: {
+    status: 409,
+    message:
+      'A legal hold can only be lifted, with a reason. Place a new one if something else needs holding.',
+  },
+  addon_data_held: {
+    status: 409,
+    message:
+      'This add-on keeps records your business holds, so its data can’t be deleted yet. Settings → Add-ons says how long, and an owner or admin can lift a legal hold from the record’s page.',
+  },
+  workspace_data_held: {
+    status: 409,
+    message:
+      'A record in this business is under a legal hold, so the business can’t be deleted. An owner or admin lifts the hold from the record’s page first.',
+  },
   // Real Estate step 3: a signed file is kept.
   file_locked: {
     status: 409,

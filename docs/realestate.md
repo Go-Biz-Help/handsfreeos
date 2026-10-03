@@ -263,6 +263,25 @@ Round five (Chris, 2026-10-02):
   come too.
 - **A document out for signing at DocuSign or Dotloop isn't marked signed by hand here**; it's signed there, and the
   signed copy is what marks it.
+- **Phones keep what the agent may see, and nothing more** (round six). The manifest's `offline` and the migration's
+  `private.addon_phone_table(...)` calls say which columns of which tables reach a phone, and a test holds the two
+  equal. People on a deal get it in full; someone who sees every deal gets the summary, duties and dates. Open deals
+  and those ended in the last 90 days stay on phones. Documents' names and states go, never their files: opening a
+  PDF needs signal.
+- **Closed deals are kept, never deleted on their own** (Chris, 2026-10-03). An open deal is held with no end; an
+  ended one until its end date plus the years in Deal settings → Keeping records (7 by default), redone each night
+  and whenever the setting changes. While any deal is held, deleting the add-on's data is refused. A legal hold
+  (owners and admins, `records.hold`) also keeps the deal's files and timeline from being deleted, and the business
+  from being deleted, until it's lifted with a reason.
+- **Field notes and the walkthrough work with no signal.** A note keeps the phone's id, so sent twice it's one note;
+  a recording's words come later from the transcriber (Deepgram; none without its key) and are billed as speech. The
+  walkthrough's list is built once, with signal, from the repairs agreed (not the credits), what the contract says
+  stays and goes (`included_items`, `excluded_items`), the inspection's findings nobody asked to fix, and each room;
+  finishing turns each thing that isn't right into a duty before closing, and the agent's own word counts for X-24.
+- **The export is the whole transaction**: every file on the deal with its SHA-256, checked against the fingerprint
+  taken when it was stored; every record of the deal's as JSON; and `manifest.json` (`hfos.transaction-export`,
+  version 1). Secrets and the network addresses on audit lines are left out. Owners and admins ask for it
+  (`realestate.export`); it's kept on the deal and they're told when it's ready. Over 200 MB of files is refused.
 
 ## Handing it to a test business
 
@@ -297,10 +316,12 @@ pnpm openapi                                                        # after chan
 - Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors; booking a vendor's
   appointment from the duty (it's booked on the calendar, and linked there); reports on competing listings.
 - A showing's access by smart lockbox; ShowingTime's own API (its emails are read instead).
-- Phone screens for deals, Coordinate and round five. Their links are ready: the manifest's `ui.phone` names the deal
-  pages the phone will draw, and a push, an email link or a Home card opens them there once the phone has them (the
-  web until then).
+- Phone screens for deals, Coordinate, round five and round six's field work (boards 76–93 wait for Chris's OK). The
+  server is ready for them: what phones keep (`records_v1`), the offline commands, check-ins, field notes, the
+  walkthrough and the export. The manifest's `ui.phone` names the deal pages the phone will draw, and a push, an
+  email link or a Home card opens them there once the phone has them (the web until then).
+- The web's screens for round six: legal holds and Keeping records in Deal settings, Settings → Safety, the export
+  button and its list on Documents, and the page a safety contact's link opens (its words and routes are built).
 - The AI teammate using the add-on, and workflow steps and triggers from it.
-- State rules, a brokerage rule engine beyond the duty editor, retention and legal holds, and exporting a whole
-  transaction.
+- State rules, and a brokerage rule engine beyond the duty editor.
 - Prices.

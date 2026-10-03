@@ -6797,6 +6797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.deal.export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the whole transaction: every file on the deal with its fingerprint, and every record, in one zip with a manifest. It’s kept on the deal’s Documents when it’s ready.
+         * @description Risk level 1. Requires realestate.export. Emits realestate.deal.export_requested.
+         */
+        post: operations["command_realestate_deal_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.deal.link": {
         parameters: {
             query?: never;
@@ -7671,6 +7691,26 @@ export interface paths {
          * @description Risk level 2. Requires realestate.use. Emits realestate.esign.voided.
          */
         post: operations["command_realestate_esign_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.field_note.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note something in the field on a deal: typed, a recording or photos, about the deal, a home, a tour stop, a showing, an open house or the walkthrough. A recording’s words follow on their own.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.field_note.added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_field_note_add"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9457,6 +9497,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.walkthrough.add_item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add something to check on a walkthrough that its list doesn’t have.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_add_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.check_item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one thing on a walkthrough OK, not OK or not sure, with a note and photos; or uncheck it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_check_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a walkthrough: each thing that isn’t right becomes a duty before closing, and your word that it’s done counts for the walkthrough’s duty.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.finished, realestate.duty.added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan a deal’s final walkthrough: its checklist from the repairs agreed, what the contract says stays and goes, the inspection’s serious findings and each room.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_walkthrough_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a planned walkthrough, at the home.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record_hold.lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lift a legal hold, with a reason kept on the record: its files and history can be changed and deleted again. Owners and admins.
+         * @description Risk level 3. Requires records.hold. Emits record_hold.lifted.
+         */
+        post: operations["command_record_hold_lift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record_hold.place": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a record on legal hold, with a reason: its files and history stay exactly as they are until the hold is lifted. New ones can still be added. Owners and admins.
+         * @description Risk level 2. Requires records.hold. Emits record_hold.placed.
+         */
+        post: operations["command_record_hold_place"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.add_tag": {
         parameters: {
             query?: never;
@@ -9911,6 +10091,166 @@ export interface paths {
          * @description Risk level 2. Requires reviews.manage. Emits review.replied.
          */
         post: operations["command_review_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety_contact.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop telling someone when you miss a check-out.
+         * @description Risk level 1. Requires workspace.read. Emits safety_contact.removed.
+         */
+        post: operations["command_safety_contact_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety_contact.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add or change someone to tell if you miss a check-out: a teammate, or someone outside by phone and email. Someone outside is asked to agree by text first.
+         * @description Risk level 1. Requires workspace.read. Emits safety_contact.saved.
+         */
+        post: operations["command_safety_contact_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.check_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check in somewhere you’re alone, with when you plan to leave. If you don’t check out, HandsFreeOS asks you, then tells your safety contacts where you were.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_check_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.check_out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check out: you’ve left. If anyone was told, they hear you’re OK.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_out. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_check_out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add time to your check-in. Answering “Still there?” this way also tells HandsFreeOS you’re OK.
+         * @description Risk level 1. Requires workspace.read. Emits safety.extended. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_extend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.help": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for help now: your safety contacts are told at once where you are. HandsFreeOS never calls 911; call them yourself if you’re in danger.
+         * @description Risk level 2. Requires workspace.read. Emits safety.help.
+         */
+        post: operations["command_safety_help"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you reached the teammate who didn’t check out and they’re OK: the alerts stop for everyone. Only someone they asked to be told can.
+         * @description Risk level 1. Requires workspace.read. Emits safety.resolved.
+         */
+        post: operations["command_safety_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.settings_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
+         */
+        post: operations["command_safety_settings_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15017,6 +15357,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s transaction exports: when each was asked for, whether it’s ready, and its file.
+         * @description Requires realestate.export.
+         */
+        post: operations["query_realestate_exports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.field_notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s field notes, newest first: what was typed, said or photographed, and about what.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_field_notes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.financing": {
         parameters: {
             query?: never;
@@ -15537,6 +15917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.walkthrough": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s walkthrough: the open one, or the last one finished, with each thing to check and how it was.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_walkthrough"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.workload": {
         parameters: {
             query?: never;
@@ -15551,6 +15951,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_workload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/record_hold.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The holds on a record (or on every record you see here): legal holds with who placed them and why, and how long closed records are kept.
+         * @description Requires records.read.
+         */
+        post: operations["query_record_hold_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15651,6 +16071,66 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_review_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/safety.alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For a teammate someone asked to be told: where they were when they missed their check-out, and how to reach them, while it’s yours to answer.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_alert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/safety.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your safety contacts here, and your check-in if one is open.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/safety.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_settings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22542,7 +23022,7 @@ export interface operations {
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
-                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv";
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm";
                     name: string;
                     /** Format: uuid */
                     recordId: string;
@@ -28298,7 +28778,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -28332,7 +28812,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -30907,6 +31387,40 @@ export interface operations {
             };
         };
     };
+    command_realestate_deal_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        exportId: string;
+                        /** @enum {string} */
+                        state: "building" | "ready" | "failed";
+                    };
+                };
+            };
+        };
+    };
     command_realestate_deal_link: {
         parameters: {
             query?: never;
@@ -32677,6 +33191,52 @@ export interface operations {
                         provider: "docusign" | "dotloop";
                         /** @enum {string} */
                         state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_field_note_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    aboutId?: string;
+                    /**
+                     * @default deal
+                     * @enum {string}
+                     */
+                    aboutKind?: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                    /** Format: uuid */
+                    audioFileId?: string;
+                    body?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** @default [] */
+                    photoFileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        noteId: string;
                     };
                 };
             };
@@ -36067,7 +36627,7 @@ export interface operations {
                     /** Format: uuid */
                     documentId?: string;
                     /** @enum {string} */
-                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
                     note?: string;
                     /** Format: uuid */
                     replaces?: string;
@@ -36160,7 +36720,7 @@ export interface operations {
                     /** Format: uuid */
                     keepEntryId: string;
                     /** @enum {string} */
-                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
                     reason: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -36565,6 +37125,270 @@ export interface operations {
                         companyId: string;
                         /** Format: uuid */
                         vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_add_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    detail?: string;
+                    /** Format: uuid */
+                    id: string;
+                    title: string;
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_check_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    note?: string;
+                    photoFileIds?: string[];
+                    /** @enum {string} */
+                    state: "ok" | "not_ok" | "unsure" | "unchecked";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    clientsAgreed?: boolean;
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutiesAdded: number;
+                        summary: string;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: date-time */
+                    scheduledAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: number;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: number;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_record_hold_lift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    holdId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        holdId: string;
+                        /** Format: date-time */
+                        liftedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_record_hold_place: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hold: {
+                            /** Format: uuid */
+                            customRecordId: string;
+                            heldUntil: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "legal" | "retention";
+                            /** Format: date-time */
+                            placedAt: string;
+                            placedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reason: string | null;
+                            recordName: string;
+                        };
                     };
                 };
             };
@@ -37490,6 +38314,334 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         reviewId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_contact_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_contact_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    contactUserId?: string;
+                    email?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    name?: string;
+                    phone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contact: {
+                            contactUserId: string | null;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            phone: string | null;
+                            /** @enum {string} */
+                            status: "teammate" | "asked" | "agreed" | "stopped";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_check_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    id: string;
+                    latitude?: number;
+                    longitude?: number;
+                    place: string;
+                    /** Format: date-time */
+                    plannedEndAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_check_out: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_extend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    minutes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_help: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId?: string;
+                    latitude?: number;
+                    longitude?: number;
+                    place?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkInId: string;
+                        resolved: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_settings_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    alertAfterMinutes: number;
+                    askAfterMinutes: number;
+                    safetyUserId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alertAfterMinutes: number;
+                        askAfterMinutes: number;
+                        safetyUserId: string | null;
                     };
                 };
             };
@@ -42313,6 +43465,13 @@ export interface operations {
                             relationships: number;
                             usageEvents: number;
                         };
+                        kept: {
+                            heldUntil: string | null;
+                            legal: number;
+                            openRecords: number;
+                            plural?: string | null;
+                            records: number;
+                        } | null;
                         moves: {
                             /** @enum {string} */
                             action: "install" | "enable" | "disable" | "uninstall" | "purge";
@@ -53865,6 +55024,102 @@ export interface operations {
             };
         };
     };
+    query_realestate_exports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        exports: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                            failure: string | null;
+                            fileId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            manifestSha256: string | null;
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            requestedBy: string | null;
+                            /** @enum {string} */
+                            state: "building" | "ready" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_field_notes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    aboutId?: string;
+                    /** @enum {string} */
+                    aboutKind?: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        notes: {
+                            aboutId: string | null;
+                            /** @enum {string} */
+                            aboutKind: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                            audioFileId: string | null;
+                            body: string | null;
+                            createdBy: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            notedAt: string;
+                            photoFileIds: string[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptState: "none" | "waiting" | "done" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_realestate_financing: {
         parameters: {
             query?: never;
@@ -55597,7 +56852,7 @@ export interface operations {
                     /** Format: uuid */
                     dealId: string;
                     /** @enum {string} */
-                    key?: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
+                    key?: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -55930,6 +57185,64 @@ export interface operations {
             };
         };
     };
+    query_realestate_walkthrough: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        walkthrough: {
+                            appointmentId: string | null;
+                            clientsAgreedAt: string | null;
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            items: {
+                                checkedAt: string | null;
+                                checkedBy: string | null;
+                                detail: string | null;
+                                dutyId: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                                photoFileIds: string[];
+                                /** @enum {string} */
+                                source: "repair" | "included" | "excluded" | "finding" | "room" | "added";
+                                sourceRef: string | null;
+                                /** @enum {string} */
+                                state: "unchecked" | "ok" | "not_ok" | "unsure";
+                                title: string;
+                            }[];
+                            scheduledAt: string | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "planned" | "started" | "done";
+                            summary: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     query_realestate_workload: {
         parameters: {
             query?: never;
@@ -55966,6 +57279,56 @@ export interface operations {
                             role: string;
                             /** Format: uuid */
                             userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_record_hold_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId?: string;
+                    /** @enum {string} */
+                    kind?: "legal" | "retention";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        holds: {
+                            /** Format: uuid */
+                            customRecordId: string;
+                            heldUntil: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "legal" | "retention";
+                            /** Format: date-time */
+                            placedAt: string;
+                            placedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reason: string | null;
+                            recordName: string;
                         }[];
                     };
                 };
@@ -56259,6 +57622,135 @@ export interface operations {
                             total: number;
                             unanswered: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_safety_alert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alert: {
+                            /** Format: uuid */
+                            checkInId: string;
+                            latitude: number | null;
+                            locatedAt: string | null;
+                            longitude: number | null;
+                            personName: string;
+                            personPhone: string | null;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "alerted" | "help";
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_safety_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contacts: {
+                            contactUserId: string | null;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            phone: string | null;
+                            /** @enum {string} */
+                            status: "teammate" | "asked" | "agreed" | "stopped";
+                        }[];
+                        open: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_safety_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alertAfterMinutes: number;
+                        askAfterMinutes: number;
+                        safetyPersonName: string | null;
+                        safetyUserId: string | null;
                     };
                 };
             };

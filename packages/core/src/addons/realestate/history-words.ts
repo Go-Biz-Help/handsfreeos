@@ -162,6 +162,26 @@ export function dealHistoryWords(what: string, before: Bag, after: Bag): string 
       return `Added the ${inspectionKind(a.kind)}`;
     case 'inspection_report_in':
       return `The ${inspectionKind(a.kind)} report is in`;
+    case 'field_note_added':
+      return a.spoken
+        ? 'Recorded a voice note in the field'
+        : a.typed
+          ? 'Wrote a note in the field'
+          : 'Took photos in the field';
+    case 'export_requested':
+      return 'Asked for the whole transaction as an export';
+    case 'exported':
+      return a.state === 'ready'
+        ? 'The whole transaction was exported'
+        : 'The whole transaction couldn’t be exported';
+    case 'walkthrough_planned':
+      return `Planned the final walkthrough, ${Number(a.items) || 0} things to check`;
+    case 'walkthrough_started':
+      return 'Started the final walkthrough';
+    case 'walkthrough_finished':
+      return Number(a.dutiesAdded) > 0
+        ? `Finished the final walkthrough, ${Number(a.dutiesAdded)} to fix before closing`
+        : 'Finished the final walkthrough, all as agreed';
     case 'inspection_canceled':
       return `Canceled the ${inspectionKind(a.kind)}`;
     case 'repair_requested':

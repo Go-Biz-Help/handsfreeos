@@ -36,6 +36,7 @@ import {
 } from './common';
 import { registerBookingRoutes } from './booking';
 import { registerUnsubscribeRoutes } from './unsubscribe';
+import { registerSafetyRoutes } from './safety';
 import { registerAiCallRoutes } from './ai-calls';
 import { registerChatRoutes } from './chat';
 import { registerPortalRoutes } from './portal';
@@ -270,6 +271,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A customer's own link for the business to copy: minting one needs the worker's key.
   registerMoneyLinkRoutes(app, deps);
   await registerUnsubscribeRoutes(app, deps);
+  // An outside safety contact's page (round six).
+  await registerSafetyRoutes(app, deps);
   registerAiCallRoutes(app, deps);
   // Bringing a number that already lives in Twilio: a business's own account, or HighLevel's (20261010000900).
   registerNumberImportRoutes(app, deps);

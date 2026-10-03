@@ -2415,7 +2415,11 @@
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               "text/plain",
-              "text/csv"
+              "text/csv",
+              "audio/mp4",
+              "audio/aac",
+              "audio/mpeg",
+              "audio/webm"
             ]
           },
           "sizeBytes": {
@@ -4856,6 +4860,154 @@
         }
       }
     },
+    "realestate.field_note.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "aboutKind": {
+            "default": "deal",
+            "type": "string",
+            "enum": ["deal", "home", "tour_stop", "showing", "open_house", "walkthrough"]
+          },
+          "aboutId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "audioFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoFileIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "dealId", "id"]
+      }
+    },
+    "realestate.walkthrough.add_item": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "id", "walkthroughId", "title"]
+      }
+    },
+    "realestate.walkthrough.check_item": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ok", "not_ok", "unsure", "unchecked"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "itemId", "state"]
+      }
+    },
+    "realestate.walkthrough.finish": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientsAgreed": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "walkthroughId"]
+      }
+    },
+    "realestate.walkthrough.start": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "walkthroughId"]
+      }
+    },
     "record.add_tag": {
       "offline": "anytime",
       "input": {
@@ -4904,6 +5056,85 @@
           }
         },
         "required": ["workspaceId", "recordType", "recordId", "tagId"]
+      }
+    },
+    "safety.check_in": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "place": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "plannedEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": ["workspaceId", "id", "place", "plannedEndAt"]
+      }
+    },
+    "safety.check_out": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "checkInId"]
+      }
+    },
+    "safety.extend": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 240
+          }
+        },
+        "required": ["workspaceId", "checkInId", "minutes"]
       }
     },
     "subscription.request_card": {
@@ -7024,6 +7255,277 @@
         "workspace_id": "uuid",
         "role": "app.member_role",
         "permissions": "text[]"
+      }
+    },
+    "records_v1.activities": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "app.activity_kind",
+        "subtype": "text",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "body": "text",
+        "occurred_at": "timestamp with time zone",
+        "author_user_id": "uuid",
+        "actor_type": "app.actor_type",
+        "meta": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.addon_phone_rows": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "addon_id": "text",
+        "source": "text",
+        "record_id": "uuid",
+        "data": "jsonb",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.appointment_attendees": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "appointment_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.attendee_status",
+        "seats": "integer",
+        "intake": "jsonb",
+        "contact_phone_e164": "text",
+        "contact_email": "text",
+        "sms_ok": "boolean",
+        "source": "app.appointment_source",
+        "reschedule_count": "integer",
+        "cancelled_at": "timestamp with time zone",
+        "confirmed_at": "timestamp with time zone",
+        "confirmed_via": "text",
+        "confirmed_by": "uuid",
+        "confirm_asked_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.appointments": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "calendar_id": "uuid",
+        "calendar_revision": "integer",
+        "service_id": "uuid",
+        "kind": "app.appointment_kind",
+        "title": "text",
+        "starts_at": "timestamp with time zone",
+        "ends_at": "timestamp with time zone",
+        "buffer_before": "integer",
+        "buffer_after": "integer",
+        "capacity": "integer",
+        "seats_taken": "integer",
+        "status": "app.appointment_status",
+        "location": "jsonb",
+        "series_id": "uuid",
+        "occurrence": "integer",
+        "owner_user_id": "uuid",
+        "lead_id": "uuid",
+        "source": "app.appointment_source",
+        "notes": "text",
+        "client_id": "text",
+        "field_times": "jsonb",
+        "job_id": "uuid",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.attention_items": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "text",
+        "subject_type": "text",
+        "subject_id": "uuid",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "conversation_id": "uuid",
+        "state": "app.attention_state",
+        "opened_at": "timestamp with time zone",
+        "since_at": "timestamp with time zone",
+        "urgent_from": "timestamp with time zone",
+        "due_at": "timestamp with time zone",
+        "value_cents": "bigint",
+        "value_is_estimate": "boolean",
+        "money_key": "text",
+        "probability": "real",
+        "confidence": "real",
+        "reasons": "jsonb",
+        "title": "text",
+        "detail": "text",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "snoozed_at": "timestamp with time zone",
+        "snoozed_by": "uuid",
+        "dismissed_at": "timestamp with time zone",
+        "dismissed_by": "uuid",
+        "dismiss_reason": "text",
+        "handled_at": "timestamp with time zone",
+        "handled_by": "uuid",
+        "handled_via": "text",
+        "handled_until": "timestamp with time zone",
+        "auto_state": "text",
+        "auto_scheduled_for": "timestamp with time zone",
+        "auto_done_at": "timestamp with time zone",
+        "auto_skip_reason": "text",
+        "auto_cancelled_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.conversations": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "channel": "app.channel",
+        "counterpart": "text",
+        "phone_number_id": "uuid",
+        "email_address_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.conversation_status",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "unread_count": "integer",
+        "last_message_at": "timestamp with time zone",
+        "last_inbound_at": "timestamp with time zone",
+        "last_outbound_at": "timestamp with time zone",
+        "last_preview": "text",
+        "last_direction": "app.direction",
+        "awaiting_reply_since": "timestamp with time zone",
+        "closed_at": "timestamp with time zone",
+        "closed_by": "uuid",
+        "archived_at": "timestamp with time zone",
+        "handled_by": "app.conversation_handler",
+        "ai_teammate_id": "uuid",
+        "needs_person_since": "timestamp with time zone",
+        "handoff_reason": "text",
+        "handoff_note": "text",
+        "taken_over_by": "uuid",
+        "ai_disclosed_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone",
+        "folder": "app.conversation_folder",
+        "private_to": "uuid"
+      }
+    },
+    "records_v1.custom_record_types": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "key": "text",
+        "singular": "text",
+        "plural": "text",
+        "name_label": "text",
+        "icon": "text",
+        "position": "integer",
+        "archived_at": "timestamp with time zone",
+        "addon_id": "text",
+        "kept_to_team": "boolean",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.custom_records": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "type_id": "uuid",
+        "name": "text",
+        "notes": "text",
+        "custom": "jsonb",
+        "field_times": "jsonb",
+        "archived_at": "timestamp with time zone",
+        "kept_to_team": "boolean",
+        "owner_user_id": "uuid",
+        "team_user_ids": "uuid[]",
+        "purged_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.files": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "record_type": "app.record_type",
+        "record_id": "uuid",
+        "bucket": "text",
+        "object_path": "text",
+        "name": "text",
+        "mime_type": "text",
+        "size_bytes": "bigint",
+        "status": "app.file_status",
+        "locked_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.messages": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "conversation_id": "uuid",
+        "channel": "app.channel",
+        "direction": "app.direction",
+        "status": "app.message_status",
+        "from_address": "text",
+        "to_addresses": "text[]",
+        "cc_addresses": "text[]",
+        "subject": "text",
+        "body_text": "text",
+        "media": "jsonb",
+        "segments": "integer",
+        "error_code": "text",
+        "error_message": "text",
+        "sent_by": "uuid",
+        "sent_by_teammate_id": "uuid",
+        "approved_by": "uuid",
+        "client_id": "text",
+        "email_address_id": "uuid",
+        "occurred_at": "timestamp with time zone",
+        "sent_at": "timestamp with time zone",
+        "delivered_at": "timestamp with time zone",
+        "transport": "app.text_transport",
+        "read_at": "timestamp with time zone",
+        "rich": "jsonb",
+        "button_reply": "jsonb",
+        "failed_attempt": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.tasks": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "due_at": "timestamp with time zone",
+        "all_day": "boolean",
+        "assignee_user_id": "uuid",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "done_at": "timestamp with time zone",
+        "done_by": "uuid",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
       }
     }
   }

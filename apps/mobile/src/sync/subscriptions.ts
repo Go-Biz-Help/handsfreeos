@@ -10,6 +10,14 @@ import { OPEN_TTL_S } from './rules';
  */
 
 export const BUSINESS_STREAM = 'business_v1';
+/**
+ * Round six: what the business's add-ons keep for phones (a deal and its rows), subscribed beside `business_v1` with
+ * the same parameters and time to live, so it comes and goes with the business. Its subscriptions are read through
+ * `business_v1`'s: the two are always held together.
+ */
+export const RECORDS_STREAM = 'records_v1';
+/** Every stream a business's subscription holds. */
+export const BUSINESS_STREAMS = [BUSINESS_STREAM, RECORDS_STREAM] as const;
 
 /** The parameters of a business's subscription, always built the same way (PowerSync compares them as JSON). */
 export const businessParameters = (businessId: string) => ({ workspace_id: businessId });

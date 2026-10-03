@@ -195,6 +195,11 @@ export function describeTimeline(
       return 'uploaded a file';
     case 'file_locked':
       return 'locked a file as signed and kept';
+    // Round six: a legal hold placed and lifted, with its reason in the well.
+    case 'legal_hold_placed':
+      return 'put this on legal hold';
+    case 'legal_hold_lifted':
+      return 'lifted the legal hold';
     // An add-on's own line, in its words ("confirmed the inspection deadline").
     case 'addon_line':
       return str(e.meta.words) || 'made a change';
@@ -319,6 +324,8 @@ export function timelineBody(e: TimelineEntry): string | null {
     case 'file_locked':
     case 'next_action':
     case 'addon_line':
+    case 'legal_hold_placed':
+    case 'legal_hold_lifted':
       return e.body;
     case 'lost':
       return e.body?.replace(/^Lost:\s*/, '') || null;

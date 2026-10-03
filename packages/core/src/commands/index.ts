@@ -109,6 +109,8 @@ import { brandedDomainCommands } from './branded-domain';
 import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
 import { customRecordTeamCommands } from './custom-record-team';
+import { recordHoldCommands } from './record-hold';
+import { safetyCommands } from './safety';
 import { supportAccessCommands } from './support-access';
 import { addonAlertCommands } from './addon-alert';
 export { addonAlertAcknowledge } from './addon-alert';
@@ -119,6 +121,17 @@ export {
   supportAccessRequest,
 } from './support-access';
 export { customRecordAssign, customRecordUnassign } from './custom-record-team';
+export { recordHoldLift, recordHoldPlace } from './record-hold';
+export {
+  safetyCheckIn,
+  safetyCheckOut,
+  safetyContactRecord,
+  safetyContactSave,
+  safetyEscalate,
+  safetyExtend,
+  safetyHelp,
+  safetyResolveByLink,
+} from './safety';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
@@ -971,6 +984,10 @@ export const commands: readonly CommandDef[] = [
   ...customRecordCommands,
   // Who is on a record kept to its people (Real Estate step 4).
   ...customRecordTeamCommands,
+  // Legal holds on records (Real Estate round six).
+  ...recordHoldCommands,
+  // Check-ins: a person's safety when they're alone at a customer's place (round six).
+  ...safetyCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).
   ...supportAccessCommands,
   // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
