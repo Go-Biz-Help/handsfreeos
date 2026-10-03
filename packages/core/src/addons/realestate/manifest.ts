@@ -605,6 +605,14 @@ export const realestateAddon = defineAddon({
         path: 'coordinate',
         permission: 'realestate.use',
       },
+      // Round five: the vendors the business's deals use.
+      {
+        key: 'vendors',
+        label: 'Vendors',
+        icon: 'wrench',
+        path: 'vendors',
+        permission: 'realestate.use',
+      },
       {
         key: 'settings',
         label: 'Deal settings',
@@ -626,7 +634,7 @@ export const realestateAddon = defineAddon({
       { path: 'duties', query: ['scope', 'duty'] },
       { path: 'deals/:dealId', query: ['duty'] },
       { path: 'deals/:dealId/dates' },
-      { path: 'deals/:dealId/documents' },
+      { path: 'deals/:dealId/documents', query: ['esign'] },
       { path: 'deals/:dealId/history' },
       { path: 'deals/:dealId/updates/:draftId' },
       // Round two: the buyer's side.
@@ -652,6 +660,10 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/contract/:readId' },
       { path: 'deals/:dealId/contingencies' },
       { path: 'coordinate', query: ['tab', 'mine', 'agent', 'duty'] },
+      // Round five: the listing feed's matches, showings, and vendors.
+      { path: 'deals/:dealId/matches' },
+      { path: 'deals/:dealId/showings' },
+      { path: 'vendors' },
     ],
     // The client's own pages in their portal (round two): their deals, and each one's homes, tours, to-do and more.
     // Homes and To do are places in the portal's menu (pages without an id); the rest open from them.

@@ -121,3 +121,6 @@ export type MatchList = Ok<'/v1/queries/realestate.matches'>;
 export type Match = MatchList['matches'][number];
 export type EsignList = Ok<'/v1/queries/realestate.esign.list'>;
 export type ShowingList = Ok<'/v1/queries/realestate.showing.list'>;
+export type VendorList = Ok<'/v1/queries/realestate.vendor.list'>;
+export type Vendor = VendorList['vendors'][number];
+export type DutyVendors = Ok<'/v1/queries/realestate.duty.vendors'>;

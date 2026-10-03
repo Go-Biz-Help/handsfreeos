@@ -26,6 +26,7 @@ import {
   ListTodo as realestateTodoIcon,
   Radar as realestateCoordinateIcon,
   Settings2 as realestateSettingsIcon,
+  Wrench as realestateVendorsIcon,
 } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
@@ -151,6 +152,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
     navIcons: {
       duties: realestateDutiesIcon,
       coordinate: realestateCoordinateIcon,
+      vendors: realestateVendorsIcon,
       settings: realestateSettingsIcon,
     },
     slots: {

@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { DutyStatusBadge } from './bits';
+import { DutyVendors } from './duty-vendors';
 import { DutyWaits, waitsOpenWords } from './duty-waits';
 import type { DealDocument, DutyGet, Teammate } from './types';
 import { useAct } from './use-act';
@@ -407,6 +408,16 @@ function DutyBody({
         open={open}
         busy={busy}
         act={act}
+      />
+
+      <DutyVendors
+        workspaceId={workspaceId}
+        dutyId={data.duty.dutyId}
+        dutyTitle={data.duty.title}
+        open={open}
+        busy={busy}
+        act={act}
+        version={data}
       />
 
       {open ? (
