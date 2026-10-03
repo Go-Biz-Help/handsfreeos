@@ -132,14 +132,14 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_client'
           join app.people p on p.id = rel.a_person_id
           where rel.b_custom_record_id = d.record_id
-          order by rel.created_at limit 1) client on true
+          order by rel.created_at, rel.id limit 1) client on true
         left join lateral (
           select pr.id, pr.name
           from app.relationships rel
           join app.relationship_types rt on rt.id = rel.type_id and rt.addon_key = 'realestate_property_of'
           join app.custom_records pr on pr.id = rel.b_custom_record_id
           where rel.a_custom_record_id = d.record_id
-          order by rel.created_at desc limit 1) prop on true
+          order by rel.created_at desc, rel.id desc limit 1) prop on true
         left join lateral (
           select count(*)::int as open, (count(*) filter (where t.due_at <= now()))::int as overdue
           from addon_realestate.duties t
@@ -148,13 +148,13 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           select t.id, t.title, t.due_at
           from addon_realestate.duties t
           where t.deal_record_id = d.record_id and t.status in ${OPEN} and t.due_at is not null
-          order by t.due_at limit 1) nx on true
+          order by t.due_at, t.id limit 1) nx on true
         left join lateral (
           select e.value_date
           from addon_realestate.term_entries e
           where e.deal_record_id = d.record_id and e.key = 'closing'
             and e.superseded_at is null and e.rejected_at is null
-          order by e.entered_at desc limit 1) cl on true
+          order by e.entered_at desc, e.id desc limit 1) cl on true
         left join lateral (
           select count(distinct e.key)::int as n
           from addon_realestate.term_entries e
@@ -164,9 +164,10 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
           select t.title, coalesce(t.waiting_on, t.blocker_owner, t.blocker) as who
           from addon_realestate.duties t
           where t.deal_record_id = d.record_id and t.status in ('waiting_external', 'blocked')
-          order by coalesce(t.chase_at, t.blocker_review_at) nulls last limit 1) wt on true
+          order by coalesce(t.chase_at, t.blocker_review_at) nulls last, t.id limit 1) wt on true
         where d.workspace_id = ${ctx.scope.workspaceId!} and ${filter}
-        order by (r.archived_at is null and d.outcome is null) desc, greatest(d.updated_at, r.updated_at) desc
+        order by (r.archived_at is null and d.outcome is null) desc, greatest(d.updated_at, r.updated_at) desc,
+          d.record_id
         limit ${limit}`,
   );
   return list.map((r) => ({
