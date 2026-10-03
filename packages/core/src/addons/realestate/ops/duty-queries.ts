@@ -70,13 +70,13 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
           left join app.files f on f.id = e.file_id
           left join app.appointments a on a.id = e.appointment_id
           where e.duty_id = ${duty.id}
-          order by e.added_at`,
+          order by e.added_at, e.id`,
     );
     const log = await ctx.tx
       .select()
       .from(dutyLog)
       .where(eq(dutyLog.dutyId, duty.id))
-      .orderBy(desc(dutyLog.at));
+      .orderBy(desc(dutyLog.at), desc(dutyLog.id));
     const names = await userNames(ctx, [
       duty.accountableUserId,
       ...evidence.map((e) => e.added_by),
@@ -293,7 +293,7 @@ export const documentList = defineAddonQuery(realestateAddon, {
           from addon_realestate.documents d
           join app.files f on f.id = d.file_id
           where d.deal_record_id = ${deal.recordId}
-          order by d.kind, d.lineage_id, d.version desc`,
+          order by d.kind collate "C", d.lineage_id, d.version desc`,
     );
     return {
       documents: list.map((d) => ({

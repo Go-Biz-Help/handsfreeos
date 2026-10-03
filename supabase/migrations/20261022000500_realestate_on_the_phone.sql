@@ -146,14 +146,15 @@ select private.addon_phone_addon('realestate', 'realestate.use');
 
 -- The summary, duties, dates and who is on it: also for whoever sees every deal.
 select private.addon_phone_table('addon_realestate.deals', 'record_id', array['side', 'stage', 'stage_entered_at',
-  'outcome', 'outcome_at', 'outcome_reason', 'lead_id', 'facts', 'expected_commission_cents', 'final_commission_cents',
-  'health', 'health_reasons', 'health_at', 'catalog_version', 'template_set_id', 'created_at', 'updated_at'], 'all',
-  'record_id');
+  'outcome', 'outcome_at', 'outcome_reason', 'lead_id', 'facts', 'expected_commission_cents',
+  'final_commission_cents', 'health', 'health_reasons', 'health_at', 'catalog_version', 'template_set_id',
+  'created_at', 'updated_at'], 'all', 'record_id');
 select private.addon_phone_table('addon_realestate.duties', 'deal_record_id', array['duty_key', 'pass', 'title',
   'tracker', 'status', 'materiality', 'automation', 'accountable_role', 'accountable_user_id', 'performers',
-  'definition', 'started_by', 'due_state', 'due_at', 'due_date', 'due_time', 'due_warnings', 'needs_dates', 'blocker', 'blocker_owner', 'blocker_review_at', 'waiting_on',
-  'waiting_since', 'chase_at', 'finished_at', 'finished_by', 'exception', 'acknowledged_at', 'at_risk_since',
-  'escalated_at', 'created_at', 'updated_at'], 'all');
+  'definition', 'started_by', 'started_at', 'due_state', 'due_at', 'due_date', 'due_time', 'due_trace',
+  'due_warnings', 'needs_dates', 'due_override_at', 'due_override_reason', 'blocker', 'blocker_owner',
+  'blocker_impact', 'blocker_review_at', 'waiting_on', 'waiting_since', 'chase_at', 'finished_at', 'finished_by',
+  'finish_reason', 'exception', 'acknowledged_at', 'at_risk_since', 'escalated_at', 'created_at', 'updated_at'], 'all');
 select private.addon_phone_table('addon_realestate.term_entries', 'deal_record_id', array['key', 'value_date',
   'value_time', 'value_cents', 'value_text', 'source', 'source_ref', 'page', 'entered_at', 'confirmed_at',
   'superseded_at', 'rejected_at'], 'all');
@@ -162,18 +163,19 @@ select private.addon_phone_table('addon_realestate.deal_roles', 'deal_record_id'
 -- The rest of a deal: to its people.
 select private.addon_phone_table('addon_realestate.deal_links', 'deal_record_id', array['other_record_id', 'kind']);
 select private.addon_phone_table('addon_realestate.deal_history', 'deal_record_id', array['at', 'actor_type',
-  'actor_user_id', 'what', 'note']);
+  'actor_user_id', 'what', 'before', 'after', 'note', 'created_at']);
 select private.addon_phone_table('addon_realestate.duty_evidence', 'deal_record_id', array['duty_id', 'kind',
-  'document_id', 'file_id', 'appointment_id', 'body', 'added_by', 'added_at', 'withdrawn_at']);
+  'document_id', 'file_id', 'appointment_id', 'message_id', 'body', 'added_by', 'added_at', 'withdrawn_at',
+  'withdrawn_reason']);
 select private.addon_phone_table('addon_realestate.duty_links', 'deal_record_id', array['duty_id', 'depends_on_id',
-  'kind']);
+  'kind', 'added_by', 'created_at']);
 select private.addon_phone_table('addon_realestate.duty_log', 'deal_record_id', array['duty_id', 'at', 'actor_type',
-  'actor_user_id', 'what', 'note']);
+  'actor_user_id', 'what', 'before', 'after', 'note']);
 select private.addon_phone_table('addon_realestate.duty_vendors', 'deal_record_id', array['duty_id', 'vendor_id',
   'service', 'quote_cents', 'quote_document_id', 'appointment_id', 'note', 'picked_at', 'removed_at']);
 select private.addon_phone_table('addon_realestate.documents', 'deal_record_id', array['file_id', 'kind', 'title',
-  'lineage_id', 'version', 'supersedes_id', 'status', 'controlling', 'signed_at', 'voided_at', 'offer_version_id',
-  'created_at']);
+  'lineage_id', 'version', 'supersedes_id', 'status', 'controlling', 'signed_at', 'voided_at', 'void_reason',
+  'offer_version_id', 'created_at']);
 select private.addon_phone_table('addon_realestate.esign_envelopes', 'deal_record_id', array['document_id',
   'provider', 'state', 'subject', 'signers', 'sent_at', 'completed_at', 'signed_document_id']);
 select private.addon_phone_table('addon_realestate.contingencies', 'deal_record_id', array['kind', 'label',

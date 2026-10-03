@@ -18,9 +18,13 @@ import {
   type RealestateSource,
 } from '../../src/addons/realestate/views/synced';
 import { dealPageOfCopy } from '../../src/addons/realestate/views/deal-page';
+import { documentsOfCopy } from '../../src/addons/realestate/views/documents';
+import { dutySheetOfCopy } from '../../src/addons/realestate/views/duty-sheet';
+import { historyOfCopy } from '../../src/addons/realestate/views/history';
 import {
   companyCreate,
   executeCommand,
+  fileBeginUpload,
   executeQuery,
   personCreate,
   type CommandDef,
@@ -61,6 +65,7 @@ let mate: TestUser;
 let ws: string;
 let today: string;
 let nguyen: string;
+let dutyIds: string[] = [];
 
 /** A cell as the phone keeps it: text, 0/1, or nothing; arrays and JSON as JSON text; times as PowerSync writes them. */
 function cell(v: unknown): string | number | null {
@@ -78,46 +83,98 @@ async function phoneCopy(u: TestUser): Promise<RealestateCopy> {
   return realestateCopyOf(await phoneRows(u));
 }
 
+/**
+ * The rows records_v1 sends `u` (apps/sync/sync-config.yaml): by their keys and the seals, as PowerSync filters them,
+ * not by row security, which lets an owner read more than their phone keeps. Customers, companies and names come
+ * from business_v1, which sends a business's people to everyone in it.
+ */
 async function phoneRows(u: TestUser): Promise<RealestateSource> {
-  return asUser(api(), u.claims, async (tx) => ({
+  const keys = await rows<{ kind: string; key: string }>(
+    admin(),
+    sql`select kind, key from app.sync_keys where user_id = ${u.id} and workspace_id = ${ws}`,
+  );
+  const use = `{${keys
+    .filter((k) => k.kind === 'use')
+    .map((k) => `"${k.key}"`)
+    .join(',')}}`;
+  const all = `{${keys
+    .filter((k) => k.kind === 'all')
+    .map((k) => `"${k.key}"`)
+    .join(',')}}`;
+  /** records_v1's three arms for a record, a link or one of the add-on's rows. */
+  const sealed = (t: string) =>
+    sql.raw(`((${t}.seal_scope = any('${use}'::text[]) and ${t}.seal_open)
+      or ${t}.seal_all = any('${all}'::text[])
+      or (${t}.seal_scope = any('${use}'::text[]) and '${u.id}'::uuid = any(${t}.seal_viewer_ids)))
+      and ${t}.sync_window`);
+  /** What hangs off a private record: to its people. */
+  const toItsPeople = (t: string) =>
+    sql.raw(`${t}.sealed and ${t}.seal_scope = any('${use}'::text[])
+      and '${u.id}'::uuid = any(${t}.seal_viewer_ids)`);
+  const db = admin();
+  return {
     records: cells(
       await rows(
-        tx,
+        db,
         sql`select r.id, r.name, r.notes, r.archived_at, r.owner_user_id, r.team_user_ids, r.updated_at
             from app.custom_records r join app.custom_record_types t on t.id = r.type_id
-            where r.workspace_id = ${ws} and t.key = 'realestate_deal' and r.sync_window`,
+            where r.workspace_id = ${ws} and t.key = 'realestate_deal' and ${sealed('r')}`,
       ),
     ),
     rows: cells(
       await rows(
-        tx,
-        sql`select id, source, record_id, data from app.addon_phone_rows
-            where workspace_id = ${ws} and addon_id = 'realestate' and sync_window`,
+        db,
+        sql`select p.id, p.source, p.record_id, p.data from app.addon_phone_rows p
+            where p.workspace_id = ${ws} and p.addon_id = 'realestate' and ${sealed('p')}`,
       ),
     ),
     links: cells(
       await rows(
-        tx,
+        db,
         sql`select l.id, t.addon_id, t.addon_key, t.position, l.a_person_id, l.a_company_id, l.a_custom_record_id,
               l.b_custom_record_id, l.note, l.created_at
             from app.relationships l join app.relationship_types t on t.id = l.type_id
-            where l.workspace_id = ${ws}`,
+            where l.workspace_id = ${ws} and ${sealed('l')}
+              and t.seal_scope = any(${use}::text[])`,
       ),
     ),
     people: cells(
       await rows(
-        tx,
+        db,
         sql`select id, first_name, last_name, email from app.people where workspace_id = ${ws}`,
       ),
     ),
     companies: cells(
-      await rows(tx, sql`select id, name from app.companies where workspace_id = ${ws}`),
+      await rows(db, sql`select id, name from app.companies where workspace_id = ${ws}`),
     ),
-    users: cells(await rows(tx, sql`select id, full_name, email from app.users`)),
+    files: cells(
+      await rows(
+        db,
+        sql`select f.id, f.name, f.locked_at from app.files f
+            where f.workspace_id = ${ws} and f.deleted_at is null and ${toItsPeople('f')}`,
+      ),
+    ),
+    appointments: cells(
+      await rows(
+        db,
+        sql`select a.id, a.title from app.appointments a
+            where a.workspace_id = ${ws} and ${toItsPeople('a')}`,
+      ),
+    ),
+    users: cells(
+      await rows(
+        db,
+        sql`select u.id, u.full_name, u.email from app.users u
+            join app.workspace_memberships m on m.user_id = u.id where m.workspace_id = ${ws}`,
+      ),
+    ),
     recordNames: cells(
-      await rows(tx, sql`select id, name from app.custom_records where workspace_id = ${ws}`),
+      await rows(
+        db,
+        sql`select r.id, r.name from app.custom_records r where r.workspace_id = ${ws} and ${sealed('r')}`,
+      ),
     ),
-  })) as unknown as Promise<RealestateSource>;
+  } as unknown as RealestateSource;
 }
 
 beforeAll(async () => {
@@ -225,6 +282,53 @@ beforeAll(async () => {
   await run(
     'realestate.duty.add_evidence',
     { dutyId: open[2]!.id, kind: 'note', body: 'Called the lender; binder on its way.' },
+    agent,
+  );
+  // One waits on another, added by hand.
+  await run('realestate.duty.link', { dutyId: open[3]!.id, waitsOnId: open[2]!.id }, agent);
+  dutyIds = open.slice(0, 4).map((d) => d.id);
+  // Documents: an agreement, and a disclosure in two versions.
+  const fileOn = async (name: string) => {
+    const up = await executeCommand(
+      api(),
+      fileBeginUpload,
+      {
+        workspaceId: ws,
+        recordType: 'custom_record',
+        recordId: nguyen,
+        name,
+        mimeType: 'application/pdf',
+        sizeBytes: 2048,
+      },
+      human(agent),
+      meta(),
+    );
+    await asUser(api(), agent.claims, (tx) =>
+      rows(tx, sql`update app.files set status = 'ready' where id = ${up.output.fileId}`),
+    );
+    return up.output.fileId as string;
+  };
+  await run(
+    'realestate.document.add',
+    { dealId: nguyen, fileId: await fileOn('Buyer agreement.pdf'), kind: 'buyer_agreement' },
+    agent,
+  );
+  const first = (
+    await run(
+      'realestate.document.add',
+      { dealId: nguyen, fileId: await fileOn('Disclosure.pdf'), kind: 'seller_disclosure' },
+      agent,
+    )
+  ).documentId;
+  await run(
+    'realestate.document.add',
+    {
+      dealId: nguyen,
+      fileId: await fileOn('Disclosure v2.pdf'),
+      kind: 'seller_disclosure',
+      supersedesId: first,
+      title: 'Seller’s disclosure, corrected',
+    },
     agent,
   );
 
@@ -397,5 +501,78 @@ describe('a deal’s page on the phone', () => {
     expect(page.team).toEqual([
       { userId: agent.id, name: 'Dana Reyes', role: 'agent', main: true },
     ]);
+  });
+});
+
+describe('one duty on the phone', () => {
+  it('answers what the server answers: the duty, its proof, what it waits on and its log', async () => {
+    for (const u of [agent, owner]) {
+      const copy = await phoneCopy(u);
+      for (const dutyId of dutyIds) {
+        const { can: _can, ...server } = await ask('realestate.duty.get', { dutyId }, u);
+        const sheet = dutySheetOfCopy(copy, dutyId, { userId: u.id, now: Date.now() });
+        expect(sheet, `${u.email} ${dutyId}`).not.toBeNull();
+        const { full, ...shown } = sheet!;
+        if (u === agent) {
+          expect(full).toBe(true);
+          expect(shown, dutyId).toEqual(server);
+        } else {
+          // Kept as a summary: the duty itself, and its proof, waits and log with signal.
+          expect(full).toBe(false);
+          expect(shown, dutyId).toEqual({
+            ...server,
+            waitsOn: [],
+            waitingOnThis: [],
+            ifItSlips: { waiting: [], sameDate: [] },
+            proof: { ...server.proof, missing: '' },
+            evidence: [],
+            log: [],
+          });
+        }
+      }
+    }
+  });
+
+  it('isn’t equal by being empty', async () => {
+    const copy = await phoneCopy(agent);
+    const proved = dutySheetOfCopy(copy, dutyIds[2]!, { userId: agent.id, now: Date.now() })!;
+    expect(proved.evidence.map((e) => [e.kind, e.label, e.body])).toEqual([
+      ['note', 'Note', 'Called the lender; binder on its way.'],
+    ]);
+    expect(proved.log.length).toBeGreaterThan(0);
+    // The one added by hand, beside any the catalog builds in.
+    expect(proved.waitingOnThis.map((w) => w.addedByName)).toContain('Dana Reyes');
+    const waiting = dutySheetOfCopy(copy, dutyIds[3]!, { userId: agent.id, now: Date.now() })!;
+    expect(waiting.waitsOn.map((w) => w.dutyId)).toEqual([dutyIds[2]]);
+    const blocked = dutySheetOfCopy(copy, dutyIds[1]!, { userId: agent.id, now: Date.now() })!;
+    expect(blocked.duty.blocker).toMatchObject({
+      what: 'Survey not ordered',
+      owner: 'Title company',
+    });
+  });
+});
+
+describe('a deal’s documents and history on the phone', () => {
+  it('answer what the server answers for the deal’s agent, and wait for signal on a summary', async () => {
+    for (const u of [agent, owner]) {
+      const copy = await phoneCopy(u);
+      const docs = (await ask('realestate.document.list', { dealId: nguyen }, u)).documents;
+      const lines = (await ask('realestate.deal.history', { dealId: nguyen }, u)).lines;
+      if (u === agent) {
+        expect(docs.length).toBe(3);
+        expect(documentsOfCopy(copy, nguyen)).toEqual(docs);
+        expect(lines.length).toBeGreaterThan(3);
+        expect(historyOfCopy(copy, nguyen)).toEqual(lines);
+        const some = (await ask('realestate.deal.history', { dealId: nguyen, limit: 3 }, u)).lines;
+        expect(historyOfCopy(copy, nguyen, { limit: 3 })).toEqual(some);
+        const older = (
+          await ask('realestate.deal.history', { dealId: nguyen, before: some[2].at }, u)
+        ).lines;
+        expect(historyOfCopy(copy, nguyen, { before: some[2].at })).toEqual(older);
+      } else {
+        expect(documentsOfCopy(copy, nguyen)).toEqual([]);
+        expect(historyOfCopy(copy, nguyen)).toEqual([]);
+      }
+    }
   });
 });

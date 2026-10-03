@@ -77,6 +77,13 @@ export interface RealestateSource {
   readonly links: readonly SyncedLink[];
   readonly people: readonly SyncedPerson[];
   readonly companies?: readonly SyncedCompany[];
+  /** The deal's files and appointments (`files.name`, `appointments.title`), for what a duty's proof points at. */
+  readonly files?: readonly {
+    readonly id: Cell;
+    readonly name: Cell;
+    readonly locked_at?: Cell;
+  }[];
+  readonly appointments?: readonly { readonly id: Cell; readonly title: Cell }[];
   readonly users: readonly SyncedUser[];
   /** Records the links point at (homes); deal records may be among them. */
   readonly recordNames: readonly SyncedRecordName[];
@@ -210,6 +217,10 @@ export interface RealestateCopy {
   personPlain(id: string): string | null;
   company(id: string): string | null;
   record(id: string): string | null;
+  file(id: string): string | null;
+  /** Whether a file is locked (signed and kept as it is), or null when the phone doesn't hold it. */
+  fileLocked(id: string): boolean | null;
+  appointment(id: string): string | null;
 }
 
 export function realestateCopyOf(source: RealestateSource): RealestateCopy {
@@ -223,6 +234,13 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     ]),
   );
   const companies = new Map((source.companies ?? []).map((c) => [text(c.id) ?? '', text(c.name)]));
+  const files = new Map((source.files ?? []).map((f) => [text(f.id) ?? '', text(f.name)]));
+  const locked = new Map(
+    (source.files ?? []).map((f) => [text(f.id) ?? '', text(f.locked_at) !== null]),
+  );
+  const appointments = new Map(
+    (source.appointments ?? []).map((a) => [text(a.id) ?? '', text(a.title)]),
+  );
   const bySource = new Map<string, Map<string, CopyRow[]>>();
   const recordNames = new Map(source.recordNames.map((r) => [text(r.id) ?? '', text(r.name)]));
 
@@ -347,5 +365,8 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     personPlain: (id) => people.get(id) ?? null,
     company: (id) => companies.get(id) ?? null,
     record: (id) => recordNames.get(id) ?? null,
+    file: (id) => files.get(id) ?? null,
+    fileLocked: (id) => locked.get(id) ?? null,
+    appointment: (id) => appointments.get(id) ?? null,
   };
 }

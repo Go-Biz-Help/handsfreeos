@@ -11,21 +11,20 @@
  */
 import type { z } from 'zod';
 import type { ResolvedDuty } from '../catalog/types';
-import { gapWords, proofGaps, type DealProofFacts, type EvidenceFact } from '../proof';
+import { gapWords, proofGaps } from '../proof';
 import { proofRuleWords } from '../rule-words';
 import type { DealGetOutput } from '../schemas';
 import { isDoneDuty, isOverdue, STAGE_LABELS, type DealStage, type DutyStatus } from '../states';
-import {
-  keyDatesOf,
-  termKind,
-  termLabel,
-  termsNow,
-  TERM_KEYS,
-  type TermEntry,
-  type TermKey,
-} from '../terms';
+import { termKind, termLabel, termsNow, TERM_KEYS } from '../terms';
 import { PARTY_ROLES, type PartyRole } from '../words';
-import { byText, iso, ms, text, type RealestateCopy } from './synced';
+import {
+  dealProofFactsOfCopy,
+  evidenceFactsOfCopy,
+  holdsWhole,
+  isoOr,
+  termEntriesOfCopy,
+} from './deal-facts';
+import { byText, iso, text, type RealestateCopy } from './synced';
 
 type DealGet = z.infer<typeof DealGetOutput>;
 /**
@@ -40,10 +39,6 @@ export type DealPage = Pick<
   readonly full: boolean;
 };
 
-const isoOr = (v: unknown): string | null => {
-  const t = ms(v);
-  return t === null ? null : iso(t);
-};
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const strings = (v: unknown): string[] => list(v).filter((x): x is string => typeof x === 'string');
 const int = (v: unknown): number => (typeof v === 'number' ? v : Number(v ?? 0)) || 0;
@@ -56,29 +51,12 @@ export function dealPageOfCopy(
 ): DealPage | null {
   const deal = copy.deals.get(dealId);
   if (!deal) return null;
-  const full =
-    ctx.userId !== null &&
-    (deal.ownerUserId === ctx.userId || deal.teamUserIds.includes(ctx.userId));
+  const full = holdsWhole(copy, dealId, ctx.userId);
   const d = deal.data;
   const stage = text(d.stage) ?? '';
 
   // Terms, as entered: the newest live entry counts while every live one agrees.
-  const entries = copy.rows('term_entries', dealId).map(({ id, data: e }) => ({
-    id,
-    key: text(e.key) as TermKey,
-    valueDate: text(e.value_date),
-    valueTime: text(e.value_time),
-    valueCents: e.value_cents === null || e.value_cents === undefined ? null : int(e.value_cents),
-    valueText: text(e.value_text),
-    source: text(e.source) as TermEntry['source'],
-    sourceRef: text(e.source_ref),
-    enteredAt: isoOr(e.entered_at) ?? iso(0),
-    confirmedAt: isoOr(e.confirmed_at),
-    supersededAt: isoOr(e.superseded_at),
-    rejectedAt: isoOr(e.rejected_at),
-  }));
-  const terms = termsNow(entries);
-  const keyDates = keyDatesOf(terms);
+  const terms = termsNow(termEntriesOfCopy(copy, dealId));
 
   const roles = new Map(
     copy.rows('deal_roles', dealId).map((r) => [text(r.data.user_id) ?? '', text(r.data.role)]),
@@ -107,33 +85,8 @@ export function dealPageOfCopy(
       };
     });
 
-  // What the deal itself holds that a duty's proof may ask for.
-  const fields = new Set<string>();
-  if (d.expected_commission_cents !== null && d.expected_commission_cents !== undefined)
-    fields.add('expected_commission');
-  if (d.final_commission_cents !== null && d.final_commission_cents !== undefined)
-    fields.add('final_commission');
-  if (home) fields.add('property');
-  if (copy.clients.has(dealId)) fields.add('client');
-  const proofFacts: DealProofFacts = {
-    confirmedDates: new Set(
-      (Object.keys(keyDates) as (keyof typeof keyDates)[]).filter((k) => keyDates[k]?.confirmed),
-    ),
-    fields: fields as DealProofFacts['fields'],
-  };
-  const documents = new Map(copy.rows('documents', dealId).map((r) => [r.id, r.data]));
-  const evidence = copy.rows('duty_evidence', dealId).map(({ data: e }) => {
-    const doc = text(e.document_id) ? documents.get(text(e.document_id)!) : undefined;
-    return {
-      dutyId: text(e.duty_id) ?? '',
-      fact: {
-        kind: text(e.kind) as EvidenceFact['kind'],
-        withdrawn: e.withdrawn_at !== null && e.withdrawn_at !== undefined,
-        documentKind: doc ? text(doc.kind) : null,
-        signed: doc ? text(doc.signed_at) !== null && text(doc.status) !== 'void' : false,
-      } satisfies EvidenceFact,
-    };
-  });
+  const proofFacts = dealProofFactsOfCopy(copy, dealId);
+  const evidence = evidenceFactsOfCopy(copy, dealId);
 
   const duties = [...(copy.duties.get(dealId) ?? [])]
     .sort(
@@ -149,11 +102,7 @@ export function dealPageOfCopy(
       const dueAt = t.dueAt === null ? null : iso(t.dueAt);
       let proofMissing = '';
       if (full && !isDoneDuty(status)) {
-        const gaps = proofGaps(
-          rule,
-          evidence.filter((e) => e.dutyId === t.id).map((e) => e.fact),
-          proofFacts,
-        );
+        const gaps = proofGaps(rule, evidence.get(t.id) ?? [], proofFacts);
         proofMissing = gaps.length ? gapWords(rule, gaps) : '';
       }
       const who = t.accountableUserId;

@@ -8,7 +8,7 @@
  *   those resting on the same date.
  * - **Waiting on someone outside** has a day to chase them; "Chased" moves it on two business days.
  */
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
@@ -205,7 +205,8 @@ export async function waitsOf(
   const links = await ctx.tx
     .select()
     .from(dutyLinks)
-    .where(or(eq(dutyLinks.dutyId, duty.id), eq(dutyLinks.dependsOnId, duty.id)));
+    .where(or(eq(dutyLinks.dutyId, duty.id), eq(dutyLinks.dependsOnId, duty.id)))
+    .orderBy(asc(dutyLinks.createdAt), asc(dutyLinks.id));
   const ids = [...new Set(links.flatMap((l) => [l.dutyId, l.dependsOnId]))].filter(
     (id) => id !== duty.id,
   );
@@ -253,6 +254,7 @@ export async function waitsOf(
           })
           .from(duties)
           .where(eq(duties.dealRecordId, duty.dealRecordId))
+          .orderBy(asc(duties.dueAt), asc(duties.createdAt), asc(duties.id))
       )
         .filter(
           (o) =>

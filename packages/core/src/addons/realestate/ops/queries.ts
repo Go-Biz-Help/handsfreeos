@@ -626,7 +626,7 @@ export const dealHistoryQuery = defineAddonQuery(realestateAddon, {
           input.before ? lt(dealHistory.at, new Date(input.before)) : undefined,
         ),
       )
-      .orderBy(desc(dealHistory.at), desc(dealHistory.createdAt))
+      .orderBy(desc(dealHistory.at), desc(dealHistory.createdAt), desc(dealHistory.id))
       .limit(input.limit);
     const names = await userNames(
       ctx,
