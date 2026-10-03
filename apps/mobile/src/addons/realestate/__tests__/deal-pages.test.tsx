@@ -389,6 +389,29 @@ describe('a duty (board 79)', () => {
     );
   });
 
+  it('marks it done after the proof still waiting on the phone, so the proof arrives first', async () => {
+    mockOnline = false;
+    const proof = (changeId: string, state: string): ReChange => ({
+      id: changeId,
+      name: 'realestate.duty.add_evidence',
+      input: { workspaceId: WS, dutyId: id(1) },
+      state,
+      rule: null,
+      madeAt: '2026-10-03T15:50:00.000Z',
+    });
+    await renderDuty({
+      checklist: checklist([true, true]),
+      changes: [proof('p1', 'held'), proof('p2', 'refused')],
+    });
+    await fireEvent.press(screen.getByTestId('re-duty-done'));
+    // The proof held for its photo goes first; one HandsFreeOS refused holds nothing up.
+    expect(change).toHaveBeenCalledWith(
+      'realestate.duty.complete',
+      { workspaceId: WS, dutyId: id(1) },
+      expect.objectContaining({ dependsOn: ['p1'] }),
+    );
+  });
+
   it('marks it done with no signal once its proof is there, marked as waiting', async () => {
     mockOnline = false;
     const { rerender } = await renderDuty({ checklist: checklist([true, true]) });

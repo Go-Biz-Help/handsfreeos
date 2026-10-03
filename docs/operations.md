@@ -10347,11 +10347,13 @@ Every seeded account uses the password `HandsFree-Demo-2026`. They exist only in
 | `renee@bayouplumbing.test`     | Renée Fontenot   | Owner of Bayou Plumbing Co.                                                           |
 | `tom@summitroofing.test`       | Tom Whitaker     | Owner of Summit Roofing                                                               |
 | `riley@northstarelectric.test` | Riley Chen       | Owner of Northstar Electric, a separate organization that sees nothing of Go Biz Help |
+| `dana@hillcountryrealty.test`  | Dana Whitfield   | Owner of Hill Country Realty, a separate organization with Real Estate Agent on       |
 
 What else the seed sets up:
 
 - **Lone Star HVAC & Roofing** has the most data: about thirty customers, two pipelines, twenty leads, tasks, notes and two photos. It also has the toll-free business number `+18335550100`, bought from the fake carrier with texting approved, plus conversations (texts, email, an unknown number and a STOP) and calls, including a voicemail with its transcript.
 - **One invitation is still pending,** for `jordan@lonestarhvac.test` (member, invited by Priya). Open its email in Mailpit to walk through accepting an invitation.
+- **Hill Country Realty** has Real Estate Agent turned on (through a staff test grant and the owner's install), a buyer deal, **Smith purchase** (client Ann Smith, 123 Main St, under contract with its dates confirmed and its duties), and a tour of the home starting about an hour after the seed ran.
 - **Time zones:** Lone Star and Bayou Plumbing use `America/Chicago`, Summit Roofing uses `America/Denver`, and Northstar Electric uses `America/Los_Angeles`.
 
 ### What the stand-ins do
@@ -10744,7 +10746,7 @@ The app in `apps/mobile` has its own checks, and its Maestro flows run on an And
 
    Test builds have **Settings** → **Test tools** → **This phone’s copy**: each business kept on the phone with its rows per table, the last sync, the SQLCipher version, the key's form, how long the copy took to open and whether it's kept out of backups, and buttons to disconnect, to make the last sync 31 days old (the copy then locks until it syncs), to try opening the file without its key, and to time both key forms.
 
-   The flows that make changes (`changes-offline`, `still-send`, `refused-held` and `photo`) change seeded Maria Lopez at Lone Star, and `changes-offline` moves her lead to Won, so on a local stack run them against a fresh seed, or move her lead back to its first stage on the web between runs. They turn Lone Star's quiet hours off while they text and back on at the end. The photo flow puts a photo in the simulator's or emulator's library first (`maestro/assets/old-unit.jpg`) and picks it in the system's photo picker, then closes the app halfway through a 13 MB upload and checks it carries on.
+   The flows that make changes (`changes-offline`, `still-send`, `refused-held` and `photo`) change seeded Maria Lopez at Lone Star, and `changes-offline` moves her lead to Won, so on a local stack run them against a fresh seed, or move her lead back to its first stage on the web between runs. They turn Lone Star's quiet hours off while they text and back on at the end. `realestate-offline` marks Smith purchase's insurance duty done and checks in on its tour as Dana, so it passes once per seed. The photo flow puts a photo in the simulator's or emulator's library first (`maestro/assets/old-unit.jpg`) and picks it in the system's photo picker, then closes the app halfway through a 13 MB upload and checks it carries on.
 
 6. Try the queue of changes by hand from **Settings** → **Test tools** → **Test changes**, on one customer (Maria Lopez in a seeded business). **No signal** at the top keeps changes waiting, and **Changes** opens the list. The screen has three parts:
    - **Make a change**: add a note, change the phone number and email, move the lead to Won, text them, and add a customer (with any email, so a bad one is refused) and a lead that waits for them.

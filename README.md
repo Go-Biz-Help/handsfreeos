@@ -69,15 +69,16 @@ pnpm dev              # web http://localhost:3000, API http://127.0.0.1:4000, wo
 
 Sign in at http://localhost:3000/sign-in with any seeded account. The password for all of them is `HandsFree-Demo-2026`.
 
-| Account                      | Who                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| chris@gobizhelp.test         | Owner of the Go Biz Help organization (the agency). Reaches every client workspace.   |
-| dale@lonestarhvac.test       | Owner of Lone Star HVAC & Roofing                                                     |
-| priya@lonestarhvac.test      | Admin of Lone Star HVAC & Roofing                                                     |
-| marco@lonestarhvac.test      | Member of Lone Star HVAC & Roofing                                                    |
-| renee@bayouplumbing.test     | Owner of Bayou Plumbing Co.                                                           |
-| tom@summitroofing.test       | Owner of Summit Roofing                                                               |
-| riley@northstarelectric.test | Owner of Northstar Electric, a separate organization that sees nothing of Go Biz Help |
+| Account                      | Who                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| chris@gobizhelp.test         | Owner of the Go Biz Help organization (the agency). Reaches every client workspace.      |
+| dale@lonestarhvac.test       | Owner of Lone Star HVAC & Roofing                                                        |
+| priya@lonestarhvac.test      | Admin of Lone Star HVAC & Roofing                                                        |
+| marco@lonestarhvac.test      | Member of Lone Star HVAC & Roofing                                                       |
+| renee@bayouplumbing.test     | Owner of Bayou Plumbing Co.                                                              |
+| tom@summitroofing.test       | Owner of Summit Roofing                                                                  |
+| riley@northstarelectric.test | Owner of Northstar Electric, a separate organization that sees nothing of Go Biz Help    |
+| dana@hillcountryrealty.test  | Owner of Hill Country Realty, with Real Estate Agent on and a buyer deal, Smith purchase |
 
 Useful local URLs: Mailpit (every email the stack sends) http://localhost:54424, Supabase Studio http://localhost:54423, API docs http://127.0.0.1:4000/docs.
 

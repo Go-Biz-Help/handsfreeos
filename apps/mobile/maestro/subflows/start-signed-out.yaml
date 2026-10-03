@@ -64,6 +64,10 @@ appId: com.gobizhelp.handsfreeos
     commands:
       - tapOn:
           id: 'tab-more'
+      # Below the fold when an add-on's places top More (Real Estate's, for the last flow's agent).
+      - scrollUntilVisible:
+          element:
+            id: 'more-settings'
       - tapOn:
           id: 'more-settings'
       - scrollUntilVisible:

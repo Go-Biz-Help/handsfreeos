@@ -263,7 +263,11 @@ export function DutyView({
             disabled={!checklist.complete}
             onPress={() =>
               void run(
-                () => completeDuty({ workspaceId, dutyId: d.dutyId }),
+                () =>
+                  completeDuty(
+                    { workspaceId, dutyId: d.dutyId },
+                    mine.filter((c) => c.state !== 'refused').map((c) => c.id),
+                  ),
                 RE_DUTY_WORDS.markedDoneWaits,
               )
             }

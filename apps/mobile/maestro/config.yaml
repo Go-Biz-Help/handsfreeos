@@ -44,3 +44,4 @@ executionOrder:
     - Ask HandsFreeOS - an answer with its card, and your chats
     - Ask HandsFreeOS - a text asks first, and only sends on the button
     - Ask HandsFreeOS - with no signal it says so, and queues nothing
+    - Real Estate - a duty done and a check-in with no signal go when signal is back

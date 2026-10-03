@@ -203,11 +203,20 @@ export async function addPhotoEvidence(
 }
 
 /** Marks a duty done with no signal: it counts at HandsFreeOS when it arrives, from the moment it was done here. */
-export function completeDuty(ref: Omit<DutyRef, 'userId' | 'dealId'>) {
+/**
+ * Marks a duty done. It waits for the duty's own changes still on the phone (its proof, and through it the photo that
+ * proves it), so the proof reaches HandsFreeOS first: the uploader sends what comes after a held change, and a done
+ * that arrived before its proof would be refused.
+ */
+export function completeDuty(
+  ref: Omit<DutyRef, 'userId' | 'dealId'>,
+  dependsOn: readonly string[] = [],
+) {
   return change(
     'realestate.duty.complete',
     { workspaceId: ref.workspaceId, dutyId: ref.dutyId },
     {
+      dependsOn,
       optimistic: (tx) =>
         tx.execute(
           `UPDATE addon_phone_rows SET data = json_set(data, '$.status', 'completed', '$.finished_at', ?)

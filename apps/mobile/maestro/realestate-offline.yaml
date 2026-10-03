@@ -1,0 +1,205 @@
+appId: com.gobizhelp.handsfreeos
+name: Real Estate - a duty done and a check-in with no signal go when signal is back
+tags:
+  - ci
+# Dana Whitfield (Hill Country Realty, with Real Estate Agent on) works "Smith purchase", Ann Smith's buyer deal on
+# 123 Main St. With no signal she opens it from More → Deals, adds a photo of the insurance binder to its "Homeowners
+# insurance concierge" duty and marks it done, then checks in for the tour of the home from the deal's Tours. The duty
+# reads as waiting, the check-in banner shows, and the strip counts five changes: the photo, the binder made from it,
+# the binder as the duty's proof, the duty done and the check-in. Signal back: all five go, and she checks out from
+# the banner. HandsFreeOS then has the duty done, with the binder as its proof. The middle of it is recorded
+# (realestate-offline.mp4 in the run's output).
+#
+# The deal, its duty and its tour are the seed's (apps/worker/scripts/seed-realestate.ts): once done, the duty stays
+# done and the phone can't reopen it, so this passes once per seed. CI seeds a fresh stack every run; on a local stack,
+# `pnpm db:reset` before running it again. The password is the seed's, for local stacks only.
+env:
+  EMAIL: dana@hillcountryrealty.test
+  PASSWORD: HandsFree-Demo-2026
+---
+# Any photo stands in for the binder's: the picker's newest.
+- addMedia:
+    - assets/old-unit.jpg
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+# Her deals, with signal. The deal, its duties and its tour come down with her copy, which a first sign-in is still
+# fetching: the deal's next duties on its card say they're here.
+- runFlow: subflows/open-re-deals.yaml
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-.*'
+      text: 'Smith purchase'
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-next'
+    timeout: 60000
+- takeScreenshot: realestate-deals
+# No signal, from Test changes (where the iOS simulator's switch is).
+- runFlow: subflows/open-test-changes.yaml
+- startRecording:
+    path: realestate-offline
+    optional: true
+- runFlow: subflows/no-signal.yaml
+- runFlow: subflows/open-re-deals.yaml
+- assertVisible:
+    id: 're-kept-strip'
+- tapOn:
+    id: 're-deal-.*'
+    text: 'Smith purchase'
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-name'
+      text: 'Smith purchase'
+    timeout: 20000
+# The duty, from the deal's Duties.
+- tapOn:
+    id: 'tab-duties'
+- scrollUntilVisible:
+    element:
+      text: 'Homeowners insurance concierge'
+    timeout: 60000
+    centerElement: true
+    label: 'Find the open insurance duty (done after one run on this seed: pnpm db:reset)'
+- tapOn: 'Homeowners insurance concierge'
+- extendedWaitUntil:
+    visible:
+      id: 're-duty-title'
+      text: 'Homeowners insurance concierge'
+    timeout: 20000
+# A photo of the binder: it becomes the deal's insurance binder, and the binder the duty's proof, waiting to send.
+- tapOn:
+    id: 're-duty-photo'
+- extendedWaitUntil:
+    visible:
+      id: 're-duty-library'
+    timeout: 10000
+- tapOn:
+    id: 're-duty-library'
+- runFlow: subflows/pick-first-photo.yaml
+- extendedWaitUntil:
+    visible: 'Insurance binder · waiting to send'
+    timeout: 30000
+# Mark done: done on the phone at once, and marked as waiting to send.
+- tapOn:
+    id: 're-duty-done'
+- extendedWaitUntil:
+    visible:
+      id: 're-duty-done-waits'
+    timeout: 20000
+- assertVisible: 'Done · waits to send'
+- assertVisible: 'Done · waiting to send'
+- assertVisible: 'No signal · 2 changes wait on this phone'
+- takeScreenshot: realestate-duty-done-offline
+# Check in for the tour of the home, from the deal's Tours: its Check in opens the check-in sheet.
+- tapOn:
+    id: 'back'
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-name'
+    timeout: 10000
+- tapOn:
+    id: 'tab-overview'
+- scrollUntilVisible:
+    element:
+      id: 're-deal-page-tours'
+    centerElement: true
+- tapOn:
+    id: 're-deal-page-tours'
+- extendedWaitUntil:
+    visible:
+      id: 're-tours'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 're-tour-checkin-.*'
+- tapOn:
+    id: 're-tour-checkin-.*'
+- extendedWaitUntil:
+    visible:
+      id: 'check-in-go'
+    timeout: 10000
+# Share where I am off: on, the phone would first ask for its location, which this flow isn't about.
+- tapOn:
+    id: 'check-in-share'
+- tapOn:
+    id: 'check-in-go'
+- extendedWaitUntil:
+    visible:
+      id: 'check-in-banner'
+    timeout: 20000
+- assertVisible: 'Checked in · 123 Main St'
+- assertVisible:
+    id: 'check-in-banner-line'
+    text: 'Until .* if you don’t check out'
+# Five wait: the photo, the binder made from it, the binder as the duty's proof, the duty done and the check-in.
+- extendedWaitUntil:
+    visible:
+      id: 'status-strip-text'
+      text: 'Offline — 5 changes waiting'
+    timeout: 10000
+- takeScreenshot: realestate-checked-in-offline
+# Signal back: all five go, and nothing waits.
+- runFlow: subflows/open-test-changes.yaml
+- assertVisible:
+    id: 'tc-counts'
+    text: '5 waiting · 0 need you'
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 120000
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 30000
+# Check out from the banner, which stays on every screen until then.
+- assertVisible:
+    id: 'check-in-banner'
+- tapOn:
+    id: 'check-in-out'
+- extendedWaitUntil:
+    notVisible:
+      id: 'check-in-banner'
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 60000
+- stopRecording:
+    optional: true
+# HandsFreeOS has it: the duty is done, with the binder as its proof, and nothing about it waits.
+- runFlow: subflows/open-re-deals.yaml
+- tapOn:
+    id: 're-deal-.*'
+    text: 'Smith purchase'
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-name'
+      text: 'Smith purchase'
+    timeout: 20000
+- tapOn:
+    id: 'tab-duties'
+- tapOn:
+    id: 're-deal-duties-done'
+- scrollUntilVisible:
+    element:
+      text: 'Homeowners insurance concierge'
+    timeout: 30000
+    centerElement: true
+- tapOn: 'Homeowners insurance concierge'
+- extendedWaitUntil:
+    visible:
+      id: 're-duty-title'
+      text: 'Homeowners insurance concierge'
+    timeout: 20000
+- assertVisible:
+    id: 're-duty-status'
+- assertVisible: 'Done'
+- assertVisible: 'Insurance binder'
+- assertNotVisible: '.*waiting to send'
+- takeScreenshot: realestate-duty-done
