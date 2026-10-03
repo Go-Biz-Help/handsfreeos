@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: 'Documents' };
 /**
  * A deal's documents, their versions, and the files on it that aren't documents yet; a contract's reading too, and
  * what's out for signing (round five). DocuSign and Dotloop send the agent back here with `?esign=<envelope>`.
+ * Round six: the whole transaction's exports, for whoever may export (`realestate.export`).
  */
 export default async function RealestateDocumentsPage({
   params,
@@ -20,7 +21,8 @@ export default async function RealestateDocumentsPage({
   const { esign: back } = await searchParams;
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
-    const [deal, documents, files, reads, esign] = await Promise.all([
+    const [got, deal, documents, files, reads, esign] = await Promise.all([
+      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api
         .POST('/v1/queries/realestate.deal.get', { body: { workspaceId, dealId } })
         .then(unwrapPage),
@@ -39,6 +41,12 @@ export default async function RealestateDocumentsPage({
         .POST('/v1/queries/realestate.esign.list', { body: { workspaceId, dealId } })
         .then(unwrapPage),
     ]);
+    const canExport = got.workspace.permissions.includes('realestate.export');
+    const exports = canExport
+      ? await api
+          .POST('/v1/queries/realestate.exports', { body: { workspaceId, dealId } })
+          .then(unwrapPage)
+      : null;
     // Who might sign: the deal's people, with the email each would sign with.
     const people = await Promise.all(
       deal.parties
@@ -61,12 +69,15 @@ export default async function RealestateDocumentsPage({
         dealId={dealId}
         dealName={deal.deal.name}
         documents={documents.documents}
+        timeZone={got.workspace.timezone}
         files={files.files.map((f) => ({
           id: f.id,
           name: f.name,
           bucket: f.bucket,
           objectPath: f.objectPath,
+          sizeBytes: f.sizeBytes,
         }))}
+        exports={exports ? exports.exports : null}
         reads={reads.reads}
         esign={esign}
         people={people}

@@ -1,10 +1,12 @@
 'use client';
 /**
  * Deal settings (boards 8, 9 and 12): the duty list and its versions, who hears when it's critical, the days the
- * office is closed, which milestones get a drafted client update, and support access. Owners and admins
- * (`realestate.manage`); the business's settings are saved through core's `addon.save_settings`, checked against
- * the add-on's own schema (packages/core/src/addons/realestate/settings.ts).
+ * office is closed, which milestones get a drafted client update, keeping records and legal holds (round six, board
+ * 93), and support access. Owners and admins (`realestate.manage`); the business's settings are saved through core's
+ * `addon.save_settings`, checked against the add-on's own schema (packages/core/src/addons/realestate/settings.ts).
+ * Its Safety tab is core's Settings → Safety, for whoever may change the business's settings.
  */
+import { KEEPING_WORDS } from '@hfos/core/addons/realestate/keeping-words';
 import type { RealestateSettings } from '@hfos/core/addons/realestate/settings';
 import { fmtAt, fmtMonthDay, zoneLabel } from '@hfos/core';
 import Link from 'next/link';
@@ -25,10 +27,11 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { realestateHref } from './bits';
 import { DutyList } from './duty-list';
-import type { TemplateList, TemplateVersions, Teammate } from './types';
+import { KeepingRecords } from './keeping';
+import type { Hold, TemplateList, TemplateVersions, Teammate } from './types';
 import { useAct } from './use-act';
 
-export type SettingsTab = 'duties' | 'alerts' | 'connections' | 'versions' | 'support';
+export type SettingsTab = 'duties' | 'alerts' | 'connections' | 'records' | 'versions' | 'support';
 
 const MILESTONES: { key: keyof RealestateSettings['milestoneDrafts']; label: string }[] = [
   { key: 'under_contract', label: 'Under contract' },
@@ -47,6 +50,9 @@ export function DealSettings({
   members,
   calendars = [],
   connections = null,
+  holds = null,
+  canHold = false,
+  canSafety = false,
   support,
 }: {
   workspaceId: string;
@@ -64,15 +70,26 @@ export function DealSettings({
     readonly uses: ConnectionUses;
     readonly back: ComponentProps<typeof AddonConnections>['back'];
   } | null;
+  /** Keeping records (round six): the deals on legal hold. */
+  holds?: readonly Hold[] | null;
+  /** May place and lift legal holds (`records.hold`). */
+  canHold?: boolean;
+  /** May change the business's settings, so Settings → Safety is theirs (`workspace.update`). */
+  canSafety?: boolean;
   support: ComponentProps<typeof SupportAccessCard> | null;
 }) {
   useLiveRefresh(['addon']);
   const [writing, setWriting] = useState(false);
   const { busy, act } = useAct();
-  const tabs: { key: SettingsTab; label: string }[] = [
+  const tabs: { key: SettingsTab | 'safety'; label: string; href?: string }[] = [
     { key: 'duties', label: 'Duty list' },
     { key: 'alerts', label: 'Alerts & dates' },
     { key: 'connections', label: 'Connections' },
+    { key: 'records', label: KEEPING_WORDS.tab },
+    // Check-ins are core's, for everyone in the business: its times live in Settings → Safety.
+    ...(canSafety
+      ? [{ key: 'safety' as const, label: 'Safety', href: `/app/w/${workspaceId}/settings/safety` }]
+      : []),
     { key: 'versions', label: 'Versions' },
     { key: 'support', label: 'Support access' },
   ];
@@ -91,9 +108,11 @@ export function DealSettings({
               ? 'Alerts, business days and client updates'
               : tab === 'connections'
                 ? 'What Real Estate connects to: listing data, e-sign and ShowingTime'
-                : tab === 'versions'
-                  ? 'Every published version of the duty list'
-                  : 'HandsFreeOS support can’t see private deals unless you let them'
+                : tab === 'records'
+                  ? KEEPING_WORDS.description
+                  : tab === 'versions'
+                    ? 'Every published version of the duty list'
+                    : 'HandsFreeOS support can’t see private deals unless you let them'
         }
         actions={
           tab === 'duties' && list ? (
@@ -136,10 +155,12 @@ export function DealSettings({
           <Link
             key={t.key}
             href={
-              t.key === 'duties'
+              t.href ??
+              (t.key === 'duties'
                 ? realestateHref(workspaceId, 'settings')
-                : `${realestateHref(workspaceId, 'settings')}?tab=${t.key}`
+                : `${realestateHref(workspaceId, 'settings')}?tab=${t.key}`)
             }
+            data-testid={`settings-tab-${t.key}`}
             aria-current={tab === t.key ? 'page' : undefined}
             className={cn(
               '-mb-px border-b-2 px-3 py-2.5 text-[14px]',
@@ -197,6 +218,15 @@ export function DealSettings({
             words={connections.uses.showingTime.words}
           />
         </AddonConnections>
+      ) : null}
+      {tab === 'records' && settings && holds ? (
+        <KeepingRecords
+          workspaceId={workspaceId}
+          timeZone={timeZone}
+          settings={settings}
+          holds={holds}
+          canHold={canHold}
+        />
       ) : null}
       {tab === 'versions' && versions ? <Versions versions={versions} timeZone={timeZone} /> : null}
       {tab === 'support' && support ? (

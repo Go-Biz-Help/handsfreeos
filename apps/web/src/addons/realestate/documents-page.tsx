@@ -6,7 +6,8 @@
  * taken as it arrives. A contract, an amendment or an addendum is read as it's added (round four, board 50): its row
  * says when it's being read and how many of its values wait on a person, and opens the reading. Round five (boards
  * 69, 70): a document goes for signing through the brokerage's DocuSign or Dotloop, and its Signing column and panel
- * say where that stands (./esign-bits.tsx).
+ * say where that stands (./esign-bits.tsx). Round six (board 93): the whole transaction's exports, each with its
+ * file, where it stands and Download (./keeping.tsx).
  */
 import { ATTACHMENT_TYPES } from '@hfos/core';
 import { DOCUMENT_KINDS, type DocumentKind } from '@hfos/core/addons/realestate/catalog/types';
@@ -35,6 +36,7 @@ import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { dealHref } from './bits';
 import { ReasonDialog } from './deal-dialogs';
+import { ExportsCard } from './keeping';
 import {
   EnvelopePanel,
   SendForSigningDialog,
@@ -42,7 +44,7 @@ import {
   type Envelope,
   type SignerChoice,
 } from './esign-bits';
-import type { ContractReadRow, DealDocument, EsignList } from './types';
+import type { ContractReadRow, DealDocument, DealExport, EsignList } from './types';
 import { useAct } from './use-act';
 
 export interface DealFile {
@@ -50,6 +52,7 @@ export interface DealFile {
   readonly name: string;
   readonly bucket: string;
   readonly objectPath: string;
+  readonly sizeBytes?: number | null;
 }
 
 const STATUS_WORDS: Readonly<Record<DealDocument['status'], string>> = {
@@ -78,10 +81,16 @@ export function DocumentsPage({
   esign = null,
   people = [],
   back = null,
+  timeZone = 'UTC',
+  exports = null,
 }: {
   workspaceId: string;
   dealId: string;
   dealName: string;
+  /** The business's time zone, for when each export was asked for. */
+  timeZone?: string;
+  /** Round six: the whole transaction's exports, for whoever may export; null for anyone else. */
+  exports?: readonly DealExport[] | null;
   documents: readonly DealDocument[];
   files: readonly DealFile[];
   /** Round four: each contract, amendment and addendum read, newest first. */
@@ -149,7 +158,11 @@ export function DocumentsPage({
     for (const d of documents) n.set(d.lineageId, Math.max(n.get(d.lineageId) ?? 0, d.version));
     return n;
   }, [documents]);
-  const filed = new Set(documents.map((d) => d.fileId));
+  // An export's zip is listed under Exports, not as a loose file.
+  const filed = new Set([
+    ...documents.map((d) => d.fileId),
+    ...(exports ?? []).map((x) => x.fileId).filter((id): id is string => !!id),
+  ]);
   const loose = files.filter((f) => !filed.has(f.id));
   const run = (
     key: string,
@@ -397,6 +410,21 @@ export function DocumentsPage({
             ))}
           </ul>
         </Card>
+      ) : null}
+
+      {exports ? (
+        <ExportsCard
+          workspaceId={workspaceId}
+          dealId={dealId}
+          timeZone={timeZone}
+          exports={exports}
+          fileOf={(id) => {
+            const f = id ? fileById.get(id) : undefined;
+            return f
+              ? { id: f.id, name: f.name, sizeBytes: f.sizeBytes ?? null, open: () => openFile(f) }
+              : null;
+          }}
+        />
       ) : null}
 
       <Card className="mt-4 flex items-start gap-3 p-4 md:p-5">

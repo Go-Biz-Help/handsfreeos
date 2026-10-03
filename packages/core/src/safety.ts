@@ -47,6 +47,27 @@ export interface SafetyTimes {
   readonly repeatMinutes: number;
 }
 
+const minutesWords = (n: number) => (n === 1 ? '1 minute' : `${n} minutes`);
+
+/**
+ * The business's times as each person reads them (board 91, My safety's "When"; the web's Safety page): "Ask me
+ * after 0 minutes", "Then tell them after 10 more minutes", "Tell them again every 10 minutes".
+ */
+export function safetyTimesLines(t: SafetyTimes): { label: string; value: string }[] {
+  return [
+    { label: 'Ask me after', value: minutesWords(t.askAfterMinutes) },
+    {
+      label: 'Then tell them after',
+      value: t.alertAfterMinutes === 1 ? '1 more minute' : `${t.alertAfterMinutes} more minutes`,
+    },
+    { label: 'Tell them again every', value: `${minutesWords(t.repeatMinutes)}, for an hour` },
+  ];
+}
+
+/** Under the times, for everyone: who's told with no contacts, and where the times are set. */
+export const SAFETY_TIMES_NOTE =
+  'Nobody set? The business’s safety person is told. Owners set the business’s times in Settings → Safety on the web.';
+
 /**
  * What an outside contact replies to agree. Never YES: that's one of the carriers' own keywords (START, YES,
  * UNSTOP), answered by the carrier before HandsFreeOS sees it.
@@ -56,7 +77,7 @@ export const SAFETY_AGREE_WORDS: ReadonlySet<string> = new Set(['OK', 'OKAY', 'A
 const firstOf = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
 /** "Sam", "Sam and Marcus", "Sam, Jo and Marcus". */
-function namesList(names: readonly string[]): string {
+export function namesList(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }

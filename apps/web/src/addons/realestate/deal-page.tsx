@@ -3,9 +3,11 @@
  * A deal (board 3, design/realestate/DealPage.dc.html): where it stands and its next move, what could stop its
  * closing, its duties by what brought them, and at the side its dates, people, commission and client updates.
  * Duties open in the drawer (board 5). What a person may do comes from the deal itself (`can`), so the page shows
- * only what works for them.
+ * only what works for them. Round six (board 93): a banner while it's on legal hold, More → Place a legal hold… and
+ * Export the whole transaction…, and its field notes and walkthrough, read-only (they're made on the phone).
  */
-import { fmtMonthDay, localDayOf as dateOf } from '@hfos/core';
+import { fmtMonthDay, localDayOf as dateOf, LEGAL_HOLD_WORDS } from '@hfos/core';
+import { EXPORT_WORDS } from '@hfos/core/addons/realestate/keeping-words';
 import { dueWords, startedByWords } from '@hfos/core/addons/realestate/rule-words';
 import {
   BACK_EVENTS,
@@ -39,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import type { FileItem } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { CardHead, dealHref, DutyStatusBadge, HealthDot, realestateHref } from './bits';
@@ -70,6 +73,8 @@ import {
   NetSheetCard,
   OffersCard,
 } from './listing-cards';
+import { FieldNotesCard, WalkthroughCard } from './field-cards';
+import { ExportDialog, HoldBanner, LiftHoldDialog, PlaceHoldDialog } from './keeping';
 import { ShowingsCard } from './showings-page';
 import { OpenHousesCard } from './open-houses-page';
 import { ContingenciesCard, LinkedDealsCard, LinkedProblems, ReadsCallout } from './risk-cards';
@@ -83,8 +88,11 @@ import type {
   DealGet,
   DealRisks,
   Draft,
+  FieldNote,
+  Hold,
   ListingSide,
   Teammate,
+  Walkthrough,
 } from './types';
 import { useAct } from './use-act';
 
@@ -98,6 +106,9 @@ type Dialog =
   | 'offer_lost'
   | 'end'
   | 'reopen'
+  | 'hold'
+  | 'lift'
+  | 'export'
   | null;
 
 export function DealPage({
@@ -112,6 +123,10 @@ export function DealPage({
   listing,
   contingencies,
   reads,
+  hold = null,
+  canHold = false,
+  canExport = false,
+  field = null,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -127,6 +142,18 @@ export function DealPage({
   /** Round four: its contingencies, and the contracts read for it. */
   contingencies: readonly Contingency[];
   reads: readonly ContractReadRow[];
+  /** Round six: its legal hold, while it's on one. */
+  hold?: Hold | null;
+  /** May place and lift legal holds (`records.hold`). */
+  canHold?: boolean;
+  /** May export the whole transaction (`realestate.export`). */
+  canExport?: boolean;
+  /** What was noted and checked in the field, with the deal's files for their photos. */
+  field?: {
+    readonly notes: readonly FieldNote[];
+    readonly walkthrough: Walkthrough | null;
+    readonly files: readonly FileItem[];
+  } | null;
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
@@ -325,6 +352,28 @@ export function DealPage({
                     Apply the newest duty list…
                   </DropdownMenuItem>
                 ) : null}
+                {canExport && !d.archived ? (
+                  <DropdownMenuItem onSelect={() => setDialog('export')} data-testid="deal-export">
+                    {EXPORT_WORDS.menu}
+                  </DropdownMenuItem>
+                ) : null}
+                {canHold ? (
+                  hold ? (
+                    <DropdownMenuItem
+                      onSelect={() => setDialog('lift')}
+                      data-testid="deal-lift-hold"
+                    >
+                      {LEGAL_HOLD_WORDS.liftMenu}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onSelect={() => setDialog('hold')}
+                      data-testid="deal-place-hold"
+                    >
+                      {LEGAL_HOLD_WORDS.place}
+                    </DropdownMenuItem>
+                  )
+                ) : null}
                 <DropdownMenuItem asChild>
                   <Link href={dealHref(workspaceId, dealId, 'history')}>
                     <History className="h-4 w-4" strokeWidth={1.75} />
@@ -409,6 +458,14 @@ export function DealPage({
         </Callout>
       ) : null}
 
+      {hold ? (
+        <HoldBanner
+          hold={hold}
+          timeZone={timeZone}
+          onLift={canHold ? () => setDialog('lift') : undefined}
+        />
+      ) : null}
+
       <LinkedProblems problems={deal.linkedProblems} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-5">
@@ -469,6 +526,21 @@ export function DealPage({
             </>
           ) : null}
           <RisksCard risks={risks} onOpen={openDuty} workspaceId={workspaceId} dealId={dealId} />
+          {field?.walkthrough ? (
+            <WalkthroughCard
+              walkthrough={field.walkthrough}
+              files={field.files}
+              timeZone={timeZone}
+            />
+          ) : null}
+          {field?.notes.length ? (
+            <FieldNotesCard
+              notes={field.notes}
+              files={field.files}
+              members={members}
+              timeZone={timeZone}
+            />
+          ) : null}
           <DutiesCard
             duties={deal.duties}
             timeZone={timeZone}
@@ -634,6 +706,25 @@ export function DealPage({
             }),
           )
         }
+      />
+      <PlaceHoldDialog
+        open={dialog === 'hold'}
+        onOpenChange={(o) => !o && setDialog(null)}
+        workspaceId={workspaceId}
+        dealId={dealId}
+        dealName={d.name}
+      />
+      <LiftHoldDialog
+        workspaceId={workspaceId}
+        hold={dialog === 'lift' ? hold : null}
+        onClose={() => setDialog(null)}
+      />
+      <ExportDialog
+        open={dialog === 'export'}
+        onOpenChange={(o) => !o && setDialog(null)}
+        workspaceId={workspaceId}
+        dealId={dealId}
+        onAsked={() => router.push(dealHref(workspaceId, dealId, 'documents'))}
       />
       <ReasonDialog
         open={dialog === 'reopen'}

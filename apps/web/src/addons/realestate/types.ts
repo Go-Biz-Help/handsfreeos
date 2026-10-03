@@ -124,3 +124,12 @@ export type ShowingList = Ok<'/v1/queries/realestate.showing.list'>;
 export type VendorList = Ok<'/v1/queries/realestate.vendor.list'>;
 export type Vendor = VendorList['vendors'][number];
 export type DutyVendors = Ok<'/v1/queries/realestate.duty.vendors'>;
+
+// Round six: legal holds (core's), the whole transaction exported, field notes and the walkthrough.
+export type HoldList = Ok<'/v1/queries/record_hold.list'>;
+export type Hold = HoldList['holds'][number];
+export type ExportList = Ok<'/v1/queries/realestate.exports'>;
+export type DealExport = ExportList['exports'][number];
+export type FieldNoteList = Ok<'/v1/queries/realestate.field_notes'>;
+export type FieldNote = FieldNoteList['notes'][number];
+export type Walkthrough = NonNullable<Ok<'/v1/queries/realestate.walkthrough'>['walkthrough']>;

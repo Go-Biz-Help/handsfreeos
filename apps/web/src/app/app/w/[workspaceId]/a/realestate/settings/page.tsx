@@ -7,11 +7,19 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Deal settings' };
 
-const TABS: readonly SettingsTab[] = ['duties', 'alerts', 'connections', 'versions', 'support'];
+const TABS: readonly SettingsTab[] = [
+  'duties',
+  'alerts',
+  'connections',
+  'records',
+  'versions',
+  'support',
+];
 
 /**
  * Deal settings (`?tab=`): the duty list, alerts and dates, connections (round five; a sign-in elsewhere comes back
- * here with `?connected=` or `?signin=`), versions, and support access. Owners and admins.
+ * here with `?connected=` or `?signin=`), keeping records and legal holds (round six), versions, and support access.
+ * Owners and admins.
  */
 export default async function RealestateSettingsPage({
   params,
@@ -28,7 +36,7 @@ export default async function RealestateSettingsPage({
     : 'duties';
   return addonPage(workspaceId, 'realestate', 'realestate.manage', async () => {
     const { api, userId } = await apiServer();
-    const [got, list, versions, settings, members, support, calendars, connections, uses] =
+    const [got, list, versions, settings, members, support, calendars, connections, uses, holds] =
       await Promise.all([
         api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
         tab === 'duties'
@@ -41,7 +49,7 @@ export default async function RealestateSettingsPage({
               .POST('/v1/queries/realestate.template.versions', { body: { workspaceId } })
               .then(unwrapPage)
           : null,
-        tab === 'alerts' || tab === 'connections'
+        tab === 'alerts' || tab === 'connections' || tab === 'records'
           ? api
               .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'realestate' } })
               .then(unwrapPage)
@@ -66,6 +74,12 @@ export default async function RealestateSettingsPage({
           ? api
               .POST('/v1/queries/realestate.connections.uses', { body: { workspaceId } })
               .then(unwrapPage)
+          : null,
+        // Round six: the deals on legal hold (none for someone who may not read records).
+        tab === 'records'
+          ? api
+              .POST('/v1/queries/record_hold.list', { body: { workspaceId, kind: 'legal' } })
+              .then((r) => (r.response.status === 403 ? { holds: [] } : unwrapPage(r)))
           : null,
       ]);
     const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : null);
@@ -95,6 +109,9 @@ export default async function RealestateSettingsPage({
               }
             : null
         }
+        holds={holds ? holds.holds : null}
+        canHold={can(got.workspace.permissions, 'records.hold')}
+        canSafety={can(got.workspace.permissions, 'workspace.update')}
         support={
           support
             ? {
