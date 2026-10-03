@@ -93,6 +93,15 @@ export interface RealestateSource {
   readonly users: readonly SyncedUser[];
   /** Records the links point at (homes); deal records may be among them. */
   readonly recordNames: readonly SyncedRecordName[];
+  /** The business's booking site (records_v1): its name in public links. */
+  readonly bookingSites?: readonly { readonly slug: Cell; readonly enabled?: Cell }[];
+  /** Who has the portal (records_v1; never a link's reference). */
+  readonly portalAccess?: readonly {
+    readonly person_id: Cell;
+    readonly given_at: Cell;
+    readonly revoked_at: Cell;
+    readonly last_used_at: Cell;
+  }[];
 }
 
 // ---------- reading cells ----------
@@ -231,6 +240,14 @@ export interface RealestateCopy {
   /** How to reach a company: its email and phone, as kept. */
   companyContact(id: string): { readonly email: string | null; readonly phone: string | null };
   record(id: string): string | null;
+  /** The business's booking site's name in links, or null when it has none. */
+  readonly bookingSlug: string | null;
+  /** A customer's portal access, as kept: when it was given, revoked and last used (ISO), or null. */
+  portalAccess(personId: string): {
+    readonly givenAt: string | null;
+    readonly revokedAt: string | null;
+    readonly lastUsedAt: string | null;
+  } | null;
   file(id: string): string | null;
   /** Whether a file is locked (signed and kept as it is), or null when the phone doesn't hold it. */
   fileLocked(id: string): boolean | null;
@@ -254,6 +271,18 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
       text(c.id) ?? '',
       { email: text(c.email), phone: text(c.phone) },
     ]),
+  );
+  const portal = new Map(
+    (source.portalAccess ?? []).map((p) => {
+      const at = (v: Cell) => {
+        const t = ms(v);
+        return t === null ? null : iso(t);
+      };
+      return [
+        text(p.person_id) ?? '',
+        { givenAt: at(p.given_at), revokedAt: at(p.revoked_at), lastUsedAt: at(p.last_used_at) },
+      ];
+    }),
   );
   const starts = new Map(
     (source.appointments ?? []).map((a) => [text(a.id) ?? '', ms(a.starts_at)]),
@@ -401,6 +430,8 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     company: (id) => companies.get(id) ?? null,
     companyContact: (id) => contacts.get(id) ?? { email: null, phone: null },
     record: (id) => recordNames.get(id) ?? null,
+    bookingSlug: text(source.bookingSites?.[0]?.slug),
+    portalAccess: (id) => portal.get(id) ?? null,
     file: (id) => files.get(id) ?? null,
     fileLocked: (id) => locked.get(id) ?? null,
     appointment: (id) => appointments.get(id) ?? null,

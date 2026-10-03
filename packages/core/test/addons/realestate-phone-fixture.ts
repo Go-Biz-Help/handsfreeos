@@ -117,6 +117,15 @@ export async function phoneRows(u: TestUser, ws: string): Promise<RealestateSour
             join app.workspace_memberships m on m.user_id = u.id where m.workspace_id = ${ws}`,
       ),
     ),
+    bookingSites: cells(
+      await rows(db, sql`select slug, enabled from app.booking_sites where workspace_id = ${ws}`),
+    ),
+    portalAccess: cells(
+      await rows(
+        db,
+        sql`select person_id, given_at, revoked_at, last_used_at from app.portal_access where workspace_id = ${ws}`,
+      ),
+    ),
     recordNames: cells(
       await rows(
         db,
