@@ -5,8 +5,11 @@ import { pressAction } from '@/push/buttons';
 import {
   activeCheckIn,
   endAfterAdding,
+  reminderAt,
   reminderData,
   reminderId,
+  safetyTimesOf,
+  toldOf,
   type CheckInRow,
 } from '../check-in';
 
@@ -91,5 +94,54 @@ describe('the reminder at the planned end', () => {
       command: { name: 'safety.extend', input: { minutes: 15 } },
       commandId: data.commandIds.add_15,
     });
+  });
+});
+
+describe('what the reminder reads from the phone’s copy', () => {
+  it('takes the business’s times as the worker does, else its defaults', () => {
+    expect(
+      safetyTimesOf(JSON.stringify({ safety: { askAfterMinutes: 5, alertAfterMinutes: 20 } })),
+    ).toEqual({
+      askAfterMinutes: 5,
+      alertAfterMinutes: 20,
+    });
+    expect(
+      safetyTimesOf(JSON.stringify({ safety: { askAfterMinutes: 90, alertAfterMinutes: 0 } })),
+    ).toEqual({
+      askAfterMinutes: 0,
+      alertAfterMinutes: 1,
+    });
+    expect(safetyTimesOf(null)).toEqual({ askAfterMinutes: 0, alertAfterMinutes: 10 });
+    expect(safetyTimesOf('not json')).toEqual({ askAfterMinutes: 0, alertAfterMinutes: 10 });
+  });
+
+  it('names teammates still on the team and people outside who agreed', () => {
+    const k = (
+      contact_user_id: string | null,
+      name: string,
+      agreed_at: string | null,
+      stopped_at: string | null = null,
+    ) => ({
+      contact_user_id,
+      name,
+      agreed_at,
+      stopped_at,
+    });
+    expect(
+      toldOf(
+        [
+          k('u1', 'Marcus Lee', null),
+          k('u2', 'Gone Away', null),
+          k(null, 'Dana Ruiz', '2026-09-01'),
+          k(null, 'Not Yet', null),
+          k(null, 'Said Stop', '2026-09-01', '2026-09-02'),
+        ],
+        new Set(['u1']),
+      ),
+    ).toEqual(['Marcus', 'Dana']);
+  });
+
+  it('asks after the business’s wait', () => {
+    expect(reminderAt('2026-10-03T21:30:00.000Z', 5)).toEqual(new Date('2026-10-03T21:35:00.000Z'));
   });
 });

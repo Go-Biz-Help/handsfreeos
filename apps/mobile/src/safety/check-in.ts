@@ -1,4 +1,10 @@
-import { fmtTime, PushData, safetyAskWords, type PushData as PushDataType } from '@hfos/core';
+import {
+  fmtTime,
+  PushData,
+  SAFETY_DEFAULTS,
+  safetyAskWords,
+  type PushData as PushDataType,
+} from '@hfos/core';
 
 /**
  * A check-in on this phone (round six, core): the one that's open, and the reminder the phone sets for its planned
@@ -7,7 +13,10 @@ import { fmtTime, PushData, safetyAskWords, type PushData as PushDataType } from
  *
  * **The reminder** is the server's "Still at …?" push, made here: same category, same words, same buttons, and the
  * same notification id (`safety-<check-in>`), so when the server's arrives it takes the reminder's place rather than
- * showing twice. Its buttons carry command ids made here, so pressing one works like pressing the server's.
+ * showing twice. Its buttons carry command ids made here, so pressing one works like pressing the server's. What it
+ * says comes from the phone's copy as the worker reads the database (apps/worker/src/safety/ladder.ts): the business's
+ * name, time zone and times (Settings → Safety) and the contacts who'd be told. A teammate counts while they're on the
+ * business's team here (the worker asks whether they can still open it, which the phone can't see for other people).
  */
 
 /** Still going: neither checked out nor settled. */
@@ -61,6 +70,50 @@ export function endAfterAdding(plannedEndAt: string, minutes: number, now: numbe
 }
 
 export const reminderId = (checkInId: string) => `safety-${checkInId}`;
+
+/** The business's times from its settings (`workspaces.settings`, JSON), read and bounded as the worker reads them. */
+export function safetyTimesOf(settings: string | null): {
+  readonly askAfterMinutes: number;
+  readonly alertAfterMinutes: number;
+} {
+  let safety: Record<string, unknown> = {};
+  try {
+    const parsed = settings ? (JSON.parse(settings) as { safety?: unknown }) : null;
+    if (parsed?.safety && typeof parsed.safety === 'object')
+      safety = parsed.safety as Record<string, unknown>;
+  } catch {
+    // Settings the phone can't read: the business's defaults.
+  }
+  const minutes = (k: 'askAfterMinutes' | 'alertAfterMinutes') => {
+    const n = Number(safety[k]);
+    return Number.isInteger(n) && n >= 0 && n <= 60 ? n : SAFETY_DEFAULTS[k];
+  };
+  return {
+    askAfterMinutes: minutes('askAfterMinutes'),
+    alertAfterMinutes: Math.max(1, minutes('alertAfterMinutes')),
+  };
+}
+
+export interface ContactRow {
+  readonly contact_user_id: string | null;
+  readonly name: string;
+  readonly agreed_at: string | null;
+  readonly stopped_at: string | null;
+}
+
+/**
+ * First names of the contacts who'd be told, in their order: teammates still on the team, and people outside who
+ * agreed and haven't said STOP.
+ */
+export function toldOf(contacts: readonly ContactRow[], team: ReadonlySet<string>): string[] {
+  return contacts
+    .filter((k) => (k.contact_user_id ? team.has(k.contact_user_id) : k.agreed_at && !k.stopped_at))
+    .map((k) => k.name.split(/\s+/)[0] ?? k.name);
+}
+
+/** When the person is asked: the planned end, plus the business's wait before asking. */
+export const reminderAt = (plannedEndAt: string, askAfterMinutes: number): Date =>
+  new Date(Date.parse(plannedEndAt) + askAfterMinutes * 60_000);
 
 /** The reminder's push, as the server would send it at the planned end. */
 export function reminderData(c: {
