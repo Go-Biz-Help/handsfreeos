@@ -148,6 +148,10 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
 - **The person's own check-ins and safety contacts** (core; 20261022001000), behind the `access` lookup: theirs
   alone, in a business they can open, so a check-in's banner, +15 min and check-out work with no signal. A contact's
   link (`safety_escalations`) never reaches a phone.
+- **Which record a private appointment is of** (core; round six), as its own small table (`appointment_records`:
+  the appointment's id, business and record), with the appointment's own seals: the calendar marks a deal's showing
+  "private to the deal" and names it. Its own table because every table sends the same columns wherever it appears,
+  and `business_v1`'s appointments stay as they are.
 - **Settings** an add-on names (`offline.settings`; 20261022000800): those keys of its business settings, as one
   `addon_phone_rows` row per business (source `_settings`, no record), open to its key. Real Estate keeps its closed
   days, for Coordinate's business days.

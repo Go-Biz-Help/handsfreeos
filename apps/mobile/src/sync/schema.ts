@@ -96,6 +96,14 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  appointment_records: new Table(
+    {
+      workspace_id: column.text,
+      custom_record_id: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   appointment_staff: new Table(
     {
@@ -1327,6 +1335,15 @@ export interface AppointmentAttendeesRow {
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly updated_at: string | null;
+}
+
+/** A row of `appointment_records` (records_v1). */
+export interface AppointmentRecordsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly custom_record_id: string | null;
 }
 
 /** A row of `appointment_staff` (business_v1). */
@@ -2997,6 +3014,7 @@ export interface SyncedRows {
   ai_teammate_drafts: AiTeammateDraftsRow;
   ai_teammates: AiTeammatesRow;
   appointment_attendees: AppointmentAttendeesRow;
+  appointment_records: AppointmentRecordsRow;
   appointment_staff: AppointmentStaffRow;
   appointments: AppointmentsRow;
   attention_items: AttentionItemsRow;

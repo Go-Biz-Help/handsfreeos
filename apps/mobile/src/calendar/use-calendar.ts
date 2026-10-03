@@ -113,6 +113,9 @@ interface ApptRow {
   readonly service_price_cents: number | null;
   readonly lead_id: string | null;
   readonly client_id: string | null;
+  /** A private record's appointment (round six): the record's name and kind, from records_v1. */
+  readonly record_name?: string | null;
+  readonly record_kind?: string | null;
 }
 
 /** An appointment as the phone's screens read it: core's shape, plus what only this app needs. */
@@ -353,6 +356,9 @@ export function appointmentOf(
     config: row.calendar_config ? safeConfig(row.calendar_config) : null,
     clientId: row.client_id,
     change: null,
+    privateTo: row.record_name
+      ? { name: row.record_name, kind: row.record_kind ?? 'record' }
+      : null,
   };
 }
 

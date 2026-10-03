@@ -10754,6 +10754,13 @@
         "updated_at": "timestamp with time zone"
       }
     },
+    "records_v1.appointment_records": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "custom_record_id": "uuid"
+      }
+    },
     "records_v1.appointments": {
       "columns": {
         "id": "uuid",
