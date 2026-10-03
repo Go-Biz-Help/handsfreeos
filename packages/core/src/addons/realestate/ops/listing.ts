@@ -16,14 +16,9 @@ import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { feedFacts, listingFeedDiffers, mlsOut, mlsStateWords, type MlsSnapshot } from '../feed';
-import {
-  factChoices,
-  streetOf,
-  type FactFrom,
-  type ListingHomeFacts,
-  type SellerAnswers,
-} from '../listing';
+import { feedFacts, type MlsSnapshot } from '../feed';
+import { factChoices, streetOf, type FactFrom, type SellerAnswers } from '../listing';
+import { listingShape, type ListingRow } from '../listing-shape';
 import { realestateAddon } from '../manifest';
 import {
   ListingConfirmFactsInput,
@@ -119,7 +114,11 @@ export async function listPriceOf(ctx: Ctx, dealId: string): Promise<number | nu
         isNull(termEntries.rejectedAt),
       ),
     )
-    .orderBy(dsql`${termEntries.confirmedAt} is null`, desc(termEntries.enteredAt))
+    .orderBy(
+      dsql`${termEntries.confirmedAt} is null`,
+      desc(termEntries.enteredAt),
+      desc(termEntries.id),
+    )
     .limit(1);
   return t?.cents ?? null;
 }
@@ -148,7 +147,7 @@ async function questionnaireTask(ctx: Ctx, dealId: string) {
         dsql`${clientTasks.status} <> 'canceled'`,
       ),
     )
-    .orderBy(desc(clientTasks.createdAt))
+    .orderBy(desc(clientTasks.createdAt), desc(clientTasks.id))
     .limit(1);
   return t ?? null;
 }
@@ -172,18 +171,24 @@ export async function listingView(ctx: Ctx, deal: Deal) {
     .from(listingPhotos)
     .innerJoin(files, eq(files.id, listingPhotos.fileId))
     .where(and(eq(listingPhotos.dealRecordId, deal.recordId), isNull(files.deletedAt)))
-    .orderBy(asc(listingPhotos.position), asc(listingPhotos.createdAt));
+    .orderBy(asc(listingPhotos.position), asc(listingPhotos.createdAt), asc(listingPhotos.id));
   const names = await userNames(ctx, [l?.factsConfirmedBy ?? null]);
   const pastedFacts = (l?.pastedFacts ?? {}) as Record<string, unknown>;
-  return {
+  const shape = listingShape({
     dealId: deal.recordId,
+    deal: { stage: deal.stage, outcome: deal.outcome },
+    listing: l ? listingRowOf(l) : null,
     address,
-    street: address ? streetOf(address) : null,
-    facts: (l?.facts ?? {}) as ListingHomeFacts,
-    factsConfirmedAt: l?.factsConfirmedAt?.toISOString() ?? null,
-    factsConfirmedBy: l?.factsConfirmedBy
-      ? { id: l.factsConfirmedBy, fullName: names.get(l.factsConfirmedBy) ?? 'Former member' }
+    questionnaire: q
+      ? { state: q.state, answers, submittedAt: q.submittedAt?.toISOString() ?? null }
       : null,
+    questionnaireTaskId: task?.id ?? null,
+    photos,
+    confirmedByName: l?.factsConfirmedBy ? (names.get(l.factsConfirmedBy) ?? null) : null,
+    listPriceCents: await listPriceOf(ctx, deal.recordId),
+  });
+  return {
+    ...shape,
     choices: factChoices({
       confirmed: (l?.facts ?? {}) as Record<string, unknown>,
       confirmedSources: (l?.factSources ?? {}) as Record<string, ListingFactSource>,
@@ -193,52 +198,32 @@ export async function listingView(ctx: Ctx, deal: Deal) {
       pastedQuotes: (l?.pastedSources ?? {}) as Record<string, string>,
       mls: l?.mls ? (feedFacts(l.mls as unknown as MlsSnapshot) as Record<string, unknown>) : null,
     }),
-    feed: {
-      state: l?.mlsState ?? 'none',
-      words: l ? mlsStateWords(l.mlsState, l.mlsFailure) : null,
-      mls: l?.mls
-        ? mlsOut(l.mls as unknown as MlsSnapshot, (l.facts ?? {}) as ListingHomeFacts)
-        : null,
-      differences:
-        l?.mls && l.mlsState === 'found'
-          ? listingFeedDiffers(
-              {
-                stage: deal.stage,
-                listPriceCents: await listPriceOf(ctx, deal.recordId),
-                closed: deal.outcome === 'closed',
-              },
-              l.mls as unknown as MlsSnapshot,
-            )
-          : [],
-    },
-    pasted: {
-      state: l?.pastedState ?? 'none',
-      failure: l?.pastedFailure ?? null,
-      found: Object.keys(pastedFacts).length,
-    },
-    highlights: l?.highlights ?? null,
-    questionnaire: {
-      state: q ? q.state : task ? ('asked' as const) : ('none' as const),
-      taskId: task?.id ?? null,
-      submittedAt: q?.submittedAt?.toISOString() ?? null,
-      updates: q?.state === 'submitted' ? (answers.updates ?? null) : null,
-      loves: q?.state === 'submitted' ? (answers.loves ?? null) : null,
-    },
-    photos,
-    mls: l?.mlsNumber && l.mlsLiveOn ? { number: l.mlsNumber, liveOn: l.mlsLiveOn } : null,
-    page: {
-      state: l?.pageState ?? 'none',
-      slug: l?.slug ?? null,
-      publishedAt: l?.pagePublishedAt?.toISOString() ?? null,
-    },
-    listPriceCents: await listPriceOf(ctx, deal.recordId),
-    matches: {
-      suggested: l?.matchesSuggested ?? 0,
-      added: l?.matchesAdded ?? 0,
-      at: l?.matchedAt?.toISOString() ?? null,
-    },
+    pasted: { ...shape.pasted, found: Object.keys(pastedFacts).length },
     description: await descriptionView(ctx, deal),
     can: { letThrough: mayLetThrough(ctx) },
+  };
+}
+
+/** The listing's row as the listing's page reads it (listing-shape.ts). */
+function listingRowOf(l: Listing): ListingRow {
+  return {
+    facts: l.facts,
+    factsConfirmedAt: l.factsConfirmedAt?.toISOString() ?? null,
+    factsConfirmedBy: l.factsConfirmedBy,
+    pastedState: l.pastedState,
+    pastedFailure: l.pastedFailure,
+    highlights: l.highlights,
+    mlsNumber: l.mlsNumber,
+    mlsLiveOn: l.mlsLiveOn,
+    slug: l.slug,
+    pageState: l.pageState,
+    pagePublishedAt: l.pagePublishedAt?.toISOString() ?? null,
+    matchesSuggested: l.matchesSuggested,
+    matchesAdded: l.matchesAdded,
+    matchedAt: l.matchedAt?.toISOString() ?? null,
+    mls: (l.mls as unknown as MlsSnapshot | null) ?? null,
+    mlsState: l.mlsState,
+    mlsFailure: l.mlsFailure,
   };
 }
 

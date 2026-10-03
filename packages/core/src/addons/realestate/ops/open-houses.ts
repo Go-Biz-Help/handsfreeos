@@ -20,7 +20,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { QueryContext } from '../../../kernel/types';
 import { fmtAt } from '../../../calendar/when';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { listingPagePath, streetOf } from '../listing';
+import { cityLineOf, noHomeWords, openHousePath, streetOf } from '../listing';
 import { realestateAddon } from '../manifest';
 import {
   ListingInput,
@@ -83,10 +83,6 @@ export async function siteSlugOf(ctx: Ctx): Promise<string | null> {
   return s ? String(s.slug) : null;
 }
 
-/** The sign-in page's address: the listing's page and the open house. */
-export const openHousePath = (site: string, slug: string, id: string) =>
-  `${listingPagePath(site, slug)}/open-house/${id}`;
-
 // ---------- the team's ----------
 
 export const openHousePlan = defineAddonCommand(realestateAddon, {
@@ -110,11 +106,7 @@ export const openHousePlan = defineAddonCommand(realestateAddon, {
     await ensureListing(ctx, deal);
     const address = await listingAddress(ctx, deal);
     if (!address)
-      throw HfosError.rule(
-        'realestate_listing_no_address',
-        409,
-        `${deal.name} has no home on it yet. Add the home’s address on the deal’s page first.`,
-      );
+      throw HfosError.rule('realestate_listing_no_address', 409, noHomeWords(deal.name));
     const me = actorUserId(ctx);
     const hostId = input.hostUserId ?? me;
     if (!hostId)
@@ -327,7 +319,7 @@ export const openHousesList = defineAddonQuery(realestateAddon, {
       .select()
       .from(openHouses)
       .where(eq(openHouses.dealRecordId, deal.recordId))
-      .orderBy(asc(openHouses.startsAt));
+      .orderBy(asc(openHouses.startsAt), asc(openHouses.id));
     const visitors = list.length
       ? await ctx.tx
           .select()
@@ -338,7 +330,7 @@ export const openHousesList = defineAddonQuery(realestateAddon, {
               list.map((o) => o.id),
             ),
           )
-          .orderBy(asc(openHouseVisitors.signedInAt))
+          .orderBy(asc(openHouseVisitors.signedInAt), asc(openHouseVisitors.id))
       : [];
     const names = await userNames(
       ctx,
@@ -419,7 +411,7 @@ export const publicOpenHouseGet = defineAddonQuery(realestateAddon, {
     const [first] = await publicPhotos(ctx, deal.recordId);
     return {
       street: streetOf(address),
-      cityLine: address.split(',').slice(1).join(',').trim() || null,
+      cityLine: cityLineOf(address),
       startsAt: o.startsAt.toISOString(),
       endsAt: o.endsAt.toISOString(),
       hostName: o.hostUserId ? (names.get(o.hostUserId) ?? null) : null,

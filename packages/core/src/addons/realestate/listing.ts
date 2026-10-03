@@ -135,6 +135,25 @@ export function listingSlugFrom(address: string): string {
 /** The street part of an address: what the screens and the words call the home. */
 export const streetOf = (address: string): string => (address.split(',')[0] ?? address).trim();
 
+/** The rest of an address after the street (`Austin, TX 78745`), as the flyer and the pages show it under it. */
+export const cityLineOf = (address: string): string | null =>
+  address.split(',').slice(1).join(',').trim() || null;
+
+/** The confirmed facts, in words, in the order they're shown. */
+export function factLines(facts: Record<string, unknown>): { label: string; words: string }[] {
+  return LISTING_HOME_FACT_KEYS.filter((k) => facts[k] !== undefined && facts[k] !== null).map(
+    (k) => ({ label: LISTING_FACTS[k].label, words: factWords(k, facts[k]) }),
+  );
+}
+
+/** A listing's public things (its page, the flyer, open houses) need the home on its deal. */
+export const noHomeWords = (dealName: string): string =>
+  `${dealName} has no home on it yet. Add the home’s address on the deal’s page first.`;
+
+/** The page, the flyer or the email, when the seller hasn't signed off a description yet. */
+export const unsignedWords = (what: 'page' | 'flyer' | 'email'): string =>
+  `The ${what} needs a description the seller signed off. Send one to them from Description.`;
+
 /**
  * Nothing public before the MLS (Chris, 2026-10-01): the page, the flyer, the email or text to contacts, the social
  * posts, the open house sign-in and matching all wait until the listing is live on it.
@@ -146,6 +165,14 @@ export function notOnMlsWords(address: string): string {
 /** A listing's public page, under the business's site: `/a/<site>/realestate/<slug>`. Browser-safe. */
 export const listingPagePath = (site: string, slug: string): string =>
   `/a/${site}/realestate/${slug}`;
+
+/** Where a buyer's agent asks for a showing: the listing's page and `/showing`. */
+export const showingRequestPath = (site: string, slug: string): string =>
+  `${listingPagePath(site, slug)}/showing`;
+
+/** An open house's sign-in page: the listing's page and the open house. */
+export const openHousePath = (site: string, slug: string, id: string): string =>
+  `${listingPagePath(site, slug)}/open-house/${id}`;
 
 /** What the public page says about where the listing stands, from the deal's stage; null takes it down. */
 export function publicStatus(stage: string): 'for_sale' | 'under_contract' | 'sold' | null {

@@ -20,7 +20,7 @@ import { requireCustomer, requirePublic } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { listingPagePath, streetOf } from '../listing';
+import { showingRequestPath, streetOf } from '../listing';
 import { realestateAddon } from '../manifest';
 import {
   PortalShowingAnswerInput,
@@ -57,6 +57,7 @@ import {
   openShowingTimes,
   SHOWING_HOLDS,
   SHOWING_SOURCES,
+  showingSettingsOf,
   showingStateWords,
   showingWhen,
   themesWords,
@@ -91,21 +92,11 @@ const MINUTE = 60_000;
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 export const tokenHashOf = (token: string) => createHash('sha256').update(token).digest();
 
-/** A listing's showing settings, as the page and the agent see them. */
+/** A listing's showing settings, as the page and the agent see them: with how to get in, which stays off phones. */
 export function settingsOf(
   l: Listing | null,
 ): Omit<ShowingSettings, 'days'> & { days: number[]; access: string | null } {
-  return {
-    open: l?.showingsOpen ?? true,
-    confirm: l?.showingConfirm ?? 'seller',
-    days: [...(l?.showingDays ?? [0, 1, 2, 3, 4, 5, 6])].sort(),
-    from: (l?.showingFrom ?? '10:00').slice(0, 5),
-    to: (l?.showingTo ?? '18:00').slice(0, 5),
-    minutes: l?.showingMinutes ?? 30,
-    accessHours: l?.showingAccessHours ?? 1,
-    feedbackHours: l?.showingFeedbackHours ?? 1,
-    access: l?.showingAccess ?? null,
-  };
+  return { ...showingSettingsOf(l), access: l?.showingAccess ?? null };
 }
 
 async function loadShowing(
@@ -547,7 +538,7 @@ export const showingList = defineAddonQuery(realestateAddon, {
         .select()
         .from(showings)
         .where(eq(showings.dealRecordId, deal.recordId))
-        .orderBy(desc(showings.startsAt)),
+        .orderBy(desc(showings.startsAt), desc(showings.id)),
       timeZoneOf(ctx),
       dealClients(ctx, deal.recordId),
       listingAddress(ctx, deal),
@@ -565,7 +556,7 @@ export const showingList = defineAddonQuery(realestateAddon, {
     return {
       dealId: deal.recordId,
       street: address ? streetOf(address) : null,
-      requestPath: site && l?.slug ? `${listingPagePath(site, l.slug)}/showing` : null,
+      requestPath: site && l?.slug ? showingRequestPath(site, l.slug) : null,
       sellerFirstName: seller,
       settings: settingsOf(l),
       showings: list.map((s) => {

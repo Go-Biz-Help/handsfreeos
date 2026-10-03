@@ -65,6 +65,35 @@ export interface ShowingSettings {
   readonly feedbackHours: number;
 }
 
+/** A listing's own columns for how showings work on it, as the server and the phone read them. */
+export interface ListingShowingColumns {
+  readonly showingsOpen: boolean | null;
+  readonly showingConfirm: ShowingConfirm | null;
+  readonly showingDays: readonly number[] | null;
+  /** 'HH:MM' or Postgres's 'HH:MM:SS'. */
+  readonly showingFrom: string | null;
+  readonly showingTo: string | null;
+  readonly showingMinutes: number | null;
+  readonly showingAccessHours: number | null;
+  readonly showingFeedbackHours: number | null;
+}
+
+/** How showings work on a listing, with the defaults until they're set. How to get in is the server's alone. */
+export function showingSettingsOf(
+  l: ListingShowingColumns | null,
+): Omit<ShowingSettings, 'days'> & { days: number[] } {
+  return {
+    open: l?.showingsOpen ?? true,
+    confirm: l?.showingConfirm ?? 'seller',
+    days: [...(l?.showingDays ?? [0, 1, 2, 3, 4, 5, 6])].sort(),
+    from: (l?.showingFrom ?? '10:00').slice(0, 5),
+    to: (l?.showingTo ?? '18:00').slice(0, 5),
+    minutes: l?.showingMinutes ?? 30,
+    accessHours: l?.showingAccessHours ?? 1,
+    feedbackHours: l?.showingFeedbackHours ?? 1,
+  };
+}
+
 /** Where a showing stands, for the agent: "Waiting on Maria". */
 export function showingStateWords(state: ShowingState, sellerFirstName: string | null): string {
   return state === 'requested' && sellerFirstName

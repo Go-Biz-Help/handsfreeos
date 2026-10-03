@@ -24,16 +24,18 @@ import type { CommandContext } from '../../../kernel/types';
 import { money } from '../../../money/format';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
-import { factWords, LISTING_FACTS } from '../homes';
 import {
-  LISTING_HOME_FACT_KEYS,
+  cityLineOf,
+  factLines,
   listingEmailWords,
-  listingPagePath,
   listingSlugFrom,
   listingTextWords,
+  noHomeWords,
   notOnMlsWords,
   streetOf,
+  unsignedWords,
 } from '../listing';
+import { listingPageOf } from '../listing-shape';
 import { realestateAddon } from '../manifest';
 import {
   ListingCampaignInput,
@@ -99,31 +101,21 @@ export async function requireOnMls(ctx: Ctx, deal: Deal): Promise<Listing> {
 /** The address a listing's public things need; refused without one. */
 async function requireAddress(ctx: Ctx, deal: Deal): Promise<string> {
   const address = await listingAddress(ctx, deal);
-  if (!address)
-    throw HfosError.rule(
-      'realestate_listing_no_address',
-      409,
-      `${deal.name} has no home on it yet. Add the home’s address on the deal’s page first.`,
-    );
+  if (!address) throw HfosError.rule('realestate_listing_no_address', 409, noHomeWords(deal.name));
   return address;
 }
 
-/** The signed-off description in use, if there is one. */
+/** The signed-off description in use, if there is one (the newest signed: listing-shape.ts's `inUse`). */
 export async function descriptionInUse(ctx: Ctx, dealId: string): Promise<string | null> {
   const [d] = await ctx.tx
     .select({ words: listingDescriptions.words })
     .from(listingDescriptions)
     .where(
       and(eq(listingDescriptions.dealRecordId, dealId), eq(listingDescriptions.state, 'signed')),
-    );
+    )
+    .orderBy(desc(listingDescriptions.version))
+    .limit(1);
   return d?.words ?? null;
-}
-
-/** The confirmed facts, in words, in the order they're shown. */
-export function factLines(facts: Record<string, unknown>) {
-  return LISTING_HOME_FACT_KEYS.filter((k) => facts[k] !== undefined && facts[k] !== null).map(
-    (k) => ({ label: LISTING_FACTS[k].label, words: factWords(k, facts[k]) }),
-  );
 }
 
 /** The photos the public page and the flyer show, in order. */
@@ -139,11 +131,8 @@ export async function publicPhotos(ctx: Ctx, dealId: string) {
         isNull(files.deletedAt),
       ),
     )
-    .orderBy(asc(listingPhotos.position));
+    .orderBy(asc(listingPhotos.position), asc(listingPhotos.createdAt), asc(listingPhotos.id));
 }
-
-const cityLineOf = (address: string): string | null =>
-  address.split(',').slice(1).join(',').trim() || null;
 
 // ---------- live on the MLS ----------
 
@@ -260,13 +249,7 @@ export async function markListingLive(
 
 async function pageOut(ctx: Ctx, deal: Deal, l: Listing | null) {
   const site = l?.slug ? await ensureSiteSlug(ctx, deal.workspaceId) : null;
-  return {
-    dealId: deal.recordId,
-    state: l?.pageState ?? ('none' as const),
-    site,
-    slug: l?.slug ?? null,
-    path: site && l?.slug ? listingPagePath(site, l.slug) : null,
-  };
+  return listingPageOf(deal.recordId, l, site);
 }
 
 /** The business's site name, if it has one (publishing makes one). */
@@ -324,11 +307,7 @@ export const listingPagePublish = defineAddonCommand(realestateAddon, {
         'Confirm the home’s facts first: the page shows only what you’ve confirmed.',
       );
     if (!(await descriptionInUse(ctx, deal.recordId)))
-      throw HfosError.rule(
-        'realestate_description_unsigned',
-        409,
-        'The page needs a description the seller signed off. Send one to them from Description.',
-      );
+      throw HfosError.rule('realestate_description_unsigned', 409, unsignedWords('page'));
     // The page lives under the business's public name, as its forms do; the first page gives it one.
     if (!(await ensureSiteSlug(ctx, deal.workspaceId)))
       try {
@@ -425,11 +404,7 @@ export const listingFlyer = defineAddonQuery(realestateAddon, {
     const l = await requireOnMls(ctx, deal);
     const description = await descriptionInUse(ctx, deal.recordId);
     if (!description)
-      throw HfosError.rule(
-        'realestate_description_unsigned',
-        409,
-        'The flyer needs a description the seller signed off. Send one to them from Description.',
-      );
+      throw HfosError.rule('realestate_description_unsigned', 409, unsignedWords('flyer'));
     const names = await userNames(ctx, [deal.ownerUserId]);
     const page = await pageOut(ctx, deal, l);
     return {
@@ -486,11 +461,7 @@ export const listingCampaign = defineAddonCommand(realestateAddon, {
       );
     const description = await descriptionInUse(ctx, deal.recordId);
     if (!description)
-      throw HfosError.rule(
-        'realestate_description_unsigned',
-        409,
-        'The email needs a description the seller signed off. Send one to them from Description.',
-      );
+      throw HfosError.rule('realestate_description_unsigned', 409, unsignedWords('email'));
     const street = streetOf(address);
     const price = await listPriceOf(ctx, deal.recordId);
     const priceWords = price ? money(price) : null;

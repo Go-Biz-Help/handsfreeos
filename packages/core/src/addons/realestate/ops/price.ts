@@ -422,7 +422,7 @@ export const listingPricesGet = defineAddonQuery(realestateAddon, {
       .select()
       .from(listingPrices)
       .where(eq(listingPrices.dealRecordId, deal.recordId))
-      .orderBy(desc(listingPrices.proposedAt));
+      .orderBy(desc(listingPrices.proposedAt), desc(listingPrices.id));
     const out = await priceOut(ctx, list);
     const current = await currentListPrice(ctx, deal.recordId);
     const shown = feedbackSummary(

@@ -19,6 +19,7 @@ import type { CommandContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand } from '../../server';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
+import { DESCRIPTION_WORKING, descriptionShape, type DescriptionRow } from '../listing-shape';
 import { realestateAddon } from '../manifest';
 import {
   ListingDescriptionAcknowledgeInput,
@@ -49,8 +50,6 @@ import { addProof, PROOF_EVENTS } from './proof-hooks';
 
 type Description = typeof listingDescriptions.$inferSelect;
 type Check = typeof fairHousingChecks.$inferSelect;
-
-const WORKING = ['drafting', 'ready', 'failed', 'sent'] as const;
 
 async function loadDescription(
   ctx: Ctx,
@@ -170,7 +169,7 @@ async function nextVersion(ctx: CommandContext, deal: Deal): Promise<number> {
     })
     .from(listingDescriptions)
     .where(eq(listingDescriptions.dealRecordId, deal.recordId));
-  const working = all.filter((d) => (WORKING as readonly string[]).includes(d.state));
+  const working = all.filter((d) => (DESCRIPTION_WORKING as readonly string[]).includes(d.state));
   for (const w of working) {
     await ctx.tx
       .update(listingDescriptions)
@@ -214,56 +213,39 @@ export async function descriptionView(ctx: Ctx, deal: Deal) {
     .from(listingDescriptions)
     .where(eq(listingDescriptions.dealRecordId, deal.recordId))
     .orderBy(desc(listingDescriptions.version));
-  const inUse = all.find((d) => d.state === 'signed') ?? null;
-  const working =
-    all.find(
-      (d) => (WORKING as readonly string[]).includes(d.state) && d.version > (inUse?.version ?? 0),
-    ) ?? null;
+  const shape = descriptionShape(all.map(descriptionRowOf));
+  const working = shape.working ? all.find((d) => d.id === shape.working!.id)! : null;
   const checks = await checksOf(ctx, working ? [working.id] : []);
   const now = working ? currentChecks(working, checks) : null;
   return {
-    inUse: inUse
-      ? {
-          id: inUse.id,
-          version: inUse.version,
-          words: inUse.words!,
-          signedAt: inUse.signedAt!.toISOString(),
-          how: inUse.overrideReason ? ('let_through' as const) : ('portal' as const),
-          reason: inUse.overrideReason,
-        }
-      : null,
+    ...shape,
     working:
-      working && now
+      shape.working && working && now
         ? {
-            id: working.id,
-            version: working.version,
-            words: working.words,
-            source: working.source,
-            state: working.state as (typeof WORKING)[number],
-            failure: working.failure,
+            ...shape.working,
             flags: now.flags,
             checked: { words: !!now.words, model: !!now.model },
-            acknowledged:
-              working.flagsAcknowledgedAt && working.flagsAcknowledgedReason
-                ? {
-                    reason: working.flagsAcknowledgedReason,
-                    at: working.flagsAcknowledgedAt.toISOString(),
-                  }
-                : null,
-            sentAt: working.sentAt?.toISOString() ?? null,
             blocked: working.state === 'sent' ? null : sendBlock(working, checks),
           }
         : null,
-    history: all.map((d) => ({
-      id: d.id,
-      version: d.version,
-      source: d.source,
-      state: d.state,
-      words: d.words,
-      at: d.createdAt.toISOString(),
-    })),
   };
 }
+
+/** A version as the listing's page reads it (listing-shape.ts). */
+const descriptionRowOf = (d: Description): DescriptionRow => ({
+  id: d.id,
+  version: d.version,
+  words: d.words,
+  source: d.source,
+  state: d.state,
+  failure: d.failure,
+  signedAt: d.signedAt?.toISOString() ?? null,
+  overrideReason: d.overrideReason,
+  flagsAcknowledgedAt: d.flagsAcknowledgedAt?.toISOString() ?? null,
+  flagsAcknowledgedReason: d.flagsAcknowledgedReason,
+  sentAt: d.sentAt?.toISOString() ?? null,
+  createdAt: d.createdAt.toISOString(),
+});
 
 /** Whether this person may let a description or a price through without the seller's sign-off. */
 export const mayLetThrough = (ctx: Ctx): boolean =>

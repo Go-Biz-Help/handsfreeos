@@ -465,7 +465,7 @@ export const suggestionsList = defineAddonQuery(realestateAddon, {
       .select()
       .from(listingSuggestions)
       .where(eq(listingSuggestions.dealRecordId, deal.recordId))
-      .orderBy(desc(listingSuggestions.createdAt));
+      .orderBy(desc(listingSuggestions.createdAt), desc(listingSuggestions.id));
     const names = await userNames(
       ctx,
       list.map((s) => s.decidedBy),

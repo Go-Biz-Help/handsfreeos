@@ -15,7 +15,7 @@ import { HfosError } from '../../../errors';
 import { requirePublic } from '../../../kernel/actor';
 import type { QueryContext } from '../../../kernel/types';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
-import { publicStatus, streetOf } from '../listing';
+import { cityLineOf, factLines, publicStatus, streetOf } from '../listing';
 import { realestateAddon } from '../manifest';
 import {
   PublicListingAskInput,
@@ -26,7 +26,7 @@ import {
 import { listings, openHouses } from '../tables';
 import { inWorkspace, loadDeal, userNames, type Ctx } from './common';
 import { listingAddress, listPriceOf } from './listing';
-import { descriptionInUse, factLines, publicPhotos } from './marketing';
+import { descriptionInUse, publicPhotos } from './marketing';
 
 const noPage = () =>
   HfosError.notFound(
@@ -95,7 +95,7 @@ export const publicListing = defineAddonQuery(realestateAddon, {
     return {
       slug: l.slug!,
       street: streetOf(address),
-      cityLine: address.split(',').slice(1).join(',').trim() || null,
+      cityLine: cityLineOf(address),
       status,
       priceCents: await listPriceOf(ctx, deal.recordId),
       facts: factLines((l.facts ?? {}) as Record<string, unknown>),
