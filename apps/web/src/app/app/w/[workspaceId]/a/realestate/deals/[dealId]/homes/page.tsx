@@ -6,7 +6,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Homes' };
 
-/** A buyer deal's homes: their facts, how each fits, what the clients said, and adding one. */
+/** A buyer deal's homes: their facts, how each fits, what the clients said, and adding one (from the MLS too). */
 export default async function RealestateHomesPage({
   params,
 }: {
@@ -22,9 +22,14 @@ export default async function RealestateHomesPage({
     ]);
     // Homes to look at are a buyer deal's; a listing has none.
     if (deal.deal.side !== 'buyer') notFound();
-    const [homes, suggestions] = await Promise.all([
+    const [homes, suggestions, matches] = await Promise.all([
       api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.suggestions', inDeal).then(unwrapPage),
+      api
+        .POST('/v1/queries/realestate.matches', {
+          body: { workspaceId, dealId, state: 'new' },
+        })
+        .then(unwrapPage),
     ]);
     return (
       <HomesPage
@@ -36,6 +41,11 @@ export default async function RealestateHomesPage({
         clients={deal.parties.filter((p) => p.role === 'client').map((p) => p.name)}
         agentName={deal.team.find((t) => t.main)?.name ?? null}
         suggestions={suggestions.suggestions}
+        feed={{
+          connected: matches.search.feedConnected,
+          newMatches: matches.counts.new,
+          searchOn: matches.search.on,
+        }}
         live={!deal.deal.outcome && !deal.deal.archived}
       />
     );

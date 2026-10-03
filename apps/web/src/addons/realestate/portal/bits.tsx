@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { MlsNotice, MlsPhoto } from '../mls-bits';
 import type { PortalDeal, PortalHome, PortalTask, PortalTour } from './types';
 
 /** Times in the portal read in the client's own zone. */
@@ -203,11 +204,35 @@ export function HomeCard({
       className="rounded-card border border-border bg-card p-3.5"
       data-testid={`portal-home-${street(h.address)}`}
     >
+      {h.mls?.photos[0] ? (
+        <div className="mb-3">
+          <MlsPhoto
+            url={h.mls.photos[0].url}
+            alt={h.mls.photos[0].caption ?? `The front of ${street(h.address)}`}
+            className="h-44 w-full rounded-control"
+          />
+          {h.mls.photos.length > 1 ? (
+            <div className="mt-1 text-[12px] text-text-3">1 of {h.mls.photos.length} photos</div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex items-start gap-3">
-        <span className="flex h-14 w-14 flex-none items-center justify-center rounded-control bg-card-2 text-text-3">
-          <HomeIcon className="h-5 w-5" strokeWidth={1.5} />
-        </span>
+        {h.mls?.photos[0] ? null : (
+          <span className="flex h-14 w-14 flex-none items-center justify-center rounded-control bg-card-2 text-text-3">
+            <HomeIcon className="h-5 w-5" strokeWidth={1.5} />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
+          {h.mls?.listPriceCents != null ? (
+            <div className="text-[17px] font-semibold tabular-nums">
+              {money(h.mls.listPriceCents)}
+              {h.mls.statusWords ? (
+                <span className="ml-2 text-[12.5px] font-normal text-text-2">
+                  {h.mls.statusWords}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="text-[15px] font-semibold">{street(h.address)}</div>
           <div className="text-[13px] text-text-2">{factsLine(h.facts) || h.address}</div>
           {h.link ? (
@@ -246,6 +271,14 @@ export function HomeCard({
           {h.mine === 'passed' ? 'Passed' : 'Pass'}
         </Button>
       </div>
+      {h.mls ? (
+        <MlsNotice
+          notice={h.mls.notice}
+          courtesy={h.mls.courtesy}
+          logoUrl={h.mls.logoUrl}
+          className="mt-3 border-t border-border pt-2.5"
+        />
+      ) : null}
       {tour || h.others.length || h.addedByMe ? (
         <p className="mt-2 text-[12.5px] text-text-2">
           {[

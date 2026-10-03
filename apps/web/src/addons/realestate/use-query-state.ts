@@ -23,11 +23,9 @@ export function useQueryState(
         for (const c of companions.split(',').filter(Boolean)) q.delete(c);
       } else q.set(key, next);
       const s = q.toString();
-      window.history.replaceState(
-        window.history.state,
-        '',
-        `${window.location.pathname}${s ? `?${s}` : ''}`,
-      );
+      // No state of our own: Next copies its own over and takes the new address, so a refresh keeps it. Handing it
+      // Next's state back made it skip that, and the next refresh put the old address back (`?add=1` again).
+      window.history.replaceState(null, '', `${window.location.pathname}${s ? `?${s}` : ''}`);
     },
     [key, companions],
   );

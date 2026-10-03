@@ -10,6 +10,7 @@ import { SELLER_CHOICES } from '@hfos/core/addons/realestate/net';
 import { dueWords, LIVE_OFFER_STATUSES } from '@hfos/core/addons/realestate/offer-words';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,6 +34,64 @@ const payingShort = (paying: string) => {
 /** The seller's first names on the deal: "Maria and Tom", or "the seller". */
 export const sellerNames = (side: ListingSide) =>
   firstNames(side.tasks.clients.map((c) => c.name)) || 'the seller';
+
+/**
+ * Where the MLS and the deal disagree (board 68): the listing's price or where it stands, as the business's feed sees
+ * it. Flagged for a person to fix, never copied over; "It’s changed" asks the feed again.
+ */
+export function ListingFeedBanner({
+  workspaceId,
+  dealId,
+  side,
+  live,
+}: {
+  workspaceId: string;
+  dealId: string;
+  side: ListingSide;
+  live: boolean;
+}) {
+  const { busy, act } = useAct();
+  const { feed } = side.listing;
+  if (!feed.differences.length) return null;
+  return (
+    <Callout
+      tone="warning"
+      data-testid="listing-feed-differs"
+      action={
+        live ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={busy === 'ask'}
+            onClick={() =>
+              void act(
+                'ask',
+                async () =>
+                  unwrap(
+                    await apiBrowser().POST('/v1/commands/realestate.listing.lookup', {
+                      body: { workspaceId, dealId },
+                    }),
+                  ),
+                'Asking the MLS again.',
+              )
+            }
+            data-testid="listing-feed-recheck"
+          >
+            It’s changed
+          </Button>
+        ) : undefined
+      }
+    >
+      <p className="font-medium">The MLS and this deal disagree</p>
+      {feed.differences.map((d) => (
+        <p key={d.key} className="mt-0.5">
+          {d.words}
+        </p>
+      ))}
+      <p className="mt-0.5">HandsFreeOS never changes the MLS for you.</p>
+    </Callout>
+  );
+}
 
 export function ListingCard({
   workspaceId,
@@ -80,6 +139,12 @@ export function ListingCard({
             {l.listPriceCents !== null ? money(l.listPriceCents) : 'No list price yet'}
           </div>
           {was ? <div className="text-[13px] text-text-2">{was}</div> : null}
+          {l.feed.mls?.daysOnMarket != null ? (
+            <div className="text-[13px] text-text-2">
+              {l.feed.mls.daysOnMarket} {l.feed.mls.daysOnMarket === 1 ? 'day' : 'days'} on the
+              market
+            </div>
+          ) : null}
           <div className="mt-1 text-[13.5px]">
             {facts || (
               <span className="text-text-2">
@@ -97,6 +162,11 @@ export function ListingCard({
             {l.mls ? (
               <Badge variant="ok">
                 Live on the MLS since {fmtMonthDay(l.mls.liveOn, thisYear())} · #{l.mls.number}
+                {l.feed.mls ? ' · seen by the feed' : ''}
+              </Badge>
+            ) : l.feed.mls ? (
+              <Badge variant="pending">
+                The MLS shows it {l.feed.mls.statusWords.toLowerCase()}
               </Badge>
             ) : (
               <Badge variant="gray">Not live on the MLS yet</Badge>

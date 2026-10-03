@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { CardHead, dealHref, Line } from './bits';
 import { DealCrumb, firstNames, street } from './buyer-bits';
 import { ReasonDialog } from './deal-dialogs';
+import { MlsNotice } from './mls-bits';
 import type { Cma, CmaComp } from './types';
 import { useAct } from './use-act';
 
@@ -64,8 +65,11 @@ export function CmaPage({
   const shared = cma.status === 'shared';
   const who = firstNames(clients) || 'the client';
   const s = cma.subject;
+  const [finding, setFinding] = useState(false);
   const waitingOnChecks =
-    cma.summary.state === 'drafting' || (cma.summary.state === 'ready' && !cma.fairHousing.checked);
+    cma.summary.state === 'drafting' ||
+    (cma.summary.state === 'ready' && !cma.fairHousing.checked) ||
+    cma.findComps.state === 'finding';
   // The worker drafts and checks a moment later: look again until it has.
   useEffect(() => {
     if (!waitingOnChecks) return;
@@ -146,6 +150,14 @@ export function CmaPage({
                 <>
                   <Button
                     variant="secondary"
+                    onClick={() => setFinding(true)}
+                    loading={cma.findComps.state === 'finding'}
+                    data-testid="cma-find-comps"
+                  >
+                    Comps from the MLS
+                  </Button>
+                  <Button
+                    variant="secondary"
                     onClick={() => setComp('new')}
                     data-testid="cma-add-comp"
                   >
@@ -196,6 +208,23 @@ export function CmaPage({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-5">
         <div className="min-w-0 space-y-4">
           <Card className="overflow-x-auto p-0" data-testid="cma-comps">
+            {cma.findComps.state !== 'none' && cma.findComps.words ? (
+              <div
+                className={cn(
+                  'flex items-center gap-2 border-b border-border px-5 py-3 text-[13px]',
+                  cma.findComps.state === 'failed' || cma.findComps.state === 'none_found'
+                    ? 'bg-warning-soft text-warning-text'
+                    : 'text-text-2',
+                )}
+                role="status"
+                data-testid="cma-find-state"
+              >
+                {cma.findComps.state === 'finding' ? (
+                  <Loader2 className="h-4 w-4 flex-none animate-spin" strokeWidth={1.75} />
+                ) : null}
+                {cma.findComps.words}
+              </div>
+            ) : null}
             {cma.comps.length === 0 ? (
               <p className="px-5 py-6 text-[13.5px] text-text-2">
                 No comps yet. Add homes that sold nearby, with their price, date and size; the range
@@ -227,6 +256,14 @@ export function CmaPage({
                     >
                       <td className="px-5 py-3">
                         <div className="font-semibold">{street(c.address)}</div>
+                        {c.mls ? (
+                          <div className="text-[12px] text-text-3">
+                            From the MLS · #{c.mls.mlsNumber}
+                            {c.mls.courtesy ? (
+                              <span className="block text-[11.5px]">{c.mls.courtesy}</span>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {c.why || c.warnings.length ? (
                           <div className="text-[12px] text-warning-text">
                             {[c.why, ...c.warnings].filter(Boolean).join(' · ')}
@@ -274,6 +311,13 @@ export function CmaPage({
               </table>
             )}
           </Card>
+          {[
+            ...new Map(
+              cma.comps.filter((c) => c.mls?.notice).map((c) => [c.mls!.notice!, c.mls!]),
+            ).values(),
+          ].map((m, i) => (
+            <MlsNotice key={i} notice={m.notice} courtesy={null} className="px-1" />
+          ))}
           <SummaryCard
             cma={cma}
             live={live}
@@ -402,6 +446,13 @@ export function CmaPage({
           cmaId={cma.id}
         />
       ) : null}
+      <FindCompsDialog
+        open={finding}
+        onClose={() => setFinding(false)}
+        workspaceId={workspaceId}
+        cmaId={cma.id}
+        asked={cma.findComps.asked}
+      />
       {subject ? (
         <SubjectDialog cma={cma} onClose={() => setSubject(false)} workspaceId={workspaceId} />
       ) : null}
@@ -421,6 +472,78 @@ export function CmaPage({
         }
       />
     </div>
+  );
+}
+
+/** Comps from the MLS (board 67): homes sold near this one, for the agent to tick; none counts until ticked. */
+function FindCompsDialog({
+  open,
+  onClose,
+  workspaceId,
+  cmaId,
+  asked,
+}: {
+  open: boolean;
+  onClose: () => void;
+  workspaceId: string;
+  cmaId: string;
+  asked: { miles: number; months: number } | null;
+}) {
+  const [miles, setMiles] = useState(String(asked?.miles ?? 1));
+  const [months, setMonths] = useState(String(asked?.months ?? 6));
+  const { busy, act } = useAct(onClose);
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        title="Comps from the MLS"
+        description="Sold homes like this one, for you to pick. They come in unticked; typing one in still works."
+        className="w-[min(480px,calc(100vw-32px))]"
+      >
+        <form
+          className="mt-4 grid gap-3.5 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act(
+              'find',
+              async () =>
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/realestate.cma.find_comps', {
+                    body: { workspaceId, cmaId, miles: Number(miles), months: Number(months) },
+                  }),
+                ),
+              'Asking the MLS for sold homes nearby.',
+            );
+          }}
+        >
+          <Field label="Within" htmlFor="find-miles">
+            <Select id="find-miles" value={miles} onChange={(e) => setMiles(e.target.value)}>
+              {['0.5', '1', '2', '5'].map((m) => (
+                <option key={m} value={m}>
+                  {m} {m === '1' ? 'mile' : 'miles'}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Sold in the last" htmlFor="find-months">
+            <Select id="find-months" value={months} onChange={(e) => setMonths(e.target.value)}>
+              {['3', '6', '12'].map((m) => (
+                <option key={m} value={m}>
+                  {m} months
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex justify-end gap-2 sm:col-span-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy === 'find'} data-testid="cma-find-go">
+              Find them
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

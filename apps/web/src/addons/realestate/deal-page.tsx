@@ -63,6 +63,7 @@ import {
 import { CommissionCard, KeyDatesCard, PeopleCard, UpdatesCard } from './deal-side';
 import {
   ListingCard,
+  ListingFeedBanner,
   ListingCmasCard,
   MarketingCard,
   MatchingCard,
@@ -439,6 +440,12 @@ export function DealPage({
           ) : null}
           {listing ? (
             <>
+              <ListingFeedBanner
+                workspaceId={workspaceId}
+                dealId={dealId}
+                side={listing}
+                live={live}
+              />
               <ListingCard
                 workspaceId={workspaceId}
                 dealId={dealId}

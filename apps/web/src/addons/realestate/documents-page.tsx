@@ -4,7 +4,9 @@
  * counts. A signed document is kept for good: nobody deletes or renames it, owners included; a change is a newer
  * version marked as the one that counts, and the old one stays in the history. Every file's SHA-256 fingerprint is
  * taken as it arrives. A contract, an amendment or an addendum is read as it's added (round four, board 50): its row
- * says when it's being read and how many of its values wait on a person, and opens the reading.
+ * says when it's being read and how many of its values wait on a person, and opens the reading. Round five (boards
+ * 69, 70): a document goes for signing through the brokerage's DocuSign or Dotloop, and its Signing column and panel
+ * say where that stands (./esign-bits.tsx).
  */
 import { ATTACHMENT_TYPES } from '@hfos/core';
 import { DOCUMENT_KINDS, type DocumentKind } from '@hfos/core/addons/realestate/catalog/types';
@@ -29,10 +31,18 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { dealHref } from './bits';
 import { ReasonDialog } from './deal-dialogs';
-import type { ContractReadRow, DealDocument } from './types';
+import {
+  EnvelopePanel,
+  SendForSigningDialog,
+  signingLine,
+  type Envelope,
+  type SignerChoice,
+} from './esign-bits';
+import type { ContractReadRow, DealDocument, EsignList } from './types';
 import { useAct } from './use-act';
 
 export interface DealFile {
@@ -65,6 +75,9 @@ export function DocumentsPage({
   documents,
   files,
   reads,
+  esign = null,
+  people = [],
+  back = null,
 }: {
   workspaceId: string;
   dealId: string;
@@ -73,6 +86,12 @@ export function DocumentsPage({
   files: readonly DealFile[];
   /** Round four: each contract, amendment and addendum read, newest first. */
   reads: readonly ContractReadRow[];
+  /** Round five: what's been sent for signing, and the e-signature services connected. */
+  esign?: EsignList | null;
+  /** The deal's people who might sign, with their emails. */
+  people?: readonly SignerChoice[];
+  /** Back from the service (`?esign=<envelope>`): it's looked at again and its panel opens. */
+  back?: string | null;
 }) {
   useLiveRefresh(['custom_record']);
   const router = useRouter();
@@ -91,6 +110,37 @@ export function DocumentsPage({
     return () => clearInterval(t);
   }, [reading, router]);
   const [adding, setAdding] = useState<{ supersedes?: DealDocument; fileId?: string } | null>(null);
+  const [signing, setSigning] = useState<DealDocument | null>(null);
+  const [panel, setPanel] = useState<string | null>(back);
+  const envelopes = esign?.envelopes ?? [];
+  // The newest envelope of each document, for its Signing column.
+  const envelopeOf = useMemo(() => {
+    const m = new Map<string, Envelope>();
+    for (const e of [...envelopes].sort((a, b) => a.createdAt.localeCompare(b.createdAt)))
+      m.set(e.documentId, e);
+    return m;
+  }, [envelopes]);
+  const shownEnvelope = envelopes.find((e) => e.id === panel) ?? null;
+  // Getting it ready at the service takes a moment: look again until it's ready.
+  const preparing = envelopes.some((e) => e.state === 'preparing');
+  useEffect(() => {
+    if (!preparing) return;
+    const t = setInterval(() => router.refresh(), 2000);
+    return () => clearInterval(t);
+  }, [preparing, router]);
+  // Back from DocuSign or Dotloop: ask the service where it stands now, then show it.
+  const checked = useRef(false);
+  useEffect(() => {
+    if (!back || checked.current) return;
+    checked.current = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    void workerPost('/v1/addons/realestate/actions/realestate.esign.check', {
+      workspaceId,
+      input: { envelopeId: back },
+    })
+      .catch(() => null)
+      .finally(() => router.refresh());
+  }, [back, workspaceId, router]);
   const [voiding, setVoiding] = useState<DealDocument | null>(null);
   const { busy, act } = useAct();
   const fileById = useMemo(() => new Map(files.map((f) => [f.id, f])), [files]);
@@ -156,6 +206,7 @@ export function DocumentsPage({
                 <th className="px-3 py-2.5 font-semibold">Kind</th>
                 <th className="px-3 py-2.5 font-semibold">Version</th>
                 <th className="px-3 py-2.5 font-semibold">Status</th>
+                {envelopes.length ? <th className="px-3 py-2.5 font-semibold">Signing</th> : null}
                 <th className="px-5 py-2.5" />
               </tr>
             </thead>
@@ -213,8 +264,29 @@ export function DocumentsPage({
                         <div className="mt-1 text-[12px] text-text-3">{d.voidReason}</div>
                       ) : null}
                     </td>
+                    {envelopes.length ? (
+                      <td className="max-w-[260px] px-3 py-3 text-[12.5px]">
+                        {envelopeOf.get(d.documentId) ? (
+                          <button
+                            type="button"
+                            className="text-left text-text-2 hover:text-text hover:underline"
+                            onClick={() => setPanel(envelopeOf.get(d.documentId)!.id)}
+                            data-testid={`signing-${d.documentId}`}
+                          >
+                            <span className="font-medium text-text">
+                              {envelopeOf.get(d.documentId)!.providerLabel}
+                            </span>{' '}
+                            · {signingLine(envelopeOf.get(d.documentId)!)}
+                          </button>
+                        ) : null}
+                      </td>
+                    ) : null}
                     <td className="whitespace-nowrap px-5 py-3 text-right">
-                      {d.status === 'draft' || d.status === 'sent' ? (
+                      {(d.status === 'draft' || d.status === 'sent') &&
+                      // Out at DocuSign or Dotloop: it's signed there, not marked here.
+                      !['preparing', 'draft', 'sent'].includes(
+                        envelopeOf.get(d.documentId)?.state ?? '',
+                      ) ? (
                         <Button
                           size="sm"
                           variant="secondary"
@@ -243,6 +315,14 @@ export function DocumentsPage({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {esign && (d.status === 'draft' || d.status === 'sent') ? (
+                              <DropdownMenuItem
+                                onSelect={() => setSigning(d)}
+                                data-testid={`send-signing-${d.documentId}`}
+                              >
+                                Send for signing…
+                              </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem onSelect={() => setAdding({ supersedes: d })}>
                               Add a newer version…
                             </DropdownMenuItem>
@@ -336,6 +416,24 @@ export function DocumentsPage({
         dealId={dealId}
         start={adding}
         files={loose}
+      />
+      {esign ? (
+        <SendForSigningDialog
+          workspaceId={workspaceId}
+          document={signing}
+          connected={esign.connected}
+          people={people}
+          onClose={() => setSigning(null)}
+          onPrepared={(id) => {
+            setSigning(null);
+            setPanel(id);
+          }}
+        />
+      ) : null}
+      <EnvelopePanel
+        workspaceId={workspaceId}
+        envelope={shownEnvelope}
+        onClose={() => setPanel(null)}
       />
       <ReasonDialog
         open={voiding !== null}

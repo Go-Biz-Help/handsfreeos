@@ -139,6 +139,8 @@ export function ListingFactsPage({
       <Badge variant="accent">From {seller}’s questionnaire</Badge>
     ) : from === 'pasted' ? (
       <Badge variant="gray">From the old listing</Badge>
+    ) : from === 'mls' ? (
+      <Badge variant="ok">From the MLS</Badge>
     ) : (
       <Badge variant="gray">Typed by you</Badge>
     );

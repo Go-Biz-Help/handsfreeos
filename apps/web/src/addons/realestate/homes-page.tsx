@@ -17,6 +17,7 @@ import { dealHref } from './bits';
 import { HomeVoice } from './buyer-cards';
 import { DealCrumb, firstNames, FitList, street } from './buyer-bits';
 import { AddHomeDialog, HomeDialog } from './home-dialogs';
+import { MlsPhoto } from './mls-bits';
 import { SuggestionsCard } from './suggestions-card';
 import type { Home, Suggestion } from './types';
 import { useQueryState } from './use-query-state';
@@ -32,6 +33,7 @@ export function HomesPage({
   clients,
   agentName,
   suggestions = [],
+  feed = null,
   live,
 }: {
   workspaceId: string;
@@ -44,6 +46,12 @@ export function HomesPage({
   agentName: string | null;
   /** Our own listings that fit what they want (round three). */
   suggestions?: readonly Suggestion[];
+  /** The business's listing feed (round five): connected, and what the buyer's saved search has waiting. */
+  feed?: {
+    readonly connected: boolean;
+    readonly newMatches: number;
+    readonly searchOn: boolean;
+  } | null;
   live: boolean;
 }) {
   useLiveRefresh(['custom_record']);
@@ -85,17 +93,21 @@ export function HomesPage({
     { key: 'facts', label: 'Facts to confirm', n: counts.facts },
   ];
   const sub = (h: Home) =>
-    h.factsState === 'suggested'
-      ? 'Facts to confirm'
-      : h.factsState === 'filling'
-        ? 'Reading the listing…'
-        : h.factsState === 'failed'
-          ? 'Facts to type in'
-          : h.addedByClient
-            ? `Added by ${firstNames([h.addedByClient.name])}`
-            : h.hasPastedText
-              ? `Pasted by ${firstNames([h.addedBy?.fullName ?? 'the team'])}`
-              : 'Address only';
+    h.mls
+      ? `From the MLS · ${h.mls.statusWords}${h.factsState === 'suggested' ? ' · facts to confirm' : ''}`
+      : h.mlsState === 'looking'
+        ? 'Asking the MLS…'
+        : h.factsState === 'suggested'
+          ? 'Facts to confirm'
+          : h.factsState === 'filling'
+            ? 'Reading the listing…'
+            : h.factsState === 'failed'
+              ? 'Facts to type in'
+              : h.addedByClient
+                ? `Added by ${firstNames([h.addedByClient.name])}`
+                : h.hasPastedText
+                  ? `Pasted by ${firstNames([h.addedBy?.fullName ?? 'the team'])}`
+                  : 'Address only';
   return (
     <div data-testid="realestate-homes">
       <DealCrumb workspaceId={workspaceId} dealId={dealId} dealName={dealName} here="Homes" />
@@ -115,6 +127,29 @@ export function HomesPage({
           </>
         }
       />
+      {feed?.connected && (feed.newMatches || !feed.searchOn) ? (
+        <Card className="mb-4 flex flex-wrap items-center gap-3 p-4" data-testid="homes-matches">
+          <div className="min-w-[12rem] flex-1">
+            <p className="font-semibold">
+              {feed.newMatches
+                ? `${feed.newMatches} new ${feed.newMatches === 1 ? 'match' : 'matches'} from the MLS`
+                : `${who}’s search is off`}
+            </p>
+            <p className="text-[13px] text-text-2">
+              {feed.newMatches
+                ? `From ${who}’s saved search. Only the team sees them until one is sent.`
+                : `Turn it on and homes that fit what ${who} ${clients.length > 1 ? 'want' : 'wants'} come in from the MLS as they’re listed.`}
+            </p>
+          </div>
+          <ButtonLink
+            href={dealHref(workspaceId, dealId, 'matches')}
+            variant={feed.newMatches ? 'primary' : 'secondary'}
+            size="sm"
+          >
+            {feed.newMatches ? 'See them' : 'Their search'}
+          </ButtonLink>
+        </Card>
+      ) : null}
       {suggestions.some((x) => x.state === 'new') ? (
         <div className="mb-4">
           <SuggestionsCard
@@ -150,7 +185,7 @@ export function HomesPage({
         {shown.length === 0 ? (
           <p className="px-5 py-6 text-[13.5px] text-text-2">
             {homes.length === 0
-              ? `No homes yet. Paste an address or a listing’s text, and ${who} can add the ones they find in their portal.`
+              ? `No homes yet. ${feed?.connected ? 'Find one on the MLS, or paste' : 'Paste'} an address or a listing’s text, and ${who} can add the ones they find in their portal.`
               : 'No homes here.'}
           </p>
         ) : (
@@ -175,9 +210,16 @@ export function HomesPage({
                 >
                   <td className="w-full md:w-auto md:px-5 md:py-3">
                     <div className="flex items-center gap-3">
-                      <span className="hidden h-11 w-11 flex-none items-center justify-center rounded-control bg-card-2 text-text-3 md:flex">
-                        <HomeIcon className="h-4 w-4" strokeWidth={1.5} />
-                      </span>
+                      {h.mls?.photos[0] ? (
+                        <MlsPhoto
+                          url={h.mls.photos[0].url}
+                          className="hidden h-11 w-11 flex-none rounded-control md:block"
+                        />
+                      ) : (
+                        <span className="hidden h-11 w-11 flex-none items-center justify-center rounded-control bg-card-2 text-text-3 md:flex">
+                          <HomeIcon className="h-4 w-4" strokeWidth={1.5} />
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <button
                           type="button"
@@ -226,6 +268,9 @@ export function HomesPage({
         onOpenChange={(o) => setAdding(o ? '1' : null)}
         workspaceId={workspaceId}
         dealId={dealId}
+        feed={!!feed?.connected}
+        who={who}
+        onAdded={(id) => setHomeId(id)}
       />
       <HomeDialog
         home={open}
@@ -234,6 +279,7 @@ export function HomesPage({
         dealId={dealId}
         timeZone={timeZone}
         live={live}
+        feed={!!feed?.connected}
       />
     </div>
   );

@@ -49,6 +49,16 @@ export interface PortalHome {
   readonly link: string | null;
   readonly facts: Readonly<Record<string, unknown>>;
   readonly status: string;
+  /** What the MLS says of it, with its MLS's notice (round five); null when the feed hasn't brought it. */
+  readonly mls: {
+    readonly statusWords: string | null;
+    readonly listPriceCents: number | null;
+    readonly photos: readonly { readonly url: string; readonly caption: string | null }[];
+    readonly description: string | null;
+    readonly courtesy: string | null;
+    readonly notice: string | null;
+    readonly logoUrl: string | null;
+  } | null;
   readonly addedByMe: boolean;
   readonly mine: 'saved' | 'passed' | null;
   readonly others: readonly { readonly name: string; readonly reaction: 'saved' | 'passed' }[];

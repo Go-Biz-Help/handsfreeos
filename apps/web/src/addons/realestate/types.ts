@@ -113,3 +113,8 @@ export type Today = Ok<'/v1/queries/realestate.today'>;
 export type Exceptions = Ok<'/v1/queries/realestate.exceptions'>;
 export type WaitingRoom = Ok<'/v1/queries/realestate.waiting_room'>;
 export type Workload = Ok<'/v1/queries/realestate.workload'>;
+
+// Round five: the listing feed.
+export type MatchList = Ok<'/v1/queries/realestate.matches'>;
+export type Match = MatchList['matches'][number];
+export type EsignList = Ok<'/v1/queries/realestate.esign.list'>;
