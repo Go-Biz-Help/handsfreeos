@@ -142,13 +142,17 @@ select private.addon_table_policies('addon_realestate.exports', 'realestate.expo
   'deal_record_id');
 
 -- ---------- what phones keep ----------
+-- Whether a home's listing words were pasted, without the words (pasted text stays off phones).
+alter table addon_realestate.homes
+  add column has_pasted_text boolean generated always as (pasted_text is not null) stored;
+
 select private.addon_phone_addon('realestate', 'realestate.use');
 
 -- The summary, duties, dates and who is on it: also for whoever sees every deal.
 select private.addon_phone_table('addon_realestate.deals', 'record_id', array['side', 'stage', 'stage_entered_at',
   'outcome', 'outcome_at', 'outcome_reason', 'lead_id', 'facts', 'expected_commission_cents',
   'final_commission_cents', 'health', 'health_reasons', 'health_at', 'catalog_version', 'template_set_id',
-  'created_at', 'updated_at'], 'all', 'record_id');
+  'created_at', 'updated_at', 'memory_protected_dropped'], 'all', 'record_id');
 select private.addon_phone_table('addon_realestate.duties', 'deal_record_id', array['duty_key', 'pass', 'title',
   'tracker', 'status', 'materiality', 'automation', 'accountable_role', 'accountable_user_id', 'performers',
   'definition', 'started_by', 'started_at', 'due_state', 'due_at', 'due_date', 'due_time', 'due_trace',
@@ -180,67 +184,77 @@ select private.addon_phone_table('addon_realestate.documents', 'deal_record_id',
 select private.addon_phone_table('addon_realestate.esign_envelopes', 'deal_record_id', array['document_id',
   'provider', 'state', 'subject', 'signers', 'sent_at', 'completed_at', 'signed_document_id']);
 select private.addon_phone_table('addon_realestate.contingencies', 'deal_record_id', array['kind', 'label', 'end_key',
-  'ends_on', 'source', 'state', 'resolved_at', 'document_id', 'note']);
+  'ends_on', 'source', 'state', 'resolved_at', 'document_id', 'note', 'resolved_by', 'override_reason', 'created_at']);
 select private.addon_phone_table('addon_realestate.contract_reads', 'deal_record_id', array['document_id', 'kind',
-  'state', 'requested_at', 'scan', 'pages', 'found', 'unclear', 'read_at']);
+  'state', 'requested_at', 'scan', 'pages', 'found', 'unclear', 'read_at', 'failure', 'requested_by', 'dropped']);
 select private.addon_phone_table('addon_realestate.drafts', 'deal_record_id', array['kind', 'milestone', 'person_id',
   'subject', 'body', 'status', 'edited_at', 'flags_acknowledged_at', 'sent_at']);
 select private.addon_phone_table('addon_realestate.buyer_profiles', 'deal_record_id', array['budget_min_cents',
   'budget_max_cents', 'areas', 'home_types', 'beds_min', 'baths_min', 'sqft_min', 'move_by', 'must_haves',
-  'deal_breakers', 'search_on', 'search_checked_at', 'version'], 'team', 'deal_record_id');
+  'deal_breakers', 'search_on', 'search_checked_at', 'version', 'updated_at', 'updated_by', 'search_failure'], 'team', 'deal_record_id');
 select private.addon_phone_table('addon_realestate.homes', 'deal_record_id', array['address', 'source', 'link',
   'facts', 'fact_sources', 'facts_state', 'facts_confirmed_at', 'status', 'status_note', 'added_by',
-  'added_by_person_id', 'mls', 'mls_state', 'mls_checked_at', 'created_at']);
+  'added_by_person_id', 'mls', 'mls_state', 'mls_checked_at', 'created_at', 'facts_failure', 'mls_failure',
+  'has_pasted_text']);
 select private.addon_phone_table('addon_realestate.home_reactions', 'deal_record_id', array['home_id', 'person_id',
   'reaction', 'note', 'reacted_at']);
-select private.addon_phone_table('addon_realestate.feed_matches', 'deal_record_id', array['listing_key',
-  'mls_number', 'mls', 'state', 'found_at', 'decided_at', 'home_id']);
+select private.addon_phone_table('addon_realestate.feed_matches', 'deal_record_id', array['listing_key', 'mls_number',
+  'mls', 'state', 'found_at', 'decided_at', 'home_id', 'changed_at', 'decided_by']);
 select private.addon_phone_table('addon_realestate.tours', 'deal_record_id', array['appointment_id', 'status',
-  'starts_at', 'ends_at', 'agent_user_id', 'agreement_document_id', 'note', 'canceled_at']);
+  'starts_at', 'ends_at', 'agent_user_id', 'agreement_document_id', 'note', 'canceled_at', 'calendar_id',
+  'exception_reason', 'exception_by', 'exception_at', 'canceled_reason']);
 select private.addon_phone_table('addon_realestate.tour_stops', 'deal_record_id', array['tour_id', 'home_id',
   'position', 'status', 'visited_at', 'note']);
 select private.addon_phone_table('addon_realestate.tour_feedback', 'deal_record_id', array['tour_id', 'stop_id',
-  'home_id', 'person_id', 'interest', 'rating', 'words', 'created_at']);
+  'home_id', 'person_id', 'interest', 'rating', 'words', 'created_at', 'recorded_by', 'updated_at']);
 select private.addon_phone_table('addon_realestate.cmas', 'deal_record_id', array['home_id', 'subject_address',
   'subject_beds', 'subject_baths', 'subject_sqft', 'subject_list_price_cents', 'number', 'status', 'as_of',
   'low_cents', 'likely_cents', 'high_cents', 'per_sqft_cents', 'summary', 'summary_state', 'finalized_at',
-  'shared_at']);
+  'shared_at', 'subject_year_built', 'summary_failure', 'summary_edited_at', 'flags_acknowledged_at',
+  'flags_acknowledged_reason', 'flags_acknowledged_by', 'comps_state', 'comps_failure', 'comps_asked',
+  'comps_found_at', 'created_at']);
 select private.addon_phone_table('addon_realestate.cma_comps', 'deal_record_id', array['cma_id', 'address',
   'price_cents', 'status', 'sold_on', 'beds', 'baths', 'sqft', 'year_built', 'distance_miles', 'used', 'note',
-  'source', 'position', 'mls_number', 'mls']);
+  'source', 'position', 'mls_number', 'mls', 'adjustments']);
 select private.addon_phone_table('addon_realestate.offers', 'deal_record_id', array['home_id', 'number', 'status',
   'their_agent_name', 'their_brokerage', 'their_email', 'their_phone', 'accepted_version_id', 'ended_at',
-  'ended_reason', 'buyer_names', 'created_at']);
+  'ended_reason', 'buyer_names', 'created_at', 'shared_version_id', 'shared_at']);
 select private.addon_phone_table('addon_realestate.offer_versions', 'deal_record_id', array['offer_id', 'number',
   'side', 'at', 'price_cents', 'emd_cents', 'emd_days', 'seller_credit_cents', 'inspection_days', 'loan_type',
   'financing_days', 'appraisal_contingency', 'closing_date', 'other_terms', 'respond_by', 'down_payment_pct',
   'home_sale_contingency', 'escalation_cap_cents', 'escalation_step_cents', 'possession', 'buyer_agent_fee_bp',
-  'buyer_agent_fee_cents']);
+  'buyer_agent_fee_cents', 'note']);
 select private.addon_phone_table('addon_realestate.offer_choices', 'deal_record_id', array['offer_id', 'person_id',
   'choice', 'words', 'at']);
 select private.addon_phone_table('addon_realestate.financing', 'deal_record_id', array['lender_name',
   'officer_name', 'officer_email', 'officer_phone', 'loan_type', 'loan_amount_cents'], 'team', 'deal_record_id');
 select private.addon_phone_table('addon_realestate.financing_steps', 'deal_record_id', array['step', 'status',
-  'started_on', 'expected_on', 'done_on', 'amount_cents', 'rate', 'expires_on', 'note', 'done_at']);
+  'started_on', 'expected_on', 'done_on', 'amount_cents', 'rate', 'expires_on', 'note', 'done_at', 'proof_kind',
+  'proof_id', 'done_by']);
 select private.addon_phone_table('addon_realestate.inspections', 'deal_record_id', array['kind', 'inspector',
-  'scheduled_at', 'report_expected_on', 'status', 'report_document_id', 'report_in_on', 'note']);
+  'scheduled_at', 'report_expected_on', 'status', 'report_document_id', 'report_in_on', 'note', 'pages', 'created_at']);
 select private.addon_phone_table('addon_realestate.inspection_findings', 'deal_record_id', array['inspection_id',
   'title', 'location', 'severity', 'estimate_cents', 'client_priority', 'ask', 'credit_cents', 'position', 'note']);
 select private.addon_phone_table('addon_realestate.repair_requests', 'deal_record_id', array['number', 'side', 'at',
   'words', 'items', 'credit_cents', 'respond_by', 'outcome']);
 select private.addon_phone_table('addon_realestate.client_tasks', 'deal_record_id', array['kind', 'title', 'detail',
-  'for_person_id', 'due_on', 'status', 'done_at', 'ref_kind', 'ref_id']);
+  'for_person_id', 'due_on', 'status', 'done_at', 'ref_kind', 'ref_id', 'sign_off_words', 'created_at']);
 select private.addon_phone_table('addon_realestate.listings', 'deal_record_id', array['facts', 'fact_sources',
   'facts_confirmed_at', 'highlights', 'mls_number', 'mls_live_on', 'slug', 'page_state', 'mls', 'mls_state',
-  'mls_checked_at', 'showings_open', 'showing_confirm', 'showing_minutes'], 'team', 'deal_record_id');
+  'mls_checked_at', 'showings_open', 'showing_confirm', 'showing_minutes', 'facts_confirmed_by', 'pasted_state',
+  'pasted_failure', 'mls_failure', 'page_published_at', 'matches_suggested', 'matches_added', 'matched_at',
+  'showing_days', 'showing_from', 'showing_to', 'showing_access_hours', 'showing_feedback_hours', 'showing_themes',
+  'showing_themes_at'], 'team', 'deal_record_id');
 select private.addon_phone_table('addon_realestate.listing_photos', 'deal_record_id', array['file_id', 'position',
-  'caption', 'public']);
+  'caption', 'public', 'created_at']);
 select private.addon_phone_table('addon_realestate.listing_descriptions', 'deal_record_id', array['version', 'words',
-  'source', 'state', 'sent_at', 'signed_at', 'created_at']);
+  'source', 'state', 'sent_at', 'signed_at', 'created_at', 'override_reason', 'failure', 'flags_acknowledged_at',
+  'flags_acknowledged_reason']);
 select private.addon_phone_table('addon_realestate.listing_posts', 'deal_record_id', array['batch', 'position',
-  'words', 'state']);
+  'words', 'state', 'failure', 'edited_at']);
 select private.addon_phone_table('addon_realestate.listing_prices', 'deal_record_id', array['from_cents', 'to_cents',
-  'words', 'note', 'state', 'applied_at', 'proposed_at']);
+  'words', 'note', 'state', 'applied_at', 'proposed_at', 'proposed_by', 'override_by', 'override_reason',
+  'signed_by_person_id', 'withdrawn_reason', 'client_task_id']);
 select private.addon_phone_table('addon_realestate.open_houses', 'deal_record_id', array['starts_at', 'ends_at',
   'host_user_id', 'appointment_id', 'state']);
 select private.addon_phone_table('addon_realestate.open_house_visitors', 'deal_record_id', array['open_house_id',
@@ -248,17 +262,32 @@ select private.addon_phone_table('addon_realestate.open_house_visitors', 'deal_r
   'followed_up_at']);
 select private.addon_phone_table('addon_realestate.net_sheets', 'deal_record_id', array['version', 'payoff_cents',
   'listing_fee_bp', 'listing_fee_cents', 'title_escrow_cents', 'transfer_tax_bp', 'other_cents', 'other_note', 'note',
-  'saved_at']);
+  'saved_at', 'saved_by']);
 select private.addon_phone_table('addon_realestate.showings', 'deal_record_id', array['source', 'state', 'starts_at',
   'ends_at', 'agent_name', 'brokerage', 'agent_email', 'agent_phone', 'requested_at', 'decided_at', 'decision_note',
-  'feedback', 'feedback_at', 'feedback_shared_at']);
+  'feedback', 'feedback_at', 'feedback_shared_at', 'license', 'checked', 'access_sent_at', 'feedback_asked_at',
+  'feedback_source']);
 select private.addon_phone_table('addon_realestate.field_notes', 'deal_record_id', array['about_kind', 'about_id',
   'body', 'audio_file_id', 'transcript', 'transcript_state', 'photo_file_ids', 'created_by', 'noted_at']);
 select private.addon_phone_table('addon_realestate.walkthroughs', 'deal_record_id', array['appointment_id',
-  'scheduled_at', 'state', 'started_at', 'finished_at', 'clients_agreed_at']);
+  'scheduled_at', 'state', 'started_at', 'finished_at', 'clients_agreed_at', 'created_at']);
 select private.addon_phone_table('addon_realestate.walkthrough_items', 'deal_record_id', array['walkthrough_id',
   'source', 'source_ref', 'title', 'detail', 'state', 'note', 'photo_file_ids', 'checked_by', 'checked_at', 'duty_id',
   'position']);
+-- Round six, step 15: what the buyer's and the listing's pages read too.
+select private.addon_phone_table('addon_realestate.memory_items', 'deal_record_id', array['kind', 'words', 'quote',
+  'source_kind', 'source_id', 'status', 'suggested_by', 'created_by', 'decided_by', 'decided_at', 'decided_note',
+  'created_at']);
+select private.addon_phone_table('addon_realestate.client_task_completions', 'deal_record_id', array['task_id',
+  'person_id', 'file_id', 'signed_words', 'recorded_by', 'note', 'at']);
+select private.addon_phone_table('addon_realestate.offer_comparisons', 'deal_record_id', array['shown', 'shared_by',
+  'shared_at']);
+select private.addon_phone_table('addon_realestate.seller_questionnaires', 'deal_record_id', array['answers', 'state',
+  'saved_by_person_id', 'saved_at', 'submitted_by_person_id', 'submitted_at', 'created_at'], 'team',
+  'deal_record_id');
+select private.addon_phone_table('addon_realestate.listing_suggestions', 'deal_record_id', array['listing_deal_id',
+  'address', 'facts', 'fit', 'mls_number', 'page_slug', 'state', 'home_id', 'decided_by', 'decided_at',
+  'decided_reason', 'created_at']);
 
 -- The business's own: its vendors.
 select private.addon_phone_table('addon_realestate.vendors', null, array['company_id', 'services', 'areas',

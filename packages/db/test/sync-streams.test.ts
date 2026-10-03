@@ -204,6 +204,9 @@ begin
     values (ws, 'addon_alert', 'addon_alert', alert, 'For everyone', 'a:' || alert);
   insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)
     values (ws, 'overdue_task', 'task', task, 'Order the appraisal', 't:' || task);
+  -- The business's booking site, and a client given the portal.
+  insert into app.booking_sites (workspace_id, slug, name) values (ws, 'streams-' || substr(md5(ws::text), 1, 8), 'Streams Realty');
+  insert into app.portal_access (workspace_id, person_id, public_ref) values (ws, person, substr(md5(random()::text), 1, 8));
   -- The owner's own check-in at the home, and their safety contact.
   insert into app.safety_contacts (workspace_id, user_id, name, phone_e164) values (ws, owner, 'Sam Reyes', '+15125550199');
   insert into app.safety_checkins (id, workspace_id, user_id, place, started_at, planned_end_at)

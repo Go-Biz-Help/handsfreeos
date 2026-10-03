@@ -184,6 +184,18 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  booking_sites: new Table(
+    {
+      workspace_id: column.text,
+      slug: column.text,
+      name: column.text,
+      enabled: column.integer,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   calendar_busy_blocks: new Table(
     {
@@ -819,6 +831,21 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  portal_access: new Table(
+    {
+      workspace_id: column.text,
+      person_id: column.text,
+      given_by: column.text,
+      given_at: column.text,
+      revoked_at: column.text,
+      revoked_by: column.text,
+      last_used_at: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   products: new Table(
     {
@@ -1429,6 +1456,22 @@ export interface AttentionItemsRow {
   readonly auto_skip_reason: string | null;
   /** uuid */
   readonly auto_cancelled_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `booking_sites` (records_v1). */
+export interface BookingSitesRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** citext */
+  readonly slug: string | null;
+  readonly name: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly enabled: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -2393,6 +2436,29 @@ export interface PlansRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `portal_access` (records_v1). */
+export interface PortalAccessRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly person_id: string | null;
+  /** uuid */
+  readonly given_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly given_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly revoked_at: string | null;
+  /** uuid */
+  readonly revoked_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly last_used_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `products` (business_v1). */
 export interface ProductsRow {
   readonly id: string;
@@ -2913,6 +2979,7 @@ export interface SyncedRows {
   appointment_staff: AppointmentStaffRow;
   appointments: AppointmentsRow;
   attention_items: AttentionItemsRow;
+  booking_sites: BookingSitesRow;
   calendar_busy_blocks: CalendarBusyBlocksRow;
   calendar_members: CalendarMembersRow;
   calendar_services: CalendarServicesRow;
@@ -2945,6 +3012,7 @@ export interface SyncedRows {
   pipeline_stages: PipelineStagesRow;
   pipelines: PipelinesRow;
   plans: PlansRow;
+  portal_access: PortalAccessRow;
   products: ProductsRow;
   push_devices: PushDevicesRow;
   record_tags: RecordTagsRow;

@@ -231,6 +231,9 @@ streams:
       # signal. Theirs alone, in a business they can open.
       - SELECT id, workspace_id, user_id, appointment_id, place, latitude, longitude, located_at, started_at, planned_end_at, extended_count, state, asked_at, alerted_at, resolved_at, resolved_by, resolved_via, alert_round, last_alerted_at, checked_out_at, created_at, updated_at FROM app.safety_checkins WHERE workspace_id IN access AND user_id = auth.user_id()
       - SELECT id, workspace_id, user_id, contact_user_id, name, phone_e164, email, asked_at, agreed_at, stopped_at, position, created_at, updated_at FROM app.safety_contacts WHERE workspace_id IN access AND user_id = auth.user_id()
+      # The business's booking site's name in links, and who has the portal (never the portal link's reference).
+      - SELECT id, workspace_id, slug, name, enabled, created_at, updated_at FROM app.booking_sites WHERE workspace_id IN access
+      - SELECT id, workspace_id, person_id, given_by, given_at, revoked_at, revoked_by, last_used_at, created_at, updated_at FROM app.portal_access WHERE workspace_id IN access
       # Home cards: an add-on's for everyone holding its permission, and the rest (an audience, a private record)
       # to exactly whom they're for.
       - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE seal_scope IN addon_use AND seal_open = true AND state != 'resolved'

@@ -641,6 +641,8 @@ export const homes = addonRealestate.table(
     source: text('source').notNull().$type<'agent' | 'client' | 'mls' | 'our_listing'>(),
     link: text('link'),
     pastedText: text('pasted_text'),
+    /** Whether the listing's words were pasted: what phones keep instead of the words (round six). */
+    hasPastedText: boolean('has_pasted_text').generatedAlwaysAs(sql`pasted_text is not null`),
     facts: jsonb('facts')
       .$type<Record<string, unknown>>()
       .notNull()

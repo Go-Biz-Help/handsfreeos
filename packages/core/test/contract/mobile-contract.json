@@ -7384,6 +7384,17 @@
         "updated_at": "timestamp with time zone"
       }
     },
+    "records_v1.booking_sites": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "slug": "citext",
+        "name": "text",
+        "enabled": "boolean",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "records_v1.conversations": {
       "columns": {
         "id": "uuid",
@@ -7504,6 +7515,20 @@
         "rich": "jsonb",
         "button_reply": "jsonb",
         "failed_attempt": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.portal_access": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "person_id": "uuid",
+        "given_by": "uuid",
+        "given_at": "timestamp with time zone",
+        "revoked_at": "timestamp with time zone",
+        "revoked_by": "uuid",
+        "last_used_at": "timestamp with time zone",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }

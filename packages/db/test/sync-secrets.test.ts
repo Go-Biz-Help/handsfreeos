@@ -33,6 +33,9 @@ const PUBLISHED = [
   // A person's own check-ins and safety contacts (20261022001000).
   'safety_checkins',
   'safety_contacts',
+  // The business's booking site and who has the portal (20261022001100).
+  'booking_sites',
+  'portal_access',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',
