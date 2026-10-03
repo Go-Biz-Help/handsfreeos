@@ -99,6 +99,8 @@ export interface ListingSide {
   readonly files: readonly FileItem[];
   /** The business's own domain when one is serving: the page's link uses it. */
   readonly brandedOrigin: string | null;
+  /** Round five: its showings, from our page and ShowingTime's emails. */
+  readonly showings: ShowingList;
 }
 
 // Round four: contracts read, contingencies, and the coordinator's views.
@@ -118,3 +120,4 @@ export type Workload = Ok<'/v1/queries/realestate.workload'>;
 export type MatchList = Ok<'/v1/queries/realestate.matches'>;
 export type Match = MatchList['matches'][number];
 export type EsignList = Ok<'/v1/queries/realestate.esign.list'>;
+export type ShowingList = Ok<'/v1/queries/realestate.showing.list'>;

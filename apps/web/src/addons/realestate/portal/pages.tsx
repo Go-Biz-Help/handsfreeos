@@ -38,7 +38,13 @@ import {
   weekday,
   zone,
 } from './bits';
-import { ListingDealPage, OffersPage, QuestionnairePage, SignOffPage } from './listing';
+import {
+  ListingDealPage,
+  OffersPage,
+  QuestionnairePage,
+  ShowingsPage,
+  SignOffPage,
+} from './listing';
 import type { PortalDeal, PortalDealRow, PortalStop, PortalTour } from './types';
 
 const thisYear = () => new Date().getFullYear();
@@ -59,6 +65,8 @@ export default function RealestatePortalPages({ path }: { path: readonly string[
     return <QuestionnairePage dealId={dealId} />;
   if (a === 'deals' && dealId && b === 'sign-off' && id)
     return <SignOffPage dealId={dealId} taskId={id} />;
+  // Round five: showings of their home.
+  if (a === 'deals' && dealId && b === 'showings') return <ShowingsPage dealId={dealId} />;
   return null;
 }
 

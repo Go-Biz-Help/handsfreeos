@@ -26,7 +26,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { parseMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ContingenciesCard, DealSteps, Done, firstName, street, TaskRow, zone } from './bits';
-import type { PortalCompareRow, PortalDeal, PortalListing, PortalSellerChoice } from './types';
+import type {
+  PortalCompareRow,
+  PortalDeal,
+  PortalListing,
+  PortalSellerChoice,
+  PortalShowings,
+} from './types';
 
 const thisYear = () => new Date().getFullYear();
 const day = (iso: string) => fmtMonthDay(localDayOf(iso, zone()), thisYear());
@@ -140,6 +146,7 @@ export function ListingDealPage({
           </ul>
         )}
       </Card>
+      <ShowingsCard dealId={dealId} />
       {l?.openHouses.length ? (
         <Card className="p-4">
           <PortalCardHead>Open houses</PortalCardHead>
@@ -625,6 +632,201 @@ function OfferChoice({
           </div>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+// ---------- round five: showings (board 74) ----------
+
+const SOURCE_WORDS = {
+  page: 'through your listing’s page',
+  showingtime: 'from ShowingTime',
+  agent: 'by your agent',
+} as const;
+
+/** What waits for their yes, and what's coming, on their home's page. */
+function ShowingsCard({ dealId }: { dealId: string }) {
+  const { href } = usePortal();
+  const { data: s } = usePortalQuery<PortalShowings>('realestate.portal.showings', { dealId });
+  if (!s || (!s.waiting.length && !s.upcoming.length && !s.feedback.length)) return null;
+  return (
+    <Card className="p-4" data-testid="portal-showings-card">
+      <PortalCardHead>Showings</PortalCardHead>
+      <div className="space-y-2 text-[14px]">
+        {s.waiting.length ? (
+          <div className="flex items-center justify-between gap-3">
+            <span>
+              {s.waiting.length === 1
+                ? 'A showing waits for your answer'
+                : `${s.waiting.length} showings wait for your answer`}
+            </span>
+            <Link
+              href={href(`a/realestate/deals/${dealId}/showings`)}
+              className={buttonClassName({ variant: 'primary', size: 'sm' })}
+              data-testid="portal-showings-answer"
+            >
+              Answer
+            </Link>
+          </div>
+        ) : null}
+        {s.upcoming.slice(0, 3).map((u) => (
+          <div key={u.id} className="flex justify-between gap-3">
+            <span>{fmtWhen(u.startsAt, u.endsAt, zone())}</span>
+            <span className="truncate text-text-2">{u.brokerage ?? u.agentName}</span>
+          </div>
+        ))}
+        <Link
+          href={href(`a/realestate/deals/${dealId}/showings`)}
+          className="block text-[13.5px] text-accent-text hover:underline"
+        >
+          {s.feedback.length
+            ? `All showings, and what ${s.feedback.length === 1 ? 'one buyer' : `${s.feedback.length} buyers`} said`
+            : 'All showings'}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+export function ShowingsPage({ dealId }: { dealId: string }) {
+  const { op } = usePortal();
+  const { data: s, reload } = usePortalQuery<PortalShowings>('realestate.portal.showings', {
+    dealId,
+  });
+  const { data: deal } = usePortalQuery<PortalDeal>('realestate.portal.deal', { dealId });
+  const { busy, act } = usePortalAct(reload);
+  const [other, setOther] = useState<string | null>(null);
+  const [words, setWords] = useState('');
+  if (!s) return null;
+  const agent = deal ? firstName(deal.deal.agentName) : 'Your agent';
+  const answer = (id: string, a: 'yes' | 'no' | 'another', w?: string) =>
+    act(
+      `${a}:${id}`,
+      () =>
+        op('realestate.portal.showing_answer', {
+          showingId: id,
+          answer: a,
+          ...(w?.trim() ? { words: w.trim() } : {}),
+        }),
+      a === 'yes'
+        ? 'Confirmed. The buyer’s agent hears now.'
+        : a === 'no'
+          ? 'Declined. The buyer’s agent hears now.'
+          : `${agent} will find another time with them.`,
+    );
+  return (
+    <div className="space-y-3" data-testid="portal-showings">
+      <Back to={`a/realestate/deals/${dealId}`} label="Your home" />
+      <h1 className="text-[24px] font-semibold">Showings</h1>
+      {s.waiting.map((w) => (
+        <Card key={w.id} className="p-4" data-testid="portal-showing-request">
+          <PortalCardHead>A showing request</PortalCardHead>
+          <div className="text-[17px] font-semibold">{fmtWhen(w.startsAt, w.endsAt, zone())}</div>
+          <p className="text-[14px] text-text-2">
+            {w.agentName}
+            {w.brokerage ? `, ${w.brokerage}` : ''} · with their buyers
+          </p>
+          <p className="text-[12.5px] text-text-3">
+            Asked {day(w.requestedAt)} {SOURCE_WORDS[w.source]}
+          </p>
+          {other === w.id ? (
+            <div className="mt-3 space-y-2">
+              <Field label="A time that suits you (optional)" htmlFor={`other-${w.id}`}>
+                <Textarea
+                  id={`other-${w.id}`}
+                  rows={2}
+                  value={words}
+                  onChange={(e) => setWords(e.target.value)}
+                />
+              </Field>
+              <div className="flex gap-2">
+                <Button
+                  loading={busy === `another:${w.id}`}
+                  onClick={() => void answer(w.id, 'another', words).then(() => setOther(null))}
+                >
+                  Send
+                </Button>
+                <Button variant="ghost" onClick={() => setOther(null)}>
+                  Back
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <Button
+                loading={busy === `yes:${w.id}`}
+                onClick={() => void answer(w.id, 'yes')}
+                data-testid="portal-showing-yes"
+              >
+                Yes
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setWords('');
+                  setOther(w.id);
+                }}
+                data-testid="portal-showing-another"
+              >
+                Another time
+              </Button>
+              <Button
+                variant="secondary"
+                loading={busy === `no:${w.id}`}
+                onClick={() => void answer(w.id, 'no')}
+                data-testid="portal-showing-no"
+              >
+                No
+              </Button>
+            </div>
+          )}
+        </Card>
+      ))}
+      <Card className="p-4">
+        <PortalCardHead>Coming up</PortalCardHead>
+        {s.upcoming.length ? (
+          <ul className="space-y-1.5 text-[14px]">
+            {s.upcoming.map((u) => (
+              <li key={u.id} className="flex justify-between gap-3">
+                <span>{fmtWhen(u.startsAt, u.endsAt, zone())}</span>
+                <span className="truncate text-text-2">
+                  {u.source === 'showingtime'
+                    ? 'From ShowingTime'
+                    : `${u.agentName}${u.brokerage ? `, ${u.brokerage}` : ''}`}{' '}
+                  · confirmed
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[14px] text-text-2">None confirmed yet.</p>
+        )}
+      </Card>
+      {s.feedback.length ? (
+        <Card className="p-4" data-testid="portal-showing-feedback">
+          <PortalCardHead>What buyers said</PortalCardHead>
+          <ul className="space-y-3 text-[14px]">
+            {s.feedback.map((f) => (
+              <li key={f.id}>
+                <div className="text-[12.5px] text-text-3">
+                  {day(f.startsAt)}
+                  {f.feedback.interest ? ` · interest ${f.feedback.interest} of 5` : ''}
+                </div>
+                {f.feedback.liked ? <div>Liked: {f.feedback.liked}</div> : null}
+                {f.feedback.pause ? <div>Gave them pause: {f.feedback.pause}</div> : null}
+                {f.feedback.price ? (
+                  <div className="text-text-2">
+                    The price felt {f.feedback.price === 'right' ? 'about right' : f.feedback.price}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+      <p className="text-[13px] text-text-3">
+        {agent} gets the feedback after each one and shares it with you.
+      </p>
     </div>
   );
 }

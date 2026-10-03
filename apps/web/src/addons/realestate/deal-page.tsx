@@ -70,6 +70,7 @@ import {
   NetSheetCard,
   OffersCard,
 } from './listing-cards';
+import { ShowingsCard } from './showings-page';
 import { OpenHousesCard } from './open-houses-page';
 import { ContingenciesCard, LinkedDealsCard, LinkedProblems, ReadsCallout } from './risk-cards';
 import { SuggestionsCard } from './suggestions-card';
@@ -464,6 +465,7 @@ export function DealPage({
                 list={listing.openHouses}
                 timeZone={timeZone}
               />
+              <ShowingsCard workspaceId={workspaceId} dealId={dealId} list={listing.showings} />
             </>
           ) : null}
           <RisksCard risks={risks} onOpen={openDuty} workspaceId={workspaceId} dealId={dealId} />
@@ -701,7 +703,7 @@ function RisksCard({
         <ul className="space-y-2">
           {shown.map((r, i) => (
             <li
-              key={`${r.code}-${r.dutyId ?? i}`}
+              key={`${r.code}-${r.dutyId ?? ''}-${i}`}
               className={cn(
                 'flex items-start justify-between gap-3 rounded-menu px-3.5 py-3',
                 r.level === 'red' ? 'bg-danger-soft' : 'bg-warning-soft',

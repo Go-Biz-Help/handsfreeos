@@ -74,8 +74,20 @@ export default async function RealestateDealPage({
               })
               .then(unwrapPage),
             brandedOriginFor(api, workspaceId),
+            api.POST('/v1/queries/realestate.showing.list', inDeal).then(unwrapPage),
           ]).then(
-            ([l, marketing, prices, openHouses, compare, tasks, cmas, files, brandedOrigin]) => ({
+            ([
+              l,
+              marketing,
+              prices,
+              openHouses,
+              compare,
+              tasks,
+              cmas,
+              files,
+              brandedOrigin,
+              showings,
+            ]) => ({
               listing: l.listing,
               marketing,
               prices,
@@ -85,6 +97,7 @@ export default async function RealestateDealPage({
               cmas: cmas.cmas,
               files: files.files,
               brandedOrigin,
+              showings,
             }),
           )
         : null;

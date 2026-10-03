@@ -42,3 +42,22 @@ export interface PublicOpenHouse {
   readonly cancelled: boolean;
   readonly photo: PublicPhoto | null;
 }
+
+/** The times a buyer's agent can ask for (round five, `realestate.public.showing_times`). */
+export interface PublicShowingTimes {
+  readonly street: string;
+  readonly open: boolean;
+  readonly closedWords: string | null;
+  readonly times: readonly string[];
+  readonly minutes: number;
+  readonly timeZone: string;
+  readonly confirm: 'seller' | 'auto';
+}
+
+/** A showing's feedback link (`realestate.public.showing_feedback_form`). */
+export interface PublicShowingFeedbackForm {
+  readonly street: string;
+  readonly startsAt: string;
+  readonly agentName: string;
+  readonly answered: boolean;
+}

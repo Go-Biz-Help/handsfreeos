@@ -218,3 +218,38 @@ export interface PortalListing {
     }[];
   } | null;
 }
+
+/** The seller's showings (round five, `realestate.portal.showings`): what waits for their yes, what's coming, and the
+ * feedback their agent shared. */
+export interface PortalShowings {
+  readonly dealId: string;
+  readonly waiting: readonly {
+    readonly id: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+    readonly agentName: string;
+    readonly brokerage: string | null;
+    readonly source: 'page' | 'showingtime' | 'agent';
+    readonly requestedAt: string;
+  }[];
+  readonly upcoming: readonly {
+    readonly id: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+    readonly agentName: string;
+    readonly brokerage: string | null;
+    readonly source: 'page' | 'showingtime' | 'agent';
+  }[];
+  readonly feedback: readonly {
+    readonly id: string;
+    readonly startsAt: string;
+    readonly feedback: {
+      readonly interest: number | null;
+      readonly liked: string | null;
+      readonly pause: string | null;
+      readonly price: 'low' | 'right' | 'high' | null;
+    };
+    readonly sharedAt: string;
+  }[];
+  readonly confirm: 'seller' | 'auto';
+}

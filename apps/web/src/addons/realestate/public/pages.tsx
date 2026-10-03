@@ -6,6 +6,9 @@
  * agent's phone. A question on the listing's page, or a sign-in at the open house, makes the visitor a customer with
  * a lead for the agent; someone working with another agent is only recorded. Each form carries the honeypot and the
  * bot check, and the yes to texts says who will text and how to stop, in core's words.
+ *
+ * Round five (boards 72, 73): a buyer's agent asks for a showing at one of the seller's open times
+ * (`…/<slug>/showing`), and says how it went from the link they're sent after (`…/showing-feedback/<token>`).
  */
 import {
   consentPolicyPath,
@@ -33,13 +36,21 @@ import type { AddonPublicPageProps } from '@/addons/registry';
 import { ApiError } from '@/lib/api/errors';
 import { TURNSTILE_SITE_KEY } from '@/lib/api/public-booking';
 import { publicAddonCommand } from '@/lib/api/public-addon';
-import type { PublicListing, PublicOpenHouse, PublicPhoto } from './types';
+import type {
+  PublicListing,
+  PublicOpenHouse,
+  PublicPhoto,
+  PublicShowingFeedbackForm,
+  PublicShowingTimes,
+} from './types';
 
 const STATUS_WORDS = { under_contract: 'Under contract', sold: 'Sold' } as const;
 
 export default function RealestatePublicPages(props: AddonPublicPageProps) {
   if (props.page === ':slug') return <ListingPage {...props} />;
   if (props.page === ':slug/open-house/:openHouseId') return <OpenHousePage {...props} />;
+  if (props.page === ':slug/showing') return <ShowingRequestPage {...props} />;
+  if (props.page === ':slug/showing-feedback/:token') return <ShowingFeedbackPage {...props} />;
   return null;
 }
 
@@ -512,5 +523,313 @@ function SignInForm({ props }: { props: AddonPublicPageProps }) {
         Sign in
       </Button>
     </form>
+  );
+}
+
+// ---------- asking for a showing (board 72) ----------
+
+/** "Fri, Oct 9" in the listing's time zone. */
+const dayOf = (iso: string, tz: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: tz,
+  }).format(new Date(iso));
+
+function ShowingRequestPage(props: AddonPublicPageProps) {
+  const t = props.result as PublicShowingTimes;
+  const tz = t.timeZone || props.business.timeZone;
+  const [picked, setPicked] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [brokerage, setBrokerage] = useState('');
+  const [license, setLicense] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [done, setDone] = useState<'requested' | 'confirmed' | null>(null);
+  const { busy, send, guard, fieldErrors, ready } = useSend(props);
+  const days = new Map<string, string[]>();
+  for (const at of t.times) days.set(dayOf(at, tz), [...(days.get(dayOf(at, tz)) ?? []), at]);
+  const [day, setDay] = useState<string>(() => [...days.keys()][0] ?? '');
+  return (
+    <Frame props={props}>
+      <div data-testid="public-showing">
+        <h1 className="text-[22px] font-semibold">Request a showing</h1>
+        <p className="text-[14px] text-text-2">
+          {t.street} · for buyers’ agents.{' '}
+          {t.confirm === 'seller'
+            ? 'The seller says yes, then you get the access instructions.'
+            : 'It’s confirmed straight away, and the access instructions come before it.'}
+        </p>
+        {done ? (
+          <PublicState
+            tone="success"
+            icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} />}
+            title={done === 'confirmed' ? 'It’s confirmed' : 'Asked'}
+            testId="showing-requested"
+          >
+            {picked ? `${dayOf(picked, tz)} at ${fmtTime(picked, tz)}. ` : ''}
+            {done === 'confirmed'
+              ? 'The access instructions come by email before it.'
+              : 'You’ll hear by email once the seller answers, with the access instructions.'}
+          </PublicState>
+        ) : !t.open ? (
+          <PublicState
+            icon={<CalendarX className="h-5 w-5" strokeWidth={1.75} />}
+            title="Showings aren’t taken here just now"
+            testId="showing-closed"
+          >
+            {t.closedWords ?? `Ask ${props.business.name} for a time.`}
+          </PublicState>
+        ) : (
+          <form
+            className="mt-4 flex flex-col gap-3.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!picked) return;
+              void send('realestate.public.request_showing', {
+                slug: props.params['slug'],
+                startsAt: picked,
+                agentName: name,
+                brokerage,
+                license,
+                email,
+                ...(phone.trim() ? { phone: phone.trim() } : {}),
+              }).then((ok) => ok && setDone(t.confirm === 'auto' ? 'confirmed' : 'requested'));
+            }}
+            data-testid="showing-form"
+          >
+            <div>
+              <div className="mb-1.5 text-[13px] font-medium">When</div>
+              {t.times.length === 0 ? (
+                <p className="text-[13.5px] text-text-2">
+                  No open times in the next two weeks. Ask {props.business.name} for one.
+                </p>
+              ) : (
+                <>
+                  <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist">
+                    {[...days.keys()].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        role="tab"
+                        aria-selected={day === d}
+                        onClick={() => setDay(d)}
+                        className={`h-9 flex-none rounded-full border px-3 text-[13px] ${
+                          day === d
+                            ? 'border-accent-soft bg-accent-soft font-medium text-accent-text'
+                            : 'border-border-strong bg-card text-text-2'
+                        }`}
+                        data-testid="showing-day"
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                    {(days.get(day) ?? []).map((at) => (
+                      <button
+                        key={at}
+                        type="button"
+                        aria-pressed={picked === at}
+                        onClick={() => setPicked(at)}
+                        className={`h-9 rounded-control border px-2 text-[13.5px] ${
+                          picked === at
+                            ? 'border-accent bg-accent text-on-solid'
+                            : 'border-border-strong bg-card hover:bg-card-2'
+                        }`}
+                        data-testid="showing-time"
+                      >
+                        {fmtTime(at, tz)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {fieldErrors.startsAt ? (
+                <p className="mt-1 text-[12.5px] text-danger-text">{fieldErrors.startsAt}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Your name" htmlFor="sh-name" error={fieldErrors.agentName}>
+                <Input
+                  id="sh-name"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  data-testid="showing-name"
+                />
+              </Field>
+              <Field label="Brokerage" htmlFor="sh-brokerage" error={fieldErrors.brokerage}>
+                <Input
+                  id="sh-brokerage"
+                  autoComplete="organization"
+                  value={brokerage}
+                  onChange={(e) => setBrokerage(e.target.value)}
+                  data-testid="showing-brokerage"
+                />
+              </Field>
+              <Field label="License number" htmlFor="sh-license" error={fieldErrors.license}>
+                <Input
+                  id="sh-license"
+                  value={license}
+                  onChange={(e) => setLicense(e.target.value)}
+                  data-testid="showing-license"
+                />
+              </Field>
+              <Field label="Email" htmlFor="sh-email" error={fieldErrors.email}>
+                <Input
+                  id="sh-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  data-testid="showing-email"
+                />
+              </Field>
+              <Field label="Mobile (optional)" htmlFor="sh-phone" error={fieldErrors.phone}>
+                <Input
+                  id="sh-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </Field>
+            </div>
+            <p className="text-[12.5px] text-text-3">
+              Times are the seller’s open ones. Your details go only to the listing’s agent and the
+              seller.
+            </p>
+            {guard}
+            <Button
+              type="submit"
+              loading={busy}
+              disabled={!ready || !picked}
+              data-testid="showing-ask"
+            >
+              {picked ? `Ask for ${dayOf(picked, tz)} at ${fmtTime(picked, tz)}` : 'Pick a time'}
+            </Button>
+          </form>
+        )}
+        <p className="mt-5 text-[12.5px] text-text-3">
+          {props.business.name} · Equal Housing Opportunity
+        </p>
+      </div>
+    </Frame>
+  );
+}
+
+// ---------- how the showing went (board 73) ----------
+
+function ShowingFeedbackPage(props: AddonPublicPageProps) {
+  const f = props.result as PublicShowingFeedbackForm;
+  const tz = props.business.timeZone;
+  const [interest, setInterest] = useState<number | null>(null);
+  const [liked, setLiked] = useState('');
+  const [pause, setPause] = useState('');
+  const [price, setPrice] = useState<'low' | 'right' | 'high' | null>(null);
+  const [done, setDone] = useState(f.answered);
+  const { busy, send, guard, fieldErrors, ready } = useSend(props);
+  return (
+    <Frame props={props}>
+      <div data-testid="public-showing-feedback">
+        <h1 className="text-[22px] font-semibold">How did {f.street} show?</h1>
+        <p className="text-[14px] text-text-2">
+          Your showing {dayOf(f.startsAt, tz)} at {fmtTime(f.startsAt, tz)}. Two minutes; it goes to
+          the listing’s agent.
+        </p>
+        {done ? (
+          <PublicState
+            tone="success"
+            icon={<CheckCircle2 className="h-5 w-5" strokeWidth={1.75} />}
+            title="Thank you"
+            testId="showing-feedback-sent"
+          >
+            It’s with the listing’s agent.
+          </PublicState>
+        ) : (
+          <form
+            className="mt-4 flex flex-col gap-3.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send('realestate.public.showing_feedback', {
+                slug: props.params['slug'],
+                token: props.params['token'],
+                ...(interest ? { interest } : {}),
+                ...(liked.trim() ? { liked: liked.trim() } : {}),
+                ...(pause.trim() ? { pause: pause.trim() } : {}),
+                ...(price ? { price } : {}),
+              }).then((ok) => ok && setDone(true));
+            }}
+            data-testid="showing-feedback-form"
+          >
+            <div>
+              <div className="mb-1.5 text-[13px] font-medium">Your buyers’ interest</div>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={interest === n}
+                    onClick={() => setInterest(n)}
+                    className={`h-10 w-10 rounded-control border text-[15px] ${
+                      interest === n
+                        ? 'border-accent bg-accent font-semibold text-on-solid'
+                        : 'border-border-strong bg-card'
+                    }`}
+                    data-testid={`feedback-interest-${n}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              {fieldErrors.interest ? (
+                <p className="mt-1 text-[12.5px] text-danger-text">{fieldErrors.interest}</p>
+              ) : null}
+            </div>
+            <Field label="What they liked" htmlFor="fb-liked">
+              <Textarea
+                id="fb-liked"
+                rows={2}
+                value={liked}
+                onChange={(e) => setLiked(e.target.value)}
+                data-testid="feedback-liked"
+              />
+            </Field>
+            <Field label="What gave them pause" htmlFor="fb-pause">
+              <Textarea
+                id="fb-pause"
+                rows={2}
+                value={pause}
+                onChange={(e) => setPause(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium">The price</span>
+              <Segmented<'low' | 'right' | 'high'>
+                value={price ?? ('' as 'low')}
+                onChange={setPrice}
+                ariaLabel="The price"
+                options={[
+                  { value: 'low', label: 'Low' },
+                  { value: 'right', label: 'About right' },
+                  { value: 'high', label: 'High' },
+                ]}
+              />
+            </div>
+            {guard}
+            <Button
+              type="submit"
+              loading={busy}
+              disabled={!ready || !interest}
+              data-testid="feedback-send"
+            >
+              Send
+            </Button>
+          </form>
+        )}
+      </div>
+    </Frame>
   );
 }
