@@ -2152,6 +2152,29 @@ the server steps go ahead meanwhile.
   (audio) are now a file type people can upload; only the worker stores a zip.
 - Next: the phone screens and the web's screens for holds, safety and the export, once the boards are approved.
 
+**While the boards wait** (steps 12–17, the parts that aren't screens):
+
+- What phones keep, widened where a page needed it:
+  - a deal's links (its client, home and people; 20261022000700);
+  - the business's closed days, through a new core way for an add-on to name settings phones keep
+    (`offline.settings`, 000800/000900);
+  - the person's own check-ins and safety contacts (001000);
+  - the booking site's name in links and who has the portal (001100);
+  - and every column the buyer's and listing's pages read, with five more tables. Pasted text, lockbox codes and
+    fair-housing checks stay off phones.
+- One copy of what each page shows: `packages/core/src/addons/realestate/views/` works out the Deals list, My duties,
+  a deal's page, a duty, documents, history, Coordinate (Today, Exceptions, Waiting room), vendors and a duty's vendors
+  from the phone's rows. `realestate-phone-*.test.ts` reads each person's copy by records_v1's own keys and seals and
+  holds every page to the server's answer. For a deal someone sees only as whoever sees every deal, a page says it holds
+  the summary (`full: false`, `partial`) and the rest loads with signal. The server's lists break every tie by id,
+  so both sides order the same.
+- The phone: its reader (`apps/mobile/src/addons/realestate/copy.ts`), I'm OK and +15 min from the lock screen, and
+  checking in, adding time and checking out with no signal, with a reminder at the planned end that the server's push
+  replaces. The location and microphone wording now covers check-ins and voice notes.
+- For Chris: Team workload needs everyone's permissions, which phones don't keep, so it stays signal-only for now.
+  Boards 87–88 show "Fair housing: checked" offline, but the checks stay off phones, so the phone will say it checks
+  with signal.
+
 ## Not in round six
 
 - Location in the background (only at check-in and Help).
