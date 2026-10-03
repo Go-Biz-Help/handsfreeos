@@ -72,7 +72,10 @@ env:
     id: 'setting-sign-out'
 - assertVisible:
     id: 'setting-delete-account'
-- assertVisible: 'Business settings, texting, payments and members are on the web.'
+# My safety (round six) sits at the top of You, so the last line can start below the fold.
+- scrollUntilVisible:
+    element: 'Business settings, texting, payments and members are on the web.'
+    direction: DOWN
 - takeScreenshot: settings
 # Appearance: dark, then back to the phone's own setting.
 - tapOn:

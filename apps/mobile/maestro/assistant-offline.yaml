@@ -40,7 +40,7 @@ env:
 # The question is still there, and so is the line about what keeps working without signal.
 - assertVisible: 'What did we charge for the last 3-ton install?'
 - assertVisible: 'Your question is saved — ask again when you’re back online.'
-- assertVisible: 'Customers, notes, photos, tasks, the calendar and most of Money keep working with no signal.'
+- assertVisible: 'Contacts, notes, photos, tasks, the calendar and most of Money keep working with no signal.'
 - takeScreenshot: assistant-no-signal
 # Ask again with still no signal says the same thing, and still sends nothing.
 - tapOn:
