@@ -4,9 +4,10 @@ import { change, changes, newId } from '@/changes';
 import { removePhoto, takePhoto, type KeptPhoto, type PhotoSource } from '@/changes/photo-device';
 
 /**
- * Replying from the phone: a text, an email or a website chat reply, through `change('message.send')` like every
- * change. Photos go first on their own track to the customer's files (`changes.addPhoto`), and the reply waits for
- * them; a reply written with no signal goes on its own within 30 minutes, or asks "Still send?".
+ * Replying from the phone: a text, an email, a website chat reply or a reply in a client's portal (round six), through
+ * `change('message.send')` like every change. Photos go first on their own track to the customer's files
+ * (`changes.addPhoto`), and the reply waits for them (a chat or portal reply carries none); a reply written with no
+ * signal goes on its own within 30 minutes, or asks "Still send?".
  */
 
 export interface TrayPhoto extends KeptPhoto {
@@ -40,7 +41,8 @@ export interface Reply {
   /** The conversation it answers; a reply on the customer's other channel goes to them instead (`personId`). */
   readonly conversationId: string | null;
   readonly personId: string | null;
-  readonly channel: 'sms' | 'email' | 'chat';
+  /** A portal reply goes back to the client's portal, where they wrote (`channel: 'portal'`, as the web sends it). */
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly body: string;
   readonly subject?: string | null;
   readonly photos: readonly TrayPhoto[];

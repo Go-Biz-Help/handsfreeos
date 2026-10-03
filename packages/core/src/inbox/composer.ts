@@ -201,7 +201,7 @@ export function composerPlaceholder(facts: {
   readonly note: ComposerNote | null;
   readonly firstName: string | null;
   readonly phoneDisplay: string;
-  /** The phone's rounded box says "Reply by email…". */
+  /** The phone's rounded box says "Reply by email…", and "Reply in Ann’s portal…" in a portal thread. */
   readonly compact: boolean;
 }): string {
   if (facts.off)
@@ -210,7 +210,10 @@ export function composerPlaceholder(facts: {
       (facts.mode === 'email' ? 'Email isn’t available' : 'Texting isn’t available')
     );
   if (facts.mode === 'chat') return `Reply to ${facts.firstName ?? 'them'} in the chat…`;
-  if (facts.mode === 'portal') return `Write to ${facts.firstName ?? 'them'} in their portal…`;
+  if (facts.mode === 'portal')
+    return facts.compact
+      ? `Reply in ${facts.firstName ? `${facts.firstName}’s` : 'their'} portal…`
+      : `Write to ${facts.firstName ?? 'them'} in their portal…`;
   if (facts.mode === 'email') return facts.compact ? 'Reply by email…' : 'Write your email…';
   return `Text ${facts.firstName ?? facts.phoneDisplay}…`;
 }
@@ -226,6 +229,13 @@ export function switchRefusal(
       : 'There’s no email address for this number yet';
   return `There’s no mobile number for ${facts.firstName ?? 'them'} yet`;
 }
+
+/**
+ * Under the phone's box in a client's portal thread (board 92): the reply goes back where they wrote, never by text.
+ * "Replies go back to the portal, where Ann wrote. Not by text."
+ */
+export const portalReplyLine = (firstName: string | null): string =>
+  `Replies go back to the portal, where ${firstName ?? 'they'} wrote. Not by text.`;
 
 /** "Photos you send are saved to Mike’s files too." */
 export const photosSavedLine = (firstName: string | null): string =>
@@ -384,8 +394,9 @@ export const PENDING_REPLY_WORDS = {
   photos: 'Sends once its photos are uploaded',
   retry: 'Couldn’t reach HandsFreeOS. It tries again soon.',
   stillSend: 'Still send?',
-  stillSendBody: (kind: 'text' | 'email') =>
-    `A${kind === 'email' ? 'n email' : ' text'} that waits more than 30 minutes checks with you first.`,
+  /** A website chat's or a client portal's reply is a "reply". */
+  stillSendBody: (kind: 'text' | 'email' | 'reply') =>
+    `A${kind === 'email' ? 'n email' : kind === 'reply' ? ' reply' : ' text'} that waits more than 30 minutes checks with you first.`,
   sendNow: 'Send now',
   edit: 'Edit',
   discard: 'Discard',

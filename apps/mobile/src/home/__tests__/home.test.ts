@@ -291,3 +291,92 @@ describe('this phone’s changes over the copy', () => {
     expect(over.waiting).toHaveLength(1);
   });
 });
+
+describe('an add-on’s alert (round six)', () => {
+  const alert = (asks: boolean) =>
+    item(20, {
+      kind: 'addon_alert',
+      subject_type: 'addon_alert',
+      subject_id: id(200),
+      lead_id: null,
+      urgent_from: iso(NOW - 30 * MIN),
+      probability: 0.97,
+      confidence: 0.95,
+      reasons: JSON.stringify([
+        { code: 'severity', label: 'Critical' },
+        ...(asks ? [{ code: 'needs_ack', label: 'Not acknowledged yet' }] : []),
+      ]),
+      title: 'Rate lock ends a day before closing · Smith purchase',
+      detail: 'Summit Lending’s lock ends Oct 13; closing is Oct 14. Ask about an extension.',
+    });
+  const card = (h: ReturnType<typeof buildHome>) => h.list.items.find((i) => i.id === id(20));
+
+  it('reads its add-on and its Got it from the copy, and sits under Urgent', () => {
+    const shown = card(
+      buildHome(input({ items: [alert(true)], permissions: ['records.read', 'realestate.use'] })),
+    );
+    expect(shown?.urgent).toBe(true);
+    expect(shown?.addonAlert).toEqual({
+      alertId: id(200),
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      severity: 'critical',
+      href: '/a/realestate',
+      needsAck: true,
+      acknowledgedAt: null,
+    });
+  });
+
+  it('opens the alert’s own page once HandsFreeOS has said it, and stops asking once said here', () => {
+    const server = {
+      alertId: id(200),
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      severity: 'critical' as const,
+      href: '/a/realestate/deals/deal-1',
+      needsAck: true,
+      acknowledgedAt: null,
+    };
+    const asked = card(
+      buildHome(
+        input({
+          items: [alert(true)],
+          permissions: ['realestate.use'],
+          addonAlerts: new Map([[id(20), server]]),
+        }),
+      ),
+    );
+    expect(asked?.addonAlert).toMatchObject({
+      href: '/a/realestate/deals/deal-1',
+      acknowledgedAt: null,
+    });
+    const saidHere = card(
+      buildHome(
+        input({
+          items: [alert(true)],
+          permissions: ['realestate.use'],
+          addonAlerts: new Map([[id(20), server]]),
+          acknowledged: new Set([id(200)]),
+        }),
+      ),
+    );
+    expect(saidHere?.addonAlert?.acknowledgedAt).toBe(iso(NOW));
+    // Acknowledged elsewhere: the copy's chip went, so the card stops asking too.
+    const elsewhere = card(
+      buildHome(
+        input({
+          items: [alert(false)],
+          permissions: ['realestate.use'],
+          addonAlerts: new Map([[id(20), server]]),
+        }),
+      ),
+    );
+    expect(elsewhere?.addonAlert?.acknowledgedAt).toBe(iso(NOW));
+  });
+
+  it('names no add-on when the copy can’t tell which', () => {
+    expect(
+      card(buildHome(input({ items: [alert(true)], permissions: [] })))?.addonAlert,
+    ).toBeNull();
+  });
+});

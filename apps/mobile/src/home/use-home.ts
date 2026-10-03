@@ -1,6 +1,7 @@
 import {
   attentionToday,
   type AttentionScope,
+  type ItemHints,
   type SyncedApproval,
   type SyncedAttentionRow,
   type SyncedHintRows,
@@ -126,13 +127,67 @@ export function useDecidedHere(): ReadonlySet<string> {
   }, [drafts, flows]);
 }
 
+type AddonAlert = ItemHints['addonAlert'];
+const alertsKept = new Map<
+  string,
+  { readonly key: string; readonly byItem: Map<string, AddonAlert> }
+>();
+const NO_ALERTS: ReadonlyMap<string, AddonAlert> = new Map();
+const NONE: ReadonlySet<string> = new Set();
+
+/**
+ * Add-ons' alerts as HandsFreeOS describes them (round six). The copy has their Home cards but not the alerts, so
+ * which add-on raised one and the page it opens (the deal) are asked of HandsFreeOS (`attention.list`, just those
+ * cards) when there's signal and the cards on the phone have changed since; the last answer stands with no signal, and
+ * until there is one, core reads what it can from the copy (`addonAlertOfSynced`).
+ */
+export function useAddonAlertHints(
+  items: readonly SyncedAttentionRow[],
+): ReadonlyMap<string, AddonAlert> {
+  const { business } = useBusiness();
+  const { online } = useNetwork();
+  const key = items
+    .filter((r) => r.kind === 'addon_alert')
+    .map((r) => `${r.id}:${r.title ?? ''}:${r.reasons ?? ''}`)
+    .sort()
+    .join('|');
+  const [kept, setKept] = React.useState(() => alertsKept.get(business.id) ?? null);
+  const current = kept && alertsKept.get(business.id) === kept ? kept : null;
+  React.useEffect(() => {
+    if (!online || !key || current?.key === key) return;
+    let cancelled = false;
+    void api
+      .POST('/v1/queries/attention.list', {
+        body: { workspaceId: business.id, scope: 'everyone', kinds: ['addon_alert'] },
+      })
+      .then((r) => {
+        if (cancelled || !r.data) return;
+        const next = {
+          key,
+          byItem: new Map(
+            r.data.items.flatMap((i) => (i.addonAlert ? [[i.id, i.addonAlert] as const] : [])),
+          ),
+        };
+        alertsKept.set(business.id, next);
+        setKept(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [online, key, current?.key, business.id]);
+  return current?.byItem ?? NO_ALERTS;
+}
+
 /**
  * Home for the business on screen: its Action Center items ranked for Mine or Everyone at `now`, with this phone's
- * changes over them, the hints each card needs, and the counts, all from the phone's copy.
+ * changes over them, the hints each card needs, and the counts, all from the phone's copy. `acknowledged` is the
+ * add-on alerts this phone has just said "Got it" to.
  */
 export function useHome(
   scope: AttentionScope | null,
   now: number,
+  acknowledged: ReadonlySet<string> = NONE,
 ): HomeList & { loading: boolean } {
   const { business, me } = useBusiness();
   // Who Home is for: the person, or the teammate they're viewing as (20261018000100), whose items alone it shows.
@@ -165,6 +220,7 @@ export function useHome(
   const addresses = useQuery<SyncedHintRows['emailAddresses'][number]>(ADDRESSES_SQL, [ws]);
   const workspace = useWorkspaceRow();
   const decided = useDecidedHere();
+  const addonAlerts = useAddonAlertHints(items.data);
   const timeZone = workspace.timezone || business.timezone || 'UTC';
 
   const home = React.useMemo(
@@ -192,6 +248,8 @@ export function useHome(
         },
         outbox: outbox.data,
         decided,
+        addonAlerts,
+        acknowledged,
       }),
     [
       userId,
@@ -212,6 +270,8 @@ export function useHome(
       workspace.settings,
       outbox.data,
       decided,
+      addonAlerts,
+      acknowledged,
     ],
   );
   return { ...home, loading: items.isLoading };

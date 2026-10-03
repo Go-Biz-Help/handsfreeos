@@ -198,8 +198,8 @@ export function conversationChips(
   return chips;
 }
 
-/** What a channel is called on a chip. */
-const channelWord = (channel: 'sms' | 'email' | 'chat' | 'portal'): string =>
+/** What a channel is called on a chip, and on the phone's row of a client's portal thread ("Portal"). */
+export const channelWord = (channel: 'sms' | 'email' | 'chat' | 'portal'): string =>
   channel === 'sms'
     ? 'Text'
     : channel === 'email'

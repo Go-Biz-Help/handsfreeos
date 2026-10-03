@@ -10,6 +10,8 @@ import {
   canTextOf,
   closedBanner,
   composerPlaceholder,
+  PENDING_REPLY_WORDS,
+  portalReplyLine,
   CONVERSATION_DONE,
   conversationChips,
   crossChannelCanText,
@@ -601,6 +603,29 @@ describe('the composer', () => {
         compact: true,
       }),
     ).toBe('Reply by email…');
+    // A client's portal: the web's box, the phone's rounded one, and the line under the phone's (board 92).
+    const portal = { mode: 'portal' as const, off: false, note: null, phoneDisplay: '' };
+    expect(composerPlaceholder({ ...portal, firstName: 'Ann', compact: false })).toBe(
+      'Write to Ann in their portal…',
+    );
+    expect(composerPlaceholder({ ...portal, firstName: 'Ann', compact: true })).toBe(
+      'Reply in Ann’s portal…',
+    );
+    expect(composerPlaceholder({ ...portal, firstName: null, compact: true })).toBe(
+      'Reply in their portal…',
+    );
+    expect(portalReplyLine('Ann')).toBe(
+      'Replies go back to the portal, where Ann wrote. Not by text.',
+    );
+    expect(portalReplyLine(null)).toBe(
+      'Replies go back to the portal, where they wrote. Not by text.',
+    );
+    expect(PENDING_REPLY_WORDS.stillSendBody('reply')).toBe(
+      'A reply that waits more than 30 minutes checks with you first.',
+    );
+    expect(PENDING_REPLY_WORDS.stillSendBody('email')).toBe(
+      'An email that waits more than 30 minutes checks with you first.',
+    );
   });
 
   it('counts a text’s length and asks about quiet hours', () => {
@@ -629,6 +654,16 @@ describe('a conversation', () => {
     expect(
       threadChannelLine({ ...c, channel: 'email', counterpart: 'mike@example.com' }, null),
     ).toBe('mike@example.com · Email');
+    // A client's portal thread: the web's words, and the phone's header (board 92).
+    const portal = {
+      channel: 'portal' as const,
+      counterpart: 'portal:p-ann:deal-1',
+      counterpartDisplay: 'Ann Smith',
+      record: { name: 'Smith purchase' },
+    };
+    expect(threadChannelLine(portal, null)).toBe('Client portal · Smith purchase');
+    expect(threadChannelLine(portal, null, { compact: true })).toBe('Portal · Smith purchase');
+    expect(threadChannelLine({ ...portal, record: null }, null, { compact: true })).toBe('Portal');
     expect(notCustomerBanner('(713) 555-0168', 'sms').parts).toEqual([
       { strong: '(713) 555-0168 isn’t a customer yet.' },
       ' Add them, or link the number to someone you already have.',

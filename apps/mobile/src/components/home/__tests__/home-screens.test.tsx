@@ -131,6 +131,7 @@ function fakeActions(): jest.Mocked<HomeActions> {
     dismissNow: jest.fn(),
     assign: jest.fn(),
     cancelAuto: jest.fn(),
+    acknowledge: jest.fn(),
     open: jest.fn(),
   };
 }
@@ -238,6 +239,44 @@ describe('a card on Home', () => {
     await fireEvent.press(screen.getByTestId('attention-refused-ok'));
     expect(changes.discard).toHaveBeenCalledWith(['change-9']);
   });
+
+  it('names an add-on’s alert after its add-on, with Open and Got it and no Let HandsFreeOS Handle', async () => {
+    const alert = (acknowledgedAt: string | null) =>
+      item({
+        kind: 'addon_alert',
+        subject: { type: 'addon_alert', id: 'alert-1' },
+        personId: null,
+        leadId: null,
+        reach: null,
+        title: 'Rate lock ends a day before closing · Smith purchase',
+        detail: 'Summit Lending’s lock ends Oct 13; closing is Oct 14. Ask about an extension.',
+        valueCents: 0,
+        reasons: [{ code: 'severity', label: 'Critical', text: 'Critical' }],
+        addonAlert: {
+          alertId: 'alert-1',
+          addonId: 'realestate',
+          addonName: 'Real Estate Agent',
+          severity: 'critical',
+          href: '/a/realestate/deals/deal-1',
+          needsAck: true,
+          acknowledgedAt,
+        },
+        letHandleMode: 'none',
+        actions: { handle: true, letHandle: false, assign: false, snooze: true, dismiss: false },
+      });
+    const env = envOf();
+    const view = await render(wrap(<AttentionCard item={alert(null)} />, env));
+    expect(screen.getByText('Real Estate Agent')).toBeOnTheScreen();
+    expect(screen.queryByTestId('attention-let-handle')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open' }));
+    expect(env.act.handle).toHaveBeenCalledWith(expect.objectContaining({ id: 'item-1' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
+    expect(env.act.acknowledge).toHaveBeenCalledWith(expect.objectContaining({ id: 'item-1' }));
+    // Once someone has, it stops asking.
+    await view.rerender(wrap(<AttentionCard item={alert(new Date(NOW).toISOString())} />, env));
+    expect(screen.queryByTestId('attention-acknowledge')).toBeNull();
+    expect(screen.getByTestId('attention-more')).toBeOnTheScreen();
+  });
 });
 
 describe('the ⋯ sheet', () => {
@@ -272,6 +311,7 @@ describe('the ⋯ sheet', () => {
 });
 
 describe('Home’s commands', () => {
+  const mockAcknowledged = jest.fn();
   function Buttons({ it: target }: { it: AttentionItemOut }) {
     const act = useHomeActions({
       workspaceId: WS,
@@ -279,9 +319,13 @@ describe('Home’s commands', () => {
       myUserId: DALE,
       members: [{ id: PRIYA, fullName: 'Priya Shah' }],
       open: () => undefined,
+      onAcknowledged: mockAcknowledged,
     });
     return (
       <>
+        <Pressable onPress={() => act.acknowledge(target)} testID="acknowledge">
+          <Text>Got it</Text>
+        </Pressable>
         <Pressable onPress={() => act.snooze(target, NOW + 3_600_000)} testID="snooze">
           <Text>Snooze</Text>
         </Pressable>
@@ -338,6 +382,46 @@ describe('Home’s commands', () => {
 
     await fireEvent.press(screen.getByTestId('call'));
     expect(startCall).toHaveBeenCalledWith({ personId: 'person-1' });
+  });
+
+  it('say Got it on an add-on’s alert with signal, and that it needs signal without', async () => {
+    const alert = item({
+      kind: 'addon_alert',
+      subject: { type: 'addon_alert', id: 'alert-1' },
+      addonAlert: {
+        alertId: 'alert-1',
+        addonId: 'realestate',
+        addonName: 'Real Estate Agent',
+        severity: 'critical',
+        href: '/a/realestate',
+        needsAck: true,
+        acknowledgedAt: null,
+      },
+    });
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'change-2',
+      queued: false,
+      output: { alertId: 'alert-1', acknowledgedAt: new Date(NOW).toISOString(), changed: true },
+    } as never);
+    await render(wrap(<Buttons it={alert} />));
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('acknowledge'));
+    });
+    expect(change).toHaveBeenLastCalledWith('addon_alert.acknowledge', {
+      workspaceId: WS,
+      alertId: 'alert-1',
+    });
+    expect(mockAcknowledged).toHaveBeenCalledWith('alert-1');
+    expect(toast.show).toHaveBeenLastCalledWith(
+      'Acknowledged. Everyone who sees it knows you’ve seen it.',
+    );
+
+    jest.mocked(change).mockRejectedValueOnce(new ChangeError('needs-signal', NEEDS_SIGNAL));
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('acknowledge'));
+    });
+    expect(toast.error).toHaveBeenLastCalledWith(NEEDS_SIGNAL);
+    expect(mockAcknowledged).toHaveBeenCalledTimes(1);
   });
 
   it('add a lesson from correcting the AI in one tap, or put the new words in place of the old', async () => {

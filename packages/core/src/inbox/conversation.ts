@@ -39,6 +39,7 @@ export function chatLine(
 /**
  * The line under the customer's name: "(713) 555-0142 · Texts", "mike@example.com · Email", "Texts · not in
  * Contacts yet". `short` leaves out "not in Contacts yet" where the banner already says it (the web at phone width).
+ * `compact` is the phone app's header, where a portal thread is "Portal · Smith purchase" (board 92).
  */
 export function threadChannelLine(
   c: {
@@ -49,11 +50,17 @@ export function threadChannelLine(
     readonly record?: { readonly name: string } | null;
   },
   person: { readonly phone: string | null } | null,
-  opts: { readonly chat?: Parameters<typeof chatLine>[0]; readonly short?: boolean } = {},
+  opts: {
+    readonly chat?: Parameters<typeof chatLine>[0];
+    readonly short?: boolean;
+    readonly compact?: boolean;
+  } = {},
 ): string {
   if (c.channel === 'chat') return chatLine(opts.chat ?? null);
-  if (c.channel === 'portal')
-    return c.record ? `Client portal · ${c.record.name}` : 'Client portal';
+  if (c.channel === 'portal') {
+    const word = opts.compact ? 'Portal' : 'Client portal';
+    return c.record ? `${word} · ${c.record.name}` : word;
+  }
   if (c.channel === 'email') return `${c.counterpart} · Email`;
   if (person) return `${person.phone ?? c.counterpartDisplay} · Texts`;
   return opts.short ? 'Texts' : 'Texts · not in Contacts yet';

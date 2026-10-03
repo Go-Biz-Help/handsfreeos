@@ -1,5 +1,6 @@
 import {
   assignedToLabel,
+  channelWord,
   conversationChips,
   listTime,
   previewLine,
@@ -96,9 +97,9 @@ export function RowChipView({ chip }: { chip: RowChip }) {
 }
 
 /**
- * A customer in the list, as the canvas draws it: who (the customer, or the number), the channel, when, the latest
- * message ("You: …" for what you sent), and what needs attention under it ("Text · Email" when they write in more than
- * one place), with the assignee and the unread count.
+ * A customer in the list, as the canvas draws it: who (the customer, or the number), the channel (a client's portal
+ * thread is marked Portal), when, the latest message ("You: …" for what you sent), and what needs attention under it
+ * ("Text · Email" when they write in more than one place), with the assignee and the unread count.
  */
 export const ConversationRow = React.memo(function ConversationRow({
   c,
@@ -129,6 +130,7 @@ export const ConversationRow = React.memo(function ConversationRow({
     teammateChip: 'handling',
   });
   const channelIcon = c.channel === 'email' ? Mail : c.channel === 'chat' ? Globe : MessageCircle;
+  const portal = c.channel === 'portal';
   return (
     <Pressable
       role="button"
@@ -149,7 +151,17 @@ export const ConversationRow = React.memo(function ConversationRow({
           >
             {name}
           </Text>
-          <Icon as={channelIcon} className="size-3.5 text-text-3" />
+          {portal ? (
+            // A client's portal thread (board 92), beside texts and email: only the people on its deal see it.
+            <View
+              className="h-[22px] justify-center rounded-[6px] bg-accent-soft px-[7px]"
+              testID="conversation-row-portal"
+            >
+              <Text className="text-xs font-medium text-accent-text">{channelWord('portal')}</Text>
+            </View>
+          ) : (
+            <Icon as={channelIcon} className="size-3.5 text-text-3" />
+          )}
           <View className="flex-1" />
           <Text
             className={cn(

@@ -1,4 +1,5 @@
 import {
+  addonAlertOfSynced,
   attentionListOut,
   attentionListView,
   attentionRowOfSynced,
@@ -13,6 +14,8 @@ import {
   type AttentionListOutput,
   type AttentionRow,
   type AttentionScope,
+  type ItemHints,
+  NO_HINTS,
   type SyncedApproval,
   type SyncedAttentionRow,
   type SyncedHintRows,
@@ -174,6 +177,13 @@ export interface HomeInput {
   readonly outbox: readonly OutboxRow[];
   /** Approvals and drafts this phone decided, still standing: their cards go at once. */
   readonly decided: ReadonlySet<string>;
+  /**
+   * Add-ons' alerts as HandsFreeOS last described them, by item (round six): which add-on, and the alert's own page.
+   * The copy has their cards but not the alerts themselves.
+   */
+  readonly addonAlerts?: ReadonlyMap<string, ItemHints['addonAlert']>;
+  /** Alerts this phone said "Got it" to, until HandsFreeOS's row catches up. */
+  readonly acknowledged?: ReadonlySet<string>;
 }
 
 export interface HomeList extends Omit<Overlaid, 'rows'> {
@@ -205,6 +215,16 @@ export function buildHome(o: HomeInput): HomeList {
   const view = attentionListView(rows, { me: o.userId, role: o.role, now: o.now, scope: o.scope });
   const shown = [...view.ranked, ...view.handled];
   const hints = itemHintsOf(shown, hintFactsOfSynced(o.hintRows, o.now));
+  // An add-on's alert (round six): its add-on, where it opens and whether it still asks for a "Got it".
+  for (const r of shown) {
+    if (r.kind !== 'addon_alert') continue;
+    const addonAlert = addonAlertOfSynced(r, o.permissions ?? null, {
+      server: o.addonAlerts?.get(r.id) ?? null,
+      acknowledgedHere: o.acknowledged?.has(r.subjectId) ?? false,
+      now: o.now,
+    });
+    if (addonAlert) hints.set(r.id, { ...(hints.get(r.id) ?? NO_HINTS), addonAlert });
+  }
   const list = attentionListOut(view, {
     viewer,
     names: namesOfSynced(o.users),

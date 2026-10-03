@@ -7,6 +7,7 @@ import {
   PENDING_REPLY_WORDS,
   PHOTO_CHOICE_WORDS,
   photosSavedLine,
+  portalReplyLine,
   sendLabel,
   textFromLine,
   THREAD_WORDS,
@@ -46,7 +47,8 @@ import { useColors } from '@/theme';
 
 import { newRichDraft, RichEditor } from './rich-editor';
 
-export type ComposerMode = 'sms' | 'email' | 'chat';
+/** A website chat's and a client portal's replies stay where they were written: no switch, no photos. */
+export type ComposerMode = 'sms' | 'email' | 'chat' | 'portal';
 
 /** Over the box while a reply waiting on the phone is reopened from Still send? or the quiet-hours question. */
 export const EDITING = 'Editing what you wrote. Send puts it back in line.';
@@ -106,7 +108,9 @@ function NoteBox({ note }: { note: ComposerNote }) {
 /**
  * The composer, as the Inbox canvas draws it: Text or Email (each keeps its own thread, as on the web), the From line,
  * photos on a tray ("Photos you send are saved to Mike’s files too."), the box and Send. With no signal it says texts go
- * on their own within 30 minutes; when sending takes the conversation from the AI teammate, it says so first.
+ * on their own within 30 minutes; when sending takes the conversation from the AI teammate, it says so first. In a
+ * client's portal thread (board 92) the box says "Reply in Ann’s portal…" and, under it, that the reply goes back to
+ * the portal and not by text.
  */
 export function Composer({
   userId,
@@ -149,7 +153,7 @@ export function Composer({
 }: {
   userId: string;
   mode: ComposerMode;
-  /** The switch's two choices, or null in a website chat (no switch). */
+  /** The switch's two choices, or null in a website chat or a client's portal (no switch). */
   modes: readonly ('sms' | 'email')[] | null;
   onMode: (mode: 'sms' | 'email') => void;
   body: string;
@@ -160,7 +164,7 @@ export function Composer({
   photos: readonly TrayPhoto[];
   onAddPhoto: (source: 'camera' | 'library') => void;
   onRemovePhoto: (photo: TrayPhoto) => void;
-  /** Photos go to the customer's files, so they need a customer; a website chat takes none. */
+  /** Photos go to the customer's files, so they need a customer; a website chat or a portal reply takes none. */
   canPhoto: boolean;
   note: ComposerNote | null;
   off: boolean;
@@ -431,6 +435,11 @@ export function Composer({
           <Icon as={Send} className="size-[18px] text-white" />
         </Pressable>
       </View>
+      {mode === 'portal' && !off ? (
+        <Text className="px-1 text-xs leading-[17px] text-text-3" testID="composer-portal">
+          {portalReplyLine(first)}
+        </Text>
+      ) : null}
       <Sheet
         open={choosing}
         onClose={() => setChoosing(false)}

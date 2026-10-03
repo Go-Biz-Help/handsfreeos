@@ -161,7 +161,7 @@ export interface ItemHints {
   readonly reach: 'sms' | 'email' | 'chat' | 'portal' | null;
   /** There's a number to ring and the business is open: a money card offers the call first. */
   readonly callable: boolean;
-  /** An add-on's alert (server only: the phone keeps no add-on cards). */
+  /** An add-on's alert: from its row on the server, and on a phone from its card (`addonAlertOfSynced`). */
   readonly addonAlert: AttentionItemOut['addonAlert'];
 }
 export const NO_HINTS: ItemHints = {

@@ -1078,6 +1078,8 @@ export const ATTENTION_WORDS = {
   asksAtToast: (first: string, at: string) => `HandsFreeOS asks ${first} to confirm at ${at}.`,
   /** An add-on's alert that waits for someone to say they've seen it. */
   acknowledge: 'Acknowledge',
+  /** The same, on the phone's card beside its Open button (board 92). */
+  gotIt: 'Got it',
   acknowledgedToast: 'Acknowledged. Everyone who sees it knows you’ve seen it.',
   noPhoneToast: (first: string) => `There’s no phone number for ${first}.`,
   workingOut: 'Working out what HandsFreeOS would do…',

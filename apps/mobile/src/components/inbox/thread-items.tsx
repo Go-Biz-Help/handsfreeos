@@ -302,7 +302,11 @@ export function MessageBubble({
               )}
               {sender.ai ? <Text className="text-xs text-text-3">{`· ${time}`}</Text> : null}
               <TransportTag transport={item.transport} />
-              <Delivery status={item.status} chat={item.channel === 'chat'} readAt={item.readAt} />
+              <Delivery
+                status={item.status}
+                chat={item.channel === 'chat' || item.channel === 'portal'}
+                readAt={item.readAt}
+              />
             </>
           ) : (
             <>
