@@ -2037,3 +2037,99 @@ for Chris to approve the boards; the server steps go ahead meanwhile.
 - Writing to the MLS (the spec allows it only where the MLS supports it and policy says so).
 - Analytics and a brokerage template marketplace.
 - Clients searching the feed themselves (a VOW).
+
+# Round six: The phone and the finish
+
+The last round. The spec's §23 has five releases; this round finishes what the earlier ones left for it: the phone's
+own deal screens (round one coded every link "as if they exist": the manifest's `ui.phone`, and
+`apps/mobile/src/links/addon-screens.ts`, empty until now), deal appointments and portal threads back on the phone,
+the spec's field items (B-07: facts, questions, notes, check-in and transcription at a showing; X-24: the walkthrough
+checklist; X-41: showing safety), and §18, §21 and §26: brokerage-set retention, legal holds, and a complete
+transaction export with a manifest a computer can read.
+
+What the phone had: no Real Estate screen; a sync (`apps/sync/sync-config.yaml`) with no custom records, no
+`addon_realestate` tables, no sealed rows, no add-on Home cards and no portal threads; and a queue of changes that knew
+no Real Estate command (add-on commands already answer at `/v1/commands/<name>`, so the queue only needs to know them).
+
+## Decisions (Chris, 2026-10-03)
+
+| Question                  | Answer                                                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which pages on the phone  | **Every page** in `ui.phone` (about 30), drawn by the phone itself. Deal settings stays on the web.                                                               |
+| With no signal            | **Fully offline.** Deals and their parts read with no signal; field changes wait on the phone and send later.                                                     |
+| People who see every deal | **Their own deals in full; every other deal as its summary, duties and dates.** The rest loads with signal.                                                       |
+| Documents                 | **Open with signal.** Names, versions, who signed and what's locked are on the phone; the files stay at HandsFreeOS. Photos taken offline upload later.           |
+| Showing safety            | **Check-in with alerts**, built in **core** for everyone (a technician alone in a customer's home needs it too), with Real Estate first.                          |
+| An outside safety contact | **Text and email**, from the business's number, never through the shared Inbox, after the contact agrees once by text; STOP is honored.                           |
+| Keeping records           | **Keep-for and legal hold.** "Keep closed deals at least N years" (default 7) stops anyone deleting the add-on's data before then; nothing is deleted on its own. |
+
+Chosen for Chris, open to change:
+
+- Real Estate's alerts come to the phone's Home, for the people who see that deal.
+- Owners and admins place and lift legal holds (a new core permission, customizable); lifting needs a reason, kept.
+  A hold also stops anyone deleting the business.
+- Exporting a transaction is a new permission, owners and admins by default.
+- An open deal is always kept; an ended one until its end date plus the years set.
+- A phone keeps open deals and those ended in the last 90 days.
+
+## How it works
+
+- **An add-on's data reaches the phone without core naming the add-on.** The add-on declares in its manifest which of
+  its tables and columns the phone keeps (`offline`), and a core function installs triggers that copy just those
+  columns into one core table (`app.addon_phone_rows`). One new sync stream (`records_v1`, beside `business_v1`)
+  sends those rows, the add-on's records and the sealed rows that hang on them (tasks, files, appointments, portal
+  threads, Home cards) to the people who may see them. Who may see what is kept by triggers as keys and viewer lists,
+  because a stream can't ask row security; turning the add-on off takes the keys away, so its rows leave every phone
+  without anything being deleted. Changing what the phone keeps later is a migration, not a sync change.
+- **Changes with no signal.** Field commands (duty proof and done, notes, photos, tours and feedback, inspections,
+  findings, financing steps, contingencies, the walkthrough, check-ins) wait on the phone with an id made there and
+  the time they were made. Those that reach a client or another agent ask again after 30 minutes, as texts do. The
+  AI, connectors, exceptions, closing a deal, export and holds need signal, and the phone says so before anyone tries.
+- **One copy of what each page shows.** Before each group of phone screens, the shaping inside the server's queries
+  moves into core view functions that both the server and the phone run, with a test that their answers agree.
+- **Showing safety, in core.** A person checks in with a planned end and their own trusted contacts. At the end the
+  phone asks "Still there?" (I'm OK, +15 min); ten minutes later each contact gets the place, the planned end, where
+  the phone was and how to call: a teammate by an alert to them alone, someone outside by text and email with a page
+  that stops the alerts. Only the person and their contacts ever see the place. Help with no signal uses the phone's
+  own call and texting apps; HandsFreeOS never calls 911.
+- **Holds, in core.** Any add-on's record can be held: a legal hold freezes its files and history; a retention hold
+  keeps it until a date. Core refuses to delete an add-on's data while it holds any, and says how many, until when,
+  and who can lift a hold.
+- **Export.** The worker builds one zip for a deal: every document and version with its fingerprint checked, the
+  deal, terms, duties and their proof, approvals with who and why, contingencies, offers, inspections, financing,
+  showings, vendors, messages, history and audit, and `manifest.json`. It's kept on the deal's Documents.
+
+## Build order (round six)
+
+Round six's migrations follow round five's, from `20261022000100`. The sync change can't reach `main` before rounds
+two to six's migrations are on the hosted database (Chris's OK). Phone screens wait for Chris to approve the boards;
+the server steps go ahead meanwhile.
+
+- **Step 0:** this part, and boards 76–93 in `design/realestate`, in the phone app's own look.
+- **Step 1:** a check that PowerSync 1.26.1 filters a key lookup together with a viewer list, and how many buckets an
+  owner with 300 deals takes.
+- **Step 2 (core):** keys and seal columns kept by triggers, the team cascade, Home cards' viewers.
+- **Step 3 (core):** `app.addon_phone_rows`, the manifest's `offline`, purging and verifying, the phone's contract.
+- **Step 4 (core):** record holds, and deleting an add-on's data refused while it holds any.
+- **Step 5 (core):** check-ins: contacts, check-ins and their commands.
+- **Step 6 (sync):** the one batched change: `records_v1`, its tests and scenarios, and the phone subscribing to it.
+- **Step 7:** Real Estate's offline tables, the window, retention holds, field notes, the walkthrough's tables,
+  exports, and each command's offline class.
+- **Step 8 (core worker):** a stored recording turned into words, for field notes.
+- **Step 9:** the walkthrough's list, from the contract, repairs, findings and condition photos (X-24).
+- **Step 10:** the transaction export.
+- **Step 11 (core):** the safety ladder, the push with its buttons, texting a contact, the contact's page, Settings →
+  Safety.
+- **Step 12 (phone):** Real Estate in More, the gate, Needs signal, portal threads with a reply that goes back to the
+  portal, a deal's appointments, Home cards, safety screens (a store build: new location and microphone wording).
+- **Steps 13–18 (phone screens):** deals, duties, Coordinate and vendors; a deal and its duty, dates, contingencies,
+  contract, documents, history and client update; the buyer's pages; financing, inspections, the client's to-do and
+  the walkthrough; the listing's pages and showings; safety, holds and export on both apps.
+- **Step 19:** a phone flow (Maestro), the browser test for the web parts, the docs and a video.
+
+## Not in round six
+
+- Location in the background (only at check-in and Help).
+- Smart lockboxes.
+- Keeping documents on the phone.
+- The AI teammate using add-on tools.

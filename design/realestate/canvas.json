@@ -599,6 +599,150 @@
       "y": 18200,
       "w": 1280,
       "h": 900
+    },
+    {
+      "file": "PhoneDeals.dc.html",
+      "title": "76 \u00b7 Phone: Real Estate in More, Deals, every deal offline, filters",
+      "x": 0,
+      "y": 20344,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDuties.dc.html",
+      "title": "77 \u00b7 Phone: My duties and Coordinate (today, exceptions, workload)",
+      "x": 1858,
+      "y": 20344,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDeal.dc.html",
+      "title": "78 \u00b7 Phone: a buyer deal, a listing deal and the deal\u2019s More",
+      "x": 0,
+      "y": 21584,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDuty.dc.html",
+      "title": "79 \u00b7 Phone: a duty\u2019s proof, done with no signal, what needs signal, back online",
+      "x": 1858,
+      "y": 21584,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDates.dc.html",
+      "title": "80 \u00b7 Phone: key dates, contingencies, resolving one, the contract as read",
+      "x": 0,
+      "y": 22824,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDocuments.dc.html",
+      "title": "81 \u00b7 Phone: documents, one with no signal, history, a client update",
+      "x": 1858,
+      "y": 22824,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneHomes.dc.html",
+      "title": "82 \u00b7 Phone: what they want, homes, a home from the MLS, new matches",
+      "x": 0,
+      "y": 24064,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneTours.dc.html",
+      "title": "83 \u00b7 Phone: a tour, at a stop (B-07), a voice note, after the tour",
+      "x": 1858,
+      "y": 24064,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneOffers.dc.html",
+      "title": "84 \u00b7 Phone: offers, an offer, its one-page summary, the CMA",
+      "x": 0,
+      "y": 25304,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneFinancing.dc.html",
+      "title": "85 \u00b7 Phone: financing, inspections, adding a finding, the client\u2019s to-do",
+      "x": 1858,
+      "y": 25304,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneWalkthrough.dc.html",
+      "title": "86 \u00b7 Phone: the final walkthrough (X-24), from the list to its proof",
+      "x": 0,
+      "y": 26544,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneListing.dc.html",
+      "title": "87 \u00b7 Phone: the listing\u2019s facts, photos, description and what the MLS said",
+      "x": 1858,
+      "y": 26544,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneMarketing.dc.html",
+      "title": "88 \u00b7 Phone: price, marketing, hosting an open house, the net sheet",
+      "x": 0,
+      "y": 27784,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneShowings.dc.html",
+      "title": "89 \u00b7 Phone: showings, a request, the vendors, picking one on a duty",
+      "x": 1858,
+      "y": 27784,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneSafety.dc.html",
+      "title": "90 \u00b7 Phone: checking in, checked in, \u201cStill there?\u201d, help with no signal",
+      "x": 0,
+      "y": 29024,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneSafetyContact.dc.html",
+      "title": "91 \u00b7 Safety: the contact\u2019s texts and page, a teammate\u2019s alert, My safety",
+      "x": 1858,
+      "y": 29024,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneInbox.dc.html",
+      "title": "92 \u00b7 Phone: portal threads, the Reply that knows, a deal\u2019s appointments, Home cards",
+      "x": 0,
+      "y": 30264,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneRecords.dc.html",
+      "title": "93 \u00b7 Legal hold, export and keeping records, on the phone and the web",
+      "x": 1858,
+      "y": 30264,
+      "w": 2234,
+      "h": 1040
     }
   ]
 }
