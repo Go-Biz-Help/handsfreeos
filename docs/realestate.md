@@ -117,6 +117,26 @@ The core pieces it needed are core's, usable by any add-on: private records and 
 - **Round five: vendors.** **Vendors** (`/a/realestate/vendors`) in Real Estate's menu: add, approve (owners and
   admins), archive. A duty that needs one ("Recommend inspectors and vendors") offers every approved vendor that fits
   in its drawer, to pick, with the quote kept.
+- **Round six: the phone.** Real Estate's places sit at the top of More (Deals, My duties, Coordinate, Vendors; Deal
+  settings stays on the web), and its pages are the phone's own at the web's addresses (`ui.phone`, listed in
+  `apps/mobile/src/links/addon-screens.ts`): Deals with Mine and Every deal, My duties, Coordinate, Vendors, a deal
+  and its More (client update, next stage, export, legal hold), a duty and its proof, dates, contingencies, the
+  contract as read, documents, history, a client update, the buyer's pages (what they want, homes, matches, tours
+  with a stop's notes, voice notes and check-in, the CMA, offers), financing, inspections (findings with photos), the
+  client's to-do, the walkthrough (`…/walkthrough`, the phone's alone), and the listing's pages (facts, photos,
+  description, price, marketing, open houses with a visitor signing in on the host's phone, the net sheet, showings).
+  They read the phone's copy through core's views (`views/`), so they work with no signal; a deal someone sees only as
+  whoever sees every deal keeps its summary, duties and dates, and the rest loads with signal. What's done in the
+  field waits on the phone (each command's `offline`), and anything that reaches a client or another agent asks
+  "Still send?" after 30 minutes. How they're built: `apps/mobile/src/addons/realestate/README.md`.
+- **Round six: the web.** Deal settings → **Keeping records** (`?tab=records`: years closed deals are kept, and legal
+  holds lifted with a reason); a deal's More → **Place a legal hold…** and its banner, and **Export the whole
+  transaction…** with **Exports** on Documents; the deal page's **field notes** and **walkthrough**, read-only.
+- **Showing safety** (core): Check in from an appointment, a showing, a tour stop or an open house, with a planned
+  end and who's told; the banner on every phone screen while checked in (Check out, +15 min, Help); Help with no
+  signal uses the phone's own calling and texting; More → Settings → **My safety** for each person's contacts.
+  Settings → **Safety** on the web for the business's times and safety person; the teammate's alert page
+  (`/app/w/<business>/safety/<check-in>`) and the contact's signed-out page (`/s/<token>`).
 
 ## Rules worth knowing before changing anything
 
@@ -327,12 +347,10 @@ pnpm openapi                                                        # after chan
 - Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors; booking a vendor's
   appointment from the duty (it's booked on the calendar, and linked there); reports on competing listings.
 - A showing's access by smart lockbox; ShowingTime's own API (its emails are read instead).
-- Phone screens for deals, Coordinate, round five and round six's field work (boards 76–93 wait for Chris's OK). The
-  server is ready for them: what phones keep (`records_v1`), the offline commands, check-ins, field notes, the
-  walkthrough and the export. The manifest's `ui.phone` names the deal pages the phone will draw, and a push, an
-  email link or a Home card opens them there once the phone has them (the web until then).
-- The web's screens for round six: legal holds and Keeping records in Deal settings, Settings → Safety, the export
-  button and its list on Documents, and the page a safety contact's link opens (its words and routes are built).
+- On the phone: a listing's "Today" showings and offers on its deal page, Coordinate's "Nudge the buyers" and the
+  proof it waived, reassigning a duty from Workload, a walkthrough's summary sent to the other side, a vendor's
+  quote photo, and moving a deal's stage with no signal (it needs signal: a late move could undo a termination
+  recorded meanwhile).
 - The AI teammate using the add-on, and workflow steps and triggers from it.
 - State rules, and a brokerage rule engine beyond the duty editor.
 - Prices.

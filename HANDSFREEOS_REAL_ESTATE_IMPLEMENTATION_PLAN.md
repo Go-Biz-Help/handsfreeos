@@ -2182,6 +2182,26 @@ fair housing saying it checks with signal (boards 81, 87, 88) and an outside con
   the add-on (20261022001200); records_v1 sends it to them alone. **The boards say fair housing checks with signal**
   (boards 81, 87 and 88), since the checks stay off phones.
 
+**Steps 12–18, as built** (boards approved 2026-10-03):
+
+- The phone: Real Estate in More behind a gate (`realestate.use`, held only while it runs), and every page the
+  manifest names (`ui.phone`, plus the walkthrough at `deals/:dealId/walkthrough`, the phone's alone) at the web's
+  addresses inside More; each reads the phone's copy through core's views, held to the server by
+  `realestate-phone-*.test.ts`. 35 more commands may wait on the phone (29 any time, 6 that reach a client or
+  another agent fresh for 30 minutes), each counting from when it was done there and keeping the phone's id.
+- Portal threads in the Inbox with a reply that goes back to the portal; a deal's private appointments marked in the
+  calendar (records_v1's `appointment_records`); Real Estate's Home cards with Open and Got it.
+- Showing safety on both apps: check-in, the banner, Help with no signal, My safety, the reminder the phone sets for
+  itself (with the business's times), Settings → Safety, the teammate's alert page and the contact's page.
+- The web: Keeping records and legal holds, the export and its list, field notes and the walkthrough read-only.
+- Added for the boards: a visitor signs in at an open house on the host's phone (`realestate.open_house.sign_in`,
+  sharing the public sign-in's logic; it doesn't ask that the listing be live on the MLS), photos on inspection
+  findings (20261022001300), and a client update sent right behind its edit retries while its check runs.
+- Kept from the boards' drawing, for the data or the rules: contingency endings are satisfied, waived or expired (the
+  command's own); moving a deal's stage needs signal (a late move could undo a termination recorded meanwhile);
+  adding or answering a showing waits and asks after 30 minutes (it reaches the buyer's agent); a Home card's label
+  and button are core's ("Real Estate Agent", "Open").
+
 ## Not in round six
 
 - Location in the background (only at check-in and Help).
