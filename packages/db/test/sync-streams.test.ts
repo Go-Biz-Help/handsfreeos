@@ -204,6 +204,10 @@ begin
     values (ws, 'addon_alert', 'addon_alert', alert, 'For everyone', 'a:' || alert);
   insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)
     values (ws, 'overdue_task', 'task', task, 'Order the appraisal', 't:' || task);
+  -- The owner's own check-in at the home, and their safety contact.
+  insert into app.safety_contacts (workspace_id, user_id, name, phone_e164) values (ws, owner, 'Sam Reyes', '+15125550199');
+  insert into app.safety_checkins (id, workspace_id, user_id, place, started_at, planned_end_at)
+    values (gen_random_uuid(), ws, owner, '418 Maple Ave', now(), now() + interval '45 minutes');
 end
 $phone$`;
 

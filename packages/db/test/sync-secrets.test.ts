@@ -30,6 +30,9 @@ const PUBLISHED = [
   // Their links (20261022000700).
   'relationship_types',
   'relationships',
+  // A person's own check-ins and safety contacts (20261022001000).
+  'safety_checkins',
+  'safety_contacts',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',

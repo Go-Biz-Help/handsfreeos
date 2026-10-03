@@ -199,6 +199,7 @@ streams:
     with:
       addon_use: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'use'
       addon_all: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'all'
+      access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')
     queries:
       # The add-on's kinds of records, and its records: shared ones to everyone with its key, private ones to their
       # people and to whoever sees every one of their kind.
@@ -226,6 +227,10 @@ streams:
       - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND sync_window = true
       - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, archived_at, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at, folder, private_to FROM app.conversations WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sealed = true AND private_to IS NULL
       - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, transport, read_at, rich, button_reply, failed_attempt, created_at, updated_at FROM app.messages WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND private_to IS NULL AND sync_window = true
+      # The person's own check-ins and safety contacts here (core): the banner, +15 min and check-out work with no
+      # signal. Theirs alone, in a business they can open.
+      - SELECT id, workspace_id, user_id, appointment_id, place, latitude, longitude, located_at, started_at, planned_end_at, extended_count, state, asked_at, alerted_at, resolved_at, resolved_by, resolved_via, alert_round, last_alerted_at, checked_out_at, created_at, updated_at FROM app.safety_checkins WHERE workspace_id IN access AND user_id = auth.user_id()
+      - SELECT id, workspace_id, user_id, contact_user_id, name, phone_e164, email, asked_at, agreed_at, stopped_at, position, created_at, updated_at FROM app.safety_contacts WHERE workspace_id IN access AND user_id = auth.user_id()
       # Home cards: an add-on's for everyone holding its permission, and the rest (an audience, a private record)
       # to exactly whom they're for.
       - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE seal_scope IN addon_use AND seal_open = true AND state != 'resolved'

@@ -919,6 +919,51 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  safety_checkins: new Table(
+    {
+      workspace_id: column.text,
+      user_id: column.text,
+      appointment_id: column.text,
+      place: column.text,
+      latitude: column.text,
+      longitude: column.text,
+      located_at: column.text,
+      started_at: column.text,
+      planned_end_at: column.text,
+      extended_count: column.integer,
+      state: column.text,
+      asked_at: column.text,
+      alerted_at: column.text,
+      resolved_at: column.text,
+      resolved_by: column.text,
+      resolved_via: column.text,
+      alert_round: column.integer,
+      last_alerted_at: column.text,
+      checked_out_at: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  safety_contacts: new Table(
+    {
+      workspace_id: column.text,
+      user_id: column.text,
+      contact_user_id: column.text,
+      name: column.text,
+      phone_e164: column.text,
+      email: column.text,
+      asked_at: column.text,
+      agreed_at: column.text,
+      stopped_at: column.text,
+      position: column.integer,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   schedule_exceptions: new Table(
     {
@@ -2498,6 +2543,76 @@ export interface RelationshipsRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `safety_checkins` (records_v1). */
+export interface SafetyCheckinsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly appointment_id: string | null;
+  readonly place: string | null;
+  /** numeric */
+  readonly latitude: string | null;
+  /** numeric */
+  readonly longitude: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly located_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly started_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly planned_end_at: string | null;
+  /** integer */
+  readonly extended_count: number | null;
+  readonly state: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly asked_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly alerted_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly resolved_at: string | null;
+  /** uuid */
+  readonly resolved_by: string | null;
+  readonly resolved_via: string | null;
+  /** integer */
+  readonly alert_round: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly last_alerted_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly checked_out_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `safety_contacts` (records_v1). */
+export interface SafetyContactsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly contact_user_id: string | null;
+  readonly name: string | null;
+  readonly phone_e164: string | null;
+  readonly email: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly asked_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly agreed_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly stopped_at: string | null;
+  /** integer */
+  readonly position: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `schedule_exceptions` (business_v1). */
 export interface ScheduleExceptionsRow {
   readonly id: string;
@@ -2836,6 +2951,8 @@ export interface SyncedRows {
   refunds: RefundsRow;
   relationship_types: RelationshipTypesRow;
   relationships: RelationshipsRow;
+  safety_checkins: SafetyCheckinsRow;
+  safety_contacts: SafetyContactsRow;
   schedule_exceptions: ScheduleExceptionsRow;
   schedules: SchedulesRow;
   service_staff: ServiceStaffRow;

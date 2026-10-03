@@ -7546,6 +7546,49 @@
         "updated_at": "timestamp with time zone"
       }
     },
+    "records_v1.safety_checkins": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "appointment_id": "uuid",
+        "place": "text",
+        "latitude": "numeric",
+        "longitude": "numeric",
+        "located_at": "timestamp with time zone",
+        "started_at": "timestamp with time zone",
+        "planned_end_at": "timestamp with time zone",
+        "extended_count": "integer",
+        "state": "text",
+        "asked_at": "timestamp with time zone",
+        "alerted_at": "timestamp with time zone",
+        "resolved_at": "timestamp with time zone",
+        "resolved_by": "uuid",
+        "resolved_via": "text",
+        "alert_round": "integer",
+        "last_alerted_at": "timestamp with time zone",
+        "checked_out_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.safety_contacts": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "contact_user_id": "uuid",
+        "name": "text",
+        "phone_e164": "text",
+        "email": "text",
+        "asked_at": "timestamp with time zone",
+        "agreed_at": "timestamp with time zone",
+        "stopped_at": "timestamp with time zone",
+        "position": "integer",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "records_v1.tasks": {
       "columns": {
         "id": "uuid",
