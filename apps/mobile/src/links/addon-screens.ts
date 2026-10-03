@@ -8,8 +8,39 @@
  */
 export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   // Real Estate: Deals, My duties, Coordinate, Vendors (board 76–77).
+  'a/realestate',
+  'a/realestate/duties',
+  'a/realestate/coordinate',
+  'a/realestate/vendors',
   // Real Estate: a deal, its duty, dates, contingencies, contract, documents, history, client update (78–81).
+  'a/realestate/deals/:dealId',
+  'a/realestate/deals/:dealId/dates',
+  'a/realestate/deals/:dealId/contingencies',
+  'a/realestate/deals/:dealId/contract/:readId',
+  'a/realestate/deals/:dealId/documents',
+  'a/realestate/deals/:dealId/history',
+  'a/realestate/deals/:dealId/updates/:draftId',
   // Real Estate: the buyer's pages (82–84).
+  'a/realestate/deals/:dealId/buyer',
+  'a/realestate/deals/:dealId/homes',
+  'a/realestate/deals/:dealId/matches',
+  'a/realestate/deals/:dealId/tours',
+  'a/realestate/deals/:dealId/cma/:cmaId',
+  'a/realestate/deals/:dealId/offers',
+  'a/realestate/deals/:dealId/offers/:offerId',
+  'a/realestate/deals/:dealId/offers/:offerId/summary',
   // Real Estate: financing, inspections, the client's to-do, the walkthrough (85–86).
+  'a/realestate/deals/:dealId/financing',
+  'a/realestate/deals/:dealId/inspections',
+  'a/realestate/deals/:dealId/client-tasks',
+  'a/realestate/deals/:dealId/walkthrough',
   // Real Estate: the listing's pages and showings (87–89).
+  'a/realestate/deals/:dealId/facts',
+  'a/realestate/deals/:dealId/photos',
+  'a/realestate/deals/:dealId/description',
+  'a/realestate/deals/:dealId/price',
+  'a/realestate/deals/:dealId/marketing',
+  'a/realestate/deals/:dealId/open-houses',
+  'a/realestate/deals/:dealId/net-sheet',
+  'a/realestate/deals/:dealId/showings',
 ]);

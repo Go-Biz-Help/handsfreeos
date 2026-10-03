@@ -20,6 +20,7 @@ import {
   inspectionsOfCopy,
   type MessageLookup,
 } from '../../src/addons/realestate/views/closing';
+import { contractReadOfCopy } from '../../src/addons/realestate/views/contract-read';
 import { fieldNotesOfCopy, walkthroughOfCopy } from '../../src/addons/realestate/views/field';
 import {
   executeCommand,
@@ -327,6 +328,11 @@ beforeAll(async () => {
       estimateCents: 140_000,
       clientPriority: 'must_fix',
       ask: 'replace',
+      // Photographed at the inspection (board 85).
+      photoFileIds: [
+        await fileOn(nguyen, 'water-heater.jpg', 'image/jpeg'),
+        await fileOn(nguyen, 'water-heater-label.jpg', 'image/jpeg'),
+      ],
     },
     {
       title: 'Roof flashing loose',
@@ -588,6 +594,8 @@ describe('inspections on the phone', () => {
       ['Termite', 'canceled', 1],
     ]);
     expect(view.inspections[0]!.reportDocument!.title).toBe('General inspection.pdf');
+    // The water heater's two photos come with it.
+    expect(view.inspections[0]!.findings.map((f) => f.photoFileIds.length)).toEqual([2, 0, 0]);
     expect(view.repairs.map((r) => [r.side, r.outcome, r.items.length])).toEqual([
       ['us', null, 2],
       ['them', 'agreed', 0],
@@ -704,6 +712,46 @@ describe('contract readings on the phone', () => {
       ],
     );
     expect(reads[1]!.scan).toBe(true);
+  });
+
+  it('answer one reading as the server does: each value with its page, and what a person must look at', async () => {
+    const { reads } = await ask('realestate.contract.reads', { dealId: nguyen }, agent);
+    for (const r of reads as { readId: string }[]) {
+      const {
+        values,
+        moves: _m,
+        problems: _p,
+        newerReadId: _n,
+        ...server
+      } = await ask('realestate.contract.read', { readId: r.readId }, agent);
+      const { fileName, version, ...phone } = contractReadOfCopy(
+        await phoneCopy(agent, ws),
+        nguyen,
+        r.readId,
+        { userId: agent.id },
+      )!;
+      expect(phone).toEqual({
+        ...server,
+        values: values.map(({ now: _now, nowFrom: _from, same: _same, ...v }: Any) => v),
+      });
+      expect(fileName).toMatch(/\.pdf$/);
+      expect(version).toBe(1);
+    }
+    const read = contractReadOfCopy(await phoneCopy(agent, ws), nguyen, reads[1].readId, {
+      userId: agent.id,
+    })!;
+    expect(read.values.map((v) => [v.label, v.state, v.page, v.clause])).toEqual([
+      ['Purchase price', 'confirmed', 1, '§3C'],
+      ['Closing', 'waiting', 5, '§9A'],
+      ['Inspection period ends', 'waiting', 2, '§5B'],
+    ]);
+    expect(read.unclear.map((u) => u.what)).toEqual(['Survey: within a reasonable time']);
+    // Not on the deal: the owner's phone keeps no readings of it.
+    expect(
+      contractReadOfCopy(await phoneCopy(owner, ws), nguyen, reads[1].readId, {
+        userId: owner.id,
+      }),
+    ).toBeNull();
   });
 });
 

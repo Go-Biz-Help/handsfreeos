@@ -13,6 +13,7 @@ import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realest
 import { realestateAddon } from '../../src/addons/realestate/manifest';
 import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
+import { HfosError } from '../../src/errors';
 import {
   executeCommand,
   executeQuery,
@@ -226,6 +227,70 @@ describe('A client update', () => {
       ]),
     );
     expect(checks.acknowledged.reason).toBe('Priya asked for homes in that district herself.');
+  });
+
+  it('edited and sent with no signal, waits on the phone for its check instead of failing (board 81)', async () => {
+    const asked = await run(agent, 'realestate.status_email.request', { dealId: deal });
+    const subject = 'Your inspection is booked';
+    await asAddon('realestate.status_email.drafted', {
+      draftId: asked.draftId,
+      subject,
+      body: 'Hi Priya, the inspection is Tuesday at 10. Sam',
+      model: 'scripted',
+      checks: [
+        { source: 'words', version: FAIR_HOUSING_WORDS_VERSION, status: 'passed', flags: [] },
+        { source: 'model', version: 'scripted', status: 'passed', flags: [] },
+      ],
+    });
+    // On the phone with no signal: the edit, then the send right behind it, made ten minutes ago.
+    const body = 'Hi Priya, the inspection is Tuesday at 10. I’ll meet you there. Sam';
+    const madeAt = new Date(Date.now() - 10 * 60_000);
+    const fromPhone = (commandId: string) => ({
+      correlationId: randomUUID(),
+      channel: 'mobile' as const,
+      commandId,
+      occurredAt: madeAt,
+      sentAt: new Date(),
+      appVersion: '1.0.0',
+    });
+    const phone = (name: string, input: Record<string, unknown>, commandId = randomUUID()) =>
+      executeCommand(
+        api(),
+        op(name) as CommandDef,
+        { workspaceId: ws, ...input },
+        human(agent),
+        fromPhone(commandId),
+      ).then((r) => r.output as Any);
+    await phone('realestate.status_email.save', { draftId: asked.draftId, subject, body });
+    const send = randomUUID();
+    // Its check is still running: nothing wrong with it, so the phone keeps it and tries again.
+    const waiting = await phone('realestate.status_email.send', { draftId: asked.draftId }, send)
+      .then(() => null)
+      .catch((e: HfosError) => e);
+    expect(waiting).toBeInstanceOf(HfosError);
+    expect({ rule: waiting!.rule, disposition: waiting!.disposition }).toEqual({
+      rule: 'realestate_check_running',
+      disposition: 'retry',
+    });
+    expect(waiting!.message).toBe(
+      'The fair-housing check on this update is still running. It goes once the check is done.',
+    );
+    // On the web, the words say to send it again.
+    expect(
+      (await refused(run(agent, 'realestate.status_email.send', { draftId: asked.draftId })))
+        .message,
+    ).toContain('Send it again in a moment');
+    // The check passes; the same send, tried again, goes (its refusal wasn't kept as its answer).
+    await asAddon('realestate.status_email.checked', {
+      draftId: asked.draftId,
+      textHash: textHashOf(subject, body),
+      version: 'scripted',
+      status: 'passed',
+      flags: [],
+    });
+    expect(
+      await phone('realestate.status_email.send', { draftId: asked.draftId }, send),
+    ).toMatchObject({ draftId: asked.draftId, status: 'sent' });
   });
 
   it('comes once per milestone, and can be thrown away', async () => {

@@ -1,6 +1,7 @@
 /**
  * Someone who leaves their details on one of the business's own pages, signed in to nothing: a form, or an add-on's
- * public page (Real Estate round three: "Ask about this home", an open house's sign-in). Found or made as a customer
+ * public page (Real Estate round three: "Ask about this home", an open house's sign-in), or the same sign-in on a
+ * teammate's phone handed to them (round six). Found or made as a customer
  * the way a form's answers are, a lead opened where Settings → Lead intake says, and their yes to texts kept with
  * where it came from, unless they told the business to stop before.
  */
@@ -67,7 +68,17 @@ export async function signUpFromPage(
         }),
       );
       leadId = created.leadId;
-      await takeIntakeSlot(ctx.tx, ws, intake, await workspaceZone(ctx.tx, ws), new Date(), false);
+      // The day's count is the worker's (0072): it measures what arrives on its own, and a visitor signing in on
+      // a teammate's phone handed to them (Real Estate's open house, round six) is not that, as form_response.record.
+      if (ctx.actor.type !== 'human')
+        await takeIntakeSlot(
+          ctx.tx,
+          ws,
+          intake,
+          await workspaceZone(ctx.tx, ws),
+          new Date(),
+          false,
+        );
     }
   }
   if (s.smsConsent) await recordSmsConsent(ctx.tx, found.personId, s.source);

@@ -11,8 +11,7 @@
  *   closing for each thing that isn't right, and the agent's word that the walkthrough is done counts for X-24.
  */
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, inArray, isNull, lt, max, ne, sql as dsql } from 'drizzle-orm';
-import { files } from '@hfos/db/schema';
+import { and, asc, desc, eq, lt, max, ne, sql as dsql } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
@@ -55,6 +54,7 @@ import {
   idUnavailable,
   inWorkspace,
   loadDeal,
+  requireDealFiles,
   requireNotArchived,
   requireOpen,
   withPhoneId,
@@ -70,33 +70,6 @@ type Item = typeof itemsTable.$inferSelect;
 
 /** The words X-24 asks for. */
 const WALKTHROUGH_DONE = 'The walkthrough is done';
-
-/** The deal's own files, when they're all there; refused when one isn't. */
-async function requireDealFiles(
-  ctx: Ctx,
-  deal: Deal,
-  ids: readonly string[],
-  what: string,
-): Promise<void> {
-  const wanted = [...new Set(ids)];
-  if (!wanted.length) return;
-  const found = await ctx.tx
-    .select({ id: files.id })
-    .from(files)
-    .where(
-      and(
-        inArray(files.id, wanted),
-        eq(files.workspaceId, deal.workspaceId),
-        eq(files.recordType, 'custom_record'),
-        eq(files.recordId, deal.recordId),
-        isNull(files.deletedAt),
-      ),
-    );
-  if (found.length !== wanted.length)
-    throw HfosError.notFound(
-      `That ${what} isn’t on ${deal.name} anymore. Add it to the deal again, then save.`,
-    );
-}
 
 // ---------- field notes ----------
 

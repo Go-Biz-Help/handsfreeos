@@ -1177,6 +1177,8 @@ export const inspectionFindings = addonRealestate.table(
     creditCents: cents('credit_cents'),
     position: integer('position').notNull(),
     note: text('note'),
+    /** Its photos, core files on the deal, taken at the inspection (round six, board 85). */
+    photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

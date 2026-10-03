@@ -783,6 +783,8 @@ export const realestateAddon = defineAddon({
           'credit_cents',
           'position',
           'note',
+          // Its photos (20261022001300).
+          'photo_file_ids',
         ],
       },
       {
@@ -1512,6 +1514,9 @@ export const realestateAddon = defineAddon({
       { path: 'deals/:dealId/financing' },
       { path: 'deals/:dealId/inspections' },
       { path: 'deals/:dealId/client-tasks', query: ['invite'] },
+      // Round six: the final walkthrough, opened from the deal. It's made and checked on the phone; the web shows it on
+      // the deal's page.
+      { path: 'deals/:dealId/walkthrough' },
       // Round three: the listing's side.
       { path: 'deals/:dealId/facts' },
       { path: 'deals/:dealId/photos' },

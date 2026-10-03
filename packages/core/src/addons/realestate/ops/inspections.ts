@@ -48,6 +48,7 @@ import {
   idUnavailable,
   inWorkspace,
   loadDeal,
+  requireDealFiles,
   requireNotArchived,
   requireOpen,
   timeZoneOf,
@@ -373,7 +374,7 @@ export const inspectionCancel = defineAddonCommand(realestateAddon, {
 export const findingAdd = defineAddonCommand(realestateAddon, {
   name: 'realestate.finding.add',
   description:
-    'Add what an inspection found: what and where, how serious, the estimate, the client’s priority and what to ask for.',
+    'Add what an inspection found: what and where, how serious, the estimate, the client’s priority, what to ask for and its photos.',
   risk: 1,
   input: FindingAddInput,
   output: FindingAddOutput,
@@ -408,6 +409,8 @@ export const findingAdd = defineAddonCommand(realestateAddon, {
     const deal = await loadDeal(ctx, i.dealRecordId);
     requireNotArchived(deal);
     requireNotCanceled(i);
+    // Its photos, uploaded from the phone before it.
+    if (input.photoFileIds) await requireDealFiles(ctx, deal, input.photoFileIds, 'photo');
     const [last] = await ctx.tx
       .select({ n: max(inspectionFindings.position) })
       .from(inspectionFindings)
@@ -429,6 +432,7 @@ export const findingAdd = defineAddonCommand(realestateAddon, {
           creditCents: input.creditCents ?? null,
           position: (last?.n ?? 0) + 1,
           note: input.note ?? null,
+          photoFileIds: [...new Set(input.photoFileIds ?? [])],
           createdBy: actorUserId(ctx),
         })
         .returning({ id: inspectionFindings.id }),
@@ -446,7 +450,7 @@ export const findingAdd = defineAddonCommand(realestateAddon, {
 export const findingUpdate = defineAddonCommand(realestateAddon, {
   name: 'realestate.finding.update',
   description:
-    'Change a finding: its words, how serious, the estimate, the client’s priority or what to ask for.',
+    'Change a finding: its words, how serious, the estimate, the client’s priority, what to ask for or its photos.',
   risk: 1,
   input: FindingUpdateInput,
   output: FindingChangeOutput,
@@ -458,6 +462,7 @@ export const findingUpdate = defineAddonCommand(realestateAddon, {
     const f = await loadFinding(ctx, input.findingId);
     const deal = await loadDeal(ctx, f.dealRecordId);
     requireNotArchived(deal);
+    if (input.photoFileIds) await requireDealFiles(ctx, deal, input.photoFileIds, 'photo');
     await ctx.tx
       .update(inspectionFindings)
       .set({
@@ -469,6 +474,7 @@ export const findingUpdate = defineAddonCommand(realestateAddon, {
         ...(input.ask !== undefined ? { ask: input.ask } : {}),
         ...(input.creditCents !== undefined ? { creditCents: input.creditCents } : {}),
         ...(input.note !== undefined ? { note: input.note } : {}),
+        ...(input.photoFileIds ? { photoFileIds: [...new Set(input.photoFileIds)] } : {}),
         updatedAt: new Date(),
       })
       .where(eq(inspectionFindings.id, f.id));
@@ -813,6 +819,7 @@ export const inspectionsList = defineAddonQuery(realestateAddon, {
               ask: f.ask,
               creditCents: f.creditCents,
               note: f.note,
+              photoFileIds: f.photoFileIds,
             })),
         };
       }),

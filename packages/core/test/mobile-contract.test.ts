@@ -71,6 +71,31 @@ const ONLINE_COMMANDS = [
   'realestate.offer.share_summary',
   'realestate.cma.find_comps',
   'realestate.cma.request_summary',
+  // A deal's pages (boards 78–81, 93): an update the AI writes, the next stage, marking a duty done without its proof,
+  // confirming a contract's values, approving a vendor, exporting the transaction, and placing or lifting a hold.
+  'realestate.status_email.request',
+  'realestate.deal.move_stage',
+  'realestate.duty.complete_with_exception',
+  'realestate.contract.confirm',
+  'realestate.vendor.approve',
+  'realestate.deal.export',
+  'record_hold.place',
+  'record_hold.lift',
+  // Closing and the listing (boards 85–89): a task marked done for a client, letting them into the portal, the
+  // repair request, the walkthrough's list, a fact changed, the MLS asked again, a description or posts written,
+  // marking it live, an open house on the calendar, and a duty's vendor and quote.
+  'realestate.client_task.mark_done',
+  'portal_access.give',
+  'realestate.repair.send',
+  'realestate.walkthrough.plan',
+  'realestate.listing.confirm_facts',
+  'realestate.listing.lookup',
+  'realestate.listing.description.request',
+  'realestate.listing.posts_request',
+  'realestate.listing.mark_live',
+  'realestate.open_house.plan',
+  'realestate.duty.pick_vendor',
+  'realestate.duty.vendor_quote',
 ];
 /**
  * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
@@ -96,6 +121,22 @@ const QUERIES = [
   'realestate.offers',
   'realestate.offers.compare',
   'realestate.tours',
+  // A deal's documents and history when it's kept as its summary, its transaction exports, and its legal hold.
+  'realestate.document.list',
+  'realestate.deal.history',
+  'realestate.exports',
+  'record_hold.list',
+  // Closing and the listing's pages of a deal kept as its summary, with signal (boards 85–89).
+  'realestate.financing',
+  'realestate.inspections',
+  'realestate.client_tasks',
+  'realestate.walkthrough',
+  'realestate.listing',
+  'realestate.listing.prices',
+  'realestate.listing.marketing',
+  'realestate.open_houses',
+  'realestate.showing.list',
+  'realestate.duty.vendors',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

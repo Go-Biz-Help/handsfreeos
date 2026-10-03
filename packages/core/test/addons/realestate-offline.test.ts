@@ -24,6 +24,7 @@ import type { RequestMeta } from '../../src/kernel/types';
 import { FRESH_MINUTES } from '../../src/mobile';
 import {
   executeCommand,
+  executeQuery,
   fileBeginUpload,
   personCreate,
   registry,
@@ -338,6 +339,191 @@ describe('findings at the inspection', () => {
       (await refused(phone('realestate.finding.add', { ...finding, inspectionId: second })))
         .message,
     ).toContain('Discard it and add it again');
+  });
+});
+
+describe('photos on a finding', () => {
+  it('are photos on the deal, kept with the finding and replaced when changed', async () => {
+    const { inspectionId } = await phone('realestate.inspection.add', {
+      dealId: deal,
+      id: randomUUID(),
+      kind: 'general',
+    });
+    const [attic, closer] = [
+      await photoOn(deal, 'attic-stain.jpg'),
+      await photoOn(deal, 'attic-stain-close.jpg'),
+    ];
+    const findingId = randomUUID();
+    const finding = {
+      inspectionId,
+      id: findingId,
+      title: 'Stain on the attic decking',
+      location: 'Attic',
+      severity: 'repair',
+      photoFileIds: [attic],
+    };
+    expect(await phone('realestate.finding.add', finding)).toEqual({ findingId });
+    expect(await phone('realestate.finding.add', finding)).toEqual({ findingId });
+    const kept = () =>
+      rows<{ photo_file_ids: string[] }>(
+        admin(),
+        sql`select photo_file_ids from addon_realestate.inspection_findings where id = ${findingId}`,
+      ).then((r) => r[0]!.photo_file_ids);
+    expect(await kept()).toEqual([attic]);
+    await phone('realestate.finding.update', { findingId, photoFileIds: [attic, closer] });
+    expect(await kept()).toEqual([attic, closer]);
+    // A change that leaves them out keeps them.
+    await phone('realestate.finding.update', { findingId, note: 'Dry today.' });
+    expect(await kept()).toEqual([attic, closer]);
+    // A photo on another deal isn't one of this deal's.
+    const elsewhere = await photoOn(other, 'other-attic.jpg');
+    const wrong = await refused(
+      phone('realestate.finding.update', { findingId, photoFileIds: [elsewhere] }),
+    );
+    expect(wrong.message).toBe(
+      'That photo isn’t on Nguyen purchase anymore. Add it to the deal again, then save.',
+    );
+    const { inspections } = (await executeQuery(
+      api(),
+      registry.query('realestate.inspections')!,
+      { workspaceId: ws, dealId: deal },
+      human(agent),
+      { correlationId: randomUUID(), channel: 'test' },
+    )) as Any;
+    const shown = (inspections as Any[])
+      .flatMap((i) => i.findings)
+      .find((f: Any) => f.id === findingId);
+    expect(shown.photoFileIds).toEqual([attic, closer]);
+  });
+});
+
+describe('an open house on the host’s phone', () => {
+  let openHouseId: string;
+  // It ran from three hours ago to two hours ago; sign-in closed an hour after.
+  const startedAt = ago(3 * 60 * MIN);
+
+  beforeAll(async () => {
+    // The listing has open houses, so S-36 to S-39 are its duties.
+    await web('realestate.deal.set_facts', { dealId: listing, facts: ['open_house'] });
+    [{ id: openHouseId }] = (await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_realestate.open_houses (workspace_id, deal_record_id, starts_at, ends_at, host_user_id)
+          values (${ws}, ${listing}, ${startedAt.toISOString()}, ${ago(2 * 60 * MIN).toISOString()}, ${agent.id})
+          returning id`,
+    )) as [{ id: string }];
+  });
+
+  it('signs a visitor in as the page does, at the moment they signed in with no signal', async () => {
+    const id = randomUUID();
+    const signedAt = ago(150 * MIN);
+    const ann = {
+      openHouseId,
+      id,
+      firstName: 'Ann',
+      lastName: 'Webb',
+      phone: '+15125550163',
+      smsConsent: true,
+    };
+    const made = await phone('realestate.open_house.sign_in', ann, { occurredAt: signedAt });
+    expect(made).toEqual({ visitorId: id, signedIn: true, firstName: 'Ann' });
+    // Sent again under another command id (its answer was lost): the same visitor.
+    expect(await phone('realestate.open_house.sign_in', ann, { occurredAt: signedAt })).toEqual(
+      made,
+    );
+    const [v] = await rows<{ person_id: string; sms_consent: boolean; signed_in_at: string }>(
+      admin(),
+      sql`select person_id, sms_consent, ${iso('signed_in_at')}
+          from addon_realestate.open_house_visitors where open_house_id = ${openHouseId}`,
+    );
+    expect(v).toMatchObject({ sms_consent: true });
+    expect(same(v!.signed_in_at, signedAt)).toBe(true);
+    // A customer, their yes to texts kept with where it came from, as on the page.
+    const [person] = await rows<{ first_name: string; sms_consent: string; source: string }>(
+      admin(),
+      sql`select first_name, sms_consent::text as sms_consent, sms_consent_source as source
+          from app.people where id = ${v!.person_id}`,
+    );
+    expect(person).toEqual({
+      first_name: 'Ann',
+      sms_consent: 'opted_in',
+      source: 'Open house: 2207 Juniper Trail',
+    });
+    // S-38's proof.
+    const proof = await rows<{ key: string }>(
+      admin(),
+      sql`select d.duty_key as key from addon_realestate.duty_evidence e
+          join addon_realestate.duties d on d.id = e.duty_id
+          where e.ref_kind = 'open_house' and e.ref_id = ${openHouseId}`,
+    );
+    expect(proof.map((p) => p.key)).toContain('S-38');
+    // The visitor's id on another open house can't be used.
+    const [{ id: another }] = (await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_realestate.open_houses (workspace_id, deal_record_id, starts_at, ends_at)
+          values (${ws}, ${listing}, now() - interval '1 hour', now() + interval '1 hour') returning id`,
+    )) as [{ id: string }];
+    expect(
+      (await refused(phone('realestate.open_house.sign_in', { ...ann, openHouseId: another })))
+        .message,
+    ).toContain('Discard it and add it again');
+  });
+
+  it('only records a visitor working with another agent', async () => {
+    const id = randomUUID();
+    await phone(
+      'realestate.open_house.sign_in',
+      {
+        openHouseId,
+        id,
+        firstName: 'Tom',
+        lastName: 'Ruiz',
+        email: 'tom.ruiz@example.com',
+        withAgent: true,
+        agentName: 'Keller Williams',
+        smsConsent: true,
+      },
+      { occurredAt: ago(140 * MIN) },
+    );
+    const [v] = await rows<{ person_id: string | null; sms_consent: boolean; agent_name: string }>(
+      admin(),
+      sql`select person_id, sms_consent, agent_name from addon_realestate.open_house_visitors where id = ${id}`,
+    );
+    expect(v).toEqual({ person_id: null, sms_consent: false, agent_name: 'Keller Williams' });
+  });
+
+  it('keeps the page’s rules: not after sign-in closed, and a way back is needed', async () => {
+    const late = await refused(
+      phone(
+        'realestate.open_house.sign_in',
+        { openHouseId, id: randomUUID(), firstName: 'Late', phone: '+15125550111' },
+        { occurredAt: ago(30 * MIN) },
+      ),
+    );
+    expect(late.rule).toBe('realestate_open_house_closed');
+    expect(late.message).toBe(
+      'Sign-in for this open house has closed. Ask the agent if you’d like to see the home.',
+    );
+    const early = await refused(
+      phone(
+        'realestate.open_house.sign_in',
+        { openHouseId, id: randomUUID(), firstName: 'Early', phone: '+15125550112' },
+        { occurredAt: ago(5 * 60 * MIN) },
+      ),
+    );
+    expect(early.message).toMatch(/^Sign-in opens at .+\. Come back then\.$/);
+    expect(
+      (
+        await refused(
+          phone('realestate.open_house.sign_in', {
+            openHouseId,
+            id: randomUUID(),
+            firstName: 'Nobody',
+          }),
+        )
+      ).details,
+    ).toEqual([
+      expect.objectContaining({ path: 'email', message: 'Leave an email or a phone number.' }),
+    ]);
   });
 });
 

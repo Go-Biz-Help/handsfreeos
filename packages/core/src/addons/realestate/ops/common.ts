@@ -3,9 +3,9 @@
  * and relationship types in this business, its time zone and business days, a deal's history lines and its words.
  * Row security decides what a request sees; a deal someone isn't on reads as not there.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { customRecords } from '@hfos/db/schema';
+import { customRecords, files } from '@hfos/db/schema';
 import { localDateOf } from '../../../calendar/engine/zoned';
 import { idUnavailable } from '../../../crm/client-ids';
 import type { AddonLineTone } from '../../../crm/timeline-words';
@@ -116,6 +116,36 @@ export async function loadDeal(
     teamUserIds: row.teamUserIds,
     archivedAt: row.archivedAt,
   };
+}
+
+/**
+ * The deal's own files, when they're all there; refused when one isn't (a field note's or a walkthrough item's
+ * photos, a finding's). `what` names one: "photo", "recording".
+ */
+export async function requireDealFiles(
+  ctx: Ctx,
+  deal: Deal,
+  ids: readonly string[],
+  what: string,
+): Promise<void> {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return;
+  const found = await ctx.tx
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        inArray(files.id, wanted),
+        eq(files.workspaceId, deal.workspaceId),
+        eq(files.recordType, 'custom_record'),
+        eq(files.recordId, deal.recordId),
+        isNull(files.deletedAt),
+      ),
+    );
+  if (found.length !== wanted.length)
+    throw HfosError.notFound(
+      `That ${what} isn’t on ${deal.name} anymore. Add it to the deal again, then save.`,
+    );
 }
 
 /** Archived deals are kept as they were: restore one to change it. */

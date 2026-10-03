@@ -188,21 +188,22 @@ describe('the route map', () => {
     for (const rule of ROUTES.filter((r) => r.phone === 'web')) expect(rule.deeper).toBe(true);
   });
 
-  it('opens an add-on’s page on the web, naming the phone screen it gets later', () => {
-    // A deal, as an alert's push names it: the phone has no deal screen yet, so the web, with the screen it gets.
+  it('opens an add-on’s page on the phone once this build has its screen, keeping the query it reads', () => {
+    // A deal, as an alert's push names it, with the duty it points at (round six, board 78).
     expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}&x=1`)).toEqual({
-      kind: 'web',
-      path: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}&x=1`,
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}`,
       businessId: WS,
-      later: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}`,
+      later: null,
+      params: { dealId: ID, duty: OTHER, x: '1' },
     });
     expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`)).toMatchObject({
-      kind: 'web',
-      later: `/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`,
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`,
     });
     expect(routeFor(`/app/w/${WS}/a/realestate?view=attention`)).toMatchObject({
-      kind: 'web',
-      later: `/app/w/${WS}/a/realestate?view=attention`,
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate?view=attention`,
     });
     // What the add-on keeps on the web, an add-on nobody built, and a page it doesn't have: the web, and nothing later.
     for (const page of [
@@ -216,10 +217,11 @@ describe('the route map', () => {
         page,
         target: { kind: 'web', path: `/app/w/${WS}/${page}`, businessId: WS },
       });
-    // What the app does with it: the web, as before.
+    // What the app does with it: the deal's screen.
     expect(decideLink(`/app/w/${WS}/a/realestate/deals/${ID}`, { businessIds: [WS] })).toEqual({
-      kind: 'web',
-      path: `/app/w/${WS}/a/realestate/deals/${ID}`,
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}`,
+      later: null,
     });
   });
 

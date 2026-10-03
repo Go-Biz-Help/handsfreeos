@@ -2038,6 +2038,11 @@ const FindingFields = {
   ask: z.enum(FINDING_ASK_KEYS).optional(),
   creditCents: z.int().min(0).max(100_000_000_000).nullable().optional(),
   note: z.string().trim().max(1000).nullable().optional(),
+  /**
+   * Its photos (round six, board 85): files already on the deal, often taken at the inspection with no signal and
+   * uploaded first. Given on a change, they're all of its photos, replacing what it had.
+   */
+  photoFileIds: z.array(uuid).max(10, 'Up to 10 photos on a finding.').optional(),
 };
 export const FindingAddInput = z.object({
   workspaceId: uuid,
@@ -2109,6 +2114,8 @@ const FindingOut = z.object({
   ask: z.enum(FINDING_ASK_KEYS),
   creditCents: z.number().int().nullable(),
   note: z.string().nullable(),
+  /** Its photos: files on the deal. */
+  photoFileIds: z.array(uuid),
 });
 export const InspectionsOutput = z.object({
   /** When the inspection period ends, from the deal's key dates. */
@@ -2895,25 +2902,44 @@ export const PublicOpenHouseOutput = z.object({
   cancelled: z.boolean(),
   photo: z.object({ publicFileId: uuid }).nullable(),
 });
+/** What a visitor leaves at an open house: on its sign-in page, or on the host's phone handed to them (round six). */
+const OpenHouseVisitorFields = {
+  firstName: z.string().trim().min(1, 'Enter your first name.').max(80),
+  lastName: z.string().trim().max(80).default(''),
+  email: z.string().trim().max(254).email('That doesn’t look like an email address.').optional(),
+  phone: z.string().trim().max(40).optional(),
+  withAgent: z.boolean().default(false),
+  agentName: z.string().trim().max(160).optional(),
+  /** They ticked "Text me about this home and others like it". */
+  smsConsent: z.boolean().default(false),
+};
+const leftAWayBack = (i: { email?: string; phone?: string }) => !!i.email || !!i.phone;
+const LEAVE_A_WAY_BACK = { error: 'Leave an email or a phone number.', path: ['email'] };
 export const PublicOpenHouseSignInInput = z
   .object({
     workspaceId: uuid,
     slug: z.string().trim().max(80),
     openHouseId: uuid,
-    firstName: z.string().trim().min(1, 'Enter your first name.').max(80),
-    lastName: z.string().trim().max(80).default(''),
-    email: z.string().trim().max(254).email('That doesn’t look like an email address.').optional(),
-    phone: z.string().trim().max(40).optional(),
-    withAgent: z.boolean().default(false),
-    agentName: z.string().trim().max(160).optional(),
-    /** They ticked "Text me about this home and others like it". */
-    smsConsent: z.boolean().default(false),
+    ...OpenHouseVisitorFields,
   })
-  .refine((i) => !!i.email || !!i.phone, {
-    error: 'Leave an email or a phone number.',
-    path: ['email'],
-  });
+  .refine(leftAWayBack, LEAVE_A_WAY_BACK);
 export const PublicOpenHouseSignInOutput = z.object({
+  signedIn: z.literal(true),
+  firstName: z.string(),
+});
+/** A visitor signing in on the host's phone, handed to them (round six, board 88): the sign-in page's rules. */
+export const OpenHouseSignInInput = z
+  .object({
+    workspaceId: uuid,
+    openHouseId: uuid,
+    /** The sign-in's own id, made on the phone, so one made with no signal is the same visitor when it arrives. */
+    id: phoneId,
+    ...OpenHouseVisitorFields,
+  })
+  .refine(leftAWayBack, LEAVE_A_WAY_BACK);
+export const OpenHouseSignInOutput = z.object({
+  /** The visitor: the phone's id, or the visit they'd already signed in to (signing in twice is one visit). */
+  visitorId: uuid,
   signedIn: z.literal(true),
   firstName: z.string(),
 });

@@ -21,14 +21,18 @@
  * Browser-safe and pure.
  */
 import type { z } from 'zod';
-import type { MlsSnapshot, MlsState } from '../feed';
+import { feedFacts, mlsDiffers, type MlsSnapshot, type MlsState } from '../feed';
+import { factWords, LISTING_FACT_KEYS, LISTING_FACTS } from '../homes';
 import {
   cityLineOf,
   factLines,
+  LISTING_HOME_FACT_KEYS,
   noHomeWords,
   notOnMlsWords,
   streetOf,
   unsignedWords,
+  type FactFrom,
+  type ListingHomeFactKey,
   type SellerAnswers,
 } from '../listing';
 import {
@@ -167,6 +171,77 @@ export function photosOfCopy(copy: RealestateCopy, dealId: string): ListingPhoto
     .map((p) => p.photo);
 }
 
+/**
+ * The listing's photos as this phone has them, in order: those whose files it holds, and those taken here that are
+ * still uploading (`waiting`), so the order and the cover can be set before they arrive. The server has no waiting
+ * ones; the rest are `photosOfCopy`'s.
+ */
+export function listingPhotosOnPhoneOfCopy(
+  copy: RealestateCopy,
+  dealId: string,
+): (Omit<ListingPhoto, 'name'> & { readonly name: string | null; readonly waiting: boolean })[] {
+  return copy
+    .rows('listing_photos', dealId)
+    .map(({ id, data: p }) => {
+      const fileId = text(p.file_id) ?? '';
+      const name = copy.file(fileId);
+      return {
+        photo: {
+          id,
+          fileId,
+          name,
+          position: num(p.position),
+          caption: text(p.caption),
+          public: p.public === true,
+          waiting: name === null,
+        },
+        at: ms(p.created_at) ?? 0,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.photo.position - b.photo.position || a.at - b.at || byText(a.photo.id, b.photo.id),
+    )
+    .map((p) => p.photo);
+}
+
+/** One of the listing's facts as its page shows it: what's kept, where it came from, and the MLS when it differs. */
+export interface ListingFactLine {
+  readonly key: ListingHomeFactKey;
+  readonly label: string;
+  readonly words: string;
+  readonly from: FactFrom;
+  /** What the MLS says instead, when it says something else. */
+  readonly mlsWords: string | null;
+}
+
+/**
+ * The facts kept on the listing, in order, each with where it came from (the server's `choices`, confirmed) and what
+ * the MLS says when it differs (`feed.mls.differs`). Null when the phone doesn't hold the listing whole.
+ */
+export function listingFactLinesOfCopy(
+  copy: RealestateCopy,
+  dealId: string,
+  ctx: { readonly userId: string | null },
+): ListingFactLine[] | null {
+  if (!wholeDeal(copy, dealId, ctx.userId, 'listing')) return null;
+  const l = listingRowOfCopy(copy, dealId);
+  const facts = l?.facts ?? {};
+  const sources = (record(copy.rows('listings', dealId)[0]?.data.fact_sources) ?? {}) as Record<
+    string,
+    { readonly from?: FactFrom } | undefined
+  >;
+  const fromMls = l?.mls ? (feedFacts(l.mls) as Record<string, unknown>) : null;
+  const differs = new Set<string>(fromMls ? mlsDiffers(facts, fromMls, LISTING_FACT_KEYS) : []);
+  return LISTING_HOME_FACT_KEYS.filter((k) => isSet(facts[k])).map((key) => ({
+    key,
+    label: LISTING_FACTS[key].label,
+    words: factWords(key, facts[key]),
+    from: sources[key]?.from ?? 'agent',
+    mlsWords: fromMls && differs.has(key) ? factWords(key, fromMls[key]) : null,
+  }));
+}
+
 function descriptionRowsOfCopy(copy: RealestateCopy, dealId: string): DescriptionRow[] {
   return copy.rows('listing_descriptions', dealId).map(({ id, data: d }) => ({
     id,
@@ -252,6 +327,9 @@ export function listingPricesOfCopy(
       const state = (text(p.state) ?? 'waiting') as ListingPricesView['history'][number]['state'];
       const overrideReason = text(p.override_reason);
       const signedBy = text(p.signed_by_person_id);
+      // A seller on the deal by first name; anyone else (or a name not kept) as "The seller".
+      const sellerFirst =
+        signedBy && sellers.has(signedBy) ? (copy.personParts(signedBy)?.firstName ?? null) : null;
       return {
         id,
         fromCents: num(p.from_cents),
@@ -265,10 +343,7 @@ export function listingPricesOfCopy(
             : overrideReason !== null
               ? ('let_through' as const)
               : ('portal' as const),
-        signedBy: signedBy
-          ? ((sellers.has(signedBy) ? (copy.personParts(signedBy)?.firstName ?? null) : null) ??
-            'The seller')
-          : null,
+        signedBy: signedBy ? (sellerFirst ?? 'The seller') : null,
         overrideBy: who(text(p.override_by)),
         overrideReason,
         appliedAt: isoOr(p.applied_at),

@@ -1,3 +1,11 @@
+import { channelWord } from '@hfos/core';
+
+import {
+  describeRealestate,
+  loadRealestateNames,
+  NO_REALESTATE_NAMES,
+  type RealestateNames,
+} from './describe-realestate';
 import type { OutboxRow, SqlRunner } from './outbox';
 import { parseIds, refusalOf } from './rules';
 
@@ -45,6 +53,8 @@ export interface NameBook {
   conversationPerson(id: string | null | undefined): string | null;
   tag(id: string | null | undefined): string | null;
   task(id: string | null | undefined): { title: string; personId: string | null } | null;
+  /** Real Estate's deals and the rows its changes point at (round six). */
+  readonly realestate?: RealestateNames;
 }
 
 type Input = Record<string, unknown>;
@@ -144,17 +154,36 @@ export function describe(
           ? personOf(names.lead(str(input.recordId))?.personId)
           : null;
     const company = input.recordType === 'company' ? names.company(str(input.recordId)) : null;
+    // A voice note recorded on the phone goes on the same track (Real Estate's tour stops, round six), as does a
+    // photo kept on an add-on's record.
+    const voice = str(input.mimeType)?.startsWith('audio/') ?? false;
+    const what = voice ? 'voice note' : 'photo';
+    const whose =
+      input.recordType === 'custom_record'
+        ? (names.realestate?.deal(str(input.recordId)) ?? 'a record')
+        : 'a customer';
     return words(
-      `Photo for ${person?.name ?? company ?? 'a customer'}`,
-      'a photo',
+      `${capital(what)} for ${person?.name ?? company ?? whose}`,
+      `a ${what}`,
       'photo',
       person,
       null,
-      'the photo is uploaded',
+      `the ${what} is uploaded`,
     );
   }
 
   const leadPerson = (leadId: unknown) => personOf(names.lead(str(leadId))?.personId);
+  // Real Estate's changes (round six): about their deal, so Changes groups them under it.
+  const re = describeRealestate(row.name, input, names.realestate ?? NO_REALESTATE_NAMES);
+  if (re)
+    return {
+      title: re.title,
+      part: re.part,
+      quote: quoteOf(input.body),
+      icon: re.icon,
+      about: re.deal ? { key: `deal:${re.deal.id}`, name: re.deal.name } : null,
+      heldUntil: re.heldUntil,
+    };
   switch (row.name) {
     case 'activity.log': {
       const person = personOf(input.personId) ?? leadPerson(input.leadId);
@@ -259,6 +288,18 @@ export function describe(
     case 'message.send': {
       const person =
         personOf(input.personId) ?? personOf(names.conversationPerson(str(input.conversationId)));
+      // A reply in a client's portal or the website chat goes back where they wrote, never by text (board 92):
+      // "Reply in Ann Webb’s portal", "Reply to Ann Webb in the chat". Its question is the general one, not a text's.
+      if (input.channel === 'portal' || input.channel === 'chat') {
+        const who = forName(person, 'a customer');
+        return words(
+          input.channel === 'portal' ? `Reply in ${who}’s portal` : `Reply to ${who} in the chat`,
+          `a ${channelWord(input.channel).toLowerCase()} reply`,
+          'inbox',
+          person,
+          quoteOf(input.body),
+        );
+      }
       const email = input.channel === 'email';
       const to = forName(person, str(input.toPhone) ?? str(input.toEmail) ?? 'a customer');
       return words(
@@ -513,7 +554,11 @@ export async function loadNames(runner: SqlRunner, rows: readonly OutboxRow[]): 
     'SELECT id, name FROM tags WHERE id IN (?)',
     other.tag,
   );
-  return bookOf({ people, leads, stages, companies, conversations, tags, tasks });
+  const realestate = await loadRealestateNames(
+    runner,
+    rows.map((r) => parse(r.input)),
+  );
+  return bookOf({ people, leads, stages, companies, conversations, tags, tasks, realestate });
 }
 
 export function bookOf(found: {
@@ -524,6 +569,7 @@ export function bookOf(found: {
   conversations?: readonly { id: string; person_id: string | null }[];
   tags?: readonly { id: string; name: string }[];
   tasks?: readonly { id: string; title: string | null; person_id: string | null }[];
+  realestate?: RealestateNames;
 }): NameBook {
   const byId = <T extends { id: string }>(list: readonly T[] | undefined) =>
     new Map((list ?? []).map((r) => [r.id, r]));
@@ -534,6 +580,7 @@ export function bookOf(found: {
   const tags = byId(found.tags);
   const tasks = byId(found.tasks);
   return {
+    ...(found.realestate ? { realestate: found.realestate } : {}),
     person: (id) => (id ? (found.people?.get(id) ?? null) : null),
     company: (id) => (id ? (companies.get(id)?.name ?? null) : null),
     lead: (id) => {

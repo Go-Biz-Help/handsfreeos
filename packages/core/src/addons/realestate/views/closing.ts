@@ -183,6 +183,7 @@ export function inspectionsOfCopy(
         ask: (text(f.ask) ?? 'not_asked') as FindingAsk,
         creditCents: num(f.credit_cents),
         note: str(f.note),
+        photoFileIds: list(f.photo_file_ids).filter((x): x is string => typeof x === 'string'),
       } satisfies FindingLine,
     }));
   const canceled = new Set(

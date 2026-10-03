@@ -13,7 +13,8 @@ import type { z } from 'zod';
 import type { ResolvedDuty } from '../catalog/types';
 import { gapWords, proofGaps } from '../proof';
 import { proofRuleWords } from '../rule-words';
-import type { DealGetOutput } from '../schemas';
+import type { HealthReason } from '../health';
+import type { DealGetOutput, DealRisksOutput } from '../schemas';
 import { isDoneDuty, isOverdue, STAGE_LABELS, type DealStage, type DutyStatus } from '../states';
 import { termKind, termLabel, termsNow, TERM_KEYS } from '../terms';
 import { PARTY_ROLES, type PartyRole } from '../words';
@@ -184,5 +185,42 @@ export function dealPageOfCopy(
       };
     }),
     duties,
+  };
+}
+
+/** What could stop the deal closing, as `realestate.deal.risks` answers its health and reasons (not its open work). */
+export type DealRisksView = Pick<
+  z.infer<typeof DealRisksOutput>,
+  'dealId' | 'name' | 'health' | 'reasons'
+>;
+
+/**
+ * The deal's health with every reason, as the server last worked it out (at every change and every sweep), with who
+ * answers for each: the Deals list's "3 things could stop this closing" and the deal's own list of them. A deal kept
+ * as its summary has these too. Null when the phone doesn't hold the deal.
+ */
+export function dealRisksOfCopy(copy: RealestateCopy, dealId: string): DealRisksView | null {
+  const deal = copy.deals.get(dealId);
+  if (!deal) return null;
+  const who = (id: string | null | undefined) =>
+    id ? { userId: id, name: copy.user(id) ?? 'Former member' } : null;
+  return {
+    dealId,
+    name: deal.name,
+    health: (text(deal.data.health) ?? 'green') as DealRisksView['health'],
+    // Reds first, as the deal's page lists them; otherwise as the health check stored them.
+    reasons: (list(deal.data.health_reasons) as HealthReason[])
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => Number(b.r.level === 'red') - Number(a.r.level === 'red') || a.i - b.i)
+      .map(({ r }) => ({
+        code: r.code,
+        level: r.level,
+        words: r.words,
+        next: r.next,
+        ...(r.dutyId ? { dutyId: r.dutyId } : {}),
+        ...(r.keys ? { keys: [...r.keys] } : {}),
+        ...(r.dueAt !== undefined ? { dueAt: r.dueAt } : {}),
+        accountable: who(r.accountableUserId),
+      })),
   };
 }

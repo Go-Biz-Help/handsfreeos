@@ -139,6 +139,12 @@ import {
   SafetyExtendInput,
   SafetyHelpInput,
   type OfflineClass,
+  RecordHoldLiftInput,
+  RecordHoldLiftOutput,
+  RecordHoldOutput,
+  RecordHoldPlaceInput,
+  PortalAccessGiveInput,
+  PortalAccessGiveOutput,
 } from '@hfos/core';
 // Real Estate's own changes the phone may make (round six): its schemas live with the add-on in core.
 import {
@@ -228,6 +234,37 @@ import {
   WalkthroughItemOutput,
   WalkthroughOutput,
   WalkthroughRef,
+  ContractConfirmInput,
+  ContractConfirmOutput,
+  DealChangeOutput,
+  DealExportInput,
+  DealExportOutput,
+  DealMoveStageInput,
+  DutyReasonInput,
+  StatusEmailRequestInput,
+  VendorApproveInput,
+  ClientTaskChangeOutput,
+  ClientTaskMarkDoneInput,
+  DutyPickVendorInput,
+  DutyVendorOutput,
+  DutyVendorQuoteInput,
+  ListingConfirmFactsInput,
+  ListingConfirmFactsOutput,
+  ListingDescriptionOutput,
+  ListingDescriptionRequestInput,
+  ListingLookupInput,
+  ListingLookupOutput,
+  ListingMarkLiveInput,
+  ListingMarkLiveOutput,
+  ListingPostsOutput,
+  ListingPostsRequestInput,
+  OpenHousePlanInput,
+  OpenHousePlanOutput,
+  OpenHouseSignInInput,
+  OpenHouseSignInOutput,
+  RepairChangeOutput,
+  RepairSendInput,
+  WalkthroughPlanInput,
 } from '@hfos/core/addons/realestate/schemas';
 
 /**
@@ -360,6 +397,8 @@ export const PHONE_COMMANDS = {
   'person.create': command(ANYTIME, PersonCreateInput, PersonCreateOutput),
   'person.restore': command(ANYTIME, PersonRestoreInput, PersonRestoreOutput),
   'person.update': command(ANYTIME, PersonUpdateInput, PersonUpdateOutput),
+  // A client let into their portal, or sent the link again, from the client's to-do (board 85): it emails them.
+  'portal_access.give': command(ONLINE, PortalAccessGiveInput, PortalAccessGiveOutput),
   'push_device.register': command(ONLINE, PushDeviceRegisterInput, PushDeviceRegisterOutput),
   'push_device.remove': command(ONLINE, PushDeviceRemoveInput, PushDeviceRemoveOutput),
   // Real Estate on the phone (round six, boards 76–93). What's done in the field waits for signal as long as it takes:
@@ -371,6 +410,12 @@ export const PHONE_COMMANDS = {
   // deciding a contract's terms, offers, signing, export and holds need signal, so they aren't here.
   'realestate.buyer_profile.save': command(ANYTIME, BuyerProfileSaveInput, BuyerProfileSaveOutput),
   'realestate.client_task.add': command(FRESH, ClientTaskAddInput, ClientTaskAddOutput),
+  // Boards 85–89 with signal: what the AI, the MLS, the calendar or the other side answers at once.
+  'realestate.client_task.mark_done': command(
+    ONLINE,
+    ClientTaskMarkDoneInput,
+    ClientTaskChangeOutput,
+  ),
   // The buyer's pages with signal (boards 82–84): looking a home up on the MLS, adding or setting aside one of
   // our listings, planning a tour or changing its homes (the calendar's appointment), writing a counter, sharing
   // an offer's summary, finding a CMA's comps and the AI's summary. Never queued; with no signal the screen says so.
@@ -378,11 +423,17 @@ export const PHONE_COMMANDS = {
   'realestate.cma.request_summary': command(ONLINE, CmaInput, CmaChangeOutput),
   'realestate.contingency.add': command(ANYTIME, ContingencyAddInput, ContingencyOutput),
   'realestate.contingency.resolve': command(ANYTIME, ContingencyResolveInput, ContingencyOutput),
+  'realestate.contract.confirm': command(ONLINE, ContractConfirmInput, ContractConfirmOutput),
+  'realestate.deal.export': command(ONLINE, DealExportInput, DealExportOutput),
+  'realestate.deal.move_stage': command(ONLINE, DealMoveStageInput, DealChangeOutput),
   'realestate.document.add': command(ANYTIME, DocumentAddInput, DocumentOutput),
   'realestate.duty.acknowledge': command(ANYTIME, DutyAcknowledgeInput, DutyOutput),
   'realestate.duty.add_evidence': command(ANYTIME, DutyAddEvidenceInput, DutyEvidenceOutput),
   'realestate.duty.complete': command(ANYTIME, DutyCompleteInput, DutyOutput),
+  'realestate.duty.complete_with_exception': command(ONLINE, DutyReasonInput, DutyOutput),
+  'realestate.duty.pick_vendor': command(ONLINE, DutyPickVendorInput, DutyVendorOutput),
   'realestate.duty.set_status': command(ANYTIME, DutySetStatusInput, DutyOutput),
+  'realestate.duty.vendor_quote': command(ONLINE, DutyVendorQuoteInput, DutyVendorOutput),
   'realestate.duty.withdraw_evidence': command(
     ANYTIME,
     DutyWithdrawEvidenceInput,
@@ -404,12 +455,25 @@ export const PHONE_COMMANDS = {
   'realestate.home.set_status': command(ANYTIME, HomeSetStatusInput, HomeSetStatusOutput),
   'realestate.inspection.add': command(ANYTIME, InspectionAddInput, InspectionAddOutput),
   'realestate.inspection.update': command(ANYTIME, InspectionUpdateInput, InspectionChangeOutput),
+  'realestate.listing.confirm_facts': command(
+    ONLINE,
+    ListingConfirmFactsInput,
+    ListingConfirmFactsOutput,
+  ),
+  'realestate.listing.description.request': command(
+    ONLINE,
+    ListingDescriptionRequestInput,
+    ListingDescriptionOutput,
+  ),
+  'realestate.listing.lookup': command(ONLINE, ListingLookupInput, ListingLookupOutput),
+  'realestate.listing.mark_live': command(ONLINE, ListingMarkLiveInput, ListingMarkLiveOutput),
   'realestate.listing.photo_add': command(ANYTIME, ListingPhotoAddInput, ListingPhotosOutput),
   'realestate.listing.photos_arrange': command(
     ANYTIME,
     ListingPhotosArrangeInput,
     ListingPhotosOutput,
   ),
+  'realestate.listing.posts_request': command(ONLINE, ListingPostsRequestInput, ListingPostsOutput),
   'realestate.listing.price.propose': command(
     FRESH,
     ListingPriceProposeInput,
@@ -421,9 +485,14 @@ export const PHONE_COMMANDS = {
   'realestate.net_sheet.save': command(ANYTIME, NetSheetSaveInput, NetSheetSaveOutput),
   'realestate.offer.add_version': command(ONLINE, OfferAddVersionInput, OfferAddVersionOutput),
   'realestate.offer.share_summary': command(ONLINE, OfferInput, OfferChangeOutput),
+  'realestate.open_house.plan': command(ONLINE, OpenHousePlanInput, OpenHousePlanOutput),
+  // A visitor signing in on the host's phone handed to them (board 88): waits for signal, with the phone's id.
+  'realestate.open_house.sign_in': command(ANYTIME, OpenHouseSignInInput, OpenHouseSignInOutput),
+  'realestate.repair.send': command(ONLINE, RepairSendInput, RepairChangeOutput),
   'realestate.showing.add': command(FRESH, ShowingAddInput, ShowingOutput),
   'realestate.showing.decide': command(FRESH, ShowingDecideInput, ShowingOutput),
   'realestate.showing.feedback': command(ANYTIME, ShowingFeedbackInput, ShowingOutput),
+  'realestate.status_email.request': command(ONLINE, StatusEmailRequestInput, StatusEmailOutput),
   'realestate.status_email.save': command(ANYTIME, StatusEmailSaveInput, StatusEmailSavedOutput),
   'realestate.status_email.send': command(FRESH, StatusEmailDraftInput, StatusEmailOutput),
   'realestate.suggestion.add': command(ONLINE, SuggestionInput, SuggestionChangeOutput),
@@ -436,6 +505,7 @@ export const PHONE_COMMANDS = {
   'realestate.tour.plan': command(ONLINE, TourPlanInput, TourPlanOutput),
   'realestate.tour.record_visit': command(ANYTIME, TourRecordVisitInput, TourRecordVisitOutput),
   'realestate.tour.set_stops': command(ONLINE, TourSetStopsInput, TourChangeOutput),
+  'realestate.vendor.approve': command(ONLINE, VendorApproveInput, VendorOutput),
   'realestate.vendor.save': command(ANYTIME, VendorSaveInput, VendorOutput),
   'realestate.walkthrough.add_item': command(
     ANYTIME,
@@ -452,9 +522,12 @@ export const PHONE_COMMANDS = {
     WalkthroughFinishInput,
     WalkthroughFinishOutput,
   ),
+  'realestate.walkthrough.plan': command(ONLINE, WalkthroughPlanInput, WalkthroughOutput),
   'realestate.walkthrough.start': command(ANYTIME, WalkthroughRef, WalkthroughOutput),
   'record.add_tag': command(ANYTIME, RecordTagInput, RecordTagOutput),
   'record.remove_tag': command(ANYTIME, RecordTagInput, RecordTagOutput),
+  'record_hold.lift': command(ONLINE, RecordHoldLiftInput, RecordHoldLiftOutput),
+  'record_hold.place': command(ONLINE, RecordHoldPlaceInput, RecordHoldOutput),
   // Check-ins (round six): checking in, adding time and checking out work with no signal.
   'safety.check_in': command(ANYTIME, SafetyCheckInInput, SafetyCheckInOutput),
   'safety.check_out': command(ANYTIME, SafetyCheckInRef, SafetyCheckInOutput),

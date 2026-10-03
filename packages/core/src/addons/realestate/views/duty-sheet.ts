@@ -10,9 +10,9 @@
  * Browser-safe and pure.
  */
 import type { z } from 'zod';
-import type { ProofRule, ResolvedDuty } from '../catalog/types';
+import type { ProofItem, ProofRule, ResolvedDuty } from '../catalog/types';
 import { dueRuleDates } from '../dates/due';
-import { gapWords, proofGaps, proofItemWords } from '../proof';
+import { gapWords, itemMet, proofGaps, proofItemWords } from '../proof';
 import { dueRuleWords } from '../rule-words';
 import type { DutyGetOutput } from '../schemas';
 import { isDoneDuty, isOverdue, type DutyStatus } from '../states';
@@ -239,5 +239,63 @@ export function dutySheetOfCopy(
     },
     evidence,
     log,
+  };
+}
+
+/** One thing a duty's proof asks for, and whether it's there. */
+export interface ProofCheck {
+  readonly item: ProofItem;
+  /** "A signed Purchase contract", "Your word that “I was at the inspection”". */
+  readonly words: string;
+  readonly met: boolean;
+}
+
+/** A duty's proof as a checklist: what its rule asks for, item by item, ticked as each arrives. */
+export interface ProofChecklist {
+  /** `all`: every item; `any`: one of them finishes it. */
+  readonly mode: 'all' | 'any';
+  readonly items: readonly ProofCheck[];
+  /** Every item it needs is there (or it needs none): it can be marked done. */
+  readonly complete: boolean;
+  /** False on a deal kept as its summary: its proof isn't on the phone, so nothing is ticked. */
+  readonly full: boolean;
+}
+
+/**
+ * The duty sheet's "What counts as done" (board 79): its rule's items, each ticked from the proof on the phone, the
+ * proof added with no signal included, by the same check the server makes (`itemMet`), so the unticked ones are what
+ * `proof.missing` names. Null when the phone doesn't hold the duty.
+ */
+export function proofChecklistOfCopy(
+  copy: RealestateCopy,
+  dutyId: string,
+  ctx: { readonly userId: string | null },
+): ProofChecklist | null {
+  let duty: CopyDuty | undefined;
+  for (const list of copy.duties.values()) {
+    duty = list.find((t) => t.id === dutyId);
+    if (duty) break;
+  }
+  if (!duty) return null;
+  const full = holdsWhole(copy, duty.dealId, ctx.userId);
+  const row = copy.rows('duties', duty.dealId).find((r) => r.id === dutyId)!.data;
+  const rule = ((row.definition ?? {}) as ResolvedDuty).proof ?? null;
+  const evidence = full ? (evidenceFactsOfCopy(copy, duty.dealId).get(dutyId) ?? []) : [];
+  const facts = dealProofFactsOfCopy(copy, duty.dealId);
+  const items = (rule?.items ?? []).map((item) => {
+    const words = proofItemWords(item);
+    return {
+      item,
+      words: words[0]!.toUpperCase() + words.slice(1),
+      met: full && itemMet(item, evidence, facts),
+    };
+  });
+  const mode = rule?.mode ?? 'all';
+  return {
+    mode,
+    items,
+    complete:
+      items.length === 0 || (mode === 'any' ? items.some((i) => i.met) : items.every((i) => i.met)),
+    full,
   };
 }

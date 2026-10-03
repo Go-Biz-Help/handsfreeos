@@ -421,11 +421,16 @@ export const statusEmailSend = defineAddonCommand(realestateAddon, {
             : `That update was ${draft.status}. Ask for a new one.`,
       );
     const now = current(draft, await checksOf(ctx, draft.id));
+    // Edited and sent with no signal (board 81), the send arrives right behind the save that starts the model's check.
+    // Nothing is wrong with it, so it's one to send again shortly (503: `retry`), never kept as refused: the phone
+    // tries it again and it goes once the check is done, or meets the flags the check raised.
     if (!now.words || !now.model)
       throw HfosError.rule(
         'realestate_check_running',
-        409,
-        'The fair-housing check is still reading this update. Try again in a moment.',
+        503,
+        ctx.meta.commandId
+          ? 'The fair-housing check on this update is still running. It goes once the check is done.'
+          : 'The fair-housing check on this update is still running. Send it again in a moment, once it’s done.',
       );
     if (now.flags.length && !draft.flagsAcknowledgedAt)
       throw HfosError.rule(

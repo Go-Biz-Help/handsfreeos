@@ -7,6 +7,9 @@
  * - **The sign-in page** (`/a/<site>/realestate/<slug>/open-house/<id>`) opens an hour before and closes an hour after,
  *   and only once the listing is live on the MLS. A visitor on their own becomes a customer with a lead for the host,
  *   their yes to texts kept with "Open house: 2207 Juniper Trail"; one working with another agent is only recorded.
+ * - **On the host's phone** (round six, board 88): the host hands the phone to a visitor, who signs in on it as on the
+ *   page, with the page's rules and words (`signVisitorIn`, which both share). It works with no signal: the sign-in
+ *   keeps the phone's id and counts from the moment the visitor signed in.
  * - **Following up**: the host marks each visitor followed up; the worker reminds them the next morning.
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -17,7 +20,7 @@ import { HfosError } from '../../../errors';
 import { requirePublic } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
-import type { QueryContext } from '../../../kernel/types';
+import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { fmtAt } from '../../../calendar/when';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { cityLineOf, noHomeWords, openHousePath, streetOf } from '../listing';
@@ -30,6 +33,8 @@ import {
   OpenHouseFollowUpOutput,
   OpenHousePlanInput,
   OpenHousePlanOutput,
+  OpenHouseSignInInput,
+  OpenHouseSignInOutput,
   OpenHousesOutput,
   PublicOpenHouseInput,
   PublicOpenHouseOutput,
@@ -40,12 +45,16 @@ import { listings, openHouses, openHouseVisitors } from '../tables';
 import {
   actorUserId,
   historyLine,
+  idUnavailable,
   inWorkspace,
   loadDeal,
+  requireNotArchived,
   requireOpen,
   timeZoneOf,
   userNames,
+  withPhoneId,
   type Ctx,
+  type Deal,
 } from './common';
 import { dealSetFacts } from './deals';
 import { ensureListing, listingAddress, listingOf, requireListingSide } from './listing';
@@ -438,90 +447,160 @@ export const publicOpenHouseSignIn = defineAddonCommand(realestateAddon, {
   async handler(ctx, input) {
     requirePublic(ctx);
     const { o, deal, address } = await publicOpenHouse(ctx, input.slug, input.openHouseId);
-    const { opensAt, closesAt } = signInWindow(o);
-    const tz = await timeZoneOf(ctx);
-    const now = Date.now();
-    if (o.state === 'cancelled')
-      throw HfosError.rule(
-        'realestate_open_house_cancelled',
-        409,
-        'This open house was cancelled.',
-      );
-    if (now < opensAt.getTime() || now > closesAt.getTime())
-      throw HfosError.rule(
-        'realestate_open_house_closed',
-        409,
-        now < opensAt.getTime()
-          ? `Sign-in opens at ${fmtAt(opensAt.getTime(), tz)}. Come back then.`
-          : 'Sign-in for this open house has closed. Ask the agent if you’d like to see the home.',
-      );
-    const street = streetOf(address);
-    const signed = input.withAgent
-      ? null
-      : await signUpFromPage(ctx, {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          email: input.email ?? null,
-          phone: input.phone ?? null,
-          source: `Open house: ${street}`,
-          smsConsent: input.smsConsent,
-          lead: { title: `Open house: ${street}`, assigneeUserId: o.hostUserId },
-        });
-    const values = {
-      workspaceId: deal.workspaceId,
-      dealRecordId: deal.recordId,
-      openHouseId: o.id,
-      personId: signed?.personId ?? null,
-      leadId: signed?.leadId ?? null,
-      firstName: input.firstName,
-      lastName: input.lastName || null,
-      email: input.email ?? null,
-      phone: input.phone ?? null,
-      withAgent: input.withAgent,
-      agentName: input.withAgent ? (input.agentName ?? null) : null,
-      smsConsent: !input.withAgent && input.smsConsent,
-    };
-    // Signing in twice is one visit.
-    const [v] = signed
-      ? await ctx.tx
+    await signVisitorIn(ctx, { o, deal, address }, input, { at: new Date() });
+    return { signedIn: true as const, firstName: input.firstName };
+  },
+});
+
+export const openHouseSignIn = defineAddonCommand(realestateAddon, {
+  name: 'realestate.open_house.sign_in',
+  description:
+    'A visitor signs in at an open house on the host’s phone, handed to them, as on the sign-in page. On their own, they become a customer with a lead for the host, their yes to texts kept; working with another agent, they’re only recorded.',
+  risk: 1,
+  input: OpenHouseSignInInput,
+  output: OpenHouseSignInOutput,
+  permission: 'realestate.use',
+  scope: inWorkspace,
+  // Handed round the room with no signal: kept on the phone with its own id, and counted from when they signed in
+  // (board 88).
+  offline: 'anytime',
+  emits: ['realestate.open_house.signed_in', ...SIGN_UP_EVENTS, ...PROOF_EVENTS],
+  async handler(ctx, input) {
+    // Sent again after its answer was lost: the visitor it signed in.
+    if (input.id) {
+      const [had] = await ctx.tx
+        .select({ id: openHouseVisitors.id, openHouseId: openHouseVisitors.openHouseId })
+        .from(openHouseVisitors)
+        .where(
+          and(
+            eq(openHouseVisitors.id, input.id),
+            eq(openHouseVisitors.workspaceId, ctx.scope.workspaceId!),
+          ),
+        );
+      if (had) {
+        if (had.openHouseId !== input.openHouseId) throw idUnavailable();
+        return { visitorId: had.id, signedIn: true as const, firstName: input.firstName };
+      }
+    }
+    const o = await loadOpenHouse(ctx, input.openHouseId);
+    const deal = await loadDeal(ctx, o.dealRecordId);
+    requireNotArchived(deal);
+    const address = await listingAddress(ctx, deal);
+    if (!address)
+      throw HfosError.rule('realestate_listing_no_address', 409, noHomeWords(deal.name));
+    const visitorId = await signVisitorIn(ctx, { o, deal, address }, input, {
+      at: changeMoment(ctx.meta),
+      ...(input.id ? { id: input.id } : {}),
+    });
+    return { visitorId, signedIn: true as const, firstName: input.firstName };
+  },
+});
+
+/** What a visitor leaves, on the page or on the host's phone. */
+interface Visitor {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly email?: string | undefined;
+  readonly phone?: string | undefined;
+  readonly withAgent: boolean;
+  readonly agentName?: string | undefined;
+  readonly smsConsent: boolean;
+}
+
+/**
+ * Signs a visitor in at an open house, the same on its page and on the host's phone: refused once it's cancelled,
+ * and outside its hour either side (as of `at`, when they signed in). On their own, they're found or made as a
+ * customer with a lead for the host and their yes to texts kept, and signing in again is the same visit; working
+ * with another agent, they're only recorded. It's S-38's proof. `id` is the phone's for the visit. The visitor's id.
+ */
+async function signVisitorIn(
+  ctx: CommandContext,
+  house: { readonly o: OpenHouse; readonly deal: Deal; readonly address: string },
+  input: Visitor,
+  when: { readonly at: Date; readonly id?: string },
+): Promise<string> {
+  const { o, deal, address } = house;
+  const { opensAt, closesAt } = signInWindow(o);
+  const tz = await timeZoneOf(ctx);
+  const at = when.at.getTime();
+  if (o.state === 'cancelled')
+    throw HfosError.rule('realestate_open_house_cancelled', 409, 'This open house was cancelled.');
+  if (at < opensAt.getTime() || at > closesAt.getTime())
+    throw HfosError.rule(
+      'realestate_open_house_closed',
+      409,
+      at < opensAt.getTime()
+        ? `Sign-in opens at ${fmtAt(opensAt.getTime(), tz)}. Come back then.`
+        : 'Sign-in for this open house has closed. Ask the agent if you’d like to see the home.',
+    );
+  const street = streetOf(address);
+  const signed = input.withAgent
+    ? null
+    : await signUpFromPage(ctx, {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        source: `Open house: ${street}`,
+        smsConsent: input.smsConsent,
+        lead: { title: `Open house: ${street}`, assigneeUserId: o.hostUserId },
+      });
+  const values = {
+    ...(when.id ? { id: when.id } : {}),
+    workspaceId: deal.workspaceId,
+    dealRecordId: deal.recordId,
+    openHouseId: o.id,
+    personId: signed?.personId ?? null,
+    leadId: signed?.leadId ?? null,
+    firstName: input.firstName,
+    lastName: input.lastName || null,
+    email: input.email ?? null,
+    phone: input.phone ?? null,
+    withAgent: input.withAgent,
+    agentName: input.withAgent ? (input.agentName ?? null) : null,
+    smsConsent: !input.withAgent && input.smsConsent,
+    signedInAt: when.at,
+  };
+  // Signing in twice is one visit.
+  const [v] = await withPhoneId('open_house_visitors', () =>
+    signed
+      ? ctx.tx
           .insert(openHouseVisitors)
           .values(values)
           .onConflictDoUpdate({
             target: [openHouseVisitors.openHouseId, openHouseVisitors.personId],
-            set: { signedInAt: new Date(), smsConsent: values.smsConsent },
+            set: { signedInAt: when.at, smsConsent: values.smsConsent },
           })
           .returning({ id: openHouseVisitors.id })
-      : await ctx.tx
-          .insert(openHouseVisitors)
-          .values(values)
-          .returning({ id: openHouseVisitors.id });
-    // S-38 "Register open-house visitors": who signed in.
-    await addProof(
-      ctx,
-      deal,
-      { keys: ['S-38'] },
-      {
-        kind: 'record',
-        refKind: 'open_house',
-        refId: o.id,
-        body: `Visitors signed in at the open house on ${fmtAt(o.startsAt.getTime(), tz)}`,
-      },
-    );
-    await ctx.emit({
-      type: 'realestate.open_house.signed_in',
-      entityType: 'realestate_deal',
-      entityId: deal.recordId,
-      payload: { openHouseId: o.id, visitorId: v!.id, withAgent: input.withAgent },
-      broadcast: false,
-    });
-    return { signedIn: true as const, firstName: input.firstName };
-  },
-});
+      : ctx.tx.insert(openHouseVisitors).values(values).returning({ id: openHouseVisitors.id }),
+  );
+  // S-38 "Register open-house visitors": who signed in.
+  await addProof(
+    ctx,
+    deal,
+    { keys: ['S-38'] },
+    {
+      kind: 'record',
+      refKind: 'open_house',
+      refId: o.id,
+      body: `Visitors signed in at the open house on ${fmtAt(o.startsAt.getTime(), tz)}`,
+    },
+  );
+  await ctx.emit({
+    type: 'realestate.open_house.signed_in',
+    entityType: 'realestate_deal',
+    entityId: deal.recordId,
+    payload: { openHouseId: o.id, visitorId: v!.id, withAgent: input.withAgent },
+    broadcast: false,
+  });
+  return v!.id;
+}
 
 export const openHouseQueries = [openHousesList, publicOpenHouseGet] as const;
 export const openHouseCommands = [
   openHousePlan,
   openHouseCancel,
   openHouseFollowUp,
+  openHouseSignIn,
   publicOpenHouseSignIn,
 ] as const;

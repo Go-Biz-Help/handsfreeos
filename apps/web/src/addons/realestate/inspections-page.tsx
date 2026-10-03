@@ -33,12 +33,14 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import type { FileItem } from '@/lib/api/types';
 import { dateOf, fmtTime } from '@/lib/calendar/time';
 import { parseMoney } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CardHead } from './bits';
 import { DealCrumb, firstNames } from './buyer-bits';
 import { ReasonDialog } from './deal-dialogs';
+import { Thumb } from './field-cards';
 import type { DealDocument, Finding, Inspection, Inspections } from './types';
 import { useAct } from './use-act';
 
@@ -55,6 +57,7 @@ export function InspectionsPage({
   clients,
   live,
   side = 'buyer',
+  files = [],
 }: {
   workspaceId: string;
   dealId: string;
@@ -65,6 +68,8 @@ export function InspectionsPage({
   clients: readonly string[];
   live: boolean;
   side?: 'buyer' | 'listing';
+  /** The deal's files, for the findings' photos (taken at the inspection on the phone, round six). */
+  files?: readonly FileItem[];
 }) {
   useLiveRefresh(['custom_record']);
   const listing = side === 'listing';
@@ -80,6 +85,7 @@ export function InspectionsPage({
   const who = firstNames(clients) || 'The client';
   const active = data.inspections.filter((i) => i.status !== 'canceled');
   const findings = active.flatMap((i) => i.findings.map((f) => ({ i, f })));
+  const fileById = new Map(files.map((f) => [f.id, f]));
   const last = data.repairs.at(-1);
   // Whose turn it is: the request is ours on a buyer deal, the buyers' on a listing; the answer is the other side's.
   const asked = listing ? 'them' : 'us';
@@ -208,7 +214,21 @@ export function InspectionsPage({
                     className="cursor-pointer border-b border-border last:border-b-0 hover:bg-card-2"
                     onClick={() => live && setFinding({ inspection: i, f })}
                   >
-                    <td className="px-5 py-3 font-semibold">{f.title}</td>
+                    <td className="px-5 py-3">
+                      <div className="font-semibold">{f.title}</div>
+                      {f.photoFileIds.length ? (
+                        <div
+                          className="mt-1.5 flex flex-wrap gap-1.5"
+                          // A photo opens on its own, not the finding.
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`finding-photos-${f.id}`}
+                        >
+                          {f.photoFileIds.map((id, n) => (
+                            <Thumb key={id} file={fileById.get(id)} alt={`Photo ${n + 1}`} />
+                          ))}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3">{f.location ?? '—'}</td>
                     <td className="px-3 py-3">
                       <Badge

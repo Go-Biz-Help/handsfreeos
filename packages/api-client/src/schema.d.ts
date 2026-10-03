@@ -7807,7 +7807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add what an inspection found: what and where, how serious, the estimate, the client’s priority and what to ask for.
+         * Add what an inspection found: what and where, how serious, the estimate, the client’s priority, what to ask for and its photos.
          * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_finding_add"];
@@ -7847,7 +7847,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a finding: its words, how serious, the estimate, the client’s priority or what to ask for.
+         * Change a finding: its words, how serious, the estimate, the client’s priority, what to ask for or its photos.
          * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_finding_update"];
@@ -8751,6 +8751,26 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.planned, realestate.deal.facts_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
          */
         post: operations["command_realestate_open_house_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.sign_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A visitor signs in at an open house on the host’s phone, handed to them, as on the sign-in page. On their own, they become a customer with a lead for the host, their yes to texts kept; working with another agent, they’re only recorded.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.signed_in, person.created, lead.created, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_open_house_sign_in"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33444,6 +33464,7 @@ export interface operations {
                     inspectionId: string;
                     location?: string | null;
                     note?: string | null;
+                    photoFileIds?: string[];
                     /** @enum {string} */
                     severity: "safety" | "repair" | "minor";
                     title: string;
@@ -33518,6 +33539,7 @@ export interface operations {
                     findingId: string;
                     location?: string | null;
                     note?: string | null;
+                    photoFileIds?: string[];
                     /** @enum {string} */
                     severity?: "safety" | "repair" | "minor";
                     title?: string;
@@ -35429,6 +35451,54 @@ export interface operations {
                             code: string;
                             message: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_sign_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    agentName?: string;
+                    /** Format: email */
+                    email?: string;
+                    firstName: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default  */
+                    lastName?: string;
+                    /** Format: uuid */
+                    openHouseId: string;
+                    phone?: string;
+                    /** @default false */
+                    smsConsent?: boolean;
+                    /** @default false */
+                    withAgent?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        firstName: string;
+                        /** @enum {boolean} */
+                        signedIn: true;
+                        /** Format: uuid */
+                        visitorId: string;
                     };
                 };
             };
@@ -55387,6 +55457,7 @@ export interface operations {
                                 id: string;
                                 location: string | null;
                                 note: string | null;
+                                photoFileIds: string[];
                                 /** @enum {string} */
                                 severity: "safety" | "repair" | "minor";
                                 title: string;

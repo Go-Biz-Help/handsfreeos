@@ -21,6 +21,14 @@ export default async function RealestateInspectionsPage({
       api.POST('/v1/queries/realestate.inspections', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.document.list', inDeal).then(unwrapPage),
     ]);
+    // The deal's files, for the photos taken of what the inspection found.
+    const files = data.inspections.some((i) => i.findings.some((f) => f.photoFileIds.length > 0))
+      ? unwrapPage(
+          await api.POST('/v1/queries/file.list', {
+            body: { workspaceId, recordType: 'custom_record', recordId: dealId },
+          }),
+        ).files
+      : [];
     return (
       <InspectionsPage
         workspaceId={workspaceId}
@@ -32,6 +40,7 @@ export default async function RealestateInspectionsPage({
         clients={deal.parties.filter((p) => p.role === 'client').map((p) => p.name)}
         live={!deal.deal.outcome && !deal.deal.archived}
         side={deal.deal.side}
+        files={files}
       />
     );
   });

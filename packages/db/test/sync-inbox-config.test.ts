@@ -37,6 +37,14 @@ const WIDE_LOOKUP: Record<(typeof INBOX_TABLES)[number], string> = {
 const PRIVATE_TABLES: readonly string[] = ['conversations', 'messages'];
 const NOT_PRIVATE = 'private_to IS NULL';
 
+/**
+ * Round six: a private record's threads, messages and Home cards come back to that record's people through
+ * records_v1, sealed to them (`seal_scope IN addon_use`, then its viewers or open to the add-on's key holders). That
+ * is the record's rule, not the inbox's, so the inbox's own two arms are judged here without it.
+ */
+const RECORDS = 'records_v1';
+const SEALED = 'seal_scope IN addon_use';
+
 const { queries } = readSyncConfig();
 const sending = queries.filter((q) => !q.cte);
 const lookups = queries.filter((q) => q.cte);
@@ -45,7 +53,13 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
   it('sends each inbox table from the wide arm and the narrowed arm, and nowhere else', () => {
     for (const table of INBOX_TABLES) {
       const mine = sending.filter((q) => q.table === table);
-      expect(mine.map((q) => q.stream).sort()).toEqual(['business_v1', 'me_v1']);
+      expect(
+        mine
+          .filter((q) => q.stream !== RECORDS)
+          .map((q) => q.stream)
+          .sort(),
+      ).toEqual(['business_v1', 'me_v1']);
+      for (const q of mine.filter((q) => q.stream === RECORDS)) expect(q.where).toContain(SEALED);
     }
   });
 
@@ -125,7 +139,14 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
     // app.activities is not narrowed: that is a different question about a different screen, and 0083 says so
     // in its header. If it ever is, this test should be the thing that makes somebody say so out loud.
     const activities = sending.filter((q) => q.table === 'activities');
-    expect(activities.map((q) => q.stream)).toEqual(['business_v1']);
-    expect(activities[0]!.where).toContain('workspace_id IN access');
+    expect(activities.filter((q) => q.stream !== RECORDS).map((q) => q.stream)).toEqual([
+      'business_v1',
+    ]);
+    expect(activities.find((q) => q.stream === 'business_v1')!.where).toContain(
+      'workspace_id IN access',
+    );
+    // A private record's own timeline lines go to its people alone (round six).
+    for (const q of activities.filter((q) => q.stream === RECORDS))
+      expect(q.where).toContain(SEALED);
   });
 });

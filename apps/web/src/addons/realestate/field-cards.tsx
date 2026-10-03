@@ -27,8 +27,8 @@ import type { FieldNote, Teammate, Walkthrough } from './types';
 
 const SHOWN = 4;
 
-/** A photo on a note or an item: a small square that opens the full one. */
-function Thumb({ file, alt }: { file: FileItem | undefined; alt: string }) {
+/** A photo on a note, an item or an inspection's finding: a small square that opens the full one. */
+export function Thumb({ file, alt }: { file: FileItem | undefined; alt: string }) {
   return (
     <button
       type="button"

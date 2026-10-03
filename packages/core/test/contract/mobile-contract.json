@@ -4822,6 +4822,23 @@
         "required": ["workspaceId", "personId"]
       }
     },
+    "portal_access.give": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
+      }
+    },
     "push_device.register": {
       "offline": "online",
       "input": {
@@ -5129,6 +5146,36 @@
         "required": ["workspaceId", "dealId"]
       }
     },
+    "realestate.client_task.mark_done": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "taskId", "personId", "note"]
+      }
+    },
     "realestate.cma.find_comps": {
       "offline": "online",
       "input": {
@@ -5245,6 +5292,72 @@
           }
         },
         "required": ["workspaceId", "contingencyId", "how"]
+      }
+    },
+    "realestate.contract.confirm": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "readId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueIds": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "readId"]
+      }
+    },
+    "realestate.deal.export": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.deal.move_stage": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "stage"]
       }
     },
     "realestate.document.add": {
@@ -5413,6 +5526,68 @@
         "required": ["workspaceId", "dutyId"]
       }
     },
+    "realestate.duty.complete_with_exception": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "dutyId", "reason"]
+      }
+    },
+    "realestate.duty.pick_vendor": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "inspection",
+              "hvac",
+              "repairs",
+              "photos",
+              "staging",
+              "lender",
+              "title",
+              "insurance",
+              "other"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dutyId", "vendorId"]
+      }
+    },
     "realestate.duty.set_status": {
       "offline": "anytime",
       "input": {
@@ -5470,6 +5645,46 @@
           }
         },
         "required": ["workspaceId", "dutyId", "status"]
+      }
+    },
+    "realestate.duty.vendor_quote": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pickId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "pickId", "cents"]
       }
     },
     "realestate.duty.withdraw_evidence": {
@@ -5880,6 +6095,14 @@
                 "type": "null"
               }
             ]
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": ["workspaceId", "inspectionId", "title", "severity"]
@@ -5984,6 +6207,14 @@
                 "type": "null"
               }
             ]
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": ["workspaceId", "findingId"]
@@ -6193,6 +6424,174 @@
         "required": ["workspaceId", "inspectionId"]
       }
     },
+    "realestate.listing.confirm_facts": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "facts": {
+            "type": "object",
+            "properties": {
+              "beds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "baths": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "sqft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000000
+              },
+              "lot_sqft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "year_built": {
+                "type": "integer",
+                "minimum": 1700,
+                "maximum": 2100
+              },
+              "hoa_monthly_cents": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              "property_type": {
+                "type": "string",
+                "enum": [
+                  "single_family",
+                  "condo",
+                  "townhouse",
+                  "multi_family",
+                  "manufactured",
+                  "land"
+                ]
+              },
+              "garage_spaces": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          },
+          "sources": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "beds",
+                "baths",
+                "sqft",
+                "lot_sqft",
+                "year_built",
+                "hoa_monthly_cents",
+                "property_type",
+                "garage_spaces"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["seller", "pasted", "agent", "mls"]
+            }
+          },
+          "highlights": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId", "facts"]
+      }
+    },
+    "realestate.listing.description.request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.lookup": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mlsNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.mark_live": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mlsNumber": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,30}$"
+          },
+          "liveOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId", "mlsNumber", "liveOn"]
+      }
+    },
     "realestate.listing.photo_add": {
       "offline": "anytime",
       "input": {
@@ -6269,6 +6668,23 @@
           }
         },
         "required": ["workspaceId", "dealId", "photos"]
+      }
+    },
+    "realestate.listing.posts_request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
       }
     },
     "realestate.listing.price.propose": {
@@ -6712,6 +7128,146 @@
         "required": ["workspaceId", "offerId"]
       }
     },
+    "realestate.open_house.plan": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "durationMinutes": {
+            "default": 180,
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 720
+          },
+          "hostUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "calendarId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "acknowledgeWarnings": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId", "startsAt"]
+      }
+    },
+    "realestate.open_house.sign_in": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openHouseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "lastName": {
+            "default": "",
+            "type": "string",
+            "maxLength": 80
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "withAgent": {
+            "default": false,
+            "type": "boolean"
+          },
+          "agentName": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "smsConsent": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "openHouseId", "firstName"]
+      }
+    },
+    "realestate.repair.send": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "words": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "findingIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "respondBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "words"]
+      }
+    },
     "realestate.showing.add": {
       "offline": {
         "freshMinutes": 30
@@ -6859,6 +7415,28 @@
           }
         },
         "required": ["workspaceId", "showingId"]
+      }
+    },
+    "realestate.status_email.request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "milestone": {
+            "default": "asked",
+            "type": "string",
+            "enum": ["under_contract", "inspection_done", "clear_to_close", "closed", "asked"]
+          }
+        },
+        "required": ["workspaceId", "dealId"]
       }
     },
     "realestate.status_email.save": {
@@ -7104,6 +7682,26 @@
         "required": ["workspaceId", "tourId", "homeIds"]
       }
     },
+    "realestate.vendor.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approved": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "vendorId", "approved"]
+      }
+    },
     "realestate.vendor.save": {
       "offline": "anytime",
       "input": {
@@ -7281,6 +7879,35 @@
         "required": ["workspaceId", "walkthroughId"]
       }
     },
+    "realestate.walkthrough.plan": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId", "id"]
+      }
+    },
     "realestate.walkthrough.start": {
       "offline": "anytime",
       "input": {
@@ -7296,6 +7923,50 @@
           }
         },
         "required": ["workspaceId", "walkthroughId"]
+      }
+    },
+    "record_hold.lift": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "holdId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "holdId", "reason"]
+      }
+    },
+    "record_hold.place": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "customRecordId", "reason"]
       }
     },
     "record.add_tag": {
@@ -8341,6 +9012,26 @@
         "required": ["workspaceId", "dealId"]
       }
     },
+    "realestate.client_tasks": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeCanceled": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
     "realestate.cma": {
       "input": {
         "type": "object",
@@ -8355,6 +9046,110 @@
           }
         },
         "required": ["workspaceId", "cmaId"]
+      }
+    },
+    "realestate.deal.history": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "before": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.document.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.duty.vendors": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "inspection",
+              "hvac",
+              "repairs",
+              "photos",
+              "staging",
+              "lender",
+              "title",
+              "insurance",
+              "other"
+            ]
+          }
+        },
+        "required": ["workspaceId", "dutyId"]
+      }
+    },
+    "realestate.exports": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.financing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
       }
     },
     "realestate.homes": {
@@ -8372,6 +9167,70 @@
           "includeRemoved": {
             "default": false,
             "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.inspections": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.marketing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.prices": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": ["workspaceId", "dealId"]
@@ -8449,6 +9308,38 @@
         "required": ["workspaceId", "dealId"]
       }
     },
+    "realestate.open_houses": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.showing.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
     "realestate.tours": {
       "input": {
         "type": "object",
@@ -8467,6 +9358,42 @@
           }
         },
         "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.walkthrough": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "record_hold.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["legal", "retention"]
+          }
+        },
+        "required": ["workspaceId"]
       }
     }
   },

@@ -62321,7 +62321,7 @@
     "/v1/commands/realestate.finding.add": {
       "post": {
         "operationId": "command_realestate_finding_add",
-        "summary": "Add what an inspection found: what and where, how serious, the estimate, the client’s priority and what to ask for.",
+        "summary": "Add what an inspection found: what and where, how serious, the estimate, the client’s priority, what to ask for and its photos.",
         "tags": [
           "commands"
         ],
@@ -62430,6 +62430,15 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "photoFileIds": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
                   }
                 },
                 "required": [
@@ -62470,7 +62479,7 @@
     "/v1/commands/realestate.finding.update": {
       "post": {
         "operationId": "command_realestate_finding_update",
-        "summary": "Change a finding: its words, how serious, the estimate, the client’s priority or what to ask for.",
+        "summary": "Change a finding: its words, how serious, the estimate, the client’s priority, what to ask for or its photos.",
         "tags": [
           "commands"
         ],
@@ -62574,6 +62583,15 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "photoFileIds": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
                   }
                 },
                 "required": [
@@ -65283,6 +65301,114 @@
                   "required": [
                     "visitorId",
                     "followedUpAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.open_house.sign_in": {
+      "post": {
+        "operationId": "command_realestate_open_house_sign_in",
+        "summary": "A visitor signs in at an open house on the host’s phone, handed to them, as on the sign-in page. On their own, they become a customer with a lead for the host, their yes to texts kept; working with another agent, they’re only recorded.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.open_house.signed_in, person.created, lead.created, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "openHouseId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "lastName": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "withAgent": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "agentName": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "smsConsent": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "openHouseId",
+                  "firstName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "visitorId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "signedIn": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "firstName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "visitorId",
+                    "signedIn",
+                    "firstName"
                   ],
                   "additionalProperties": false
                 }
@@ -129633,6 +129759,14 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "photoFileIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
                                 }
                               },
                               "required": [
@@ -129644,7 +129778,8 @@
                                 "clientPriority",
                                 "ask",
                                 "creditCents",
-                                "note"
+                                "note",
+                                "photoFileIds"
                               ],
                               "additionalProperties": false
                             }

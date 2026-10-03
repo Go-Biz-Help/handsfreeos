@@ -15,9 +15,11 @@ import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realest
 import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import {
+  listingFactLinesOfCopy,
   listingFlyerOfCopy,
   listingMarketingOfCopy,
   listingOfCopy,
+  listingPhotosOnPhoneOfCopy,
   listingPricesOfCopy,
 } from '../../src/addons/realestate/views/listing';
 import { openHousesOfCopy, showingListOfCopy } from '../../src/addons/realestate/views/showings';
@@ -684,9 +686,27 @@ async function sameAsServer(u: TestUser, dealId: string) {
   const { copy } = await phoneOf(u);
   const label = `${u.email} ${dealId}`;
   const ctx = { userId: u.id };
-  expect(listingOfCopy(copy, dealId, ctx), label).toEqual(
-    withoutServerOnly((await ask('realestate.listing', { dealId }, u)).listing),
+  const listing = (await ask('realestate.listing', { dealId }, u)).listing;
+  expect(listingOfCopy(copy, dealId, ctx), label).toEqual(withoutServerOnly(listing));
+  // The facts page: each kept fact with where it came from, and the MLS's word when it differs.
+  expect(listingFactLinesOfCopy(copy, dealId, ctx), label).toEqual(
+    listing.choices
+      .filter((c: Any) => c.confirmed)
+      .map((c: Any) => ({
+        key: c.key,
+        label: c.label,
+        words: c.confirmed.words,
+        from: c.confirmed.from,
+        mlsWords: listing.feed.mls?.differs.includes(c.key)
+          ? (c.candidates.find((x: Any) => x.from === 'mls')?.words ?? null)
+          : null,
+      })),
   );
+  // The photos page: nothing waits to upload on a phone that took none.
+  expect(
+    listingPhotosOnPhoneOfCopy(copy, dealId).map(({ waiting, ...p }) => ({ ...p, waiting })),
+    label,
+  ).toEqual(listing.photos.map((p: Any) => ({ ...p, waiting: false })));
   expect(listingPricesOfCopy(copy, dealId, ctx), label).toEqual(
     await ask('realestate.listing.prices', { dealId }, u),
   );
@@ -729,6 +749,7 @@ describe('a listing on the phone', () => {
       // The server answers with signal.
       expect((await ask('realestate.listing', { dealId }, owner)).listing.dealId).toBe(dealId);
       expect(listingOfCopy(copy, dealId, ctx)).toBeNull();
+      expect(listingFactLinesOfCopy(copy, dealId, ctx)).toBeNull();
       expect(listingPricesOfCopy(copy, dealId, ctx)).toBeNull();
       expect(listingMarketingOfCopy(copy, dealId, ctx)).toBeNull();
       expect(listingFlyerOfCopy(copy, dealId, ctx)).toBeNull();
@@ -753,6 +774,9 @@ describe('a listing on the phone', () => {
       feed: { state: 'found', mls: { mlsNumber: '4821937', differs: ['sqft'] } },
     });
     expect(l.feed.differences.map((d) => d.key)).toEqual(['price']);
+    const lines = listingFactLinesOfCopy(copy, alvarez, ctx)!;
+    expect(lines.filter((f) => f.mlsWords).map((f) => f.key)).toEqual(['sqft']);
+    expect(new Set(lines.map((f) => f.from)).size).toBeGreaterThan(1);
     expect(l.photos.map((p) => [p.name, p.position, p.caption, p.public])).toEqual([
       ['kitchen.jpg', 0, 'The 2021 kitchen', true],
       ['front.jpg', 1, null, true],

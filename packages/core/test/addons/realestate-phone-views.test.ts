@@ -13,7 +13,8 @@ import { realestateAddonServer } from '../../src/addons/realestate/server';
 import { dealListOfCopy, type DealListFilter } from '../../src/addons/realestate/views/deal-list';
 import { dutyListOfCopy, type DutyListFilter } from '../../src/addons/realestate/views/duty-list';
 import { phoneCopy } from './realestate-phone-fixture';
-import { dealPageOfCopy } from '../../src/addons/realestate/views/deal-page';
+import { dealPageOfCopy, dealRisksOfCopy } from '../../src/addons/realestate/views/deal-page';
+import { clientUpdateOfCopy } from '../../src/addons/realestate/views/drafts';
 import {
   exceptionsOfCopy,
   todayOfCopy,
@@ -21,8 +22,11 @@ import {
   workloadOfCopy,
   type CoordinateFilter,
 } from '../../src/addons/realestate/views/coordinate';
-import { documentsOfCopy } from '../../src/addons/realestate/views/documents';
-import { dutySheetOfCopy } from '../../src/addons/realestate/views/duty-sheet';
+import { documentsOfCopy, signingsOfCopy } from '../../src/addons/realestate/views/documents';
+import {
+  dutySheetOfCopy,
+  proofChecklistOfCopy,
+} from '../../src/addons/realestate/views/duty-sheet';
 import { historyOfCopy } from '../../src/addons/realestate/views/history';
 import { dutyVendorsOfCopy, vendorListOfCopy } from '../../src/addons/realestate/views/vendors';
 import {
@@ -34,6 +38,7 @@ import {
   type CommandDef,
   type HumanActor,
   type QueryDef,
+  type SystemActor,
 } from '../../src/server';
 import { realestateBusiness } from './realestate-fixture';
 
@@ -62,6 +67,26 @@ const run = (name: string, input: Record<string, unknown>, as: TestUser): Promis
   ).then((r) => r.output);
 const ask = (name: string, input: Record<string, unknown>, as: TestUser): Promise<Any> =>
   executeQuery(api(), op(name) as QueryDef, { workspaceId: ws, ...input }, human(as), meta());
+/** The add-on's worker, as the system acting for it. */
+const system = async (name: string, input: Record<string, unknown>): Promise<Any> => {
+  const [w] = await rows<{ org: string }>(
+    admin(),
+    sql`select organization_id as org from app.workspaces where id = ${ws}`,
+  );
+  const actor: SystemActor = {
+    type: 'system',
+    workspaceId: ws,
+    organizationId: w!.org,
+    onBehalfOf: null,
+  };
+  return executeCommand(
+    testDbs().worker.db,
+    op(name) as CommandDef,
+    { workspaceId: ws, ...input },
+    actor,
+    meta(),
+  ).then((r) => r.output);
+};
 
 let owner: TestUser;
 let agent: TestUser;
@@ -71,6 +96,8 @@ let today: string;
 let nguyen: string;
 let dutyIds: string[] = [];
 let inspectDuty: string;
+let draftId: string;
+let agreementId: string;
 
 beforeAll(async () => {
   [owner, agent, mate] = await Promise.all([
@@ -90,17 +117,17 @@ beforeAll(async () => {
     sql`select (now() at time zone w.timezone)::date::text as today from app.workspaces w where w.id = ${ws}`,
   );
   today = t!.today;
-  const person = async (firstName: string, lastName: string) =>
+  const person = async (firstName: string, lastName: string, email?: string) =>
     (
       await executeCommand(
         api(),
         personCreate,
-        { workspaceId: ws, firstName, lastName },
+        { workspaceId: ws, firstName, lastName, ...(email ? { email } : {}) },
         human(agent),
         meta(),
       )
     ).output.personId as string;
-  const linh = await person('Linh', 'Nguyen');
+  const linh = await person('Linh', 'Nguyen', 'linh@example.com');
   const ann = await person('Ann', 'Smith');
   const day = (n: number) =>
     new Date(Date.parse(`${today}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -245,11 +272,45 @@ beforeAll(async () => {
     );
     return up.output.fileId as string;
   };
-  await run(
-    'realestate.document.add',
-    { dealId: nguyen, fileId: await fileOn('Buyer agreement.pdf'), kind: 'buyer_agreement' },
-    agent,
+  agreementId = (
+    await run(
+      'realestate.document.add',
+      { dealId: nguyen, fileId: await fileOn('Buyer agreement.pdf'), kind: 'buyer_agreement' },
+      agent,
+    )
+  ).documentId;
+  // The agreement out for signing in DocuSign: one of two signed (board 81).
+  await rows(
+    admin(),
+    sql`insert into addon_realestate.esign_envelopes
+          (workspace_id, deal_record_id, document_id, provider, state, subject, signers, sent_at)
+        values (${ws}, ${nguyen}, ${agreementId}, 'docusign', 'sent', 'Please sign',
+          ${JSON.stringify([
+            {
+              name: 'Linh Nguyen',
+              email: 'linh@example.com',
+              order: 1,
+              state: 'signed',
+              signedAt: new Date().toISOString(),
+            },
+            {
+              name: 'Ann Smith',
+              email: 'ann@example.com',
+              order: 2,
+              state: 'sent',
+              signedAt: null,
+            },
+          ])}::jsonb, now())`,
   );
+  // A client update, written by the AI (board 81).
+  draftId = (await run('realestate.status_email.request', { dealId: nguyen }, agent)).draftId;
+  await system('realestate.status_email.drafted', {
+    draftId,
+    subject: 'Your inspection is in',
+    body: 'Hi Linh, the inspection report is in. More tomorrow.',
+    model: 'scripted',
+    checks: [],
+  });
   const first = (
     await run(
       'realestate.document.add',
@@ -629,5 +690,96 @@ describe('vendors on the phone', () => {
     expect(
       dutyVendorsOfCopy(await phoneCopy(owner, ws), inspectDuty, { userId: owner.id }),
     ).toBeNull();
+  });
+});
+
+describe('what could stop a deal closing, on the phone', () => {
+  it('answers what the server answers about its health and every reason, for its agent and an owner', async () => {
+    // The phone has the health as last worked out, at a change or the sweep; the server works it out as it's asked.
+    // The setup moved a blocker's review and the closed days by hand, so let the sweep see them first.
+    await system('realestate.sweep', {});
+    for (const u of [agent, owner]) {
+      const server = await ask('realestate.deal.risks', { dealId: nguyen }, u);
+      const phone = dealRisksOfCopy(await phoneCopy(u, ws), nguyen)!;
+      // The same reasons; the server's two ways to them list duties in different orders, so by their words.
+      const sorted = (list: readonly unknown[]) =>
+        [...list].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      expect({ ...phone, reasons: sorted(phone.reasons) }, u.email).toEqual({
+        dealId: server.dealId,
+        name: server.name,
+        health: server.health,
+        reasons: sorted(server.reasons),
+      });
+      // Reds first.
+      const levels = phone.reasons.map((r) => r.level);
+      expect(levels).toEqual([...levels].sort((a, b) => (a === b ? 0 : a === 'red' ? -1 : 1)));
+    }
+    // Not equal by being empty: the blocked duty and the passed contingency are among them.
+    const phone = dealRisksOfCopy(await phoneCopy(agent, ws), nguyen)!;
+    expect(phone.reasons.length).toBeGreaterThan(0);
+    expect(phone.health).not.toBe('green');
+  });
+});
+
+describe('a duty’s proof checklist on the phone', () => {
+  it('ticks what’s there, leaving what the server says is missing', async () => {
+    const copy = await phoneCopy(agent, ws);
+    for (const dutyId of [...dutyIds, inspectDuty]) {
+      const sheet = dutySheetOfCopy(copy, dutyId, { userId: agent.id, now: Date.now() })!;
+      const list = proofChecklistOfCopy(copy, dutyId, { userId: agent.id })!;
+      expect(list.full).toBe(true);
+      expect(list.complete, dutyId).toBe(sheet.proof.missing === '');
+      if (list.mode === 'all' && !list.complete)
+        expect(
+          list.items
+            .filter((i) => !i.met)
+            .map((i) => i.words.toLowerCase())
+            .every((w) => sheet.proof.missing.toLowerCase().includes(w.split(' “')[0]!)),
+          dutyId,
+        ).toBe(true);
+    }
+    // Kept as a summary: nothing is ticked, and nothing is said to be complete that needs proof.
+    const owners = await phoneCopy(owner, ws);
+    for (const dutyId of dutyIds) {
+      const list = proofChecklistOfCopy(owners, dutyId, { userId: owner.id })!;
+      expect(list.full).toBe(false);
+      expect(list.items.some((i) => i.met)).toBe(false);
+    }
+  });
+});
+
+describe('a deal’s signings and client updates on the phone', () => {
+  it('answer what the server answers', async () => {
+    const copy = await phoneCopy(agent, ws);
+    const { envelopes } = await ask('realestate.esign.list', { dealId: nguyen }, agent);
+    expect(signingsOfCopy(copy, nguyen)).toEqual(
+      envelopes.map((e: Any) => ({
+        id: e.id,
+        documentId: e.documentId,
+        provider: e.provider,
+        providerLabel: e.providerLabel,
+        state: e.state,
+        stateLabel: e.stateLabel,
+        signers: e.signers,
+        signersWords: e.signersWords,
+        sentAt: e.sentAt,
+        completedAt: e.completedAt,
+        signedDocumentId: e.signedDocumentId,
+        next: 'Ann Smith',
+      })),
+    );
+    expect(envelopes.length).toBe(1);
+    const { draft } = await ask('realestate.status_email.get', { draftId }, agent);
+    const { failure: _f, requestedAt: _r, ...shown } = draft;
+    expect(clientUpdateOfCopy(copy, nguyen, draftId, { userId: agent.id })).toEqual({
+      ...shown,
+      editedAt: null,
+      acknowledged: false,
+    });
+    expect(shown).toMatchObject({ status: 'ready', subject: 'Your inspection is in' });
+    // Kept as a summary: it waits for signal.
+    const owners = await phoneCopy(owner, ws);
+    expect(signingsOfCopy(owners, nguyen)).toEqual([]);
+    expect(clientUpdateOfCopy(owners, nguyen, draftId, { userId: owner.id })).toBeNull();
   });
 });
