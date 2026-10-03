@@ -151,7 +151,7 @@ select private.addon_phone_table('addon_realestate.duties', 'deal_record_id', ar
   'tracker', 'status', 'materiality', 'accountable_role', 'accountable_user_id', 'performers', 'definition',
   'due_state', 'due_at', 'due_date', 'due_time', 'blocker', 'blocker_owner', 'blocker_review_at', 'waiting_on',
   'waiting_since', 'chase_at', 'finished_at', 'finished_by', 'exception', 'acknowledged_at', 'at_risk_since',
-  'escalated_at', 'updated_at'], 'all');
+  'escalated_at', 'created_at', 'updated_at'], 'all');
 select private.addon_phone_table('addon_realestate.term_entries', 'deal_record_id', array['key', 'value_date',
   'value_time', 'value_cents', 'value_text', 'source', 'page', 'entered_at', 'confirmed_at', 'superseded_at',
   'rejected_at'], 'all');

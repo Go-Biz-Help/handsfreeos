@@ -10,11 +10,13 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
+import { dealListOfCopy, type DealListFilter } from '../../src/addons/realestate/views/deal-list';
+import { dutyListOfCopy, type DutyListFilter } from '../../src/addons/realestate/views/duty-list';
 import {
-  dealListOfSynced,
-  type DealListFilter,
-  type DealListSource,
-} from '../../src/addons/realestate/views/deal-list';
+  realestateCopyOf,
+  type RealestateCopy,
+  type RealestateSource,
+} from '../../src/addons/realestate/views/synced';
 import {
   executeCommand,
   executeQuery,
@@ -68,8 +70,12 @@ function cell(v: unknown): string | number | null {
 const cells = <T extends Record<string, unknown>>(list: T[]) =>
   list.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, cell(v)])));
 
-/** What `u`'s phone holds for the Deals list. */
-async function phoneCopy(u: TestUser): Promise<DealListSource> {
+/** What `u`'s phone holds of Real Estate, read the way its screens read it. */
+async function phoneCopy(u: TestUser): Promise<RealestateCopy> {
+  return realestateCopyOf(await phoneRows(u));
+}
+
+async function phoneRows(u: TestUser): Promise<RealestateSource> {
   return asUser(api(), u.claims, async (tx) => ({
     records: cells(
       await rows(
@@ -104,7 +110,7 @@ async function phoneCopy(u: TestUser): Promise<DealListSource> {
     recordNames: cells(
       await rows(tx, sql`select id, name from app.custom_records where workspace_id = ${ws}`),
     ),
-  })) as unknown as Promise<DealListSource>;
+  })) as unknown as Promise<RealestateSource>;
 }
 
 beforeAll(async () => {
@@ -249,14 +255,14 @@ describe('the Deals list on the phone', () => {
       const copy = await phoneCopy(u);
       for (const f of [...FILTERS, { agentUserId: agent.id, status: 'all' as const }]) {
         const server = (await ask('realestate.deal.list', f, u)).deals;
-        const phone = dealListOfSynced(copy, f, { userId: u.id, now: Date.now(), today });
+        const phone = dealListOfCopy(copy, f, { userId: u.id, now: Date.now(), today });
         expect(phone, `${u.email} ${JSON.stringify(f)}`).toEqual(server);
       }
     }
   });
 
   it('isn’t equal by being empty: the deal has its client, home, dates, duties and what it waits on', async () => {
-    const [deal] = dealListOfSynced(
+    const [deal] = dealListOfCopy(
       await phoneCopy(agent),
       { search: 'juniper' },
       { userId: agent.id, now: Date.now(), today },
@@ -275,7 +281,7 @@ describe('the Deals list on the phone', () => {
     expect(deal!.nextDue).not.toBeNull();
     expect(deal!.closing).not.toBeNull();
     // The teammate sees the listing they're on, and not the agent's purchase.
-    const mates = dealListOfSynced(
+    const mates = dealListOfCopy(
       await phoneCopy(mate),
       { status: 'all' },
       {
@@ -285,5 +291,33 @@ describe('the Deals list on the phone', () => {
       },
     );
     expect(mates.map((d) => d.name)).toEqual(['Smith listing']);
+  });
+});
+
+describe('My duties on the phone', () => {
+  const FILTERS: DutyListFilter[] = [
+    {},
+    { mine: false },
+    { mine: false, status: 'all' },
+    { mine: false, status: 'overdue' },
+    { mine: false, status: 'drafts' },
+    { status: 'all' },
+    { mine: false, limit: 5 },
+  ];
+
+  it('answers what the server answers, for each person and filter, on every deal and on one', async () => {
+    const [deal] = (await ask('realestate.deal.list', { search: 'juniper' }, agent)).deals;
+    for (const u of [agent, mate, owner]) {
+      const copy = await phoneCopy(u);
+      for (const f of [...FILTERS, { mine: false, dealId: deal.dealId as string }]) {
+        const server = (await ask('realestate.duty.list', f, u)).duties;
+        const phone = dutyListOfCopy(copy, f, { userId: u.id, now: Date.now() });
+        expect(phone, `${u.email} ${JSON.stringify(f)}`).toEqual(server);
+      }
+    }
+    // Not equal by being empty.
+    expect(
+      dutyListOfCopy(await phoneCopy(agent), {}, { userId: agent.id, now: Date.now() }).length,
+    ).toBeGreaterThan(0);
   });
 });

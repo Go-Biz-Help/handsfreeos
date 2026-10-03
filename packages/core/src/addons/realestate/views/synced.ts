@@ -1,0 +1,285 @@
+/**
+ * Real Estate's part of a phone's copy (round six, step 13), read once into what its screens work from.
+ *
+ * The phone holds tables, not answers: the deal records, Real Estate's rows as JSON (`addon_phone_rows`: deals,
+ * duties, terms and the rest), the links (a client, a home), and the business's people and members. Every column
+ * arrives as text or 0/1 and any may be null; a JSON column's times are Postgres's, a table's PowerSync's.
+ * `realestateCopyOf` reads them once; each screen's view (`deal-list.ts`, `duty-list.ts`) works from the result, and
+ * `packages/core/test/addons/realestate-phone-views.test.ts` holds each to the server's answer.
+ *
+ * Browser-safe and pure.
+ */
+
+/** Every synced column reads as text, an integer or nothing. */
+export type Cell = string | number | null | undefined;
+
+/** A deal record (`custom_records` of the deal kind). */
+export interface SyncedDealRecord {
+  readonly id: Cell;
+  readonly name: Cell;
+  readonly archived_at: Cell;
+  readonly owner_user_id: Cell;
+  readonly team_user_ids: Cell;
+  readonly updated_at: Cell;
+}
+
+/** One of Real Estate's rows (`addon_phone_rows`): `id` is `<source>:<the row's key>`, `data` its columns as JSON. */
+export interface SyncedPhoneRow {
+  readonly id: Cell;
+  readonly source: Cell;
+  readonly record_id: Cell;
+  readonly data: Cell;
+}
+
+/** A link (`relationships`), with its kind's `addon_key`. */
+export interface SyncedLink {
+  readonly id: Cell;
+  readonly addon_key: Cell;
+  readonly a_person_id: Cell;
+  readonly a_custom_record_id: Cell;
+  readonly b_custom_record_id: Cell;
+  readonly created_at: Cell;
+}
+
+export interface SyncedPerson {
+  readonly id: Cell;
+  readonly first_name: Cell;
+  readonly last_name: Cell;
+  readonly email: Cell;
+}
+
+export interface SyncedUser {
+  readonly id: Cell;
+  readonly full_name: Cell;
+  readonly email: Cell;
+}
+
+/** A record's name by its id: a home's address. */
+export interface SyncedRecordName {
+  readonly id: Cell;
+  readonly name: Cell;
+}
+
+/** What the phone's SQL hands over. */
+export interface RealestateSource {
+  readonly records: readonly SyncedDealRecord[];
+  readonly rows: readonly SyncedPhoneRow[];
+  readonly links: readonly SyncedLink[];
+  readonly people: readonly SyncedPerson[];
+  readonly users: readonly SyncedUser[];
+  /** Records the links point at (homes); deal records may be among them. */
+  readonly recordNames: readonly SyncedRecordName[];
+}
+
+// ---------- reading cells ----------
+
+export const text = (v: unknown): string | null => {
+  if (v === null || v === undefined) return null;
+  const s = String(v);
+  return s === '' ? null : s;
+};
+/** A time as milliseconds: PowerSync's "2026-10-03 14:31:03.785Z", Postgres's "…+00", or JSON's "…T…+00:00". */
+export const ms = (v: unknown): number | null => {
+  const s = text(v);
+  if (!s) return null;
+  const t = Date.parse(s.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
+  return Number.isNaN(t) ? null : t;
+};
+export const iso = (t: number) => new Date(t).toISOString();
+const json = (v: Cell): unknown => {
+  const s = text(v);
+  if (!s) return null;
+  try {
+    return JSON.parse(s) as unknown;
+  } catch {
+    return null;
+  }
+};
+const obj = (v: Cell): Record<string, unknown> => {
+  const parsed = json(v);
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : {};
+};
+const ids = (v: Cell): string[] => {
+  const parsed = json(v);
+  return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+};
+/** The row's own key, after `<source>:`. */
+const keyOf = (id: Cell) => {
+  const s = text(id) ?? '';
+  return s.slice(s.indexOf(':') + 1);
+};
+/** Postgres's `a || ' ' || b`, trimmed: nothing when either is missing. */
+const joined = (a: Cell, b: Cell) => {
+  if (a === null || a === undefined || b === null || b === undefined) return null;
+  return text(`${String(a)} ${String(b)}`.trim());
+};
+const isSet = (v: unknown) => v !== null && v !== undefined;
+export const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+// ---------- what the screens work from ----------
+
+export interface CopyDeal {
+  readonly id: string;
+  readonly name: string;
+  readonly archived: boolean;
+  readonly ownerUserId: string | null;
+  readonly teamUserIds: readonly string[];
+  /** The record's own last change. */
+  readonly recordUpdatedAt: number;
+  /** The deal's row (`addon_realestate.deals`), as JSON. */
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+export interface CopyDuty {
+  readonly id: string;
+  readonly dealId: string;
+  readonly key: string;
+  readonly title: string;
+  readonly status: string;
+  readonly materiality: string;
+  readonly accountableUserId: string | null;
+  readonly dueAt: number | null;
+  readonly dueState: string;
+  /** When it's next chased, or its blocker looked at again. */
+  readonly nextLook: number | null;
+  /** Who it waits on, or whose the blocker is. */
+  readonly who: string | null;
+  readonly createdAt: number;
+}
+
+export interface CopyTerm {
+  readonly id: string;
+  readonly key: string;
+  readonly date: string | null;
+  readonly enteredAt: number;
+  readonly confirmed: boolean;
+  /** Not replaced and not rejected. */
+  readonly live: boolean;
+}
+
+export interface RealestateCopy {
+  readonly deals: ReadonlyMap<string, CopyDeal>;
+  readonly duties: ReadonlyMap<string, readonly CopyDuty[]>;
+  readonly terms: ReadonlyMap<string, readonly CopyTerm[]>;
+  /** A deal's first client: the person. */
+  readonly clients: ReadonlyMap<string, string>;
+  /** A deal's latest home: its record. */
+  readonly homes: ReadonlyMap<string, string>;
+  /** A member's name, as the server's queries give it (their name, else their email). */
+  user(id: string): string | null;
+  /** A customer's name, as the server's queries give it ("Customer" when there's nothing). */
+  person(id: string): string | null;
+  record(id: string): string | null;
+}
+
+export function realestateCopyOf(source: RealestateSource): RealestateCopy {
+  const users = new Map(
+    source.users.map((u) => [text(u.id) ?? '', text(u.full_name) ?? text(u.email)]),
+  );
+  const people = new Map(
+    source.people.map((p) => [
+      text(p.id) ?? '',
+      joined(p.first_name, p.last_name) ?? text(p.email) ?? 'Customer',
+    ]),
+  );
+  const recordNames = new Map(source.recordNames.map((r) => [text(r.id) ?? '', text(r.name)]));
+
+  const dealData = new Map<string, Record<string, unknown>>();
+  const duties = new Map<string, CopyDuty[]>();
+  const terms = new Map<string, CopyTerm[]>();
+  for (const row of source.rows) {
+    const record = text(row.record_id);
+    if (!record) continue;
+    const d = obj(row.data);
+    switch (text(row.source)) {
+      case 'deals':
+        dealData.set(record, d);
+        break;
+      case 'duties': {
+        const list = duties.get(record) ?? [];
+        list.push({
+          id: keyOf(row.id),
+          dealId: record,
+          key: text(d.duty_key) ?? '',
+          title: text(d.title) ?? '',
+          status: text(d.status) ?? '',
+          materiality: text(d.materiality) ?? '',
+          accountableUserId: text(d.accountable_user_id),
+          dueAt: ms(d.due_at),
+          dueState: text(d.due_state) ?? 'none',
+          nextLook: ms(d.chase_at) ?? ms(d.blocker_review_at),
+          who: text(d.waiting_on) ?? text(d.blocker_owner) ?? text(d.blocker),
+          createdAt: ms(d.created_at) ?? 0,
+        });
+        duties.set(record, list);
+        break;
+      }
+      case 'term_entries': {
+        const list = terms.get(record) ?? [];
+        list.push({
+          id: keyOf(row.id),
+          key: text(d.key) ?? '',
+          date: text(d.value_date),
+          enteredAt: ms(d.entered_at) ?? 0,
+          confirmed: isSet(d.confirmed_at),
+          live: !isSet(d.superseded_at) && !isSet(d.rejected_at),
+        });
+        terms.set(record, list);
+        break;
+      }
+    }
+  }
+
+  const deals = new Map<string, CopyDeal>();
+  for (const r of source.records) {
+    const id = text(r.id);
+    const data = id ? dealData.get(id) : undefined;
+    if (!id || !data) continue;
+    deals.set(id, {
+      id,
+      name: text(r.name) ?? '',
+      archived: text(r.archived_at) !== null,
+      ownerUserId: text(r.owner_user_id),
+      teamUserIds: ids(r.team_user_ids),
+      recordUpdatedAt: ms(r.updated_at) ?? 0,
+      data,
+    });
+  }
+
+  // A deal's first client and its latest home, as the server's queries pick them.
+  const clients = new Map<string, { person: string; at: number; id: string }>();
+  const homes = new Map<string, { home: string; at: number; id: string }>();
+  for (const l of source.links) {
+    const key = text(l.addon_key);
+    const id = text(l.id) ?? '';
+    const at = ms(l.created_at) ?? 0;
+    if (key === 'realestate_client') {
+      const deal = text(l.b_custom_record_id);
+      const person = text(l.a_person_id);
+      if (!deal || !person) continue;
+      const was = clients.get(deal);
+      if (!was || at < was.at || (at === was.at && byText(id, was.id) < 0))
+        clients.set(deal, { person, at, id });
+    } else if (key === 'realestate_property_of') {
+      const deal = text(l.a_custom_record_id);
+      const home = text(l.b_custom_record_id);
+      if (!deal || !home) continue;
+      const was = homes.get(deal);
+      if (!was || at > was.at || (at === was.at && byText(id, was.id) > 0))
+        homes.set(deal, { home, at, id });
+    }
+  }
+
+  return {
+    deals,
+    duties,
+    terms,
+    clients: new Map([...clients].map(([deal, c]) => [deal, c.person])),
+    homes: new Map([...homes].map(([deal, h]) => [deal, h.home])),
+    user: (id) => users.get(id) ?? null,
+    person: (id) => people.get(id) ?? null,
+    record: (id) => recordNames.get(id) ?? null,
+  };
+}

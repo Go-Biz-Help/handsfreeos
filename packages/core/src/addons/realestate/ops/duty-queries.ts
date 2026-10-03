@@ -221,7 +221,7 @@ export const dutyList = defineAddonQuery(realestateAddon, {
           from addon_realestate.duties t
           join app.custom_records r on r.id = t.deal_record_id
           where t.workspace_id = ${ctx.scope.workspaceId!} and ${sql.join(parts, sql` and `)}
-          order by t.due_at asc nulls last, t.created_at
+          order by t.due_at asc nulls last, t.created_at, t.id
           limit ${input.limit}`,
     );
     const names = await userNames(

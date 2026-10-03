@@ -306,6 +306,7 @@ export const realestateAddon = defineAddon({
           'acknowledged_at',
           'at_risk_since',
           'escalated_at',
+          'created_at',
           'updated_at',
         ],
         reach: 'all',
