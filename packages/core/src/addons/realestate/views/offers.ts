@@ -6,8 +6,7 @@
  * `packages/core/test/addons/realestate-phone-offers.test.ts` holds both to the server's answer.
  *
  * A deal kept as its summary (someone who sees every deal, not on this one) has no offers on the phone: null, and they
- * wait for signal. The seller's choices name the seller by first name, which the copy doesn't keep apart from the
- * last: until it does, the first word of their name.
+ * wait for signal. The seller's choices name the seller by first name (`copy.personParts`).
  *
  * Browser-safe and pure.
  */
@@ -179,7 +178,7 @@ export function offersCompareOfCopy(
         return {
           offerId: str(c.offer_id) ?? '',
           name: clients.has(person)
-            ? (copy.personPlain(person) ?? '').split(' ')[0]!
+            ? (copy.personParts(person)?.firstName ?? 'The seller')
             : 'The seller',
           choice: str(c.choice) as OffersCompareView['choices'][number]['choice'],
           words: str(c.words),

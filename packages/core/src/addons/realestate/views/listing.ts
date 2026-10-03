@@ -16,7 +16,7 @@
  *   out;
  * - whether the person may let a description or a price through without the seller (their permissions).
  *
- * The seller's first name (a price signed in the portal) comes from the phone's people: `firstNamesOf`.
+ * The seller's first name (a price signed in the portal) comes from the phone's people (`copy.personParts`).
  *
  * Browser-safe and pure.
  */
@@ -50,15 +50,7 @@ import type {
 import { feedbackSummary, type ShowingFeedback, type ShowingState } from '../showings';
 import { termsNow } from '../terms';
 import { holdsWhole, isoOr, termEntriesOfCopy } from './deal-facts';
-import {
-  byText,
-  iso,
-  ms,
-  text,
-  type CopyDeal,
-  type RealestateCopy,
-  type RealestateSource,
-} from './synced';
+import { byText, iso, ms, text, type CopyDeal, type RealestateCopy } from './synced';
 
 type ListingOut = z.infer<typeof ListingOutput>['listing'];
 type DescriptionOut = ListingOut['description'];
@@ -88,16 +80,6 @@ const isSet = (v: unknown) => v !== null && v !== undefined;
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const record = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-
-/** Customers' first names from the phone's people, as the seller's first name is said (the copy keeps whole names). */
-export function firstNamesOf(
-  source: Pick<RealestateSource, 'people'>,
-): (personId: string) => string | null {
-  const names = new Map(
-    source.people.map((p) => [text(p.id) ?? '', isSet(p.first_name) ? String(p.first_name) : null]),
-  );
-  return (id) => names.get(id) ?? null;
-}
 
 /** The deal, when the phone holds it whole and it's on the side asked for. */
 export function wholeDeal(
@@ -252,11 +234,7 @@ export function listingOfCopy(
 export function listingPricesOfCopy(
   copy: RealestateCopy,
   dealId: string,
-  ctx: {
-    readonly userId: string | null;
-    /** A customer's first name (`firstNamesOf`). */
-    readonly firstName: (personId: string) => string | null;
-  },
+  ctx: { readonly userId: string | null },
 ): ListingPricesView | null {
   if (!wholeDeal(copy, dealId, ctx.userId, 'listing')) return null;
   const sellers = new Set(
@@ -288,7 +266,8 @@ export function listingPricesOfCopy(
               ? ('let_through' as const)
               : ('portal' as const),
         signedBy: signedBy
-          ? ((sellers.has(signedBy) ? ctx.firstName(signedBy) : null) ?? 'The seller')
+          ? ((sellers.has(signedBy) ? (copy.personParts(signedBy)?.firstName ?? null) : null) ??
+            'The seller')
           : null,
         overrideBy: who(text(p.override_by)),
         overrideReason,

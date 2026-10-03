@@ -117,10 +117,10 @@ export function toursOfCopy(
   const clients = new Map<string, string>();
   for (const l of copy.linksTo.get(dealId) ?? [])
     if (l.addonKey === 'realestate_client' && l.personId)
-      clients.set(l.personId, copy.personPlain(l.personId) ?? 'The client');
+      clients.set(l.personId, copy.personName(l.personId) ?? 'The client');
   const names = {
     user: (id: string) => copy.user(id),
-    person: (id: string) => clients.get(id) ?? copy.personPlain(id) ?? 'A client',
+    person: (id: string) => clients.get(id) ?? copy.personName(id) ?? 'A client',
   };
   return { agreement, tours: tours.map((t) => tourOut(t, stops, feedback, names)) };
 }

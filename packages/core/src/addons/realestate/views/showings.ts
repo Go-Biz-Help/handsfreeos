@@ -72,8 +72,6 @@ export function showingListOfCopy(
     readonly now: number;
     /** The business's time zone. */
     readonly timeZone: string;
-    /** A customer's first name (`firstNamesOf`, views/listing.ts). */
-    readonly firstName: (personId: string) => string | null;
   },
 ): ShowingListView | null {
   if (!wholeDeal(copy, dealId, ctx.userId, 'listing')) return null;
@@ -83,7 +81,7 @@ export function showingListOfCopy(
   const site = l?.slug && l.pageState === 'published' ? copy.bookingSlug : null;
   // The deal's first client: the seller the screens name.
   const client = copy.clients.get(dealId);
-  const seller = client ? ctx.firstName(client) : null;
+  const seller = client ? (copy.personParts(client)?.firstName ?? null) : null;
   const list = copy
     .rows('showings', dealId)
     .map(({ id, data: s }) => ({

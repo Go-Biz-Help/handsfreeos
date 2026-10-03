@@ -16,8 +16,7 @@
  *   "Message" until signal.
  * - A file deleted from the deal since it proved a step or a client's task: the phone doesn't keep it, so it says
  *   "Removed since" (a step) or "File" (a task) where the server still gives its name.
- * - The client's tasks name each client by first name, with their email: the copy keeps a customer's name whole, so
- *   the business's people come in as `people` (`peopleOfSource`, from the same rows the copy was read from).
+ * - The client's tasks name each client by first name, with their email (`copy.personParts`).
  * - Contingencies: whether the person may record one without its form (`can.except`) is a permission, the server's.
  *   Today, and the day each was recorded, are the business's: its time zone comes in (`timeZone`, the workspace's).
  *
@@ -60,7 +59,7 @@ import type {
 import { keyDatesOf, moneyOf, termsNow } from '../terms';
 import { byTimeAsc, num, str } from './columns';
 import { holdsWhole, isoOr, termEntriesOfCopy } from './deal-facts';
-import { byText, iso, ms, text, type RealestateCopy, type RealestateSource } from './synced';
+import { byText, iso, ms, text, type RealestateCopy } from './synced';
 
 export type FinancingView = z.infer<typeof FinancingOutput> & { readonly full: boolean };
 export type InspectionsView = z.infer<typeof InspectionsOutput> & { readonly full: boolean };
@@ -74,29 +73,6 @@ export type ContractReadsView = z.infer<typeof ContractReadsOutput> & { readonly
 export type MessageLookup = (
   id: string,
 ) => { readonly subject: string | null; readonly counterpart: string } | null;
-
-/** A customer as the business's people list keeps them. */
-export interface PersonParts {
-  readonly firstName: string;
-  readonly lastName: string;
-  readonly email: string | null;
-}
-export type PeopleLookup = (id: string) => PersonParts | null;
-
-/** The business's people, from the rows the phone was sent (business_v1). */
-export function peopleOfSource(source: Pick<RealestateSource, 'people'>): PeopleLookup {
-  const people = new Map(
-    source.people.map((p) => [
-      text(p.id) ?? '',
-      {
-        firstName: p.first_name === null || p.first_name === undefined ? '' : String(p.first_name),
-        lastName: p.last_name === null || p.last_name === undefined ? '' : String(p.last_name),
-        email: text(p.email),
-      },
-    ]),
-  );
-  return (id) => people.get(id) ?? null;
-}
 
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 /** Oldest first by a time, then by id: the server's `order by <time>, id`. */
@@ -269,7 +245,6 @@ export function clientTasksOfCopy(
   dealId: string,
   opts: {
     readonly userId: string | null;
-    readonly people: PeopleLookup;
     readonly includeCanceled?: boolean;
   },
 ): ClientTasksView | null {
@@ -280,7 +255,7 @@ export function clientTasksOfCopy(
     .filter((l) => l.addonKey === 'realestate_client' && l.personId)
     .sort((a, b) => a.at - b.at || byText(a.id, b.id))
     .flatMap((l) => {
-      const p = opts.people(l.personId!);
+      const p = copy.personParts(l.personId!);
       return p
         ? [
             {

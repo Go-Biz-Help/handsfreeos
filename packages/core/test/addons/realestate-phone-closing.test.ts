@@ -18,7 +18,6 @@ import {
   contractReadsOfCopy,
   financingOfCopy,
   inspectionsOfCopy,
-  peopleOfSource,
   type MessageLookup,
 } from '../../src/addons/realestate/views/closing';
 import { fieldNotesOfCopy, walkthroughOfCopy } from '../../src/addons/realestate/views/field';
@@ -37,7 +36,7 @@ import {
   type SystemActor,
 } from '../../src/server';
 import { realestateBusiness } from './realestate-fixture';
-import { phoneCopy, phoneRows } from './realestate-phone-fixture';
+import { phoneCopy } from './realestate-phone-fixture';
 
 const api = () => testDbs().api.db;
 const worker = () => testDbs().worker.db;
@@ -602,12 +601,10 @@ describe('the client’s tasks on the phone', () => {
   it('answer what the server answers, with or without the ones taken back', async () => {
     for (const { u, dealId, whole } of looks()) {
       const copy = await phoneCopy(u, ws);
-      const people = peopleOfSource(await phoneRows(u, ws));
       for (const includeCanceled of [false, true]) {
         const server = await ask('realestate.client_tasks', { dealId, includeCanceled }, u);
         const { full, ...shown } = clientTasksOfCopy(copy, dealId, {
           userId: u.id,
-          people,
           includeCanceled,
         })!;
         expect(full, `${u.email} ${dealId}`).toBe(whole);
@@ -620,7 +617,6 @@ describe('the client’s tasks on the phone', () => {
   it('isn’t equal by being empty', async () => {
     const view = clientTasksOfCopy(await phoneCopy(agent, ws), nguyen, {
       userId: agent.id,
-      people: peopleOfSource(await phoneRows(agent, ws)),
       includeCanceled: true,
     })!;
     expect(view.clients.map((c) => [c.name, c.portal, c.portalSince !== null])).toEqual([

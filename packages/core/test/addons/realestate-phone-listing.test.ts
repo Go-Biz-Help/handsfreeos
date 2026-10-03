@@ -15,7 +15,6 @@ import { checkWords, FAIR_HOUSING_WORDS_VERSION } from '../../src/addons/realest
 import { textHashOf } from '../../src/addons/realestate/ops/client-updates';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import {
-  firstNamesOf,
   listingFlyerOfCopy,
   listingMarketingOfCopy,
   listingOfCopy,
@@ -43,7 +42,7 @@ import {
 } from '../../src/server';
 import { makeCalendar, type Team } from '../calendar-helpers';
 import { realestateBusiness } from './realestate-fixture';
-import { phoneCopy, phoneRows } from './realestate-phone-fixture';
+import { phoneCopy } from './realestate-phone-fixture';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -675,23 +674,20 @@ const withoutAccess = (s: Any) => {
   return { ...s, settings };
 };
 
-/** The phone's copy for `u`, and the first names it keeps. */
-async function phoneOf(u: TestUser): Promise<{
-  copy: RealestateCopy;
-  firstName: (personId: string) => string | null;
-}> {
-  return { copy: await phoneCopy(u, ws), firstName: firstNamesOf(await phoneRows(u, ws)) };
+/** The phone's copy for `u`. */
+async function phoneOf(u: TestUser): Promise<{ copy: RealestateCopy }> {
+  return { copy: await phoneCopy(u, ws) };
 }
 
 /** Every listing page from the phone, as the server answers it, for one deal and one person who holds it whole. */
 async function sameAsServer(u: TestUser, dealId: string) {
-  const { copy, firstName } = await phoneOf(u);
+  const { copy } = await phoneOf(u);
   const label = `${u.email} ${dealId}`;
   const ctx = { userId: u.id };
   expect(listingOfCopy(copy, dealId, ctx), label).toEqual(
     withoutServerOnly((await ask('realestate.listing', { dealId }, u)).listing),
   );
-  expect(listingPricesOfCopy(copy, dealId, { ...ctx, firstName }), label).toEqual(
+  expect(listingPricesOfCopy(copy, dealId, ctx), label).toEqual(
     await ask('realestate.listing.prices', { dealId }, u),
   );
   expect(listingMarketingOfCopy(copy, dealId, ctx), label).toEqual(
@@ -709,7 +705,7 @@ async function sameAsServer(u: TestUser, dealId: string) {
     await ask('realestate.open_houses', { dealId }, u),
   );
   const now = Date.now();
-  expect(showingListOfCopy(copy, dealId, { ...ctx, now, timeZone: tz, firstName }), label).toEqual(
+  expect(showingListOfCopy(copy, dealId, { ...ctx, now, timeZone: tz }), label).toEqual(
     withoutAccess(await ask('realestate.showing.list', { dealId }, u)),
   );
 }
@@ -724,7 +720,7 @@ describe('a listing on the phone', () => {
   });
 
   it('waits for signal on another agent’s listing, kept as its summary on an owner’s phone', async () => {
-    const { copy, firstName } = await phoneOf(owner);
+    const { copy } = await phoneOf(owner);
     const ctx = { userId: owner.id };
     // The owner's phone has the deal, but none of its listing's own rows.
     expect(copy.deals.has(alvarez)).toBe(true);
@@ -733,18 +729,16 @@ describe('a listing on the phone', () => {
       // The server answers with signal.
       expect((await ask('realestate.listing', { dealId }, owner)).listing.dealId).toBe(dealId);
       expect(listingOfCopy(copy, dealId, ctx)).toBeNull();
-      expect(listingPricesOfCopy(copy, dealId, { ...ctx, firstName })).toBeNull();
+      expect(listingPricesOfCopy(copy, dealId, ctx)).toBeNull();
       expect(listingMarketingOfCopy(copy, dealId, ctx)).toBeNull();
       expect(listingFlyerOfCopy(copy, dealId, ctx)).toBeNull();
       expect(openHousesOfCopy(copy, dealId, ctx)).toBeNull();
-      expect(
-        showingListOfCopy(copy, dealId, { ...ctx, now: Date.now(), timeZone: tz, firstName }),
-      ).toBeNull();
+      expect(showingListOfCopy(copy, dealId, { ...ctx, now: Date.now(), timeZone: tz })).toBeNull();
     }
   });
 
   it('isn’t equal by being empty', async () => {
-    const { copy, firstName } = await phoneOf(agent);
+    const { copy } = await phoneOf(agent);
     const ctx = { userId: agent.id };
     const l = listingOfCopy(copy, alvarez, ctx)!;
     expect(l).toMatchObject({
@@ -775,7 +769,7 @@ describe('a listing on the phone', () => {
     expect(listingOfCopy(copy, chen, ctx)!.questionnaire.state).toBe('asked');
     expect(listingOfCopy(copy, chen, ctx)!.description.working!.state).toBe('drafting');
 
-    const prices = listingPricesOfCopy(copy, alvarez, { ...ctx, firstName })!;
+    const prices = listingPricesOfCopy(copy, alvarez, ctx)!;
     expect(prices.currentCents).toBe(47_900_000);
     expect(prices.history.map((p) => [p.toCents, p.state, p.how, p.signedBy])).toEqual([
       [47_500_000, 'waiting', null, null],
@@ -834,7 +828,6 @@ describe('a listing on the phone', () => {
       ...ctx,
       now: Date.now(),
       timeZone: tz,
-      firstName,
     })!;
     expect(shows.sellerFirstName).toBe('Maria');
     expect(shows.settings).toMatchObject({ from: '00:00', to: '23:30', confirm: 'seller' });
