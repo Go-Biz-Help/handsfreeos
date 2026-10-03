@@ -114,6 +114,16 @@ function commandOf(
         name: 'appointment.still_going',
         input: { workspaceId, appointmentId: refs.appointmentId },
       };
+    // A check-in's "Still at …?": I’m OK checks out; +15 min gives fifteen more minutes from now (or the planned end).
+    case 'im_ok':
+      if (!refs.checkInId) return 'This notification isn’t about a check-in.';
+      return { name: 'safety.check_out', input: { workspaceId, checkInId: refs.checkInId } };
+    case 'add_15':
+      if (!refs.checkInId) return 'This notification isn’t about a check-in.';
+      return {
+        name: 'safety.extend',
+        input: { workspaceId, checkInId: refs.checkInId, minutes: 15 },
+      };
     default:
       return 'That button doesn’t run anything.';
   }

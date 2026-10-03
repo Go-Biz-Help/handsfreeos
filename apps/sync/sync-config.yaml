@@ -206,6 +206,12 @@ streams:
       - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_scope IN addon_use AND seal_open = true AND sync_window = true
       - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_all IN addon_all AND sync_window = true
       - SELECT id, workspace_id, type_id, name, notes, custom, field_times, archived_at, kept_to_team, owner_user_id, team_user_ids, purged_at, created_by, created_at, updated_at FROM app.custom_records WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sync_window = true
+      # Their links (a deal's client, its home), sealed by every record they touch: open when all are, else to who
+      # may see each; and the add-on's kinds of link.
+      - SELECT id, workspace_id, a_end, a_record_type_id, a_label, b_end, b_record_type_id, b_label, cardinality, mutual, position, archived_at, addon_id, addon_key, portal_visible, created_at, updated_at FROM app.relationship_types WHERE seal_scope IN addon_use
+      - SELECT id, workspace_id, type_id, a_person_id, a_company_id, a_custom_record_id, b_person_id, b_company_id, b_custom_record_id, note, created_by, created_at, updated_at FROM app.relationships WHERE seal_scope IN addon_use AND seal_open = true AND sync_window = true
+      - SELECT id, workspace_id, type_id, a_person_id, a_company_id, a_custom_record_id, b_person_id, b_company_id, b_custom_record_id, note, created_by, created_at, updated_at FROM app.relationships WHERE seal_all IN addon_all AND sync_window = true
+      - SELECT id, workspace_id, type_id, a_person_id, a_company_id, a_custom_record_id, b_person_id, b_company_id, b_custom_record_id, note, created_by, created_at, updated_at FROM app.relationships WHERE seal_scope IN addon_use AND auth.user_id() IN seal_viewer_ids AND sync_window = true
       # Its own rows, as JSON: the business's own (its vendors), a private record's `all` rows, and the rest to the
       # record's people.
       - SELECT id, workspace_id, addon_id, source, record_id, data, updated_at FROM app.addon_phone_rows WHERE seal_scope IN addon_use AND seal_open = true AND sync_window = true

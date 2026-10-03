@@ -138,6 +138,10 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
   add-on is a migration, never a change here.
 - **Windows**: a record leaves phones when its add-on narrows `sync_window` (`private.record_phone_window`; Real
   Estate keeps open deals and those ended in the last 90 days).
+- **Links** (`relationships`, and `relationship_types` with the add-on's key; 20261022000700): a deal's client, its
+  home, its lender. A link to one record takes that record's seals; a link between two goes to who may see both
+  (open when both are, the people on both when both are private); a link to a kind phones don't keep, or between two
+  add-ons' records, reaches no phone. A record's seals or window moving moves its links.
 
 `private.sync_key_mismatches(business)`, `private.sync_seal_mismatches(business)` and
 `private.addon_phone_mismatches(business)` say where stored keys or seals disagree with the permissions and records;

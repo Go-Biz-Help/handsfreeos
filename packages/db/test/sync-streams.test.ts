@@ -138,7 +138,8 @@ $fixture$`;
  * Round six (records_v1): an add-on phones keep, with a private kind (a deal the owner is on), a shared kind, a
  * table that follows the deal (kept by whoever sees every deal too) and one of the business's own (its vendors),
  * and what hangs off the deal: a task, a timeline line, a file, an appointment and its customer, a portal thread
- * and its message, and Home cards (an add-on's for everyone, and the task's, sealed).
+ * and its message, Home cards (an add-on's for everyone, and the task's, sealed), and links (the deal's client,
+ * sealed with it; the home's owner, open).
  */
 const PHONE_ADDON = `fx${Array.from({ length: 8 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
 const PHONE_FIXTURE = `
@@ -147,7 +148,8 @@ declare
   ws uuid := current_setting('streams.ws')::uuid;
   owner uuid := current_setting('streams.owner')::uuid;
   addon text := current_setting('streams.addon');
-  kind uuid; shared_kind uuid; deal uuid; task uuid; conv uuid; alert uuid; person uuid; appt uuid; cal uuid;
+  kind uuid; shared_kind uuid; deal uuid; home uuid; task uuid; conv uuid; alert uuid; person uuid; appt uuid; cal uuid;
+  client_of uuid; owner_of uuid;
 begin
   execute format('create schema addon_%s', addon);
   execute format('create table addon_%s.items (id uuid primary key default gen_random_uuid(), '
@@ -169,13 +171,21 @@ begin
     values (ws, addon || '_home', 'Home', 'Homes', addon, addon || '.use') returning id into shared_kind;
   insert into app.custom_records (workspace_id, type_id, name, owner_user_id)
     values (ws, kind, 'Smith purchase', owner) returning id into deal;
-  insert into app.custom_records (workspace_id, type_id, name) values (ws, shared_kind, '418 Maple Ave');
+  insert into app.custom_records (workspace_id, type_id, name) values (ws, shared_kind, '418 Maple Ave')
+    returning id into home;
   execute format('insert into addon_%s.items (workspace_id, deal_id, title) values ($1, $2, $3)', addon)
     using ws, deal, 'Binder to the lender';
   execute format('insert into addon_%s.vendors (workspace_id, name) values ($1, $2)', addon) using ws, 'Lone Star Inspections';
 
   select id into person from app.people where workspace_id = ws order by created_at limit 1;
   select id into cal from app.calendars where workspace_id = ws order by created_at limit 1;
+  -- Links: the deal's client (sealed with the deal), and the home's owner (open, as the home is).
+  insert into app.relationship_types (workspace_id, a_end, a_label, b_end, b_record_type_id, b_label, addon_id, addon_key)
+    values (ws, 'person', 'Client', 'custom_record', kind, 'Deals', addon, addon || '_client') returning id into client_of;
+  insert into app.relationship_types (workspace_id, a_end, a_label, b_end, b_record_type_id, b_label, addon_id, addon_key)
+    values (ws, 'person', 'Owner', 'custom_record', shared_kind, 'Homes owned', addon, addon || '_owner') returning id into owner_of;
+  insert into app.relationships (workspace_id, type_id, a_person_id, b_custom_record_id) values (ws, client_of, person, deal);
+  insert into app.relationships (workspace_id, type_id, a_person_id, b_custom_record_id) values (ws, owner_of, person, home);
   insert into app.tasks (workspace_id, title, custom_record_id) values (ws, 'Order the appraisal', deal) returning id into task;
   insert into app.activities (workspace_id, kind, custom_record_id, body) values (ws, 'note', deal, 'Lender called');
   insert into app.files (workspace_id, record_type, record_id, object_path, name, status)

@@ -201,7 +201,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "HandsFreeOS uses your location only when you tap On my way, to tell the customer when you'll get there.",
+          "locationWhenInUsePermission": "HandsFreeOS uses your location only when you tap On my way, to tell the customer when you’ll get there, or when you check in somewhere or ask for help, so the people you chose know where you are.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": false
@@ -271,7 +271,7 @@
         {
           "photosPermission": "HandsFreeOS adds the photos you choose to your customers’ records.",
           "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records.",
-          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call."
+          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note."
         }
       ],
       [
@@ -283,7 +283,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call.",
+          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note.",
           "recordAudioAndroid": true,
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false

@@ -83,6 +83,7 @@ record needs `records.archive`. Row-level security checks the same thing in the 
 
 ## Not yet
 
-- The phone app doesn't show relationships or a business's own records yet. The words and choices it
-  will need are already browser-safe in `packages/core/src/relationships/`.
+- The phone app doesn't show relationships or a business's own records yet. Phones do keep the links that touch
+  an add-on's records (`records_v1`, Real Estate round six), for that add-on's own screens. The words and choices a
+  screen of its own will need are already browser-safe in `packages/core/src/relationships/`.
 - Imports don't create records of a business's own kinds yet.

@@ -27,6 +27,9 @@ const PUBLISHED = [
   'custom_record_types',
   'custom_records',
   'sync_keys',
+  // Their links (20261022000700).
+  'relationship_types',
+  'relationships',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',

@@ -382,4 +382,102 @@ describe('once it does', () => {
     expect(await keysOf(agent)).toEqual([`use ${ws}:${USE}`]);
     await inStep();
   });
+
+  it('seals a deal’s links with it, and a link between two deals to the people on both (20261022000700)', async () => {
+    const client = await one(
+      rows<{ id: string }>(
+        admin$,
+        sql`insert into app.relationship_types (workspace_id, a_end, a_label, b_end, b_record_type_id, b_label,
+              addon_id, addon_key)
+            values (${ws}, 'person', 'Client', 'custom_record', ${kind}, 'Deals', ${ADDON}, ${`${ADDON}_client`})
+            returning id`,
+      ),
+    );
+    const linked = await one(
+      rows<{ id: string }>(
+        admin$,
+        sql`insert into app.relationship_types (workspace_id, a_end, a_record_type_id, a_label, b_end,
+              b_record_type_id, b_label, addon_id, addon_key)
+            values (${ws}, 'custom_record', ${kind}, 'Sale', 'custom_record', ${kind}, 'Purchase', ${ADDON},
+              ${`${ADDON}_linked`})
+            returning id`,
+      ),
+    );
+    const [kindSeal] = await rows<{ seal_scope: string }>(
+      admin$,
+      sql`select seal_scope from app.relationship_types where id = ${client}`,
+    );
+    expect(kindSeal!.seal_scope).toBe(`${ws}:${USE}`);
+    const person = await one(
+      rows<{ id: string }>(
+        admin$,
+        sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, 'Ben', 'Smith') returning id`,
+      ),
+    );
+    // The broker's own sale, with only the agent on it beside them.
+    const sale = await one(
+      as(broker)((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.custom_records (workspace_id, type_id, name, created_by, team_user_ids)
+              values (${ws}, ${kind}, 'Smith sale', ${broker.id}, array[${agent.id}]::uuid[]) returning id`,
+        ),
+      ),
+    );
+    const toClient = await one(
+      rows<{ id: string }>(
+        admin$,
+        sql`insert into app.relationships (workspace_id, type_id, a_person_id, b_custom_record_id)
+            values (${ws}, ${client}, ${person}, ${deal}) returning id`,
+      ),
+    );
+    const between = await one(
+      rows<{ id: string }>(
+        admin$,
+        sql`insert into app.relationships (workspace_id, type_id, a_custom_record_id, b_custom_record_id)
+            values (${ws}, ${linked}, ${sale}, ${deal}) returning id`,
+      ),
+    );
+    const seals = (id: string) =>
+      rows<{
+        seal_open: boolean;
+        seal_viewer_ids: string[];
+        seal_all: string | null;
+        sync_window: boolean;
+      }>(
+        admin$,
+        sql`select seal_open, seal_viewer_ids, seal_all, sync_window from app.relationships where id = ${id}`,
+      ).then((r) => r[0]!);
+    const team = (
+      await rows<{ ids: string[] }>(
+        admin$,
+        sql`select seal_viewer_ids as ids from app.custom_records where id = ${deal}`,
+      )
+    )[0]!.ids;
+    expect(await seals(toClient)).toEqual({
+      seal_open: false,
+      seal_viewer_ids: team,
+      seal_all: `${ws}:${SEE_ALL}`,
+      sync_window: true,
+    });
+    // Only the agent is on both deals.
+    expect(await seals(between)).toMatchObject({
+      seal_viewer_ids: [agent.id],
+      seal_all: `${ws}:${SEE_ALL}`,
+    });
+    await inStep();
+
+    // The deal's team and window move; its links follow.
+    await as(agent)((tx) =>
+      rows(tx, sql`update app.custom_records set team_user_ids = '{}' where id = ${deal}`),
+    );
+    expect((await seals(toClient)).seal_viewer_ids).toEqual([agent.id]);
+    await worker()((tx) =>
+      rows(tx, sql`select private.record_phone_window(${ws}, ${deal}, false)`),
+    );
+    expect((await seals(toClient)).sync_window).toBe(false);
+    expect((await seals(between)).sync_window).toBe(false);
+    await worker()((tx) => rows(tx, sql`select private.record_phone_window(${ws}, ${deal}, true)`));
+    await inStep();
+  });
 });

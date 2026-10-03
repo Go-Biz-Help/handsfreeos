@@ -879,6 +879,46 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  relationship_types: new Table(
+    {
+      workspace_id: column.text,
+      a_end: column.text,
+      a_record_type_id: column.text,
+      a_label: column.text,
+      b_end: column.text,
+      b_record_type_id: column.text,
+      b_label: column.text,
+      cardinality: column.text,
+      mutual: column.integer,
+      position: column.integer,
+      archived_at: column.text,
+      addon_id: column.text,
+      addon_key: column.text,
+      portal_visible: column.integer,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  relationships: new Table(
+    {
+      workspace_id: column.text,
+      type_id: column.text,
+      a_person_id: column.text,
+      a_company_id: column.text,
+      a_custom_record_id: column.text,
+      b_person_id: column.text,
+      b_company_id: column.text,
+      b_custom_record_id: column.text,
+      note: column.text,
+      created_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   schedule_exceptions: new Table(
     {
@@ -2397,6 +2437,67 @@ export interface RefundsRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `relationship_types` (records_v1). */
+export interface RelationshipTypesRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** app.relationship_end */
+  readonly a_end: string | null;
+  /** uuid */
+  readonly a_record_type_id: string | null;
+  readonly a_label: string | null;
+  /** app.relationship_end */
+  readonly b_end: string | null;
+  /** uuid */
+  readonly b_record_type_id: string | null;
+  readonly b_label: string | null;
+  /** app.relationship_cardinality */
+  readonly cardinality: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly mutual: number | null;
+  /** integer */
+  readonly position: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
+  readonly addon_id: string | null;
+  readonly addon_key: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly portal_visible: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `relationships` (records_v1). */
+export interface RelationshipsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly type_id: string | null;
+  /** uuid */
+  readonly a_person_id: string | null;
+  /** uuid */
+  readonly a_company_id: string | null;
+  /** uuid */
+  readonly a_custom_record_id: string | null;
+  /** uuid */
+  readonly b_person_id: string | null;
+  /** uuid */
+  readonly b_company_id: string | null;
+  /** uuid */
+  readonly b_custom_record_id: string | null;
+  readonly note: string | null;
+  /** uuid */
+  readonly created_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `schedule_exceptions` (business_v1). */
 export interface ScheduleExceptionsRow {
   readonly id: string;
@@ -2733,6 +2834,8 @@ export interface SyncedRows {
   push_devices: PushDevicesRow;
   record_tags: RecordTagsRow;
   refunds: RefundsRow;
+  relationship_types: RelationshipTypesRow;
+  relationships: RelationshipsRow;
   schedule_exceptions: ScheduleExceptionsRow;
   schedules: SchedulesRow;
   service_staff: ServiceStaffRow;

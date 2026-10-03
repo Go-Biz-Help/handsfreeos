@@ -6101,6 +6101,8 @@ export const relationshipTypes = app.table('relationship_types', {
   addonKey: text('addon_key'),
   /** The customer at the person end sees the record in their portal (20261014000400). */
   portalVisible: boolean('portal_visible').notNull().default(false),
+  /** Phones keep it: its add-on's key, or that of a kind phones keep at either end (20261022000700). */
+  sealScope: text('seal_scope'),
   ...timestamps(),
 });
 
@@ -6125,6 +6127,12 @@ export const relationships = app.table('relationships', {
   bId: uuid('b_id').generatedAlwaysAs(sql`coalesce(b_person_id, b_company_id, b_custom_record_id)`),
   note: text('note'),
   createdBy: userRef('created_by'),
+  /** Who keeps it on their phone: the seals of every record it touches (20261022000700). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  sealOpen: boolean('seal_open').notNull().default(false),
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  sealAll: text('seal_all'),
+  syncWindow: syncWindow(),
   ...timestamps(),
 });
 
