@@ -1117,6 +1117,16 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  team_keys: new Table(
+    {
+      user_id: column.text,
+      workspace_id: column.text,
+      addon_id: column.text,
+      role: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** me_v1 */
   user_phones: new Table({
     e164: column.text,
@@ -2869,6 +2879,17 @@ export interface TasksRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `team_keys` (records_v1). */
+export interface TeamKeysRow {
+  readonly id: string;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly addon_id: string | null;
+  readonly role: string | null;
+}
+
 /** A row of `user_phones` (me_v1). */
 export interface UserPhonesRow {
   readonly id: string;
@@ -3028,6 +3049,7 @@ export interface SyncedRows {
   subscriptions: SubscriptionsRow;
   tags: TagsRow;
   tasks: TasksRow;
+  team_keys: TeamKeysRow;
   user_phones: UserPhonesRow;
   users: UsersRow;
   workflow_approvals: WorkflowApprovalsRow;

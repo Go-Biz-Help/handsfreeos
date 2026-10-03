@@ -7633,6 +7633,15 @@
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }
+    },
+    "records_v1.team_keys": {
+      "columns": {
+        "id": "text",
+        "user_id": "uuid",
+        "workspace_id": "uuid",
+        "addon_id": "text",
+        "role": "text"
+      }
     }
   }
 }

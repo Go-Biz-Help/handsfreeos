@@ -6011,6 +6011,8 @@ export const safetyEscalations = app.table('safety_escalations', {
 export const addonPhoneAddons = app.table('addon_phone_addons', {
   addonId: text('addon_id').primaryKey(),
   permission: text('permission').notNull(),
+  /** Keys of its business settings phones keep, as its `_settings` row (20261022000800). */
+  settingsKeys: text('settings_keys').array().notNull().default([]),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -6041,6 +6043,10 @@ export const syncKeys = app.table(
     workspaceId: workspaceRef(),
     kind: text('kind').$type<'use' | 'all'>().notNull(),
     key: text('key').notNull(),
+    /** The key's add-on and the person's role, and '<business>:<add-on>' (20261022001200). */
+    addonId: text('addon_id'),
+    role: text('role'),
+    teamScope: text('team_scope'),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId, t.kind, t.key] })],
 );

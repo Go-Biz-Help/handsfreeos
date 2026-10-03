@@ -2171,9 +2171,10 @@ the server steps go ahead meanwhile.
 - The phone: its reader (`apps/mobile/src/addons/realestate/copy.ts`), I'm OK and +15 min from the lock screen, and
   checking in, adding time and checking out with no signal, with a reminder at the planned end that the server's push
   replaces. The location and microphone wording now covers check-ins and voice notes.
-- For Chris: Team workload needs everyone's permissions, which phones don't keep, so it stays signal-only for now.
-  Boards 87–88 show "Fair housing: checked" offline, but the checks stay off phones, so the phone will say it checks
-  with signal.
+- Chris decided (2026-10-03): **phones get the team's permissions**, so Team workload works with no signal: each
+  add-on key now says its add-on and the person's role, and whoever sees every record of a kind may read who holds
+  the add-on (20261022001200); records_v1 sends it to them alone. **The boards say fair housing checks with signal**
+  (boards 81, 87 and 88), since the checks stay off phones.
 
 ## Not in round six
 

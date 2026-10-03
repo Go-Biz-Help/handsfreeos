@@ -39,12 +39,12 @@ pnpm sync:stop               # removes it, its storage and its replication slot
 
 ## How the streams are cut
 
-| Stream        | Subscribed                                                       | Buckets per person                                                                                                                                                 | Parameter results |
-| ------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
-| `me_v1`       | automatically                                                    | 1                                                                                                                                                                  | 0                 |
-| `business_v1` | by the app, once per business kept offline: `{workspace_id}`     | 1 per business for each of its five lookups that matches them: 4 for a member, 5 for an owner or admin                                                             | the same          |
-| `agency_v1`   | automatically                                                    | 1 per agency they belong to                                                                                                                                        | 1 per agency      |
-| `records_v1`  | by the app, beside `business_v1`, with the same `{workspace_id}` | 1 per business for each of its lookups that matches them: `access` (their own check-ins), `addon_use`, and `addon_all` for someone who sees every record of a kind | the same          |
+| Stream        | Subscribed                                                       | Buckets per person                                                                                                                                                               | Parameter results |
+| ------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `me_v1`       | automatically                                                    | 1                                                                                                                                                                                | 0                 |
+| `business_v1` | by the app, once per business kept offline: `{workspace_id}`     | 1 per business for each of its five lookups that matches them: 4 for a member, 5 for an owner or admin                                                                           | the same          |
+| `agency_v1`   | automatically                                                    | 1 per agency they belong to                                                                                                                                                      | 1 per agency      |
+| `records_v1`  | by the app, beside `business_v1`, with the same `{workspace_id}` | 1 per business for each of its lookups that matches them: `access` (their own check-ins), `addon_use`, and `addon_all` and `team_of` for someone who sees every record of a kind | the same          |
 
 - **One bucket per business for most of its tables.** Most `business_v1` queries filter on the same lookup, `access`: the person's own `workspace_access` row for the subscribed business. That lookup returns at most one row per subscription. A business the person can't open gives no bucket, and a made-up id costs nothing. `workspace_access` is kept equal to `private.effective_workspace_role()` by triggers (migration 0056).
 - **Money.** The money of whoever manages it (owners and admins unless the business says otherwise, 0106) uses a second lookup in the same stream (`manages_money = true`, kept on `workspace_access` by triggers), so it gets its own bucket per business. Anyone else who may see money — a member, or someone the business lets bill — has theirs in their own `me_v1` bucket, filtered on each document's trigger-kept `member_viewer_ids`. That is one bucket however many documents they may see, and it covers every business where they are one. Plans stay with the managers' copy: someone who bills without managing money starts and runs them on the web.
@@ -142,6 +142,9 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
   home, its lender. A link to one record takes that record's seals; a link between two goes to who may see both
   (open when both are, the people on both when both are private); a link to a kind phones don't keep, or between two
   add-ons' records, reaches no phone. A record's seals or window moving moves its links.
+- **The team** (core; 20261022001200), behind the `team_of` lookup: to whoever sees every record of an add-on's kind,
+  who holds the add-on here and as what (each `use` key, as `team_keys`), for Team workload. Nothing else about
+  anyone's permissions.
 - **The person's own check-ins and safety contacts** (core; 20261022001000), behind the `access` lookup: theirs
   alone, in a business they can open, so a check-in's banner, +15 min and check-out work with no signal. A contact's
   link (`safety_escalations`) never reaches a phone.

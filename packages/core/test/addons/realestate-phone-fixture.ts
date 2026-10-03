@@ -117,6 +117,16 @@ export async function phoneRows(u: TestUser, ws: string): Promise<RealestateSour
             join app.workspace_memberships m on m.user_id = u.id where m.workspace_id = ${ws}`,
       ),
     ),
+    // records_v1's team arm: the `use` keys of an add-on whose `all` key they hold here.
+    team: cells(
+      await rows(
+        db,
+        sql`select k.user_id, k.addon_id, k.role from app.sync_keys k
+            where k.workspace_id = ${ws} and k.kind = 'use'
+              and k.team_scope in (select m.team_scope from app.sync_keys m
+                                   where m.user_id = ${u.id} and m.workspace_id = ${ws} and m.kind = 'all')`,
+      ),
+    ),
     bookingSites: cells(
       await rows(db, sql`select slug, enabled from app.booking_sites where workspace_id = ${ws}`),
     ),

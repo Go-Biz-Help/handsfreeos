@@ -59,6 +59,7 @@ export const RE_APPOINTMENTS_SQL =
 export const RE_USERS_SQL = 'SELECT id, full_name, email FROM users';
 export const RE_RECORD_NAMES_SQL = 'SELECT id, name FROM custom_records WHERE workspace_id = ?';
 export const RE_ZONE_SQL = 'SELECT timezone FROM workspaces WHERE id = ?';
+export const RE_TEAM_SQL = 'SELECT user_id, addon_id, role FROM team_keys WHERE workspace_id = ?';
 export const RE_BOOKING_SQL = 'SELECT slug, enabled FROM booking_sites WHERE workspace_id = ?';
 export const RE_PORTAL_SQL =
   'SELECT person_id, given_at, revoked_at, last_used_at FROM portal_access WHERE workspace_id = ?';
@@ -82,6 +83,7 @@ export function useRealestateCopy(workspaceId: string, reach: CopyReach): Reales
   const appointments = useQuery<Row>(RE_APPOINTMENTS_SQL, [workspaceId]).data;
   const users = useQuery<Row>(RE_USERS_SQL, []).data;
   const recordNames = useQuery<Row>(RE_RECORD_NAMES_SQL, [workspaceId]).data;
+  const team = useQuery<Row>(RE_TEAM_SQL, [workspaceId]).data;
   const bookingSites = useQuery<Row>(RE_BOOKING_SQL, [workspaceId]).data;
   const portalAccess = useQuery<Row>(RE_PORTAL_SQL, [workspaceId]).data;
   return React.useMemo(
@@ -96,6 +98,7 @@ export function useRealestateCopy(workspaceId: string, reach: CopyReach): Reales
         appointments,
         users,
         recordNames,
+        team,
         bookingSites,
         portalAccess,
       } as unknown as RealestateSource),
@@ -109,6 +112,7 @@ export function useRealestateCopy(workspaceId: string, reach: CopyReach): Reales
       appointments,
       users,
       recordNames,
+      team,
       bookingSites,
       portalAccess,
     ],

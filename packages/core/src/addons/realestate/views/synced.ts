@@ -95,6 +95,12 @@ export interface RealestateSource {
   readonly recordNames: readonly SyncedRecordName[];
   /** The business's booking site (records_v1): its name in public links. */
   readonly bookingSites?: readonly { readonly slug: Cell; readonly enabled?: Cell }[];
+  /** Who holds each add-on here and as what (records_v1, to whoever sees every record: Team workload). */
+  readonly team?: readonly {
+    readonly user_id: Cell;
+    readonly addon_id: Cell;
+    readonly role: Cell;
+  }[];
   /** Who has the portal (records_v1; never a link's reference). */
   readonly portalAccess?: readonly {
     readonly person_id: Cell;
@@ -240,6 +246,8 @@ export interface RealestateCopy {
   /** How to reach a company: its email and phone, as kept. */
   companyContact(id: string): { readonly email: string | null; readonly phone: string | null };
   record(id: string): string | null;
+  /** Who holds Real Estate here and as what: only on the phones of whoever sees every deal. */
+  readonly team: readonly { readonly userId: string; readonly role: string }[];
   /** The business's booking site's name in links, or null when it has none. */
   readonly bookingSlug: string | null;
   /** A customer's portal access, as kept: when it was given, revoked and last used (ISO), or null. */
@@ -430,6 +438,11 @@ export function realestateCopyOf(source: RealestateSource): RealestateCopy {
     company: (id) => companies.get(id) ?? null,
     companyContact: (id) => contacts.get(id) ?? { email: null, phone: null },
     record: (id) => recordNames.get(id) ?? null,
+    team: (source.team ?? []).flatMap((t) =>
+      text(t.addon_id) === 'realestate' && text(t.user_id)
+        ? [{ userId: text(t.user_id)!, role: text(t.role) ?? 'member' }]
+        : [],
+    ),
     bookingSlug: text(source.bookingSites?.[0]?.slug),
     portalAccess: (id) => portal.get(id) ?? null,
     file: (id) => files.get(id) ?? null,

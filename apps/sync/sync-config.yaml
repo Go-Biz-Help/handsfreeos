@@ -200,6 +200,7 @@ streams:
       addon_use: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'use'
       addon_all: SELECT key FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'all'
       access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')
+      team_of: SELECT team_scope FROM app.sync_keys WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND kind = 'all'
     queries:
       # The add-on's kinds of records, and its records: shared ones to everyone with its key, private ones to their
       # people and to whoever sees every one of their kind.
@@ -231,6 +232,8 @@ streams:
       # signal. Theirs alone, in a business they can open.
       - SELECT id, workspace_id, user_id, appointment_id, place, latitude, longitude, located_at, started_at, planned_end_at, extended_count, state, asked_at, alerted_at, resolved_at, resolved_by, resolved_via, alert_round, last_alerted_at, checked_out_at, created_at, updated_at FROM app.safety_checkins WHERE workspace_id IN access AND user_id = auth.user_id()
       - SELECT id, workspace_id, user_id, contact_user_id, name, phone_e164, email, asked_at, agreed_at, stopped_at, position, created_at, updated_at FROM app.safety_contacts WHERE workspace_id IN access AND user_id = auth.user_id()
+      # Who holds the add-on here, and as what: for whoever sees every record of its kind (Team workload).
+      - SELECT user_id || ':' || key AS id, user_id, workspace_id, addon_id, role FROM app.sync_keys AS team_keys WHERE team_scope IN team_of AND kind = 'use'
       # The business's booking site's name in links, and who has the portal (never the portal link's reference).
       - SELECT id, workspace_id, slug, name, enabled, created_at, updated_at FROM app.booking_sites WHERE workspace_id IN access
       - SELECT id, workspace_id, person_id, given_by, given_at, revoked_at, revoked_by, last_used_at, created_at, updated_at FROM app.portal_access WHERE workspace_id IN access

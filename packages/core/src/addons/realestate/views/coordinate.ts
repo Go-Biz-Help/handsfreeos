@@ -13,7 +13,13 @@ import type { z } from 'zod';
 import { contingencyClock, contingencyLabel, type ContingencyKind } from '../contingencies';
 import { businessDaysBetween, calendarOf } from '../dates/business-days';
 import type { HealthReason } from '../health';
-import type { CoordinateInput, ExceptionsOutput, TodayOutput, WaitingRoomOutput } from '../schemas';
+import type {
+  CoordinateInput,
+  ExceptionsOutput,
+  TodayOutput,
+  WaitingRoomOutput,
+  WorkloadOutput,
+} from '../schemas';
 import type { DutyStatus } from '../states';
 import { holdsWhole, isoOr } from './deal-facts';
 import { byName, byText, iso, text, type CopyDuty, type RealestateCopy } from './synced';
@@ -22,6 +28,7 @@ export type CoordinateFilter = Partial<Omit<z.input<typeof CoordinateInput>, 'wo
 export type TodayView = z.infer<typeof TodayOutput>;
 export type ExceptionsView = z.infer<typeof ExceptionsOutput> & { readonly partial: boolean };
 export type WaitingRoomView = z.infer<typeof WaitingRoomOutput>;
+export type WorkloadView = z.infer<typeof WorkloadOutput>;
 export interface CoordinateContext {
   readonly userId: string | null;
   readonly now: number;
@@ -324,4 +331,55 @@ export function waitingRoomOfCopy(
     (a, b) => Number(b.past) - Number(a.past) || (a.next ?? '9999').localeCompare(b.next ?? '9999'),
   );
   return { items };
+}
+
+/**
+ * Team workload: each person who holds Real Estate, with their open deals, open duties, overdue ones, ones due within
+ * two business days, and deals at risk, as `realestate.workload` answers. Only someone who sees every deal gets it
+ * (the server refuses everyone else; their phone holds no team), so it's null without `seesEveryDeal`.
+ */
+export function workloadOfCopy(
+  copy: RealestateCopy,
+  f: CoordinateFilter,
+  ctx: CoordinateContext & { readonly seesEveryDeal: boolean },
+): WorkloadView | null {
+  if (!ctx.seesEveryDeal) return null;
+  const calendar = calendarOf(copy.settings.closedDays);
+  const open = openDuties(copy, f, ctx);
+  const deals = openDeals(copy, f);
+  const onDeals = [...copy.deals.keys()].flatMap((id) =>
+    copy.rows('deal_roles', id).map((r) => ({ userId: text(r.data.user_id) ?? '', deal: id })),
+  );
+  const people = copy.team.map((p) => {
+    const mine = open.filter((d) => d.accountableUserId === p.userId);
+    const dealIds = new Set([
+      ...deals.filter((d) => d.owner === p.userId).map((d) => d.id),
+      ...onDeals.filter((x) => x.userId === p.userId).map((x) => x.deal),
+    ]);
+    const live = deals.filter((d) => dealIds.has(d.id));
+    return {
+      userId: p.userId,
+      name: copy.user(p.userId) ?? 'Former member',
+      role: p.role,
+      deals: live.length,
+      openDuties: mine.length,
+      overdue: mine.filter((d) => d.dueAt !== null && d.dueAt <= ctx.now).length,
+      dueSoon: mine.filter(
+        (d) =>
+          d.dueAt !== null &&
+          d.dueAt > ctx.now &&
+          text(d.row.due_date) !== null &&
+          businessDaysBetween(ctx.today, text(d.row.due_date)!, calendar) <= 2,
+      ).length,
+      atRiskDeals: live.filter((d) => d.health === 'red').length,
+    };
+  });
+  people.sort(
+    (a, b) =>
+      b.overdue - a.overdue ||
+      b.openDuties - a.openDuties ||
+      byName(a.name, b.name) ||
+      byText(a.userId, b.userId),
+  );
+  return { people };
 }

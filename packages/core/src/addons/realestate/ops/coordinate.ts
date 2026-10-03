@@ -473,9 +473,13 @@ export const coordinateWorkload = defineAddonQuery(realestateAddon, {
         atRiskDeals: live.filter((d) => d.health === 'red').length,
       };
     });
+    // Name in English reading order, then id: a phone orders them the same (views/coordinate.ts).
     rowsOut.sort(
       (a, b) =>
-        b.overdue - a.overdue || b.openDuties - a.openDuties || a.name.localeCompare(b.name),
+        b.overdue - a.overdue ||
+        b.openDuties - a.openDuties ||
+        byName(a.name, b.name) ||
+        byText(a.userId, b.userId),
     );
     return { people: rowsOut };
   },

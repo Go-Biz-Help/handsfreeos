@@ -18,6 +18,7 @@ import {
   exceptionsOfCopy,
   todayOfCopy,
   waitingRoomOfCopy,
+  workloadOfCopy,
   type CoordinateFilter,
 } from '../../src/addons/realestate/views/coordinate';
 import { documentsOfCopy } from '../../src/addons/realestate/views/documents';
@@ -554,6 +555,32 @@ describe('Coordinate on the phone', () => {
         }
       }
     }
+  });
+
+  it('answers Team workload as the server does, for whoever sees every deal, and holds no team for the rest', async () => {
+    for (const f of [{}, { mine: true }, { agentUserId: agent.id }] as CoordinateFilter[]) {
+      const copy = await phoneCopy(owner, ws);
+      const phone = workloadOfCopy(copy, f, {
+        userId: owner.id,
+        now: Date.now(),
+        today,
+        seesEveryDeal: true,
+      });
+      expect(phone, JSON.stringify(f)).toEqual(await ask('realestate.workload', f, owner));
+      expect(phone!.people.map((p) => p.name)).toEqual(
+        expect.arrayContaining(['Dana Reyes', 'Rosa Owens']),
+      );
+    }
+    // The agent may not see it: the server refuses, and their phone holds nobody's permissions.
+    const agentCopy = await phoneCopy(agent, ws);
+    expect(agentCopy.team).toEqual([]);
+    expect(
+      workloadOfCopy(
+        agentCopy,
+        {},
+        { userId: agent.id, now: Date.now(), today, seesEveryDeal: false },
+      ),
+    ).toBeNull();
   });
 
   it('isn’t equal by being empty', async () => {
