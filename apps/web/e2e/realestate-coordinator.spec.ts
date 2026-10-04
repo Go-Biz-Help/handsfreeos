@@ -198,10 +198,9 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   await phone.close();
 
   // 4. A duty that waits on another shows it, built in; the agent adds one of their own, then takes it back.
-  const got = await ask<{ duties: { dutyId: string; title: string; status: string }[] }>(
-    'realestate.deal.get',
-    { dealId },
-  );
+  const got = await ask<{
+    duties: { dutyId: string; title: string; status: string; materiality: string }[];
+  }>('realestate.deal.get', { dealId });
   let waits: string | null = null;
   for (const d of got.duties.filter((x) => x.status === 'not_started')) {
     const one = await ask<{ waitsOn: unknown[] }>('realestate.duty.get', { dutyId: d.dutyId });
@@ -277,14 +276,21 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   await item.getByTestId('waiting-came-in').click();
   await expect(page.getByTestId('waiting-item').filter({ hasText: lender.title })).toHaveCount(0);
 
-  // 7. A duty two days overdue is at risk; a business day on with nobody acknowledging it, it's escalated.
+  // 7. An overdue standard duty is at risk; a business day on with nobody acknowledging it, it's escalated. A
+  // material one two business days late, or any critical one, is critical instead, which reaches everyone at once and
+  // is never escalated, so the duty is picked by its materiality: duties due the same day come back in no fixed order.
+  // A week back is late whatever day the test runs.
   const late = got.duties.find(
-    (d) => d.status === 'not_started' && d.dutyId !== waits && d.dutyId !== lender.dutyId,
+    (d) =>
+      d.status === 'not_started' &&
+      d.materiality === 'standard' &&
+      d.dutyId !== waits &&
+      d.dutyId !== lender.dutyId,
   )!;
-  const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
   await run('realestate.duty.set_due', {
     dutyId: late.dutyId,
-    date: twoDaysAgo,
+    date: weekAgo,
     reason: 'The lender wanted it sooner.',
     clear: false,
   });
@@ -299,10 +305,16 @@ test('a contract read, its contingencies, linked deals and the coordinator’s v
   expect(aged.status).toBe(200);
   await sweep();
   await page.goto(coordinate);
-  const risk = page.getByTestId('coordinate-risk').filter({ hasText: late.title });
+  // The escalated duty's own row: another at-risk row can name it too (a duty that waits on it).
+  const escalated = () =>
+    page
+      .getByTestId('coordinate-risk')
+      .filter({ hasText: late.title })
+      .filter({ has: page.getByTestId('coordinate-ack') });
+  const risk = escalated();
   await expect(risk).toContainText('Escalated');
   await expect(risk).toContainText('nobody acknowledged it');
   await risk.getByTestId('coordinate-ack').click();
   await expect(page.getByText('Acknowledged. Its alerts stop climbing.')).toBeVisible();
-  await expect(page.getByTestId('coordinate-risk').filter({ hasText: late.title })).toHaveCount(0);
+  await expect(escalated()).toHaveCount(0);
 });
