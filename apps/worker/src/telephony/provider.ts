@@ -264,6 +264,11 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     friendlyName: string,
   ): Promise<{ sid: string; secret: string }>;
+  /**
+   * Whether the subaccount still has this API key. Somebody can delete it in the Twilio console, and Twilio
+   * then refuses every browser call token it signed.
+   */
+  hasApiKey(account: ProviderAccount, keySid: string): Promise<boolean>;
   /** The TwiML app browser calls go through. */
   createTwimlApp(
     account: ProviderAccount,

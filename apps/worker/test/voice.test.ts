@@ -332,6 +332,34 @@ describe('browser calling', () => {
         .where(eq(telephonyAccounts.id, account!.id));
     }
   });
+
+  it('makes a new calling key when the old one was deleted in Twilio, and signs with that', async () => {
+    const accountRow = async () =>
+      (
+        await admin()
+          .select()
+          .from(telephonyAccounts)
+          .where(eq(telephonyAccounts.workspaceId, workspaceId))
+      )[0]!;
+    const before = await accountRow();
+    s.telephony.deleteApiKey(before.apiKeySid!);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/telephony/voice-token',
+      payload: { workspaceId },
+      headers: { authorization: `Bearer ${await signInTestUser(member)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const after = await accountRow();
+    expect(after.apiKeySid).toMatch(/^SKfake/);
+    expect(after.apiKeySid).not.toBe(before.apiKeySid);
+    expect(after.apiKeySecretEnc).not.toBe(before.apiKeySecretEnc);
+    expect(after.apiKeySecretEnc).not.toContain(FAKE_VOICE_KEY_SECRET);
+    const payload = (res.json() as { token: string }).token.split('.')[1]!;
+    expect(JSON.parse(Buffer.from(payload, 'base64url').toString())).toMatchObject({
+      iss: after.apiKeySid,
+    });
+  });
 });
 
 describe('a customer calls', () => {

@@ -902,6 +902,11 @@ export function createTwilioTelephony(master: {
       return { sid: res.sid, secret: res.secret };
     },
 
+    async hasApiKey(account, keySid) {
+      const url = `${API}/Accounts/${account.sid}/Keys/${keySid}.json`;
+      return (await getIfThere(credsOf(account), url)) !== null;
+    },
+
     async createTwimlApp(account, opts) {
       const res = await call<{ sid: string }>(
         credsOf(account),

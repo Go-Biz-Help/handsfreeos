@@ -950,6 +950,28 @@ describe('browser calls and voicemail recordings', () => {
       StatusCallbackMethod: 'POST',
     });
   });
+
+  it('asks the subaccount whether it still has its calling key: a 404 is a deleted key', async () => {
+    const keys = /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\/Keys\//;
+    const seen = mockTwilio([
+      [new RegExp(`${keys.source}SKkeytest\\.json$`), () => ({ json: { sid: 'SKkeytest' } })],
+      [
+        new RegExp(`${keys.source}SKgonetest\\.json$`),
+        () => ({ status: 404, json: { code: 20404 } }),
+      ],
+      [
+        new RegExp(`${keys.source}SKdowntest\\.json$`),
+        () => ({ status: 503, json: { code: 20503 } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(await t.hasApiKey(account, 'SKkeytest')).toBe(true);
+    expect(await t.hasApiKey(account, 'SKgonetest')).toBe(false);
+    // Twilio being down says nothing about the key.
+    await expect(t.hasApiKey(account, 'SKdowntest')).rejects.toBeInstanceOf(ProviderError);
+    expect(seen).toHaveLength(3);
+    expect(seen.every((x) => x.auth === 'ACsubtest:sub-token')).toBe(true);
+  });
 });
 
 describe('calls through a cell and their words', () => {
