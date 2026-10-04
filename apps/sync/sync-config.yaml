@@ -51,11 +51,11 @@
 #     same change: `kind != 'addon_alert'`. An add-on's alert (20261013002500) is seen only by holders of the
 #     add-on's permission, which a stream can't check, and the phone draws no add-on's page; its push opens the web.
 #     **Real Estate round two narrows appointments the same way, in place.** A tour on a private deal is an
-#     appointment on it (20261014000100): business_v1's appointments and their customers now send only
+#     appointment on it (20261018000600): business_v1's appointments and their customers now send only
 #     `sealed = false` rows. Its staff rows still go (who is busy when, nothing about the deal). The people on a
 #     deal get its appointments back on the phone with the deal screens.
 #     Batched into the same recopy, conversations and messages in both inbox arms send only `channel != 'portal'`
-#     rows: a client's portal thread (20261014000700) is seen only by the people on its deal, and the phone has no
+#     rows: a client's portal thread (20261018001200) is seen only by the people on its deal, and the phone has no
 #     portal thread screen yet. They come back with the deal screens too.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +

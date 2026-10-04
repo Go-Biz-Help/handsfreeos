@@ -802,8 +802,8 @@ Chosen for Chris, open to change:
 
 ## Build order (round two)
 
-Round two's migrations start at `20261014000100`, leaving room for work on `main` above the hosted database's
-`20261013003000`. Screens wait for Chris to approve the boards; the server steps go ahead meanwhile.
+Round two's migrations start at `20261018000600`, just above `main`'s newest when the add-on was finished (they were
+written as `20261014…` and renumbered then, as all rounds' are numbered above `main`'s). Screens wait for Chris to approve the boards; the server steps go ahead meanwhile.
 
 - **Step 0:** this part, and the boards in `design/realestate` (numbers 13 to 31).
 - **Steps 1–5 (core):** busy-only appointments on private records; the portal's sign-in; the customer actor and
@@ -815,7 +815,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 1: a private record's appointments show only as busy (built, 2026-10-01)
 
-**As built** (`20261014000100_private_appointments_show_busy.sql`):
+**As built** (`20261018000600_private_appointments_show_busy.sql`):
 
 - `app.appointments.sealed` and `app.appointment_attendees.sealed`, kept by triggers from the record's privacy, like
   tasks and files. Their policies add "not sealed, or the caller sees the record", asked once per query
@@ -835,7 +835,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 2: the portal's sign-in (server built, 2026-10-01)
 
-**As built** (`20261014000200_client_portal_sign_in.sql`):
+**As built** (`20261018000700_client_portal_sign_in.sql`):
 
 - `app.portal_access`: one per person a business lets in, with the link's `public_ref` and `link_version`. The link
   is `/c/<public_ref><code>`, the code an HMAC the worker signs (`apps/worker/src/portal/links.ts`, purpose
@@ -861,7 +861,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 3: the customer actor and add-ons' portal pages (server built, 2026-10-01)
 
-**As built** (`20261014000300_customer_actor.sql`, `20261014000400_customer_portal_reads.sql`):
+**As built** (`20261018000800_customer_actor.sql`, `20261018000900_customer_portal_reads.sql`):
 
 - `actor_type` gains `customer`, in a file of its own. The kernel's `CustomerActor` (person, device session, business)
   runs only operations that list `'customer'` alone. Those are named `portal.*` (core's) or `<id>.portal.*` (an
@@ -894,7 +894,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 4: client uploads (server built, 2026-10-01)
 
-**As built** (`20261014000500_customer_uploads.sql`):
+**As built** (`20261018001000_customer_uploads.sql`):
 
 - `app.files` gains `uploaded_by_person_id` (the customer who added it; a trigger lets only the worker set it) and
   `portal_visible`. Only files on a customer or on a record can be in a portal (a check).
@@ -917,7 +917,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 5: portal messages in the Inbox (server built, 2026-10-01)
 
-**As built** (`20261014000600_portal_channel.sql`, `20261014000700_portal_messages.sql`):
+**As built** (`20261018001100_portal_channel.sql`, `20261018001200_portal_messages.sql`):
 
 - A new channel and timeline kind, `portal` (the enum values alone in their file).
 - **One thread per client per record**, not one per client: counterpart `portal:<person>:<record>`, the record in the
@@ -949,7 +949,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 6: homes and the buyer's profile (server built, 2026-10-01)
 
-**As built** (`20261014000800_realestate_homes.sql`):
+**As built** (`20261018001300_realestate_homes.sql`):
 
 - `buyer_profiles` (one per buyer deal) and `buyer_profile_versions` (each save as it was, append-only): price range,
   areas, kinds of home, bedrooms, baths, size, move-by date, must-haves, deal-breakers.
@@ -975,7 +975,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 7: buyer memory (server built, 2026-10-01)
 
-**As built** (`20261014000900_realestate_buyer_memory.sql`):
+**As built** (`20261018001400_realestate_buyer_memory.sql`):
 
 - `memory_items`: one thing the buyer said (likes, can't stand, must have, deal-breaker, timing, money, other), in a
   few words, with the quote it came from and where (a message, a call, a note), or typed in by a person. Suggested by
@@ -1001,7 +1001,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 8: tours and the agreement rule (server built, 2026-10-01)
 
-**As built** (`20261014001000_realestate_tours.sql`):
+**As built** (`20261018001500_realestate_tours.sql`):
 
 - `tours` (one per appointment: when, who leads it, the agreement it rested on or the exception that let it
   through, whether it happened), `tour_stops` (the homes in order, each seen or skipped, with the team's note) and
@@ -1033,7 +1033,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 9: the CMA (server built, 2026-10-01)
 
-**As built** (`20261014001100_realestate_cma.sql`):
+**As built** (`20261018001600_realestate_cma.sql`):
 
 - `cmas`: one per look at a home's value ("CMA 2" on the deal): the home and its facts as the agent had them, the
   range (kept when finalized), the summary and where it stands, who finalized and shared it. `cma_comps`: price,
@@ -1060,7 +1060,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 10: offers and counters (server built, 2026-10-01)
 
-**As built** (`20261014001200_realestate_offers.sql`):
+**As built** (`20261018001700_realestate_offers.sql`):
 
 - `offers`: one per home an offer is made on ("Offer 2" on the deal), with the listing agent it's with, who answers
   next (`waiting_them`, `waiting_us`) or how it ended (accepted, declined, expired, withdrawn), the version accepted,
@@ -1086,7 +1086,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 11: financing, inspections and repairs (server built, 2026-10-01)
 
-**As built** (`20261014001300_realestate_financing_inspections.sql`):
+**As built** (`20261018001800_realestate_financing_inspections.sql`):
 
 - `financing` (the lender, loan officer and loan) and `financing_steps` (preapproval, application, rate lock,
   appraisal, conditional approval, clear to close, the Closing Disclosure, funding): each step's dates, amount and
@@ -1109,7 +1109,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 12: the client's tasks and portal operations (server built, 2026-10-01)
 
-**As built** (`20261014001400_realestate_client_tasks_portal.sql`):
+**As built** (`20261018001900_realestate_client_tasks_portal.sql`):
 
 - `client_tasks` (upload, sign off on exact words, or do; for one client or every client; due date; an upload's
   document kind) and `client_task_completions` (each client's own part: their file, the exact words they signed
@@ -1151,7 +1151,7 @@ Round two's migrations start at `20261014000100`, leaving room for work on `main
 
 ### Step 14: staff screens (built, 2026-10-01)
 
-**As built** (`20261014001500_realestate_memory_dropped.sql`; the web in `apps/web/src/addons/realestate/`):
+**As built** (`20261018002000_realestate_memory_dropped.sql`; the web in `apps/web/src/addons/realestate/`):
 
 - A buyer deal's page reads its buyer side too and adds boards 13's cards: What they want, Homes and Tours in the
   main column; Buyer agreement, Financing, Client's to-do and Offers and CMA at the side. "Plan a tour" is in its

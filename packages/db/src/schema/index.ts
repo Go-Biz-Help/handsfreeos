@@ -35,7 +35,7 @@ export const actorType = app.enum('actor_type', [
   'ai_employee',
   'api',
   'integration',
-  // A customer signed in to their portal (Real Estate round two, 20261014000300).
+  // A customer signed in to their portal (Real Estate round two, 20261018000800).
   'customer',
 ]);
 export const outboxStatus = app.enum('outbox_status', ['pending', 'done', 'failed']);
@@ -276,7 +276,7 @@ export const activityKind = app.enum('activity_kind', [
   'sms',
   'system',
   'chat',
-  /** A message in a customer's portal (Real Estate round two, 20261014000600). */
+  /** A message in a customer's portal (Real Estate round two, 20261018001100). */
   'portal',
 ]);
 export const fileStatus = app.enum('file_status', ['pending', 'ready']);
@@ -704,7 +704,7 @@ export const registrationStatus = app.enum('registration_status', [
   'rejected',
   'failed',
 ]);
-/** `portal`: a customer's own portal (Real Estate round two, 20261014000600). */
+/** `portal`: a customer's own portal (Real Estate round two, 20261018001100). */
 export const channel = app.enum('channel', ['sms', 'email', 'chat', 'portal']);
 export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
 export const direction = app.enum('direction', ['inbound', 'outbound']);
@@ -6105,7 +6105,7 @@ export const relationshipTypes = app.table('relationship_types', {
   /** The add-on that manages this type (0108), and its key in the add-on's manifest. */
   addonId: text('addon_id'),
   addonKey: text('addon_key'),
-  /** The customer at the person end sees the record in their portal (20261014000400). */
+  /** The customer at the person end sees the record in their portal (20261018000900). */
   portalVisible: boolean('portal_visible').notNull().default(false),
   /** Phones keep it: its add-on's key, or that of a kind phones keep at either end (20261022000700). */
   sealScope: text('seal_scope'),
