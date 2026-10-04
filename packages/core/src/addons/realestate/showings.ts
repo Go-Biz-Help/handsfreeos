@@ -104,17 +104,16 @@ export function showingStateWords(state: ShowingState, sellerFirstName: string |
 /** "Fri, Oct 9 · 2:00 PM" in the business's time zone. */
 export function showingWhen(at: Date | string | number, timeZone: string): string {
   const t = new Date(at);
-  timeZone = intlTimeZone(timeZone);
   const day = t.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
   });
   const clock = t.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
   });
   return `${day} · ${clock}`;
 }

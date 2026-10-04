@@ -4,6 +4,7 @@
  * page and the phone's say exactly the same thing (docs/addon-architecture.md).
  */
 import { joinNames } from '../account/settings-words';
+import { intlTimeZone } from '../intl/engine-zones';
 import { requirementClosure, type Catalog } from './graph';
 import type { AddonOffer, InstallationState, LifecycleAction } from './lifecycle';
 import type { AddonCategory, AddonManifest } from './manifest';
@@ -316,7 +317,11 @@ export interface AddonKept {
 }
 
 const monthYear = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  new Date(iso).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: intlTimeZone('UTC'),
+  });
 
 /**
  * Why an add-on's data can't be deleted yet, and when it can (Chris, 2026-10-03: a business keeps closed records the

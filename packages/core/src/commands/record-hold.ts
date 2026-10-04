@@ -9,6 +9,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
+import { intlTimeZone } from '../intl/engine-zones';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { userIdOf } from '../kernel/actor';
@@ -20,7 +21,11 @@ import {
 } from '../schemas/record-hold';
 
 const when = (d: Date | string) =>
-  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  new Date(d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: intlTimeZone('UTC'),
+  });
 
 async function nameOf(ctx: CommandContext, userId: string | null): Promise<string> {
   if (!userId) return 'Someone';
