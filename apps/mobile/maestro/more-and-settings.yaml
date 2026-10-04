@@ -105,7 +105,12 @@ env:
 - assertVisible:
     id: 'setting-appearance'
     text: 'Appearance\. System'
-# The businesses kept on this phone.
+# The businesses kept on this phone, back up at the top (the last line was scrolled to above).
+- scrollUntilVisible:
+    element:
+      id: 'setting-businesses'
+    direction: UP
+    timeout: 10000
 - tapOn:
     id: 'setting-businesses'
 - extendedWaitUntil:

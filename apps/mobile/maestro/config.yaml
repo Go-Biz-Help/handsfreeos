@@ -22,7 +22,6 @@ executionOrder:
     - The notification switches save through HandsFreeOS
     - Links open the app's screens, and never a customer's page
     - Inbox - a reply with a photo written with no signal goes once, when signal is back
-    - Inbox - a text inside quiet hours asks, waits for the morning with Cancel, and Cancel takes it back
     - Inbox - take a conversation over from the AI teammate, and hand it back
     - Inbox - a close made with no signal doesn't stand when the customer wrote again
     - Calls - verify my cell, call a customer through it, and cancel while it rings
@@ -44,6 +43,9 @@ executionOrder:
     - Ask HandsFreeOS - a text asks first, and only sends on the button
     - Ask HandsFreeOS - with no signal it says so, and queues nothing
     - Real Estate - a duty done and a check-in with no signal go when signal is back
+    # Near the end: the held text's line says when it goes on the phone's own clock, and the question before it on the
+    # business's, so on CI's emulator (UTC) they differ and this flow fails. Here, it can't stop the flows above.
+    - Inbox - a text inside quiet hours asks, waits for the morning with Cancel, and Cancel takes it back
     # Last: CI's automated-test-device image has no System UI, so no notification shade to reply from, and this flow
     # fails there. Last, it can't stop the flows after it.
     - A customer's text arrives as a notification, and Reply from the shade sends once
