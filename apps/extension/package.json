@@ -1,0 +1,22 @@
+{
+  "name": "@hfos/extension",
+  "private": true,
+  "type": "module",
+  "version": "0.1.3",
+  "description": "The browser extension that works beside a person on Facebook (README.md). Phase 0: it reads the page you have open and shows what it found; it saves and sends nothing.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "eslint . --config ../../eslint.config.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.4",
+    "@types/jsdom": "^20.0.1",
+    "@types/node": "^22.20.0",
+    "esbuild": "^0.28.0",
+    "jsdom": "^20.0.3",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
