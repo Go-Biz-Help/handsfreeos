@@ -38,6 +38,8 @@ const VIA: Record<RequestChannel, string | null> = {
   mobile: null,
   // The AI keeping customers' tags and details up to date (0107): its name leads the row, its reason is below.
   contact_ai: null,
+  // A client in their own portal (Real Estate round two, core).
+  portal: 'via client portal',
 };
 
 /**
@@ -306,6 +308,17 @@ function describeAction(e: AuditEntry): string {
       return `uploaded ${name(e)}`;
     case 'file.delete':
       return `removed the file ${s(e.before?.name)}`;
+    case 'file.lock':
+      return `locked ${name(e)} as signed and kept`;
+    // An add-on's alerts (Real Estate step 5): raised and cleared by its worker, acknowledged by a person.
+    case 'addon_alert.raised':
+      return `raised the alert “${s(e.after?.title)}”`;
+    case 'addon_alert.updated':
+      return `updated the alert “${s(e.after?.title)}”`;
+    case 'addon_alert.cleared':
+      return 'cleared an alert';
+    case 'addon_alert.acknowledge':
+      return 'acknowledged an alert';
     case 'file.remove':
       return `deleted the stored file ${name(e)}`;
     case 'import.start':
@@ -1638,7 +1651,9 @@ function statusSentence(e: AuditEntry): string {
       ? 'an email'
       : s(e.after?.channel) === 'chat'
         ? 'a chat message'
-        : 'a text';
+        : s(e.after?.channel) === 'portal'
+          ? 'a portal message'
+          : 'a text';
   if (status === 'delivered') return `confirmed ${what} was delivered`;
   if (status === 'bounced')
     return `recorded that an email bounced${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;

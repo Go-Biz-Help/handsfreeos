@@ -182,6 +182,66 @@ describe('campaigns', () => {
     );
   });
 
+  it('takes exact words when it’s given them: everyone’s draft at once, and never for a call', async () => {
+    const words = 'Just listed: 2207 Juniper Trail, $539,000. Photos: example.com/l/2207';
+    const made = await run(
+      campaignCreate,
+      {
+        workspaceId: t.wsId,
+        name: 'Just listed: 2207 Juniper Trail',
+        goal: 'Tell people about the new listing.',
+        audience: audience(),
+        words: { text: words },
+      },
+      t.owner,
+    );
+    const got = await rows<{ status: string; draft: string | null; skip_reason: string | null }>(
+      admin(),
+      sql`select status, draft, skip_reason from app.campaign_recipients
+          where campaign_id = ${made.campaignId} order by status`,
+    );
+    // Ana, Ed and Fay have the words, ready for review; the rest are left out as before, with none.
+    expect(got.filter((r) => r.status === 'ready').map((r) => r.draft)).toEqual([
+      words,
+      words,
+      words,
+    ]);
+    expect(got.filter((r) => r.status === 'skipped').every((r) => r.draft === null)).toBe(true);
+    expect(got.some((r) => r.status === 'drafting')).toBe(false);
+    await expectHfos(
+      () =>
+        run(
+          campaignCreate,
+          {
+            workspaceId: t.wsId,
+            name: 'X',
+            goal: 'Y',
+            audience: audience(),
+            words: { subject: 'Just listed' },
+          },
+          t.owner,
+        ),
+      'validation',
+    );
+    await expectHfos(
+      () =>
+        run(
+          campaignCreate,
+          {
+            workspaceId: t.wsId,
+            name: 'X',
+            goal: 'Y',
+            audience: audience(),
+            channel: 'call',
+            words: { text: words },
+          },
+          t.owner,
+        ),
+      'validation',
+    );
+    await run(campaignCancel, { workspaceId: t.wsId, campaignId: made.campaignId }, t.owner);
+  });
+
   it('picks open deals only: a won or lost stage is refused, as the screen offers open ones', async () => {
     const { pipelines } = await ask(pipelineList, { workspaceId: t.wsId }, t.owner);
     for (const kind of ['won', 'lost'] as const) {

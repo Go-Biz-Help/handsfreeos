@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  addonAlertOfSynced,
   attentionListOut,
   attentionListView,
   attentionRowOfSynced,
@@ -321,6 +322,54 @@ describe('from a phone’s copy', () => {
     expect(names.get(DALE)).toBe('Dale Carter');
     expect(names.get(PRIYA)).toBe('priya@lonestarhvac.test');
   });
+
+  it('reads an add-on’s alert from its card: its add-on, its seriousness and whether it asks for a Got it', () => {
+    const card = (asks: boolean) => ({
+      kind: 'addon_alert',
+      subjectId: uid(71),
+      reasons: [
+        { code: 'severity', label: 'At risk' },
+        ...(asks ? [{ code: 'needs_ack', label: 'Not acknowledged yet' }] : []),
+      ],
+    });
+    // The add-on whose phone permission the person holds: a card reaches a phone only under it.
+    expect(addonAlertOfSynced(card(true), ['records.read', 'realestate.use'])).toEqual({
+      alertId: uid(71),
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      severity: 'at_risk',
+      href: '/a/realestate',
+      needsAck: true,
+      acknowledgedAt: null,
+    });
+    expect(addonAlertOfSynced(card(true), ['records.read'])).toBeNull();
+    expect(addonAlertOfSynced(card(true), null)).toBeNull();
+    expect(addonAlertOfSynced({ ...card(true), kind: 'hot_lead' }, ['realestate.use'])).toBeNull();
+    // HandsFreeOS's own description wins where it says more: the alert's page.
+    const server = {
+      alertId: uid(71),
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      severity: 'at_risk' as const,
+      href: '/a/realestate/deals/deal-1',
+      needsAck: true,
+      acknowledgedAt: null,
+    };
+    expect(addonAlertOfSynced(card(true), [], { server })).toEqual(server);
+    // Acknowledged here, or elsewhere (the chip went): it stops asking.
+    expect(
+      addonAlertOfSynced(card(true), [], { server, acknowledgedHere: true, now: at })
+        ?.acknowledgedAt,
+    ).toBe(new Date(at).toISOString());
+    expect(addonAlertOfSynced(card(false), [], { server, now: at })?.acknowledgedAt).toBe(
+      new Date(at).toISOString(),
+    );
+    // One that never asked doesn't start to.
+    expect(addonAlertOfSynced(card(false), ['realestate.use'])).toMatchObject({
+      needsAck: false,
+      acknowledgedAt: null,
+    });
+  });
 });
 
 describe('hints', () => {
@@ -393,6 +442,7 @@ describe('hints', () => {
       startsAt: '2026-09-16T15:00:00.000Z',
       reach: 'email',
       callable: false,
+      addonAlert: null,
     });
     expect(hints.get(uid(52))).toMatchObject({ reach: 'sms', callable: false });
     // Tom's invoice: a number and the business is open, so the call comes first.

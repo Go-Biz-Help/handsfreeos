@@ -577,10 +577,11 @@ export async function loadStaffData(
               and b.starts_at < ${tsParam(span.end)} and b.ends_at > ${tsParam(span.start)}`,
       )
     : [];
+  // A left join: an appointment on a private record the caller can't see (sealed) still makes its staff busy.
   const bookings = await rows<{
     user_id: string;
     appointment_id: string;
-    calendar_id: string;
+    calendar_id: string | null;
     ds: number;
     de: number;
     bs: number;
@@ -590,7 +591,7 @@ export async function loadStaffData(
     sql`select s.user_id, s.appointment_id, a.calendar_id,
           ${epoch(sql`lower(s.during)`)} as ds, ${epoch(sql`upper(s.during)`)} as de,
           ${epoch(sql`lower(s.blocked)`)} as bs, ${epoch(sql`upper(s.blocked)`)} as be
-        from app.appointment_staff s join app.appointments a on a.id = s.appointment_id
+        from app.appointment_staff s left join app.appointments a on a.id = s.appointment_id
         where s.workspace_id = ${workspaceId} and s.active and s.user_id = any(${uuidArray(ids)})
           and s.blocked && ${tsRange(span)}
           and not (s.appointment_id = any(${uuidArray(opts.excludeAppointmentIds ?? [])}))`,
@@ -677,7 +678,7 @@ export async function loadResourceData(
   const bookings = await rows<{
     resource_id: string;
     appointment_id: string;
-    calendar_id: string;
+    calendar_id: string | null;
     quantity: number;
     ds: number;
     de: number;
@@ -688,7 +689,7 @@ export async function loadResourceData(
     sql`select r.resource_id, r.appointment_id, a.calendar_id, r.quantity,
           ${epoch(sql`lower(r.during)`)} as ds, ${epoch(sql`upper(r.during)`)} as de,
           ${epoch(sql`lower(r.blocked)`)} as bs, ${epoch(sql`upper(r.blocked)`)} as be
-        from app.appointment_resources r join app.appointments a on a.id = r.appointment_id
+        from app.appointment_resources r left join app.appointments a on a.id = r.appointment_id
         where r.workspace_id = ${workspaceId} and r.active and r.resource_id = any(${uuidArray(ids)})
           and r.blocked && ${tsRange(span)}
           and not (r.appointment_id = any(${uuidArray(excludeAppointmentIds)}))`,

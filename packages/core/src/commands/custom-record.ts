@@ -317,6 +317,12 @@ export const customRecordCreate = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const kind = await requireRecordType(ctx.tx, ws, input.typeId, { live: true });
+    if (!kind.keptToTeam && (input.ownerUserId || input.teamUserIds?.length))
+      throw HfosError.rule(
+        'record_not_private',
+        400,
+        `Everyone in this business sees ${kind.plural.toLowerCase()}, so nobody needs to be put on one.`,
+      );
     const fields = await liveFields(ctx.tx, ws, 'custom_record', kind.id);
     const checked = checkedValues(fields, input.values ?? {});
     const custom = Object.fromEntries(
@@ -331,6 +337,9 @@ export const customRecordCreate = defineCommand({
         notes: input.notes ?? null,
         custom,
         createdBy: userIdOf(ctx.actor),
+        // A private kind's (Real Estate step 4): its maker is its owner unless someone else is named.
+        ...(input.ownerUserId ? { ownerUserId: input.ownerUserId } : {}),
+        ...(input.teamUserIds ? { teamUserIds: input.teamUserIds } : {}),
       })
       .returning();
     if (!row) throw HfosError.forbidden();

@@ -191,7 +191,15 @@ async function pageLabel(
           };
         }>('conversation.get', { conversationId: page.id });
         const who = conversation.person?.fullName ?? conversation.counterpartDisplay;
-        return `${conversation.channel === 'email' ? 'Email' : 'Texts'} with ${who}`;
+        const kind =
+          conversation.channel === 'email'
+            ? 'Email'
+            : conversation.channel === 'chat'
+              ? 'Website chat'
+              : conversation.channel === 'portal'
+                ? 'Portal messages'
+                : 'Texts';
+        return `${kind} with ${who}`;
       }
       case 'appointment': {
         const { appointment: a } = await ask<{ appointment: AppointmentLite }>('appointment.get', {

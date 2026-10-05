@@ -1,6 +1,6 @@
 'use client';
 import { firstName, minutesWaiting } from '@hfos/core';
-import { Globe, Mail, MessageCircle } from 'lucide-react';
+import { DoorOpen, Globe, Mail, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
@@ -88,7 +88,8 @@ export function ConversationsCard({
                 key={c.id}
                 type="button"
                 onClick={() =>
-                  c.channel === 'chat'
+                  // A chat or a client's portal is answered in its own thread.
+                  c.channel === 'chat' || c.channel === 'portal'
                     ? router.push(`/app/w/${workspaceId}/inbox/${c.id}`)
                     : onOpen(c.channel === 'email' ? 'email' : 'sms')
                 }
@@ -97,7 +98,15 @@ export function ConversationsCard({
                 className="flex items-start gap-2.5 rounded-[6px] p-2.5 text-left hover:bg-card-2"
               >
                 <ChannelIcon
-                  icon={c.channel === 'email' ? Mail : c.channel === 'chat' ? Globe : MessageCircle}
+                  icon={
+                    c.channel === 'email'
+                      ? Mail
+                      : c.channel === 'chat'
+                        ? Globe
+                        : c.channel === 'portal'
+                          ? DoorOpen
+                          : MessageCircle
+                  }
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-medium">
@@ -105,7 +114,9 @@ export function ConversationsCard({
                       ? `Email · ${c.counterpart}`
                       : c.channel === 'chat'
                         ? 'Website chat'
-                        : `Texts · ${c.counterpartDisplay}`}
+                        : c.channel === 'portal'
+                          ? `Client portal${c.record ? ` · ${c.record.name}` : ''}`
+                          : `Texts · ${c.counterpartDisplay}`}
                   </span>
                   <span className="block truncate text-xs text-text-3">{c.lastPreview}</span>
                 </span>

@@ -19,6 +19,8 @@ export interface EmailSwitches {
   readonly bookingEmail: boolean;
   readonly paymentEmail: boolean;
   readonly agencyDigest: boolean;
+  /** What an add-on the business uses needs you to see (Real Estate step 5). */
+  readonly addonEmail: boolean;
 }
 export type EmailSwitch = keyof EmailSwitches;
 
@@ -104,6 +106,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     email: null,
   },
   {
+    title: 'An add-on needs you',
+    detail: 'A duty running late, a deal at risk',
+    push: 'addons',
+    email: 'addonEmail',
+  },
+  {
     title: 'New support tickets',
     detail: 'When someone writes to HandsFreeOS support. Only people who answer support get these.',
     push: 'supportTickets',
@@ -175,6 +183,7 @@ export function emailSwitchesFrom(settings: unknown): EmailSwitches {
     bookingEmail: on('bookingEmail'),
     paymentEmail: on('paymentEmail'),
     agencyDigest: on('agencyDigest'),
+    addonEmail: on('addonEmail'),
   };
 }
 

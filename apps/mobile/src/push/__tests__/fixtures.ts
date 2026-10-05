@@ -14,6 +14,8 @@ const ids = {
   let_handle: '10000000-0000-4000-8000-000000000003',
   snooze: '10000000-0000-4000-8000-000000000004',
   approve: '10000000-0000-4000-8000-000000000005',
+  im_ok: '10000000-0000-4000-8000-000000000006',
+  add_15: '10000000-0000-4000-8000-000000000007',
 } as const;
 
 export function customerMessage(overrides: Partial<PushData> = {}): PushData {
@@ -92,6 +94,27 @@ export function supportTicket(overrides: Partial<PushData> = {}): PushData {
     title: 'New support ticket #1042',
     subtitle: 'Dana Reed · Reed Plumbing',
     body: 'Reminders stopped going out: “They went out on Monday and not since.”',
+    ...overrides,
+  };
+}
+
+/** A check-in's "Still at …?" at its planned end, to the person who checked in. */
+export const CHECK_IN = '66666666-6666-4666-8666-666666666666';
+export function safetyCheck(overrides: Partial<PushData> = {}): PushData {
+  return {
+    v: 1,
+    notificationId: '20000000-0000-4000-8000-000000000005',
+    category: 'safety_check',
+    workspaceId: LONE_STAR,
+    business: 'Lone Star HVAC & Roofing',
+    path: `/app/w/${LONE_STAR}/safety`,
+    sentAt: '2026-09-16T20:00:00.000Z',
+    refs: { checkInId: CHECK_IN },
+    commandIds: { im_ok: ids.im_ok, add_15: ids.add_15 },
+    collapseId: `safety-${CHECK_IN}`,
+    title: 'Still at 2207 Juniper Trail?',
+    subtitle: 'Safety · Lone Star HVAC & Roofing',
+    body: 'You planned to be done at 4:30 PM. If you don’t answer in 10 minutes, Marcus is told.',
     ...overrides,
   };
 }

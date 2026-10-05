@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { Globe, Layers, Mail, MessageCircle } from '@/components/icons';
+import { Globe, KeyRound, Layers, Mail, MessageCircle } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,10 @@ import { cn } from '@/lib/utils';
  * Which of the business's lines this customer is being answered on, and a way to change it (0089).
  *
  * The inbox shows a customer once, so this is where the other conversations behind that one row are: a text lane
- * per number they have written to, a mail lane per address, a website chat. Picking one opens that thread, which
- * is also picking what a reply goes out from. "All lines", last as on the web, weaves every lane into one timeline to
- * read; a reply still has to leave from a line, so the box waits for one to be picked. One lane has nothing to switch
- * to or weave, so it draws nothing.
+ * per number they have written to, a mail lane per address, a website chat, a client's portal thread about their deal
+ * (round six). Picking one opens that thread, which is also picking what a reply goes out from. "All lines", last as on
+ * the web, weaves every lane into one timeline to read; a reply still has to leave from a line, so the box waits for
+ * one to be picked. One lane has nothing to switch to or weave, so it draws nothing.
  */
 export function LaneSwitcher({
   lanes,
@@ -45,7 +45,16 @@ export function LaneSwitcher({
             <LanePill
               key={l.id}
               on={on}
-              icon={l.channel === 'email' ? Mail : l.channel === 'chat' ? Globe : MessageCircle}
+              icon={
+                l.channel === 'email'
+                  ? Mail
+                  : l.channel === 'chat'
+                    ? Globe
+                    : // A client's portal, which they sign in to (round six).
+                      l.channel === 'portal'
+                      ? KeyRound
+                      : MessageCircle
+              }
               label={l.lineDisplay}
               // Unread elsewhere, not on the thread being read (it is read by being open).
               unread={on ? 0 : l.unreadCount}

@@ -35,6 +35,7 @@ const EMAIL_SWITCHES: Record<string, { key: string; label: string }> = {
   emailWhenAiHandsOver: { key: 'aiHandoff', label: 'Your AI hands a customer over' },
   emailWhenBooked: { key: 'bookingEmail', label: 'Someone books' },
   emailWhenPaid: { key: 'paymentEmail', label: 'Someone pays' },
+  emailWhenAddonNeedsYou: { key: 'addonEmail', label: 'An add-on needs you' },
 };
 
 const APPEARANCE_WORDS: Record<string, string> = {

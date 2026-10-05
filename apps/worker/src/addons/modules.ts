@@ -4,5 +4,6 @@
  * line here. None exists yet.
  */
 import type { AddonWorkerModule } from './types';
+import { realestateAddonWorker } from './realestate/index';
 
-export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [];
+export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [realestateAddonWorker];

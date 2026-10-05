@@ -6,12 +6,14 @@ import { allCategories, categoryActions } from '../categories';
 import {
   APPROVAL,
   approval,
+  CHECK_IN,
   COMMAND_IDS,
   CONVERSATION,
   customerMessage,
   DRAFT,
   ITEM,
   LONE_STAR,
+  safetyCheck,
   supportTicket,
   TICKET,
   urgentLead,
@@ -45,9 +47,12 @@ describe('the notification categories', () => {
       wallet: ['Open'],
       job_check: ['Done', 'Didn’t happen', 'Still there'],
       connection: ['Open'],
+      addon_alert: ['Open'],
       customer_file: ['Open'],
       lead_qualified: ['Open'],
       support_ticket: ['Open'],
+      safety_check: ['I’m OK', '+15 min'],
+      safety_alert: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });
@@ -86,6 +91,13 @@ describe('the notification categories', () => {
         isDestructive: false,
       },
       still_there: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: false,
+        isDestructive: false,
+      },
+      // A check-in's "Still there?", answered from the lock screen: whoever holds the phone is the one asked.
+      im_ok: { opensAppToForeground: false, isAuthenticationRequired: false, isDestructive: false },
+      add_15: {
         opensAppToForeground: false,
         isAuthenticationRequired: false,
         isDestructive: false,
@@ -237,6 +249,40 @@ describe('what a press does', () => {
         input: { workspaceId: LONE_STAR, approvalId: APPROVAL, decision: 'approve' },
       },
     });
+  });
+
+  it('checks out with I’m OK and adds fifteen minutes with +15 min, from the lock screen', () => {
+    expect(
+      pressAction({ data: safetyCheck(), actionId: 'im_ok', typed: null, pressedAt: PRESSED }),
+    ).toEqual({
+      kind: 'command',
+      button: 'im_ok',
+      commandId: COMMAND_IDS.im_ok,
+      unlock: false,
+      command: { name: 'safety.check_out', input: { workspaceId: LONE_STAR, checkInId: CHECK_IN } },
+    });
+    expect(
+      pressAction({ data: safetyCheck(), actionId: 'add_15', typed: null, pressedAt: PRESSED }),
+    ).toEqual({
+      kind: 'command',
+      button: 'add_15',
+      commandId: COMMAND_IDS.add_15,
+      unlock: false,
+      command: {
+        name: 'safety.extend',
+        input: { workspaceId: LONE_STAR, checkInId: CHECK_IN, minutes: 15 },
+      },
+    });
+    // Without the check-in it's about, there's nothing to check out of.
+    expect(
+      pressAction({
+        data: safetyCheck({ refs: {} }),
+        actionId: 'im_ok',
+        typed: null,
+        pressedAt: PRESSED,
+      }),
+    ).toEqual({ kind: 'nothing', reason: 'This notification isn’t about a check-in.' });
+    expect(PushData.safeParse(safetyCheck()).success).toBe(true);
   });
 
   it('opens the push’s path for a tap, Call, Review and Open', () => {

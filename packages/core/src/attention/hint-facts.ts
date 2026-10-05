@@ -43,7 +43,7 @@ export interface HintPerson {
 export interface HintConversation {
   readonly id: string;
   readonly personId: string | null;
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly counterpart: string;
   /** Epoch ms, or null. */
   readonly lastMessageAt: number | null;
@@ -121,7 +121,7 @@ export function itemHintsOf(items: readonly HintRow[], facts: HintFacts): Map<st
     const seat = p.row.subjectType === 'attendee' ? facts.seats.get(p.row.subjectId) : undefined;
     let contact: ReachContact | null = null;
     let reply: {
-      conversationChannel: 'sms' | 'email' | 'chat' | null;
+      conversationChannel: 'sms' | 'email' | 'chat' | 'portal' | null;
       phone: string | null;
       email: string | null;
       textNumber: string | null;

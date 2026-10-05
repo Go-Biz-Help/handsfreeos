@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 /**
  * The page area: padded for ordinary pages, edge to edge for the inbox's panes, and nearly edge to edge for
  * the calendar (its grid scrolls inside itself). Contacts keeps the ordinary padding but, on a desktop,
- * fills the viewport so its table scrolls inside itself and the column names stay put.
+ * fills the viewport so its table scrolls inside itself and the column names stay put. A printed page is the page
+ * alone: the sidebar and the phone's bars hide, and so does this padding.
  */
 export function WorkspaceMain({
   workspaceId,
@@ -29,7 +30,7 @@ export function WorkspaceMain({
             ? 'flex min-h-0 flex-col pb-24 md:px-6 md:pb-4 md:pt-5'
             : customers
               ? 'px-4 pb-24 pt-4 md:flex md:h-dvh md:min-h-0 md:flex-col md:overflow-y-auto md:px-10 md:py-8'
-              : 'px-4 pb-24 pt-4 md:px-10 md:py-8',
+              : 'px-4 pb-24 pt-4 md:px-10 md:py-8 print:p-0',
       )}
     >
       {children}

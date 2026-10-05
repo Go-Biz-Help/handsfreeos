@@ -16,8 +16,8 @@ export const attentionScope = z.enum(['mine', 'everyone']);
 export const autoAction = z.enum(AUTO_ACTIONS);
 export const autoState = z.enum(['scheduled', 'sent', 'skipped', 'cancelled']);
 export const handledVia = z.enum(['person', 'let_handle', 'auto']);
-/** The channel an item would use with the customer: a text, an email, or a reply in a website chat. */
-export const attentionReach = z.enum(['sms', 'email', 'chat']);
+/** The channel an item would use with the customer: a text, an email, or a reply in a website chat or their portal. */
+export const attentionReach = z.enum(['sms', 'email', 'chat', 'portal']);
 
 /** What Let HandsFreeOS Handle does for an ask-first item, as the person who chose it. */
 export const ATTENTION_ASK_ACTIONS = ['hand_to_ai', 'reply', 'set_next_action'] as const;
@@ -72,6 +72,23 @@ export const AttentionItemOut = z.object({
   reach: attentionReach.nullable(),
   /** A phone number to ring, and the business is open: the card offers the call before the message. */
   callable: z.boolean().default(false),
+  /**
+   * An add-on's alert (kind addon_alert): which add-on raised it, how serious it says it is, the add-on's page it
+   * opens (under the business: `/a/<addon>/…`), and whether it waits for someone to say they've seen it. Null for
+   * every other kind.
+   */
+  addonAlert: z
+    .object({
+      alertId: uuid,
+      addonId: z.string(),
+      addonName: z.string(),
+      severity: z.enum(['info', 'attention', 'at_risk', 'critical']),
+      href: z.string(),
+      needsAck: z.boolean(),
+      acknowledgedAt: isoDateTime.nullable(),
+    })
+    .nullable()
+    .default(null),
   title: z.string(),
   detail: z.string().nullable(),
   valueCents: z.number(),
@@ -209,7 +226,7 @@ export const AttentionAskOptionOut = z.object({
   available: z.boolean(),
   /** Why not, in plain words, when it isn't available. */
   reason: z.string().nullable(),
-  channel: z.enum(['sms', 'email', 'chat']).nullable(),
+  channel: attentionReach.nullable(),
   conversationId: uuid.nullable(),
   /** A suggested next action. */
   suggestion: z.object({ text: z.string(), dueAt: isoDateTime.nullable() }).nullable(),
@@ -289,7 +306,7 @@ export const AttentionLetHandleInput = z.object({
   action: attentionAskAction.optional(),
   /** reply: the message, its channel (the conversation's by default), an email's subject. */
   body: z.string().trim().min(1, 'Write a message.').max(10000).optional(),
-  channel: z.enum(['sms', 'email', 'chat']).optional(),
+  channel: attentionReach.optional(),
   subject: z.string().trim().max(200).optional(),
   acknowledgeQuietHours: z.boolean().default(false),
   /** set_next_action: what to do next, and when. */

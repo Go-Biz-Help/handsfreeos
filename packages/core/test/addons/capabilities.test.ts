@@ -157,6 +157,39 @@ describe('capabilitySets', () => {
   });
 });
 
+describe('an add-on staff handed a business to try (Real Estate, step 2)', () => {
+  it('is installable there, and only there, while it is still being built', () => {
+    const granted: CapabilityContext = { ...A, grants: ['fxbeta'] };
+    expect(capabilitySets(granted).installable.some((c) => c.provider === 'fxbeta')).toBe(true);
+    expect(capabilitySets(A).installable.some((c) => c.provider === 'fxbeta')).toBe(false);
+    expect(planTransition(granted, 'fxbeta', 'install').kind).toBe('plan');
+    expect(planTransition(A, 'fxbeta', 'install')).toMatchObject({
+      kind: 'refused',
+      rule: 'addon_not_available',
+    });
+  });
+
+  it('lets staff hand out a paid one before billing exists', () => {
+    const granted: CapabilityContext = { ...A, grants: ['fxpaid'] };
+    expect(planTransition(granted, 'fxpaid', 'install').kind).toBe('plan');
+  });
+
+  it('never hands out one that is planned, deprecated or switched off everywhere', () => {
+    const granted: CapabilityContext = {
+      ...A,
+      grants: ['fxinflu', 'fxold', 'fxbeta'],
+      overrides: { fxbeta: 'unavailable' },
+    };
+    const installable = new Set(capabilitySets(granted).installable.map((c) => c.provider));
+    for (const id of ['fxinflu', 'fxold', 'fxbeta']) expect(installable.has(id)).toBe(false);
+  });
+
+  it('is never suggested, even where it is installable', () => {
+    const granted: CapabilityContext = { ...A, grants: ['fxbeta'] };
+    expect(recommendAddons(granted, 'loyalty points rewards for regulars')).toEqual([]);
+  });
+});
+
 describe('canUse (workspace.can)', () => {
   it('says why not', () => {
     expect(canUse(B, 'fxprop.leases')).toEqual({ ok: true, provider: 'fxprop' });

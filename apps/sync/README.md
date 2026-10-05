@@ -39,11 +39,12 @@ pnpm sync:stop               # removes it, its storage and its replication slot
 
 ## How the streams are cut
 
-| Stream        | Subscribed                                                   | Buckets per person                                                                                     | Parameter results |
-| ------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ----------------- |
-| `me_v1`       | automatically                                                | 1                                                                                                      | 0                 |
-| `business_v1` | by the app, once per business kept offline: `{workspace_id}` | 1 per business for each of its five lookups that matches them: 4 for a member, 5 for an owner or admin | the same          |
-| `agency_v1`   | automatically                                                | 1 per agency they belong to                                                                            | 1 per agency      |
+| Stream        | Subscribed                                                       | Buckets per person                                                                                                                                                               | Parameter results |
+| ------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `me_v1`       | automatically                                                    | 1                                                                                                                                                                                | 0                 |
+| `business_v1` | by the app, once per business kept offline: `{workspace_id}`     | 1 per business for each of its five lookups that matches them: 4 for a member, 5 for an owner or admin                                                                           | the same          |
+| `agency_v1`   | automatically                                                    | 1 per agency they belong to                                                                                                                                                      | 1 per agency      |
+| `records_v1`  | by the app, beside `business_v1`, with the same `{workspace_id}` | 1 per business for each of its lookups that matches them: `access` (their own check-ins), `addon_use`, and `addon_all` and `team_of` for someone who sees every record of a kind | the same          |
 
 - **One bucket per business for most of its tables.** Most `business_v1` queries filter on the same lookup, `access`: the person's own `workspace_access` row for the subscribed business. That lookup returns at most one row per subscription. A business the person can't open gives no bucket, and a made-up id costs nothing. `workspace_access` is kept equal to `private.effective_workspace_role()` by triggers (migration 0056).
 - **Money.** The money of whoever manages it (owners and admins unless the business says otherwise, 0106) uses a second lookup in the same stream (`manages_money = true`, kept on `workspace_access` by triggers), so it gets its own bucket per business. Anyone else who may see money — a member, or someone the business lets bill — has theirs in their own `me_v1` bucket, filtered on each document's trigger-kept `member_viewer_ids`. That is one bucket however many documents they may see, and it covers every business where they are one. Plans stay with the managers' copy: someone who bills without managing money starts and runs them on the web.
@@ -111,6 +112,53 @@ Every query names its columns. Columns not listed never leave for a phone, even 
 | `products`, `plans`                                                               | The catalogue, archived included                                              | `reads_money` (0106); all                                        |                                                                                                          |
 | `estimates`, `estimate_lines`, `invoices`, `invoice_lines`, `payments`, `refunds` | Owners' and admins' money                                                     | Managers only; `sync_window`: open always, closed for 12 months  | See the money table below                                                                                |
 | `subscriptions`                                                                   | Maintenance plans                                                             | Managers only; all                                               | `public_ref`, `pay_version`, `connection_id`, `external_subscription_id`, `customer_ref`, `method_token` |
+
+Private records (Real Estate step 4) never reach a phone through `business_v1`, and neither does anything hanging off
+one: its tasks, activities, files and attention items, and `me_v1`'s attention items, send only `sealed = false`
+rows. Files also send `locked_at` (a signed file is kept). Add-ons' Home cards (`kind = 'addon_alert'`, step 5) stay
+out of `business_v1` too. Since round six they reach phones through `records_v1`, below.
+
+### `records_v1` — an add-on's records, and everything sealed to them (Real Estate round six)
+
+A private record (a deal) and what hangs off it go only to the people allowed to see it: its owner and team, and
+someone who sees every record of its kind (a broker) gets the summary rows (`reach = 'all'`). Nothing per person is
+written on the rows themselves; they carry **seals** that triggers keep, and each person holds **keys**:
+
+- **Keys** (`app.sync_keys`, kept by a trigger on `workspace_access.permissions`): `use` = `<business>:<the add-on's
+phone permission>`, held while the person has it and the add-on runs there; `all` = `<business>:<the kind's
+see-every permission>`. Turning the add-on off takes its permissions away, so the keys go and its rows leave phones
+  with nothing deleted.
+- **Seals** on `custom_records`, `custom_record_types`, `tasks`, `activities`, `files`, `appointments`,
+  `appointment_attendees`, `conversations` (portal threads), `messages` and `attention_items`: `seal_scope` (the key
+  that opens it), `seal_viewer_ids` (the record's owner and team; a thread narrowed by the inbox's setting further),
+  `seal_open` (no team: anyone with the key) and `seal_all` (the see-every key, on summary rows only).
+- **An add-on's own rows** go as JSON in `app.addon_phone_rows`, copied by triggers that
+  `private.addon_phone_table(table, record column, columns, reach)` installs from the add-on's migration: only the
+  columns it names (never one that looks like a secret), with its record's seals. Changing what a phone keeps of an
+  add-on is a migration, never a change here.
+- **Windows**: a record leaves phones when its add-on narrows `sync_window` (`private.record_phone_window`; Real
+  Estate keeps open deals and those ended in the last 90 days).
+- **Links** (`relationships`, and `relationship_types` with the add-on's key; 20261022000700): a deal's client, its
+  home, its lender. A link to one record takes that record's seals; a link between two goes to who may see both
+  (open when both are, the people on both when both are private); a link to a kind phones don't keep, or between two
+  add-ons' records, reaches no phone. A record's seals or window moving moves its links.
+- **The team** (core; 20261022001200), behind the `team_of` lookup: to whoever sees every record of an add-on's kind,
+  who holds the add-on here and as what (each `use` key, as `team_keys`), for Team workload. Nothing else about
+  anyone's permissions.
+- **The person's own check-ins and safety contacts** (core; 20261022001000), behind the `access` lookup: theirs
+  alone, in a business they can open, so a check-in's banner, +15 min and check-out work with no signal. A contact's
+  link (`safety_escalations`) never reaches a phone.
+- **Which record a private appointment is of** (core; round six), as its own small table (`appointment_records`:
+  the appointment's id, business and record), with the appointment's own seals: the calendar marks a deal's showing
+  "private to the deal" and names it. Its own table because every table sends the same columns wherever it appears,
+  and `business_v1`'s appointments stay as they are.
+- **Settings** an add-on names (`offline.settings`; 20261022000800): those keys of its business settings, as one
+  `addon_phone_rows` row per business (source `_settings`, no record), open to its key. Real Estate keeps its closed
+  days, for Coordinate's business days.
+
+`private.sync_key_mismatches(business)`, `private.sync_seal_mismatches(business)` and
+`private.addon_phone_mismatches(business)` say where stored keys or seals disagree with the permissions and records;
+`packages/db/test/phone-records.test.ts` and `sync-streams.test.ts` hold them empty.
 
 ### `agency_v1` — the agencies a person belongs to
 

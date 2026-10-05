@@ -645,6 +645,14 @@ describe('permanently deleting an add-on’s data', () => {
           values (${ev!.id}, ${orgA}, ${wsA}, 'human', ${`${addon}.lease.sign`}, 'custom_record', ${rec!.id},
             '{}'::jsonb, ${JSON.stringify({ rentCents: 120000 })}::jsonb, gen_random_uuid(), ${addon})`,
     );
+    // A line of its own on the lease's timeline (Real Estate step 6).
+    const [line] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`insert into app.activities (workspace_id, kind, subtype, custom_record_id, body, actor_type, meta)
+          values (${wsA}, 'system', 'addon_line', ${rec!.id}, 'Rent $1,200, due the 1st', 'system',
+            ${JSON.stringify({ addon: { id: addon, name: 'Property Management' }, words: 'signed the lease', tone: 'success' })}::jsonb)
+          returning id`,
+    );
     // History is append-only for everyone else.
     expect(
       (
@@ -653,6 +661,13 @@ describe('permanently deleting an add-on’s data', () => {
         )
       ).code,
     ).toBe('42501');
+    expect(
+      (
+        await failure(() =>
+          rows(dbs.admin.db, sql`update app.activities set body = null where id = ${line!.id}`),
+        )
+      ).detail,
+    ).toBe('system_activity_immutable');
 
     // Deleting needs it uninstalled first, and the owner.
     expect((await failure(() => move(owner, wsA, addon, 'purging'))).detail).toBe('addon_bad_move');
@@ -697,6 +712,15 @@ describe('permanently deleting an add-on’s data', () => {
       sql`select action, before, after from app.audit_logs where event_id = ${ev!.id}`,
     );
     expect(audit).toEqual({ action: `${addon}.lease.sign`, before: null, after: null });
+    // Its timeline line keeps who, when and which add-on, and loses what it said.
+    const [keptLine] = await rows<{ body: string | null; meta: Record<string, unknown> }>(
+      dbs.admin.db,
+      sql`select body, meta from app.activities where id = ${line!.id}`,
+    );
+    expect(keptLine).toEqual({
+      body: null,
+      meta: { addon: { id: addon, name: 'Property Management' }, _redacted: true },
+    });
     // Core records stay: the customer, and the task, still pointing at the named tombstone.
     const kept = await rows<{ person: number; task: string | null }>(
       dbs.admin.db,

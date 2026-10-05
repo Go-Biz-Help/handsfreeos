@@ -14,6 +14,7 @@ import { config } from '@/lib/config';
 import { deviceStore } from '@/lib/device-store';
 import { networkSnapshot, subscribeNetwork } from '@/lib/network';
 import { pendingLinks } from '@/links/pending';
+import { changeFromPress } from '@/safety/actions';
 import { copyLogger } from '@/sync/logger';
 
 import HfosPhone from '../../modules/hfos-phone';
@@ -191,7 +192,9 @@ export const pressRunner = new PressRunner({
     return { userId, businessIds: cachedMe(userId)?.businesses.map((b) => b.id) ?? [] };
   },
   phoneLocked: () => pretendLocked() || (Platform.OS === 'android' && HfosPhone.isDeviceLocked()),
-  change: (name, input, options) => changes.change(name, input, options),
+  // The check-in reminder's buttons write to the phone's copy and move the reminder, as the screen's do.
+  change: (name, input, options) =>
+    changeFromPress(name, input, options, (n, i, o) => changes.change(n, i, o)),
   sendNow: (id) => changes.sendQueuedNow(id),
   openLink: (path) => pendingLinks.open(path),
   startCall: (target, workspaceId) => startCall(target, { workspaceId }),

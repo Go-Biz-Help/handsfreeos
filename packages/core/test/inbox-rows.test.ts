@@ -95,6 +95,41 @@ describe('conversations from the copy', () => {
     ).toEqual({ id: 'u-gone', fullName: 'Former member' });
   });
 
+  it('reads a client’s portal thread as a portal, by the client and their deal (round six)', () => {
+    const portal = conv({
+      id: 'c-ann',
+      channel: 'portal',
+      counterpart: 'portal:p-ann:deal-1',
+      person_id: 'p-ann',
+      first_name: 'Ann',
+      last_name: 'Smith',
+      record_id: 'deal-1',
+      record_name: 'Smith purchase',
+    });
+    expect(conversationOf(portal)).toMatchObject({
+      channel: 'portal',
+      counterpartDisplay: 'Ann Smith',
+      record: { id: 'deal-1', name: 'Smith purchase' },
+      lineDisplay: 'Client portal · Smith purchase',
+    });
+    // The deal not on this phone (or none yet): still a portal, never its key.
+    expect(
+      conversationOf({
+        ...portal,
+        record_id: null,
+        record_name: null,
+        first_name: null,
+        last_name: null,
+      }),
+    ).toMatchObject({
+      record: null,
+      counterpartDisplay: 'Client portal',
+      lineDisplay: 'Client portal',
+    });
+    // A text thread never has one.
+    expect(conversationOf(conv({ record_id: 'deal-1' })).record).toBeNull();
+  });
+
   it('keeps each box to its conversations, and searches names, numbers and messages', () => {
     const all = [
       conv({ id: 'a', assignee_user_id: ME }),

@@ -90,7 +90,8 @@ export async function loadChannels(
           select case m.channel when 'sms' then 'text' when 'email' then 'email' else 'chat' end as kind,
             m.occurred_at as at
           from app.messages m
-          where m.workspace_id = ${workspaceId} and m.direction = 'inbound'
+          -- A client's portal isn't a channel the business watches for going quiet.
+          where m.workspace_id = ${workspaceId} and m.direction = 'inbound' and m.channel <> 'portal'
             and m.occurred_at > ${now.toISOString()}::timestamptz - ${`${CHANNEL_DAYS} days`}::interval
           union all
           select 'call', c.started_at from app.calls c

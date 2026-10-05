@@ -1,6 +1,7 @@
 import {
   CONVERSATION_DONE,
   conversationOf,
+  threadChannelLine,
   threadItemsOf,
   type ConversationListRow,
   type MessageThreadRow,
@@ -618,5 +619,65 @@ describe('email’s folders and someone’s own mail (M19)', () => {
     markMovedHere(OTHER, { folder: 'other' }, Date.now() - 61_000);
     expect(withMovedHere({ ...own, id: OTHER }).folder).toBe('inbox');
     show.mockRestore();
+  });
+});
+
+describe('a client’s portal thread (round six)', () => {
+  const ANN = '33333333-3333-4333-8333-333333333333';
+  const DEAL = '44444444-4444-4444-8444-444444444444';
+  const GONE = '55555555-5555-4555-8555-555555555555';
+  const portal = (id: string, record: string | null) =>
+    mockCopy.execute(
+      `INSERT INTO conversations (id, workspace_id, channel, counterpart, person_id, status, unread_count,
+         last_message_at, created_at)
+       VALUES (?, ?, 'portal', ?, ?, 'open', 1, '2026-10-01T15:31:00.000Z', '2026-10-01T15:00:00.000Z')`,
+      [id, WS, record ? `portal:${ANN}:${record}` : `portal:${ANN}`, ANN],
+    );
+
+  beforeEach(async () => {
+    mockCopy = new FakePowerSync();
+    await mockCopy.execute(
+      'INSERT INTO people (id, workspace_id, first_name, last_name) VALUES (?, ?, ?, ?)',
+      [ANN, WS, 'Ann', 'Smith'],
+    );
+    await mockCopy.execute(
+      'INSERT INTO custom_records (id, workspace_id, type_id, name) VALUES (?, ?, ?, ?)',
+      [DEAL, WS, 'deal-kind', 'Smith purchase'],
+    );
+  });
+
+  it('reads as Portal with its deal’s name when the phone keeps the deal, and the client’s name always', async () => {
+    await portal('with-deal', DEAL);
+    await portal('deal-not-here', GONE);
+    await portal('no-deal-yet', null);
+    const rows = await mockCopy.getAll<ConversationListRow>(CONVERSATIONS_SQL, [WS, DALE.id]);
+    const byId = new Map(rows.map((r) => [r.id, conversationOf(r)]));
+    const withDeal = byId.get('with-deal')!;
+    expect(withDeal).toMatchObject({
+      channel: 'portal',
+      counterpartDisplay: 'Ann Smith',
+      record: { id: DEAL, name: 'Smith purchase' },
+      lineDisplay: 'Client portal · Smith purchase',
+    });
+    expect(threadChannelLine(withDeal, null, { compact: true })).toBe('Portal · Smith purchase');
+    expect(byId.get('deal-not-here')!.record).toBeNull();
+    expect(threadChannelLine(byId.get('deal-not-here')!, null, { compact: true })).toBe('Portal');
+    expect(byId.get('no-deal-yet')!.record).toBeNull();
+  });
+
+  it('keeps a reply written here as a portal reply, and asks after 30 minutes as for any reply', () => {
+    const waiting = row('message.send', {
+      conversationId: CONV,
+      channel: 'portal',
+      body: 'I’ll send you the draft tonight to look over.',
+      clientId: 'portal-1',
+    });
+    const [shown] = pendingReplies([waiting], CONV, new Set(), false, T0 + 45 * 60_000);
+    expect(shown).toMatchObject({ channel: 'portal', stage: 'still-send' });
+    expect(pendingLine(shown!, 'Ann')).toEqual({
+      text: 'A reply that waits more than 30 minutes checks with you first.',
+      tone: 'warning',
+      action: 'Still send?',
+    });
   });
 });

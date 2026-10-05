@@ -55,7 +55,7 @@ import {
   userName,
 } from './moment';
 import { pushAudience, queuePush, type PushMoment } from './queue';
-import { CHANNEL_WORD, conversationCollapseId } from './urgent';
+import { CHANNEL_WORD, conversationCollapseId, pushChannel } from './urgent';
 
 // ---------- approvals ----------
 
@@ -212,7 +212,7 @@ export async function draftPushOf(
   );
   if (!d || d.status !== 'pending') return null;
   const [conv] = d.conversation_id
-    ? await rows<{ assignee_user_id: string | null; channel: 'sms' | 'email' | 'chat' }>(
+    ? await rows<{ assignee_user_id: string | null; channel: string }>(
         tx,
         sql`select assignee_user_id, channel::text as channel from app.conversations
             where id = ${d.conversation_id}`,
@@ -252,7 +252,7 @@ export async function draftPushOf(
     refs: {
       draftId,
       ...(d.conversation_id && conv
-        ? { conversationId: d.conversation_id, channel: conv.channel }
+        ? { conversationId: d.conversation_id, channel: pushChannel(conv.channel) }
         : {}),
       ...(d.person_id ? { personId: d.person_id } : {}),
     },
@@ -420,7 +420,7 @@ export const onAssignedPush = pushMoment('assigned', async (ctx, scope) => {
     case 'conversation.assigned': {
       const assignee = str(p['assigneeUserId']);
       const [conv] = await rows<{
-        channel: 'sms' | 'email' | 'chat';
+        channel: string;
         counterpart: string;
         person_id: string | null;
       }>(
@@ -442,7 +442,7 @@ export const onAssignedPush = pushMoment('assigned', async (ctx, scope) => {
         path: `/app/w/${ws}/inbox/${id}`,
         refs: {
           conversationId: id,
-          channel: conv.channel,
+          channel: pushChannel(conv.channel),
           ...(conv.person_id ? { personId: conv.person_id } : {}),
         },
       });
@@ -634,7 +634,7 @@ export const onMissedCallPush = pushMoment('missedCall', async (ctx, scope) => {
     path: `/app/w/${ws}/inbox/${conv.id}`,
     refs: {
       conversationId: conv.id,
-      channel: conv.channel as PushRefs['channel'],
+      channel: pushChannel(conv.channel),
       ...(call.person_id ? { personId: call.person_id } : {}),
     },
     collapseId: conversationCollapseId(conv.id),

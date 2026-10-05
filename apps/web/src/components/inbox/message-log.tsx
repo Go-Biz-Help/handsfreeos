@@ -373,7 +373,7 @@ function MessageEntry({
               <TransportTag transport={item.transport} />
               <DeliveryStatus
                 status={item.status}
-                chat={item.channel === 'chat'}
+                chat={item.channel === 'chat' || item.channel === 'portal'}
                 readAt={item.readAt}
               />
               {failed && onRetry ? (

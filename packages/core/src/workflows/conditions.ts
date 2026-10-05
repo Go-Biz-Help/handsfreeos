@@ -135,7 +135,12 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('appointment.ends_at', 'Appointment end', 'appointment', 'date', 'appointment'),
 
   f('conversation.channel', 'Channel', 'conversation', 'enum', 'conversation', {
-    options: opts(['sms', 'Text'], ['email', 'Email'], ['chat', 'Website chat']),
+    options: opts(
+      ['sms', 'Text'],
+      ['email', 'Email'],
+      ['chat', 'Website chat'],
+      ['portal', 'Client portal'],
+    ),
   }),
   f('conversation.status', 'Conversation status', 'conversation', 'enum', 'conversation', {
     options: opts(['open', 'Open'], ['snoozed', 'Snoozed'], ['closed', 'Closed']),
@@ -162,7 +167,12 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('lead.tags', 'Lead tags', 'tags', 'tags', 'lead', { refKind: 'tag' }),
 
   f('trigger.channel', 'Came in by', 'trigger', 'enum', null, {
-    options: opts(['sms', 'Text'], ['email', 'Email'], ['chat', 'Website chat']),
+    options: opts(
+      ['sms', 'Text'],
+      ['email', 'Email'],
+      ['chat', 'Website chat'],
+      ['portal', 'Client portal'],
+    ),
   }),
   // RCS (0103): the button a customer's message came from — tapped, or texted back by number — by its words.
   f('trigger.button', 'Button they chose', 'trigger', 'text', null),

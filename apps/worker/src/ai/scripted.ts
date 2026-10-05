@@ -1100,11 +1100,406 @@ export const AUTOMATION_RULES: readonly ScriptRule[] = [
   },
 ];
 
+// ---- Add-ons' client updates ("Write the client update.", "Check this email for fair housing risk.") ----
+
+interface ScriptedDealFacts {
+  readonly agentName?: string;
+  readonly clientFirstName?: string;
+  readonly address?: string | null;
+  readonly stage?: string;
+  readonly confirmedDates?: readonly { readonly what: string; readonly when: string }[];
+  readonly done?: readonly string[];
+  readonly next?: readonly { readonly what: string; readonly due: string | null }[];
+}
+
+/**
+ * A client update written only from the deal's facts in <deal_facts>: where it stands, what's done, what's next, and
+ * the confirmed dates, signed with the agent's first name. Words that could read as a fair-housing preference never
+ * appear, so a stand-in draft is clean until a person edits it.
+ */
+export function scriptedClientUpdate(message: string): { subject: string; body: string } {
+  let f: ScriptedDealFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'deal_facts') ?? '{}')) as ScriptedDealFacts;
+  } catch {
+    // Unreadable facts: a short, general update.
+  }
+  const home = f.address ?? 'your home';
+  const done = (f.done ?? []).slice(0, 3);
+  const next = (f.next ?? []).slice(0, 3);
+  const dates = (f.confirmedDates ?? []).slice(0, 4);
+  const lines = [
+    `Hi ${f.clientFirstName ?? 'there'},`,
+    '',
+    `A quick update on ${home}. Where things stand: ${(f.stage ?? 'moving along').toLowerCase()}.`,
+    ...(done.length ? ['', `Done so far: ${done.join('; ')}.`] : []),
+    ...(next.length
+      ? ['', `Next: ${next.map((n) => (n.due ? `${n.what} by ${n.due}` : n.what)).join('; ')}.`]
+      : []),
+    ...(dates.length
+      ? ['', `Dates to know: ${dates.map((d) => `${d.what}, ${d.when}`).join('; ')}.`]
+      : []),
+    '',
+    `I'll keep you posted.`,
+    (f.agentName ?? '').split(/\s+/)[0] || 'Your agent',
+  ];
+  return { subject: `An update on ${home}`, body: lines.join('\n') };
+}
+
+export const CLIENT_UPDATE_RULES: readonly ScriptRule[] = [
+  { when: /Write the client update\.$/, json: (message) => scriptedClientUpdate(message) },
+  // The fixed word list reads every draft too; the stand-in's own read finds nothing more.
+  { when: /Check this email for fair housing risk\.$/, json: () => ({ flags: [] }) },
+];
+
+// ---- Real Estate's listing facts ("Find the listing’s facts.") ----
+
+type ScriptedFact = { key: string; value: number | string; quote: string };
+
+/**
+ * A listing's facts read the plain way from its <listing> words: a price ("$525,000"), beds, baths, square feet, the
+ * year it was built, an HOA and the kind of home, each quoted as it's written. What isn't written isn't returned.
+ */
+export function scriptedListingFacts(message: string): { facts: ScriptedFact[] } {
+  const text = unquote(quotedBlock(message, 'listing') ?? '');
+  const facts: ScriptedFact[] = [];
+  const num = (s: string) => Number(s.replace(/,/g, ''));
+  const take = (key: string, re: RegExp, value: (m: RegExpExecArray) => number | string | null) => {
+    const m = re.exec(text);
+    const v = m ? value(m) : null;
+    if (m && v !== null) facts.push({ key, value: v, quote: m[0].trim() });
+  };
+  take('price_cents', /\$\s?(\d[\d,]*)(?!\s*\/\s*mo)(?![\d,]*\s*(?:a|per)\s+month)/i, (m) =>
+    num(m[1]!),
+  );
+  take('beds', /(\d+)\s*(?:bed(?:room)?s?|bd|br)\b/i, (m) => num(m[1]!));
+  take('baths', /(\d+(?:\.5)?)\s*(?:bath(?:room)?s?|ba)\b/i, (m) => num(m[1]!));
+  take('sqft', /(\d[\d,]*)\s*(?:sq\.?\s*ft\.?|square feet|sqft)/i, (m) => num(m[1]!));
+  take('year_built', /built in (\d{4})|year built:?\s*(\d{4})/i, (m) => num(m[1] ?? m[2]!));
+  take('hoa_monthly_cents', /HOA[^$\n]{0,20}\$\s?(\d[\d,]*)/i, (m) => num(m[1]!));
+  take(
+    'property_type',
+    /\b(single[- ]family|condo|townhome|townhouse|multi[- ]family|duplex|manufactured)\b/i,
+    (m) => {
+      const w = m[1]!.toLowerCase().replace(/[\s-]+/g, '_');
+      return w === 'townhome' ? 'townhouse' : w === 'duplex' ? 'multi_family' : w;
+    },
+  );
+  return { facts };
+}
+
+/**
+ * What a buyer said worth remembering, read the plain way from <buyer_words>: each sentence that says what they need,
+ * can't stand, love, when they must move or what they can spend, quoted as written. Nothing already kept.
+ */
+export function scriptedBuyerMemory(message: string): {
+  items: { kind: string; words: string; quote: string; protected: boolean }[];
+} {
+  const words = unquote(quotedBlock(message, 'buyer_words') ?? '');
+  const kept = unquote(quotedBlock(message, 'already_kept') ?? '').toLowerCase();
+  const items: { kind: string; words: string; quote: string; protected: boolean }[] = [];
+  const sentences = words
+    .split('\n')
+    .map((l) => l.replace(/^\[[a-z]+ [0-9-]+\]\s*/, ''))
+    .flatMap((l) => l.split(/(?<=[.!?])\s+/))
+    .map((x) => x.trim())
+    .filter(Boolean);
+  for (const sentence of sentences) {
+    const kind = /\b(must have|have to have|need|needs)\b/i.test(sentence)
+      ? 'must_have'
+      : /\b(deal[- ]?breaker|absolutely no)\b/i.test(sentence)
+        ? 'deal_breaker'
+        : /\b(don[’']?t want|do not want|hate|can[’']?t stand|not a fan)\b/i.test(sentence)
+          ? 'dislikes'
+          : /\b(move by|move before|close by|close before|lease ends)\b/i.test(sentence)
+            ? 'timing'
+            : /(\$|\bbudget\b|pre-?approved|down payment)/i.test(sentence)
+              ? 'money'
+              : /\b(love|loved|want|would like|prefer)\b/i.test(sentence)
+                ? 'likes'
+                : null;
+    if (!kind) continue;
+    const said = sentence.replace(/[.!?]+$/, '');
+    if (kept.includes(said.toLowerCase())) continue;
+    items.push({
+      kind,
+      words: said.slice(0, 300),
+      quote: sentence.slice(0, 500),
+      protected: false,
+    });
+  }
+  return { items: items.slice(0, 20) };
+}
+
+interface ScriptedCmaFacts {
+  readonly agentName?: string;
+  readonly clientFirstName?: string;
+  readonly home?: { readonly address?: string };
+  readonly range?: { readonly low: string; readonly likely: string; readonly high: string } | null;
+  readonly used?: readonly {
+    readonly address: string;
+    readonly price: string;
+    readonly sold: string | null;
+    readonly valueForThisHome: string | null;
+  }[];
+  readonly leftOut?: readonly { readonly address: string; readonly why: string }[];
+}
+
+/**
+ * A CMA's summary written only from its <cma_facts>: the range, the closest comp and what it says about the home,
+ * what was left out, and that it's an estimate. Nothing that could read as a fair-housing preference.
+ */
+export function scriptedCmaSummary(message: string): { summary: string } {
+  let f: ScriptedCmaFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'cma_facts') ?? '{}')) as ScriptedCmaFacts;
+  } catch {
+    // Unreadable facts: a short, general summary.
+  }
+  const home = f.home?.address?.split(',')[0] ?? 'the home';
+  const first = f.used?.[0];
+  const lines = [
+    `Hi ${f.clientFirstName ?? 'there'},`,
+    '',
+    f.range
+      ? `${f.used?.length ?? 0} recent sales nearby point to a value for ${home} between ${f.range.low} and ${f.range.high}, most likely about ${f.range.likely}.`
+      : `There aren't enough sales yet to put a range on ${home}.`,
+    ...(first
+      ? [
+          `${first.address} sold for ${first.price}${first.sold ? ` on ${first.sold}` : ''}${first.valueForThisHome ? `; for ${home} it compares at about ${first.valueForThisHome}` : ''}.`,
+        ]
+      : []),
+    ...(f.leftOut?.length ? [`I left out ${f.leftOut.map((l) => l.address).join(' and ')}.`] : []),
+    'This is an estimate from recent sales, not an appraisal.',
+    '',
+    (f.agentName ?? '').split(/\s+/)[0] || 'Your agent',
+  ];
+  return { summary: lines.join('\n') };
+}
+
+interface ScriptedListingFacts {
+  readonly street?: string;
+  readonly city?: string | null;
+  readonly facts?: Readonly<Record<string, string>>;
+  readonly agentNotes?: string | null;
+  readonly sellerUpdates?: string | null;
+  readonly sellerLoves?: string | null;
+}
+
+/**
+ * A listing's description written only from its <listing_facts>: the street, the rooms and size, then the agent's
+ * notes and the seller's own words as they gave them. A seller's words go in as written, so the fair housing checks
+ * have something real to read.
+ */
+export function scriptedListingDescription(message: string): { description: string } {
+  let f: ScriptedListingFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'listing_facts') ?? '{}')) as ScriptedListingFacts;
+  } catch {
+    // Unreadable facts: a short, general description.
+  }
+  const facts = f.facts ?? {};
+  const rooms = [
+    facts['Bedrooms'] ? `${facts['Bedrooms']} bedrooms` : null,
+    facts['Bathrooms'] ? `${facts['Bathrooms']} bathrooms` : null,
+    facts['Square feet'] ? `${facts['Square feet']} square feet` : null,
+  ].filter(Boolean);
+  const sentence = (t: string | null | undefined) => {
+    const v = (t ?? '').trim();
+    return v ? (/[.!?]$/.test(v) ? v : `${v}.`) : null;
+  };
+  const lines = [
+    `Welcome to ${f.street ?? 'this home'}${f.city ? ` in ${f.city.split(',')[0]}` : ''}.`,
+    rooms.length ? `It has ${rooms.join(', ')}.` : null,
+    facts['Year built'] ? `It was built in ${facts['Year built']}.` : null,
+    sentence(f.agentNotes),
+    sentence(f.sellerUpdates),
+    sentence(f.sellerLoves),
+  ].filter(Boolean);
+  return { description: lines.join(' ') };
+}
+
+interface ScriptedPostsFacts {
+  readonly street?: string;
+  readonly city?: string | null;
+  readonly price?: string | null;
+  readonly facts?: Readonly<Record<string, string>>;
+  readonly openHouses?: readonly string[];
+}
+
+/** Three posts written only from the <listing_facts>: the home, its rooms, and an open house or its price. */
+export function scriptedListingPosts(message: string): { posts: string[] } {
+  let f: ScriptedPostsFacts = {};
+  try {
+    f = JSON.parse(unquote(quotedBlock(message, 'listing_facts') ?? '{}')) as ScriptedPostsFacts;
+  } catch {
+    // Unreadable facts: short, general posts.
+  }
+  const street = f.street ?? 'this home';
+  const where = f.city ? ` in ${f.city.split(',')[0]}` : '';
+  const facts = f.facts ?? {};
+  const rooms = [
+    facts['Bedrooms'] && `${facts['Bedrooms']} beds`,
+    facts['Bathrooms'] && `${facts['Bathrooms']} baths`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return {
+    posts: [
+      `Just listed${where}: ${street}.${f.price ? ` ${f.price}.` : ''}`,
+      rooms
+        ? `${street}: ${rooms}${facts['Square feet'] ? `, ${facts['Square feet']} sq ft` : ''}.`
+        : `Take a look at ${street}.`,
+      f.openHouses?.[0]
+        ? `Open house at ${street}: ${f.openHouses[0]}.`
+        : `${street} is on the market${f.price ? ` at ${f.price}` : ''}.`,
+    ],
+  };
+}
+
+// ---- Real Estate's contract reading ("Read the contract’s terms.") ----
+
+type ScriptedContractValue = {
+  key: string;
+  date: string | null;
+  days_after: { days: number; business: boolean; from: string } | null;
+  dollars: number | null;
+  words: string | null;
+  clause: string | null;
+  page: number | null;
+  quote: string;
+};
+
+const MONTH_NUMBER: Readonly<Record<string, number>> = Object.fromEntries(
+  [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ].map((m, i) => [m, i + 1]),
+);
+
+/** "October 30, 2026" as 2026-10-30; null when it isn't one. */
+function isoOfWords(words: string): string | null {
+  const m = /([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/.exec(words);
+  const month = m ? MONTH_NUMBER[m[1]!.toLowerCase()] : undefined;
+  if (!m || !month) return null;
+  return `${m[3]}-${String(month).padStart(2, '0')}-${m[2]!.padStart(2, '0')}`;
+}
+
+/**
+ * A contract read the plain way, from labelled lines on its <page>s: "Effective Date: …", "Sales Price: $…",
+ * "Earnest Money: $… within N days after the Effective Date", "Option Period: N days after the Effective Date",
+ * "Financing: N days after …", "Closing Date: …", "Buyer: …", "Seller: …", and an amendment's "The Closing Date is
+ * changed to …". Each value quotes its own line and says its page; a clause is the "§…" the line starts with. A scan
+ * (no words) gives nothing to read.
+ */
+export function scriptedContractRead(message: string): {
+  values: ScriptedContractValue[];
+  unclear: { what: string; clause: string | null; page: number | null; quote: string | null }[];
+} {
+  const contract = quotedBlock(message, 'contract');
+  if (contract === null)
+    return {
+      values: [],
+      unclear: [
+        {
+          what: 'The scripted stand-in can’t read scanned pages.',
+          clause: null,
+          page: null,
+          quote: null,
+        },
+      ],
+    };
+  const values: ScriptedContractValue[] = [];
+  const unclear: {
+    what: string;
+    clause: string | null;
+    page: number | null;
+    quote: string | null;
+  }[] = [];
+  const blank = { date: null, days_after: null, dollars: null, words: null };
+  for (const m of contract.matchAll(/<page n="(\d+)">\n?([\s\S]*?)\n?<\/page>/g)) {
+    const page = Number(m[1]);
+    for (const raw of unquote(m[2]!).split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const clause = /^(§\s?[\w().]+)/.exec(line)?.[1] ?? null;
+      const add = (key: string, v: Partial<ScriptedContractValue>) =>
+        values.push({ key, ...blank, clause, page, quote: line, ...v });
+      const days = /(\d+)\s+(business\s+)?days after the (Effective Date|Closing Date)/i.exec(line);
+      const after = days
+        ? {
+            days: Number(days[1]),
+            business: !!days[2],
+            from: /closing/i.test(days[3]!) ? 'closing' : 'acceptance',
+          }
+        : null;
+      const dollars = /\$\s?(\d[\d,]*(?:\.\d{2})?)/.exec(line);
+      const amount = dollars ? Number(dollars[1]!.replace(/,/g, '')) : null;
+      if (/Effective Date:/i.test(line)) add('acceptance', { date: isoOfWords(line) });
+      else if (/Sales Price:/i.test(line) && amount) add('price', { dollars: amount });
+      else if (/Earnest Money:/i.test(line)) {
+        if (amount) add('emd_amount', { dollars: amount });
+        if (after) add('emd_due', { days_after: after });
+      } else if (/Option Period:|Inspection Period:/i.test(line) && after)
+        add('inspection_end', { days_after: after });
+      else if (/Financing( Contingency)?:/i.test(line) && after)
+        add('financing_end', { days_after: after });
+      else if (/Appraisal( Contingency)?:/i.test(line) && after)
+        add('appraisal_end', { days_after: after });
+      else if (/Closing Date( is changed to|:)/i.test(line))
+        add('closing', { date: isoOfWords(line) });
+      else if (/Possession:/i.test(line) && /closing/i.test(line))
+        add('possession', { days_after: { days: 0, business: false, from: 'closing' } });
+      else if (/Seller (shall )?(pay|credit)/i.test(line) && amount)
+        add('seller_credit', { dollars: amount });
+      else if (/^(§\s?[\w().]+\s+)?Buyers?:/i.test(line))
+        add('buyer_names', { words: line.replace(/^.*?Buyers?:\s*/i, '').trim() });
+      else if (/^(§\s?[\w().]+\s+)?Sellers?:/i.test(line))
+        add('seller_names', { words: line.replace(/^.*?Sellers?:\s*/i, '').trim() });
+      else if (/Survey:/i.test(line) && /reasonable time/i.test(line))
+        unclear.push({
+          what: 'Survey due: “within a reasonable time” isn’t a date.',
+          clause,
+          page,
+          quote: line,
+        });
+    }
+  }
+  return { values, unclear };
+}
+
+export const LISTING_RULES: readonly ScriptRule[] = [
+  { when: /Write the social posts\.$/, json: (message) => scriptedListingPosts(message) },
+  {
+    when: /Write the listing description\.$/,
+    json: (message) => scriptedListingDescription(message),
+  },
+  { when: /Find the listing’s facts\.$/, json: (message) => scriptedListingFacts(message) },
+  { when: /Read the contract’s terms\.$/, json: (message) => scriptedContractRead(message) },
+  { when: /Write the CMA summary\.$/, json: (message) => scriptedCmaSummary(message) },
+  {
+    when: /Find what the buyer said they want\.$/,
+    json: (message) => scriptedBuyerMemory(message),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
   ...AUTOMATION_RULES,
   ...WORKFLOW_RULES,
   ...BUILDER_RULES,
+  ...CLIENT_UPDATE_RULES,
+  ...LISTING_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

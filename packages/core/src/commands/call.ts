@@ -98,7 +98,7 @@ const counterpartOf = (c: Pick<Call, 'direction' | 'fromE164' | 'toE164'>) =>
 
 /** A thread that isn't texts has no number to call. */
 const notByPhone = (channel: string) =>
-  `This conversation is ${channel === 'chat' ? 'a website chat' : 'by email'}, so there’s no number to call. Call the customer from their page instead.`;
+  `This conversation is ${channel === 'chat' ? 'a website chat' : channel === 'portal' ? 'in a client’s portal' : 'by email'}, so there’s no number to call. Call the customer from their page instead.`;
 
 const customerName = (p: { firstName: string; lastName: string }) =>
   `${p.firstName} ${p.lastName}`.trim() || 'This customer';

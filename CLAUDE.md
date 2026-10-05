@@ -18,6 +18,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Working on                                   | Read                                                                                                              |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Add-ons                                      | `docs/addon-architecture.md`, then "Add-ons" below; `docs/addon-readiness-audit.md` is the audit behind it        |
+| The Real Estate Agent add-on                 | `docs/realestate.md`, then `HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md`                                       |
 | A business's own kinds of records, and links | `docs/relationships.md`                                                                                           |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
@@ -26,7 +27,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
-| Screen designs                               | `design/m1` to `design/m10`; the brand mark is in `design/brand`                                                  |
+| Screen designs                               | `design/m1` to `design/m10`, and `design/realestate`; the brand mark is in `design/brand`                         |
 | Hosting, providers, going live, and trouble  | `docs/operations.md`, over 11,000 lines, so jump to a section from its Contents                                   |
 | Connecting Google and Outlook calendars      | `docs/calendar-setup.md`                                                                                          |
 
@@ -67,6 +68,8 @@ Every refusal a person can read explains the problem and, when anything can be d
   - Nothing in `app` or `platform` has a foreign key into `addon_<id>`; the catalogue test checks.
   - Only `apps/web/src/addons/registry.ts` imports an add-on's web folder; lint checks.
   - Pages open through `addonPage`, and panels on core's pages through `<AddonSlot>`.
+  - A customer's portal pages are the registry's `portal` entry, declared in `ui.portal`, and act through `usePortal()`.
+  - Signed-out public pages are the registry's `public` entry, declared in `ui.public`, and run only `<id>.public.*` operations.
 - **The AI sees an operation only when it declares `ai`.** Look-ups and risk 0–1 changes run on their own. Risk 2–3 changes wait for a person's OK. Risk 4 is never offered.
 - **When an add-on's data changes shape,** add a `dataMigrations` step and bump `dataVersion`.
 - **Check the doc's "Not yet" list first.** It covers an add-on's own credentials, webhook routes, workflow steps and billing. If an add-on needs one of these, build it in core as its own step. Don't work around it inside the add-on.

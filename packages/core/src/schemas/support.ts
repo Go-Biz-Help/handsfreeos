@@ -302,6 +302,14 @@ export const BusinessGetOutput = z.object({
   phoneModel: PhoneModelValue.nullable(),
   /** HandsFreeOS's own business (M19), which may use handsfreeos.com for its email. */
   isPlatform: z.boolean(),
+  /** Add-ons still being built that staff handed this business to try (Real Estate, step 2). */
+  addonGrants: z.array(
+    z.object({
+      addonId: z.string(),
+      note: z.string().nullable(),
+      grantedAt: isoDateTime,
+    }),
+  ),
   people: z.array(
     z.object({
       userId: uuid,

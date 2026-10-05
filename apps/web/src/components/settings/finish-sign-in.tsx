@@ -43,7 +43,15 @@ const EXPIRED: FinishPage = {
 const signedOut = (e: unknown) => e instanceof ApiError && e.status === 401;
 
 /** Which callback sent the browser here, as its `?door=` says. */
-type Door = 'oauth' | 'migration';
+type Door = 'oauth' | 'migration' | 'addon';
+
+/** Where each door is finished, in the worker. */
+const FINISH_AT: Record<Door, string> = {
+  oauth: '/v1/oauth/finish',
+  migration: '/v1/migrations/finish',
+  // An add-on's connection by sign-in (round five).
+  addon: '/v1/addons/connections/finish',
+};
 
 function failed(e: unknown, door: Door): FinishPage {
   if (signedOut(e))
@@ -84,10 +92,8 @@ export function FinishSignIn() {
     started.current = true;
     // After the `#`, or kept in this tab when the person had to sign in first.
     const sealed = decodeURIComponent(window.location.hash.slice(1)) || keptHandoff();
-    const door: Door =
-      new URLSearchParams(window.location.search).get('door') === 'migration'
-        ? 'migration'
-        : 'oauth';
+    const asked = new URLSearchParams(window.location.search).get('door');
+    const door: Door = asked === 'migration' || asked === 'addon' ? asked : 'oauth';
     // Out of the address bar and the history before anything else happens.
     window.history.replaceState(null, '', window.location.pathname);
     if (!sealed) {
@@ -97,7 +103,7 @@ export function FinishSignIn() {
     handoff.current = sealed;
     // Kept until the worker answers somebody signed in, so a sign-in in between can pick it up again.
     keepHandoff(sealed);
-    workerPost<Outcome>(`/v1/${door === 'migration' ? 'migrations' : 'oauth'}/finish`, {
+    workerPost<Outcome>(FINISH_AT[door], {
       handoff: sealed,
     }).then(
       (out) => {

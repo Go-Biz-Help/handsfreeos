@@ -14,6 +14,7 @@ import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { UnsubscribeLinks } from './email/unsubscribe';
 import type { MoneyLinks } from './money/links';
+import type { PortalLinks } from './portal/links';
 import type { WalletDeps } from './money/wallet';
 import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
@@ -102,6 +103,8 @@ export interface WorkerServices {
   readonly bookingLinks: BookingLinks;
   /** Signs and checks customers' estimate and invoice links, `/e/…` and `/i/…` (money/links.ts). */
   readonly moneyLinks: MoneyLinks;
+  /** Signs and checks a client's portal link, `/c/…` (portal/links.ts). */
+  readonly portalLinks: PortalLinks;
   /** Signs and checks the unsubscribe link every campaign email carries (email/unsubscribe.ts). */
   readonly unsubscribeLinks: UnsubscribeLinks;
   /**
@@ -133,6 +136,17 @@ export interface WorkerServices {
    * which is how the rate card gets proved against a real week; `on` warns and, per business, enforces.
    */
   readonly wallet: WalletDeps;
+  /**
+   * What add-ons connect to (round five, addons/connections.ts): whether the services are stand-ins, and
+   * HandsFreeOS's own accounts there by `<add-on>.<service>`. Missing reads as stand-ins with no accounts.
+   */
+  readonly addonConnect?: AddonConnect;
+}
+
+export interface AddonConnect {
+  /** Stand-ins (development and tests): any key but one with "wrong" in it works. */
+  readonly fake: boolean;
+  readonly platformKeys: Readonly<Record<string, Readonly<Record<string, string>>>>;
 }
 
 export interface TenantScope {

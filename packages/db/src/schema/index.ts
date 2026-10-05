@@ -35,6 +35,8 @@ export const actorType = app.enum('actor_type', [
   'ai_employee',
   'api',
   'integration',
+  // A customer signed in to their portal (Real Estate round two, 20261018000800).
+  'customer',
 ]);
 export const outboxStatus = app.enum('outbox_status', ['pending', 'done', 'failed']);
 
@@ -274,6 +276,8 @@ export const activityKind = app.enum('activity_kind', [
   'sms',
   'system',
   'chat',
+  /** A message in a customer's portal (Real Estate round two, 20261018001100). */
+  'portal',
 ]);
 export const fileStatus = app.enum('file_status', ['pending', 'ready']);
 export const importKind = app.enum('import_kind', ['people', 'companies']);
@@ -590,6 +594,12 @@ export const tasks = app.table('tasks', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 export const activities = app.table('activities', {
@@ -615,6 +625,12 @@ export const activities = app.table('activities', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 export const files = app.table('files', {
@@ -631,7 +647,28 @@ export const files = app.table('files', {
   createdBy: userRef('created_by'),
   deletedAt: ts('deleted_at'),
   deletedBy: userRef('deleted_by'),
+  /** Locked (a signed document): never deleted, renamed or unlocked (Real Estate, step 3). */
+  lockedAt: ts('locked_at'),
+  lockedBy: userRef('locked_by'),
+  /** signed, final or record. */
+  lockedReason: text('locked_reason'),
+  lockedByAddon: text('locked_by_addon'),
+  /** The stored object's SHA-256, recorded once by the worker when the file arrived. */
+  sha256: text('sha256'),
+  hashedAt: ts('hashed_at'),
   ...timestamps(),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** The customer who added it from their portal; set by the worker alone (Real Estate round two). */
+  uploadedByPersonId: uuid('uploaded_by_person_id').references(() => people.id, {
+    onDelete: 'set null',
+  }),
+  /** Shown in the portal of the customers it's about (round two). */
+  portalVisible: boolean('portal_visible').notNull().default(false),
 });
 
 // ---------- Milestone 3: communication ----------
@@ -667,7 +704,8 @@ export const registrationStatus = app.enum('registration_status', [
   'rejected',
   'failed',
 ]);
-export const channel = app.enum('channel', ['sms', 'email', 'chat']);
+/** `portal`: a customer's own portal (Real Estate round two, 20261018001100). */
+export const channel = app.enum('channel', ['sms', 'email', 'chat', 'portal']);
 export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
 export const direction = app.enum('direction', ['inbound', 'outbound']);
 export const messageStatus = app.enum('message_status', [
@@ -1315,6 +1353,15 @@ export const conversations = app.table('conversations', {
   folder: conversationFolder('folder').notNull().default('inbox'),
   /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
   privateTo: uuid('private_to'),
+  /** The record a thread is about (a portal thread's deal); a private record's thread is sealed with it (round two). */
+  customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 /** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
@@ -1414,6 +1461,9 @@ export const messages = app.table('messages', {
   went: boolean('went').notNull().default(true),
   /** M19: its thread's private_to, kept by triggers so the policy reads the row alone. */
   privateTo: uuid('private_to'),
+  /** Its thread's seals (round six): what a phone needs before it keeps a sealed message. Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 export const calls = app.table('calls', {
@@ -1495,6 +1545,10 @@ export const webhookDeliveries = app.table('webhook_deliveries', {
   processedAt: ts('processed_at'),
   /** The add-on it is for (0108): set aside, not processed, while that add-on is off. */
   addonId: text('addon_id'),
+  /** The add-on connection it came in on (round five, 20261021000200). */
+  addonConnectionId: uuid('addon_connection_id').references(() => addonConnections.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 
@@ -2195,6 +2249,12 @@ export const appointments = app.table('appointments', {
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
   }),
+  /** On a private record (Real Estate round two): others see only that its staff are busy. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 /** M18: the work a customer waits on — one visit or several — with a status they hear about. */
@@ -2277,6 +2337,12 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   cancelledAt: ts('cancelled_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** On a sealed appointment: seen only by the people who see its record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** Sealed to a private record phones keep: its record's seal_scope (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
   /** 8 random base62 characters, unique and not secret: the start of the change-or-cancel link (/m/...). */
   publicRef: text('public_ref')
     .notNull()
@@ -2453,6 +2519,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'knowledge',
   'teammate',
   'automations',
+  // An add-on's own AI use (Real Estate step 6), with the add-on in addon_id.
+  'addon',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -2788,6 +2856,8 @@ export const aiUsage = app.table('ai_usage', {
   teammateRunId: uuid('teammate_run_id').references((): AnyPgColumn => aiTeammateRuns.id, {
     onDelete: 'set null',
   }),
+  /** The add-on it was for, when source is addon (Real Estate step 6). */
+  addonId: text('addon_id'),
 });
 
 /** A business's profile for the AI (core's KnowledgeProfile), one per workspace. */
@@ -3147,6 +3217,60 @@ export const chatVerificationCodes = app.table('chat_verification_codes', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/** A client let into their portal (Real Estate round two, core): the link's reference and version (0109). */
+export const portalAccess = app.table('portal_access', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** 8 random base62 characters, unique and not secret: the start of the link (/c/...). */
+  publicRef: text('public_ref')
+    .notNull()
+    .unique()
+    .default(sql`private.new_public_ref()`),
+  linkVersion: integer('link_version').notNull().default(1),
+  givenBy: userRef('given_by'),
+  givenAt: ts('given_at').notNull().defaultNow(),
+  revokedAt: ts('revoked_at'),
+  revokedBy: userRef('revoked_by'),
+  lastUsedAt: ts('last_used_at'),
+  ...timestamps(),
+});
+
+/** A 6-digit code emailed to a client signing in on a new device; only its hash is kept. */
+export const portalCodes = app.table('portal_codes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accessId: uuid('access_id')
+    .notNull()
+    .references(() => portalAccess.id, { onDelete: 'cascade' }),
+  codeHash: bytea('code_hash').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  usedAt: ts('used_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** A client's signed-in device: the hash of its bearer, 30 days from last use and 90 at most. */
+export const portalSessions = app.table('portal_sessions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accessId: uuid('access_id')
+    .notNull()
+    .references(() => portalAccess.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  device: text('device'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  endedAt: ts('ended_at'),
+  endedReason: text('ended_reason'),
+});
+
 /** "Typing", for a few seconds; the worker's alone. */
 export const chatSignals = app.table(
   'chat_signals',
@@ -3241,6 +3365,18 @@ export const attentionItems = app.table('attention_items', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  /** The private record it's about, if any (Real Estate step 4); a task's comes from the task. */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  /** On a private record (Real Estate step 4): seen only by those who see the record. Kept by a trigger. */
+  sealed: boolean('sealed').notNull().default(false),
+  /** An add-on's card, or one sealed to a private record phones keep: the key a phone must hold (round six). */
+  sealScope: text('seal_scope'),
+  /** An add-on's card for everyone holding its permission. Kept by a trigger. */
+  sealOpen: boolean('seal_open').notNull().default(false),
+  /** Otherwise exactly who keeps it on their phone. Kept by a trigger. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
 // ---------- Milestone 9: money (0044-0050) ----------
@@ -4861,6 +4997,88 @@ export const addonUsageEvents = app.table('addon_usage_events', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/**
+ * What an add-on needs someone to see (Real Estate step 5): a Home card (kind addon_alert), a push and an email.
+ * Only the worker writes it; people see it as a card, while the add-on runs and they hold its permission.
+ */
+export const addonAlerts = app.table('addon_alerts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  addonGeneration: integer('addon_generation').notNull().default(1),
+  /** The add-on's own name for it ("duty:<id>:overdue"): raising it again updates the same alert. */
+  key: text('key').notNull(),
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  /** info, attention, at_risk or critical. */
+  severity: text('severity').notNull(),
+  title: text('title').notNull(),
+  detail: text('detail'),
+  /** A page of the add-on's: `/a/<addon>/…` under the business. */
+  href: text('href').notNull(),
+  /** The add-on permission it takes to see it. */
+  permission: text('permission').notNull(),
+  /** Exactly who it's for; empty is everyone holding the permission. */
+  audienceUserIds: uuid('audience_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  assigneeUserId: userRef('assignee_user_id'),
+  dueAt: ts('due_at'),
+  needsAck: boolean('needs_ack').notNull().default(false),
+  acknowledgedAt: ts('acknowledged_at'),
+  acknowledgedBy: userRef('acknowledged_by'),
+  fingerprint: text('fingerprint').notNull().default(''),
+  /** What people were last told by push and email: a retried notice never tells them twice. */
+  notifiedFingerprint: text('notified_fingerprint'),
+  notifiedAt: ts('notified_at'),
+  raisedAt: ts('raised_at').notNull().defaultNow(),
+  clearedAt: ts('cleared_at'),
+  clearReason: text('clear_reason'),
+  ...timestamps(),
+});
+
+/** An add-on's account at another service (round five, 20261021000100): sealed by the worker, never selectable. */
+export const addonConnections = app.table('addon_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  /** What it's for, as the add-on's manifest names it (listing_data, esign). */
+  connector: text('connector').notNull(),
+  /** The service (repliers, anyprop, reso, docusign). */
+  provider: text('provider').notNull(),
+  /** key, oauth or platform (HandsFreeOS's own account). */
+  auth: text('auth').notNull(),
+  /** pending, active, reauth_required, error or disconnected. */
+  status: text('status').notNull().default('active'),
+  /** The add-on permission it takes to manage it. */
+  permission: text('permission').notNull(),
+  label: text('label'),
+  /** The service's own id for the account: how its updates find this connection. */
+  accountRef: text('account_ref'),
+  details: jsonb('details').$type<Json>().notNull().default({}),
+  secretEnc: text('secret_enc'),
+  keyId: text('key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  oauthStateHash: bytea('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  webhookTokenHash: bytea('webhook_token_hash'),
+  webhookSecretEnc: text('webhook_secret_enc'),
+  lastSuccessAt: ts('last_success_at'),
+  failingSince: ts('failing_since'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  connectedBy: userRef('connected_by'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  /** Who started the sign-in under way: only they finish it (20261021000500). */
+  oauthStartedBy: userRef('oauth_started_by'),
+  ...timestamps(),
+});
+
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.
@@ -4896,6 +5114,19 @@ export const addonOverrides = platform.table('addon_overrides', {
   setBy: uuid('set_by').references(() => users.id, { onDelete: 'set null' }),
   setAt: ts('set_at').notNull().defaultNow(),
 });
+
+/** An add-on still being built that HandsFreeOS lets one business install to try it (Real Estate, step 2). */
+export const addonGrants = platform.table(
+  'addon_grants',
+  {
+    workspaceId: workspaceRef(),
+    addonId: text('addon_id').notNull(),
+    note: text('note'),
+    grantedBy: userRef('granted_by'),
+    grantedAt: ts('granted_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
+);
 
 /** A business's vote for a planned add-on (0109): one per business per add-on, cast by an owner or admin. */
 export const addonVotes = platform.table(
@@ -5644,6 +5875,11 @@ export const customRecordTypes = app.table('custom_record_types', {
   /** The permission its records are written with: the add-on's own. Set exactly when addonId is. */
   writePermission: text('write_permission'),
   ...timestamps(),
+  /** Each record is seen only by the people on it and holders of seeAllPermission (Real Estate step 4). */
+  keptToTeam: boolean('kept_to_team').notNull().default(false),
+  seeAllPermission: text('see_all_permission'),
+  /** For a kind phones keep: '<business>:<permission>' a sync key must match (round six). Kept by a trigger. */
+  sealScope: text('seal_scope'),
 });
 
 /** One pet, one vehicle, one property: a name, notes and its kind's fields. */
@@ -5667,6 +5903,187 @@ export const customRecords = app.table('custom_records', {
   ),
   /** Its add-on's data was permanently deleted (0108): only the name is left, so what pointed at it reads. */
   purgedAt: ts('purged_at'),
+  /** Its kind keeps each record to the people on it (Real Estate step 4). Copied from the kind; never changes. */
+  keptToTeam: boolean('kept_to_team').notNull().default(false),
+  /** A private record's main person (a deal's main agent). */
+  ownerUserId: userRef('owner_user_id'),
+  /** Everyone else on a private record. */
+  teamUserIds: uuid('team_user_ids').array().notNull().default([]),
+  /** For a record of a kind phones keep: '<business>:<permission>' a sync key must match (round six). */
+  sealScope: text('seal_scope'),
+  /** Anyone holding that key keeps it (a shared record). */
+  sealOpen: boolean('seal_open').notNull().default(false),
+  /** A private record's main person and team: who keeps it besides See-every holders. */
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** A private record's '<business>:<See-every permission>'. */
+  sealAll: text('seal_all'),
+  /** Whether phones keep it now; its add-on narrows it (private.record_phone_window). */
+  syncWindow: boolean('sync_window').notNull().default(true),
+});
+
+/** A record kept as it is (round six): a legal hold until lifted, or the add-on's retention hold until a date. */
+export const recordHolds = app.table('record_holds', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  customRecordId: uuid('custom_record_id')
+    .notNull()
+    .references(() => customRecords.id, { onDelete: 'cascade' }),
+  /** The add-on whose record it is, from its kind. */
+  addonId: text('addon_id'),
+  kind: text('kind').$type<'legal' | 'retention'>().notNull(),
+  /** A retention hold's end; null while the record is open. */
+  heldUntil: ts('held_until'),
+  reason: text('reason'),
+  placedBy: userRef('placed_by'),
+  placedAt: ts('placed_at').notNull().defaultNow(),
+  liftedAt: ts('lifted_at'),
+  liftedBy: userRef('lifted_by'),
+  liftReason: text('lift_reason'),
+  ...timestamps(),
+});
+
+/** Who a person wants told if they miss a check-out (round six): a teammate, or someone outside who agreed. */
+export const safetyContacts = app.table('safety_contacts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  contactUserId: uuid('contact_user_id').references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  phoneE164: text('phone_e164'),
+  email: text('email'),
+  askedAt: ts('asked_at'),
+  agreedAt: ts('agreed_at'),
+  stoppedAt: ts('stopped_at'),
+  position: integer('position').notNull().default(0),
+  ...timestamps(),
+});
+
+/** A person checked in somewhere alone, with a planned end (round six). Seen only by them. */
+export const safetyCheckins = app.table('safety_checkins', {
+  id: uuid('id').primaryKey(),
+  workspaceId: workspaceRef(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  place: text('place').notNull(),
+  latitude: numeric('latitude', { precision: 9, scale: 6 }),
+  longitude: numeric('longitude', { precision: 9, scale: 6 }),
+  locatedAt: ts('located_at'),
+  startedAt: ts('started_at').notNull(),
+  plannedEndAt: ts('planned_end_at').notNull(),
+  extendedCount: integer('extended_count').notNull().default(0),
+  state: text('state')
+    .$type<'in' | 'asked' | 'alerted' | 'ok' | 'out' | 'help'>()
+    .notNull()
+    .default('in'),
+  askedAt: ts('asked_at'),
+  alertedAt: ts('alerted_at'),
+  resolvedAt: ts('resolved_at'),
+  resolvedBy: userRef('resolved_by'),
+  resolvedVia: text('resolved_via').$type<'person' | 'teammate' | 'contact_page'>(),
+  alertRound: integer('alert_round').notNull().default(0),
+  lastAlertedAt: ts('last_alerted_at'),
+  checkedOutAt: ts('checked_out_at'),
+  ...timestamps(),
+});
+
+/** Each time a contact was told about a missed check-out (round six). Written by the worker. */
+export const safetyEscalations = app.table('safety_escalations', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  checkinId: uuid('checkin_id')
+    .notNull()
+    .references(() => safetyCheckins.id, { onDelete: 'cascade' }),
+  contactId: uuid('contact_id').references(() => safetyContacts.id, { onDelete: 'set null' }),
+  toldUserId: uuid('told_user_id').references(() => users.id, { onDelete: 'set null' }),
+  channel: text('channel').$type<'app' | 'email' | 'text'>().notNull(),
+  tokenHash: text('token_hash').unique(),
+  round: integer('round').notNull().default(1),
+  sentAt: ts('sent_at').notNull().defaultNow(),
+  acknowledgedAt: ts('acknowledged_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** The add-ons phones keep offline, and the permission each asks first (round six). Written by migrations. */
+export const addonPhoneAddons = app.table('addon_phone_addons', {
+  addonId: text('addon_id').primaryKey(),
+  permission: text('permission').notNull(),
+  /** Keys of its business settings phones keep, as its `_settings` row (20261022000800). */
+  settingsKeys: text('settings_keys').array().notNull().default([]),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** Each add-on table a phone keeps: its columns, the record it follows, and its reach (round six). */
+export const addonPhoneTables = app.table(
+  'addon_phone_tables',
+  {
+    addonId: text('addon_id')
+      .notNull()
+      .references(() => addonPhoneAddons.addonId, { onDelete: 'cascade' }),
+    source: text('source').notNull(),
+    keyColumn: text('key_column').notNull().default('id'),
+    recordColumn: text('record_column'),
+    columns: text('columns').array().notNull(),
+    reach: text('reach').$type<'team' | 'all'>().notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.addonId, t.source] })],
+);
+
+/** What a person's phone may keep of the add-ons phones keep, as keys a sync stream compares (round six). */
+export const syncKeys = app.table(
+  'sync_keys',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: workspaceRef(),
+    kind: text('kind').$type<'use' | 'all'>().notNull(),
+    key: text('key').notNull(),
+    /** The key's add-on and the person's role, and '<business>:<add-on>' (20261022001200). */
+    addonId: text('addon_id'),
+    role: text('role'),
+    teamScope: text('team_scope'),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.workspaceId, t.kind, t.key] })],
+);
+
+/** What phones keep of an add-on's own tables: each row's declared columns as JSON, with seals (round six). */
+export const addonPhoneRows = app.table('addon_phone_rows', {
+  id: text('id').primaryKey(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  source: text('source').notNull(),
+  recordId: uuid('record_id'),
+  data: jsonb('data').$type<Record<string, unknown>>().notNull(),
+  reach: text('reach').$type<'team' | 'all'>().notNull(),
+  sealScope: text('seal_scope'),
+  sealOpen: boolean('seal_open').notNull().default(false),
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  sealAll: text('seal_all'),
+  syncWindow: boolean('sync_window').notNull().default(true),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** HandsFreeOS support let into a business's private records for 24 hours (Real Estate step 4). */
+export const recordSupportGrants = app.table('record_support_grants', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** requested, active, declined or ended. */
+  status: text('status').notNull(),
+  requestedBy: userRef('requested_by'),
+  requestNote: text('request_note'),
+  /** Whose view it opens: everything this person sees. */
+  grantedBy: userRef('granted_by'),
+  grantedAt: ts('granted_at'),
+  expiresAt: ts('expires_at'),
+  decidedBy: userRef('decided_by'),
+  endedAt: ts('ended_at'),
+  endedBy: userRef('ended_by'),
+  ...timestamps(),
 });
 
 /** Which two kinds of record relate, what each end is called from the other, and how many on each end. */
@@ -5688,6 +6105,10 @@ export const relationshipTypes = app.table('relationship_types', {
   /** The add-on that manages this type (0108), and its key in the add-on's manifest. */
   addonId: text('addon_id'),
   addonKey: text('addon_key'),
+  /** The customer at the person end sees the record in their portal (20261018000900). */
+  portalVisible: boolean('portal_visible').notNull().default(false),
+  /** Phones keep it: its add-on's key, or that of a kind phones keep at either end (20261022000700). */
+  sealScope: text('seal_scope'),
   ...timestamps(),
 });
 
@@ -5712,6 +6133,12 @@ export const relationships = app.table('relationships', {
   bId: uuid('b_id').generatedAlwaysAs(sql`coalesce(b_person_id, b_company_id, b_custom_record_id)`),
   note: text('note'),
   createdBy: userRef('created_by'),
+  /** Who keeps it on their phone: the seals of every record it touches (20261022000700). Kept by a trigger. */
+  sealScope: text('seal_scope'),
+  sealOpen: boolean('seal_open').notNull().default(false),
+  sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  sealAll: text('seal_all'),
+  syncWindow: syncWindow(),
   ...timestamps(),
 });
 
@@ -6383,6 +6810,7 @@ export const tables = {
   customFields,
   customRecordTypes,
   customRecords,
+  recordSupportGrants,
   relationshipTypes,
   relationships,
   intakeSources,
@@ -6546,7 +6974,9 @@ export const tables = {
   addonSuggestionDismissals,
   addonResources,
   addonUsageEvents,
+  addonAlerts,
   addonOverrides,
+  addonGrants,
   addonVotes,
   addonVoteCounts,
   addonVoteWeeks,

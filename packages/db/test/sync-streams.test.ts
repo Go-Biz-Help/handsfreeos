@@ -11,7 +11,16 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
-import { as, bootstrapOrganization, closeAll, createTestUser, dbs, type TestUser } from './harness';
+import { randomInt } from 'node:crypto';
+import {
+  as,
+  asService,
+  bootstrapOrganization,
+  closeAll,
+  createTestUser,
+  dbs,
+  type TestUser,
+} from './harness';
 import { readSyncConfig, type SyncQuery } from './sync-config';
 
 afterAll(closeAll);
@@ -125,6 +134,86 @@ begin
 end
 $fixture$`;
 
+/**
+ * Round six (records_v1): an add-on phones keep, with a private kind (a deal the owner is on), a shared kind, a
+ * table that follows the deal (kept by whoever sees every deal too) and one of the business's own (its vendors),
+ * and what hangs off the deal: a task, a timeline line, a file, an appointment and its customer, a portal thread
+ * and its message, Home cards (an add-on's for everyone, and the task's, sealed), and links (the deal's client,
+ * sealed with it; the home's owner, open).
+ */
+const PHONE_ADDON = `fx${Array.from({ length: 8 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
+const PHONE_FIXTURE = `
+do $phone$
+declare
+  ws uuid := current_setting('streams.ws')::uuid;
+  owner uuid := current_setting('streams.owner')::uuid;
+  addon text := current_setting('streams.addon');
+  kind uuid; shared_kind uuid; deal uuid; home uuid; task uuid; conv uuid; alert uuid; person uuid; appt uuid; cal uuid;
+  client_of uuid; owner_of uuid;
+begin
+  execute format('create schema addon_%s', addon);
+  execute format('create table addon_%s.items (id uuid primary key default gen_random_uuid(), '
+    'workspace_id uuid not null references app.workspaces (id) on delete cascade, '
+    'deal_id uuid references app.custom_records (id) on delete cascade, title text not null)', addon);
+  execute format('create table addon_%s.vendors (id uuid primary key default gen_random_uuid(), '
+    'workspace_id uuid not null references app.workspaces (id) on delete cascade, name text not null)', addon);
+  perform private.addon_table_policies(format('addon_%s.items', addon)::regclass, addon || '.use', addon || '.use',
+    null, 'deal_id');
+  perform private.addon_table_policies(format('addon_%s.vendors', addon)::regclass, addon || '.use', addon || '.use');
+  perform private.addon_phone_addon(addon, addon || '.use');
+  perform private.addon_phone_table(format('addon_%s.items', addon)::regclass, 'deal_id', array['title'], 'all');
+  perform private.addon_phone_table(format('addon_%s.vendors', addon)::regclass, null, array['name'], 'team');
+
+  insert into app.custom_record_types (workspace_id, key, singular, plural, addon_id, write_permission, kept_to_team,
+      see_all_permission)
+    values (ws, addon || '_deal', 'Deal', 'Deals', addon, addon || '.use', true, addon || '.all_deals') returning id into kind;
+  insert into app.custom_record_types (workspace_id, key, singular, plural, addon_id, write_permission)
+    values (ws, addon || '_home', 'Home', 'Homes', addon, addon || '.use') returning id into shared_kind;
+  insert into app.custom_records (workspace_id, type_id, name, owner_user_id)
+    values (ws, kind, 'Smith purchase', owner) returning id into deal;
+  insert into app.custom_records (workspace_id, type_id, name) values (ws, shared_kind, '418 Maple Ave')
+    returning id into home;
+  execute format('insert into addon_%s.items (workspace_id, deal_id, title) values ($1, $2, $3)', addon)
+    using ws, deal, 'Binder to the lender';
+  execute format('insert into addon_%s.vendors (workspace_id, name) values ($1, $2)', addon) using ws, 'Lone Star Inspections';
+
+  select id into person from app.people where workspace_id = ws order by created_at limit 1;
+  select id into cal from app.calendars where workspace_id = ws order by created_at limit 1;
+  -- Links: the deal's client (sealed with the deal), and the home's owner (open, as the home is).
+  insert into app.relationship_types (workspace_id, a_end, a_label, b_end, b_record_type_id, b_label, addon_id, addon_key)
+    values (ws, 'person', 'Client', 'custom_record', kind, 'Deals', addon, addon || '_client') returning id into client_of;
+  insert into app.relationship_types (workspace_id, a_end, a_label, b_end, b_record_type_id, b_label, addon_id, addon_key)
+    values (ws, 'person', 'Owner', 'custom_record', shared_kind, 'Homes owned', addon, addon || '_owner') returning id into owner_of;
+  insert into app.relationships (workspace_id, type_id, a_person_id, b_custom_record_id) values (ws, client_of, person, deal);
+  insert into app.relationships (workspace_id, type_id, a_person_id, b_custom_record_id) values (ws, owner_of, person, home);
+  insert into app.tasks (workspace_id, title, custom_record_id) values (ws, 'Order the appraisal', deal) returning id into task;
+  insert into app.activities (workspace_id, kind, custom_record_id, body) values (ws, 'note', deal, 'Lender called');
+  insert into app.files (workspace_id, record_type, record_id, object_path, name, status)
+    values (ws, 'custom_record', deal, ws || '/custom_record/' || deal || '/contract.pdf', 'contract.pdf', 'ready');
+  insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at, source, custom_record_id)
+    values (ws, cal, 1, 'Inspection', now() + interval '2 days', now() + interval '2 days 1 hour', 'staff', deal)
+    returning id into appt;
+  insert into app.appointment_attendees (workspace_id, appointment_id, person_id) values (ws, appt, person);
+  insert into app.conversations (workspace_id, channel, counterpart, person_id, status, custom_record_id)
+    values (ws, 'portal', 'portal:' || person || ':' || deal, person, 'open', deal) returning id into conv;
+  insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text)
+    values (ws, conv, 'portal', 'inbound', 'received', 'Is the roof something we should push on?');
+  insert into app.addon_alerts (workspace_id, addon_id, key, severity, title, href, permission)
+    values (ws, addon, 'everyone', 'attention', 'For everyone', '/a/' || addon, addon || '.use') returning id into alert;
+  insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)
+    values (ws, 'addon_alert', 'addon_alert', alert, 'For everyone', 'a:' || alert);
+  insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)
+    values (ws, 'overdue_task', 'task', task, 'Order the appraisal', 't:' || task);
+  -- The business's booking site, and a client given the portal.
+  insert into app.booking_sites (workspace_id, slug, name) values (ws, 'streams-' || substr(md5(ws::text), 1, 8), 'Streams Realty');
+  insert into app.portal_access (workspace_id, person_id, public_ref) values (ws, person, substr(md5(random()::text), 1, 8));
+  -- The owner's own check-in at the home, and their safety contact.
+  insert into app.safety_contacts (workspace_id, user_id, name, phone_e164) values (ws, owner, 'Sam Reyes', '+15125550199');
+  insert into app.safety_checkins (id, workspace_id, user_id, place, started_at, planned_end_at)
+    values (gen_random_uuid(), ws, owner, '418 Maple Ave', now(), now() + interval '45 minutes');
+end
+$phone$`;
+
 beforeAll(async () => {
   [owner, member, agencyAdmin, stranger] = await Promise.all([
     createTestUser('streams-owner'),
@@ -148,6 +237,38 @@ beforeAll(async () => {
       sql`select set_config('streams.ws', ${business}, true), set_config('streams.member', ${member.id}, true)`,
     );
     await tx.execute(sql.raw(FIXTURE));
+  });
+  // The phone-kept add-on, installed and on as the commands and the worker leave it.
+  await rows(
+    admin$,
+    sql`select private.register_addon_permissions(${PHONE_ADDON}, ${JSON.stringify([
+      { key: `${PHONE_ADDON}.use`, defaultRoles: ['admin', 'member'], requires: [] },
+      {
+        key: `${PHONE_ADDON}.all_deals`,
+        defaultRoles: ['admin'],
+        requires: [`${PHONE_ADDON}.use`],
+      },
+    ])}::jsonb)`,
+  );
+  await as(owner)((tx) =>
+    rows(
+      tx,
+      sql`select * from private.addon_move(${business}, ${PHONE_ADDON}, 'installing', '1.0.0', 1, 1)`,
+    ),
+  );
+  await asService({ workspaceId: business, organizationId: agency.orgId })((tx) =>
+    rows(
+      tx,
+      sql`update app.addon_installations set state = 'enabled'
+          where workspace_id = ${business} and addon_id = ${PHONE_ADDON}`,
+    ),
+  );
+  await admin$.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('streams.ws', ${business}, true), set_config('streams.owner', ${owner.id}, true),
+            set_config('streams.addon', ${PHONE_ADDON}, true)`,
+    );
+    await tx.execute(sql.raw(PHONE_FIXTURE));
   });
 }, 60_000);
 
@@ -204,7 +325,12 @@ describe('every stream query, for each kind of person', () => {
     ] as const;
   /** Whose copy each stream is for, and so must not be empty. */
   const readerOf = (stream: string): TestUser => {
-    const reader = { me_v1: member, business_v1: owner, agency_v1: agencyAdmin }[stream];
+    const reader = {
+      me_v1: member,
+      business_v1: owner,
+      agency_v1: agencyAdmin,
+      records_v1: owner,
+    }[stream];
     if (!reader) throw new Error(`No reader for ${stream} in this test`);
     return reader;
   };

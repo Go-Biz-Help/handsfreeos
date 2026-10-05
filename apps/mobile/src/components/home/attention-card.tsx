@@ -189,6 +189,26 @@ export function HandleButton({
   );
 }
 
+/**
+ * Got it, on an add-on's alert that asks someone to say they've seen it (board 92), where the web has Acknowledge:
+ * the add-on stops raising it higher.
+ */
+export function AcknowledgeButton({ item, className }: { item: Item; className?: string }) {
+  const env = useHomeEnv();
+  const alert = item.addonAlert;
+  if (!alert?.needsAck || alert.acknowledgedAt) return null;
+  return (
+    <Button
+      variant="secondary"
+      onPress={() => env.act.acknowledge(item)}
+      className={className}
+      testID="attention-acknowledge"
+    >
+      {ATTENTION_WORDS.gotIt}
+    </Button>
+  );
+}
+
 /** "HandsFreeOS will follow up at 9:05 AM · Cancel": the card stays until it goes, so you can still act first. */
 function GoesStrip({ item, at }: { item: Item; at: number | null }) {
   const env = useHomeEnv();
@@ -260,7 +280,9 @@ function RefusedNote({ itemId }: { itemId: string }) {
 /**
  * One thing that needs attention, as the web's card at phone width: the kind, the customer and job, up to three chips
  * that say why it ranks where it does, and whose it is. The main button fits the item and goes full width; Let
- * HandsFreeOS Handle and ⋯ (Snooze, Assign, Dismiss) sit under it, 44 px tall.
+ * HandsFreeOS Handle and ⋯ (Snooze, Assign, Dismiss) sit under it, 44 px tall. An add-on's alert (round six) is named
+ * after its add-on ("Real Estate Agent") and has no Let HandsFreeOS Handle (the add-on says when it's done): Open,
+ * Got it while it asks for one, and ⋯ share one row.
  */
 export function AttentionCard({ item }: { item: Item }) {
   const env = useHomeEnv();
@@ -271,6 +293,7 @@ export function AttentionCard({ item }: { item: Item }) {
   const handing = env.handing.has(item.id);
   const draft = item.kind === 'ai_approval' && isDraftItem(item);
   const calls = item.actions.handle && handleButtonOf(item, true).icon === 'phone';
+  const alert = item.kind === 'addon_alert';
   return (
     <CardFrame testID="attention-card" urgent={item.urgent} highlight={env.highlightId === item.id}>
       <View className="flex-row items-start gap-3">
@@ -280,7 +303,9 @@ export function AttentionCard({ item }: { item: Item }) {
             {head}
             {rest ? <Text className="text-[15.5px] font-normal text-text-2"> · {rest}</Text> : null}
           </Text>
-          <KindLabel kind={item.kind}>{ATTENTION_KIND_LABELS[item.kind]}</KindLabel>
+          <KindLabel kind={item.kind}>
+            {item.addonAlert?.addonName ?? ATTENTION_KIND_LABELS[item.kind]}
+          </KindLabel>
         </View>
         <AssigneeMark assignee={item.assignee} />
       </View>
@@ -299,18 +324,26 @@ export function AttentionCard({ item }: { item: Item }) {
           <Chips chips={chips} />
         </View>
       ) : null}
-      <View className="mt-2.5 gap-2">
-        <HandleButton item={item} className="w-full" />
-        {calls && !env.online ? (
-          <Text className="text-center text-xs text-text-3" testID="attention-calls-need-signal">
-            {HOME_PHONE_WORDS.callsNeedSignal}
-          </Text>
-        ) : null}
-        <View className="flex-row items-center gap-2">
-          <LetHandleButton item={item} className="flex-1" />
+      {alert ? (
+        <View className="mt-2.5 flex-row items-center gap-2">
+          <HandleButton item={item} className="flex-1" />
+          <AcknowledgeButton item={item} />
           <MoreButton onPress={() => env.act.more(item)} />
         </View>
-      </View>
+      ) : (
+        <View className="mt-2.5 gap-2">
+          <HandleButton item={item} className="w-full" />
+          {calls && !env.online ? (
+            <Text className="text-center text-xs text-text-3" testID="attention-calls-need-signal">
+              {HOME_PHONE_WORDS.callsNeedSignal}
+            </Text>
+          ) : null}
+          <View className="flex-row items-center gap-2">
+            <LetHandleButton item={item} className="flex-1" />
+            <MoreButton onPress={() => env.act.more(item)} />
+          </View>
+        </View>
+      )}
       {at !== null ? (
         <GoesStrip item={item} at={at} />
       ) : handing ? (

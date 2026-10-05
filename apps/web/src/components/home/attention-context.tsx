@@ -33,6 +33,8 @@ export interface ItemActions {
   dismissNow(item: AttentionItem, reason: string | null): void;
   assign(item: AttentionItem, userId: string | null): void;
   cancelAuto(ref: AutoRef): void;
+  /** An add-on's alert that asks for it: "I've seen this". */
+  acknowledge(item: AttentionItem): void;
   /** On a phone, ⋯ opens a bottom sheet. */
   more(item: AttentionItem): void;
 }

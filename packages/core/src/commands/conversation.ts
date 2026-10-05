@@ -40,7 +40,11 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 const withWho = (c: { channel: string; counterpart: string }) =>
-  c.channel === 'sms' ? formatPhone(c.counterpart) : c.counterpart;
+  c.channel === 'sms'
+    ? formatPhone(c.counterpart)
+    : c.channel === 'portal'
+      ? 'their client portal'
+      : c.counterpart;
 
 async function personLabel(ctx: CommandContext, personId: string | null): Promise<string | null> {
   if (!personId) return null;
@@ -536,6 +540,13 @@ export const conversationLinkPerson = defineCommand({
         'conversation_private',
         409,
         'This is your own mail, so it isn’t linked to a customer. Share it with the team first, then link it.',
+      );
+    // A portal thread is the client's own: it came from their portal, signed in as them.
+    if (c.channel === 'portal')
+      throw HfosError.rule(
+        'conversation_portal',
+        409,
+        'This thread is from the client’s own portal, so it stays with them. Write to the other customer separately.',
       );
     const person = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (person.archivedAt)

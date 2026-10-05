@@ -22,7 +22,7 @@ import { WorkspaceSwitcher } from './workspace-switcher';
  */
 export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) {
   return (
-    <aside className="sticky top-0 hidden max-h-[100dvh] w-60 flex-none flex-col border-r border-border bg-card px-3 pb-3 pt-4 md:flex">
+    <aside className="sticky top-0 hidden max-h-[100dvh] w-60 flex-none flex-col border-r border-border bg-card px-3 pb-3 pt-4 md:flex print:hidden">
       <div className="flex-none">
         <div className="px-2.5 pb-3.5 pt-1">
           <Brand />

@@ -12,13 +12,14 @@ import {
   nowLabel,
   REQUESTED_LINE,
   rowTimeOf,
+  privateToLine,
   subtitleOf,
   type BusyBlock,
 } from '@hfos/core';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { ChevronRight } from '@/components/icons';
+import { ChevronRight, Lock } from '@/components/icons';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -57,7 +58,10 @@ export function AgendaRow({
   // An iPhone reads a button as one thing, so everything that matters is in its label: the time, what it is, who it
   // is for, and — first among the things a person must not miss — that nobody has been promised this time.
   const notBooked = unbooked ? (hold ? holdWords(hold, timeZone) : REQUESTED_LINE) : null;
-  const label = [time.at, time.length, appt.title, notBooked, subtitle].filter(Boolean).join(' · ');
+  const privateLine = appt.privateTo ? privateToLine(appt.privateTo) : null;
+  const label = [time.at, time.length, appt.title, notBooked, subtitle, privateLine]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <Pressable
       role="button"
@@ -75,9 +79,12 @@ export function AgendaRow({
         style={unbooked ? undefined : { backgroundColor: appt.calendarColor }}
       />
       <View className={cn('min-w-0 flex-1 gap-0.5', faded && 'opacity-60')}>
-        <Text className="text-[15px] font-semibold" numberOfLines={1}>
-          {appt.title}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          {privateLine ? <Icon as={Lock} className="size-3.5 text-text-3" /> : null}
+          <Text className="min-w-0 flex-1 text-[15px] font-semibold" numberOfLines={1}>
+            {appt.title}
+          </Text>
+        </View>
         {unbooked ? (
           <Text
             className="text-[13px] font-medium text-warning-text"
@@ -90,6 +97,11 @@ export function AgendaRow({
         {subtitle ? (
           <Text className="text-[13px] text-text-2" numberOfLines={1}>
             {subtitle}
+          </Text>
+        ) : null}
+        {privateLine ? (
+          <Text className="text-[13px] text-text-3" numberOfLines={1} testID="agenda-private">
+            {privateLine}
           </Text>
         ) : null}
         <View className="mt-[5px] flex-row flex-wrap items-center gap-1.5">

@@ -28,6 +28,11 @@ appId: com.gobizhelp.handsfreeos
     commands:
       - tapOn:
           id: 'tab-more'
+# An add-on running in the business puts its places at the top of More (Real Estate's Deals and duties), and Settings
+# below the fold.
+- scrollUntilVisible:
+    element:
+      id: 'more-settings'
 - tapOn:
     id: 'more-settings'
 - scrollUntilVisible:

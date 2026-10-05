@@ -14,6 +14,7 @@ import type { AssistantServices } from '../assistant/routes';
 import type { MigrationAdapters } from '../migrations/adapters/registry';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
+import type { AddonConnectionRouteOptions } from './addon-connections';
 import type { BookingHttpOptions } from './booking';
 import type { ChatHttpOptions } from './chat';
 import type { FormsHttpOptions } from './forms';
@@ -50,6 +51,8 @@ export interface HttpDeps extends WorkerServices {
   readonly testRoutes?: TestRoutes | null;
   /** Reading the CRM a business is leaving (M11): the sign-in routes need the adapter to build its URL. */
   readonly migrationAdapters?: MigrationAdapters | null;
+  /** The add-ons whose keys and updates the connection routes take (default: the real ones; tests give their own). */
+  readonly addonConnections?: AddonConnectionRouteOptions;
 }
 
 /**

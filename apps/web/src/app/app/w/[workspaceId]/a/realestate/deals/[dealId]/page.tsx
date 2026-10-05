@@ -1,0 +1,151 @@
+import type { Metadata } from 'next';
+import { can } from '@hfos/core';
+import { addonPage } from '@/addons/gate';
+import { DealPage } from '@/addons/realestate/deal-page';
+import { assigneeOptions } from '@/lib/api/people';
+import type { FileItem } from '@/lib/api/types';
+import { apiServer, unwrapPage } from '@/lib/api/server';
+import { brandedOriginFor } from '@/lib/hosting/branded-origin';
+
+export const metadata: Metadata = { title: 'Deal' };
+
+/**
+ * One deal, and a duty on it in the drawer (`?duty=<id>`): where every alert about the deal opens. A deal the person
+ * isn't on and can't see is the business's not-found page, like any record they can't see. A buyer deal also shows
+ * the buyer's side: what they want, their homes and tours, the agreement, financing, their to-do, offers and CMAs.
+ * A listing deal shows the listing's side (round three): the listing, the seller's to-do, matching and CMAs.
+ * Round six: its legal hold while it's on one, and what was noted and checked in the field (notes, the walkthrough).
+ */
+export default async function RealestateDealPage({
+  params,
+}: {
+  params: Promise<{ workspaceId: string; dealId: string }>;
+}) {
+  const { workspaceId, dealId } = await params;
+  return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
+    const { api } = await apiServer();
+    const inDeal = { body: { workspaceId, dealId } };
+    const [got, deal, risks, drafts, members, contingencies, reads, holds, notes, walkthrough] =
+      await Promise.all([
+        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
+        api.POST('/v1/queries/realestate.deal.risks', inDeal).then(unwrapPage),
+        api.POST('/v1/queries/realestate.status_email.list', inDeal).then(unwrapPage),
+        api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+        // Round four: its contingencies, and the contracts read for it.
+        api.POST('/v1/queries/realestate.contingencies', inDeal).then(unwrapPage),
+        api.POST('/v1/queries/realestate.contract.reads', inDeal).then(unwrapPage),
+        // Round six: a legal hold on it (someone who may not read records sees none), its field notes and its
+        // walkthrough.
+        api
+          .POST('/v1/queries/record_hold.list', {
+            body: { workspaceId, customRecordId: dealId, kind: 'legal' },
+          })
+          .then((r) => (r.response.status === 403 ? { holds: [] } : unwrapPage(r))),
+        api.POST('/v1/queries/realestate.field_notes', inDeal).then(unwrapPage),
+        api.POST('/v1/queries/realestate.walkthrough', inDeal).then(unwrapPage),
+      ]);
+    const buyer =
+      deal.deal.side === 'buyer'
+        ? await Promise.all([
+            api.POST('/v1/queries/realestate.buyer_profile.get', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.memory', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.tours', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.financing', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.client_tasks', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.suggestions', inDeal).then(unwrapPage),
+          ]).then(
+            ([profile, memory, homes, tours, financing, tasks, offers, cmas, suggestions]) => ({
+              profile: profile.profile,
+              memory,
+              homes: homes.homes,
+              tours,
+              financing,
+              tasks,
+              offers: offers.offers,
+              cmas: cmas.cmas,
+              suggestions: suggestions.suggestions,
+            }),
+          )
+        : null;
+    const listing =
+      deal.deal.side === 'listing'
+        ? await Promise.all([
+            api.POST('/v1/queries/realestate.listing', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.listing.marketing', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.listing.prices', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.open_houses', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.offers.compare', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.client_tasks', inDeal).then(unwrapPage),
+            api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
+            api
+              .POST('/v1/queries/file.list', {
+                body: { workspaceId, recordType: 'custom_record', recordId: dealId },
+              })
+              .then(unwrapPage),
+            brandedOriginFor(api, workspaceId),
+            api.POST('/v1/queries/realestate.showing.list', inDeal).then(unwrapPage),
+          ]).then(
+            ([
+              l,
+              marketing,
+              prices,
+              openHouses,
+              compare,
+              tasks,
+              cmas,
+              files,
+              brandedOrigin,
+              showings,
+            ]) => ({
+              listing: l.listing,
+              marketing,
+              prices,
+              openHouses,
+              compare,
+              tasks,
+              cmas: cmas.cmas,
+              files: files.files,
+              brandedOrigin,
+              showings,
+            }),
+          )
+        : null;
+    // The deal's files, for the photos and recordings on its notes and walkthrough.
+    const w = walkthrough.walkthrough;
+    const needsFiles =
+      notes.notes.some((n) => n.photoFileIds.length > 0 || !!n.audioFileId) ||
+      (w?.items ?? []).some((i) => i.photoFileIds.length > 0);
+    const fieldFiles: FileItem[] = !needsFiles
+      ? []
+      : listing
+        ? [...listing.files]
+        : unwrapPage(
+            await api.POST('/v1/queries/file.list', {
+              body: { workspaceId, recordType: 'custom_record', recordId: dealId },
+            }),
+          ).files;
+    return (
+      <DealPage
+        workspaceId={workspaceId}
+        timeZone={got.workspace.timezone}
+        deal={deal}
+        risks={risks}
+        drafts={drafts.drafts}
+        members={assigneeOptions(members)}
+        canManage={got.workspace.permissions.includes('realestate.manage')}
+        buyer={buyer}
+        listing={listing}
+        contingencies={contingencies.contingencies}
+        reads={reads.reads}
+        hold={holds.holds.find((h) => h.kind === 'legal') ?? null}
+        canHold={can(got.workspace.permissions, 'records.hold')}
+        canExport={got.workspace.permissions.includes('realestate.export')}
+        field={{ notes: notes.notes, walkthrough: w, files: fieldFiles }}
+      />
+    );
+  });
+}

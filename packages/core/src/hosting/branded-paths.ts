@@ -28,6 +28,8 @@ const PUBLIC_PREFIXES = [
   '/chat/',
   // The chat loader the business pastes into its own site, so the snippet reads as theirs too.
   '/embed/',
+  // An add-on's public pages: a listing's page, an open house's sign-in.
+  '/a/',
 ] as const;
 
 /** A single name with nothing else in it: `/quote`, not `/quote/thanks`. */

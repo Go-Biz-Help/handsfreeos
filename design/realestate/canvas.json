@@ -1,0 +1,748 @@
+{
+  "artboards": [
+    {
+      "file": "DealsHome.dc.html",
+      "title": "1 \u00b7 Deals",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "StartDeal.dc.html",
+      "title": "2 \u00b7 Start a buyer deal from a customer",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DealPage.dc.html",
+      "title": "3 \u00b7 A deal: health, duties, dates, people, commission",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "KeyDates.dc.html",
+      "title": "4 \u00b7 Key dates and terms, with a conflict",
+      "x": 4080,
+      "y": 0,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyDrawer.dc.html",
+      "title": "5 \u00b7 A duty: proof, exception, history",
+      "x": 0,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Documents.dc.html",
+      "title": "6 \u00b7 Documents: versions and signed files kept",
+      "x": 1360,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ClientUpdate.dc.html",
+      "title": "7 \u00b7 Client update with a fair-housing flag",
+      "x": 2720,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyEditor.dc.html",
+      "title": "8 \u00b7 Settings: the duty editor",
+      "x": 4080,
+      "y": 1000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AlertSettings.dc.html",
+      "title": "9 \u00b7 Settings: alerts, business days, client updates",
+      "x": 0,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Panels.dc.html",
+      "title": "10 \u00b7 Panels on a customer and a lead",
+      "x": 1360,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "HomeAlerts.dc.html",
+      "title": "11 \u00b7 Home cards and phone push",
+      "x": 2720,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "SupportAccess.dc.html",
+      "title": "12 \u00b7 Settings: support access",
+      "x": 4080,
+      "y": 2000,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuyerWorkspace.dc.html",
+      "title": "13 \u00b7 A buyer deal: the buyer\u2019s side",
+      "x": 0,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AddHome.dc.html",
+      "title": "14 \u00b7 Add a home: paste the listing, confirm the facts",
+      "x": 1360,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Homes.dc.html",
+      "title": "15 \u00b7 Homes: fit, the client\u2019s answers, where each came from",
+      "x": 2720,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuyerMemory.dc.html",
+      "title": "16 \u00b7 Buyer memory: suggestions with their words, confirmed by the agent",
+      "x": 4080,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PlanTour.dc.html",
+      "title": "17 \u00b7 Plan a tour: refused without an agreement, an owner lets it through",
+      "x": 0,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "CalendarBusy.dc.html",
+      "title": "18 \u00b7 The calendar: a private deal\u2019s tour shows only as busy",
+      "x": 1360,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Cma.dc.html",
+      "title": "19 \u00b7 A CMA: comps, the range, the AI\u2019s summary",
+      "x": 2720,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Offers.dc.html",
+      "title": "20 \u00b7 An offer: versions, counters and the response clock",
+      "x": 4080,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "OfferSummary.dc.html",
+      "title": "21 \u00b7 The client\u2019s one-page offer summary",
+      "x": 0,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Financing.dc.html",
+      "title": "22 \u00b7 The financing tracker",
+      "x": 1360,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Inspections.dc.html",
+      "title": "23 \u00b7 Inspections: findings and the repair request",
+      "x": 2720,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ClientTasks.dc.html",
+      "title": "24 \u00b7 The client\u2019s to-do, and inviting them to the portal",
+      "x": 4080,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "InboxPortalThread.dc.html",
+      "title": "25 \u00b7 A portal message in the Inbox",
+      "x": 0,
+      "y": 6100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalSignIn.dc.html",
+      "title": "26 \u00b7 Portal: the emailed code on a new device",
+      "x": 0,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalHome.dc.html",
+      "title": "27 \u00b7 Portal: home",
+      "x": 470,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalDeal.dc.html",
+      "title": "28 \u00b7 Portal: where the deal stands",
+      "x": 940,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalHomes.dc.html",
+      "title": "29 \u00b7 Portal: homes to save or pass on",
+      "x": 1410,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalTour.dc.html",
+      "title": "30 \u00b7 Portal: feedback after a tour",
+      "x": 1880,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalMessages.dc.html",
+      "title": "31 \u00b7 Portal: messages with the agent",
+      "x": 2350,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ListingWorkspace.dc.html",
+      "title": "32 \u00b7 A listing deal: the listing\u2019s side",
+      "x": 0,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingFacts.dc.html",
+      "title": "33 \u00b7 The home\u2019s facts: the seller\u2019s questionnaire, pasted text, typed",
+      "x": 1360,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingPhotos.dc.html",
+      "title": "34 \u00b7 Photos: order, captions, what the page shows",
+      "x": 2720,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingDescription.dc.html",
+      "title": "35 \u00b7 The description: the AI\u2019s draft, a fair housing flag, the seller signs off",
+      "x": 4080,
+      "y": 8100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "MlsLive.dc.html",
+      "title": "36 \u00b7 Before the MLS: everything public waits, then \u201cMark it live\u201d",
+      "x": 0,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Marketing.dc.html",
+      "title": "37 \u00b7 Marketing: the page, contacts by email or text, social posts",
+      "x": 1360,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Flyer.dc.html",
+      "title": "38 \u00b7 The printable flyer, with a QR code to the page",
+      "x": 2720,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "OpenHouses.dc.html",
+      "title": "39 \u00b7 Open houses: visitors, consent, follow-up, the QR sheet",
+      "x": 4080,
+      "y": 9100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ListingOffers.dc.html",
+      "title": "40 \u00b7 Offers on a listing, side by side with what the seller takes home",
+      "x": 0,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "NetSheet.dc.html",
+      "title": "41 \u00b7 The seller\u2019s estimate: the figures, and each offer\u2019s net",
+      "x": 1360,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PriceChange.dc.html",
+      "title": "42 \u00b7 A price change waits for the seller\u2019s sign-off",
+      "x": 2720,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuyerMatch.dc.html",
+      "title": "43 \u00b7 On a buyer\u2019s deal: \u201cFits from our listings\u201d",
+      "x": 4080,
+      "y": 10100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PublicListing.dc.html",
+      "title": "44 \u00b7 The public page, signed out, on a phone",
+      "x": 0,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "OpenHouseSignIn.dc.html",
+      "title": "45 \u00b7 The open house sign-in, from the QR code",
+      "x": 470,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalListing.dc.html",
+      "title": "46 \u00b7 Portal: the seller\u2019s listing",
+      "x": 940,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalQuestionnaire.dc.html",
+      "title": "47 \u00b7 Portal: the seller\u2019s questionnaire",
+      "x": 1410,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalSignOff.dc.html",
+      "title": "48 \u00b7 Portal: the seller signs off the description (and a new price the same way)",
+      "x": 1880,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalOffers.dc.html",
+      "title": "49 \u00b7 Portal: the offers side by side, and what the seller wants to do",
+      "x": 2350,
+      "y": 11200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "ContractRead.dc.html",
+      "title": "50 \u00b7 The contract read: each value beside its clause, waiting for a person",
+      "x": 0,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AmendmentChanges.dc.html",
+      "title": "51 \u00b7 An amendment: what it changes, and which duties move",
+      "x": 1360,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Contingencies.dc.html",
+      "title": "52 \u00b7 Contingencies: each with its end, and how it ended",
+      "x": 2720,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DutyWaitsOn.dc.html",
+      "title": "53 \u00b7 A duty: what it waits on, what waits on it, and what moves if it slips",
+      "x": 4080,
+      "y": 12200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "LinkedDeal.dc.html",
+      "title": "54 \u00b7 A linked sale and purchase: the other deal\u2019s dates, and the conflict",
+      "x": 0,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "CoordToday.dc.html",
+      "title": "55 \u00b7 Coordinate: Today, the most serious first",
+      "x": 1360,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Exceptions.dc.html",
+      "title": "56 \u00b7 Coordinate: Exceptions, what checking duties by hand used to find",
+      "x": 2720,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "WaitingRoom.dc.html",
+      "title": "57 \u00b7 Coordinate: the Waiting room, with when to chase",
+      "x": 4080,
+      "y": 13200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Workload.dc.html",
+      "title": "58 \u00b7 Coordinate: Team workload",
+      "x": 0,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "DealsFilters.dc.html",
+      "title": "59 \u00b7 Deals: filters by agent, side, stage, closing and who it waits on",
+      "x": 1360,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Escalated.dc.html",
+      "title": "60 \u00b7 Escalated after a business day: the Home card, and choosing the alert people",
+      "x": 2720,
+      "y": 14200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalContingencies.dc.html",
+      "title": "61 \u00b7 Portal: the client\u2019s contingencies and how each ended",
+      "x": 0,
+      "y": 15200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Connections.dc.html",
+      "title": "62 \u00b7 Connections: listing data, e-sign and ShowingTime, each with its health",
+      "x": 0,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ConnectionKey.dc.html",
+      "title": "63 \u00b7 Your own account: tried, then sealed; and one that stopped working",
+      "x": 1360,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedHome.dc.html",
+      "title": "64 \u00b7 A home from the MLS, by address or number: facts, photos and each MLS\u2019s notice",
+      "x": 2720,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedMatches.dc.html",
+      "title": "65 \u00b7 A buyer\u2019s search on the MLS: new matches go to the agent first",
+      "x": 4080,
+      "y": 16200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalFeedHome.dc.html",
+      "title": "66 \u00b7 Portal: a home the agent sent, with its MLS\u2019s notice",
+      "x": 0,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "FeedComps.dc.html",
+      "title": "67 \u00b7 A CMA\u2019s comps from the MLS\u2019s sold homes, picked by the agent",
+      "x": 0,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "FeedStatus.dc.html",
+      "title": "68 \u00b7 Our listing\u2019s status from the MLS: live marked from the feed; a mismatch flagged",
+      "x": 1360,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "EsignSend.dc.html",
+      "title": "69 \u00b7 Send a document for signing with DocuSign or Dotloop",
+      "x": 2720,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "EsignStatus.dc.html",
+      "title": "70 \u00b7 Where each signing stands, and the signed copy back, locked",
+      "x": 4080,
+      "y": 17200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ShowingRequest.dc.html",
+      "title": "71 \u00b7 The listing\u2019s page: a buyer\u2019s agent asks for a showing",
+      "x": 470,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalShowing.dc.html",
+      "title": "72 \u00b7 Portal: the seller says yes to a showing",
+      "x": 940,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Showings.dc.html",
+      "title": "73 \u00b7 A listing\u2019s showings and feedback, from our page and from ShowingTime",
+      "x": 0,
+      "y": 18200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ShowingFeedback.dc.html",
+      "title": "74 \u00b7 Feedback from the buyer\u2019s agent, by its link",
+      "x": 1410,
+      "y": 19200,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Vendors.dc.html",
+      "title": "75 \u00b7 The vendors directory, and picking one on a duty",
+      "x": 1360,
+      "y": 18200,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PhoneDeals.dc.html",
+      "title": "76 \u00b7 Phone: Real Estate in More, Deals, every deal offline, filters",
+      "x": 0,
+      "y": 20344,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDuties.dc.html",
+      "title": "77 \u00b7 Phone: My duties and Coordinate (today, exceptions, workload)",
+      "x": 1858,
+      "y": 20344,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDeal.dc.html",
+      "title": "78 \u00b7 Phone: a buyer deal, a listing deal and the deal\u2019s More",
+      "x": 0,
+      "y": 21584,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDuty.dc.html",
+      "title": "79 \u00b7 Phone: a duty\u2019s proof, done with no signal, what needs signal, back online",
+      "x": 1858,
+      "y": 21584,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDates.dc.html",
+      "title": "80 \u00b7 Phone: key dates, contingencies, resolving one, the contract as read",
+      "x": 0,
+      "y": 22824,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneDocuments.dc.html",
+      "title": "81 \u00b7 Phone: documents, one with no signal, history, a client update",
+      "x": 1858,
+      "y": 22824,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneHomes.dc.html",
+      "title": "82 \u00b7 Phone: what they want, homes, a home from the MLS, new matches",
+      "x": 0,
+      "y": 24064,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneTours.dc.html",
+      "title": "83 \u00b7 Phone: a tour, at a stop (B-07), a voice note, after the tour",
+      "x": 1858,
+      "y": 24064,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneOffers.dc.html",
+      "title": "84 \u00b7 Phone: offers, an offer, its one-page summary, the CMA",
+      "x": 0,
+      "y": 25304,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneFinancing.dc.html",
+      "title": "85 \u00b7 Phone: financing, inspections, adding a finding, the client\u2019s to-do",
+      "x": 1858,
+      "y": 25304,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneWalkthrough.dc.html",
+      "title": "86 \u00b7 Phone: the final walkthrough (X-24), from the list to its proof",
+      "x": 0,
+      "y": 26544,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneListing.dc.html",
+      "title": "87 \u00b7 Phone: the listing\u2019s facts, photos, description and what the MLS said",
+      "x": 1858,
+      "y": 26544,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneMarketing.dc.html",
+      "title": "88 \u00b7 Phone: price, marketing, hosting an open house, the net sheet",
+      "x": 0,
+      "y": 27784,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneShowings.dc.html",
+      "title": "89 \u00b7 Phone: showings, a request, the vendors, picking one on a duty",
+      "x": 1858,
+      "y": 27784,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneSafety.dc.html",
+      "title": "90 \u00b7 Phone: checking in, checked in, \u201cStill there?\u201d, help with no signal",
+      "x": 0,
+      "y": 29024,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneSafetyContact.dc.html",
+      "title": "91 \u00b7 Safety: the contact\u2019s texts and page, a teammate\u2019s alert, My safety",
+      "x": 1858,
+      "y": 29024,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneInbox.dc.html",
+      "title": "92 \u00b7 Phone: portal threads, the Reply that knows, a deal\u2019s appointments, Home cards",
+      "x": 0,
+      "y": 30264,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneRecords.dc.html",
+      "title": "93 \u00b7 Legal hold, export and keeping records, on the phone and the web",
+      "x": 1858,
+      "y": 30264,
+      "w": 2234,
+      "h": 1040
+    }
+  ]
+}

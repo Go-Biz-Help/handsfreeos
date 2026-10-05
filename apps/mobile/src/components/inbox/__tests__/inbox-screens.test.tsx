@@ -124,6 +124,33 @@ describe('a row in the list', () => {
     expect(onPress).toHaveBeenCalledWith('c1');
   });
 
+  it('marks a client’s portal thread Portal, by the client’s name (board 92)', async () => {
+    await render(
+      <ConversationRow
+        c={conversationOf({
+          ...row,
+          id: 'c-ann',
+          channel: 'portal',
+          counterpart: 'portal:p-ann:deal-1',
+          person_id: 'p-ann',
+          first_name: 'Ann',
+          last_name: 'Smith',
+          handled_by: 'none',
+          last_preview: 'Is the roof something we should push on?',
+        })}
+        myUserId={DALE}
+        waitThreshold={60}
+        timeZone="America/Chicago"
+        draftWaiting={false}
+        now={Date.parse('2026-09-17T13:04:00.000Z')}
+        onPress={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('conversation-row-name')).toHaveTextContent('Ann Smith');
+    expect(screen.getByTestId('conversation-row-portal')).toHaveTextContent('Portal');
+    expect(screen.queryByText('New number')).toBeNull();
+  });
+
   it('is one row for a customer who texts and emails, as on the web, with a way between them (0089)', async () => {
     const mike = { ...row, person_id: 'p-mike', first_name: 'Mike', last_name: 'Johnson' };
     const [one, ...more] = groupByCustomer(
@@ -603,6 +630,40 @@ describe('the composer', () => {
     );
     expect(screen.getByLabelText('You can’t text Mike right now')).toBeTruthy();
     expect(screen.queryByTestId('composer-attach')).toBeNull();
+  });
+
+  it('replies in a client’s portal, never by text: no switch, no photos (board 92)', async () => {
+    const view = await render(
+      <Composer
+        {...props}
+        mode="portal"
+        modes={null}
+        canPhoto={false}
+        first="Ann"
+        fromNumber={null}
+        body="I’ll send you the draft tonight to look over."
+      />,
+    );
+    expect(screen.getByLabelText('Reply in Ann’s portal…')).toBeTruthy();
+    expect(screen.getByTestId('composer-portal')).toHaveTextContent(
+      'Replies go back to the portal, where Ann wrote. Not by text.',
+    );
+    expect(screen.queryByTestId('composer-mode-sms')).toBeNull();
+    expect(screen.queryByTestId('composer-attach')).toBeNull();
+    expect(screen.getByLabelText('Send')).toBeTruthy();
+    await view.rerender(
+      <Composer
+        {...props}
+        mode="portal"
+        modes={null}
+        canPhoto={false}
+        first="Ann"
+        online={false}
+      />,
+    );
+    expect(screen.getByTestId('composer-offline')).toHaveTextContent(
+      'Replies written with no signal go out on their own within 30 minutes. After that, the phone asks first.',
+    );
   });
 });
 

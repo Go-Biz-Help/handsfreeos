@@ -68,7 +68,16 @@ export interface AgendaAppointment {
    * shown like a held time rather than as a booking.
    */
   readonly requested?: boolean;
+  /**
+   * The private record it belongs to (a deal's showing, round six): only that record's people have it, everyone else
+   * sees busy. Its name and what kind of record it is ("deal").
+   */
+  readonly privateTo?: { readonly name: string; readonly kind: string } | null;
 }
+
+/** "Alvarez listing · private to the deal": under a private record's appointment, for its people. */
+export const privateToLine = (p: { readonly name: string; readonly kind: string }): string =>
+  `${p.name} · private to the ${p.kind.toLowerCase()}`;
 
 /** The seats still on an appointment: everyone who hasn't cancelled off it. */
 export const bookedSeatsOf = <T extends { readonly status: string }>(

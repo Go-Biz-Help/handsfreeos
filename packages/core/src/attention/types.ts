@@ -69,6 +69,12 @@ export const REASON_CODES = [
   'asked',
   /** An offer about to end: "Fall tune-up $89 · ends Oct 31". */
   'offer_ends',
+  /** How serious an add-on says its alert is: "Critical", "At risk". */
+  'severity',
+  /** An add-on's deadline still ahead, counting down: "due in 2 days". */
+  'due_in',
+  /** An add-on's alert that asks someone to say they've seen it. */
+  'needs_ack',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

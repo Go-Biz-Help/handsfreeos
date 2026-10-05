@@ -5,11 +5,12 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./addons/*": "./src/addons/*.ts"
   },
   "scripts": {
     "lint": "eslint . --config ../../eslint.config.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

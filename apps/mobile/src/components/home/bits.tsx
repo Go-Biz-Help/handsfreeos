@@ -20,6 +20,7 @@ import {
   EyeOff,
   Globe,
   MessageSquareOff,
+  Puzzle,
   Tag,
   GraduationCap,
   Unplug,
@@ -108,6 +109,8 @@ const KIND_LOOK: Readonly<
   website_changed: { icon: Globe, tone: 'accent' },
   offer_lapsing: { icon: Tag, tone: 'warning' },
   texting_rejected: { icon: MessageSquareOff, tone: 'danger' },
+  // An add-on's alert (round six: its cards reach the people who see its record), as the web draws it.
+  addon_alert: { icon: Puzzle, tone: 'warning' },
   faq_suggestions: { icon: CircleQuestionMark, tone: 'ai' },
 };
 

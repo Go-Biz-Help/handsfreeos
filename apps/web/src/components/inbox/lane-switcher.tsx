@@ -1,6 +1,6 @@
 'use client';
 import { ALL_LINES_WORDS } from '@hfos/core';
-import { ChevronDown, Layers, Mail, MessageCircle } from 'lucide-react';
+import { ChevronDown, DoorOpen, Layers, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,8 @@ function LaneIcon({ channel }: { channel: ConversationLane['channel'] }) {
   if (channel === 'email')
     return <Mail className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden />;
   if (channel === 'chat') return <WebsiteIcon className="h-3.5 w-3.5 flex-none" />;
+  if (channel === 'portal')
+    return <DoorOpen className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden />;
   return <MessageCircle className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden />;
 }
 

@@ -108,6 +108,30 @@ import {
 import { brandedDomainCommands } from './branded-domain';
 import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
+import { customRecordTeamCommands } from './custom-record-team';
+import { recordHoldCommands } from './record-hold';
+import { safetyCommands } from './safety';
+import { supportAccessCommands } from './support-access';
+import { addonAlertCommands } from './addon-alert';
+export { addonAlertAcknowledge } from './addon-alert';
+export {
+  supportAccessDecline,
+  supportAccessEnd,
+  supportAccessGrant,
+  supportAccessRequest,
+} from './support-access';
+export { customRecordAssign, customRecordUnassign } from './custom-record-team';
+export { recordHoldLift, recordHoldPlace } from './record-hold';
+export {
+  safetyCheckIn,
+  safetyCheckOut,
+  safetyContactRecord,
+  safetyContactSave,
+  safetyEscalate,
+  safetyExtend,
+  safetyHelp,
+  safetyResolveByLink,
+} from './safety';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
@@ -154,7 +178,7 @@ import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
-import { fileBeginUpload, fileConfirm, fileDelete } from './file';
+import { fileBeginUpload, fileConfirm, fileDelete, fileLock, fileStore } from './file';
 import { importCancel, importCreate, importStart } from './import';
 import { invitationAccept } from './invitation.accept';
 import { invitationResend } from './invitation.resend';
@@ -248,6 +272,16 @@ import {
 } from './knowledge';
 import { offerArchive, offerCreate, offerUpdate } from './offer';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
+import {
+  portalAccessGive,
+  portalAccessRevoke,
+  portalCheckCode,
+  portalSendCode,
+  portalSessionEnd,
+  portalSessionSeen,
+} from './portal-access';
+import { portalFileCommands } from './portal-files';
+import { portalMessageCommands } from './portal-messages';
 import { jobAddVisit, jobSetStatus } from './job';
 import {
   aiTeammateCreate,
@@ -386,6 +420,32 @@ export const {
 } = addonRoadmapCommands(ADDON_CATALOG);
 export { addonRoadmapCommands } from './addon-roadmap';
 
+import { addonGrantCommands } from './addon-grant';
+
+/** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
+export const { give: addonGrantGive, takeBack: addonGrantTakeBack } =
+  addonGrantCommands(ADDON_CATALOG);
+export { addonGrantCommands } from './addon-grant';
+
+import { addonConnectionCommands } from './addon-connection';
+
+/** An add-on's accounts at other services: kept by the worker, let go by a person, HandsFreeOS's own by staff. */
+export const {
+  save: addonConnectionSave,
+  disconnect: addonConnectionDisconnect,
+  health: addonConnectionHealth,
+  webhook: addonConnectionWebhook,
+  beginSignIn: addonConnectionBeginSignIn,
+  endSignIn: addonConnectionEndSignIn,
+  tokens: addonConnectionTokens,
+  platform: addonConnectionPlatform,
+} = addonConnectionCommands(ADDON_CATALOG);
+export {
+  addonConnectionCommands,
+  connectorOf,
+  CONNECTION_FAILURES_BEFORE_ERROR,
+} from './addon-connection';
+
 export {
   conversationAssign,
   conversationArchive,
@@ -464,6 +524,8 @@ export {
   fileBeginUpload,
   fileConfirm,
   fileDelete,
+  fileLock,
+  fileStore,
   importCancel,
   importCreate,
   importStart,
@@ -566,6 +628,7 @@ export { emailReceive, emailSuppressionRecord };
 export { videoLinkCreate, videoLinkStartUpload, videoLinkReceiveUpload };
 export { videoLinkTokenHash, videoUploadPath, fileUploadPath } from './video-link';
 export { fileLinkCreate, leadSaveFileAnswer, fileFinishCopy };
+export { storedFilePath } from './file';
 
 export const commands: readonly CommandDef[] = [
   organizationCreate,
@@ -628,6 +691,8 @@ export const commands: readonly CommandDef[] = [
   fileBeginUpload,
   fileConfirm,
   fileDelete,
+  fileLock,
+  fileStore,
   importCreate,
   importStart,
   importCancel,
@@ -824,6 +889,16 @@ export const commands: readonly CommandDef[] = [
   subscriptionStartForCustomer,
   chatSendCodeForCustomer,
   chatCheckCodeForCustomer,
+  portalAccessGive,
+  portalAccessRevoke,
+  portalSendCode,
+  portalCheckCode,
+  portalSessionSeen,
+  portalSessionEnd,
+  // Files in a customer's portal (round two, step 4).
+  ...portalFileCommands,
+  // Messages in a customer's portal (round two, step 5).
+  ...portalMessageCommands,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -907,6 +982,16 @@ export const commands: readonly CommandDef[] = [
   // Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
   ...customFieldCommands,
   ...customRecordCommands,
+  // Who is on a record kept to its people (Real Estate step 4).
+  ...customRecordTeamCommands,
+  // Legal holds on records (Real Estate round six).
+  ...recordHoldCommands,
+  // Check-ins: a person's safety when they're alone at a customer's place (round six).
+  ...safetyCommands,
+  // HandsFreeOS support let into private records (Real Estate step 4).
+  ...supportAccessCommands,
+  // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
+  ...addonAlertCommands,
   ...relationshipCommands,
   // Ideas, the roadmap and What's new (0102).
   ...ideaCommands,
@@ -928,6 +1013,18 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Staff handing a business an add-on to try (Real Estate, step 2).
+  addonGrantGive,
+  addonGrantTakeBack,
+  // An add-on's accounts at other services (round five).
+  addonConnectionSave,
+  addonConnectionDisconnect,
+  addonConnectionHealth,
+  addonConnectionWebhook,
+  addonConnectionBeginSignIn,
+  addonConnectionEndSignIn,
+  addonConnectionTokens,
+  addonConnectionPlatform,
   // Getting started.
   onboardingSaveAnswers,
   onboardingSkip,
@@ -962,6 +1059,9 @@ export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';
 export * from './chat-verify';
+export * from './portal-access';
+export * from './portal-files';
+export * from './portal-messages';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

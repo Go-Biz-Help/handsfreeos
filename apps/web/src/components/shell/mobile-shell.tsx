@@ -67,7 +67,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
     <>
       <header
         className={cn(
-          'sticky top-0 z-30 flex h-14 flex-none items-center gap-1 border-b border-border bg-card px-2 md:hidden',
+          'sticky top-0 z-30 flex h-14 flex-none items-center gap-1 border-b border-border bg-card px-2 md:hidden print:hidden',
           inThread && 'hidden',
         )}
       >
@@ -116,7 +116,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
       <nav
         aria-label="Primary"
         className={cn(
-          'fixed inset-x-0 bottom-0 z-30 flex h-[66px] border-t border-border bg-card pb-1.5 md:hidden',
+          'fixed inset-x-0 bottom-0 z-30 flex h-[66px] border-t border-border bg-card pb-1.5 md:hidden print:hidden',
           inThread && 'hidden',
         )}
       >

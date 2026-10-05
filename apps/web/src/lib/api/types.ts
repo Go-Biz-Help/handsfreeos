@@ -335,3 +335,6 @@ export type ComingSoonAddon = AddonRoadmap['comingSoon'][number];
 export type AddonNews = NonNullable<Ok<'/v1/queries/addon.news'>['news']>;
 export type AddonPickOverview = Ok<'/v1/queries/addon_pick.overview'>;
 export type AddonMoved = Ok<'/v1/commands/addon.install'>['moved'][number];
+export type AddonConnectionList = Ok<'/v1/queries/addon_connection.list'>;
+export type AddonConnector = AddonConnectionList['connectors'][number];
+export type AddonConnectionRow = AddonConnector['connections'][number];

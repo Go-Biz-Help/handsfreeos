@@ -172,6 +172,17 @@ export interface WorkerEnv {
    * is credited to the ad or post that brought them (opinly.ts). Unset sends nothing.
    */
   readonly opinlyApiKey: string | null;
+  /**
+   * What add-ons connect to (round five): the real services, or stand-ins that accept any key but one with "wrong" in
+   * it, for development and tests.
+   */
+  readonly addonConnectors: 'real' | 'fake';
+  /**
+   * HandsFreeOS's own accounts at the services add-ons connect to, by `<add-on>.<service>` (realestate.repliers):
+   * ADDON_PLATFORM_KEYS, a JSON object of each account's fields. Staff turn one on for a business; its key never
+   * leaves the worker.
+   */
+  readonly addonPlatformKeys: Readonly<Record<string, Readonly<Record<string, string>>>>;
   /** Square: the developer application's id and secret. The id is public and the page loads the SDK with it. */
   readonly squareApplicationId: string | null;
   readonly squareApplicationSecret: string | null;
@@ -536,6 +547,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       'OPINLY_API_KEY must be the secret sk- key from Opinly, not the pk- key the website uses',
     );
 
+  const addonConnectors = (env.ADDON_CONNECTORS ?? (production ? 'real' : 'fake')) as string;
+  if (addonConnectors !== 'real' && addonConnectors !== 'fake')
+    throw new Error('ADDON_CONNECTORS must be real or fake');
+  if (production && addonConnectors === 'fake')
+    throw new Error('ADDON_CONNECTORS=fake is for development and tests only');
+  const addonPlatformKeys = readAddonPlatformKeys(env.ADDON_PLATFORM_KEYS);
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -629,6 +647,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || null,
     stripePlatformWebhookSecret: env.STRIPE_PLATFORM_WEBHOOK_SECRET || null,
     opinlyApiKey,
+    addonConnectors,
+    addonPlatformKeys,
     squareApplicationId,
     squareApplicationSecret,
     squareWebhookSignatureKeys: list(env.SQUARE_WEBHOOK_SIGNATURE_KEYS),
@@ -652,4 +672,36 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     pushProvider: pushProvider as WorkerEnv['pushProvider'],
     expoAccessToken,
   };
+}
+
+/**
+ * ADDON_PLATFORM_KEYS: `{"realestate.repliers": {"apiKey": "…"}}`. Said at deploy when it's the wrong shape, rather
+ * than when a business first needs it.
+ */
+function readAddonPlatformKeys(
+  raw: string | undefined,
+): Readonly<Record<string, Readonly<Record<string, string>>>> {
+  if (!raw?.trim()) return {};
+  const wrong = () =>
+    new Error(
+      'ADDON_PLATFORM_KEYS must be a JSON object like {"realestate.repliers": {"apiKey": "…"}}: each name is ' +
+        '<add-on>.<service>, and each value an object of text fields',
+    );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw wrong();
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw wrong();
+  const out: Record<string, Record<string, string>> = {};
+  for (const [name, fields] of Object.entries(parsed)) {
+    if (!/^[a-z]{2,16}\.[a-z][a-z0-9_]{0,39}$/.test(name)) throw wrong();
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) throw wrong();
+    const entries = Object.entries(fields as Record<string, unknown>);
+    if (!entries.length || entries.some(([, v]) => typeof v !== 'string' || !v.trim()))
+      throw wrong();
+    out[name] = Object.fromEntries(entries.map(([k, v]) => [k, (v as string).trim()]));
+  }
+  return out;
 }

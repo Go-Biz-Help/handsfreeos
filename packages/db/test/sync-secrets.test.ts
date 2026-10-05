@@ -22,6 +22,20 @@ const admin$ = dbs.admin.db;
 /** What phones need (plan: "How much is on the phone"), and so what may be published and read by hfos_sync. */
 const PUBLISHED = [
   'activities',
+  // Round six: what an add-on's phones keep (records_v1).
+  'addon_phone_rows',
+  'custom_record_types',
+  'custom_records',
+  'sync_keys',
+  // Their links (20261022000700).
+  'relationship_types',
+  'relationships',
+  // A person's own check-ins and safety contacts (20261022001000).
+  'safety_checkins',
+  'safety_contacts',
+  // The business's booking site and who has the portal (20261022001100).
+  'booking_sites',
+  'portal_access',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',
@@ -82,6 +96,8 @@ const SECRET_COLUMN =
 
 /** The tables whose columns hold one today: none may ever be published. */
 const SECRET_TABLES = [
+  // Real Estate round five: an add-on's key at another service (a listing feed), sealed. No phone ever needs it.
+  'addon_connections',
   'calendar_connections',
   'chat_visitors',
   // M15: a half-finished answer sheet keeps the hash of the key that reopens it.
@@ -92,8 +108,12 @@ const SECRET_TABLES = [
   'mailbox_connections',
   'migration_connections',
   'payment_connections',
+  // Real Estate round two: a client's signed-in device, kept only as its bearer's hash. No phone ever needs it.
+  'portal_sessions',
   // M16: the sign-in to a Google Business Profile or a Facebook Page. No phone ever needs it.
   'review_connections',
+  // Round six: a safety contact's link to a missed check-out, kept only as its token's hash. No phone needs it.
+  'safety_escalations',
   'telephony_accounts',
   // A Twilio account a business connected to bring its numbers in: its auth token or API key secret, sealed.
   'twilio_connections',

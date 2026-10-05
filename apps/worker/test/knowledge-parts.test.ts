@@ -13,7 +13,7 @@ import {
   sitemapLocations,
   titleFromUrl,
 } from '../src/knowledge/crawl';
-import { DOCUMENT_LIMITS, documentText } from '../src/knowledge/document';
+import { DOCUMENT_TEXT_CHARS, documentText, pdfPages } from '../src/files/document-text';
 import { contentFromItem, pageMessage, plainArticle } from '../src/knowledge/page-items';
 import { parseRobots, robotsAllows } from '../src/knowledge/robots';
 
@@ -241,6 +241,18 @@ describe('document text', () => {
     });
   });
 
+  it('reads a PDF page by page, for an add-on that says where each word was (Real Estate round four)', async () => {
+    const read = await pdfPages(fixture('knowledge-docs/price-list.pdf'));
+    expect(read!.total).toBe(read!.pages.length);
+    expect(read!.total).toBeGreaterThan(1);
+    expect(read!.pages.findIndex((p) => p.includes('AC tune-up: $89 per system.'))).toBe(0);
+    expect(read!.pages.slice(1).some((p) => p.includes('Comfort Club'))).toBe(true);
+    const scan = await pdfPages(fixture('knowledge-docs/scanned.pdf'));
+    expect(scan!.total).toBeGreaterThan(0);
+    expect(scan!.pages.every((p) => p === '')).toBe(true);
+    expect(await pdfPages(Buffer.from('%PDF-1.4 not really a PDF'))).toBeNull();
+  });
+
   it('reads text and markdown as written, cut at 100,000 characters', async () => {
     expect(
       await documentText(
@@ -248,9 +260,9 @@ describe('document text', () => {
         'text',
       ),
     ).toEqual({ text: '# Warranty\n\nTen years on parts.', note: null });
-    const long = await documentText(Buffer.from('a'.repeat(DOCUMENT_LIMITS.chars + 10)), 'text');
+    const long = await documentText(Buffer.from('a'.repeat(DOCUMENT_TEXT_CHARS + 10)), 'text');
     expect(long.note).toBe('truncated');
-    expect(long.text).toHaveLength(DOCUMENT_LIMITS.chars);
+    expect(long.text).toHaveLength(DOCUMENT_TEXT_CHARS);
     expect(await documentText(Buffer.from([0, 1, 2, 3, 0xff, 0xfe, 5, 6, 7, 8]), 'text')).toEqual({
       text: '',
       note: 'unreadable',

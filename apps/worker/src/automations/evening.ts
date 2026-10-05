@@ -113,7 +113,9 @@ export const eveningBriefJob: JobHandler = async (ctx) => {
       .select()
       .from(attentionItems)
       .where(
-        sql`${attentionItems.workspaceId} = ${scope.workspaceId} and ${attentionItems.state} = 'open'`,
+        // An add-on's alerts tell their own people, by push and email, as they happen.
+        sql`${attentionItems.workspaceId} = ${scope.workspaceId} and ${attentionItems.state} = 'open'
+            and ${attentionItems.kind} <> 'addon_alert'`,
       );
     const jobs = await todaysJobs(tx, scope.workspaceId, window);
     const numbers = await dayNumbers(tx, scope.workspaceId, window);

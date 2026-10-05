@@ -18,7 +18,7 @@ export interface ThreadItemFacts {
   readonly occurredAt: string;
   readonly direction: 'inbound' | 'outbound';
   readonly status: string;
-  readonly channel: 'sms' | 'email' | 'chat' | null;
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal' | null;
   readonly body: string | null;
   readonly subject: string | null;
   readonly fromAddress: string | null;

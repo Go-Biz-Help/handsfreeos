@@ -361,6 +361,23 @@ export const customRecordGet = defineQuery({
           sql`select full_name, email::text as email from app.users where id = ${r.createdBy}`,
         )
       : [];
+    // Who is on it, for a record kept to its people (Real Estate step 4); somebody who left reads "Former member".
+    const onIt = [...(r.ownerUserId ? [r.ownerUserId] : []), ...r.teamUserIds];
+    const names = new Map(
+      onIt.length
+        ? (
+            await rows<{ id: string; name: string }>(
+              ctx.tx,
+              sql`select u.id, coalesce(nullif(u.full_name, ''), u.email::text) as name from app.users u
+                  where u.id = any(array[${sql.join(
+                    onIt.map((i) => sql`${i}::uuid`),
+                    sql`, `,
+                  )}])`,
+            )
+          ).map((u) => [u.id, u.name])
+        : [],
+    );
+    const person = (id: string) => ({ id, fullName: names.get(id) ?? 'Former member' });
     return {
       record: {
         id: r.id,
@@ -374,6 +391,9 @@ export const customRecordGet = defineQuery({
           : null,
         createdAt: iso(r.createdAt),
         updatedAt: iso(r.updatedAt),
+        keptToTeam: r.keptToTeam,
+        owner: r.ownerUserId ? person(r.ownerUserId) : null,
+        team: r.teamUserIds.map(person),
       },
     };
   },

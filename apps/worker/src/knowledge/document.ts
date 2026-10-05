@@ -1,13 +1,8 @@
-import {
-  executeCommand,
-  knowledgeDocumentSaveText,
-  scheduleJob,
-  type KnowledgeDocumentNote,
-} from '@hfos/core/server';
+import { executeCommand, knowledgeDocumentSaveText, scheduleJob } from '@hfos/core/server';
 import { asWorker } from '@hfos/db/client';
 import { files } from '@hfos/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { extractText, getDocumentProxy } from 'unpdf';
+import { documentText, type DocumentText } from '../files/document-text';
 import { assertInWorkspace } from '../handlers/file-removed';
 import type { HandlerContext } from '../handlers/types';
 import type { JobHandler } from '../jobs';
@@ -17,17 +12,11 @@ import { systemActor, tenantOf, workerMeta } from '../services';
 /**
  * Documents in the knowledge base: `knowledge_document.added` queues a `knowledge.document` job, which reads
  * the uploaded file (5 MB at most) and saves its text (100,000 characters at most) as a draft document item
- * through knowledge_document.save_text, for a person to review and publish. Text files are read as they
- * are; PDFs with unpdf (MIT, on Mozilla's pdf.js). A PDF with no text in it (a scan) gets an empty draft and
- * the note `no_text`. The text is data, never instructions.
+ * through knowledge_document.save_text, for a person to review and publish (../files/document-text.ts reads
+ * it). A PDF with no text in it (a scan) gets an empty draft and the note `no_text`.
  */
 
-export const DOCUMENT_LIMITS = { bytes: 5 * 1024 * 1024, chars: 100_000 } as const;
-
-export interface DocumentText {
-  readonly text: string;
-  readonly note: KnowledgeDocumentNote | null;
-}
+export const DOCUMENT_LIMITS = { bytes: 5 * 1024 * 1024 } as const;
 
 interface DocumentJob {
   readonly fileId: string;
@@ -116,55 +105,3 @@ export const knowledgeDocumentJob: JobHandler = async (ctx) => {
     workerMeta(job.correlationId, job.causationId),
   );
 };
-
-/** Keeps tabs and new lines; drops other control characters (Postgres text can't hold NUL). */
-function dropControls(s: string): string {
-  let out = '';
-  for (const ch of s) {
-    const c = ch.codePointAt(0)!;
-    if (c === 9 || c === 10 || (c >= 32 && c !== 127)) out += ch;
-  }
-  return out;
-}
-
-/** Whether "text" is mostly binary (control characters or undecodable bytes). */
-function looksBinary(s: string): boolean {
-  if (!s) return false;
-  let odd = 0;
-  for (const ch of s) {
-    const c = ch.codePointAt(0)!;
-    if ((c < 32 && c !== 9 && c !== 10 && c !== 13) || c === 0xfffd) odd++;
-  }
-  return odd / s.length > 0.05;
-}
-
-/** A document's text: text files as written (UTF-8), PDFs through pdf.js. */
-export async function documentText(data: Uint8Array, kind: 'pdf' | 'text'): Promise<DocumentText> {
-  let raw: string;
-  if (kind === 'pdf') {
-    try {
-      const pdf = await getDocumentProxy(new Uint8Array(data));
-      try {
-        raw = (await extractText(pdf, { mergePages: true })).text;
-      } finally {
-        await pdf.loadingTask.destroy();
-      }
-    } catch {
-      return { text: '', note: 'unreadable' };
-    }
-  } else {
-    raw = Buffer.from(data.buffer, data.byteOffset, data.byteLength)
-      .toString('utf8')
-      .replace(/^\uFEFF/, '');
-    if (looksBinary(raw.slice(0, 20_000))) return { text: '', note: 'unreadable' };
-  }
-  // Cleaning is linear; cut well past the limit first so a huge file costs little.
-  const text = dropControls(raw.slice(0, DOCUMENT_LIMITS.chars * 2).replace(/\r\n?/g, '\n'))
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  if (!text) return { text: '', note: 'no_text' };
-  if (text.length > DOCUMENT_LIMITS.chars || raw.length > DOCUMENT_LIMITS.chars * 2)
-    return { text: text.slice(0, DOCUMENT_LIMITS.chars), note: 'truncated' };
-  return { text, note: null };
-}

@@ -3,7 +3,8 @@
  * every change through the command pipeline (events + outbox + audit), invitation emails through the
  * worker into Mailpit, and invitations accepted from the emailed links.
  *
- *   pnpm db:seed     seed a running local stack (does nothing when the data is already there)
+ *   pnpm db:seed     seed a running local stack (does nothing when the data is already there, but adds
+ *                    Hill Country Realty to a stack seeded before it existed)
  *   pnpm db:reset    `supabase db reset` followed by the seed
  *
  * Local only: reads the repo-root .env.local written by `pnpm env:local`.
@@ -39,6 +40,7 @@ import { createSafeFetch } from '../src/http/safe-fetch';
 import { createSmtpMailer } from '../src/mailer';
 import { createUnsubscribeLinks } from '../src/email/unsubscribe';
 import { createMoneyLinks } from '../src/money/links';
+import { createPortalLinks } from '../src/portal/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
@@ -60,6 +62,7 @@ import { seedIdeas } from './seed-ideas';
 import { seedAi, seedKnowledge } from './seed-knowledge';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 import { seedMoney } from './seed-money';
+import { HILL_COUNTRY, seededUser, seedRealestate, type SeededRealestate } from './seed-realestate';
 import { seedWorkflows } from './seed-workflows';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
@@ -88,6 +91,18 @@ const meta = (): RequestMeta => ({
   reason: 'Development seed',
 });
 const step = (msg: string): void => console.log(`• ${msg}`);
+
+/** What the summary says about Hill Country Realty. */
+function realestateSummary(r: SeededRealestate): string {
+  const tourAt = new Date(r.tourAt).toLocaleString('en-US', {
+    timeZone: HILL_COUNTRY.timezone,
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  return `${r.business} (${r.seconds.toFixed(1)}s of the seed) runs Real Estate Agent: ${r.email} works "${r.deal}", a buyer
+deal Under contract for Ann Smith on ${HILL_COUNTRY.property}, with ${r.duties} open duties (the insurance binder's among them)
+and a tour of the home at ${tourAt}. The phone's flow for it: apps/mobile/maestro/realestate-offline.yaml.`;
+}
 
 /**
  * The dev worker's own encryption key (apps/worker/.env, written by `pnpm env:local`; only that line is read),
@@ -167,12 +182,6 @@ async function main(): Promise<void> {
     admin.db,
     sql`select id from app.users where email = ${PEOPLE.chris.email}`,
   );
-  if (existing.length > 0) {
-    console.log(
-      `Seed data is already present (${PEOPLE.chris.email} exists). Run \`pnpm db:reset\` to start from scratch.`,
-    );
-    return;
-  }
 
   const started = Date.now();
   const since = (await rows<{ now: string }>(admin.db, sql`select now()::text as now`))[0]!.now;
@@ -255,6 +264,10 @@ async function main(): Promise<void> {
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
       key,
     }),
+    portalLinks: createPortalLinks({
+      webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      key,
+    }),
     unsubscribeLinks: createUnsubscribeLinks({
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
       publicUrl: process.env.WORKER_PUBLIC_URL ?? 'http://localhost:8788',
@@ -268,6 +281,18 @@ async function main(): Promise<void> {
     batchSize: 50,
     reservedOnly: true,
   };
+  const realestateDeps = { api: api.db, admin: admin.db, worker: deps, actor, meta, step };
+
+  if (existing.length > 0) {
+    console.log(
+      `Seed data is already present (${PEOPLE.chris.email} exists). Run \`pnpm db:reset\` to start from scratch.`,
+    );
+    // Hill Country Realty came after the rest: a stack seeded before it gets it now, and only it.
+    const chris = await seededUser(admin.db, PEOPLE.chris.email, SEED_PASSWORD);
+    const realestate = await seedRealestate(realestateDeps, { chris, password: SEED_PASSWORD });
+    if (realestate) console.log(`\nAdded ${realestateSummary(realestate)}`);
+    return;
+  }
 
   step('Creating accounts (confirmed, one shared demo password)');
   const users = {} as Record<PersonKey, TestUser>;
@@ -527,6 +552,9 @@ async function main(): Promise<void> {
   );
   await drainOutbox(deps, admin.db, since);
 
+  // Real Estate Agent (step 19): its own business, after Chris is staff, who hands the add-on out.
+  const realestate = await seedRealestate(realestateDeps, { chris, password: SEED_PASSWORD });
+
   console.log(`
 Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webUrl}/sign-in with password ${SEED_PASSWORD}:
 
@@ -537,6 +565,7 @@ Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webU
   ${renee.email.padEnd(30)} Owner, Bayou Plumbing Co.
   ${tom.email.padEnd(30)} Owner, Summit Roofing
   ${riley.email.padEnd(30)} Owner of Northstar Electric (separate organization)
+  ${(realestate?.email ?? HILL_COUNTRY.agent.email).padEnd(30)} Owner of ${HILL_COUNTRY.business} (separate organization), with Real Estate Agent on
 
 Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads, tasks, notes and two photos,
 the business number ${LONE_STAR_NUMBER} with texting approved, ${messaging.conversations} conversations (texts, email, an unknown
@@ -580,6 +609,7 @@ duplicate merged into it, one shipped in What's new, one not planned and two und
 ${ideas.published} entries published and a draft; Chris runs the roadmap at ${deps.webUrl}/admin/ideas.
 Lone Star's "${forms.name}" survey is live at ${deps.webUrl}/f/${calendar.site}/${forms.slug} with ${forms.answers} anonymous answers:
 see them under Forms → ${forms.name} → Results on the web, or More → Forms on the phone.
+${realestate ? realestateSummary(realestate) : ''}
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

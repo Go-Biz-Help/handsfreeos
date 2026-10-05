@@ -1,6 +1,6 @@
 import { activities } from '@hfos/db/schema';
 import type { Actor, CommandContext } from '../kernel/types';
-import { userIdOf } from '../kernel/actor';
+import { storedActorType, userIdOf } from '../kernel/actor';
 import { changeMoment } from '../kernel/moment';
 
 export interface SystemActivityInput {
@@ -19,7 +19,9 @@ export interface SystemActivityInput {
 }
 
 export interface ChannelActivityInput {
-  readonly kind: 'sms' | 'email' | 'call' | 'chat';
+  readonly kind: 'sms' | 'email' | 'call' | 'chat' | 'portal';
+  /** The record it's about (a portal message's deal), so a private record's line is sealed with it. */
+  readonly customRecordId?: string | null;
   /** inbound / outbound for texts and email; answered / missed / voicemail / outbound for calls. */
   readonly subtype: string;
   readonly personId: string | null;
@@ -34,8 +36,9 @@ export interface ChannelActivityInput {
 /**
  * What a timeline entry records about who wrote it, when that isn't a person: whose request the system
  * fulfilled (`onBehalfOf`, shown as "Import"), which workflow run did it (`workflow`, shown as
- * "Workflow: <name>" and linking to the run), or the AI teammate (`aiTeammate`, shown as "Ava (AI)", with
- * "approved by Chris" when a person's OK sent it). People's own entries carry nothing extra.
+ * "Workflow: <name>" and linking to the run), the AI teammate (`aiTeammate`, shown as "Ava (AI)", with
+ * "approved by Chris" when a person's OK sent it), or the customer in their portal (`portal`). People's own entries
+ * carry nothing extra.
  */
 export function actorMeta(actor: Actor): Record<string, unknown> {
   switch (actor.type) {
@@ -58,6 +61,12 @@ export function actorMeta(actor: Actor): Record<string, unknown> {
           approvedBy: actor.approvedBy,
         },
       };
+    // The customer, in their own portal: their name leads the line.
+    case 'customer':
+      return { portal: { personId: actor.personId } };
+    // Someone on one of the business's public pages: which page's site they used.
+    case 'public':
+      return { publicPage: { site: actor.site } };
     default:
       return {};
   }
@@ -80,6 +89,7 @@ export async function logChannelActivity(
       kind: input.kind,
       subtype: input.subtype,
       personId: input.personId,
+      ...(input.customRecordId ? { customRecordId: input.customRecordId } : {}),
       body: input.body ?? null,
       occurredAt: input.occurredAt ?? new Date(),
       authorUserId:
@@ -88,7 +98,7 @@ export async function logChannelActivity(
           : ctx.actor.type === 'human'
             ? ctx.actor.userId
             : null,
-      actorType: ctx.actor.type,
+      actorType: storedActorType(ctx.actor),
       eventId: input.eventId ?? null,
       meta: { ...(input.meta ?? {}), ...actorMeta(ctx.actor) },
     })
@@ -117,7 +127,7 @@ export async function logSystemActivity(
       body: input.body ?? null,
       occurredAt: input.occurredAt ?? changeMoment(ctx.meta),
       authorUserId: ctx.actor.type === 'human' ? ctx.actor.userId : null,
-      actorType: ctx.actor.type,
+      actorType: storedActorType(ctx.actor),
       eventId: input.eventId ?? null,
       meta: { ...(input.meta ?? {}), ...actorMeta(ctx.actor) },
     })

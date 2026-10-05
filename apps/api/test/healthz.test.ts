@@ -43,13 +43,31 @@ describe('GET /healthz', () => {
     expect(res.statusCode).toBe(200);
     const paths = Object.keys(res.json().paths);
     const forPeople = registry.commands.filter((c) => (c.actors ?? ['human']).includes('human'));
+    // A customer's own look-ups (their portal, Real Estate round two) are the worker's, never the API's.
+    const queriesForPeople = registry.queries.filter((q) =>
+      (q.actors ?? ['human']).includes('human'),
+    );
     const expected = [
       ...forPeople.map((c) => `/v1/commands/${c.name}`),
-      ...registry.queries.map((q) => `/v1/queries/${q.name}`),
+      ...queriesForPeople.map((q) => `/v1/queries/${q.name}`),
     ];
     expect(paths).toEqual(expect.arrayContaining(expected));
     expect(paths.filter((p) => p.startsWith('/v1/'))).toHaveLength(expected.length);
     expect(expected.length).toBeGreaterThanOrEqual(71);
+  });
+
+  it('keeps everything made for customers in their portal off the API', async () => {
+    const res = await app.inject({ method: 'GET', url: '/openapi.json' });
+    const paths = Object.keys(res.json().paths);
+    const forCustomers = [...registry.commands, ...registry.queries]
+      .filter((op) => op.actors?.includes('customer'))
+      .map((op) => op.name);
+    expect(forCustomers).toEqual(expect.arrayContaining(['portal.home', 'portal.message_send']));
+    for (const name of forCustomers)
+      expect(
+        paths.filter((p) => p.endsWith(`/${name}`)),
+        name,
+      ).toEqual([]);
   });
 
   it('keeps worker-only commands (carrier answers, inbound texts) off the public API', async () => {
@@ -98,6 +116,8 @@ describe('readEnv', () => {
       // Expo: the worker's push access token, and EAS's build token.
       'EXPO_ACCESS_TOKEN',
       'EXPO_TOKEN',
+      // HandsFreeOS's own accounts at the services add-ons connect to (Repliers).
+      'ADDON_PLATFORM_KEYS',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
     // Claude Code's own names in a developer's shell, names that merely end in OAUTH, and the phone app's public

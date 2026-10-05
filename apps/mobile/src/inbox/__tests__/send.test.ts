@@ -91,3 +91,26 @@ it('never puts buttons on an email', async () => {
   });
   expect(jest.mocked(change).mock.calls[0]![1]).not.toHaveProperty('rich');
 });
+
+it('answers a client in their portal, as the web does, with nothing but the words', async () => {
+  await sendReply({
+    ...base,
+    channel: 'portal',
+    body: 'I’ll send you the draft tonight to look over.',
+    photos: [],
+    rich: { kind: 'buttons', buttons: [] },
+  });
+  expect(changes.addPhoto).not.toHaveBeenCalled();
+  expect(change).toHaveBeenCalledWith(
+    'message.send',
+    {
+      workspaceId: WS,
+      conversationId: CONV,
+      channel: 'portal',
+      body: 'I’ll send you the draft tonight to look over.',
+      attachmentFileIds: [],
+      clientId: 'client-1',
+    },
+    { dependsOn: [] },
+  );
+});

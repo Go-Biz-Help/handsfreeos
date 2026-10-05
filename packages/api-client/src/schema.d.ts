@@ -117,6 +117,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon_alert.acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you’ve seen an alert an add-on raised (a late duty, a deal at risk), from its card on Home. The add-on stops raising it higher; it goes when the work is done.
+         * @description Risk level 1. Requires workspace.read. Emits addon_alert.acknowledged.
+         */
+        post: operations["command_addon_alert_acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let go of an add-on’s account at another service. Its key or sign-in is wiped at once; the add-on uses HandsFreeOS’s own account there, if it has one, or nothing.
+         * @description Risk level 2. Requires workspace.read. Emits addon_connection.disconnected.
+         */
+        post: operations["command_addon_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_connection.platform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: turn HandsFreeOS’s own account at a service on or off for one business’s add-on. A business that connects its own account uses that instead.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_connection.platform_changed.
+         */
+        post: operations["command_addon_connection_platform"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_grant.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: let one business install an add-on that is still being built, to try it. Its owners and admins add it from their Add-ons page.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.
+         */
+        post: operations["command_addon_grant_give"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_grant.take_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: stop offering a business an add-on it was handed to try. If it already added it, it keeps running.
+         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.
+         */
+        post: operations["command_addon_grant_take_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon_pick.choose": {
         parameters: {
             query?: never;
@@ -2157,6 +2257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/custom_record.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone on a record kept to its people (a deal): they see it and everything about it. With main, they become its main person (owners and admins only); the one they replace stays on it.
+         * @description Risk level 2. Requires records.write. Emits custom_record.team_changed.
+         */
+        post: operations["command_custom_record_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/custom_record.create": {
         parameters: {
             query?: never;
@@ -2191,6 +2311,26 @@ export interface paths {
          * @description Risk level 1. Requires records.archive. Emits custom_record.restored.
          */
         post: operations["command_custom_record_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a record kept to its people. Its main person can only be taken off by an owner or admin, and the next person on it becomes the main one.
+         * @description Risk level 2. Requires records.write. Emits custom_record.team_changed.
+         */
+        post: operations["command_custom_record_unassign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2651,6 +2791,46 @@ export interface paths {
          * @description Risk level 2. Requires records.write. Emits file.deleted.
          */
         post: operations["command_file_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/file.lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lock a file on a record for good, like a signed contract: nobody can delete or rename it afterwards. Add a newer file to replace it.
+         * @description Risk level 2. Requires records.write. Emits file.locked.
+         */
+        post: operations["command_file_lock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/file.share_to_portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show a file in the portal of the customer it’s on, or of the clients on its record; or stop showing it.
+         * @description Risk level 2. Requires records.write. Emits file.portal_shared.
+         */
+        post: operations["command_file_share_to_portal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5837,6 +6017,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/portal_access.give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lets a customer into their portal and emails them the private link; for someone already in, emails the link again.
+         * @description Risk level 2. Requires records.write. Emits portal.access_given.
+         */
+        post: operations["command_portal_access_give"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/portal_access.revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turns a customer’s portal off: every device they signed in on is signed out, and every link sent stops working.
+         * @description Risk level 2. Requires records.write. Emits portal.access_revoked.
+         */
+        post: operations["command_portal_access_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/product.archive": {
         parameters: {
             query?: never;
@@ -6071,6 +6291,3366 @@ export interface paths {
          * @description Risk level 2. Requires channels.manage. Emits rcs_sender.updated.
          */
         post: operations["command_rcs_sender_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.buyer_profile.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save what a buyer wants: their price range, areas, kinds of home, bedrooms, baths, size, when they need to move, must-haves and deal-breakers. Each save is kept. Words about who lives in an area, rather than the home, are refused.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.buyer_profile.saved. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_buyer_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.client_task.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a deal’s client something to do in their portal: upload a document (a preapproval letter, an ID), sign off on words, or do something; for one client or all of them.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_client_task_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.client_task.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a task given to the client, with the reason. It leaves their portal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.changed.
+         */
+        post: operations["command_realestate_client_task_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.client_task.mark_done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a client’s part of a task done for them, with a note (an ID handed over at the office). A sign-off is the client’s own, in their portal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_client_task_mark_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a CMA summary’s fair-housing flags are fine as written, with the reason. Kept with the CMA; editing it again asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.flags_acknowledged.
+         */
+        post: operations["command_realestate_cma_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.add_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a comparable home to a draft CMA: its address, sold price and date (or asking price while pending or for sale), beds, baths, square feet and distance.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_add_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize a CMA: its range is kept as the comps give it now, and its comps stay as they are.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.finalized, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_cma_finalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.find_comps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the business’s listing feed for homes sold near a draft CMA’s home: they come in as comps from the MLS that don’t count until the agent ticks them.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.cma.comps_requested.
+         */
+        post: operations["command_realestate_cma_find_comps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.remove_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a comp off a draft CMA.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_remove_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a final CMA that hasn’t been shared, to change its comps.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.request_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for the CMA’s summary to be drafted from its numbers, for the agent to check. Replaces the summary there is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.summary_requested.
+         */
+        post: operations["command_realestate_cma_request_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.save_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for a CMA’s summary. They’re checked again for fair-housing risk (the list at once, the model a moment later), and any earlier confirmation of flags no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.summary_saved.
+         */
+        post: operations["command_realestate_cma_save_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.set_subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the facts of the home a draft CMA is for: beds, baths, square feet, list price, year built.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_set_subject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a final CMA with the deal’s client: its range and summary go in their portal as a one-page summary. Refused until its summary has been checked and any fair-housing flag is fixed or kept with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.cma.shared, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_cma_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a CMA for one of a buyer deal’s homes or a listing’s own home, with its facts as the deal has them; or another CMA from an earlier one’s comps.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.started.
+         */
+        post: operations["command_realestate_cma_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.cma.update_comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a draft CMA’s comp: its facts, whether it’s used, and the agent’s adjustments, each with its reason.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.cma.changed.
+         */
+        post: operations["command_realestate_cma_update_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contingency.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Track a contingency on a deal: one of the usual kinds (inspection, financing, appraisal, the sale of the buyer’s home, HOA documents, title review), ending on its key date, or one the contract names, with its own end date.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contingency.added. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_contingency_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contingency.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record how a contingency ended: satisfied, waived or expired, with the signed removal form from the deal’s documents. An owner or admin can record it without the form, with a reason. The client sees it in their portal.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.contingency.resolved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_contingency_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contract.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm values a reading found in a contract, amendment or addendum: each goes on the deal’s key dates as confirmed, with its clause and words, replacing what was there. Duties resting on a date start or move.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.confirmed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_contract_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.contract.reject_value": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside a value a reading found that isn’t right, with why. Nothing on the deal changes; type the right value under Key dates.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.value_rejected.
+         */
+        post: operations["command_realestate_contract_reject_value"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.add_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone from the team on a deal as co-agent, coordinator or assistant: they see it and everything about it. The deal’s main agent does this, and so do owners and admins.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.team_changed.
+         */
+        post: operations["command_realestate_deal_add_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.apply_template_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an open deal to a version of the duty list (the newest unless said): duties it turns off are cancelled, changed ones take its timing and proof, and ones it adds for what already happened are created. Owners and admins.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.deal.template_applied.
+         */
+        post: operations["command_realestate_deal_apply_template_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a deal: out of the lists, with its history, duties, documents and dates kept. Deals are never deleted. Owners and admins.
+         * @description Risk level 3. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_deal_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a deal at Closing closed: a buyer deal moves to Possession and a listing to Sold, the after-closing duties are added, and its Pipeline lead can be marked won too.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.closed.
+         */
+        post: operations["command_realestate_deal_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a deal that won’t close: a listing withdrawn, expired or cancelled, or a buyer who stopped looking or went elsewhere. Its unfinished duties are cancelled with the reason; it can be reopened.
+         * @description Risk level 3. Requires realestate.use. Emits realestate.deal.ended.
+         */
+        post: operations["command_realestate_deal_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the whole transaction: every file on the deal with its fingerprint, and every record, in one zip with a manifest. It’s kept on the deal’s Documents when it’s ready.
+         * @description Risk level 1. Requires realestate.export. Emits realestate.deal.export_requested.
+         */
+        post: operations["command_realestate_deal_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link a buyer deal and a listing: the two sides of one home (they share its property), or a client’s sale and their next purchase (whose dates are then checked against each other).
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.linked, realestate.duty.evidence_added.
+         */
+        post: operations["command_realestate_deal_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.move_stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a deal forward to a later stage. Every stage it passes gets its duties too. It moves back only through what happened (an offer lost, a contract terminated, a listing back on the market).
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.stage_changed.
+         */
+        post: operations["command_realestate_deal_move_stage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a buyer deal or a listing: kept to the people on it, with its client, property and Pipeline lead, and the duties of the stage it starts in and every stage before it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.opened.
+         */
+        post: operations["command_realestate_deal_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.record_event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record something that happened on a deal (an offer came in, the inspection report is in, a repair request, repairs agreed, a low appraisal, an amendment, a changed search), which brings its duties.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.event_recorded.
+         */
+        post: operations["command_realestate_deal_record_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.record_offer_lost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer’s offer was turned down or withdrawn: the deal goes back to Touring, the offer’s terms and unfinished duties are set aside (kept in history), and the next steps are added.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.offer_lost.
+         */
+        post: operations["command_realestate_deal_record_offer_lost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.remove_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a deal. Their unfinished duties go to whoever their role now falls to. Only owners and admins take off the main agent; the next person on it becomes the main one.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.team_changed.
+         */
+        post: operations["command_realestate_deal_remove_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a deal that ended: a listing goes back on the market (Active) and a buyer deal back to work where it was, each with its stage’s duties again.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.reopened.
+         */
+        post: operations["command_realestate_deal_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.report_wire_change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Someone said a deal’s wiring instructions changed: a critical alert at once, and a hold that ends only when a person checks by phone at a number they found themselves. Nothing relays the new instructions.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.wire_change_reported.
+         */
+        post: operations["command_realestate_deal_report_wire_change"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived deal back, as it was. Owners and admins.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_deal_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.set_commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what was agreed for a deal’s commission: a rate of the price or a flat amount, any credit back to the client, and the agent’s split. The expected amount follows the price.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.commission_set.
+         */
+        post: operations["command_realestate_deal_set_commission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.set_facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say what’s true of a deal or its home (financed, an HOA, a well, septic, solar, open houses, a backup offer…). Duties a fact brings are added; ones that no longer apply and haven’t been started are cancelled.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.facts_changed.
+         */
+        post: operations["command_realestate_deal_set_facts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.set_final_commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what a closed deal’s commission came to in the end. Owners and admins (Approve exceptions) only.
+         * @description Risk level 2. Requires realestate.except. Emits realestate.deal.final_commission_set.
+         */
+        post: operations["command_realestate_deal_set_final_commission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.set_property": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which home a deal is about: one already here, or a new one by its address. A deal has one property; a property keeps every deal done on it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.property_set.
+         */
+        post: operations["command_realestate_deal_set_property"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.set_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change what someone on a deal does there: co-agent, coordinator or assistant, or make them its main agent (owners and admins only; the one they replace stays on as co-agent). Duties follow the role.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.deal.team_changed.
+         */
+        post: operations["command_realestate_deal_set_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A contract fell through: a buyer deal goes back to Searching and a listing back to Active, the contract’s terms and unfinished duties are set aside (kept in history), and the steps that follow a termination are added.
+         * @description Risk level 3. Requires realestate.use. Emits realestate.deal.terminated.
+         */
+        post: operations["command_realestate_deal_terminate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.deal.unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a link between two deals. Both keep their property, dates and duties.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.deal.unlinked.
+         */
+        post: operations["command_realestate_deal_unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make one of a deal’s files one of its documents: its kind (purchase contract, amendment, inspection report…), its title, and the document it’s a newer version of.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.added, realestate.contract.read_requested. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_document_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.mark_signed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a deal’s document signed: its file is locked for good (never deleted or renamed), earlier versions are replaced, and it becomes the one that counts of its kind unless another does.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_document_mark_signed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Have the AI read a deal’s contract, amendment or addendum (a PDF, scans too) for its parties, money, dates and contingencies, each with its clause. Nothing changes on the deal until a person confirms each value.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.contract.read_requested.
+         */
+        post: operations["command_realestate_document_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.set_controlling": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which document of its kind counts on a deal (the controlling contract, say), when it isn’t the newest signed one.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.controlling_set.
+         */
+        post: operations["command_realestate_document_set_controlling"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a deal’s document, change its kind while it’s a draft, or say it was sent for signing.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.document.updated.
+         */
+        post: operations["command_realestate_document_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.document.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a deal’s document with the reason (a released contract, a form sent in error). It stays on the deal, signed and locked if it was, and no longer counts.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.document.voided.
+         */
+        post: operations["command_realestate_document_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you’ve seen that a duty is at risk. The alert stops asking; the duty still needs doing.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.acknowledged. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_duty_acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a duty on one deal that its list doesn’t have: its name, who answers for it, how much it matters, what proof finishes it, and when it’s due.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.added.
+         */
+        post: operations["command_realestate_duty_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.add_evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add proof to a duty: one of the deal’s documents or files, a note, the person’s own word (an attestation), an appointment or a message. Answers what’s still missing.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_duty_add_evidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a duty to someone on its deal to answer for, or to nobody by name (the brokerage). Only someone on the deal can have one.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.assigned.
+         */
+        post: operations["command_realestate_duty_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a duty that no longer applies (a stage the deal skipped, a step that won’t happen), with the reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.duty.cancelled.
+         */
+        post: operations["command_realestate_duty_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.chased": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you chased whoever a duty is waiting on outside. The next day to chase moves on two business days, or to the day given.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.duty.chased.
+         */
+        post: operations["command_realestate_duty_chased"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a duty done. Refused until it has the proof its rule asks for, saying what’s missing; an owner or admin can mark it done without it, with a reason.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.completed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_duty_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.complete_with_exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a duty done without the proof its rule asks for, with the reason. Owners and admins (Approve exceptions) only; kept in its history.
+         * @description Risk level 2. Requires realestate.except. Emits realestate.duty.completed.
+         */
+        post: operations["command_realestate_duty_complete_with_exception"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a duty can’t be done before another on the same deal. Its drawer shows what it waits on and who has it, and the deal turns yellow when it’s due soon with that one still open.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.linked.
+         */
+        post: operations["command_realestate_duty_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.pick_vendor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick an approved vendor on a duty (the inspector on “Schedule inspections”, say). Their disclosure is said on the deal; their quote and appointment can be added after.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.vendor_picked.
+         */
+        post: operations["command_realestate_duty_pick_vendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a finished duty back to work, with why: a done one goes back in progress, a waived or cancelled one to not started.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.reopened.
+         */
+        post: operations["command_realestate_duty_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.set_due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set when a duty is due by hand, with why, or clear it so its rule decides again. A date with no time is due at 11:59 pm where the business is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.due_set.
+         */
+        post: operations["command_realestate_duty_set_due"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where a duty stands: not started, in progress, waiting on someone (who), or blocked (by what, whose it is to clear, what it holds up, when to look again). Its due date never moves for it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.status_changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_duty_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back that a duty waits on another, when a person said so. The built-in order of duties stays.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.unlinked.
+         */
+        post: operations["command_realestate_duty_unlink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.unpick_vendor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a vendor off a duty, with the reason. What was kept on it stays, marked.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_unpick_vendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.vendor_appointment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which appointment on the calendar is a picked vendor’s for the duty, or none.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_vendor_appointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.vendor_quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a picked vendor’s quote on the duty: the amount, and the quote itself as one of the deal’s documents.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_duty_vendor_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Waive a duty that isn’t needed on this deal, with the reason. Owners and admins (Approve exceptions) only.
+         * @description Risk level 2. Requires realestate.except. Emits realestate.duty.waived.
+         */
+        post: operations["command_realestate_duty_waive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.duty.withdraw_evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back proof added to a duty by mistake, with why. It stays in the duty’s history and no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_duty_withdraw_evidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.esign.mark_signed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a document in Dotloop has been signed by everyone, so its signed copy is fetched from the loop and kept, locked. (DocuSign says so itself.)
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.signed_reported.
+         */
+        post: operations["command_realestate_esign_mark_signed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.esign.prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get one of a deal’s documents ready for signing in the brokerage’s DocuSign or Dotloop, with who signs it and in what order. The agent then opens it there, places the fields and sends it; nothing is sent to the signers yet.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.requested.
+         */
+        post: operations["command_realestate_esign_prepare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.esign.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a signing, with the reason: it’s voided at DocuSign (nobody can sign it any more) and marked voided here. A Dotloop loop is left for the agent to archive there.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.esign.voided.
+         */
+        post: operations["command_realestate_esign_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.field_note.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note something in the field on a deal: typed, a recording or photos, about the deal, a home, a tour stop, a showing, an open house or the walkthrough. A recording’s words follow on their own.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.field_note.added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_field_note_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.mark_done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a financing step done, with its proof: the lender’s letter or email, or one of the deal’s documents. Only a person marks a step done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.step_done, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_financing_mark_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.reopen_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a financing step marked done, with the reason. Kept in the deal’s history.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_financing_reopen_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.set_lender": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a deal’s lender, loan officer and loan: the buyer’s, on a buyer deal or a listing.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed.
+         */
+        post: operations["command_realestate_financing_set_lender"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.financing.update_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep where a financing step stands: when it started or is expected, the amount (preapproval, appraisal), the locked rate, when it ends, and a note.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.financing.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_financing_update_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add what an inspection found: what and where, how serious, the estimate, the client’s priority, what to ask for and its photos.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_finding_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take off a finding typed in by mistake.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_finding_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.finding.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a finding: its words, how serious, the estimate, the client’s priority, what to ask for or its photos.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_finding_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a home to a buyer deal: its address, a listing’s link (kept for people to open, never read) and, if there is one, the listing’s pasted words, which the AI reads for the home’s facts for the agent to confirm.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_home_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.confirm_facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a home’s facts as the agent checked them against the listing. The AI suggests them; only a person confirms.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.facts_confirmed.
+         */
+        post: operations["command_realestate_home_confirm_facts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look a buyer’s home up on the business’s listing feed again, by its address or an MLS number: its facts, photos and where it stands on the MLS, for the agent to check.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.home.lookup_requested.
+         */
+        post: operations["command_realestate_home_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.home.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where a home stands for the buyer: saved, shortlisted, toured, offer made, passed, or removed from the deal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.status_changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_home_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an inspection on a deal: its kind, the inspector, when, and when the report is expected. On a listing, it’s the buyer’s inspection at the home.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_inspection_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an inspection, with the reason. Its findings stay, but no longer count toward the request.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed.
+         */
+        post: operations["command_realestate_inspection_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.report_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an inspection’s report in, with the uploaded report. The deal’s first report brings the duties that follow one.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.report_in, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_inspection_report_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.inspection.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an inspection’s inspector, time, expected report date or note.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.inspection.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_inspection_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.campaign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tell the business’s contacts about a live listing by email or text: a campaign with exact words from its signed-off description and a link to its page, to the tags or stages picked. It waits in Campaigns for someone to approve it.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.campaign_started, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_campaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.confirm_facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a listing’s facts as the agent checked them, each saying where it came from: the seller’s questionnaire, the old listing, or typed. Only these go on the page and the flyer. The AI suggests; only a person confirms.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.facts_confirmed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_confirm_facts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a listing description’s fair housing flags as written, with the reason. Kept with that version; a new version asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_flags_kept.
+         */
+        post: operations["command_realestate_listing_description_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.let_through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a checked listing description in use without the seller’s sign-off in the portal, with the reason (“signed on paper at the office”). Owners and admins only; kept on the deal’s history.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.description_signed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_description_let_through"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI to draft a listing’s description from its confirmed facts, the agent’s notes and the seller’s own words, for the agent to check and edit. Replaces the one being worked on.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_requested.
+         */
+        post: operations["command_realestate_listing_description_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for a listing’s description as a new version. The fixed list reads them at once and the model a moment later; any flag kept on an earlier version doesn’t carry over.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.description_saved.
+         */
+        post: operations["command_realestate_listing_description_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.description.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a listing’s description to the seller to sign off in their portal, with its exact words. Refused until both fair housing checks have read it and every flag is fixed or kept with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.description_sent, realestate.client_task.added.
+         */
+        post: operations["command_realestate_listing_description_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look the deal’s own listing up on the business’s listing feed, by its MLS number or address: what the MLS says of its facts, beside the seller’s and the old listing’s, and where it stands there.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.listing.lookup_requested.
+         */
+        post: operations["command_realestate_listing_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.mark_live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a listing live on the MLS, with its MLS number and the day it went live, and the MLS page as proof if there is one. Until then nothing about it is shared outside the office. A listing before Active moves there.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.live, realestate.deal.stage_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_mark_live"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.page_publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a listing’s public page up, under the business’s site: its confirmed facts, the photos marked for it, its signed-off description and its open houses. Refused before it’s live on the MLS.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.page_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_page_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.page_take_down": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a listing’s public page down. Its address stays the same if it goes up again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.page_changed.
+         */
+        post: operations["command_realestate_listing_page_take_down"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.paste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste the home’s old listing words: the AI reads only these for its facts, each with the words it came from, for the agent to confirm. Replaces what was pasted before.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.pasted.
+         */
+        post: operations["command_realestate_listing_paste"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.photo_add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add one of the deal’s uploaded photos to the listing, at the end. It’s on the public page and the flyer unless it’s kept for the agent and the seller.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_listing_photo_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.photo_remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a photo off the listing. The file stays in the deal’s files; the page and the flyer stop showing it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed.
+         */
+        post: operations["command_realestate_listing_photo_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.photos_arrange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a listing’s photos in order, with their captions, and say which the public page shows. Every photo is listed, in the order shown.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.photos_changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_listing_photos_arrange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.post_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s own words for one of a listing’s social posts. The fixed list reads them at once and the model a moment later.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.post_saved.
+         */
+        post: operations["command_realestate_listing_post_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.posts_request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI for three social posts about a listing, from its confirmed facts, price, signed-off description and open houses, each read by both fair housing checks. Nothing is posted: the agent copies them once it’s live on the MLS.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.posts_requested.
+         */
+        post: operations["command_realestate_listing_posts_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.price.let_through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a new list price without the seller’s sign-off in the portal, with the reason (“signed the change on paper”). Owners and admins only; kept on the deal’s history.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_listing_price_let_through"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.price.propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the seller to sign off a new list price in their portal, with its exact words (“Change the list price of 418 Maple Ave from $409,000 to $399,000.”). The new price is used only once they sign.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.listing.price_proposed, realestate.client_task.added. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_listing_price_propose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.price.withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a price change still waiting on the seller, with why. Its sign-off task leaves their portal; the price stays as it is.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.listing.price_withdrawn.
+         */
+        post: operations["command_realestate_listing_price_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.listing.request_questionnaire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the seller to tell us about their home in their portal: its beds, baths, size, year built, HOA and garage, what they’ve updated and what they love about it. Asked once; asking again gives the same task.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.client_task.added.
+         */
+        post: operations["command_realestate_listing_request_questionnaire"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.match.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside one of a buyer’s new matches: the client never sees it, and it doesn’t come back.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.match.dismissed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_match_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.match.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a buyer’s new match to the client: it becomes one of the deal’s homes, with what the MLS says of it, and the client sees it in their portal with the MLS’s notice.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.match.sent, realestate.home.added. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_match_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.memory.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remember something a buyer wants or said (“A fenced yard for the dog”, “Must close by June 30”) on their deal. A person’s is kept; the AI’s waits for a person to confirm.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.added. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_memory_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.memory.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm or reject something the AI suggested about a buyer (with the words fixed if need be), or retire something that’s no longer true. Only a person decides.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.memory.decided.
+         */
+        post: operations["command_realestate_memory_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.memory.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI to read what the buyer has said since it last looked, now, and suggest what to remember.
+         * @description Risk level 0. Requires realestate.use. Emits realestate.memory.requested.
+         */
+        post: operations["command_realestate_memory_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.net_sheet.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the figures for a listing’s seller’s estimate: what’s owed on the mortgage, the listing fee, title and escrow, transfer tax and other costs. Each save is kept beside the estimates it made.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.net_sheet.saved, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_net_sheet_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.add_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the next version of an open offer, as it was sent: the seller’s counter, or ours. Who answers next, and by when, follows it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offer_add_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.attach_document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which of the deal’s uploaded documents an offer’s version is: the contract or counter as signed.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offer_attach_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.record_response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record how an offer was answered: accepted (its terms go to the deal’s key dates to confirm, and the deal moves to Under contract), declined, or passed with no answer. With no other offer out, a lost offer takes the deal back to Touring.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offer_record_response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.share_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the newest version of an offer in the client’s portal as a one-page summary in plain words. The team’s notes never show.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.shared.
+         */
+        post: operations["command_realestate_offer_share_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an offer as it was sent: on a buyer deal, one we made on one of their homes; on a listing, one a buyer made on it. Its terms, who it’s with, and when it must be answered by. The contract itself is uploaded as one of the deal’s documents.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.offer.version_added, realestate.deal.event_recorded, realestate.deal.facts_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offer_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offer.withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an open offer, with the reason. With no other offer out, the deal goes back to Touring.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offer.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offer_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.offers.share_comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a listing’s open offers in the seller’s portal side by side, each with what they’d take home (an estimate), as they are now.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.offers.shared, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_offers_share_comparison"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a planned open house: its appointment comes off the calendar and its sign-in page closes.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.cancelled, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.follow_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an open house visitor followed up, with a note. When everyone is, the reminder clears; it’s proof for S-39.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.followed_up, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_follow_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan an open house for a listing: it goes on the host’s calendar, the seller sees it in their portal, and its sign-in page opens an hour before it starts once the listing is live on the MLS.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.planned, realestate.deal.facts_changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_open_house_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.open_house.sign_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A visitor signs in at an open house on the host’s phone, handed to them, as on the sign-in page. On their own, they become a customer with a lead for the host, their yes to texts kept; working with another agent, they’re only recorded.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.open_house.signed_in, person.created, lead.created, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_open_house_sign_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.party.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tie one of the business’s customers or companies to a deal in a role: client, loan officer, other side’s agent, title contact, inspector, vendor, attorney, lender, title company or brokerage.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.party.added.
+         */
+        post: operations["command_realestate_party_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.party.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Untie a customer or company from a deal. They stay one of the business’s contacts, with every other deal they’re on.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.party.removed.
+         */
+        post: operations["command_realestate_party_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * On a listing, keep the buyers’ repair request as it came in: its words, any credit asked for, and when it must be answered by. It brings the duties for answering it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.repair.received, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_repair_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.record_answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the seller’s answer to the repair request: agreed, a counter, or refused, in their words. Agreed brings the duties that follow agreed repairs.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.answered, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_repair_record_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.repair.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the repair request as it was sent to the seller: its words, what it asks for by finding, and when they must answer by.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.repair.sent, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_repair_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.search.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn a buyer’s saved search on the business’s listing feed on or off. On, their profile is asked every fifteen minutes and new homes come to the agent.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.search.changed.
+         */
+        post: operations["command_realestate_search_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a showing of a listing by hand (one booked by phone, say), confirmed: the buyer’s agent, the time, and how to reach them for the access instructions and feedback link.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_showing_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a showing read from a ShowingTime email is right, correcting its time or agent if it was read wrong.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_showing_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a showing request for the seller (confirm or turn it down), or cancel a showing, with a note. The buyer’s agent hears.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.decided. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_showing_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record what a buyer’s agent said about a showing (their buyers’ interest, what they liked, what gave them pause, how the price felt), when they said it by phone or text.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.showing.feedback_received. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_showing_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How showings work on a listing: whether its page takes requests, whether the seller says yes or it’s confirmed on its own, the seller’s open days and times, a showing’s length, the access instructions, and when they and the feedback link go.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_showing_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.showing.share_feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a showing’s feedback with the seller in their portal, as it was given.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.showing.feedback_shared.
+         */
+        post: operations["command_realestate_showing_share_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.acknowledge_flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a client update’s fair-housing flags are fine as written, with the reason. Kept with the update; editing it again asks again.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.flags_acknowledged.
+         */
+        post: operations["command_realestate_status_email_acknowledge_flags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Throw away a client update that won’t be sent. It stays in the deal’s history.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.discarded.
+         */
+        post: operations["command_realestate_status_email_discard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a status email to a deal’s client: HandsFreeOS drafts it from the deal’s facts (its stage, confirmed dates, what’s done and what’s next), checks it for fair-housing risk, and leaves it for the agent to edit and send.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.requested.
+         */
+        post: operations["command_realestate_status_email_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the agent’s edits to a client update. Its words are checked again for fair-housing risk (the list at once, the model a moment later), and any earlier confirmation of flags no longer counts.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.status_email.saved. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_status_email_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.status_email.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a client update the agent has reviewed, as an email to the deal’s client, from the agent’s own mailbox if they have one, else the team inbox. Refused while its fair-housing flags are neither fixed nor confirmed.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.status_email.sent. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_realestate_status_email_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.suggestion.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add one of our listings suggested for a buyer to their homes, with its facts as the listing has them.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.home.added, realestate.suggestion.decided.
+         */
+        post: operations["command_realestate_suggestion_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.suggestion.not_a_fit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside one of our listings suggested for a buyer: it isn’t a fit, with why if you like.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.suggestion.decided.
+         */
+        post: operations["command_realestate_suggestion_not_a_fit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.archive_custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one of the business’s own duties off the list. Deals that have it keep it; new ones won’t once published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_archive_custom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.clear_override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one of the list’s duties back as the catalog has it. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_clear_override"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish the duty list as it’s drafted now: a new version that every new deal takes. Open deals keep theirs until someone applies it to them.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.template.published.
+         */
+        post: operations["command_realestate_template_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.save_custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write one of the business’s own duties, or change one: what brings it (a stage, a date confirmed, a moment), when it’s due, its proof, who answers for it and how much it matters. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_save_custom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.template.set_override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.
+         * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
+         */
+        post: operations["command_realestate_template_set_override"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.term.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a key date or term someone entered without confirming it. Duties resting on a date it confirms become ready to work.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.term.confirmed.
+         */
+        post: operations["command_realestate_term_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.term.enter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter a deal’s key date or term (acceptance, inspection period, closing, price, earnest money…) with where it came from. Saved by a person it’s confirmed unless they say not. An amendment or correction names the entry it replaces; a value that disagrees with one already there waits for a person to choose.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.term.entered.
+         */
+        post: operations["command_realestate_term_enter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.term.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside a key date or term that was entered but never confirmed, with why. It stays in the history. A confirmed one is replaced by entering a correction instead.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.term.rejected.
+         */
+        post: operations["command_realestate_term_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.term.resolve_conflict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle a key date or term whose entries disagree: the one kept counts (confirmed), and the others are set aside, kept in the history with the reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.term.conflict_resolved.
+         */
+        post: operations["command_realestate_term_resolve_conflict"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a planned tour, and its appointment, telling the client if asked.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.canceled, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_tour_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep what a client thought of a home they saw on a tour (loved it, maybe, not for us), as the agent heard it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.feedback_added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_tour_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan a tour of a buyer’s homes: one appointment on the calendar with the homes in order, the client invited. Needs a signed buyer agreement that covers the day, unless an owner or admin makes an exception with a reason.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.planned, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_tour_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.record_visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a home on a tour seen or skipped, with a note for the team. Once every home is, the tour is done.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.visited, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_tour_record_visit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a planned tour to another time, and its appointment with it. The buyer agreement must cover the new day too, unless an owner or admin already let this tour through.
+         * @description Risk level 2. Requires realestate.use. Emits realestate.tour.rescheduled.
+         */
+        post: operations["command_realestate_tour_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.tour.set_stops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change which homes a planned tour sees, and in what order.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.tour.stops_changed.
+         */
+        post: operations["command_realestate_tour_set_stops"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a vendor for the business’s deals, or take the approval back. Only approved vendors are offered on a duty.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.vendor.saved.
+         */
+        post: operations["command_realestate_vendor_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a vendor out of the directory: they’re no longer offered on a duty. The duties they were picked on keep them, as they were.
+         * @description Risk level 2. Requires realestate.manage. Emits realestate.vendor.saved.
+         */
+        post: operations["command_realestate_vendor_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.vendor.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a vendor to the business’s directory, or change one: the company (one in Contacts, or a new one), what they do, where, and any disclosure the client must be told of (an affiliation, a referral fee). A new vendor waits for approval.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_vendor_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.add_item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add something to check on a walkthrough that its list doesn’t have.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_add_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.check_item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one thing on a walkthrough OK, not OK or not sure, with a note and photos; or uncheck it.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_check_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a walkthrough: each thing that isn’t right becomes a duty before closing, and your word that it’s done counts for the walkthrough’s duty.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.finished, realestate.duty.added, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan a deal’s final walkthrough: its checklist from the repairs agreed, what the contract says stays and goes, the inspection’s serious findings and each room.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed, realestate.duty.evidence_added, realestate.duty.evidence_withdrawn.
+         */
+        post: operations["command_realestate_walkthrough_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.walkthrough.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a planned walkthrough, at the home.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.walkthrough.changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_realestate_walkthrough_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record_hold.lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lift a legal hold, with a reason kept on the record: its files and history can be changed and deleted again. Owners and admins.
+         * @description Risk level 3. Requires records.hold. Emits record_hold.lifted.
+         */
+        post: operations["command_record_hold_lift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record_hold.place": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a record on legal hold, with a reason: its files and history stay exactly as they are until the hold is lifted. New ones can still be added. Owners and admins.
+         * @description Risk level 2. Requires records.hold. Emits record_hold.placed.
+         */
+        post: operations["command_record_hold_place"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6537,6 +10117,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/safety_contact.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop telling someone when you miss a check-out.
+         * @description Risk level 1. Requires workspace.read. Emits safety_contact.removed.
+         */
+        post: operations["command_safety_contact_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety_contact.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add or change someone to tell if you miss a check-out: a teammate, or someone outside by phone and email. Someone outside is asked to agree by text first.
+         * @description Risk level 1. Requires workspace.read. Emits safety_contact.saved.
+         */
+        post: operations["command_safety_contact_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.check_in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check in somewhere you’re alone, with when you plan to leave. If you don’t check out, HandsFreeOS asks you, then tells your safety contacts where you were.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_check_in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.check_out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check out: you’ve left. If anyone was told, they hear you’re OK.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_out. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_check_out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add time to your check-in. Answering “Still there?” this way also tells HandsFreeOS you’re OK.
+         * @description Risk level 1. Requires workspace.read. Emits safety.extended. Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_extend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.help": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for help now: your safety contacts are told at once where you are. HandsFreeOS never calls 911; call them yourself if you’re in danger.
+         * @description Risk level 2. Requires workspace.read. Emits safety.help.
+         */
+        post: operations["command_safety_help"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say you reached the teammate who didn’t check out and they’re OK: the alerts stop for everyone. Only someone they asked to be told can.
+         * @description Risk level 1. Requires workspace.read. Emits safety.resolved.
+         */
+        post: operations["command_safety_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.settings_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
+         */
+        post: operations["command_safety_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/schedule.set": {
         parameters: {
             query?: never;
@@ -6871,6 +10611,86 @@ export interface paths {
          * @description Risk level 3. Requires money.bill. Emits subscription.started.
          */
         post: operations["command_subscription_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say no to HandsFreeOS support’s request to see this business’s private records.
+         * @description Risk level 1. Requires records.read. Emits support_access.declined.
+         */
+        post: operations["command_support_access_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End HandsFreeOS support’s access to this business’s private records now.
+         * @description Risk level 1. Requires records.read. Emits support_access.ended.
+         */
+        post: operations["command_support_access_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let HandsFreeOS support see the private records you see (your deals), read-only, for 24 hours: answering their request, or unasked.
+         * @description Risk level 3. Requires records.read. Emits support_access.granted.
+         */
+        post: operations["command_support_access_grant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support_access.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: ask a business to let you see its private records (its deals) from your look at it, for 24 hours. Its owners and admins are emailed.
+         * @description Risk level 2. Requires platform.view_as. Emits support_access.requested.
+         */
+        post: operations["command_support_access_request"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8611,6 +12431,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_account_me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/addon_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What an add-on connects to: each service it can use, and the business’s accounts there with whether they work.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_connection_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11097,6 +14937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/portal_access.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether a customer is in the portal: when and by whom they were let in, when they last used it, and the devices signed in now.
+         * @description Requires records.read.
+         */
+        post: operations["query_portal_access_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/product.list": {
         parameters: {
             query?: never;
@@ -11131,6 +14991,1006 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_push_device_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.buyer_profile.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a buyer wants, as last saved on their deal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_buyer_profile_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.client_tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a deal’s clients do themselves in their portal: each task, who it’s waiting on, what each client did; and whether each client has the portal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_client_tasks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.cma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One CMA: the home and its facts, each comp with its value for the home and why it is or isn’t counted, the range, the summary and its fair-housing checks, and whether it can be shared.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_cma"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.cmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s CMAs: the home each is for, where it stands and its range.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_cmas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.connections.uses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the business’s Real Estate connections are used for: the open listings and buyers’ searches on the listing feed, the documents out for signing, and the ShowingTime emails read this month.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_connections_uses"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contingencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s contingencies: when each ends, whether it’s open, ending soon or past its end, and how each ended, with the form.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contingencies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contract.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One reading of a contract, amendment or addendum: each value with its clause, page and words, beside what counts on the deal now, what confirming them would move, and what the AI couldn’t place.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contract_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.contract.reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The readings of a deal’s contracts and amendments, newest first: each one’s state and how many values wait to be confirmed.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_contract_reads"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.deal.for": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The deals of one customer, company, Pipeline lead or property that the person sees: a panel on its page.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_for"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.deal.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.deal.history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What happened on a deal, newest first: who did it (a person, HandsFreeOS or the AI), what changed from what, and why.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_history"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.deal.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The deals the person sees: open, closed, ended, archived or all; theirs or everyone’s they see; buyer deals or listings; searched by name, client or address.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.deal.risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What could stop a deal closing: its health with every reason, and each open material or critical duty with who answers for it, when it’s due, the proof it still needs and the next step.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_risks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.document.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s documents, each with its kind, version, status, whether it’s the one that counts and whether its file is locked.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_document_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.duty.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One duty whole: what it is and why, who answers for it, when it’s due and how that was worked out, what finishes it and what’s still missing, its proof, and everything that happened to it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.duty.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duties across the deals the person sees, soonest due first: theirs or everyone’s, open, overdue, drafts or all, on one deal or every one.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.duty.vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vendors on a duty: what it needs, every approved vendor that does it (those working where the home is first, each with any disclosure), and the ones picked with their quotes and appointments.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_duty_vendors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.esign.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s documents sent for signing through DocuSign or Dotloop, newest first: where each stands, who has signed, and which services are connected here.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_esign_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What checking duties by hand used to find, across the deals the person sees: values read from contracts waiting, dates or terms that disagree, duties nobody answers for, material work due soon with no proof, contingencies past their end, linked deals that disagree, and blockers past their review.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_exceptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s transaction exports: when each was asked for, whether it’s ready, and its file.
+         * @description Requires realestate.export.
+         */
+        post: operations["query_realestate_exports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.field_notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s field notes, newest first: what was typed, said or photographed, and about what.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_field_notes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.financing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s financing: the lender and loan, each step from preapproval to funding with its dates and proof, and the Closing Disclosure’s deadline.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_financing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.homes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s homes: each one’s facts (and where the AI found them, until confirmed), where it stands, how it fits what the buyer wants, and what each client said about it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_homes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.inspections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s inspections and what each found, the repair request and the seller’s answers, the request the findings would draft now, and when the inspection period ends.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_inspections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing deal’s listing: the home’s facts and where each came from, what the seller and the old listing say, its photos, when it went live on the MLS, its public page and its list price.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.flyer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a listing’s printable flyer shows: its first photos, price, confirmed facts, signed-off description, its agent and the QR code to its page. Refused before it’s live on the MLS.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_flyer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.marketing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s marketing: whether it’s live on the MLS (and the hold until it is), its public page, what’s still missing, and its social post drafts with their checks.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_marketing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.listing.prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s price: the one in use, a change waiting on the seller’s sign-off, and every change asked for.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_listing_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s saved search on the listing feed: what it asks, whether it’s on, and the homes it found, new ones first, each with how it fits what the buyer wants.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_matches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s remembered about a buyer on their deal: what they like, can’t stand, must have, their timing and money, each with the words it came from; and the AI’s suggestions waiting for a person.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s offers: each version and counter with its terms and document, who answers next and by when, and the one-page summary the client sees.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_offers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.offers.compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s open offers side by side, newest version of each, with what the seller would take home from each, the figures used, what was last shared with the seller and what they said.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_offers_compare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.open_houses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s open houses: when, who hosts, the sign-in page, and who signed in, with whether they’re working with an agent, agreed to texts and have been followed up.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_open_houses"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Real Estate Agent at a glance: open deals in the business and the person’s own, and their overdue and this week’s duties.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.property.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Properties already here whose address matches, with how many deals each has: to start a deal on a home the business knows.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_property_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.showing.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s showings, newest first: who, when, where each stands and where it came from (its page, ShowingTime’s emails, or added by hand), the feedback, what buyers said in all, and how showings work on it.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_showing_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.status_email.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One client update: its words, who it’s to, the fair-housing flags on its words as they are now (with why and a safer way to say it), and whether it can be sent.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_status_email_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.status_email.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s client updates, newest first: drafting, ready to review, sent or thrown away.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_status_email_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Our own listings that fit what a buyer wants, suggested on their deal: each with its facts, how it fits, and whether it was added or set aside.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_suggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What moving an open deal to a version of the duty list (the newest unless said) would change: duties turned off, duties changed, and duties it would gain.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_diff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.template.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every published version of the duty list, newest first, with how many open deals follow each.
+         * @description Requires realestate.manage.
+         */
+        post: operations["query_realestate_template_versions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.term.history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every value a deal’s key dates and terms have had: where each came from, who entered and confirmed it, and what replaced it or why it was set aside.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_term_history"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today across the deals the person sees: what’s at risk (escalated duties, dates that disagree, contingencies ending or passed), what’s overdue and what’s due today, the most serious first.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_today"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A buyer deal’s tours: when, the homes in order, which were seen, what the client thought of each; and whether the buyer agreement lets a tour go ahead today.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_tours"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.vendor.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s vendors: what each does and where, whether it’s approved, any disclosure, and how often deals used them.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_vendor_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.waiting_room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s waiting on someone outside, or blocked, across the deals the person sees: who, since when, and when to chase or look again; past its day first.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_waiting_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.walkthrough": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A deal’s walkthrough: the open one, or the last one finished, with each thing to check and how it was.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_walkthrough"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.workload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who has what across every deal: each person’s deals, open duties, overdue ones, ones due within two business days, and deals at risk. For people who can see every deal.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_workload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/record_hold.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The holds on a record (or on every record you see here): legal holds with who placed them and why, and how long closed records are kept.
+         * @description Requires records.read.
+         */
+        post: operations["query_record_hold_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11237,6 +16097,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/safety.alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For a teammate someone asked to be told: where they were when they missed their check-out, and how to reach them, while it’s yours to answer.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_alert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/safety.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your safety contacts here, and your check-in if one is open.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/safety.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_safety_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/schedule.team": {
         parameters: {
             query?: never;
@@ -11311,6 +16231,26 @@ export interface paths {
          * @description Requires money.bill.
          */
         post: operations["query_subscription_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support_access.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS support’s requests to see this business’s private records, and the access it has been given, newest first.
+         * @description Requires records.read.
+         */
+        post: operations["query_support_access_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12144,6 +17084,177 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_alert_acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    alertId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        acknowledgedAt: string;
+                        /** Format: uuid */
+                        alertId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_connection_platform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    connector: string;
+                    on: boolean;
+                    provider: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        connectionId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_grant_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        changed: boolean;
+                        granted: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_grant_take_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        changed: boolean;
+                        granted: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -13537,7 +18648,7 @@ export interface operations {
                     action?: "hand_to_ai" | "reply" | "set_next_action";
                     body?: string;
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     dueAt?: string | null;
                     /** Format: uuid */
                     itemId: string;
@@ -13646,6 +18757,11 @@ export interface operations {
                         };
                         /** @default {} */
                         kinds?: {
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            addon_alert?: true;
                             /** @default true */
                             ai_approval?: boolean;
                             /** @default true */
@@ -13803,6 +18919,11 @@ export interface operations {
                                 urgentAfterMinutes: number;
                             };
                             kinds: {
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                addon_alert: true;
                                 /** @default true */
                                 ai_approval: boolean;
                                 /** @default true */
@@ -15234,6 +20355,12 @@ export interface operations {
                     offerId?: string | null;
                     /** @default 20 */
                     perHour?: number;
+                    /** @default null */
+                    words?: {
+                        body?: string;
+                        subject?: string;
+                        text?: string;
+                    } | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -16920,6 +22047,51 @@ export interface operations {
             };
         };
     };
+    command_custom_record_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** @default false */
+                    main?: boolean;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_custom_record_create: {
         parameters: {
             query?: never;
@@ -16932,6 +22104,8 @@ export interface operations {
                 "application/json": {
                     name: string;
                     notes?: string | null;
+                    /** Format: uuid */
+                    ownerUserId?: string;
                     relateTo?: {
                         note?: string | null;
                         /** Format: uuid */
@@ -16941,6 +22115,7 @@ export interface operations {
                         /** @enum {string} */
                         side: "a" | "b";
                     };
+                    teamUserIds?: string[];
                     /** Format: uuid */
                     typeId: string;
                     values?: {
@@ -16994,6 +22169,49 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         customRecordId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_unassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
                     };
                 };
             };
@@ -17824,7 +23042,7 @@ export interface operations {
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
-                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv";
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm";
                     name: string;
                     /** Format: uuid */
                     recordId: string;
@@ -17914,6 +23132,81 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         fileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_file_lock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    /**
+                     * @default signed
+                     * @enum {string}
+                     */
+                    reason?: "signed" | "final" | "record";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        fileId: string;
+                        /** Format: date-time */
+                        lockedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_file_share_to_portal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    shared: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        fileId: string;
+                        shared: boolean;
                     };
                 };
             };
@@ -21428,7 +26721,7 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     clientId?: string;
                     /** Format: uuid */
                     conversationId?: string;
@@ -23505,7 +28798,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -23539,7 +28832,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -24574,6 +29867,74 @@ export interface operations {
             };
         };
     };
+    command_portal_access_give: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accessId: string;
+                        resent: boolean;
+                        sentTo: string;
+                    };
+                };
+            };
+        };
+    };
+    command_portal_access_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accessId: string;
+                        /** Format: date-time */
+                        revokedAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_product_archive: {
         parameters: {
             query?: never;
@@ -25039,6 +30400,7089 @@ export interface operations {
                         rcsSenderId: string;
                         /** @enum {string} */
                         status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_buyer_profile_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    profile: {
+                        /** @default [] */
+                        areas?: string[];
+                        /** @default null */
+                        bathsMin?: number | null;
+                        /** @default null */
+                        bedsMin?: number | null;
+                        /** @default null */
+                        budgetMaxCents?: number | null;
+                        /** @default null */
+                        budgetMinCents?: number | null;
+                        /** @default [] */
+                        dealBreakers?: string[];
+                        /** @default [] */
+                        homeTypes?: ("single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land")[];
+                        /** @default null */
+                        moveBy?: string | null;
+                        /** @default [] */
+                        mustHaves?: string[];
+                        /** @default null */
+                        sqftMin?: number | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    detail?: string;
+                    /** @enum {string} */
+                    documentKind?: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /** Format: date */
+                    dueOn?: string;
+                    /** Format: uuid */
+                    forPersonId?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @enum {string} */
+                    kind?: "upload" | "sign_off" | "do";
+                    /** @enum {string} */
+                    preset?: "preapproval" | "buyer_agreement" | "photo_id" | "repair_sign_off" | "closing_items" | "listing_agreement" | "seller_disclosure" | "mortgage_payoff" | "repair_answer_sign_off" | "keys_at_closing";
+                    signOffWords?: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "open" | "done" | "canceled";
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_client_task_mark_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId?: string;
+                    note: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "open" | "done" | "canceled";
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_add_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    baths?: number | null;
+                    beds?: number | null;
+                    /** Format: uuid */
+                    cmaId: string;
+                    distanceMiles?: number | null;
+                    note?: string;
+                    priceCents: number;
+                    soldOn?: string | null;
+                    sqft?: number | null;
+                    /**
+                     * @default sold
+                     * @enum {string}
+                     */
+                    status?: "sold" | "pending" | "active";
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** Format: uuid */
+                        compId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_finalize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_find_comps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** @default 1 */
+                    miles?: number;
+                    /** @default 6 */
+                    months?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {boolean} */
+                        finding: true;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_remove_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    compId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_request_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_save_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    summary: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_set_subject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baths: number | null;
+                    beds: number | null;
+                    /** Format: uuid */
+                    cmaId: string;
+                    listPriceCents: number | null;
+                    sqft: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    fromCmaId?: string;
+                    /** Format: uuid */
+                    homeId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        comps: number;
+                        number: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_cma_update_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: string;
+                    adjustments?: {
+                        cents: number;
+                        label: string;
+                    }[];
+                    baths?: number | null;
+                    beds?: number | null;
+                    /** Format: uuid */
+                    compId: string;
+                    distanceMiles?: number | null;
+                    note?: string | null;
+                    priceCents?: number;
+                    soldOn?: string | null;
+                    sqft?: number | null;
+                    /** @enum {string} */
+                    status?: "sold" | "pending" | "active";
+                    used?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                    yearBuilt?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cmaId: string;
+                        /** @enum {string} */
+                        status: "draft" | "final" | "shared";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contingency_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    date?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: date */
+                    endsOn?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @enum {string} */
+                    kind: "inspection" | "financing" | "appraisal" | "home_sale" | "hoa" | "title" | "other";
+                    label?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        contingencyId: string;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contingency_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    contingencyId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** @enum {string} */
+                    how: "satisfied" | "waived" | "expired";
+                    note?: string;
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        contingencyId: string;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contract_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    valueIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        confirmed: number;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        readId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_contract_reject_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    valueId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        readId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_add_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /**
+                     * @default co_agent
+                     * @enum {string}
+                     */
+                    role?: "co_agent" | "coordinator" | "assistant";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesHandedOver: number;
+                        team: {
+                            main: boolean;
+                            name: string;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_apply_template_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    templateSetId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: {
+                            add: {
+                                key: string;
+                                title: string;
+                            }[];
+                            cancel: {
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                            redefine: {
+                                changes: string[];
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    markLeadWon?: boolean;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        leadWon: boolean;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    how: "withdrawn" | "expired" | "cancelled" | "lost";
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        exportId: string;
+                        /** @enum {string} */
+                        state: "building" | "ready" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    kind: "same_home" | "sale_and_purchase";
+                    /** Format: uuid */
+                    otherDealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        otherDealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_move_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string;
+                    stage: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    clientPersonId?: string;
+                    /** @default [] */
+                    facts?: ("financed" | "first_time_buyer" | "hoa" | "survey" | "well" | "septic" | "solar" | "pool" | "propane" | "private_road" | "specialists_needed" | "multiple_offers" | "open_house" | "backup_offer" | "seller_has_mortgage" | "home_warranty" | "relocation" | "wants_move_help" | "linked_sale")[];
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** Format: uuid */
+                    mainAgentUserId?: string;
+                    name: string;
+                    newPropertyAddress?: string;
+                    notes?: string;
+                    /** Format: uuid */
+                    propertyId?: string;
+                    /** @enum {string} */
+                    side: "buyer" | "listing";
+                    stage?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCreated: number;
+                        propertyId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_record_event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    event: "offer_received" | "inspection_report" | "repair_request" | "repairs_agreed" | "low_appraisal" | "amendment" | "search_changed";
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_record_offer_lost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_remove_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesHandedOver: number;
+                        team: {
+                            main: boolean;
+                            name: string;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_report_wire_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    from?: string;
+                    /** @enum {string} */
+                    how: "email" | "text" | "phone" | "other";
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_set_commission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 0 */
+                    creditCents?: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    flatCents: number | null;
+                    rateBp: number | null;
+                    splitBp: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        commission: {
+                            agentShareCents: number | null;
+                            creditCents: number;
+                            expectedCents: number | null;
+                            finalAt: string | null;
+                            finalCents: number | null;
+                            flatCents: number | null;
+                            grossCents: number | null;
+                            rateBp: number | null;
+                            splitBp: number | null;
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_set_facts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    facts: ("financed" | "first_time_buyer" | "hoa" | "survey" | "well" | "septic" | "solar" | "pool" | "propane" | "private_road" | "specialists_needed" | "multiple_offers" | "open_house" | "backup_offer" | "seller_has_mortgage" | "home_warranty" | "relocation" | "wants_move_help" | "linked_sale")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        facts: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_set_final_commission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cents: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        commission: {
+                            agentShareCents: number | null;
+                            creditCents: number;
+                            expectedCents: number | null;
+                            finalAt: string | null;
+                            finalCents: number | null;
+                            flatCents: number | null;
+                            grossCents: number | null;
+                            rateBp: number | null;
+                            splitBp: number | null;
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_set_property: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    newPropertyAddress?: string;
+                    /** Format: uuid */
+                    propertyId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        propertyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_set_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    role: "agent" | "co_agent" | "coordinator" | "assistant";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesHandedOver: number;
+                        team: {
+                            main: boolean;
+                            name: string;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_terminate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesCancelled: number;
+                        dutiesCreated: number;
+                        stage: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_deal_unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    kind: "same_home" | "sale_and_purchase";
+                    /** Format: uuid */
+                    otherDealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        otherDealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @enum {string} */
+                    kind: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /**
+                     * @default draft
+                     * @enum {string}
+                     */
+                    status?: "draft" | "sent";
+                    /** Format: uuid */
+                    supersedesId?: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_mark_signed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        readId: string;
+                        /** @enum {string} */
+                        state: "reading" | "read" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_set_controlling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** @enum {string} */
+                    kind?: "buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other";
+                    /** @enum {string} */
+                    status?: "draft" | "sent";
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_document_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        controlling: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "signed" | "superseded" | "void";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    accountableUserId?: string;
+                    attestation?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    details?: string;
+                    /** Format: date */
+                    dueDate?: string;
+                    dueTime?: string;
+                    /**
+                     * @default standard
+                     * @enum {string}
+                     */
+                    materiality?: "standard" | "material" | "critical";
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    proof?: "none" | "note" | "file" | "attestation";
+                    title: string;
+                    /**
+                     * @default HEALTH
+                     * @enum {string}
+                     */
+                    tracker?: "LEAD" | "REP" | "FIN" | "SEARCH" | "SHOW" | "CMA" | "OFFER" | "CONTRACT" | "INSPECT" | "REPAIR" | "APPRAISAL" | "TITLE" | "LISTING" | "MARKET" | "VENDOR" | "OPEN" | "CLOSE" | "POSSESS" | "DOC" | "COMPLY" | "HEALTH" | "POST" | "SAFETY" | "MOVE";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_add_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    body?: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    fileId?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @enum {string} */
+                    kind: "document" | "file" | "note" | "attestation" | "appointment" | "message";
+                    /** Format: uuid */
+                    messageId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        evidenceId: string;
+                        missing: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    userId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_chased: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: date */
+                    nextOn?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_complete_with_exception: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    waitsOnId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        waitsOnId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_pick_vendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_set_due: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    clear?: boolean;
+                    /** Format: date */
+                    date?: string;
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason?: string;
+                    time?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    blocker?: {
+                        impact: string;
+                        owner: string;
+                        /** Format: date-time */
+                        reviewAt: string;
+                        what: string;
+                    };
+                    /** Format: date */
+                    chaseOn?: string;
+                    /** Format: uuid */
+                    dutyId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    status: "not_started" | "in_progress" | "waiting_external" | "blocked";
+                    waitingOn?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    waitsOnId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        waitsOnId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_unpick_vendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pickId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_vendor_appointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appointmentId: string | null;
+                    /** Format: uuid */
+                    pickId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_vendor_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cents: number | null;
+                    documentId?: string | null;
+                    /** Format: uuid */
+                    pickId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        pickId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_waive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** @enum {string} */
+                        status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_duty_withdraw_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    evidenceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        /** Format: uuid */
+                        evidenceId: string;
+                        missing: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_mark_signed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    envelopeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_prepare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    message?: string;
+                    /** @enum {string} */
+                    provider?: "docusign" | "dotloop";
+                    signers: {
+                        /** Format: email */
+                        email: string;
+                        name: string;
+                        order?: number;
+                    }[];
+                    subject?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_esign_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    envelopeId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        envelopeId: string;
+                        /** @enum {string} */
+                        provider: "docusign" | "dotloop";
+                        /** @enum {string} */
+                        state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_field_note_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    aboutId?: string;
+                    /**
+                     * @default deal
+                     * @enum {string}
+                     */
+                    aboutKind?: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                    /** Format: uuid */
+                    audioFileId?: string;
+                    body?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** @default [] */
+                    photoFileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        noteId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_mark_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: date */
+                    doneOn?: string;
+                    expectedOn?: string | null;
+                    expiresOn?: string | null;
+                    note?: string | null;
+                    proof: {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "document" | "file" | "message";
+                    };
+                    rate?: number | null;
+                    startedOn?: string | null;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_reopen_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    reason: string;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_set_lender: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    lenderName?: string | null;
+                    loanAmountCents?: number | null;
+                    loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                    officerEmail?: string | null;
+                    officerName?: string | null;
+                    officerPhone?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_financing_update_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    expectedOn?: string | null;
+                    expiresOn?: string | null;
+                    note?: string | null;
+                    rate?: number | null;
+                    startedOn?: string | null;
+                    /** @enum {string} */
+                    step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        step: ("preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding") | null;
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ask?: "repair" | "replace" | "credit" | "not_asked";
+                    clientPriority?: ("must_fix" | "would_like" | "skip") | null;
+                    creditCents?: number | null;
+                    estimateCents?: number | null;
+                    /** Format: uuid */
+                    id?: string;
+                    /** Format: uuid */
+                    inspectionId: string;
+                    location?: string | null;
+                    note?: string | null;
+                    photoFileIds?: string[];
+                    /** @enum {string} */
+                    severity: "safety" | "repair" | "minor";
+                    title: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    findingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_finding_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ask?: "repair" | "replace" | "credit" | "not_asked";
+                    clientPriority?: ("must_fix" | "would_like" | "skip") | null;
+                    creditCents?: number | null;
+                    estimateCents?: number | null;
+                    /** Format: uuid */
+                    findingId: string;
+                    location?: string | null;
+                    note?: string | null;
+                    photoFileIds?: string[];
+                    /** @enum {string} */
+                    severity?: "safety" | "repair" | "minor";
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        findingId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    link?: string;
+                    mlsNumber?: string;
+                    note?: string;
+                    pastedText?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        filling: boolean;
+                        /** Format: uuid */
+                        homeId: string;
+                        /** @default false */
+                        looking: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_confirm_facts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    facts: {
+                        baths?: number;
+                        beds?: number;
+                        garage_spaces?: number;
+                        hoa_monthly_cents?: number;
+                        lot_sqft?: number;
+                        price_cents?: number;
+                        /** @enum {string} */
+                        property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                        sqft?: number;
+                        year_built?: number;
+                    };
+                    /** Format: uuid */
+                    homeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        confirmedAt: string;
+                        /** Format: uuid */
+                        homeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    homeId: string;
+                    mlsNumber?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        homeId: string;
+                        /** @enum {boolean} */
+                        looking: true;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_home_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    homeId: string;
+                    note?: string;
+                    /** @enum {string} */
+                    status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        homeId: string;
+                        /** @enum {string} */
+                        status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    inspector?: string;
+                    /** @enum {string} */
+                    kind: "general" | "termite" | "roof" | "sewer" | "radon" | "mold" | "pool" | "hvac" | "structural" | "other";
+                    note?: string;
+                    /** Format: date */
+                    reportExpectedOn?: string;
+                    /** Format: date-time */
+                    scheduledAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    inspectionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_report_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    inspectionId: string;
+                    pages?: number;
+                    /** Format: date */
+                    reportInOn?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_inspection_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    inspectionId: string;
+                    inspector?: string | null;
+                    note?: string | null;
+                    reportExpectedOn?: string | null;
+                    scheduledAt?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inspectionId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "report_in" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    /** @enum {string} */
+                    channel: "sms" | "email";
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uri */
+                    pageUrl: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        recipients: number;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_confirm_facts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    facts: {
+                        baths?: number;
+                        beds?: number;
+                        garage_spaces?: number;
+                        hoa_monthly_cents?: number;
+                        lot_sqft?: number;
+                        /** @enum {string} */
+                        property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                        sqft?: number;
+                        year_built?: number;
+                    };
+                    highlights?: string | null;
+                    /** @default {} */
+                    sources?: {
+                        [key: string]: "seller" | "pasted" | "agent" | "mls";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        confirmedAt: string;
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_let_through: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_description_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    descriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        descriptionId: string;
+                        /** @default [] */
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    mlsNumber?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {boolean} */
+                        looking: true;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_mark_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: date */
+                    liveOn: string;
+                    mlsNumber: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        liveOn: string;
+                        movedTo: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_page_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        path: string | null;
+                        site: string | null;
+                        slug: string | null;
+                        /** @enum {string} */
+                        state: "none" | "published" | "down";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_page_take_down: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        path: string | null;
+                        site: string | null;
+                        slug: string | null;
+                        /** @enum {string} */
+                        state: "none" | "published" | "down";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_paste: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    text: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        filling: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_photo_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    caption?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default true */
+                    public?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        photos: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_photo_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    photoId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        photos: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_photos_arrange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    photos: {
+                        caption: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        public: boolean;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        photos: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_post_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** Format: uuid */
+                        postId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_posts_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: number;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {string} */
+                        state: "drafting" | "ready" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_let_through: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    priceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string | null;
+                        fromCents: number;
+                        how: ("portal" | "let_through") | null;
+                        /** Format: uuid */
+                        id: string;
+                        note: string | null;
+                        overrideBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        overrideReason: string | null;
+                        /** Format: date-time */
+                        proposedAt: string;
+                        proposedBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        signedBy: string | null;
+                        /** @enum {string} */
+                        state: "waiting" | "applied" | "withdrawn";
+                        taskId: string | null;
+                        toCents: number;
+                        withdrawnReason: string | null;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_propose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string;
+                    priceCents: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        priceId: string;
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_price_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    priceId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string | null;
+                        fromCents: number;
+                        how: ("portal" | "let_through") | null;
+                        /** Format: uuid */
+                        id: string;
+                        note: string | null;
+                        overrideBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        overrideReason: string | null;
+                        /** Format: date-time */
+                        proposedAt: string;
+                        proposedBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        signedBy: string | null;
+                        /** @enum {string} */
+                        state: "waiting" | "applied" | "withdrawn";
+                        taskId: string | null;
+                        toCents: number;
+                        withdrawnReason: string | null;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_listing_request_questionnaire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    forPersonId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_match_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    matchId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        matchId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_match_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    matchId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        homeId: string;
+                        /** Format: uuid */
+                        matchId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @enum {string} */
+                    kind: "likes" | "dislikes" | "must_have" | "deal_breaker" | "timing" | "money" | "other";
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "suggested" | "confirmed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "confirm" | "reject" | "retire";
+                    /** Format: uuid */
+                    itemId: string;
+                    note?: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "confirmed" | "rejected" | "retired";
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_memory_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_net_sheet_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default null */
+                    listingFeeBp?: number | null;
+                    /** @default null */
+                    listingFeeCents?: number | null;
+                    /** @default null */
+                    note?: string | null;
+                    /** @default 0 */
+                    otherCents?: number;
+                    /** @default null */
+                    otherNote?: string | null;
+                    /** @default 0 */
+                    payoffCents?: number;
+                    /** @default 0 */
+                    titleEscrowCents?: number;
+                    /** @default 0 */
+                    transferTaxBp?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_add_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    respondBy?: string | null;
+                    /** @enum {string} */
+                    side: "us" | "them";
+                    terms: {
+                        /** @default null */
+                        appraisalContingency?: boolean | null;
+                        /** @default null */
+                        buyerAgentFeeBp?: number | null;
+                        /** @default null */
+                        buyerAgentFeeCents?: number | null;
+                        /** @default null */
+                        closingDate?: string | null;
+                        /** @default null */
+                        downPaymentPct?: number | null;
+                        /** @default null */
+                        emdCents?: number | null;
+                        /** @default null */
+                        emdDays?: number | null;
+                        /** @default null */
+                        escalationCapCents?: number | null;
+                        /** @default null */
+                        escalationStepCents?: number | null;
+                        /** @default null */
+                        financingDays?: number | null;
+                        /** @default null */
+                        homeSaleContingency?: boolean | null;
+                        /** @default null */
+                        inspectionDays?: number | null;
+                        /** @default null */
+                        loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                        /** @default null */
+                        otherTerms?: string | null;
+                        /** @default null */
+                        possession?: string | null;
+                        priceCents: number;
+                        /** @default 0 */
+                        sellerCreditCents?: number;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        number: number;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** Format: uuid */
+                        versionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_attach_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    versionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_record_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    /** @enum {string} */
+                    outcome: "accepted" | "declined" | "expired";
+                    /** Format: uuid */
+                    versionId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_share_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    buyerNames?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** Format: uuid */
+                    homeId?: string;
+                    note?: string;
+                    respondBy?: string | null;
+                    terms: {
+                        /** @default null */
+                        appraisalContingency?: boolean | null;
+                        /** @default null */
+                        buyerAgentFeeBp?: number | null;
+                        /** @default null */
+                        buyerAgentFeeCents?: number | null;
+                        /** @default null */
+                        closingDate?: string | null;
+                        /** @default null */
+                        downPaymentPct?: number | null;
+                        /** @default null */
+                        emdCents?: number | null;
+                        /** @default null */
+                        emdDays?: number | null;
+                        /** @default null */
+                        escalationCapCents?: number | null;
+                        /** @default null */
+                        escalationStepCents?: number | null;
+                        /** @default null */
+                        financingDays?: number | null;
+                        /** @default null */
+                        homeSaleContingency?: boolean | null;
+                        /** @default null */
+                        inspectionDays?: number | null;
+                        /** @default null */
+                        loanType?: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                        /** @default null */
+                        otherTerms?: string | null;
+                        /** @default null */
+                        possession?: string | null;
+                        priceCents: number;
+                        /** @default 0 */
+                        sellerCreditCents?: number;
+                    };
+                    theirAgentName?: string;
+                    theirBrokerage?: string;
+                    /** Format: email */
+                    theirEmail?: string;
+                    theirPhone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        number: number;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** Format: uuid */
+                        versionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offer_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        dealStage: string | null;
+                        /** Format: uuid */
+                        offerId: string;
+                        /** @enum {string} */
+                        status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                        /** @default 0 */
+                        termsEntered: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_offers_share_comparison: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        comparisonId: string;
+                        offers: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    openHouseId: string;
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        openHouseId: string;
+                        /** @enum {string} */
+                        state: "planned" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_follow_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** Format: uuid */
+                    visitorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        followedUpAt: string;
+                        /** Format: uuid */
+                        visitorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default 180 */
+                    durationMinutes?: number;
+                    /** Format: uuid */
+                    hostUserId?: string;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: uuid */
+                        openHouseId: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        warnings: {
+                            code: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_open_house_sign_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    agentName?: string;
+                    /** Format: email */
+                    email?: string;
+                    firstName: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default  */
+                    lastName?: string;
+                    /** Format: uuid */
+                    openHouseId: string;
+                    phone?: string;
+                    /** @default false */
+                    smsConsent?: boolean;
+                    /** @default false */
+                    withAgent?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        firstName: string;
+                        /** @enum {boolean} */
+                        signedIn: true;
+                        /** Format: uuid */
+                        visitorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_party_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    note?: string | null;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** @enum {string} */
+                    role: "client" | "loan_officer" | "other_agent" | "title_contact" | "inspector" | "vendor" | "attorney" | "lender" | "title_company" | "brokerage" | "vendor_company";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_party_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    relationshipId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_repair_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    creditCents?: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    note?: string;
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_repair_record_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    creditCents?: number;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    note?: string;
+                    /** @enum {string} */
+                    outcome: "agreed" | "countered" | "refused";
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_repair_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    findingIds?: string[];
+                    note?: string;
+                    respondBy?: string | null;
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @default 0 */
+                        dutiesCreated: number;
+                        number: number;
+                        /** Format: uuid */
+                        repairId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_search_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        on: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    agentEmail?: string;
+                    agentName: string;
+                    agentPhone?: string;
+                    brokerage?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    license?: string;
+                    minutes?: number;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    agentName?: string;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: date-time */
+                    startsAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "confirm" | "decline" | "cancel";
+                    note?: string;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    interest?: number | null;
+                    liked?: string | null;
+                    pause?: string | null;
+                    price?: ("low" | "right" | "high") | null;
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    access?: string | null;
+                    accessHours?: number;
+                    /** @enum {string} */
+                    confirm?: "seller" | "auto";
+                    days?: number[];
+                    /** Format: uuid */
+                    dealId: string;
+                    feedbackHours?: number;
+                    from?: string;
+                    minutes?: number;
+                    open?: boolean;
+                    to?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        settings: {
+                            access: string | null;
+                            accessHours: number;
+                            /** @enum {string} */
+                            confirm: "seller" | "auto";
+                            days: number[];
+                            feedbackHours: number;
+                            from: string;
+                            minutes: number;
+                            open: boolean;
+                            to: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_showing_share_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    showingId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        showingId: string;
+                        /** @enum {string} */
+                        state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_acknowledge_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_discard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /**
+                     * @default asked
+                     * @enum {string}
+                     */
+                    milestone?: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    draftId: string;
+                    subject: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_status_email_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_suggestion_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homeId: string | null;
+                        /** @enum {string} */
+                        state: "new" | "added" | "not_a_fit" | "gone";
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_suggestion_not_a_fit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homeId: string | null;
+                        /** @enum {string} */
+                        state: "new" | "added" | "not_a_fit" | "gone";
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_archive_custom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_clear_override: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duties: number;
+                        /** Format: uuid */
+                        templateSetId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_save_custom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    duty: {
+                        /** @enum {string} */
+                        accountable: "agent" | "coordinator" | "broker";
+                        /** @enum {string} */
+                        automation: "A0" | "A1" | "A2" | "A3" | "A4" | "AX";
+                        /** @default  */
+                        behavior?: string;
+                        due: {
+                            /** @enum {string} */
+                            kind: "none";
+                        } | {
+                            /** @enum {string} */
+                            kind: "ongoing";
+                        } | {
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "after_start";
+                        } | {
+                            at?: string;
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "relative";
+                            /** @enum {string} */
+                            to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                        } | {
+                            days: number;
+                            /** @enum {string} */
+                            kind: "every";
+                        } | {
+                            /** @enum {string} */
+                            kind: "earliest" | "latest";
+                            of: ({
+                                /** @enum {string} */
+                                kind: "none";
+                            } | {
+                                /** @enum {string} */
+                                kind: "ongoing";
+                            } | {
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "after_start";
+                            } | {
+                                at?: string;
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "relative";
+                                /** @enum {string} */
+                                to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            } | {
+                                days: number;
+                                /** @enum {string} */
+                                kind: "every";
+                            })[];
+                        };
+                        /** @enum {string} */
+                        materiality: "standard" | "material" | "critical";
+                        /** @default [] */
+                        performedBy?: ("client" | "lender" | "title" | "inspector" | "appraiser" | "vendor" | "other_agent" | "attorney" | "hoa" | "insurer")[];
+                        proof: {
+                            items: ({
+                                documents: ("buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other")[];
+                                /** @enum {string} */
+                                kind: "document";
+                                signed?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                            } | {
+                                /** @enum {string} */
+                                kind: "note";
+                            } | {
+                                /** @enum {string} */
+                                kind: "attestation";
+                                words: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "appointment";
+                            } | {
+                                /** @enum {string} */
+                                kind: "message";
+                            } | {
+                                keys: ("acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch")[];
+                                /** @enum {string} */
+                                kind: "dates";
+                            } | {
+                                /** @enum {string} */
+                                field: "expected_commission" | "final_commission" | "property" | "client";
+                                /** @enum {string} */
+                                kind: "deal_field";
+                            })[];
+                            /** @enum {string} */
+                            mode: "all" | "any";
+                        } | null;
+                        /**
+                         * @default [
+                         *       3,
+                         *       1
+                         *     ]
+                         */
+                        reminders?: number[];
+                        /** @enum {string} */
+                        side: "buyer" | "listing" | "both";
+                        title: string;
+                        /** @enum {string} */
+                        tracker: "LEAD" | "REP" | "FIN" | "SEARCH" | "SHOW" | "CMA" | "OFFER" | "CONTRACT" | "INSPECT" | "REPAIR" | "APPRAISAL" | "TITLE" | "LISTING" | "MARKET" | "VENDOR" | "OPEN" | "CLOSE" | "POSSESS" | "DOC" | "COMPLY" | "HEALTH" | "POST" | "SAFETY" | "MOVE";
+                        trigger: {
+                            /** @enum {string} */
+                            on: "stage";
+                            /** @enum {string} */
+                            stage: "lead" | "onboarding" | "representation" | "financing" | "searching" | "touring" | "offer" | "negotiation" | "under_contract" | "inspections" | "appraisal" | "financing_title" | "closing" | "possession" | "past_client" | "seller_lead" | "consultation" | "signed" | "pre_listing" | "coming_soon" | "active" | "showings" | "offers" | "inspection" | "sold" | "withdrawn" | "expired" | "cancelled";
+                        } | {
+                            /** @enum {string} */
+                            key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            /** @enum {string} */
+                            on: "dates";
+                        } | {
+                            /** @enum {string} */
+                            event: "offer_received" | "offer_lost" | "inspection_report" | "repair_request" | "repairs_agreed" | "low_appraisal" | "amendment" | "terminated" | "closed" | "deal_ended" | "deal_failed" | "listing_ended" | "search_changed";
+                            /** @enum {string} */
+                            on: "event";
+                        };
+                        when?: ("financed" | "first_time_buyer" | "hoa" | "survey" | "well" | "septic" | "solar" | "pool" | "propane" | "private_road" | "specialists_needed" | "multiple_offers" | "open_house" | "backup_offer" | "seller_has_mortgage" | "home_warranty" | "relocation" | "wants_move_help" | "linked_sale")[];
+                    };
+                    dutyKey?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_template_set_override: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dutyKey: string;
+                    /** @default true */
+                    enabled?: boolean;
+                    /** @default {} */
+                    patch?: {
+                        /** @enum {string} */
+                        accountable?: "agent" | "coordinator" | "broker";
+                        due?: {
+                            /** @enum {string} */
+                            kind: "none";
+                        } | {
+                            /** @enum {string} */
+                            kind: "ongoing";
+                        } | {
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "after_start";
+                        } | {
+                            at?: string;
+                            businessDays?: number;
+                            days?: number;
+                            hours?: number;
+                            /** @enum {string} */
+                            kind: "relative";
+                            /** @enum {string} */
+                            to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                        } | {
+                            days: number;
+                            /** @enum {string} */
+                            kind: "every";
+                        } | {
+                            /** @enum {string} */
+                            kind: "earliest" | "latest";
+                            of: ({
+                                /** @enum {string} */
+                                kind: "none";
+                            } | {
+                                /** @enum {string} */
+                                kind: "ongoing";
+                            } | {
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "after_start";
+                            } | {
+                                at?: string;
+                                businessDays?: number;
+                                days?: number;
+                                hours?: number;
+                                /** @enum {string} */
+                                kind: "relative";
+                                /** @enum {string} */
+                                to: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch";
+                            } | {
+                                days: number;
+                                /** @enum {string} */
+                                kind: "every";
+                            })[];
+                        };
+                        /** @enum {string} */
+                        materiality?: "standard" | "material" | "critical";
+                        proof?: {
+                            items: ({
+                                documents: ("buyer_agreement" | "listing_agreement" | "agency_disclosure" | "seller_disclosure" | "preapproval" | "cma" | "net_sheet" | "offer" | "counter" | "contract" | "amendment" | "addendum" | "emd_receipt" | "inspection_report" | "repair_request" | "repair_agreement" | "invoice" | "photo" | "permit" | "appraisal" | "loan_approval" | "clear_to_close" | "rate_lock" | "insurance_binder" | "title_commitment" | "payoff_statement" | "hoa_docs" | "survey" | "closing_disclosure" | "settlement_statement" | "walkthrough_checklist" | "home_warranty" | "deed" | "mls_listing" | "marketing" | "termination" | "emd_release" | "other")[];
+                                /** @enum {string} */
+                                kind: "document";
+                                signed?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                            } | {
+                                /** @enum {string} */
+                                kind: "note";
+                            } | {
+                                /** @enum {string} */
+                                kind: "attestation";
+                                words: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "appointment";
+                            } | {
+                                /** @enum {string} */
+                                kind: "message";
+                            } | {
+                                keys: ("acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch")[];
+                                /** @enum {string} */
+                                kind: "dates";
+                            } | {
+                                /** @enum {string} */
+                                field: "expected_commission" | "final_commission" | "property" | "client";
+                                /** @enum {string} */
+                                kind: "deal_field";
+                            })[];
+                            /** @enum {string} */
+                            mode: "all" | "any";
+                        } | null;
+                        reminders?: number[];
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutyKey: string;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_term_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    entryId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_term_enter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cents?: number;
+                    /** @default true */
+                    confirm?: boolean;
+                    /** Format: date */
+                    date?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    documentId?: string;
+                    /** @enum {string} */
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
+                    note?: string;
+                    /** Format: uuid */
+                    replaces?: string;
+                    /**
+                     * @default typed
+                     * @enum {string}
+                     */
+                    source?: "contract" | "amendment" | "counter" | "addendum" | "correction" | "lender" | "title" | "agreement" | "typed";
+                    sourceRef?: string;
+                    text?: string;
+                    time?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conflict: boolean;
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_term_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    entryId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_term_resolve_conflict: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    keepEntryId: string;
+                    /** @enum {string} */
+                    key: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
+                        /** Format: uuid */
+                        entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    notifyClient?: boolean;
+                    reason?: string;
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    interest: "love" | "maybe" | "no";
+                    /** Format: uuid */
+                    personId: string;
+                    rating?: number | null;
+                    /** Format: uuid */
+                    stopId: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        feedbackId: string;
+                        updated: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    durationMinutes?: number;
+                    exception?: {
+                        reason: string;
+                    };
+                    homeIds: string[];
+                    note?: string;
+                    /** @default true */
+                    notifyClient?: boolean;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        exception: boolean;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** Format: uuid */
+                        tourId: string;
+                        warnings: {
+                            code: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_record_visit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** @enum {string} */
+                    status: "visited" | "skipped";
+                    /** Format: uuid */
+                    stopId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        stopId: string;
+                        /** Format: uuid */
+                        tourId: string;
+                        /** @enum {string} */
+                        tourStatus: "planned" | "done" | "canceled";
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_reschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    durationMinutes?: number;
+                    exception?: {
+                        reason: string;
+                    };
+                    /** @default true */
+                    notifyClient?: boolean;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_tour_set_stops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    homeIds: string[];
+                    /** Format: uuid */
+                    tourId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** @enum {string} */
+                        status: "planned" | "done" | "canceled";
+                        /** Format: uuid */
+                        tourId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    approved: boolean;
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                    /** Format: uuid */
+                    vendorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_vendor_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    areas?: string[];
+                    /** Format: uuid */
+                    companyId?: string;
+                    disclosure?: string | null;
+                    /** Format: email */
+                    email?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    name?: string;
+                    note?: string | null;
+                    phone?: string;
+                    services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                    /** Format: uuid */
+                    vendorId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: boolean;
+                        /** Format: uuid */
+                        companyId: string;
+                        /** Format: uuid */
+                        vendorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_add_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    detail?: string;
+                    /** Format: uuid */
+                    id: string;
+                    title: string;
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_check_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    note?: string;
+                    photoFileIds?: string[];
+                    /** @enum {string} */
+                    state: "ok" | "not_ok" | "unsure" | "unchecked";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    clientsAgreed?: boolean;
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dutiesAdded: number;
+                        summary: string;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: date-time */
+                    scheduledAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: number;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_walkthrough_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    walkthroughId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: number;
+                        /** Format: uuid */
+                        walkthroughId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_record_hold_lift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    holdId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        holdId: string;
+                        /** Format: date-time */
+                        liftedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_record_hold_place: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hold: {
+                            /** Format: uuid */
+                            customRecordId: string;
+                            heldUntil: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "legal" | "retention";
+                            /** Format: date-time */
+                            placedAt: string;
+                            placedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reason: string | null;
+                            recordName: string;
+                        };
                     };
                 };
             };
@@ -25969,6 +38413,334 @@ export interface operations {
             };
         };
     };
+    command_safety_contact_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_contact_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    contactUserId?: string;
+                    email?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    name?: string;
+                    phone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contact: {
+                            contactUserId: string | null;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            phone: string | null;
+                            /** @enum {string} */
+                            status: "teammate" | "asked" | "agreed" | "stopped";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_check_in: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    id: string;
+                    latitude?: number;
+                    longitude?: number;
+                    place: string;
+                    /** Format: date-time */
+                    plannedEndAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_check_out: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_extend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    minutes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_help: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId?: string;
+                    latitude?: number;
+                    longitude?: number;
+                    place?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checkIn: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_safety_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkInId: string;
+                        resolved: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_settings_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    alertAfterMinutes: number;
+                    askAfterMinutes: number;
+                    safetyUserId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alertAfterMinutes: number;
+                        askAfterMinutes: number;
+                        safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_schedule_set: {
         parameters: {
             query?: never;
@@ -26718,6 +39490,135 @@ export interface operations {
                         status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                         /** Format: uuid */
                         subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    requestId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    grantId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_grant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    requestId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        expiresAt: string;
+                        /** Format: uuid */
+                        grantId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_access_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        requestId: string;
                     };
                 };
             };
@@ -30483,6 +43384,74 @@ export interface operations {
             };
         };
     };
+    query_addon_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connectors: {
+                            canManage: boolean;
+                            connections: {
+                                /** @enum {string} */
+                                auth: "key" | "oauth" | "platform";
+                                connectedAt: string | null;
+                                connectedByName: string | null;
+                                details: {
+                                    [key: string]: unknown;
+                                };
+                                failingSince: string | null;
+                                failures: number;
+                                /** Format: uuid */
+                                id: string;
+                                inUse: boolean;
+                                label: string | null;
+                                lastError: string | null;
+                                lastSuccessAt: string | null;
+                                provider: string;
+                                providerLabel: string;
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            }[];
+                            key: string;
+                            label: string;
+                            many: boolean;
+                            providers: {
+                                auth: ("key" | "oauth" | "platform")[];
+                                fields: {
+                                    hint: string | null;
+                                    key: string;
+                                    label: string;
+                                    optional: boolean;
+                                    secret: boolean;
+                                }[];
+                                id: string;
+                                label: string;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_addon_pick_overview: {
         parameters: {
             query?: never;
@@ -30590,6 +43559,13 @@ export interface operations {
                             relationships: number;
                             usageEvents: number;
                         };
+                        kept: {
+                            heldUntil: string | null;
+                            legal: number;
+                            openRecords: number;
+                            plural?: string | null;
+                            records: number;
+                        } | null;
                         moves: {
                             /** @enum {string} */
                             action: "install" | "enable" | "disable" | "uninstall" | "purge";
@@ -30680,6 +43656,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable";
                             summary: string;
+                            testing: boolean;
                         }[];
                         installed: {
                             addonId: string;
@@ -31794,7 +44771,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -32065,6 +45042,18 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            /** @default null */
+                            addonAlert: {
+                                acknowledgedAt: string | null;
+                                addonId: string;
+                                addonName: string;
+                                /** Format: uuid */
+                                alertId: string;
+                                href: string;
+                                needsAck: boolean;
+                                /** @enum {string} */
+                                severity: "info" | "attention" | "at_risk" | "critical";
+                            } | null;
                             appointmentId: string | null;
                             assignee: {
                                 fullName: string;
@@ -32100,17 +45089,17 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -32153,7 +45142,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -32185,6 +45174,18 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            /** @default null */
+                            addonAlert: {
+                                acknowledgedAt: string | null;
+                                addonId: string;
+                                addonName: string;
+                                /** Format: uuid */
+                                alertId: string;
+                                href: string;
+                                needsAck: boolean;
+                                /** @enum {string} */
+                                severity: "info" | "attention" | "at_risk" | "critical";
+                            } | null;
                             appointmentId: string | null;
                             assignee: {
                                 fullName: string;
@@ -32220,17 +45221,17 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -32265,6 +45266,18 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            /** @default null */
+                            addonAlert: {
+                                acknowledgedAt: string | null;
+                                addonId: string;
+                                addonName: string;
+                                /** Format: uuid */
+                                alertId: string;
+                                href: string;
+                                needsAck: boolean;
+                                /** @enum {string} */
+                                severity: "info" | "attention" | "at_risk" | "critical";
+                            } | null;
                             appointmentId: string | null;
                             assignee: {
                                 fullName: string;
@@ -32300,17 +45313,17 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat") | null;
+                            reach: ("sms" | "email" | "chat" | "portal") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -32344,7 +45357,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -32404,14 +45417,14 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
                             /** @enum {string} */
                             action: "hand_to_ai" | "reply" | "set_next_action";
                             available: boolean;
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             /** @default null */
                             draft: {
@@ -32476,6 +45489,11 @@ export interface operations {
                                 urgentAfterMinutes: number;
                             };
                             kinds: {
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                addon_alert: true;
                                 /** @default true */
                                 ai_approval: boolean;
                                 /** @default true */
@@ -32659,7 +45677,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "portal" | "test";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -34187,7 +47205,7 @@ export interface operations {
                     "application/json": {
                         canText: {
                             ok: boolean;
-                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel") | null;
+                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel" | "portal_channel") | null;
                         };
                         chat: {
                             blocked: boolean;
@@ -34215,7 +47233,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat";
+                            channel: "sms" | "email" | "chat" | "portal";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -34236,7 +47254,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat";
+                                channel: "sms" | "email" | "chat" | "portal";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -34275,6 +47293,12 @@ export interface operations {
                                 id: string;
                             } | null;
                             private: boolean;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -34402,7 +47426,7 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
@@ -34758,8 +47782,19 @@ export interface operations {
                             };
                             /** Format: uuid */
                             id: string;
+                            keptToTeam: boolean;
                             name: string;
                             notes: string | null;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            }[];
                             type: {
                                 archived: boolean;
                                 icon: string;
@@ -35371,6 +48406,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             isImage: boolean;
+                            locked: boolean;
                             mimeType: string | null;
                             name: string;
                             objectPath: string;
@@ -36576,7 +49612,7 @@ export interface operations {
                      */
                     box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived" | "other" | "spam";
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat";
+                    channel?: "sms" | "email" | "chat" | "portal";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -36616,7 +49652,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat";
+                            channel: "sms" | "email" | "chat" | "portal";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -36637,7 +49673,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat";
+                                channel: "sms" | "email" | "chat" | "portal";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -36676,6 +49712,12 @@ export interface operations {
                                 id: string;
                             } | null;
                             private: boolean;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -37983,7 +51025,7 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat") | null;
+                            channel: ("sms" | "email" | "chat" | "portal") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
@@ -39870,6 +52912,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        addonGrants: {
+                            addonId: string;
+                            /** Format: date-time */
+                            grantedAt: string;
+                            note: string | null;
+                        }[];
                         business: {
                             /** Format: date-time */
                             createdAt: string;
@@ -40363,6 +53411,60 @@ export interface operations {
             };
         };
     };
+    query_portal_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access: {
+                            /** Format: uuid */
+                            accessId: string;
+                            devices: {
+                                device: string | null;
+                                /** Format: date-time */
+                                lastSeenAt: string;
+                                /** Format: uuid */
+                                sessionId: string;
+                                /** Format: date-time */
+                                signedInAt: string;
+                            }[];
+                            /** Format: date-time */
+                            givenAt: string;
+                            givenBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            lastUsedAt: string | null;
+                            on: boolean;
+                            revokedAt: string | null;
+                        } | null;
+                        email: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_product_list: {
         parameters: {
             query?: never;
@@ -40439,6 +53541,3889 @@ export interface operations {
                             lastSeenAt: string;
                             /** @enum {string} */
                             platform: "ios" | "android";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_buyer_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        profile: {
+                            areas: string[];
+                            bathsMin: number | null;
+                            bedsMin: number | null;
+                            budgetMaxCents: number | null;
+                            budgetMinCents: number | null;
+                            dealBreakers: string[];
+                            homeTypes: string[];
+                            moveBy: string | null;
+                            mustHaves: string[];
+                            sqftMin: number | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            updatedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            version: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_client_tasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeCanceled?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        clients: {
+                            email: string | null;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            /** @enum {string} */
+                            portal: "none" | "invited" | "signed_in" | "revoked";
+                            portalSince: string | null;
+                        }[];
+                        tasks: {
+                            completions: {
+                                /** Format: date-time */
+                                at: string;
+                                file: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                name: string;
+                                note: string | null;
+                                /** Format: uuid */
+                                personId: string;
+                                recordedBy: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                signedWords: string | null;
+                            }[];
+                            detail: string | null;
+                            doneAt: string | null;
+                            dueOn: string | null;
+                            forPersonId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "upload" | "sign_off" | "do" | "questionnaire";
+                            signOffWords: string | null;
+                            /** @enum {string} */
+                            status: "open" | "done" | "canceled";
+                            title: string;
+                            waiting: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_cma: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cmaId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cma: {
+                            asOf: string;
+                            comps: {
+                                address: string;
+                                adjustmentCents: number | null;
+                                adjustments: {
+                                    cents: number;
+                                    label: string;
+                                }[];
+                                baths: number | null;
+                                beds: number | null;
+                                counted: boolean;
+                                distanceMiles: number | null;
+                                /** Format: uuid */
+                                id: string;
+                                mls: {
+                                    courtesy: string | null;
+                                    mlsNumber: string;
+                                    notice: string | null;
+                                    photoUrl: string | null;
+                                    sourceWords: string;
+                                } | null;
+                                note: string | null;
+                                priceCents: number;
+                                soldOn: string | null;
+                                /** @enum {string} */
+                                source: "agent" | "mls";
+                                sqft: number | null;
+                                /** @enum {string} */
+                                status: "sold" | "pending" | "active";
+                                used: boolean;
+                                valueCents: number | null;
+                                warnings: string[];
+                                weight: number;
+                                why: string | null;
+                                yearBuilt: number | null;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            fairHousing: {
+                                acknowledged: {
+                                    by: {
+                                        fullName: string;
+                                        /** Format: uuid */
+                                        id: string;
+                                    } | null;
+                                    reason: string;
+                                } | null;
+                                checked: boolean;
+                                flags: {
+                                    /** @enum {string} */
+                                    category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                    phrase: string;
+                                    reason: string;
+                                    safer: string;
+                                }[];
+                            };
+                            finalizedAt: string | null;
+                            findComps: {
+                                asked: {
+                                    miles: number;
+                                    months: number;
+                                } | null;
+                                at: string | null;
+                                /** @enum {string} */
+                                state: "none" | "finding" | "found" | "none_found" | "failed";
+                                words: string | null;
+                            };
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            method: string;
+                            missing: string | null;
+                            number: number;
+                            range: {
+                                counted: number;
+                                highCents: number;
+                                likelyCents: number;
+                                lowCents: number;
+                                perSqftCents: number;
+                            } | null;
+                            shareBlocked: string | null;
+                            sharedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "shared";
+                            subject: {
+                                address: string;
+                                baths: number | null;
+                                beds: number | null;
+                                listPriceCents: number | null;
+                                sqft: number | null;
+                                yearBuilt: number | null;
+                            };
+                            summary: {
+                                byAi: boolean;
+                                failure: string | null;
+                                /** @enum {string} */
+                                state: "none" | "drafting" | "ready" | "failed";
+                                text: string | null;
+                                unsupportedAmounts: string[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_cmas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cmas: {
+                            comps: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            highCents: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            likelyCents: number | null;
+                            lowCents: number | null;
+                            number: number;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "shared";
+                            subjectAddress: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_connections_uses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        esign: {
+                            out: number;
+                            words: string;
+                        };
+                        listingData: {
+                            listings: number;
+                            searches: number;
+                            words: string;
+                        };
+                        showingTime: {
+                            on: boolean;
+                            readThisMonth: number;
+                            words: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_contingencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        can: {
+                            except: boolean;
+                        };
+                        contingencies: {
+                            /** @enum {string} */
+                            clock: "unknown" | "passed" | "ending" | "open";
+                            document: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            endConfirmed: boolean;
+                            endKey: string | null;
+                            endsOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "inspection" | "financing" | "appraisal" | "home_sale" | "hoa" | "title" | "other";
+                            label: string;
+                            note: string | null;
+                            overrideReason: string | null;
+                            resolvedAt: string | null;
+                            resolvedByName: string | null;
+                            /** @enum {string} */
+                            source: "offer" | "contract" | "typed";
+                            /** @enum {string} */
+                            state: "open" | "satisfied" | "waived" | "expired";
+                            stateWords: string;
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_contract_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    readId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        dealName: string;
+                        /** Format: uuid */
+                        documentId: string;
+                        documentTitle: string;
+                        dropped: number;
+                        failure: string | null;
+                        /** Format: uuid */
+                        fileId: string;
+                        /** @enum {string} */
+                        kind: "contract" | "amendment" | "addendum";
+                        moves: {
+                            accountableName: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            from: string | null;
+                            title: string;
+                            to: string | null;
+                            why: string | null;
+                        }[];
+                        newerReadId: string | null;
+                        pages: number | null;
+                        problems: {
+                            check: string;
+                            words: string;
+                        }[];
+                        readAt: string | null;
+                        /** Format: uuid */
+                        readId: string;
+                        /** Format: date-time */
+                        requestedAt: string;
+                        requestedByName: string | null;
+                        scan: boolean;
+                        /** @enum {string} */
+                        state: "reading" | "read" | "failed";
+                        unclear: {
+                            clause: string | null;
+                            page: number | null;
+                            quote: string | null;
+                            what: string;
+                        }[];
+                        values: {
+                            cents: number | null;
+                            clause: string | null;
+                            date: string | null;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            key: "acceptance" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "closing" | "possession" | "price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names";
+                            label: string;
+                            now: string | null;
+                            nowFrom: string | null;
+                            page: number | null;
+                            quote: string;
+                            reason: string | null;
+                            same: boolean;
+                            /** @enum {string} */
+                            state: "waiting" | "confirmed" | "rejected";
+                            text: string | null;
+                            value: string;
+                            worked: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_contract_reads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reads: {
+                            confirmed: number;
+                            /** Format: uuid */
+                            documentId: string;
+                            documentTitle: string;
+                            /** @enum {string} */
+                            kind: "contract" | "amendment" | "addendum";
+                            /** Format: uuid */
+                            readId: string;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            scan: boolean;
+                            /** @enum {string} */
+                            state: "reading" | "read" | "failed";
+                            unclear: number;
+                            waiting: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_for: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId?: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    propertyId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deals: {
+                            archived: boolean;
+                            client: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            closing: string | null;
+                            datesToConfirm: number;
+                            /** Format: uuid */
+                            dealId: string;
+                            headline: string | null;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            mainAgent: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            mine: boolean;
+                            name: string;
+                            nextDue: {
+                                /** Format: date-time */
+                                dueAt: string;
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            } | null;
+                            openDuties: number;
+                            outcome: string | null;
+                            overdueDuties: number;
+                            property: {
+                                address: string;
+                                /** Format: uuid */
+                                propertyId: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "buyer" | "listing";
+                            stage: string;
+                            stageLabel: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            waiting: {
+                                title: string;
+                                who: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        can: {
+                            archive: boolean;
+                            changeTeam: boolean;
+                            chooseMainAgent: boolean;
+                            except: boolean;
+                        };
+                        commission: {
+                            agentShareCents: number | null;
+                            creditCents: number;
+                            expectedCents: number | null;
+                            finalAt: string | null;
+                            finalCents: number | null;
+                            flatCents: number | null;
+                            grossCents: number | null;
+                            rateBp: number | null;
+                            splitBp: number | null;
+                        };
+                        dateProblems: {
+                            check: string;
+                            keys: string[];
+                            /** @enum {string} */
+                            severity: "problem" | "warning";
+                            words: string;
+                        }[];
+                        deal: {
+                            archived: boolean;
+                            catalogVersion: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            facts: string[];
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            healthReasons: unknown[];
+                            leadId: string | null;
+                            name: string;
+                            notes: string | null;
+                            outcome: string | null;
+                            outcomeAt: string | null;
+                            outcomeReason: string | null;
+                            /** @enum {string} */
+                            side: "buyer" | "listing";
+                            stage: string;
+                            /** Format: date-time */
+                            stageEnteredAt: string;
+                            stageLabel: string;
+                            templateSetId: string | null;
+                        };
+                        duties: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            accountableRole: string;
+                            automation: string;
+                            blocked: string | null;
+                            dueAt: string | null;
+                            dueDate: string | null;
+                            /** @enum {string} */
+                            dueState: "due" | "none" | "waiting";
+                            dueTime: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            key: string;
+                            materiality: string;
+                            needsDates: string[];
+                            overdue: boolean;
+                            pass: number;
+                            proof: string;
+                            proofMissing: string;
+                            startedBy: string;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            tracker: string;
+                            waitingOn: string | null;
+                            warnings: unknown[];
+                        }[];
+                        linkedProblems: {
+                            next: string;
+                            words: string;
+                        }[];
+                        links: {
+                            agentName: string | null;
+                            canOpen: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            keyDates: {
+                                confirmed: boolean;
+                                date: string;
+                                key: string;
+                                label: string;
+                            }[];
+                            /** @enum {string} */
+                            kind: "same_home" | "sale_and_purchase";
+                            name: string;
+                            /** Format: uuid */
+                            otherDealId: string;
+                            /** @enum {string} */
+                            side: "buyer" | "listing";
+                            stage: string;
+                            stageLabel: string;
+                        }[];
+                        parties: {
+                            companyId: string | null;
+                            label: string;
+                            name: string;
+                            note: string | null;
+                            personId: string | null;
+                            /** Format: uuid */
+                            relationshipId: string;
+                            role: string;
+                        }[];
+                        property: {
+                            address: string;
+                            /** Format: uuid */
+                            propertyId: string;
+                        } | null;
+                        team: {
+                            main: boolean;
+                            name: string;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        terms: {
+                            confirmed: boolean;
+                            conflict: boolean;
+                            entries: {
+                                cents: number | null;
+                                confirmed: boolean;
+                                date: string | null;
+                                /** Format: date-time */
+                                enteredAt: string;
+                                /** Format: uuid */
+                                entryId: string;
+                                source: string;
+                                sourceRef: string | null;
+                                text: string | null;
+                                time: string | null;
+                            }[];
+                            key: string;
+                            /** @enum {string} */
+                            kind: "date" | "money" | "text";
+                            label: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: {
+                            actor: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** @enum {string} */
+                            actorType: "person" | "system" | "ai" | "client";
+                            after: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** Format: date-time */
+                            at: string;
+                            before: {
+                                [key: string]: unknown;
+                            } | null;
+                            note: string | null;
+                            what: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    closingWithinDays?: number;
+                    /** @default 100 */
+                    limit?: number;
+                    /** @default false */
+                    mine?: boolean;
+                    search?: string;
+                    /** @enum {string} */
+                    side?: "buyer" | "listing";
+                    stage?: string;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    status?: "open" | "closed" | "ended" | "archived" | "all";
+                    /** @enum {string} */
+                    waitingOn?: "outside" | "blocked" | "either";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deals: {
+                            archived: boolean;
+                            client: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            closing: string | null;
+                            datesToConfirm: number;
+                            /** Format: uuid */
+                            dealId: string;
+                            headline: string | null;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            mainAgent: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            mine: boolean;
+                            name: string;
+                            nextDue: {
+                                /** Format: date-time */
+                                dueAt: string;
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            } | null;
+                            openDuties: number;
+                            outcome: string | null;
+                            overdueDuties: number;
+                            property: {
+                                address: string;
+                                /** Format: uuid */
+                                propertyId: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "buyer" | "listing";
+                            stage: string;
+                            stageLabel: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            waiting: {
+                                title: string;
+                                who: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_risks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {string} */
+                        health: "green" | "yellow" | "red";
+                        name: string;
+                        openWork: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            materiality: string;
+                            missing: string;
+                            next: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        reasons: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            code: string;
+                            dueAt?: string | null;
+                            /** Format: uuid */
+                            dutyId?: string;
+                            keys?: string[];
+                            /** @enum {string} */
+                            level: "red" | "yellow";
+                            next: string;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_document_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: {
+                            controlling: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            documentId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            fileName: string;
+                            kind: string;
+                            kindLabel: string;
+                            /** Format: uuid */
+                            lineageId: string;
+                            locked: boolean;
+                            signedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "signed" | "superseded" | "void";
+                            title: string;
+                            version: number;
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_duty_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        can: {
+                            except: boolean;
+                        };
+                        duty: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            accountableRole: string;
+                            acknowledgedAt: string | null;
+                            automation: string;
+                            behavior: string;
+                            blocker: {
+                                impact: string | null;
+                                owner: string;
+                                reviewAt: string | null;
+                                what: string;
+                            } | null;
+                            chaseAt: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            dueDate: string | null;
+                            dueRule: string;
+                            dueSetByHand: {
+                                /** Format: date-time */
+                                at: string;
+                                reason: string;
+                            } | null;
+                            /** @enum {string} */
+                            dueState: "due" | "none" | "waiting";
+                            dueTime: string | null;
+                            dueTrace: unknown[];
+                            /** Format: uuid */
+                            dutyId: string;
+                            exception: boolean;
+                            finishedAt: string | null;
+                            finishReason: string | null;
+                            key: string;
+                            materiality: string;
+                            needsDates: string[];
+                            overdue: boolean;
+                            pass: number;
+                            performers: string[];
+                            phase: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            startedBy: string;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            tracker: string;
+                            waitingOn: string | null;
+                            waitingSince: string | null;
+                            warnings: unknown[];
+                        };
+                        evidence: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            addedBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            appointmentId: string | null;
+                            body: string | null;
+                            documentId: string | null;
+                            /** Format: uuid */
+                            evidenceId: string;
+                            fileId: string | null;
+                            kind: string;
+                            label: string;
+                            messageId: string | null;
+                            withdrawnAt: string | null;
+                            withdrawnReason: string | null;
+                        }[];
+                        ifItSlips: {
+                            sameDate: string[];
+                            waiting: string[];
+                        };
+                        log: {
+                            actor: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** @enum {string} */
+                            actorType: "person" | "system" | "ai" | "client";
+                            after: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** Format: date-time */
+                            at: string;
+                            before: {
+                                [key: string]: unknown;
+                            } | null;
+                            note: string | null;
+                            what: string;
+                        }[];
+                        proof: {
+                            attestations: string[];
+                            missing: string;
+                            needs: string;
+                        };
+                        waitingOnThis: {
+                            accountableName: string | null;
+                            addedByName: string | null;
+                            builtIn: boolean;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            waitingOn: string | null;
+                        }[];
+                        waitsOn: {
+                            accountableName: string | null;
+                            addedByName: string | null;
+                            builtIn: boolean;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                            waitingOn: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_duty_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId?: string;
+                    /** @default 200 */
+                    limit?: number;
+                    /** @default true */
+                    mine?: boolean;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    status?: "open" | "overdue" | "drafts" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duties: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** @enum {string} */
+                            dueState: "due" | "none" | "waiting";
+                            /** Format: uuid */
+                            dutyId: string;
+                            key: string;
+                            materiality: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_duty_vendors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dutyId: string;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        /** Format: uuid */
+                        dealId: string;
+                        /** Format: uuid */
+                        dutyId: string;
+                        fits: {
+                            approved: boolean;
+                            approvedAt: string | null;
+                            archived: boolean;
+                            areas: string[];
+                            /** Format: uuid */
+                            companyId: string;
+                            disclosure: string | null;
+                            disclosureWords: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            inArea: boolean | null;
+                            lastUsedAt: string | null;
+                            name: string;
+                            note: string | null;
+                            phone: string | null;
+                            services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                            servicesWords: string;
+                            uses: number;
+                        }[];
+                        picks: {
+                            appointment: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                                title: string | null;
+                            } | null;
+                            note: string | null;
+                            /** Format: date-time */
+                            pickedAt: string;
+                            pickedByName: string | null;
+                            /** Format: uuid */
+                            pickId: string;
+                            quoteCents: number | null;
+                            quoteDocument: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            quoteWords: string | null;
+                            removedAt: string | null;
+                            removedReason: string | null;
+                            /** @enum {string} */
+                            service: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                            serviceLabel: string;
+                            vendor: {
+                                approved: boolean;
+                                approvedAt: string | null;
+                                archived: boolean;
+                                areas: string[];
+                                /** Format: uuid */
+                                companyId: string;
+                                disclosure: string | null;
+                                disclosureWords: string;
+                                email: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lastUsedAt: string | null;
+                                name: string;
+                                note: string | null;
+                                phone: string | null;
+                                services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                                servicesWords: string;
+                                uses: number;
+                            };
+                        }[];
+                        service: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other") | null;
+                        serviceLabel: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_esign_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connected: {
+                            account: string | null;
+                            failing: boolean;
+                            label: string;
+                            /** @enum {string} */
+                            provider: "docusign" | "dotloop";
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                        envelopes: {
+                            can: {
+                                markSigned: boolean;
+                                open: boolean;
+                                void: boolean;
+                            };
+                            certificateDocumentId: string | null;
+                            checkedAt: string | null;
+                            completedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdByName: string | null;
+                            /** Format: uuid */
+                            documentId: string;
+                            documentTitle: string;
+                            failure: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            message: string | null;
+                            preparedAt: string | null;
+                            /** @enum {string} */
+                            provider: "docusign" | "dotloop";
+                            providerLabel: string;
+                            sentAt: string | null;
+                            signedDocumentId: string | null;
+                            signers: {
+                                email: string;
+                                name: string;
+                                order: number;
+                                signedAt: string | null;
+                                /** @enum {string} */
+                                state: "waiting" | "sent" | "opened" | "signed" | "declined";
+                            }[];
+                            signersWords: string;
+                            /** @enum {string} */
+                            state: "preparing" | "draft" | "sent" | "completed" | "declined" | "voided" | "failed";
+                            stateLabel: string;
+                            subject: string;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_exceptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        blocked: {
+                            blocker: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            owner: string | null;
+                            /** Format: date-time */
+                            reviewAt: string;
+                            title: string;
+                        }[];
+                        contingencies: {
+                            /** Format: uuid */
+                            contingencyId: string;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            endedOn: string;
+                            label: string;
+                        }[];
+                        disagree: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            linked: boolean;
+                            next: string;
+                            words: string;
+                        }[];
+                        nobodyAccountable: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            title: string;
+                        }[];
+                        noProof: {
+                            accountableName: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            title: string;
+                        }[];
+                        reads: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            documentTitle: string;
+                            /** Format: uuid */
+                            readId: string;
+                            scan: boolean;
+                            waiting: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_exports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        exports: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                            failure: string | null;
+                            fileId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            manifestSha256: string | null;
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            requestedBy: string | null;
+                            /** @enum {string} */
+                            state: "building" | "ready" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_field_notes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    aboutId?: string;
+                    /** @enum {string} */
+                    aboutKind?: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        notes: {
+                            aboutId: string | null;
+                            /** @enum {string} */
+                            aboutKind: "deal" | "home" | "tour_stop" | "showing" | "open_house" | "walkthrough";
+                            audioFileId: string | null;
+                            body: string | null;
+                            createdBy: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            notedAt: string;
+                            photoFileIds: string[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptState: "none" | "waiting" | "done" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_financing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cdDeadline: string | null;
+                        closing: string | null;
+                        lender: {
+                            lenderName: string | null;
+                            loanAmountCents: number | null;
+                            loanType: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                            officerEmail: string | null;
+                            officerName: string | null;
+                            officerPhone: string | null;
+                        };
+                        steps: {
+                            amountCents: number | null;
+                            doneBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            doneOn: string | null;
+                            expectedOn: string | null;
+                            expiresOn: string | null;
+                            label: string;
+                            line: string;
+                            note: string | null;
+                            proof: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "document" | "file" | "message";
+                                label: string;
+                            } | null;
+                            rate: number | null;
+                            startedOn: string | null;
+                            /** @enum {string} */
+                            status: "not_started" | "in_progress" | "done";
+                            /** @enum {string} */
+                            step: "preapproval" | "application" | "rate_lock" | "appraisal" | "conditional_approval" | "clear_to_close" | "closing_disclosure" | "funding";
+                            warning: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_homes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeRemoved?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        homes: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            addedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            addedByClient: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            address: string;
+                            facts: {
+                                baths?: number;
+                                beds?: number;
+                                garage_spaces?: number;
+                                hoa_monthly_cents?: number;
+                                lot_sqft?: number;
+                                price_cents?: number;
+                                /** @enum {string} */
+                                property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                sqft?: number;
+                                year_built?: number;
+                            };
+                            factsFailure: string | null;
+                            factSources: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            factsState: "none" | "filling" | "suggested" | "confirmed" | "failed";
+                            fit: {
+                                lines: {
+                                    /** @enum {string} */
+                                    key: "budget" | "area" | "type" | "beds" | "baths" | "sqft";
+                                    met: boolean | null;
+                                    words: string;
+                                }[];
+                                met: number;
+                                missed: number;
+                                unknown: number;
+                            };
+                            hasPastedText: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            link: string | null;
+                            mls: {
+                                /** Format: date-time */
+                                checkedAt: string;
+                                daysOnMarket: number | null;
+                                description: string | null;
+                                differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                display: {
+                                    courtesy: string | null;
+                                    logoUrl: string | null;
+                                    notice: string | null;
+                                };
+                                facts: {
+                                    baths?: number;
+                                    beds?: number;
+                                    garage_spaces?: number;
+                                    hoa_monthly_cents?: number;
+                                    lot_sqft?: number;
+                                    price_cents?: number;
+                                    /** @enum {string} */
+                                    property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                    sqft?: number;
+                                    year_built?: number;
+                                };
+                                listPriceCents: number | null;
+                                mlsNumber: string;
+                                photos: {
+                                    caption: string | null;
+                                    url: string;
+                                }[];
+                                soldOn: string | null;
+                                soldPriceCents: number | null;
+                                sourceWords: string;
+                                /** @enum {string} */
+                                status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                statusWords: string;
+                            } | null;
+                            /** @enum {string} */
+                            mlsState: "none" | "looking" | "found" | "not_found" | "failed";
+                            mlsWords: string | null;
+                            reactions: {
+                                /** Format: date-time */
+                                at: string;
+                                name: string;
+                                note: string | null;
+                                /** Format: uuid */
+                                personId: string;
+                                /** @enum {string} */
+                                reaction: "saved" | "passed";
+                            }[];
+                            /** @enum {string} */
+                            source: "agent" | "client" | "mls" | "our_listing";
+                            /** @enum {string} */
+                            status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
+                            statusNote: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_inspections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        draft: {
+                            creditCents: number;
+                            items: number;
+                            words: string;
+                        };
+                        inspections: {
+                            findings: {
+                                /** @enum {string} */
+                                ask: "repair" | "replace" | "credit" | "not_asked";
+                                clientPriority: ("must_fix" | "would_like" | "skip") | null;
+                                creditCents: number | null;
+                                estimateCents: number | null;
+                                /** Format: uuid */
+                                id: string;
+                                location: string | null;
+                                note: string | null;
+                                photoFileIds: string[];
+                                /** @enum {string} */
+                                severity: "safety" | "repair" | "minor";
+                                title: string;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            inspector: string | null;
+                            /** @enum {string} */
+                            kind: "general" | "termite" | "roof" | "sewer" | "radon" | "mold" | "pool" | "hvac" | "structural" | "other";
+                            label: string;
+                            note: string | null;
+                            pages: number | null;
+                            reportDocument: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            reportExpectedOn: string | null;
+                            reportInOn: string | null;
+                            scheduledAt: string | null;
+                            /** @enum {string} */
+                            status: "scheduled" | "report_in" | "canceled";
+                        }[];
+                        periodEnds: string | null;
+                        repairs: {
+                            /** Format: date-time */
+                            at: string;
+                            creditCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            items: {
+                                ask: string;
+                                creditCents: number | null;
+                                /** Format: uuid */
+                                findingId: string;
+                                title: string;
+                            }[];
+                            number: number;
+                            outcome: ("agreed" | "countered" | "refused") | null;
+                            respondBy: string | null;
+                            /** @enum {string} */
+                            side: "us" | "them";
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        listing: {
+                            address: string | null;
+                            can: {
+                                letThrough: boolean;
+                            };
+                            choices: {
+                                candidates: {
+                                    /** @enum {string} */
+                                    from: "seller" | "pasted" | "agent" | "mls";
+                                    quote: string | null;
+                                    value: unknown;
+                                    words: string;
+                                }[];
+                                confirmed: {
+                                    /** @enum {string} */
+                                    from: "seller" | "pasted" | "agent" | "mls";
+                                    quote: string | null;
+                                    value: unknown;
+                                    words: string;
+                                } | null;
+                                disagree: boolean;
+                                /** @enum {string} */
+                                key: "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces";
+                                label: string;
+                            }[];
+                            /** Format: uuid */
+                            dealId: string;
+                            description: {
+                                history: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @enum {string} */
+                                    source: "ai" | "person";
+                                    /** @enum {string} */
+                                    state: "drafting" | "ready" | "failed" | "sent" | "signed" | "replaced";
+                                    version: number;
+                                    words: string | null;
+                                }[];
+                                inUse: {
+                                    /** @enum {string} */
+                                    how: "portal" | "let_through";
+                                    /** Format: uuid */
+                                    id: string;
+                                    reason: string | null;
+                                    /** Format: date-time */
+                                    signedAt: string;
+                                    version: number;
+                                    words: string;
+                                } | null;
+                                working: {
+                                    acknowledged: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        reason: string;
+                                    } | null;
+                                    blocked: {
+                                        rule: string;
+                                        words: string;
+                                    } | null;
+                                    checked: {
+                                        model: boolean;
+                                        words: boolean;
+                                    };
+                                    failure: string | null;
+                                    flags: {
+                                        /** @enum {string} */
+                                        category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                        phrase: string;
+                                        reason: string;
+                                        safer: string;
+                                    }[];
+                                    /** Format: uuid */
+                                    id: string;
+                                    sentAt: string | null;
+                                    /** @enum {string} */
+                                    source: "ai" | "person";
+                                    /** @enum {string} */
+                                    state: "drafting" | "ready" | "failed" | "sent";
+                                    version: number;
+                                    words: string | null;
+                                } | null;
+                            };
+                            facts: {
+                                baths?: number;
+                                beds?: number;
+                                garage_spaces?: number;
+                                hoa_monthly_cents?: number;
+                                lot_sqft?: number;
+                                /** @enum {string} */
+                                property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                sqft?: number;
+                                year_built?: number;
+                            };
+                            factsConfirmedAt: string | null;
+                            factsConfirmedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            feed: {
+                                differences: {
+                                    /** @enum {string} */
+                                    key: "price" | "status";
+                                    words: string;
+                                }[];
+                                mls: {
+                                    /** Format: date-time */
+                                    checkedAt: string;
+                                    daysOnMarket: number | null;
+                                    description: string | null;
+                                    differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                    display: {
+                                        courtesy: string | null;
+                                        logoUrl: string | null;
+                                        notice: string | null;
+                                    };
+                                    facts: {
+                                        baths?: number;
+                                        beds?: number;
+                                        garage_spaces?: number;
+                                        hoa_monthly_cents?: number;
+                                        lot_sqft?: number;
+                                        price_cents?: number;
+                                        /** @enum {string} */
+                                        property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                        sqft?: number;
+                                        year_built?: number;
+                                    };
+                                    listPriceCents: number | null;
+                                    mlsNumber: string;
+                                    photos: {
+                                        caption: string | null;
+                                        url: string;
+                                    }[];
+                                    soldOn: string | null;
+                                    soldPriceCents: number | null;
+                                    sourceWords: string;
+                                    /** @enum {string} */
+                                    status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                    statusWords: string;
+                                } | null;
+                                /** @enum {string} */
+                                state: "none" | "looking" | "found" | "not_found" | "failed";
+                                words: string | null;
+                            };
+                            highlights: string | null;
+                            listPriceCents: number | null;
+                            matches: {
+                                added: number;
+                                at: string | null;
+                                suggested: number;
+                            };
+                            mls: {
+                                liveOn: string;
+                                number: string;
+                            } | null;
+                            page: {
+                                publishedAt: string | null;
+                                slug: string | null;
+                                /** @enum {string} */
+                                state: "none" | "published" | "down";
+                            };
+                            pasted: {
+                                failure: string | null;
+                                found: number;
+                                /** @enum {string} */
+                                state: "none" | "filling" | "read" | "failed";
+                            };
+                            photos: {
+                                caption: string | null;
+                                /** Format: uuid */
+                                fileId: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                position: number;
+                                public: boolean;
+                            }[];
+                            questionnaire: {
+                                loves: string | null;
+                                /** @enum {string} */
+                                state: "none" | "asked" | "draft" | "submitted";
+                                submittedAt: string | null;
+                                taskId: string | null;
+                                updates: string | null;
+                            };
+                            street: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_flyer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agentName: string | null;
+                        cityLine: string | null;
+                        description: string;
+                        facts: {
+                            label: string;
+                            words: string;
+                        }[];
+                        mlsNumber: string;
+                        page: {
+                            path: string;
+                            site: string;
+                            slug: string;
+                        } | null;
+                        photos: {
+                            caption: string | null;
+                            /** Format: uuid */
+                            fileId: string;
+                        }[];
+                        priceCents: number | null;
+                        street: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_marketing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        hold: string | null;
+                        mls: {
+                            liveOn: string;
+                            number: string;
+                        } | null;
+                        page: {
+                            /** Format: uuid */
+                            dealId: string;
+                            path: string | null;
+                            site: string | null;
+                            slug: string | null;
+                            /** @enum {string} */
+                            state: "none" | "published" | "down";
+                        };
+                        posts: {
+                            failure: string | null;
+                            items: {
+                                checked: {
+                                    model: boolean;
+                                    words: boolean;
+                                };
+                                edited: boolean;
+                                flags: {
+                                    /** @enum {string} */
+                                    category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                    phrase: string;
+                                    reason: string;
+                                    safer: string;
+                                }[];
+                                /** Format: uuid */
+                                id: string;
+                                position: number;
+                                words: string | null;
+                            }[];
+                            /** @enum {string} */
+                            state: "none" | "drafting" | "ready" | "failed";
+                        };
+                        ready: {
+                            description: boolean;
+                            facts: boolean;
+                            photos: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_listing_prices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        currentCents: number | null;
+                        /** Format: uuid */
+                        dealId: string;
+                        history: {
+                            appliedAt: string | null;
+                            fromCents: number;
+                            how: ("portal" | "let_through") | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            overrideBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            overrideReason: string | null;
+                            /** Format: date-time */
+                            proposedAt: string;
+                            proposedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            signedBy: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "applied" | "withdrawn";
+                            taskId: string | null;
+                            toCents: number;
+                            withdrawnReason: string | null;
+                            words: string;
+                        }[];
+                        showings: {
+                            answered: number;
+                            averageInterest: number | null;
+                            priceHigh: number;
+                            showings: number;
+                            words: string;
+                        };
+                        waiting: {
+                            appliedAt: string | null;
+                            fromCents: number;
+                            how: ("portal" | "let_through") | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            overrideBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            overrideReason: string | null;
+                            /** Format: date-time */
+                            proposedAt: string;
+                            proposedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            signedBy: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "applied" | "withdrawn";
+                            taskId: string | null;
+                            toCents: number;
+                            withdrawnReason: string | null;
+                            words: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_matches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    state?: "new" | "sent" | "dismissed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            dismissed: number;
+                            new: number;
+                            sent: number;
+                        };
+                        matches: {
+                            address: string;
+                            changedAt: string | null;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            fit: {
+                                lines: {
+                                    /** @enum {string} */
+                                    key: "budget" | "area" | "type" | "beds" | "baths" | "sqft";
+                                    met: boolean | null;
+                                    words: string;
+                                }[];
+                                met: number;
+                                missed: number;
+                                unknown: number;
+                            };
+                            /** Format: date-time */
+                            foundAt: string;
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            mls: {
+                                /** Format: date-time */
+                                checkedAt: string;
+                                daysOnMarket: number | null;
+                                description: string | null;
+                                differs: ("price_cents" | "beds" | "baths" | "sqft" | "lot_sqft" | "year_built" | "hoa_monthly_cents" | "property_type" | "garage_spaces")[];
+                                display: {
+                                    courtesy: string | null;
+                                    logoUrl: string | null;
+                                    notice: string | null;
+                                };
+                                facts: {
+                                    baths?: number;
+                                    beds?: number;
+                                    garage_spaces?: number;
+                                    hoa_monthly_cents?: number;
+                                    lot_sqft?: number;
+                                    price_cents?: number;
+                                    /** @enum {string} */
+                                    property_type?: "single_family" | "condo" | "townhouse" | "multi_family" | "manufactured" | "land";
+                                    sqft?: number;
+                                    year_built?: number;
+                                };
+                                listPriceCents: number | null;
+                                mlsNumber: string;
+                                photos: {
+                                    caption: string | null;
+                                    url: string;
+                                }[];
+                                soldOn: string | null;
+                                soldPriceCents: number | null;
+                                sourceWords: string;
+                                /** @enum {string} */
+                                status: "coming_soon" | "active" | "pending" | "sold" | "off_market";
+                                statusWords: string;
+                            };
+                            /** @enum {string} */
+                            state: "new" | "sent" | "dismissed";
+                        }[];
+                        search: {
+                            checkedAt: string | null;
+                            failure: string | null;
+                            feedConnected: boolean;
+                            missing: string | null;
+                            on: boolean;
+                            words: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeClosed?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "likes" | "dislikes" | "must_have" | "deal_breaker" | "timing" | "money" | "other";
+                            quote: string | null;
+                            sourceId: string | null;
+                            /** @enum {string} */
+                            sourceKind: "message" | "call" | "note" | "typed";
+                            /** @enum {string} */
+                            status: "suggested" | "confirmed" | "rejected" | "retired";
+                            /** @enum {string} */
+                            suggestedBy: "ai" | "person";
+                            words: string;
+                        }[];
+                        protectedDropped: number;
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_offers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            acceptedVersionId: string | null;
+                            address: string;
+                            buyerNames: string | null;
+                            clock: {
+                                respondBy: string | null;
+                                /** @enum {string} */
+                                waitingOn: "them" | "us";
+                                words: string | null;
+                            } | null;
+                            endedAt: string | null;
+                            endedReason: string | null;
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            shared: {
+                                /** Format: date-time */
+                                at: string;
+                                current: boolean;
+                                /** Format: uuid */
+                                versionId: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                            summary: {
+                                lines: {
+                                    label: string;
+                                    value: string;
+                                }[];
+                                next: string;
+                                note: string;
+                                title: string;
+                            };
+                            theirAgentName: string | null;
+                            theirBrokerage: string | null;
+                            theirEmail: string | null;
+                            theirPhone: string | null;
+                            versions: {
+                                appraisalContingency: boolean | null;
+                                /** Format: date-time */
+                                at: string;
+                                buyerAgentFeeBp: number | null;
+                                buyerAgentFeeCents: number | null;
+                                closingDate: string | null;
+                                document: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    signed: boolean;
+                                    status: string;
+                                    title: string;
+                                } | null;
+                                downPaymentPct: number | null;
+                                emdCents: number | null;
+                                emdDays: number | null;
+                                escalationCapCents: number | null;
+                                escalationStepCents: number | null;
+                                financingDays: number | null;
+                                homeSaleContingency: boolean | null;
+                                /** Format: uuid */
+                                id: string;
+                                inspectionDays: number | null;
+                                loanType: ("conventional" | "fha" | "va" | "usda" | "cash" | "other") | null;
+                                note: string | null;
+                                number: number;
+                                otherTerms: string | null;
+                                possession: string | null;
+                                priceCents: number;
+                                respondBy: string | null;
+                                sellerCreditCents: number;
+                                /** @enum {string} */
+                                side: "us" | "them";
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_offers_compare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            choice: "accept" | "counter" | "decline" | "talk";
+                            name: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            words: string | null;
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                        figureHistory: {
+                            listingFeeBp: number | null;
+                            listingFeeCents: number | null;
+                            note: string | null;
+                            otherCents: number;
+                            otherNote: string | null;
+                            payoffCents: number;
+                            /** Format: date-time */
+                            savedAt: string;
+                            savedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            titleEscrowCents: number;
+                            transferTaxBp: number;
+                            version: number;
+                        }[];
+                        figures: {
+                            listingFeeBp: number | null;
+                            listingFeeCents: number | null;
+                            note: string | null;
+                            otherCents: number;
+                            otherNote: string | null;
+                            payoffCents: number;
+                            /** Format: date-time */
+                            savedAt: string;
+                            savedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            titleEscrowCents: number;
+                            transferTaxBp: number;
+                            version: number;
+                        } | null;
+                        rows: {
+                            agent: string | null;
+                            best: boolean;
+                            brokerage: string | null;
+                            buyerAgentFee: string | null;
+                            buyers: string | null;
+                            closingDate: string | null;
+                            emdCents: number | null;
+                            escalation: string | null;
+                            financing: string | null;
+                            homeSale: boolean | null;
+                            inspection: string | null;
+                            net: {
+                                lines: {
+                                    cents: number;
+                                    key: string;
+                                    label: string;
+                                }[];
+                                netCents: number;
+                            };
+                            number: number;
+                            /** Format: uuid */
+                            offerId: string;
+                            paying: string;
+                            possession: string | null;
+                            priceCents: number;
+                            respondBy: string | null;
+                            sellerCreditCents: number;
+                            /** @enum {string} */
+                            status: "waiting_them" | "waiting_us" | "accepted" | "declined" | "expired" | "withdrawn";
+                            /** Format: uuid */
+                            versionId: string;
+                            versionNumber: number;
+                        }[];
+                        shared: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            comparisonId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_open_houses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        live: boolean;
+                        openHouses: {
+                            /** Format: date-time */
+                            endsAt: string;
+                            host: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            signInPath: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            state: "planned" | "cancelled";
+                            visitors: {
+                                agentName: string | null;
+                                email: string | null;
+                                firstName: string;
+                                followedUpAt: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lastName: string | null;
+                                personId: string | null;
+                                phone: string | null;
+                                /** Format: date-time */
+                                signedInAt: string;
+                                smsConsent: boolean;
+                                withAgent: boolean;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dueThisWeek: number;
+                        myOpenDeals: number;
+                        name: string;
+                        openDeals: number;
+                        overdueDuties: number;
+                        version: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_property_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 8 */
+                    limit?: number;
+                    q: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        properties: {
+                            address: string;
+                            deals: number;
+                            /** Format: uuid */
+                            propertyId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_showing_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        requestPath: string | null;
+                        sellerFirstName: string | null;
+                        settings: {
+                            access: string | null;
+                            accessHours: number;
+                            /** @enum {string} */
+                            confirm: "seller" | "auto";
+                            days: number[];
+                            feedbackHours: number;
+                            from: string;
+                            minutes: number;
+                            open: boolean;
+                            to: string;
+                        };
+                        showings: {
+                            accessSentAt: string | null;
+                            agentEmail: string | null;
+                            agentName: string;
+                            agentPhone: string | null;
+                            brokerage: string | null;
+                            can: {
+                                cancel: boolean;
+                                check: boolean;
+                                confirm: boolean;
+                                decline: boolean;
+                                feedback: boolean;
+                                share: boolean;
+                            };
+                            checked: boolean;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            feedback: {
+                                interest: number | null;
+                                liked: string | null;
+                                pause: string | null;
+                                price: ("low" | "right" | "high") | null;
+                            } | null;
+                            feedbackAskedAt: string | null;
+                            feedbackAt: string | null;
+                            feedbackSharedAt: string | null;
+                            feedbackSource: ("page" | "showingtime" | "agent") | null;
+                            /** Format: uuid */
+                            id: string;
+                            license: string | null;
+                            /** Format: date-time */
+                            requestedAt: string;
+                            /** @enum {string} */
+                            source: "page" | "showingtime" | "agent";
+                            sourceLabel: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            state: "requested" | "confirmed" | "declined" | "cancelled" | "done";
+                            stateWords: string;
+                            when: string;
+                        }[];
+                        street: string | null;
+                        summary: {
+                            answered: number;
+                            averageInterest: number | null;
+                            interestWords: string;
+                            price: {
+                                high: number;
+                                low: number;
+                                right: number;
+                            };
+                            showings: number;
+                            words: string;
+                        };
+                        themes: {
+                            /** Format: date-time */
+                            at: string;
+                            disliked: {
+                                count: number;
+                                quotes: string[];
+                                theme: string;
+                            }[];
+                            dislikedWords: string;
+                            liked: {
+                                count: number;
+                                quotes: string[];
+                                theme: string;
+                            }[];
+                            likedWords: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_status_email_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        acknowledged: {
+                            /** Format: date-time */
+                            at: string;
+                            reason: string;
+                        } | null;
+                        canSend: boolean;
+                        checking: boolean;
+                        checks: {
+                            /** Format: date-time */
+                            checkedAt: string;
+                            current: boolean;
+                            flags: {
+                                /** @enum {string} */
+                                category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                                phrase: string;
+                                reason: string;
+                                safer: string;
+                            }[];
+                            /** @enum {string} */
+                            source: "words" | "model";
+                            /** @enum {string} */
+                            status: "passed" | "flagged" | "unavailable";
+                            version: string;
+                        }[];
+                        draft: {
+                            body: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            /** Format: uuid */
+                            draftId: string;
+                            failure: string | null;
+                            /** @enum {string} */
+                            milestone: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                            subject: string | null;
+                            to: {
+                                email: string | null;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                        };
+                        flags: {
+                            /** @enum {string} */
+                            category: "race_color" | "national_origin" | "religion" | "sex" | "disability" | "familial_status" | "steering";
+                            phrase: string;
+                            reason: string;
+                            safer: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_status_email_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        drafts: {
+                            body: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            /** Format: uuid */
+                            draftId: string;
+                            failure: string | null;
+                            /** @enum {string} */
+                            milestone: "under_contract" | "inspection_done" | "clear_to_close" | "closed" | "asked";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "sent" | "discarded" | "failed";
+                            subject: string | null;
+                            to: {
+                                email: string | null;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_suggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        suggestions: {
+                            address: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            decidedReason: string | null;
+                            facts: {
+                                [key: string]: unknown;
+                            };
+                            fit: {
+                                key: string;
+                                met: boolean | null;
+                                words: string;
+                            }[];
+                            homeId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            mlsNumber: string | null;
+                            pageSlug: string | null;
+                            priceCents: number | null;
+                            /** @enum {string} */
+                            state: "new" | "added" | "not_a_fit" | "gone";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_diff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    templateSetId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: {
+                            add: {
+                                key: string;
+                                title: string;
+                            }[];
+                            cancel: {
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                            redefine: {
+                                changes: string[];
+                                /** Format: uuid */
+                                dutyId: string;
+                                title: string;
+                            }[];
+                        };
+                        /** Format: uuid */
+                        dealId: string;
+                        fromVersion: number | null;
+                        /** Format: uuid */
+                        templateSetId: string;
+                        toVersion: number;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            changed: string[];
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                            enabled: boolean;
+                            key: string;
+                            own: boolean;
+                            phase: string;
+                            side: string;
+                            title: string;
+                            tracker: string;
+                        }[];
+                        published: {
+                            note: string | null;
+                            publishedAt: string;
+                            publishedBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            templateSetId: string;
+                            version: number;
+                        } | null;
+                        unpublished: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_template_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        versions: {
+                            note: string | null;
+                            openDeals: number;
+                            publishedAt: string;
+                            /** Format: uuid */
+                            templateSetId: string;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_term_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @enum {string} */
+                    key?: "acceptance" | "offer_expiration" | "emd_due" | "inspection_end" | "financing_end" | "appraisal_end" | "title_objection_end" | "hoa_review_end" | "home_sale_end" | "survey_due" | "walkthrough" | "closing" | "possession" | "rate_lock_expiry" | "preapproval_expiry" | "cd_received" | "buyer_agreement_expiry" | "listing_agreement_expiry" | "listing_launch" | "price" | "list_price" | "emd_amount" | "loan_amount" | "seller_credit" | "loan_type" | "emd_holder" | "buyer_names" | "seller_names" | "included_items" | "excluded_items";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: {
+                            cents: number | null;
+                            confirmedAt: string | null;
+                            confirmedBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            date: string | null;
+                            documentId: string | null;
+                            /** Format: date-time */
+                            enteredAt: string;
+                            enteredBy: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            entryId: string;
+                            key: string;
+                            label: string;
+                            live: boolean;
+                            note: string | null;
+                            rejectedAt: string | null;
+                            rejectedReason: string | null;
+                            source: string;
+                            sourceRef: string | null;
+                            supersededAt: string | null;
+                            text: string | null;
+                            time: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        atRisk: {
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dutyId: string | null;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            kind: "duty" | "reason";
+                            /** @enum {string} */
+                            level: "red" | "yellow";
+                            next: string;
+                            words: string;
+                        }[];
+                        dueToday: {
+                            accountableName: string | null;
+                            acknowledged: boolean;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            escalated: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            materiality: "standard" | "material" | "critical";
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        overdue: {
+                            accountableName: string | null;
+                            acknowledged: boolean;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            escalated: boolean;
+                            /** @enum {string} */
+                            health: "green" | "yellow" | "red";
+                            /** @enum {string} */
+                            materiality: "standard" | "material" | "critical";
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        today: string;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_tours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @default false */
+                    includeCanceled?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agreement: {
+                            endsOn: string | null;
+                            ok: boolean;
+                            rule: ("buyer_agreement_needed" | "buyer_agreement_expired") | null;
+                            signedTitle: string | null;
+                            words: string | null;
+                        };
+                        can: {
+                            except: boolean;
+                        };
+                        tours: {
+                            agent: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            appointmentId: string | null;
+                            calendarId: string | null;
+                            canceledReason: string | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            exception: {
+                                /** Format: date-time */
+                                at: string;
+                                by: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                reason: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            status: "planned" | "done" | "canceled";
+                            stops: {
+                                address: string;
+                                feedback: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @enum {string} */
+                                    interest: "love" | "maybe" | "no";
+                                    name: string;
+                                    /** Format: uuid */
+                                    personId: string;
+                                    rating: number | null;
+                                    recordedBy: {
+                                        fullName: string;
+                                        /** Format: uuid */
+                                        id: string;
+                                    } | null;
+                                    words: string | null;
+                                }[];
+                                /** Format: uuid */
+                                homeId: string;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                                position: number;
+                                /** @enum {string} */
+                                status: "planned" | "visited" | "skipped";
+                                visitedAt: string | null;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_vendor_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @enum {string} */
+                    service?: "inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        vendors: {
+                            approved: boolean;
+                            approvedAt: string | null;
+                            archived: boolean;
+                            areas: string[];
+                            /** Format: uuid */
+                            companyId: string;
+                            disclosure: string | null;
+                            disclosureWords: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastUsedAt: string | null;
+                            name: string;
+                            note: string | null;
+                            phone: string | null;
+                            services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                            servicesWords: string;
+                            uses: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_waiting_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountableName: string | null;
+                            blocker: string | null;
+                            /** Format: uuid */
+                            dealId: string;
+                            dealName: string;
+                            /** Format: uuid */
+                            dutyId: string;
+                            next: string | null;
+                            past: boolean;
+                            /** Format: date-time */
+                            since: string;
+                            /** @enum {string} */
+                            status: "waiting_external" | "blocked";
+                            title: string;
+                            waitingOn: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_walkthrough: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        walkthrough: {
+                            appointmentId: string | null;
+                            clientsAgreedAt: string | null;
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            items: {
+                                checkedAt: string | null;
+                                checkedBy: string | null;
+                                detail: string | null;
+                                dutyId: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                                photoFileIds: string[];
+                                /** @enum {string} */
+                                source: "repair" | "included" | "excluded" | "finding" | "room" | "added";
+                                sourceRef: string | null;
+                                /** @enum {string} */
+                                state: "unchecked" | "ok" | "not_ok" | "unsure";
+                                title: string;
+                            }[];
+                            scheduledAt: string | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "planned" | "started" | "done";
+                            summary: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_workload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    agentUserId?: string;
+                    mine?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            atRiskDeals: number;
+                            deals: number;
+                            dueSoon: number;
+                            name: string;
+                            openDuties: number;
+                            overdue: number;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_record_hold_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId?: string;
+                    /** @enum {string} */
+                    kind?: "legal" | "retention";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        holds: {
+                            /** Format: uuid */
+                            customRecordId: string;
+                            heldUntil: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "legal" | "retention";
+                            /** Format: date-time */
+                            placedAt: string;
+                            placedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reason: string | null;
+                            recordName: string;
                         }[];
                     };
                 };
@@ -40737,6 +57722,135 @@ export interface operations {
             };
         };
     };
+    query_safety_alert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alert: {
+                            /** Format: uuid */
+                            checkInId: string;
+                            latitude: number | null;
+                            locatedAt: string | null;
+                            longitude: number | null;
+                            personName: string;
+                            personPhone: string | null;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "alerted" | "help";
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_safety_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contacts: {
+                            contactUserId: string | null;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            phone: string | null;
+                            /** @enum {string} */
+                            status: "teammate" | "asked" | "agreed" | "stopped";
+                        }[];
+                        open: {
+                            appointmentId: string | null;
+                            extendedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            place: string;
+                            /** Format: date-time */
+                            plannedEndAt: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "in" | "asked" | "alerted" | "ok" | "out" | "help";
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_safety_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alertAfterMinutes: number;
+                        askAfterMinutes: number;
+                        safetyPersonName: string | null;
+                        safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_schedule_team: {
         parameters: {
             query?: never;
@@ -40796,6 +57910,12 @@ export interface operations {
                             defaultHours: boolean;
                             fullName: string;
                             hours: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
+                            privateBusy: {
                                 /** Format: date-time */
                                 endsAt: string;
                                 /** Format: date-time */
@@ -41048,6 +58168,58 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_support_access_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canLetIn: boolean;
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            endedAt: string | null;
+                            expired: boolean;
+                            expiresAt: string | null;
+                            grantedAt: string | null;
+                            grantedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            requestNote: string | null;
+                            /** @enum {string} */
+                            status: "requested" | "active" | "declined" | "ended";
                         }[];
                     };
                 };

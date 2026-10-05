@@ -24,6 +24,7 @@ import { AddonSlot } from '@/components/addons/slot';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
+import { AssignedCard } from '@/components/crm/assigned-card';
 import { CustomFieldsSection } from '@/components/crm/custom-fields';
 import { FileGrid } from '@/components/files/file-grid';
 import { UploadZone } from '@/components/files/upload-zone';
@@ -401,6 +402,23 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
         </Tabs>
 
         <div className="flex min-w-0 flex-col gap-4">
+          {/* Kept to the people on it (Real Estate step 4): who they are, and, for its main person or an owner or
+              admin, putting people on it and taking them off. */}
+          {record.keptToTeam ? (
+            <AssignedCard
+              workspaceId={workspaceId}
+              recordType="custom_record"
+              recordId={record.id}
+              owner={record.owner}
+              team={record.team}
+              members={members}
+              canEdit={
+                !archived && (can(permissions, 'records.assign') || record.owner?.id === myUserId)
+              }
+              canChooseMain={!archived && can(permissions, 'records.assign')}
+              noun={kind.singular.toLowerCase()}
+            />
+          ) : null}
           <RelationshipsCard
             workspaceId={workspaceId}
             record={{

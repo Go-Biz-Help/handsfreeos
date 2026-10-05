@@ -188,6 +188,43 @@ describe('the route map', () => {
     for (const rule of ROUTES.filter((r) => r.phone === 'web')) expect(rule.deeper).toBe(true);
   });
 
+  it('opens an add-on’s page on the phone once this build has its screen, keeping the query it reads', () => {
+    // A deal, as an alert's push names it, with the duty it points at (round six, board 78).
+    expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}&x=1`)).toEqual({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}?duty=${OTHER}`,
+      businessId: WS,
+      later: null,
+      params: { dealId: ID, duty: OTHER, x: '1' },
+    });
+    expect(routeFor(`/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}/updates/${OTHER}`,
+    });
+    expect(routeFor(`/app/w/${WS}/a/realestate?view=attention`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate?view=attention`,
+    });
+    // What the add-on keeps on the web, an add-on nobody built, and a page it doesn't have: the web, and nothing later.
+    for (const page of [
+      'a/realestate/settings',
+      `a/realestate/deals/${ID}/nothing`,
+      'a/realestate/deals/not-an-id',
+      `a/someday/things/${ID}`,
+      'a',
+    ])
+      expect({ page, target: routeFor(`/app/w/${WS}/${page}`) }).toEqual({
+        page,
+        target: { kind: 'web', path: `/app/w/${WS}/${page}`, businessId: WS },
+      });
+    // What the app does with it: the deal's screen.
+    expect(decideLink(`/app/w/${WS}/a/realestate/deals/${ID}`, { businessIds: [WS] })).toEqual({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/realestate/deals/${ID}`,
+      later: null,
+    });
+  });
+
   it('fills a phone path’s parts from what the web path named', () => {
     expect(phonePathOf('inbox/:conversationId', { conversationId: ID })).toBe(`inbox/${ID}`);
     expect(phonePathOf('inbox', { conversationId: ID })).toBe('inbox');

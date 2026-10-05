@@ -98,6 +98,7 @@ const ALL_ON = {
   wallet: true,
   jobs: true,
   connections: true,
+  addons: true,
   supportTickets: true,
   qualifying: true,
 };
@@ -174,6 +175,7 @@ describe('Settings → Notifications', () => {
           paymentEmail: true,
           agencyDigest: true,
           eveningSummary: true,
+          addonEmail: true,
         },
       },
     });

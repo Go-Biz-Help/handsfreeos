@@ -453,6 +453,8 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     await sendQueuedEmail(ctx, m);
     return;
   }
+  // A chat or portal reply is never a text: it's read where it was written (message.send never queues one).
+  if (m.channel === 'chat' || m.channel === 'portal') return;
   const fail = (errorCode: string, errorMessage: string) =>
     executeCommand(
       ctx.db,
@@ -612,7 +614,10 @@ export const onConversationLinked: EventHandler = async (ctx) => {
       .insert(activities)
       .values({
         workspaceId: scope.workspaceId,
-        kind: m.channel === 'email' ? 'email' : m.channel === 'chat' ? 'chat' : 'sms',
+        kind:
+          m.channel === 'email' || m.channel === 'chat' || m.channel === 'portal'
+            ? m.channel
+            : 'sms',
         subtype: m.direction,
         personId,
         body: m.bodyText || messagePreview(null, m.media.length) || null,

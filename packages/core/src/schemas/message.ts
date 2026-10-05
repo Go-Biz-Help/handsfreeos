@@ -17,8 +17,8 @@ export const requiredEmail = z
   .max(254)
   .pipe(z.email({ error: 'Enter a valid email address.' }));
 
-/** What message.send can send on: a text, an email, or a reply in a website chat. */
-export const sendChannel = z.enum(['sms', 'email', 'chat']);
+/** What message.send can send on: a text, an email, or a reply in a website chat or a customer's portal. */
+export const sendChannel = z.enum(['sms', 'email', 'chat', 'portal']);
 
 export const MessageSendInput = z
   .object({
@@ -83,6 +83,10 @@ export const MessageSendInput = z
   .refine((v) => v.channel !== 'chat' || !!v.conversationId, {
     path: ['conversationId'],
     error: 'A chat reply goes in the visitor’s chat.',
+  })
+  .refine((v) => v.channel !== 'portal' || !!v.conversationId, {
+    path: ['conversationId'],
+    error: 'A portal reply goes in the client’s portal thread.',
   })
   .refine(
     (v) =>

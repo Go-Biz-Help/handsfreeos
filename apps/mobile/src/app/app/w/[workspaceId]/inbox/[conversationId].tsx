@@ -194,7 +194,10 @@ function Thread() {
     decided: Decided;
   } | null>(null);
 
+  // A client's portal thread (round six, for the people on its deal) answers in their portal, as on the web: like a
+  // website chat, its replies stay where they were written.
   const channel = c?.channel ?? 'sms';
+  const stays = channel === 'chat' || channel === 'portal';
   const current: ComposerMode = mode ?? channel;
   // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
   const canRich = current === 'sms' && !editing;
@@ -239,7 +242,12 @@ function Thread() {
     setEditing(row);
     setBody(typeof input.body === 'string' ? input.body : '');
     setSubject(typeof input.subject === 'string' ? input.subject : '');
-    if (input.channel === 'email' || input.channel === 'sms' || input.channel === 'chat')
+    if (
+      input.channel === 'email' ||
+      input.channel === 'sms' ||
+      input.channel === 'chat' ||
+      input.channel === 'portal'
+    )
       setMode(input.channel);
   }
 
@@ -301,7 +309,7 @@ function Thread() {
   const lastEmailSubject =
     [...thread.items].reverse().find((i) => i.channel === 'email' && i.subject)?.subject ?? null;
   const sameChannel = current === channel;
-  const modes: readonly ('sms' | 'email')[] | null = channel === 'chat' ? null : ['sms', 'email'];
+  const modes: readonly ('sms' | 'email')[] | null = stays ? null : ['sms', 'email'];
 
   // What the box says when this channel can't be used.
   let note: ComposerNote | null = null;
@@ -723,7 +731,7 @@ function Thread() {
   return (
     <Screen
       title={rowName(c)}
-      subtitle={all ? ALL_LINES_WORDS.label : threadChannelLine(c, person)}
+      subtitle={all ? ALL_LINES_WORDS.label : threadChannelLine(c, person, { compact: true })}
       leading="back"
       back={businessHref(business.id, 'inbox')}
       ask={false}
@@ -843,7 +851,7 @@ function Thread() {
                 dropReplyPhoto(userId, photo);
                 setPhotos((p) => p.filter((x) => x.fileId !== photo.fileId));
               }}
-              canPhoto={current !== 'chat' && !!person && !editing}
+              canPhoto={!stays && !!person && !editing}
               note={note}
               off={off}
               first={first}
@@ -883,7 +891,14 @@ function Thread() {
         onClose={() => setSheet(null)}
         c={c}
         canCall={canCall}
-        canHandToAi={!priv && !!data.teammate && c.handledBy !== 'ai' && channel !== 'email'}
+        // The AI teammate never answers a client's portal (message.send refuses it there).
+        canHandToAi={
+          !priv &&
+          !!data.teammate &&
+          c.handledBy !== 'ai' &&
+          channel !== 'email' &&
+          channel !== 'portal'
+        }
         teammateName={teammateName}
         assigneeShort={assigneeShort(c.assignee, myUserId)}
         onCall={() => startCall(callTarget)}

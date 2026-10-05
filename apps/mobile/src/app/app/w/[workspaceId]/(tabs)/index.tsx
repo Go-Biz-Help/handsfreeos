@@ -84,7 +84,13 @@ export default function Home() {
   const params = useLocalSearchParams<{ item?: string }>();
   const now = useNow();
   const [scope, setScope] = React.useState<AttentionScope | null>(null);
-  const home = useHome(scope, now);
+  // Add-on alerts acknowledged here (Got it): their button goes at once, before HandsFreeOS's row comes down.
+  const [acknowledged, setAcknowledged] = React.useState<ReadonlySet<string>>(() => new Set());
+  const onAcknowledged = React.useCallback(
+    (alertId: string) => setAcknowledged((was) => new Set(was).add(alertId)),
+    [],
+  );
+  const home = useHome(scope, now, acknowledged);
   const members = useMembers();
   const teammateName = useTeammateName();
   const workspace = useWorkspaceRow();
@@ -111,6 +117,7 @@ export default function Home() {
     myUserId: userId,
     members,
     open,
+    onAcknowledged,
   });
   const draftById = React.useMemo(
     () => new Map(drafts.items.map((d) => [d.draft.id, d.draft])),

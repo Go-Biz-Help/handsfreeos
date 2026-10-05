@@ -76,3 +76,8 @@ export * from './voice/phone-audio';
 export * from './addons/index';
 // The support desk (M13): its words, sections and queue, for the web's /admin and the phone's Support desk.
 export * from './support/index';
+// Check-ins (round six): the limits, the business's times, and the words both apps and the worker say.
+export * from './safety';
+export * from './safety-phone';
+// Legal holds (round six): what a record on hold says, on both apps.
+export * from './record-holds';

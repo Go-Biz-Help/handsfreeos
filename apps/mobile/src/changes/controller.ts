@@ -77,7 +77,8 @@ export interface ChangesDb extends OutboxDb {
 
 export interface NewPhoto {
   readonly workspaceId: string;
-  readonly recordType: 'person' | 'company' | 'lead';
+  /** A customer, a company, a lead, or an add-on's record (a Real Estate deal's photos and voice notes). */
+  readonly recordType: 'person' | 'company' | 'lead' | 'custom_record';
   readonly recordId: string;
 }
 
@@ -524,6 +525,8 @@ export class Changes {
       readonly fileId: string;
       readonly dependsOn?: readonly string[];
       readonly name?: string;
+      /** What the kept file is: a photo is a JPEG; a voice note recorded on the phone is AAC in an MP4 box. */
+      readonly mimeType?: 'image/jpeg' | 'audio/mp4';
     },
   ): Promise<{ readonly id: string }> {
     const refused = this.deps.refuse?.(photo);
@@ -534,13 +537,14 @@ export class Changes {
     const id = this.deps.newId();
     const takenAt = new Date(this.now()).toISOString();
     const name = options.name ?? photoName(new Date(this.now()));
+    const mimeType = options.mimeType ?? 'image/jpeg';
     const input = JSON.stringify({
       workspaceId: photo.workspaceId,
       id: options.fileId,
       recordType: photo.recordType,
       recordId: photo.recordId,
       name,
-      mimeType: 'image/jpeg',
+      mimeType,
       sizeBytes: file.sizeBytes,
     });
     await attached.db.writeTransaction(async (tx) => {
@@ -556,7 +560,7 @@ export class Changes {
       await tx.execute(
         `INSERT INTO photo_uploads (id, workspace_id, file_id, record_type, record_id, file_name, mime_type, size_bytes,
            local_name, taken_at, step, begin_command_id, confirm_command_id, bytes_sent, tries, upload_rounds)
-         VALUES (?, ?, ?, ?, ?, ?, 'image/jpeg', ?, ?, ?, 'begin', ?, ?, 0, 0, 0)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'begin', ?, ?, 0, 0, 0)`,
         [
           id,
           photo.workspaceId,
@@ -564,6 +568,7 @@ export class Changes {
           photo.recordType,
           photo.recordId,
           name,
+          mimeType,
           file.sizeBytes,
           file.localName,
           takenAt,

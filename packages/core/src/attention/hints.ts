@@ -4,6 +4,7 @@
  * from its copy). Server-only.
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { ADDON_CATALOG } from '../addons/catalog';
 import { uuidArray } from '../calendar/load';
 import { workspaceMessaging } from '../messaging/store';
 import { openHoursOf } from '../schemas/workspace';
@@ -17,7 +18,7 @@ import {
 } from './hint-facts';
 import type { AttentionItemRow } from './load';
 import { isOpenAt } from './open-time';
-import type { ItemHints } from './view';
+import { NO_HINTS, type ItemHints } from './view';
 
 const textList = (list: readonly string[]) =>
   sql.join(
@@ -75,7 +76,7 @@ export async function loadItemHints(
       ? await rows<{
           id: string;
           person_id: string | null;
-          channel: 'sms' | 'email' | 'chat';
+          channel: 'sms' | 'email' | 'chat' | 'portal';
           counterpart: string;
           last_message_at: Date | string | null;
         }>(
@@ -129,7 +130,7 @@ export async function loadItemHints(
   );
   const business = need.needsBusiness ? await reachBusinessOf(tx, workspaceId) : null;
 
-  return itemHintsOf(items, {
+  const out = itemHintsOf(items, {
     seats: new Map<string, HintSeat>(
       seats.map((s) => [
         s.id,
@@ -157,4 +158,43 @@ export async function loadItemHints(
     business,
     openNow,
   });
+
+  // An add-on's alert: which add-on, how serious, where it opens. Read as the person, so only alerts they may see.
+  const alertIds = items.filter((i) => i.kind === 'addon_alert').map((i) => i.subjectId);
+  if (alertIds.length) {
+    const alerts = await rows<{
+      id: string;
+      addon_id: string;
+      severity: NonNullable<ItemHints['addonAlert']>['severity'];
+      href: string;
+      needs_ack: boolean;
+      acknowledged_at: Date | string | null;
+    }>(
+      tx,
+      sql`select id, addon_id, severity, href, needs_ack, acknowledged_at from app.addon_alerts
+          where workspace_id = ${workspaceId} and id = any(${uuidArray(alertIds)})`,
+    );
+    const byId = new Map(alerts.map((a) => [a.id, a]));
+    for (const item of items) {
+      const a = item.kind === 'addon_alert' ? byId.get(item.subjectId) : undefined;
+      if (!a) continue;
+      out.set(item.id, {
+        ...(out.get(item.id) ?? NO_HINTS),
+        addonAlert: {
+          alertId: a.id,
+          addonId: a.addon_id,
+          addonName: addonNameOf(a.addon_id),
+          severity: a.severity,
+          href: a.href,
+          needsAck: a.needs_ack,
+          acknowledgedAt: a.acknowledged_at ? new Date(a.acknowledged_at).toISOString() : null,
+        },
+      });
+    }
+  }
+  return out;
 }
+
+/** An add-on's name as the catalogue has it. */
+const addonNameOf = (id: string): string =>
+  ADDON_CATALOG.find((m) => m.id === id)?.name ?? 'the add-on';

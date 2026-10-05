@@ -231,8 +231,9 @@ export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGran
     .map((r) => viewOf(list, catalog, grants, r.addonId, r, listedOf(r.addonId)))
     .sort(order);
   const notHad = list.catalog.filter((c) => !had.has(c.addonId));
+  // Available ones, and any HandsFreeOS handed this business to try while it's being built.
   const addable = notHad
-    .filter((c) => c.status === 'available')
+    .filter((c) => c.status === 'available' || c.testing)
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c))
     .filter((v) => v.offer === 'install' || v.offer === 'paid' || v.offer === 'blocked');
   return { installed, addable };

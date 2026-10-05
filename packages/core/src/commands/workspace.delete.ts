@@ -40,6 +40,21 @@ export const workspaceDelete = defineCommand({
       throw HfosError.validation([
         { path: 'confirmName', message: 'Type the business’s name exactly as it is shown.' },
       ]);
+    // A record under a legal hold keeps the business (round six); the database refuses it too.
+    const held = await rows<{ name: string }>(
+      ctx.tx,
+      sql`select r.name from app.record_holds h join app.custom_records r on r.id = h.custom_record_id
+          where h.workspace_id = ${ws.id}::uuid and h.kind = 'legal' and h.lifted_at is null
+          order by h.placed_at limit 3`,
+    );
+    if (held.length)
+      throw HfosError.rule(
+        'workspace_data_held',
+        409,
+        held.length === 1
+          ? `${held[0]!.name} is under a legal hold, so ${ws.name} can’t be deleted. An owner or admin lifts the hold from its page first.`
+          : `Records in ${ws.name} are under a legal hold (${held.map((h) => h.name).join(', ')}${held.length === 3 ? ' and maybe more' : ''}), so it can’t be deleted. An owner or admin lifts each hold from its page first.`,
+      );
     // Recorded before the mark on purpose: once marked, nobody can write to the business, this event included.
     // The worker's job picks it up from here.
     await ctx.emit({

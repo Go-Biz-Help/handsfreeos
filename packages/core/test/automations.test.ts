@@ -72,6 +72,8 @@ describe('the automations catalog', () => {
       'maintenance_due',
       // "Did the job happen?" is its switch.
       'job_unconfirmed',
+      // An add-on's alerts are switched in the add-on's own settings.
+      'addon_alert',
     ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],

@@ -5,7 +5,8 @@ name: Phone app on Android
 # locking and unlocking, no signal with the access token run out (airplane mode, which only Android emulators have),
 # the phone's encrypted copy of the business coming down from PowerSync and staying readable with no signal, another
 # person signing in deleting the last one's copy, the queue of changes, a customer's text arriving as a notification
-# whose Reply is pressed in the notification shade, links opening the app's screens, and the notification switches.
+# whose Reply is pressed in the notification shade, links opening the app's screens, the notification switches, and a
+# Real Estate deal's duty done with a photo as its proof and a tour's check-in, both with no signal (recorded).
 # Its own workflow, so the 45-minute CI job keeps its room.
 # A run takes about 90 minutes of Actions time, so it runs only when started by hand, about once per step:
 # `gh workflow run "Phone app on Android" --repo Go-Biz-Help/handsfreeos --ref main`.
@@ -272,13 +273,14 @@ jobs:
         run: cp "$RUNNER_TEMP/memory.log" memory.log && tail -n 60 memory.log
 
       # Maestro names each flow's folder after the flow, and GitHub refuses artifact paths with characters like "?"
-      # ("…asks Still send?"), so its output goes up as one archive.
+      # ("…asks Still send?"), so its output goes up as one archive. Kept on a passing run too: a flow's recording
+      # (Real Estate's offline flow records itself) is how a run that passed is seen.
       - name: Pack Maestro's output
-        if: failure()
+        if: always()
         run: if [ -d maestro-artifacts ]; then tar -czf maestro-artifacts.tar.gz maestro-artifacts; fi
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: maestro-android
           path: |

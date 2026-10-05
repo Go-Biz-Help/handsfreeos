@@ -19,6 +19,7 @@ import { createReviews } from './reviews/index';
 import { createMailboxes } from './mailbox/index';
 import { createUnsubscribeLinks } from './email/unsubscribe';
 import { createMoneyLinks } from './money/links';
+import { createPortalLinks } from './portal/links';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
 import { createPayments } from './payments/index';
@@ -92,6 +93,7 @@ const services: EngineServices = {
   ),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
+  addonConnect: { fake: env.addonConnectors === 'fake', platformKeys: env.addonPlatformKeys },
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
   portPollMs: env.portPollMs,
@@ -107,6 +109,11 @@ const services: EngineServices = {
     previousKeys: env.encryptionKeysPrevious,
   }),
   moneyLinks: createMoneyLinks({
+    webUrl: env.webUrl,
+    key: env.encryptionKey,
+    previousKeys: env.encryptionKeysPrevious,
+  }),
+  portalLinks: createPortalLinks({
     webUrl: env.webUrl,
     key: env.encryptionKey,
     previousKeys: env.encryptionKeysPrevious,
@@ -233,6 +240,8 @@ log.info(
     calendars: env.calendarProvider,
     payments: env.paymentsProvider,
     migrations: env.migrationSource,
+    addonConnectors: env.addonConnectors,
+    addonPlatformKeys: Object.keys(env.addonPlatformKeys),
     push: env.pushProvider,
     assistant: env.assistantProvider,
     aiBackup: aiSwitch ? 'openai' : 'none',

@@ -21,13 +21,13 @@ npx expo prebuild --no-install                  # what the native project says
 Each string is in `app.json` — on the plugin that needs it, not in a list of its own — and says what the app does with
 the thing, in the app's own voice.
 
-| Key                                 | Words shown                                                                                                             | Asked when                                                               | Set by                                       |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
-| `NSCameraUsageDescription`          | "HandsFreeOS uses the camera to take photos for your customers' records."                                               | Taking a photo for a customer's record or a reply                        | `expo-image-picker` plugin                   |
-| `NSPhotoLibraryUsageDescription`    | "HandsFreeOS adds the photos you choose to your customers' records."                                                    | Choosing a photo already on the phone                                    | `expo-image-picker` plugin                   |
-| `NSFaceIDUsageDescription`          | "Face ID unlocks HandsFreeOS on this iPhone."                                                                           | Unlocking the app, and confirming anything that reaches a customer       | `expo-local-authentication` plugin           |
-| `NSPhotoLibraryAddUsageDescription` | "HandsFreeOS saves the QR codes you choose to save to your photos."                                                     | Save Image in the share sheet, after Save the QR code on a form          | `app.json`'s `ios.infoPlist`                 |
-| `NSMicrophoneUsageDescription`      | "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call." | The first tap on a mic: the Assistant's, or Talk out loud on a test call | `expo-audio` and `expo-image-picker` plugins |
+| Key                                 | Words shown                                                                                                                  | Asked when                                                                                       | Set by                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `NSCameraUsageDescription`          | "HandsFreeOS uses the camera to take photos for your customers' records."                                                    | Taking a photo for a customer's record or a reply                                                | `expo-image-picker` plugin                   |
+| `NSPhotoLibraryUsageDescription`    | "HandsFreeOS adds the photos you choose to your customers' records."                                                         | Choosing a photo already on the phone                                                            | `expo-image-picker` plugin                   |
+| `NSFaceIDUsageDescription`          | "Face ID unlocks HandsFreeOS on this iPhone."                                                                                | Unlocking the app, and confirming anything that reaches a customer                               | `expo-local-authentication` plugin           |
+| `NSPhotoLibraryAddUsageDescription` | "HandsFreeOS saves the QR codes you choose to save to your photos."                                                          | Save Image in the share sheet, after Save the QR code on a form                                  | `app.json`'s `ios.infoPlist`                 |
+| `NSMicrophoneUsageDescription`      | "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note." | The first tap on a mic: the Assistant's, Talk out loud on a test call, or a voice note on a deal | `expo-audio` and `expo-image-picker` plugins |
 
 **Saving a form's QR code** (M17, `expo-sharing`) hands a PNG to the phone's own share sheet rather than writing to the
 photo library itself, so the app never asks for the photos. iOS's Save Image in that sheet adds the picture to Photos
@@ -47,7 +47,7 @@ exactly that:
 [
   "expo-audio",
   {
-    "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call.",
+    "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note.",
     "recordAudioAndroid": true,
     "enableBackgroundPlayback": false,
     "enableBackgroundRecording": false
@@ -61,8 +61,8 @@ whatever `expo-audio` asks for. Both saying the same words means the order the p
 
 What stays off matters as much: no background recording and no background playback, so no `FOREGROUND_SERVICE`, no
 `FOREGROUND_SERVICE_MEDIA_PLAYBACK` or `…_MICROPHONE`, and no iOS `audio` background mode. The microphone records only
-while the screen is open and listening; each recording is deleted once it has been heard, and each clip once it has
-played.
+while the screen is open and listening; each recording to the Assistant or a test call is deleted once it has been
+heard, and each clip once it has played. A voice note is the one recording kept: it's the note, filed on its deal.
 
 Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the words above, `UIBackgroundModes` still
 `["fetch"]` alone, and `RECORD_AUDIO` in the merged manifest without `tools:node="remove"`.
@@ -88,25 +88,32 @@ the customer's text can say when they'll arrive; it is not kept on the job. `NSL
 so, and the privacy manifest lists precise and coarse location for app functionality. If the tech says no, On my way still works without an
 arrival time.
 
+**Check-ins** (Real Estate round six, a core feature) take one reading too, only when the person checks in somewhere
+or taps Help, so the contacts they chose can be told where they were. Still never in the background: nothing follows
+the person, and a check-in without a reading still works, with the place they typed.
+
+**Voice notes** (Real Estate round six) record only while the person holds the record button on a deal's note; the
+recording is put into words on the server and kept on the deal like any file.
+
 ## Android: the merged manifest, permission by permission
 
 ### Kept, and why
 
-| Permission                                                           | Asked for by                       | Why the app needs it                                                                              |
-| -------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `android.permission.INTERNET`                                        | `app.json`                         | Talking to the API, the sync stream and Supabase                                                  |
-| `android.permission.ACCESS_NETWORK_STATE`                            | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                            |
-| `android.permission.ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`  | `expo-location`                    | One reading when a tech taps On my way, for the customer's arrival time (never in the background) |
-| `android.permission.CAMERA`                                          | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                 |
-| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`               | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                        |
-| `android.permission.POST_NOTIFICATIONS`                              | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                             |
-| `android.permission.VIBRATE`                                         | `app.json` / `expo-notifications`  | A notification's buzz                                                                             |
-| `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                          |
-| `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                         |
-| `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone     |
-| `android.permission.RECORD_AUDIO`                                    | `expo-audio` plugin                | Talking out loud: the Assistant's mic, and Talk out loud on a test call. Asked on the first tap   |
-| `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                    |
-| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps  |
+| Permission                                                           | Asked for by                       | Why the app needs it                                                                                |
+| -------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `android.permission.INTERNET`                                        | `app.json`                         | Talking to the API, the sync stream and Supabase                                                    |
+| `android.permission.ACCESS_NETWORK_STATE`                            | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                              |
+| `android.permission.ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`  | `expo-location`                    | One reading when a tech taps On my way, or someone checks in or taps Help (never in the background) |
+| `android.permission.CAMERA`                                          | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                   |
+| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`               | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                          |
+| `android.permission.POST_NOTIFICATIONS`                              | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                               |
+| `android.permission.VIBRATE`                                         | `app.json` / `expo-notifications`  | A notification's buzz                                                                               |
+| `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                            |
+| `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                           |
+| `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone       |
+| `android.permission.RECORD_AUDIO`                                    | `expo-audio` plugin                | Talking out loud (the Assistant's mic, a test call) and voice notes. Asked on the first tap         |
+| `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                      |
+| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps    |
 
 ### Gone, and why
 

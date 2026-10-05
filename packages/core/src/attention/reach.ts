@@ -80,12 +80,12 @@ export const reachChannel = (r: Pick<Reach, 'text' | 'email'>): 'sms' | 'email' 
  * email; a text to a number that said STOP goes by email instead when there's an address, and can't go otherwise.
  */
 export function replyChannelRule(c: {
-  readonly conversationChannel: 'sms' | 'email' | 'chat' | null;
+  readonly conversationChannel: 'sms' | 'email' | 'chat' | 'portal' | null;
   readonly phone: string | null;
   readonly email: string | null;
   /** The number the text would go to said STOP (or the customer is marked opted out). */
   readonly textStopped: boolean;
-}): 'sms' | 'email' | 'chat' | null {
+}): 'sms' | 'email' | 'chat' | 'portal' | null {
   const preferred = c.conversationChannel ?? (c.phone ? 'sms' : c.email ? 'email' : null);
   return preferred === 'sms' && c.textStopped ? (c.email ? 'email' : null) : preferred;
 }

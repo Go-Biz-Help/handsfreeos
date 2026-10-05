@@ -24,6 +24,17 @@ export type AiContent =
       readonly data: string;
     }
   /**
+   * A PDF the model reads, pages and all, as base64 bytes (Real Estate round four: a scanned contract). Put it
+   * before the words that ask about it. `pages`, when known, is only for guessing what it costs.
+   */
+  | {
+      readonly type: 'document';
+      readonly mediaType: 'application/pdf';
+      readonly data: string;
+      readonly title?: string;
+      readonly pages?: number;
+    }
+  /**
    * A block only the provider understands, from an earlier turn of the same tool loop, exactly as it sent it:
    * the model's reasoning, or a tool search it ran. Nothing here reads or shows it. It goes back unchanged on the
    * next call, because newer Claude models tie reasoning to the conversation, and the tools a search found stay
@@ -38,18 +49,40 @@ export type AiImageType = (typeof AI_IMAGE_TYPES)[number];
 export const AI_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 /** Roughly what a picture costs a model, for stand-ins that guess token counts. */
 export const AI_IMAGE_TOKENS = 1600;
+/**
+ * The largest PDF a model reads, before base64: its base64 stays under the 32 MB a request may be, with room
+ * for the words around it.
+ */
+export const AI_DOCUMENT_MAX_BYTES = 20 * 1024 * 1024;
+/** The most pages a model reads in one PDF; the smaller models stop at 100. */
+export const AI_DOCUMENT_MAX_PAGES = 100;
+/** Roughly what one PDF page costs a model (its words and its picture), for guessed token counts. */
+export const AI_DOCUMENT_PAGE_TOKENS = 2500;
+/** A PDF's pages when nobody counted them, for guessed token counts. */
+const UNCOUNTED_PAGES = 10;
 
-/** The messages' length in characters for a guessed token count, a picture counted as its tokens, not its bytes. */
+/**
+ * The messages' length in characters for a guessed token count, a picture or a PDF counted as its tokens, not its
+ * bytes.
+ */
 export function messagesLength(messages: readonly AiMessage[]): number {
-  let images = 0;
+  let tokens = 0;
   const text = JSON.stringify(messages, (key, value: unknown) => {
-    if (value && typeof value === 'object' && (value as { type?: unknown }).type === 'image') {
-      images++;
-      return { type: 'image' };
+    const type = value && typeof value === 'object' ? (value as { type?: unknown }).type : null;
+    if (type === 'image') {
+      tokens += AI_IMAGE_TOKENS;
+      return { type };
+    }
+    if (type === 'document') {
+      const pages = (value as { pages?: unknown }).pages;
+      tokens +=
+        (typeof pages === 'number' && pages > 0 ? pages : UNCOUNTED_PAGES) *
+        AI_DOCUMENT_PAGE_TOKENS;
+      return { type };
     }
     return value;
   });
-  return text.length + images * AI_IMAGE_TOKENS * 4;
+  return text.length + tokens * 4;
 }
 
 export interface AiMessage {

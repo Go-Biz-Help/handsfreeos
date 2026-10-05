@@ -14,6 +14,8 @@ export interface SystemEventInput {
   readonly after?: Record<string, unknown> | null;
   readonly correlationId: string;
   readonly causationId: string;
+  /** The add-on it's about, when it is one's (an add-on's alert): its details go when the add-on's data is deleted. */
+  readonly addonId?: string | null;
 }
 
 /** The worker's own footprint in the event stream and audit log: actor `system`, caused by the event it handled. */
@@ -31,6 +33,7 @@ export async function recordSystemEvent(tx: Tx, input: SystemEventInput): Promis
     payload: input.payload ?? {},
     correlationId: input.correlationId,
     causationId: input.causationId,
+    addonId: input.addonId ?? null,
   });
   await tx.insert(outbox).values({
     eventId: id,
@@ -53,6 +56,7 @@ export async function recordSystemEvent(tx: Tx, input: SystemEventInput): Promis
     channel: 'worker',
     correlationId: input.correlationId,
     causationId: input.causationId,
+    addonId: input.addonId ?? null,
   });
   return id;
 }
