@@ -251,6 +251,9 @@ export const realestateAddon = defineAddon({
     'walkthroughs',
     'walkthrough_items',
     'exports',
+    // Round seven: a listing's lockboxes, and their openings read from SentriLock's and Supra's emails.
+    'lockboxes',
+    'lockbox_openings',
   ],
   // Round six: what phones keep with no signal (Chris, 2026-10-03): an agent's own deals in full; for whoever sees
   // every deal, every other deal's summary, duties, dates and people (`all`). The migration
@@ -1258,6 +1261,8 @@ export const realestateAddon = defineAddon({
       // The whole transaction, exported.
       'realestate.deal.export_requested',
       'realestate.deal.exported',
+      // Round seven: a lockbox opened, read from its maker's email.
+      'realestate.lockbox.opened',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -1313,6 +1318,8 @@ export const realestateAddon = defineAddon({
       'realestate.listing.facts_confirmed',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
+      // Round seven: ShowingTime's and the lockbox makers' notices, which the Inbox files under Other.
+      'email.filed',
       'call.transcribed',
       'realestate.memory.requested',
       'realestate.memory.suggested',
@@ -1350,6 +1357,10 @@ export const realestateAddon = defineAddon({
       'realestate.showing.requested',
       'realestate.showing.decided',
       'realestate.showing.feedback_received',
+      // A lockbox opened with no showing booked: the listing's agents told; a code shown again, kept in the deal's
+      // history (round seven).
+      'realestate.lockbox.opened',
+      'addon_sealed.viewed',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
@@ -1457,6 +1468,16 @@ export const realestateAddon = defineAddon({
     },
   ],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
+  // Round seven: a lockbox's code, sealed by the worker, sent only to the confirmed agent before a showing, and shown
+  // again only to someone on the listing (Chris, 2026-10-05).
+  sealed: [
+    {
+      key: 'lockbox_code',
+      label: 'Lockbox code',
+      permission: 'realestate.use',
+      reveal: 'realestate.use',
+    },
+  ],
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },

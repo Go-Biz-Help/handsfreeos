@@ -274,6 +274,15 @@ Round five (Chris, 2026-10-02):
   feedback link an hour after. ShowingTime's emails are read into the same showings and feedback, each marked to be
   checked. Feedback reaches the seller only when the agent shares it; the AI groups buyers' words into themes with
   their own quotes only, and the counts join the price review.
+- **Lockboxes: read their emails, guard codes** (round seven, Chris 2026-10-05). A listing's lockboxes have a kind,
+  where they are, a serial and a code. The code is sealed by the worker before the command sees it (core's sealed
+  values), kept in `code_enc`, which no person's role can read, and goes only into the access email to the confirmed
+  agent, as a sealed part the worker puts in as it sends: the stored email, the Inbox, phones and exports keep
+  "[Lockbox code, kept locked]". Show code is the worker's, for someone on the listing, and goes in the deal's
+  history. SentriLock's and Supra's "opened" emails (`lockbox-emails.ts`, by their labels or their one-line sentence;
+  check one real email from each before relying on them) are read into the listing by serial, then address, behind
+  Deal settings → Connections; one that fits a booked showing joins it, and one that doesn't alerts the listing's
+  agents. Notices the Inbox files under Other are read too, ShowingTime's included.
 - **Vendors: the business's own directory.** Each vendor is a company in Contacts with its services, areas and any
   disclosure (an affiliation, a referral fee). Anyone working deals adds one; only someone who runs the deal settings
   approves or archives it. On a duty every approved vendor that does it is offered, those where the home is, first;

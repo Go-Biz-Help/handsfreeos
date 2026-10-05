@@ -8437,6 +8437,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.lockbox.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Takes a lockbox off a listing, and its code with it.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.lockbox.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockbox: its kind, where it is, its serial, and its code (sealed on the way, never shown back here).
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.match.dismiss": {
         parameters: {
             query?: never;
@@ -15591,6 +15631,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.lockbox.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockboxes (never their codes) and the latest times they were opened.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_lockbox_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34788,6 +34848,101 @@ export interface operations {
                         created: boolean;
                         /** Format: uuid */
                         taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_lockbox_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_lockbox_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code?: string | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                    place?: string | null;
+                    serial?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
                     };
                 };
             };
@@ -56061,6 +56216,60 @@ export interface operations {
                             withdrawnReason: string | null;
                             words: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_lockbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lockboxes: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        }[];
+                        openings: {
+                            booked: boolean;
+                            company: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lockboxId: string | null;
+                            /** Format: date-time */
+                            openedAt: string;
+                            openedBy: string | null;
+                            showingId: string | null;
+                            /** @enum {string} */
+                            vendor: "sentrilock" | "supra";
+                        }[];
                     };
                 };
             };
