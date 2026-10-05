@@ -112,10 +112,27 @@ export interface AddonWorkerModule {
    */
   readonly sealed?: Readonly<Record<string, AddonSealedReader>>;
   /**
+   * Round seven: what's wrong with the AI teammate's reply before it goes (its manifest's `teammate.checksReplies`),
+   * while the teammate uses the add-on. Each problem in words for the person who'll look; none when it's fine. A
+   * flagged reply waits for a person, even when the teammate answers on its own.
+   */
+  readonly checkTeammateReply?: (
+    ctx: AddonScopeContext,
+    reply: TeammateReplyToCheck,
+  ) => Promise<readonly string[]>;
+  /**
    * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
    * providers, never in production.
    */
   readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
+}
+
+/** The AI teammate's reply an add-on checks (round seven). */
+export interface TeammateReplyToCheck {
+  readonly text: string;
+  readonly channel: 'sms' | 'email' | 'chat';
+  /** The customer it answers. */
+  readonly personId: string | null;
 }
 
 /** Reads one sealed value of an add-on's: the row's, if it's on that record in that business. */

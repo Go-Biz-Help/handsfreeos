@@ -2276,6 +2276,9 @@ This changes round six's "Documents: open with signal".
     person, never sent.
     The teammate's settings get one switch per add-on that offers it, off until an owner turns it on, shown only
     while the add-on runs. The kernel refuses it all when the add-on isn't on, as for everyone.
+  - As built (steps 5–6): Real Estate's one ask is adding a home to a buyer's deal, which runs as the person who
+    approves it. Running a client's own portal action as the client would need a way to prove it's theirs without
+    their device, so no ask does that yet. Asks wait a day; a flagged reply waits like any draft. Not on calls yet.
 
 ## Build order (round seven)
 

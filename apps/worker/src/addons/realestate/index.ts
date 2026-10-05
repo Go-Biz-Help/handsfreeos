@@ -17,6 +17,7 @@
  * - **A changed wire:** reported on a deal, it raises a critical alert at once, for everyone who sees the deal, at
  *   any hour, asking to be acknowledged; the phone check finishing (done, waived or cancelled) clears it.
  */
+import { checkTeammateReply } from './teammate';
 import { ladderAlert, rungSince, SEVERITY_RANK } from '@hfos/core/addons/realestate/ladder';
 import { sweep } from '@hfos/core/addons/realestate/ops/health';
 import { WIRE_CHECK_KEY } from '@hfos/core/addons/realestate/own-duties';
@@ -401,6 +402,8 @@ export const realestateAddonWorker: AddonWorkerModule = {
   actions: { ...ESIGN_ACTIONS, ...FEED_ACTIONS },
   // Round seven: a lockbox's code, read back only for core's sealed routes (./lockboxes.ts).
   sealed: { lockbox_code: readLockboxCode },
+  // Round seven: fair housing on the AI teammate's replies while it uses Real Estate (./teammate.ts).
+  checkTeammateReply,
   // Playwright's: an at-risk duty aged, and the stand-in e-signature page (./test-routes.ts).
   testRoutes: registerRealestateTestRoutes,
 };

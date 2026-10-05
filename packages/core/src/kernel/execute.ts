@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { asCustomer, asUser, asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
+import {
+  asCustomer,
+  asCustomerTeammate,
+  asUser,
+  asWorker,
+  rows,
+  sql,
+  type Db,
+  type Tx,
+} from '@hfos/db/client';
 import { auditLogs, events, outbox } from '@hfos/db/schema';
 import type { z } from 'zod';
 import { HfosError } from '../errors';
@@ -254,6 +263,26 @@ const portalSignedOut = (): HfosError =>
   );
 
 /**
+ * The AI teammate reading as a customer (round seven) looks things up and nothing more: what it may ask for waits
+ * for a person, who runs it as themselves.
+ */
+const teammateReadsOnly = (): HfosError =>
+  new HfosError(
+    'forbidden',
+    403,
+    'The AI teammate only looks things up for a customer. What it asks for waits for a person on their team to OK.',
+    undefined,
+    'customer_teammate_reads_only',
+  );
+
+/** A customer's changes come from a signed-in device, never from the teammate reading as them. */
+function assertCustomerDevice(actor: CustomerActor): asserts actor is CustomerActor & {
+  readonly sessionId: string;
+} {
+  if (actor.teammateRunId || !actor.sessionId) throw teammateReadsOnly();
+}
+
+/**
  * A customer's device must still be signed in, checked in the transaction that does the work: signed out, turned
  * off or gone idle a moment ago, and nothing runs. Under the service actor (their changes) the database is asked
  * about the session; under portal_actor (their look-ups) it works out who is asking from it.
@@ -269,7 +298,15 @@ async function assertCustomerSignedIn(
       ? sql`select private.portal_session_live(${actor.sessionId}::uuid) as person_id`
       : sql`select portal.person() as person_id`,
   );
-  if (!row?.person_id || row.person_id !== actor.personId) throw portalSignedOut();
+  if (row?.person_id && row.person_id === actor.personId) return;
+  // The teammate's run stopped answering (a person took over, or it ran too long): nothing more is read for it.
+  if (actor.teammateRunId)
+    throw HfosError.rule(
+      'customer_teammate_done',
+      409,
+      'This answer was stopped, so nothing more is looked up for it.',
+    );
+  throw portalSignedOut();
 }
 
 /**
@@ -596,6 +633,7 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
     try {
       // The service actor in their business, as booking, invoices and chat run a customer's changes: the command's
       // own handler keeps them to what is theirs. They have no permissions to check, only a session.
+      assertCustomerDevice(actor);
       const scope = resolveCustomerScope(actor, scopeRef);
       return await asWorker(
         db,
@@ -730,6 +768,7 @@ async function runMachineCommandIn<I extends z.ZodType, O extends z.ZodType>(
     );
   assertActorAllowed(cmd, actor);
   assertNotTestRun(actor);
+  if (actor.type === 'customer') assertCustomerDevice(actor);
   const input = parseInput(cmd.input, rawInput);
   const scope = resolveWorkerScope(actor, cmd.scope(input));
   await assertWorkerTx(tx, actor);
@@ -818,9 +857,16 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
       );
     }
     if (actor.type === 'customer') {
-      // Under row security as portal_actor: only what's theirs, and only while the device is signed in.
+      // Under row security as portal_actor: only what's theirs, and only while the device is signed in (or, for
+      // the AI teammate answering them, while its run is).
       const scope = resolveCustomerScope(actor, scopeRef);
-      return await asCustomer(db, actor.sessionId, async (tx) => {
+      const as = actor.teammateRunId
+        ? (fn: (tx: Tx) => Promise<z.output<O>>) => asCustomerTeammate(db, actor.teammateRunId!, fn)
+        : actor.sessionId
+          ? (fn: (tx: Tx) => Promise<z.output<O>>) => asCustomer(db, actor.sessionId!, fn)
+          : null;
+      if (!as) throw portalSignedOut();
+      return await as(async (tx) => {
         await assertCustomerSignedIn(tx, actor, 'portal');
         if (query.addon) {
           // The portal role reaches only its own schema, so it asks there.

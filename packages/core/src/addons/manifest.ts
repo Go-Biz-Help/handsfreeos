@@ -276,6 +276,42 @@ export interface AddonSealedValue {
   readonly reveal: string;
 }
 
+/**
+ * What the AI teammate may do with an add-on, for the customer in the conversation it's answering (round seven;
+ * Chris 2026-10-05: answer from their deal, ask before acting). Separate from `ai`, which is the Assistant's: the
+ * teammate never acts as someone who works in the business.
+ */
+export interface AddonTeammate {
+  /** One line the teammate reads about what these tools are for ("their home search, deal and showings"). */
+  readonly directory: string;
+  /**
+   * Look-ups it runs as the customer, on its own: the add-on's own portal queries (`<id>.portal.*`), so it sees
+   * exactly what that client's portal shows them and nothing about anyone else.
+   */
+  readonly lookups: readonly AddonTeammateTool[];
+  /**
+   * What it may ask for: each waits, as an approval, for someone who may see the record named by `record` (the
+   * client's deal), and runs as them once they OK it, with their permission checked then.
+   */
+  readonly asks?: readonly AddonTeammateAsk[];
+  /** Its replies go through the add-on's own checks first (the worker half's `checkTeammateReply`). */
+  readonly checksReplies?: boolean;
+}
+
+export interface AddonTeammateTool {
+  /** The operation it runs (`realestate.portal.deal`). */
+  readonly operation: string;
+  /** The tool's name, as the model sees it: the add-on's id, then words (`realestate_my_deal`). */
+  readonly tool: string;
+  /** What the model reads to decide when to call it. */
+  readonly description: string;
+}
+
+export interface AddonTeammateAsk extends AddonTeammateTool {
+  /** The input key holding the record it's about, which must be one of the customer's (`dealId`). */
+  readonly record: string;
+}
+
 export interface AddonOfflineFiles {
   /** One of `offline.tables`. */
   readonly table: string;
@@ -409,6 +445,8 @@ export interface AddonManifest {
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
+  /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
+  readonly teammate?: AddonTeammate;
   readonly billing: AddonBilling;
 }
 
@@ -587,6 +625,36 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     'sealed value',
     (m.sealed ?? []).map((v) => v.key),
   );
+
+  if (m.teammate) {
+    const t = m.teammate;
+    if (!t.directory.trim() || t.directory.length > 200)
+      say('teammate.directory must be 1–200 characters');
+    if (t.lookups.length === 0) say('teammate needs at least one look-up');
+    const toolName = new RegExp(`^${m.id}_[a-z][a-z0-9_]{1,40}$`);
+    for (const x of [...t.lookups, ...(t.asks ?? [])]) {
+      if (!toolName.test(x.tool))
+        say(`teammate tool "${x.tool}" must start with "${m.id}_", in lowercase words`);
+      if (!x.operation.startsWith(`${m.id}.`))
+        say(`teammate tool "${x.tool}" runs "${x.operation}", which isn't one of this add-on's`);
+      if (!x.description.trim() || x.description.length > 600)
+        say(`teammate tool "${x.tool}" needs a description of 1–600 characters`);
+    }
+    for (const x of t.lookups)
+      if (!x.operation.startsWith(`${m.id}.portal.`))
+        say(
+          `teammate look-up "${x.tool}" runs "${x.operation}": look-ups are its portal's ("${m.id}.portal.*")`,
+        );
+    for (const a of t.asks ?? [])
+      if (!/^[a-z][A-Za-z0-9]{0,39}$/.test(a.record))
+        say(`teammate ask "${a.tool}" names its record by "${a.record}", which isn't an input key`);
+    unique(
+      'teammate tool',
+      [...t.lookups, ...(t.asks ?? [])].map((x) => x.tool),
+    );
+    if (!(m.relationshipTypes ?? []).some((r) => r.portal))
+      say('teammate tools need a relationship type with "portal", so a customer has records');
+  }
 
   if (m.settings) {
     if (!Number.isInteger(m.settings.version) || m.settings.version < 1)

@@ -102435,13 +102435,99 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "ask": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "addonId": {
+                                        "type": "string",
+                                        "pattern": "^[a-z]{2,16}$"
+                                      },
+                                      "addonName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      },
+                                      "operation": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 120
+                                      },
+                                      "tool": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      },
+                                      "input": {
+                                        "type": "object",
+                                        "propertyNames": {
+                                          "type": "string"
+                                        },
+                                        "additionalProperties": {}
+                                      },
+                                      "recordId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "summary": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "addonId",
+                                      "addonName",
+                                      "operation",
+                                      "tool",
+                                      "input",
+                                      "recordId",
+                                      "summary"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "flags": {
+                                "default": [],
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "addonName": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 60
+                                    },
+                                    "message": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "required": [
+                                    "addonName",
+                                    "message"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               }
                             },
                             "required": [
                               "message",
                               "actions",
                               "discount",
-                              "call"
+                              "call",
+                              "ask",
+                              "flags"
                             ],
                             "additionalProperties": false
                           },

@@ -1604,4 +1604,46 @@ export const realestateAddon = defineAddon({
     directory:
       'buyer and listing deals: their people, property, key dates, duties, deadlines, documents and alerts',
   },
+  // Round seven (Chris 2026-10-05: answer from their deal, ask before acting): the AI teammate sees what the client's
+  // portal shows them, asks their agent before adding a home, and its replies go through the fair housing checks.
+  teammate: {
+    directory:
+      'their deal with you, as their portal shows it: where it stands, key dates, their to-do, homes and tours, a seller’s listing and showings',
+    lookups: [
+      {
+        operation: 'realestate.portal.deals',
+        tool: 'realestate_my_deals',
+        description:
+          'Their deals with you, buying or selling, as their portal lists them: where each stands, the next date and how many things they have to do. Start here to find a deal’s id.',
+      },
+      {
+        operation: 'realestate.portal.deal',
+        tool: 'realestate_my_deal',
+        description:
+          'One of their deals as their portal shows it: where it stands, its key dates, their to-do, the homes and tours, and the CMAs and offer summaries shared with them.',
+      },
+      {
+        operation: 'realestate.portal.listing',
+        tool: 'realestate_my_listing',
+        description:
+          'A seller’s listing as their portal shows it: its price, the MLS once live, open houses, their questionnaire, and the offers as shared with them.',
+      },
+      {
+        operation: 'realestate.portal.showings',
+        tool: 'realestate_my_showings',
+        description:
+          'A seller’s showings as their portal shows them: requests waiting for their answer, those coming up, and the feedback their agent shared.',
+      },
+    ],
+    asks: [
+      {
+        operation: 'realestate.home.add',
+        tool: 'realestate_ask_add_home',
+        record: 'dealId',
+        description:
+          'Ask their agent to add a home they want to see to their buyer deal: its address, and the listing’s link if they sent one.',
+      },
+    ],
+    checksReplies: true,
+  },
 });

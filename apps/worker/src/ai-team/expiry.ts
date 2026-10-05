@@ -65,9 +65,11 @@ export async function expireDueDrafts(
         ? ` in ${waited(runtimeConfigOf(teammate.config).autonomy.draftExpiresMinutes)}`
         : ' in time';
       const note =
-        d.kind === 'approval'
-          ? `Nobody decided its discount request${minutes}, and the customer is waiting to hear back.`
-          : `Nobody approved its reply${minutes}, so a person should answer.`;
+        d.kind === 'ask'
+          ? 'Nobody decided what it asked for in a day, and the customer is waiting to hear back.'
+          : d.kind === 'approval'
+            ? `Nobody decided its discount request${minutes}, and the customer is waiting to hear back.`
+            : `Nobody approved its reply${minutes}, so a person should answer.`;
       await tx.execute(
         sql`update app.ai_teammate_drafts
             set status = 'expired', decided_at = now(), via = 'system', reason = 'Nobody decided it in time.'

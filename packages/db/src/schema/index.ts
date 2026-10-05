@@ -3137,7 +3137,7 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   }),
   personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
-  /** reply, approval, call. */
+  /** reply, approval, call, ask (round seven). */
   kind: text('kind').notNull(),
   status: workflowApprovalStatus('status').notNull().default('pending'),
   preview: jsonb('preview').$type<Json>().notNull().default({}),
@@ -3154,6 +3154,10 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   sentAt: ts('sent_at'),
   /** Its thread's member_viewer_ids (20261012020100), kept by trigger. */
   memberViewerIds: memberViewerIds(),
+  /** An ask's add-on record (round seven): whoever decides it must be able to see it. */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'cascade',
+  }),
   ...timestamps(),
 });
 

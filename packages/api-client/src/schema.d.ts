@@ -44386,6 +44386,19 @@ export interface operations {
                                     summary: string;
                                 })[];
                                 /** @default null */
+                                ask: {
+                                    addonId: string;
+                                    addonName: string;
+                                    input: {
+                                        [key: string]: unknown;
+                                    };
+                                    operation: string;
+                                    /** Format: uuid */
+                                    recordId: string;
+                                    summary: string;
+                                    tool: string;
+                                } | null;
+                                /** @default null */
                                 call: {
                                     /** Format: uuid */
                                     aiCallId: string;
@@ -44400,6 +44413,11 @@ export interface operations {
                                     percent: number;
                                     reason: string;
                                 } | null;
+                                /** @default [] */
+                                flags: {
+                                    addonName: string;
+                                    message: string;
+                                }[];
                                 /** @default null */
                                 message: {
                                     body: string;

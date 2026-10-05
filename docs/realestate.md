@@ -283,6 +283,12 @@ Round five (Chris, 2026-10-02):
   check one real email from each before relying on them) are read into the listing by serial, then address, behind
   Deal settings → Connections; one that fits a booked showing joins it, and one that doesn't alerts the listing's
   agents. Notices the Inbox files under Other are read too, ShowingTime's included.
+- **The AI teammate: answer from their deal, ask before acting** (round seven, Chris 2026-10-05). Once an owner turns
+  Real Estate on in the teammate's settings, it looks up a client's deals, a deal, a seller's listing and showings as
+  that client (the portal's own queries, so it sees what their portal shows them and nothing else), and asks their
+  agent before adding a home they want to see (`realestate_ask_add_home`: an approval only someone on the deal
+  decides, run as them). Every reply it writes goes through the fair housing checks (the words, then the model's
+  read); one they flag waits for a person, even when the teammate answers on its own.
 - **Vendors: the business's own directory.** Each vendor is a company in Contacts with its services, areas and any
   disclosure (an affiliation, a referral fee). Anyone working deals adds one; only someone who runs the deal settings
   approves or archives it. On a duty every approved vendor that does it is offered, those where the home is, first;
@@ -356,11 +362,12 @@ pnpm openapi                                                        # after chan
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
 - Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors; booking a vendor's
   appointment from the duty (it's booked on the calendar, and linked there); reports on competing listings.
-- A showing's access by smart lockbox; ShowingTime's own API (its emails are read instead).
+- A lockbox maker's own API (their emails are read instead); ShowingTime's own API (its emails are read instead).
 - On the phone: a listing's "Today" showings and offers on its deal page, Coordinate's "Nudge the buyers" and the
   proof it waived, reassigning a duty from Workload, a walkthrough's summary sent to the other side, a vendor's
   quote photo, and moving a deal's stage with no signal (it needs signal: a late move could undo a termination
   recorded meanwhile).
-- The AI teammate using the add-on, and workflow steps and triggers from it.
+- The AI teammate using the add-on on a phone call, asking for more than adding a home, and running a client's own
+  portal actions as them; workflow steps and triggers from the add-on.
 - State rules, and a brokerage rule engine beyond the duty editor.
 - Prices.

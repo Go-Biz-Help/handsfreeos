@@ -183,6 +183,29 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   (`message.send`'s `sealedParts`, HandsFreeOS's own messages only): its stored body keeps a marker, and the worker
   puts the value in place only as it hands the email to the provider (`app.message_sealed_parts`, the worker's
   alone).
+- **The AI teammate** (round seven; the owner's decision, 2026-10-05: answer from their deal, ask before acting): an
+  add-on's manifest says what the teammate may do in a customer's conversation (`teammate`), separately from `ai`,
+  which is the Assistant's. `addons/teammate.ts` turns it into tools, and `addonTeammateIssues` holds it to the rules.
+  - **Look-ups** (`lookups`) are the add-on's own portal queries (`<id>.portal.*`, `actors: ['customer']`). The worker
+    runs them as the customer in the conversation: a customer actor with the teammate's run in place of a device
+    (`teammateRunId`), read as `portal_actor` with the run in `app.portal.teammate_run`. `portal.session()` finds the
+    customer from the run, and only while it's answering (running, under 30 minutes old), so every portal rule
+    applies unchanged: the teammate sees exactly what that client's portal shows them. The kernel refuses that actor
+    every command (`customer_teammate_reads_only`), and a look-up after the run stopped (`customer_teammate_done`).
+    What a look-up finds goes with the knowledge the reply's safety check reads.
+  - **Asks** (`asks`) are the add-on's commands a person runs (risk 2 or less, with a permission), each naming the
+    input key of the record it's about (`record`: the client's deal). The teammate never runs one: the worker checks
+    the record is one of the customer's and the input one the command takes, and the finish makes an `ask` draft
+    (`ai_teammate_drafts.custom_record_id`), in any mode, waiting a day. Only someone who works the inbox, may see the
+    thread and may see that record decides it (`not_on_record`); approving runs the command as them, in the same
+    transaction, their permission checked then (`ai_teammate.decide_draft`, found by name in the composed registry).
+    The model writes the card's line and, if it likes, what the customer is told once it's done.
+  - **Reply checks** (`checksReplies`, with the worker half's `checkTeammateReply`): after core's safety check passes
+    a reply, each add-on the teammate uses checks it; anything found holds the reply as a draft for a person with what
+    was found (`preview.flags`), even when the teammate answers on its own.
+  - The teammate's settings have one switch per add-on (`config.addons.<id>.on`), off until an owner turns it on and
+    offered only while the add-on runs. Never in a first message, a nudge, a website chat whose visitor hasn't proved
+    who they are, or a phone call.
 - **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
   (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
   connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —
@@ -417,8 +440,10 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   the event (WF-3).
 - **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
   can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
-- **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
-  actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
+- **The AI teammate on calls, and asks as the customer.** It uses add-on tools in written conversations (above), not
+  yet on a phone call. An ask runs as the person who approves it; running a customer's own portal action as them
+  needs a way to prove it's theirs without a device, which isn't built. A multi-step plan isn't confirmed as a whole
+  either.
 - **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
   duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
   the seller's portal; reading contracts, contingencies, duty order, linked deals, escalation and Coordinate) are

@@ -103,6 +103,11 @@ export function addonWorkerModuleIssues(
     for (const key of Object.keys(readers))
       if (!m.sealed?.some((v) => v.key === key))
         issues.push(`${m.id} reads a sealed ${key} its manifest doesn't declare`);
+    // Its checks run on the teammate's replies exactly when its manifest says so.
+    if (m.teammate?.checksReplies && !rest.checkTeammateReply)
+      issues.push(`${m.id} checks the teammate's replies but has nothing to check them with`);
+    if (rest.checkTeammateReply && !m.teammate?.checksReplies)
+      issues.push(`${m.id} can check the teammate's replies but its manifest doesn't say so`);
     // Every service a business connects by key has a tester, and nothing else does.
     for (const c of m.connectors ?? [])
       for (const p of c.providers)
