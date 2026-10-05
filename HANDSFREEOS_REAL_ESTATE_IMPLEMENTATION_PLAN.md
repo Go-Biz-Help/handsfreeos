@@ -2208,3 +2208,99 @@ fair housing saying it checks with signal (boards 81, 87, 88) and an outside con
 - Smart lockboxes.
 - Keeping documents on the phone.
 - The AI teammate using add-on tools.
+
+# Round seven: What round six left out
+
+Round six left out four things: location in the background, smart lockboxes, keeping documents on the phone, and
+the AI teammate using add-on tools. Round seven builds them. Three are core work any add-on can use (the phone
+following a check-in, files kept on the phone, the teammate's add-on tools); lockboxes are Real Estate's own.
+
+What there was:
+
+- **Location:** one reading in the foreground, at check-in or Help. `app.json` turns every background option off and
+  blocks Android's background location permission. A check-in's place is kept with no end.
+- **Lockboxes:** only free text in a listing's access instructions (`listings.showing_access`), sent to the confirmed
+  agent just before a showing. No lockbox maker opens an API without a partner agreement. The deal export carried
+  that text; #182 leaves it out.
+- **Documents:** phones keep each document's name, version, who signed and whether it's locked; the file opens with
+  signal, through a link that lasts an hour. Photos waiting to upload are plain files in app storage, outside the
+  encrypted database.
+- **The AI teammate:** a fixed list of tools for one customer's conversation, with draft and approval held for a
+  person. Add-on operations with `ai` reach only Ask HandsFreeOS. The add-on guide's "Not yet" says the teammate
+  "will look things up in add-ons on its own and take their actions only with a person's OK".
+
+## Decisions (Chris, 2026-10-05)
+
+| Question               | Answer                                                                                                                                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background location    | **During a check-in, if on.** Only between check-in and check-out, only with Share where I am on. Contacts see the latest spot. Only that spot is kept, never a trail, and it's deleted 30 days after the check-in ends.                              |
+| Smart lockboxes        | **Read their emails, guard codes.** SentriLock's and Supra's "opened" emails read into the listing, with an alert when no showing was booked. The code sealed, sent only to the confirmed agent just before a showing, never on phones or in exports. |
+| Documents on the phone | **Current versions on my deals.** Each document's current version on deals the person works, on Wi-Fi, encrypted, up to 1 GB; pin any other. Removed when the deal leaves the phone or they sign out. Photos waiting to upload are encrypted too.     |
+| The AI teammate        | **Answer from their deal, ask before acting.** It sees what the client's portal shows them and answers on its own; anything it would do waits for a person's OK. Fair housing checks run on its replies.                                              |
+
+This changes round six's "Documents: open with signal".
+
+## How it works
+
+- **The phone follows a check-in, and nothing else.** With Share where I am on, checking in starts location updates
+  that stop at check-out, I'm OK, or when the check-in ends any other way. iPhone keeps them going with its blue
+  location pill and Android with a notification ("Sharing where you are until you check out"), both under the "while
+  using the app" permission the app already asks for: no "always" permission, and Android's background location stays
+  blocked. Every couple of minutes or 100 m the phone sends `safety.where`; with no signal it keeps only the latest and
+  sends that when signal is back. The server keeps one spot per check-in (the latest by when it was taken) and refuses
+  one after the check-in ended. A nightly pass clears every check-in's spot 30 days after it ended, the ones before
+  this round too. A contact's page says how long ago the spot was taken.
+- **Files on the phone, encrypted.** Core gets one store for files a phone keeps: a second SQLCipher database next to
+  the person's copy, keyed from the Keychain or Keystore like it, holding each file's bytes. Photos waiting to upload
+  move into it, and their upload reads it in pieces. An add-on names which of its phone rows bring their file
+  (`offline.files`: Real Estate's current documents, not replaced or void); the phone downloads those on Wi-Fi (or on
+  mobile data if the person allows it), checks a locked file against its fingerprint, and keeps them to 1 GB, the
+  least recently opened going first unless pinned. A file is removed when its row leaves the phone or no longer
+  qualifies; signing out removes the store with the copy. Opening one writes a decrypted copy to the cache for the
+  phone's viewer and deletes it after.
+- **Sealed values an add-on asks for.** A command can declare a field sealed: the app sends it to the worker, which
+  seals it with its own key and runs the command with the sealed value, as pasted connection keys already go. The
+  database, the API, phones, history and exports only ever see it sealed. Showing it again goes through the worker,
+  for someone who may see the record, and is written in the history as "viewed".
+- **Lockboxes.** A listing's lockbox has a kind (SentriLock, Supra, combination, keypad, other), where it is, its
+  serial, and a sealed code. The access sent to the confirmed agent just before a showing now carries the code. Emails
+  from SentriLock and Supra saying a lockbox was opened are read like ShowingTime's (from the business's mailbox,
+  matched by serial or address, behind a setting): each opening is kept on the listing, joins the showing it fits,
+  and with no showing booked raises an alert to the listing's agents.
+- **The teammate and add-ons.** An add-on declares what its teammate may do, separately from `ai`:
+  - look-ups it runs **as the customer in the conversation**, the same queries their portal runs, so it sees exactly
+    what that client sees and nothing about anyone else; these run on their own;
+  - things it may **ask for**, each held as an approval for a person who works that client's deal, and run once
+    approved: the client's own portal actions as the client, and anything else as the person who approved;
+  - checks run on its replies before they go (Real Estate's fair housing checks): a flagged reply is held for a
+    person, never sent.
+    The teammate's settings get one switch per add-on that offers it, off until an owner turns it on, shown only
+    while the add-on runs. The kernel refuses it all when the add-on isn't on, as for everyone.
+
+## Build order (round seven)
+
+Round seven's migrations follow round six's, above `20261022001300`. Boards come before the screens, for Chris's OK.
+
+- **Step 0:** this part.
+- **Step 1 (core):** `safety.where`, the one-spot rule, the 30-day clearing pass, and the phone's location task with
+  its notification and blue pill (`app.json`, `store/permissions.md`; a store build).
+- **Step 2 (core):** the phone's encrypted file store, photos waiting moved into it, `offline.files`, downloading on
+  Wi-Fi, the 1 GB limit and pins, removal, and opening a file from it.
+- **Step 3 (core):** sealed fields on add-on commands, the worker's route that seals them, and showing one again.
+- **Step 4 (Real Estate):** lockboxes, the code in the access sent before a showing, openings read from SentriLock's
+  and Supra's emails, and the alert when no showing was booked.
+- **Step 5 (core):** the teammate's add-on look-ups as the customer, asks held for a person on the deal, and reply
+  checks; the per-add-on switch.
+- **Step 6 (Real Estate):** what its teammate may look up and ask for, and fair housing on its replies.
+- **Step 7:** boards, then the screens on the web and the phone.
+- **Step 8:** tests, phone flows, the browser test, the docs and a video.
+
+To check with Chris before the lockbox step ships: one real "lockbox opened" email from SentriLock and one from Supra,
+since their wording isn't published.
+
+## Not in round seven
+
+- A lockbox maker's own API (it needs a partner agreement).
+- Following a person outside a check-in, or keeping where they've been.
+- Every version of a document on the phone (only current ones and pinned ones).
+- The teammate acting without a person's OK.
