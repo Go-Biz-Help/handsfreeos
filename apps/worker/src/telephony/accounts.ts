@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
+import type { Logger } from 'pino';
 import { asWorker, type Db, type Tx } from '@hfos/db/client';
 import { telephonyAccounts, workspaces } from '@hfos/db/schema';
 import type { Sealer } from '../crypto';
+import { errorMessage } from '../outbox';
 import type { TenantScope } from '../services';
 import type { ProviderAccount, TelephonyProvider, WebhookUrls } from './provider';
 
@@ -25,7 +27,7 @@ export function webhookUrls(publicUrl: string): WebhookUrls {
 
 type AccountRow = typeof telephonyAccounts.$inferSelect;
 
-function openAccount(row: AccountRow, sealer: Sealer): ProviderAccount | null {
+export function openAccount(row: AccountRow, sealer: Sealer): ProviderAccount | null {
   if (!row.accountSid || !row.authTokenEnc) return null;
   return {
     id: row.id,
@@ -141,4 +143,40 @@ export async function ensureAccount(
   }
   await save({ status: 'active', lastError: null });
   return account;
+}
+
+/**
+ * The key browser call tokens are signed with, made again when Twilio no longer has it: somebody deleted it in
+ * the Twilio console, and Twilio refuses every token it signs. Twilio is asked each time a browser asks for a
+ * token. When Twilio can't say, the key we hold is used, as before.
+ */
+export async function liveCallingKey(
+  deps: Pick<AccountDeps, 'db' | 'telephony' | 'sealer'> & { readonly log: Logger },
+  workspaceId: string,
+  account: ProviderAccount,
+): Promise<{ sid: string; secret: string }> {
+  if (!account.apiKeySid || !account.apiKeySecret) throw new Error('browser calls are not set up');
+  const held = { sid: account.apiKeySid, secret: account.apiKeySecret };
+  try {
+    if (await deps.telephony.hasApiKey(account, held.sid)) return held;
+  } catch (e) {
+    deps.log.warn(
+      { workspaceId, err: errorMessage(e) },
+      'could not ask Twilio about the calling key',
+    );
+    return held;
+  }
+  // The same name ensureAccount gives it, so the console shows which business it belongs to.
+  const key = await deps.telephony.createApiKey(
+    account,
+    `HandsFreeOS calls ${workspaceId.slice(0, 8)}`,
+  );
+  await asWorker(deps.db, { workspaceId }, (tx) =>
+    tx
+      .update(telephonyAccounts)
+      .set({ apiKeySid: key.sid, apiKeySecretEnc: deps.sealer.seal(key.secret) })
+      .where(eq(telephonyAccounts.id, account.id)),
+  );
+  deps.log.warn({ workspaceId }, 'the calling key was gone from Twilio, so a new one was made');
+  return key;
 }

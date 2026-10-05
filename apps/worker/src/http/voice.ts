@@ -15,6 +15,8 @@ import { z } from 'zod';
 import { runtimeConfigOf } from '../ai-team/config';
 import { withinHours } from '../ai-team/gates';
 import { systemActor, workerMeta, type TenantScope } from '../services';
+import { liveCallingKey, openAccount } from '../telephony/accounts';
+import type { ProviderAccount } from '../telephony/provider';
 import {
   openTestTicket,
   sealTestTicket,
@@ -623,6 +625,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
     if (
       !account?.accountSid ||
+      !account.authTokenEnc ||
       !account.apiKeySid ||
       !account.apiKeySecretEnc ||
       !account.twimlAppSid
@@ -632,9 +635,9 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
         409,
         'Calls are still being set up. Try again in a minute.',
       );
-    let apiKeySecret: string;
+    let opened: ProviderAccount;
     try {
-      apiKeySecret = deps.sealer.open(account.apiKeySecretEnc);
+      opened = openAccount(account, deps.sealer)!;
     } catch (e) {
       // Sealed with a key this worker doesn't hold (a database copied from elsewhere, or a key rotated
       // without keeping the old one): the browser shows "Calls unavailable" rather than a server error.
@@ -648,11 +651,29 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
         'Calls can’t start right now, because this business’s calling key can’t be opened on our side. Ask HandsFreeOS support to look into it.',
       );
     }
+    let key: { sid: string; secret: string };
+    try {
+      key = await liveCallingKey(
+        { db: deps.httpDb, telephony: deps.telephony, sealer: deps.sealer, log: deps.log },
+        workspaceId,
+        opened,
+      );
+    } catch (e) {
+      deps.log.error(
+        { workspaceId, err: e instanceof Error ? e.message : String(e) },
+        'the calling key was gone from Twilio and a new one could not be made',
+      );
+      throw HfosError.rule(
+        'calls_unavailable',
+        503,
+        'Calls can’t start right now, because the phone carrier didn’t answer. Try again in a minute.',
+      );
+    }
     const identity = identityOf(actor.userId);
     const { token, expiresAt } = voiceAccessToken({
       accountSid: account.accountSid,
-      apiKeySid: account.apiKeySid,
-      apiKeySecret,
+      apiKeySid: key.sid,
+      apiKeySecret: key.secret,
       twimlAppSid: account.twimlAppSid,
       identity,
       ttlSeconds: TOKEN_TTL_SECONDS,

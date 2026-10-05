@@ -140,6 +140,8 @@ export interface FakeTelephony extends TelephonyProvider {
    * HighLevel's) and lands in `toAccountSid`, still pointed at its old webhooks. Returns its sid there.
    */
   transferIn(e164: string, toAccountSid: string): string;
+  /** Somebody deleted this API key in the Twilio console: `hasApiKey` says it is gone from then on. */
+  deleteApiKey(keySid: string): void;
 }
 
 /** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
@@ -258,6 +260,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const firstLooked = new Map<string, number>();
   /** Our own subaccounts, so one given back to us as "somebody else's" can be recognised. */
   const subaccounts = new Set<string>();
+  /** API keys deleted "in the console" (deleteApiKey). Every other key is still there. */
+  const deletedApiKeys = new Set<string>();
 
   const unauthorised = () => new ProviderError('Authenticate', '20003', false, 401);
 
@@ -540,6 +544,12 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async createApiKey() {
       return { sid: fakeSid('SK'), secret: FAKE_VOICE_KEY_SECRET };
+    },
+    async hasApiKey(_account, keySid) {
+      return !deletedApiKeys.has(keySid);
+    },
+    deleteApiKey(keySid) {
+      deletedApiKeys.add(keySid);
     },
     async createTwimlApp() {
       return fakeSid('AP');
