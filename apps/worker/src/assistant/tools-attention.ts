@@ -75,6 +75,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   faq_suggestions: 'Question to answer',
   offer_lapsing: 'Offer ending',
   texting_rejected: 'Texting turned down',
+  addon_alert: 'Add-on alert',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -87,6 +88,7 @@ const TIME_CHIPS: ReadonlySet<string> = new Set([
   'overdue',
   'starts_in',
   'expires_in',
+  'due_in',
   'job_done',
 ]);
 
@@ -97,9 +99,16 @@ const QUOTED_DETAIL: ReadonlySet<AttentionKind> = new Set([
   'ai_approval',
   // The carriers' own reason for turning texting down.
   'texting_rejected',
+  // An add-on's own words.
+  'addon_alert',
 ]);
 
-const CHANNEL_WORD = { sms: 'Texts', email: 'Email', chat: 'Website chat' } as const;
+const CHANNEL_WORD = {
+  sms: 'Texts',
+  email: 'Email',
+  chat: 'Website chat',
+  portal: 'Client portal',
+} as const;
 
 /** "Maria Lopez" from "Maria Lopez · AC install" (a task's title is its own). */
 const headOf = (item: Pick<Item, 'title'>) => item.title.split(' · ')[0] ?? item.title;
@@ -247,12 +256,12 @@ type HandlePlan =
       readonly kind: 'hand_to_ai';
       readonly teammate: string;
       readonly label: string;
-      readonly channel: 'sms' | 'email' | 'chat' | null;
+      readonly channel: 'sms' | 'email' | 'chat' | 'portal' | null;
       readonly conversationId: string | null;
     }
   | {
       readonly kind: 'reply';
-      readonly channel: 'sms' | 'email' | 'chat';
+      readonly channel: 'sms' | 'email' | 'chat' | 'portal';
       readonly body: string;
       readonly subject: string | null;
       readonly to: string | null;
@@ -494,7 +503,9 @@ const handleItem: AttentionConfirmTool = {
                 ? `Email ${first}?`
                 : plan.channel === 'chat'
                   ? `Reply to ${first} in the chat?`
-                  : `Send this text to ${first}?`,
+                  : plan.channel === 'portal'
+                    ? `Reply to ${first} in their portal?`
+                    : `Send this text to ${first}?`,
             fields: [
               { label: 'To', value: [name, plan.to].filter(Boolean).join(' · ') },
               ...(plan.subject ? [{ label: 'Subject', value: plan.subject }] : []),
@@ -511,7 +522,7 @@ const handleItem: AttentionConfirmTool = {
             confirmLabel:
               plan.channel === 'email'
                 ? 'Send email'
-                : plan.channel === 'chat'
+                : plan.channel === 'chat' || plan.channel === 'portal'
                   ? 'Send reply'
                   : plan.quiet
                     ? 'Send anyway'
@@ -656,6 +667,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   faq_suggestions: 'Only who answers the question. Nothing else changes.',
   offer_lapsing: 'Only who looks after the offer. Nothing else changes.',
   texting_rejected: 'The business’s texting is set up by its owners and admins.',
+  addon_alert: 'The add-on that raised it decides who it’s for.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

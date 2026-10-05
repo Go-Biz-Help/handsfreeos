@@ -14,6 +14,7 @@ import {
   type OpenDatabase,
 } from '../phone-copy';
 import { KEPT_TTL_S, OPEN_TTL_S } from '../rules';
+import { BUSINESS_STREAM, RECORDS_STREAM } from '../subscriptions';
 
 /**
  * The copy's rules through `PhoneCopy` itself, with a stand-in for the Keychain, the files on the phone and PowerSync
@@ -71,13 +72,21 @@ class FakeDb {
     this.closed = true;
     this.log.push(`close ${this.name}`);
   }
-  syncStream(_name: string, params: { workspace_id: string }) {
+  /** Every stream subscribed, with its business and how long: a business's two go together (round six). */
+  readonly streams: string[] = [];
+  syncStream(name: string, params: { workspace_id: string }) {
     return {
       subscribe: async (options?: { ttl?: number }) => {
-        this.subscribed.push({ businessId: params.workspace_id, ttl: options?.ttl });
-        this.log.push(`subscribe ${params.workspace_id} ${options?.ttl}`);
+        this.streams.push(`${name} ${params.workspace_id} ${options?.ttl}`);
+        // The business's own stream stands for both in the rest of these tests.
+        if (name === BUSINESS_STREAM) {
+          this.subscribed.push({ businessId: params.workspace_id, ttl: options?.ttl });
+          this.log.push(`subscribe ${params.workspace_id} ${options?.ttl}`);
+        }
         return {
           unsubscribe: () => {
+            this.streams.push(`release ${name} ${params.workspace_id}`);
+            if (name !== BUSINESS_STREAM) return;
             this.released.push(params.workspace_id);
             this.log.push(`release ${params.workspace_id}`);
           },
@@ -365,6 +374,11 @@ describe('what’s subscribed', () => {
     await p.signIn(DALE);
     const db = p.dbs[0]!;
     expect(db.subscribed).toEqual([{ businessId: LONE_STAR, ttl: KEPT_TTL_S }]);
+    // Its records come with it, for as long (records_v1, beside business_v1).
+    expect(db.streams).toEqual([
+      `${BUSINESS_STREAM} ${LONE_STAR} ${KEPT_TTL_S}`,
+      `${RECORDS_STREAM} ${LONE_STAR} ${KEPT_TTL_S}`,
+    ]);
     expect(p.log.indexOf(`subscribe ${LONE_STAR} ${KEPT_TTL_S}`)).toBeLessThan(
       p.log.indexOf(`connect ${file(DALE)}`),
     );

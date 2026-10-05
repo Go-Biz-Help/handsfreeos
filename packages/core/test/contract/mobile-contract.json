@@ -89,6 +89,23 @@
         "required": ["workspaceId", "kind", "body"]
       }
     },
+    "addon_alert.acknowledge": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "alertId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "alertId"]
+      }
+    },
     "ai_teammate.decide_draft": {
       "offline": {
         "freshMinutes": 30
@@ -715,7 +732,7 @@
           },
           "channel": {
             "type": "string",
-            "enum": ["sms", "email", "chat"]
+            "enum": ["sms", "email", "chat", "portal"]
           },
           "subject": {
             "type": "string",
@@ -2415,7 +2432,11 @@
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               "text/plain",
-              "text/csv"
+              "text/csv",
+              "audio/mp4",
+              "audio/aac",
+              "audio/mpeg",
+              "audio/webm"
             ]
           },
           "sizeBytes": {
@@ -3583,7 +3604,7 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": ["sms", "email", "chat"]
+            "enum": ["sms", "email", "chat", "portal"]
           },
           "body": {
             "type": "string",
@@ -4801,6 +4822,23 @@
         "required": ["workspaceId", "personId"]
       }
     },
+    "portal_access.give": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
+      }
+    },
     "push_device.register": {
       "offline": "online",
       "input": {
@@ -4856,6 +4894,3081 @@
         }
       }
     },
+    "realestate.buyer_profile.save": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "budgetMinCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "budgetMaxCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "areas": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "homeTypes": {
+                "default": [],
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "single_family",
+                    "condo",
+                    "townhouse",
+                    "multi_family",
+                    "manufactured",
+                    "land"
+                  ]
+                }
+              },
+              "bedsMin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "bathsMin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 20
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sqftMin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "moveBy": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mustHaves": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "dealBreakers": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              }
+            }
+          }
+        },
+        "required": ["workspaceId", "dealId", "profile"]
+      }
+    },
+    "realestate.client_task.add": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preset": {
+            "type": "string",
+            "enum": [
+              "preapproval",
+              "buyer_agreement",
+              "photo_id",
+              "repair_sign_off",
+              "closing_items",
+              "listing_agreement",
+              "seller_disclosure",
+              "mortgage_payoff",
+              "repair_answer_sign_off",
+              "keys_at_closing"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["upload", "sign_off", "do"]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "signOffWords": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "forPersonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "documentKind": {
+            "type": "string",
+            "enum": [
+              "buyer_agreement",
+              "listing_agreement",
+              "agency_disclosure",
+              "seller_disclosure",
+              "preapproval",
+              "cma",
+              "net_sheet",
+              "offer",
+              "counter",
+              "contract",
+              "amendment",
+              "addendum",
+              "emd_receipt",
+              "inspection_report",
+              "repair_request",
+              "repair_agreement",
+              "invoice",
+              "photo",
+              "permit",
+              "appraisal",
+              "loan_approval",
+              "clear_to_close",
+              "rate_lock",
+              "insurance_binder",
+              "title_commitment",
+              "payoff_statement",
+              "hoa_docs",
+              "survey",
+              "closing_disclosure",
+              "settlement_statement",
+              "walkthrough_checklist",
+              "home_warranty",
+              "deed",
+              "mls_listing",
+              "marketing",
+              "termination",
+              "emd_release",
+              "other"
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.client_task.mark_done": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "taskId", "personId", "note"]
+      }
+    },
+    "realestate.cma.find_comps": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cmaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "miles": {
+            "default": 1,
+            "type": "number",
+            "minimum": 0.25,
+            "maximum": 10
+          },
+          "months": {
+            "default": 6,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24
+          }
+        },
+        "required": ["workspaceId", "cmaId"]
+      }
+    },
+    "realestate.cma.request_summary": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cmaId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "cmaId"]
+      }
+    },
+    "realestate.contingency.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["inspection", "financing", "appraisal", "home_sale", "hoa", "title", "other"]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": ["workspaceId", "dealId", "kind"]
+      }
+    },
+    "realestate.contingency.resolve": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contingencyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "how": {
+            "type": "string",
+            "enum": ["satisfied", "waived", "expired"]
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "contingencyId", "how"]
+      }
+    },
+    "realestate.contract.confirm": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "readId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueIds": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "readId"]
+      }
+    },
+    "realestate.deal.export": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.deal.move_stage": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "stage"]
+      }
+    },
+    "realestate.document.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "buyer_agreement",
+              "listing_agreement",
+              "agency_disclosure",
+              "seller_disclosure",
+              "preapproval",
+              "cma",
+              "net_sheet",
+              "offer",
+              "counter",
+              "contract",
+              "amendment",
+              "addendum",
+              "emd_receipt",
+              "inspection_report",
+              "repair_request",
+              "repair_agreement",
+              "invoice",
+              "photo",
+              "permit",
+              "appraisal",
+              "loan_approval",
+              "clear_to_close",
+              "rate_lock",
+              "insurance_binder",
+              "title_commitment",
+              "payoff_statement",
+              "hoa_docs",
+              "survey",
+              "closing_disclosure",
+              "settlement_statement",
+              "walkthrough_checklist",
+              "home_warranty",
+              "deed",
+              "mls_listing",
+              "marketing",
+              "termination",
+              "emd_release",
+              "other"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "supersedesId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "default": "draft",
+            "type": "string",
+            "enum": ["draft", "sent"]
+          }
+        },
+        "required": ["workspaceId", "dealId", "fileId", "kind"]
+      }
+    },
+    "realestate.duty.acknowledge": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dutyId"]
+      }
+    },
+    "realestate.duty.add_evidence": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["document", "file", "note", "attestation", "appointment", "message"]
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": ["workspaceId", "dutyId", "kind"]
+      }
+    },
+    "realestate.duty.complete": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dutyId"]
+      }
+    },
+    "realestate.duty.complete_with_exception": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "dutyId", "reason"]
+      }
+    },
+    "realestate.duty.pick_vendor": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "inspection",
+              "hvac",
+              "repairs",
+              "photos",
+              "staging",
+              "lender",
+              "title",
+              "insurance",
+              "other"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dutyId", "vendorId"]
+      }
+    },
+    "realestate.duty.set_status": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "in_progress", "waiting_external", "blocked"]
+          },
+          "waitingOn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "blocker": {
+            "type": "object",
+            "properties": {
+              "what": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "owner": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "impact": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "reviewAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["what", "owner", "impact", "reviewAt"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "chaseOn": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": ["workspaceId", "dutyId", "status"]
+      }
+    },
+    "realestate.duty.vendor_quote": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pickId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "pickId", "cents"]
+      }
+    },
+    "realestate.duty.withdraw_evidence": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evidenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "dutyId", "evidenceId", "reason"]
+      }
+    },
+    "realestate.field_note.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "aboutKind": {
+            "default": "deal",
+            "type": "string",
+            "enum": ["deal", "home", "tour_stop", "showing", "open_house", "walkthrough"]
+          },
+          "aboutId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "audioFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoFileIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "dealId", "id"]
+      }
+    },
+    "realestate.financing.mark_done": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "preapproval",
+              "application",
+              "rate_lock",
+              "appraisal",
+              "conditional_approval",
+              "clear_to_close",
+              "closing_disclosure",
+              "funding"
+            ]
+          },
+          "doneOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "proof": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["document", "file", "message"]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": ["kind", "id"]
+          },
+          "startedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amountCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 30
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId", "step", "proof"]
+      }
+    },
+    "realestate.financing.reopen_step": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "preapproval",
+              "application",
+              "rate_lock",
+              "appraisal",
+              "conditional_approval",
+              "clear_to_close",
+              "closing_disclosure",
+              "funding"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "dealId", "step", "reason"]
+      }
+    },
+    "realestate.financing.update_step": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "preapproval",
+              "application",
+              "rate_lock",
+              "appraisal",
+              "conditional_approval",
+              "clear_to_close",
+              "closing_disclosure",
+              "funding"
+            ]
+          },
+          "startedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amountCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 30
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId", "step"]
+      }
+    },
+    "realestate.finding.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["safety", "repair", "minor"]
+          },
+          "estimateCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clientPriority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["must_fix", "would_like", "skip"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ask": {
+            "type": "string",
+            "enum": ["repair", "replace", "credit", "not_asked"]
+          },
+          "creditCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "inspectionId", "title", "severity"]
+      }
+    },
+    "realestate.finding.remove": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "findingId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "findingId"]
+      }
+    },
+    "realestate.finding.update": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "findingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["safety", "repair", "minor"]
+          },
+          "estimateCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clientPriority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["must_fix", "would_like", "skip"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ask": {
+            "type": "string",
+            "enum": ["repair", "replace", "credit", "not_asked"]
+          },
+          "creditCents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "findingId"]
+      }
+    },
+    "realestate.home.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          },
+          "link": {
+            "type": "string",
+            "maxLength": 2000,
+            "pattern": "^https?:\\/\\/"
+          },
+          "pastedText": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "mlsNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "address"]
+      }
+    },
+    "realestate.home.lookup": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "homeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mlsNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["workspaceId", "homeId"]
+      }
+    },
+    "realestate.home.set_status": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "homeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["saved", "shortlisted", "toured", "offered", "passed", "removed"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "homeId", "status"]
+      }
+    },
+    "realestate.inspection.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "general",
+              "termite",
+              "roof",
+              "sewer",
+              "radon",
+              "mold",
+              "pool",
+              "hvac",
+              "structural",
+              "other"
+            ]
+          },
+          "inspector": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportExpectedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "kind"]
+      }
+    },
+    "realestate.inspection.update": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inspector": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduledAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reportExpectedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "inspectionId"]
+      }
+    },
+    "realestate.listing.confirm_facts": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "facts": {
+            "type": "object",
+            "properties": {
+              "beds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "baths": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "sqft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000000
+              },
+              "lot_sqft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "year_built": {
+                "type": "integer",
+                "minimum": 1700,
+                "maximum": 2100
+              },
+              "hoa_monthly_cents": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              "property_type": {
+                "type": "string",
+                "enum": [
+                  "single_family",
+                  "condo",
+                  "townhouse",
+                  "multi_family",
+                  "manufactured",
+                  "land"
+                ]
+              },
+              "garage_spaces": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          },
+          "sources": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "beds",
+                "baths",
+                "sqft",
+                "lot_sqft",
+                "year_built",
+                "hoa_monthly_cents",
+                "property_type",
+                "garage_spaces"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["seller", "pasted", "agent", "mls"]
+            }
+          },
+          "highlights": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId", "facts"]
+      }
+    },
+    "realestate.listing.description.request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.lookup": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mlsNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.mark_live": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mlsNumber": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,30}$"
+          },
+          "liveOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId", "mlsNumber", "liveOn"]
+      }
+    },
+    "realestate.listing.photo_add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "public": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId", "fileId"]
+      }
+    },
+    "realestate.listing.photos_arrange": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photos": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "public": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["id", "caption", "public"]
+            }
+          }
+        },
+        "required": ["workspaceId", "dealId", "photos"]
+      }
+    },
+    "realestate.listing.posts_request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.price.propose": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "priceCents": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "dealId", "priceCents"]
+      }
+    },
+    "realestate.match.dismiss": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "matchId"]
+      }
+    },
+    "realestate.match.send": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "matchId"]
+      }
+    },
+    "realestate.memory.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["likes", "dislikes", "must_have", "deal_breaker", "timing", "money", "other"]
+          },
+          "words": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "dealId", "kind", "words"]
+      }
+    },
+    "realestate.net_sheet.save": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payoffCents": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000000
+          },
+          "listingFeeBp": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "listingFeeCents": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "titleEscrowCents": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000000
+          },
+          "transferTaxBp": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "otherCents": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000000
+          },
+          "otherNote": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.offer.add_version": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "side": {
+            "type": "string",
+            "enum": ["us", "them"]
+          },
+          "terms": {
+            "type": "object",
+            "properties": {
+              "priceCents": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000000000
+              },
+              "emdCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "emdDays": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sellerCreditCents": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000000
+              },
+              "inspectionDays": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 90
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "loanType": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["conventional", "fha", "va", "usda", "cash", "other"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "financingDays": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 120
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "appraisalContingency": {
+                "default": null,
+                "type": ["boolean", "null"]
+              },
+              "closingDate": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "otherTerms": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "downPaymentPct": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "homeSaleContingency": {
+                "default": null,
+                "type": ["boolean", "null"]
+              },
+              "escalationCapCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "escalationStepCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "possession": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "buyerAgentFeeBp": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "buyerAgentFeeCents": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["priceCents"]
+          },
+          "respondBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "offerId", "side", "terms"]
+      }
+    },
+    "realestate.offer.share_summary": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "offerId"]
+      }
+    },
+    "realestate.open_house.plan": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "durationMinutes": {
+            "default": 180,
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 720
+          },
+          "hostUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "calendarId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "acknowledgeWarnings": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId", "startsAt"]
+      }
+    },
+    "realestate.open_house.sign_in": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openHouseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "lastName": {
+            "default": "",
+            "type": "string",
+            "maxLength": 80
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "withAgent": {
+            "default": false,
+            "type": "boolean"
+          },
+          "agentName": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "smsConsent": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "openHouseId", "firstName"]
+      }
+    },
+    "realestate.repair.send": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "words": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "findingIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "respondBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "dealId", "words"]
+      }
+    },
+    "realestate.showing.add": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "minutes": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 240
+          },
+          "agentName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "brokerage": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "license": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "agentEmail": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "agentPhone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 40
+          }
+        },
+        "required": ["workspaceId", "dealId", "startsAt", "agentName"]
+      }
+    },
+    "realestate.showing.decide": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "showingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["confirm", "decline", "cancel"]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "showingId", "decision"]
+      }
+    },
+    "realestate.showing.feedback": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "showingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "interest": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "liked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "right", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "showingId"]
+      }
+    },
+    "realestate.status_email.request": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "milestone": {
+            "default": "asked",
+            "type": "string",
+            "enum": ["under_contract", "inspection_done", "clear_to_close", "closed", "asked"]
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.status_email.save": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draftId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          }
+        },
+        "required": ["workspaceId", "draftId", "subject", "body"]
+      }
+    },
+    "realestate.status_email.send": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draftId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "draftId"]
+      }
+    },
+    "realestate.suggestion.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "suggestionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "suggestionId"]
+      }
+    },
+    "realestate.suggestion.not_a_fit": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "suggestionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "suggestionId"]
+      }
+    },
+    "realestate.tour.feedback": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "interest": {
+            "type": "string",
+            "enum": ["love", "maybe", "no"]
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "words": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["workspaceId", "stopId", "personId", "interest"]
+      }
+    },
+    "realestate.tour.plan": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "homeIds": {
+            "minItems": 1,
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 720
+          },
+          "calendarId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "agentUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "notifyClient": {
+            "default": true,
+            "type": "boolean"
+          },
+          "acknowledgeWarnings": {
+            "default": false,
+            "type": "boolean"
+          },
+          "exception": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": ["reason"]
+          }
+        },
+        "required": ["workspaceId", "dealId", "homeIds", "startsAt"]
+      }
+    },
+    "realestate.tour.record_visit": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stopId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["visited", "skipped"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "stopId", "status"]
+      }
+    },
+    "realestate.tour.set_stops": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tourId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "homeIds": {
+            "minItems": 1,
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "tourId", "homeIds"]
+      }
+    },
+    "realestate.vendor.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approved": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "vendorId", "approved"]
+      }
+    },
+    "realestate.vendor.save": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "companyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 40
+          },
+          "services": {
+            "minItems": 1,
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "inspection",
+                "hvac",
+                "repairs",
+                "photos",
+                "staging",
+                "lender",
+                "title",
+                "insurance",
+                "other"
+              ]
+            }
+          },
+          "areas": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          },
+          "disclosure": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "services"]
+      }
+    },
+    "realestate.walkthrough.add_item": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "id", "walkthroughId", "title"]
+      }
+    },
+    "realestate.walkthrough.check_item": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ok", "not_ok", "unsure", "unchecked"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "photoFileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "itemId", "state"]
+      }
+    },
+    "realestate.walkthrough.finish": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientsAgreed": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "walkthroughId"]
+      }
+    },
+    "realestate.walkthrough.plan": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId", "id"]
+      }
+    },
+    "realestate.walkthrough.start": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "walkthroughId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "walkthroughId"]
+      }
+    },
+    "record_hold.lift": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "holdId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "holdId", "reason"]
+      }
+    },
+    "record_hold.place": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["workspaceId", "customRecordId", "reason"]
+      }
+    },
     "record.add_tag": {
       "offline": "anytime",
       "input": {
@@ -4904,6 +8017,168 @@
           }
         },
         "required": ["workspaceId", "recordType", "recordId", "tagId"]
+      }
+    },
+    "safety_contact.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "id"]
+      }
+    },
+    "safety_contact.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "safety.check_in": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "place": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "plannedEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": ["workspaceId", "id", "place", "plannedEndAt"]
+      }
+    },
+    "safety.check_out": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "checkInId"]
+      }
+    },
+    "safety.extend": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 240
+          }
+        },
+        "required": ["workspaceId", "checkInId", "minutes"]
+      }
+    },
+    "safety.help": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "place": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": ["workspaceId"]
       }
     },
     "subscription.request_card": {
@@ -5720,6 +8995,406 @@
         },
         "required": ["workspaceId", "formId"]
       }
+    },
+    "realestate.buyer_profile.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.client_tasks": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeCanceled": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.cma": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cmaId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "cmaId"]
+      }
+    },
+    "realestate.deal.history": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "before": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.document.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.duty.vendors": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dutyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "inspection",
+              "hvac",
+              "repairs",
+              "photos",
+              "staging",
+              "lender",
+              "title",
+              "insurance",
+              "other"
+            ]
+          }
+        },
+        "required": ["workspaceId", "dutyId"]
+      }
+    },
+    "realestate.exports": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.financing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.homes": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeRemoved": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.inspections": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.marketing": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.listing.prices": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.matches": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["new", "sent", "dismissed"]
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.memory": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeClosed": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.offers": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.offers.compare": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.open_houses": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.showing.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.tours": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeCanceled": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.walkthrough": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "record_hold.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["legal", "retention"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
     }
   },
   "tables": {
@@ -6148,6 +9823,7 @@
         "mime_type": "text",
         "size_bytes": "bigint",
         "status": "app.file_status",
+        "locked_at": "timestamp with time zone",
         "created_by": "uuid",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
@@ -7023,6 +10699,399 @@
         "workspace_id": "uuid",
         "role": "app.member_role",
         "permissions": "text[]"
+      }
+    },
+    "records_v1.activities": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "app.activity_kind",
+        "subtype": "text",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "body": "text",
+        "occurred_at": "timestamp with time zone",
+        "author_user_id": "uuid",
+        "actor_type": "app.actor_type",
+        "meta": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.addon_phone_rows": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "addon_id": "text",
+        "source": "text",
+        "record_id": "uuid",
+        "data": "jsonb",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.appointment_attendees": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "appointment_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.attendee_status",
+        "seats": "integer",
+        "intake": "jsonb",
+        "contact_phone_e164": "text",
+        "contact_email": "text",
+        "sms_ok": "boolean",
+        "source": "app.appointment_source",
+        "reschedule_count": "integer",
+        "cancelled_at": "timestamp with time zone",
+        "confirmed_at": "timestamp with time zone",
+        "confirmed_via": "text",
+        "confirmed_by": "uuid",
+        "confirm_asked_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.appointment_records": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "custom_record_id": "uuid"
+      }
+    },
+    "records_v1.appointments": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "calendar_id": "uuid",
+        "calendar_revision": "integer",
+        "service_id": "uuid",
+        "kind": "app.appointment_kind",
+        "title": "text",
+        "starts_at": "timestamp with time zone",
+        "ends_at": "timestamp with time zone",
+        "buffer_before": "integer",
+        "buffer_after": "integer",
+        "capacity": "integer",
+        "seats_taken": "integer",
+        "status": "app.appointment_status",
+        "location": "jsonb",
+        "series_id": "uuid",
+        "occurrence": "integer",
+        "owner_user_id": "uuid",
+        "lead_id": "uuid",
+        "source": "app.appointment_source",
+        "notes": "text",
+        "client_id": "text",
+        "field_times": "jsonb",
+        "job_id": "uuid",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.attention_items": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "text",
+        "subject_type": "text",
+        "subject_id": "uuid",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "conversation_id": "uuid",
+        "state": "app.attention_state",
+        "opened_at": "timestamp with time zone",
+        "since_at": "timestamp with time zone",
+        "urgent_from": "timestamp with time zone",
+        "due_at": "timestamp with time zone",
+        "value_cents": "bigint",
+        "value_is_estimate": "boolean",
+        "money_key": "text",
+        "probability": "real",
+        "confidence": "real",
+        "reasons": "jsonb",
+        "title": "text",
+        "detail": "text",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "snoozed_at": "timestamp with time zone",
+        "snoozed_by": "uuid",
+        "dismissed_at": "timestamp with time zone",
+        "dismissed_by": "uuid",
+        "dismiss_reason": "text",
+        "handled_at": "timestamp with time zone",
+        "handled_by": "uuid",
+        "handled_via": "text",
+        "handled_until": "timestamp with time zone",
+        "auto_state": "text",
+        "auto_scheduled_for": "timestamp with time zone",
+        "auto_done_at": "timestamp with time zone",
+        "auto_skip_reason": "text",
+        "auto_cancelled_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.booking_sites": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "slug": "citext",
+        "name": "text",
+        "enabled": "boolean",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.conversations": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "channel": "app.channel",
+        "counterpart": "text",
+        "phone_number_id": "uuid",
+        "email_address_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.conversation_status",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "unread_count": "integer",
+        "last_message_at": "timestamp with time zone",
+        "last_inbound_at": "timestamp with time zone",
+        "last_outbound_at": "timestamp with time zone",
+        "last_preview": "text",
+        "last_direction": "app.direction",
+        "awaiting_reply_since": "timestamp with time zone",
+        "closed_at": "timestamp with time zone",
+        "closed_by": "uuid",
+        "archived_at": "timestamp with time zone",
+        "handled_by": "app.conversation_handler",
+        "ai_teammate_id": "uuid",
+        "needs_person_since": "timestamp with time zone",
+        "handoff_reason": "text",
+        "handoff_note": "text",
+        "taken_over_by": "uuid",
+        "ai_disclosed_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone",
+        "folder": "app.conversation_folder",
+        "private_to": "uuid"
+      }
+    },
+    "records_v1.custom_record_types": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "key": "text",
+        "singular": "text",
+        "plural": "text",
+        "name_label": "text",
+        "icon": "text",
+        "position": "integer",
+        "archived_at": "timestamp with time zone",
+        "addon_id": "text",
+        "kept_to_team": "boolean",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.custom_records": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "type_id": "uuid",
+        "name": "text",
+        "notes": "text",
+        "custom": "jsonb",
+        "field_times": "jsonb",
+        "archived_at": "timestamp with time zone",
+        "kept_to_team": "boolean",
+        "owner_user_id": "uuid",
+        "team_user_ids": "uuid[]",
+        "purged_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.files": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "record_type": "app.record_type",
+        "record_id": "uuid",
+        "bucket": "text",
+        "object_path": "text",
+        "name": "text",
+        "mime_type": "text",
+        "size_bytes": "bigint",
+        "status": "app.file_status",
+        "locked_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.messages": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "conversation_id": "uuid",
+        "channel": "app.channel",
+        "direction": "app.direction",
+        "status": "app.message_status",
+        "from_address": "text",
+        "to_addresses": "text[]",
+        "cc_addresses": "text[]",
+        "subject": "text",
+        "body_text": "text",
+        "media": "jsonb",
+        "segments": "integer",
+        "error_code": "text",
+        "error_message": "text",
+        "sent_by": "uuid",
+        "sent_by_teammate_id": "uuid",
+        "approved_by": "uuid",
+        "client_id": "text",
+        "email_address_id": "uuid",
+        "occurred_at": "timestamp with time zone",
+        "sent_at": "timestamp with time zone",
+        "delivered_at": "timestamp with time zone",
+        "transport": "app.text_transport",
+        "read_at": "timestamp with time zone",
+        "rich": "jsonb",
+        "button_reply": "jsonb",
+        "failed_attempt": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.portal_access": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "person_id": "uuid",
+        "given_by": "uuid",
+        "given_at": "timestamp with time zone",
+        "revoked_at": "timestamp with time zone",
+        "revoked_by": "uuid",
+        "last_used_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.relationship_types": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "a_end": "app.relationship_end",
+        "a_record_type_id": "uuid",
+        "a_label": "text",
+        "b_end": "app.relationship_end",
+        "b_record_type_id": "uuid",
+        "b_label": "text",
+        "cardinality": "app.relationship_cardinality",
+        "mutual": "boolean",
+        "position": "integer",
+        "archived_at": "timestamp with time zone",
+        "addon_id": "text",
+        "addon_key": "text",
+        "portal_visible": "boolean",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.relationships": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "type_id": "uuid",
+        "a_person_id": "uuid",
+        "a_company_id": "uuid",
+        "a_custom_record_id": "uuid",
+        "b_person_id": "uuid",
+        "b_company_id": "uuid",
+        "b_custom_record_id": "uuid",
+        "note": "text",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.safety_checkins": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "appointment_id": "uuid",
+        "place": "text",
+        "latitude": "numeric",
+        "longitude": "numeric",
+        "located_at": "timestamp with time zone",
+        "started_at": "timestamp with time zone",
+        "planned_end_at": "timestamp with time zone",
+        "extended_count": "integer",
+        "state": "text",
+        "asked_at": "timestamp with time zone",
+        "alerted_at": "timestamp with time zone",
+        "resolved_at": "timestamp with time zone",
+        "resolved_by": "uuid",
+        "resolved_via": "text",
+        "alert_round": "integer",
+        "last_alerted_at": "timestamp with time zone",
+        "checked_out_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.safety_contacts": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "contact_user_id": "uuid",
+        "name": "text",
+        "phone_e164": "text",
+        "email": "text",
+        "asked_at": "timestamp with time zone",
+        "agreed_at": "timestamp with time zone",
+        "stopped_at": "timestamp with time zone",
+        "position": "integer",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.tasks": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "due_at": "timestamp with time zone",
+        "all_day": "boolean",
+        "assignee_user_id": "uuid",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "done_at": "timestamp with time zone",
+        "done_by": "uuid",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "records_v1.team_keys": {
+      "columns": {
+        "id": "text",
+        "user_id": "uuid",
+        "workspace_id": "uuid",
+        "addon_id": "text",
+        "role": "text"
       }
     }
   }

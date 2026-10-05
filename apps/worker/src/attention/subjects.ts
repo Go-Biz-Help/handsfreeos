@@ -157,6 +157,11 @@ export const ATTENTION_EVENTS: readonly string[] = [
   // Texting turned down: the carriers answered, or the details were sent again.
   'registration.submitted',
   'registration.status_changed',
+  // An add-on's alert raised, changed, acknowledged or cleared (Real Estate step 5).
+  'addon_alert.raised',
+  'addon_alert.updated',
+  'addon_alert.acknowledged',
+  'addon_alert.cleared',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -190,6 +195,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'suggestion',
   'offer',
   'registration',
+  'addon_alert',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -344,6 +350,9 @@ export async function subjectsOf(
       break;
     case 'offer':
       add('offer', id);
+      break;
+    case 'addon_alert':
+      add('addon_alert', id);
       break;
     case 'registration':
       add('registration', id);

@@ -4,7 +4,7 @@ import { Zap } from 'lucide-react';
 import { AI_TEXT } from '@/components/workflows/chips';
 import type { AttentionItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { HandleButton, ItemMenu, LetHandleButton } from './attention-actions';
+import { AcknowledgeButton, HandleButton, ItemMenu, LetHandleButton } from './attention-actions';
 import { AssigneeMark, Chips, KIND_LABEL_TONE, KindTile } from './attention-bits';
 import { useAttentionEnv } from './attention-context';
 import { autoAt, chipsOf, customerOf, isDraft, KIND_LABEL, splitTitle } from './attention-words';
@@ -87,7 +87,8 @@ export function AttentionCard({ item }: { item: AttentionItem }) {
               KIND_LABEL_TONE[item.kind] ?? 'text-text-3',
             )}
           >
-            {KIND_LABEL[item.kind]}
+            {/* An add-on's alert is named after its add-on. */}
+            {item.addonAlert?.addonName ?? KIND_LABEL[item.kind]}
           </span>
         </div>
         <AssigneeMark assignee={item.assignee} />
@@ -107,7 +108,11 @@ export function AttentionCard({ item }: { item: AttentionItem }) {
         {chips.length ? <Chips chips={chips} className="w-full md:w-auto" /> : null}
         <span aria-hidden className="hidden min-w-2 flex-1 md:block" />
         <HandleButton item={item} className={cn(FOOT_BUTTON, 'mt-0.5 w-full md:mt-0 md:w-auto')} />
-        <LetHandleButton item={item} className={cn(FOOT_BUTTON, 'flex-1 md:flex-none')} />
+        {item.addonAlert?.needsAck && !item.addonAlert.acknowledgedAt ? (
+          <AcknowledgeButton item={item} className={cn(FOOT_BUTTON, 'flex-1 md:flex-none')} />
+        ) : (
+          <LetHandleButton item={item} className={cn(FOOT_BUTTON, 'flex-1 md:flex-none')} />
+        )}
         <ItemMenu item={item} />
       </div>
       {at !== null ? <GoesStrip item={item} at={at} /> : null}

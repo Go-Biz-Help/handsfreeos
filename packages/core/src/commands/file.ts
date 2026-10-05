@@ -17,6 +17,10 @@ import {
   FileConfirmOutput,
   FileDeleteInput,
   FileDeleteOutput,
+  FileLockInput,
+  FileLockOutput,
+  FileStoreInput,
+  FileStoreOutput,
 } from '../schemas/file';
 import { scopeCan } from '../kernel/execute';
 
@@ -104,7 +108,13 @@ export const fileBeginUpload = defineCommand({
       );
     await requireRecord(ctx, input.recordType, input.recordId);
     const fileId = input.id ?? randomUUID();
-    const objectPath = `${workspaceId}/${input.recordType}/${input.recordId}/${fileId}/${safeFileName(input.name)}`;
+    const objectPath = storedFilePath(
+      workspaceId,
+      input.recordType,
+      input.recordId,
+      fileId,
+      input.name,
+    );
     const [row] = await insertWithId('files', input.id, () =>
       ctx.tx
         .insert(files)
@@ -126,6 +136,94 @@ export const fileBeginUpload = defineCommand({
     );
     if (!row) throw HfosError.forbidden();
     return { fileId, bucket: 'attachments', objectPath };
+  },
+});
+
+/** Where a file on a record is kept in storage: what `file.begin_upload` reserves, and where the worker stores one. */
+export const storedFilePath = (
+  workspaceId: string,
+  recordType: string,
+  recordId: string,
+  fileId: string,
+  name: string,
+) => `${workspaceId}/${recordType}/${recordId}/${fileId}/${safeFileName(name)}`;
+
+export const fileStore = defineCommand({
+  name: 'file.store',
+  description:
+    'Worker: a file it fetched or made for a record (a document signed at DocuSign, say), already uploaded to its place in storage. Kept ready, as storage measured it, and put on the timeline.',
+  risk: 1,
+  input: FileStoreInput,
+  output: FileStoreOutput,
+  permission: 'records.write',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  emits: ['file.attached'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const [earlier] = await ctx.tx
+      .select({ id: files.id, sizeBytes: files.sizeBytes, recordId: files.recordId })
+      .from(files)
+      .where(eq(files.id, input.id));
+    if (earlier) {
+      if (earlier.recordId !== input.recordId) throw HfosError.forbidden();
+      return { fileId: earlier.id, sizeBytes: Number(earlier.sizeBytes ?? 0), changed: false };
+    }
+    await requireRecord(ctx, input.recordType, input.recordId);
+    const objectPath = storedFilePath(
+      workspaceId,
+      input.recordType,
+      input.recordId,
+      input.id,
+      input.name,
+    );
+    const [info] = await rows<{ size_bytes: number | null; mime_type: string | null }>(
+      ctx.tx,
+      sql`select size_bytes, mime_type from private.storage_object_info('attachments', ${objectPath})`,
+    );
+    if (!info)
+      throw HfosError.rule(
+        'file_not_uploaded',
+        409,
+        `${input.name} isn’t in storage yet, so it can’t be kept. It’s tried again on its own.`,
+      );
+    const sizeBytes = Math.max(1, Number(info.size_bytes ?? 0));
+    await ctx.tx.insert(files).values({
+      id: input.id,
+      workspaceId,
+      recordType: input.recordType,
+      recordId: input.recordId,
+      bucket: 'attachments',
+      objectPath,
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes,
+      status: 'ready',
+      createdBy: null,
+    });
+    const eventId = await ctx.emit({
+      type: 'file.attached',
+      entityType: input.recordType,
+      entityId: input.recordId,
+      payload: { fileId: input.id, name: input.name, mimeType: input.mimeType, sizeBytes },
+      after: { name: input.name, mimeType: input.mimeType, sizeBytes },
+    });
+    await logSystemActivity(ctx, {
+      subtype: 'file_added',
+      personId: input.recordType === 'person' ? input.recordId : null,
+      companyId: input.recordType === 'company' ? input.recordId : null,
+      leadId: input.recordType === 'lead' ? input.recordId : null,
+      customRecordId: input.recordType === 'custom_record' ? input.recordId : null,
+      body: input.name,
+      meta: {
+        fileId: input.id,
+        mimeType: input.mimeType,
+        sizeBytes,
+        ...(input.from ? { from: input.from } : {}),
+      },
+      eventId,
+    });
+    return { fileId: input.id, sizeBytes, changed: true };
   },
 });
 
@@ -216,6 +314,13 @@ export const fileDelete = defineCommand({
     if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
     const ownFile = businessOwn(current.recordType);
     if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
+    // The database refuses it too (private.guard_locked_file); this says so with the file's name.
+    if (current.lockedAt)
+      throw HfosError.rule(
+        'file_locked',
+        409,
+        `${current.name} is signed and kept, so it can’t be deleted. Add the newer version as another file instead.`,
+      );
     await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, current.id));
     await ctx.emit({
       type: 'file.deleted',
@@ -231,5 +336,74 @@ export const fileDelete = defineCommand({
       after: null,
     });
     return { fileId: current.id };
+  },
+});
+
+/**
+ * Lock a file for good: a signed contract, a disclosure, a final version (Real Estate, step 3). From then on nobody
+ * deletes, renames or unlocks it; the database holds it to that (`private.guard_locked_file`), and deleting the whole
+ * business is the only way it goes. An add-on that locks one is named on it, and the lock outlasts the add-on.
+ */
+export const fileLock = defineCommand({
+  name: 'file.lock',
+  description:
+    'Lock a file on a record for good, like a signed contract: nobody can delete or rename it afterwards. Add a newer file to replace it.',
+  risk: 2,
+  input: FileLockInput,
+  output: FileLockOutput,
+  permission: 'records.write',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  emits: ['file.locked'],
+  actors: ['human', 'system'],
+  async handler(ctx, input) {
+    const [current] = await ctx.tx
+      .select()
+      .from(files)
+      .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
+    if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
+    if (businessOwn(current.recordType))
+      throw HfosError.rule(
+        'file_not_lockable',
+        409,
+        `${current.name} belongs to the business, not a customer’s record, so it isn’t locked. Only files on a customer or a record are.`,
+      );
+    if (current.lockedAt)
+      return { fileId: current.id, lockedAt: current.lockedAt.toISOString(), changed: false };
+    if (current.status !== 'ready')
+      throw HfosError.rule(
+        'file_not_ready',
+        409,
+        `${current.name} hasn’t finished uploading, so it can’t be locked yet. Try again in a minute.`,
+      );
+    const lockedAt = new Date();
+    const lockedBy = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+    await ctx.tx
+      .update(files)
+      .set({
+        lockedAt,
+        lockedBy,
+        lockedReason: input.reason,
+        lockedByAddon: ctx.addon?.id ?? null,
+      })
+      .where(eq(files.id, current.id));
+    const eventId = await ctx.emit({
+      type: 'file.locked',
+      entityType: current.recordType,
+      entityId: current.recordId,
+      payload: { fileId: current.id, name: current.name, reason: input.reason },
+      before: { locked: false },
+      after: { name: current.name, locked: true, reason: input.reason },
+    });
+    await logSystemActivity(ctx, {
+      subtype: 'file_locked',
+      personId: current.recordType === 'person' ? current.recordId : null,
+      companyId: current.recordType === 'company' ? current.recordId : null,
+      leadId: current.recordType === 'lead' ? current.recordId : null,
+      customRecordId: current.recordType === 'custom_record' ? current.recordId : null,
+      body: current.name,
+      meta: { fileId: current.id, reason: input.reason },
+      eventId,
+    });
+    return { fileId: current.id, lockedAt: lockedAt.toISOString(), changed: true };
   },
 });

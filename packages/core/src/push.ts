@@ -38,6 +38,8 @@ export const PUSH_SWITCHES = [
   'jobs',
   /** Automations' "Connection broke": payments, a calendar, email, reviews or a phone number stopped working. */
   'connections',
+  /** What an add-on the business uses needs this person to see (Real Estate step 5): a duty late, a deal at risk. */
+  'addons',
   /** HandsFreeOS's support desk: someone wrote to support. Only its own support people ever get these. */
   'supportTickets',
   /**
@@ -47,6 +49,8 @@ export const PUSH_SWITCHES = [
   'qualifying',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
+/** The kinds nobody turns off (a check-in's): not a switch in Settings, and always on (`private.push_on`). */
+export const ALWAYS_ON = 'safety' as const;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -70,6 +74,7 @@ export const PushSwitches = z.object({
   wallet: z.boolean(),
   jobs: z.boolean(),
   connections: z.boolean(),
+  addons: z.boolean(),
   supportTickets: z.boolean(),
   qualifying: z.boolean(),
 });
@@ -146,6 +151,9 @@ export const PUSH_BUTTONS = {
     opensApp: false,
   },
   open: { title: 'Open', commands: [], unlock: false, opensApp: true },
+  // A check-in's "Still there?" (round six): answered from the lock screen, never needing an unlock.
+  im_ok: { title: 'I’m OK', commands: ['safety.check_out'], unlock: false, opensApp: false },
+  add_15: { title: '+15 min', commands: ['safety.extend'], unlock: false, opensApp: false },
 } as const satisfies Record<string, PushButtonDef>;
 export type PushButton = keyof typeof PUSH_BUTTONS;
 export const PUSH_BUTTON_IDS = Object.keys(PUSH_BUTTONS) as [PushButton, ...PushButton[]];
@@ -185,6 +193,11 @@ export const PUSH_CATEGORIES = {
   /** Something the business connected stopped working (Automations' "Connection broke"): Open goes to fix it. */
   connection: { switch: 'connections', buttons: ['open'] },
   /**
+   * An add-on's alert (app.addon_alerts): Open goes to the add-on's page. The phone opens its own screen for it when
+   * this build has one (the add-on's `ui.phone`), and the web until then.
+   */
+  addon_alert: { switch: 'addons', buttons: ['open'] },
+  /**
    * The AI teammate's qualifying (20261018000400), to whoever its settings name: a customer sent the file a question
    * asks for, like a photo of their electric bill; or a lead qualified. Open goes to the lead.
    */
@@ -195,9 +208,16 @@ export const PUSH_CATEGORIES = {
    * no business; Open goes to the ticket on the support desk.
    */
   support_ticket: { switch: 'supportTickets', buttons: ['open'] },
+  /**
+   * Check-ins (round six): "Still at 12 Oak St?" to the person at their planned end, with I’m OK and +15 min; and
+   * to a teammate they asked to be told, that they haven't checked out (Open shows where). Never switched off:
+   * a missed one is a false alarm, or nobody told.
+   */
+  safety_check: { switch: 'safety', buttons: ['im_ok', 'add_15'] },
+  safety_alert: { switch: 'safety', buttons: ['open'] },
 } as const satisfies Record<
   string,
-  { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }
+  { readonly switch: PushSwitch | typeof ALWAYS_ON; readonly buttons: readonly PushButton[] }
 >;
 export type PushCategory = keyof typeof PUSH_CATEGORIES;
 export const PUSH_CATEGORY_IDS = Object.keys(PUSH_CATEGORIES) as [PushCategory, ...PushCategory[]];
@@ -236,8 +256,14 @@ export const PushRefs = z.object({
   appointmentId: z.uuid().optional(),
   taskId: z.uuid().optional(),
   invoiceId: z.uuid().optional(),
+  /** An add-on's alert (app.addon_alerts). */
+  alertId: z.uuid().optional(),
+  /** The record an add-on's alert is about (a deal): its screen on the phone finds its notifications by it. */
+  recordId: z.uuid().optional(),
   /** A support ticket (`support_ticket`). */
   ticketId: z.uuid().optional(),
+  /** A check-in (`safety_check`, `safety_alert`): I’m OK and +15 min act on it. */
+  checkInId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 

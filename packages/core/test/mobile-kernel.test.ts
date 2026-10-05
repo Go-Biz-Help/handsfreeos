@@ -11,6 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { BUILT_ADDONS } from '../src/addons/catalog';
 import { dispositionOf, HfosError } from '../src/errors';
 import {
   appVersionAtLeast,
@@ -329,7 +330,16 @@ describe('offline classes', () => {
     'invoice.send': FRESH,
     'estimate.send': FRESH,
     'subscription.request_card': FRESH,
+    // Check-ins (round six): checking in, adding time and checking out, with no signal.
+    'safety.check_in': 'anytime',
+    'safety.check_out': 'anytime',
+    'safety.extend': 'anytime',
   };
+  /**
+   * An add-on's commands that may wait are its own test's to hold, against the phone's list (Real Estate:
+   * test/addons/realestate-offline.test.ts).
+   */
+  const ofAnAddon = (name: string) => BUILT_ADDONS.some((a) => name.startsWith(`${a.id}.`));
 
   it('gives every command the phone uses its class, and every other command online', () => {
     for (const [name, offline] of Object.entries(PHONE)) {
@@ -337,7 +347,7 @@ describe('offline classes', () => {
       expect(cmd, name).toBeDefined();
       expect(cmd!.offline, name).toEqual(offline);
     }
-    const others = registry.commands.filter((c) => !(c.name in PHONE));
+    const others = registry.commands.filter((c) => !(c.name in PHONE) && !ofAnAddon(c.name));
     expect(others.filter((c) => c.offline !== 'online').map((c) => c.name)).toEqual([]);
     // Among them: tags replaced wholesale, a customer's texting consent (a queued "yes" could undo a STOP that came
     // after it), calls, the Assistant, settings and team changes.

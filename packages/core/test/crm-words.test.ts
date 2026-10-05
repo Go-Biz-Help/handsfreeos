@@ -190,6 +190,34 @@ describe('the timeline', () => {
     expect(timelineActor(entry({ actorType: 'user', actor: null }))).toBe('Former member');
   });
 
+  it('writes an add-on’s own line in its words, named after it when it did it itself', () => {
+    const line = (over: Partial<TimelineEntry> = {}) =>
+      entry({
+        kind: 'system',
+        subtype: 'addon_line',
+        body: 'Due Oct 14 at 5:00 PM',
+        meta: {
+          addon: { id: 'realestate', name: 'Real Estate Agent' },
+          words: 'confirmed the inspection deadline',
+          tone: 'success',
+        },
+        ...over,
+      });
+    expect(timelineActor(line())).toBe('Dale Ramsey');
+    expect(timelineActor(line({ actorType: 'system', actor: null }))).toBe('Real Estate Agent');
+    expect(describeTimeline(line(), 'custom_record')).toBe('confirmed the inspection deadline');
+    expect(timelineBody(line())).toBe('Due Oct 14 at 5:00 PM');
+    expect(timelineTone(line())).toBe('success');
+    // Its data deleted: who and when stay, what it said goes.
+    const gone = line({
+      body: null,
+      meta: { addon: { id: 'realestate', name: 'Real Estate Agent' }, _redacted: true },
+    });
+    expect(describeTimeline(gone, 'custom_record')).toBe('made a change');
+    expect(timelineTone(gone)).toBe('accent');
+    expect(timelineTone(line({ meta: { tone: 'ai' } }))).toBe('accent');
+  });
+
   it('says what happened, in the web’s own sentences', () => {
     expect(describeTimeline(entry(), 'person')).toBe('added a note');
     expect(describeTimeline(entry({ kind: 'sms', meta: { direction: 'inbound' } }), 'person')).toBe(

@@ -265,6 +265,12 @@ jest.mock('expo-notifications', () => {
         return request.identifier;
       },
     ),
+    // A notification set for later (a check-in's reminder) is kept with the shown ones, so a test sees what's set.
+    SchedulableTriggerInputTypes: { DATE: 'date' },
+    cancelScheduledNotificationAsync: jest.fn(async (identifier: string) => {
+      const i = presented.findIndex((request) => request.identifier === identifier);
+      if (i >= 0) presented.splice(i, 1);
+    }),
     getPresentedNotificationsAsync: jest.fn(async () =>
       presented.map((request) => ({ date: 0, request })),
     ),

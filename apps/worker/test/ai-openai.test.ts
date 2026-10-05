@@ -266,6 +266,41 @@ describe('OpenAiProvider', () => {
     ]);
   });
 
+  it('sends a PDF as a file, by its title (round four)', async () => {
+    const { bodies, fetch } = recorder();
+    const provider = new OpenAiProvider({ apiKey: 'sk-test', model: 'gpt-6-luna', fetch });
+    await provider.stream({
+      system: 'You read contracts.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              mediaType: 'application/pdf',
+              data: 'JVBERi0=',
+              title: 'Smith contract',
+            },
+            { type: 'text', text: 'Read the contract’s terms.' },
+          ],
+        },
+      ],
+    });
+    expect(bodies[0]!.input).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_file',
+            filename: 'Smith contract.pdf',
+            file_data: 'data:application/pdf;base64,JVBERi0=',
+          },
+          { type: 'input_text', text: 'Read the contract’s terms.' },
+        ],
+      },
+    ]);
+  });
+
   it('asks for JSON in the schema, strict only when every property is required', async () => {
     const { bodies, fetch } = recorder();
     const provider = new OpenAiProvider({ apiKey: 'sk-test', model: 'gpt-6-sol', fetch });

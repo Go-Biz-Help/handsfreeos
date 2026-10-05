@@ -50,6 +50,7 @@ function item(over: Partial<AttentionItemOut> = {}): AttentionItemOut {
     startsAt: null,
     reach: null,
     callable: false,
+    addonAlert: null,
     title: 'Maria Lopez · New AC install',
     detail: null,
     valueCents: 1_850_000,

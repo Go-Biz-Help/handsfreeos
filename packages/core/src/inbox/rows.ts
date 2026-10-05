@@ -93,12 +93,18 @@ export interface ConversationListRow {
   readonly folder?: Text;
   /** The one person whose own mail it is (M19), or null for the team's. A phone only ever holds its person's own. */
   readonly private_to?: Text;
+  /**
+   * A client portal thread's record and its name (Real Estate round six: "Smith purchase"), when the phone keeps that
+   * record. The copy's conversation names it in its key (`portal:<person>:<record>`), not in a column of its own.
+   */
+  readonly record_id?: Text;
+  readonly record_name?: Text;
 }
 
 /** One of a customer's conversations, as the list's row and the thread's line switcher take it (0089). */
 export interface InboxLane {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   /** "Front desk · (713) 555-0100", "info@lonestarhvac.com", "Website chat". */
   readonly lineDisplay: string;
   readonly unreadCount: number;
@@ -109,12 +115,15 @@ export interface InboxLane {
  * as well as its digits; a lane with no line still says something, because a blank item is not choosable.
  */
 export function lineDisplayOf(l: {
-  readonly channel: 'sms' | 'email' | 'chat';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
   readonly e164: Text | undefined;
   readonly label: Text | undefined;
   readonly address: Text | undefined;
+  /** A portal thread's record ("12 Main St purchase"). */
+  readonly record?: Text | undefined;
 }): string {
   if (l.channel === 'chat') return 'Website chat';
+  if (l.channel === 'portal') return l.record ? `Client portal · ${l.record}` : 'Client portal';
   if (l.channel === 'email') return l.address || 'Email';
   const number = l.e164 ? formatPhone(l.e164) : null;
   if (!number) return 'Text';
@@ -154,28 +163,42 @@ export interface ConversationShape extends RowFacts {
   readonly privateTo: string | null;
   /** Someone's own mail (M19), which on a phone is only ever its own person's. */
   readonly private: boolean;
+  /** A client portal thread's record ("Smith purchase"), when the phone keeps it (the API's `record`). */
+  readonly record?: { readonly id: string; readonly name: string } | null;
 }
 
 const FOLDERS = new Set<string>(['inbox', 'other', 'spam']);
 
-const CHANNELS = new Set(['sms', 'email', 'chat']);
+/**
+ * A client's portal thread (Real Estate round two) reaches phones with round six, to the people on its deal
+ * (records_v1); a channel this build doesn't know reads as a text, as it always did.
+ */
+const CHANNELS = new Set(['sms', 'email', 'chat', 'portal']);
 const STATUSES = new Set(['open', 'snoozed', 'closed']);
 
 export function conversationOf(r: ConversationListRow): ConversationShape {
-  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as 'sms' | 'email' | 'chat';
+  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as
+    'sms' | 'email' | 'chat' | 'portal';
   const lastDirection =
     r.last_direction === 'inbound' || r.last_direction === 'outbound' ? r.last_direction : null;
+  const record =
+    channel === 'portal' && r.record_id
+      ? { id: r.record_id, name: r.record_name || 'A record' }
+      : null;
   return {
     id: r.id,
     channel,
     counterpart: r.counterpart,
     // A website chat's visitor's name isn't on the phone: the chat shows as a visitor until they're a customer.
+    // A portal thread is never its key: the client, as the business has them (as `inbox.list` says it).
     counterpartDisplay:
       channel === 'sms'
         ? formatPhone(r.counterpart)
         : channel === 'chat'
           ? CHAT_VISITOR_NAME
-          : r.counterpart,
+          : channel === 'portal'
+            ? nameOf(r.first_name, r.last_name) || 'Client portal'
+            : r.counterpart,
     status: (STATUSES.has(r.status) ? r.status : 'open') as ConversationStatus,
     person: r.person_id ? { id: r.person_id, fullName: nameOf(r.first_name, r.last_name) } : null,
     assignee: userRef(r.assignee_user_id, r.assignee_name),
@@ -214,10 +237,12 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
       e164: r.line_e164,
       label: r.line_label,
       address: r.line_address,
+      record: record?.name,
     }),
     folder: r.folder && FOLDERS.has(r.folder) ? (r.folder as ConversationFolderValue) : 'inbox',
     privateTo: r.private_to ?? null,
     private: !!r.private_to,
+    record,
   };
 }
 
@@ -619,7 +644,9 @@ function replyOf(value: Text | undefined): ThreadItemFacts['buttonReply'] {
 
 export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
   const channel =
-    r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' ? r.channel : null;
+    r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' || r.channel === 'portal'
+      ? r.channel
+      : null;
   const media = json<MediaShape[]>(r.media, []);
   return {
     type: 'message',

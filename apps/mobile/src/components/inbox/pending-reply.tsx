@@ -63,7 +63,9 @@ export function pendingLine(
       };
     case 'still-send':
       return {
-        text: PENDING_REPLY_WORDS.stillSendBody(reply.channel === 'email' ? 'email' : 'text'),
+        text: PENDING_REPLY_WORDS.stillSendBody(
+          reply.channel === 'email' ? 'email' : reply.channel === 'sms' ? 'text' : 'reply',
+        ),
         tone: 'warning',
         action: PENDING_REPLY_WORDS.stillSend,
       };

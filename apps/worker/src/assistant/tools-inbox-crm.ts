@@ -115,7 +115,7 @@ async function teammateName(db: Db, ctx: ToolContext, userId: string): Promise<s
 
 interface Conv {
   id: string;
-  channel: 'sms' | 'email' | 'chat';
+  channel: 'sms' | 'email' | 'chat' | 'portal';
   counterpart: string;
   counterpartDisplay: string;
   status: 'open' | 'snoozed' | 'closed';
@@ -145,7 +145,7 @@ interface ThreadItem {
   occurredAt: string;
   direction: 'inbound' | 'outbound';
   status: string;
-  channel: 'sms' | 'email' | 'chat' | null;
+  channel: 'sms' | 'email' | 'chat' | 'portal' | null;
   body: string | null;
   subject: string | null;
   errorCode: string | null;
@@ -153,7 +153,12 @@ interface ThreadItem {
   scheduledFor: string | null;
 }
 
-const CHANNEL: Record<string, string> = { sms: 'Texts', email: 'Email', chat: 'Website chat' };
+const CHANNEL: Record<string, string> = {
+  sms: 'Texts',
+  email: 'Email',
+  chat: 'Website chat',
+  portal: 'Client portal',
+};
 const STATUS: Record<string, string> = { open: 'Open', snoozed: 'Snoozed', closed: 'Closed' };
 const DAY_MS = 86_400_000;
 
@@ -412,6 +417,12 @@ const manageConversation: SettingsConfirmTool = {
           return stop(title, 'There’s no AI teammate yet. Set one up in Settings → AI teammate.');
         if (teammate.status === 'off')
           return stop(title, `Turn ${teammate.name} on first, in Settings → AI teammate.`);
+        // A client's portal is for the people on their deal: the AI teammate never answers it.
+        if (c.channel === 'portal')
+          return stop(
+            title,
+            `${teammate.name} doesn’t answer messages in a client’s portal. Someone on their deal replies.`,
+          );
         const on = teammate.config.channels?.[c.channel] ?? (c.channel === 'chat' ? false : true);
         if (!on)
           return stop(

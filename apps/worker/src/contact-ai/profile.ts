@@ -303,6 +303,8 @@ export async function loadContactProfile(
     tx,
     sql`select body, occurred_at as at, actor_type = 'human' as by_team from app.activities
         where workspace_id = ${workspaceId} and person_id = ${personId} and kind = 'note' and body is not null
+          -- A note on a private record is for that record's people, as its messages are.
+          and not sealed
         order by occurred_at desc limit 10`,
   );
   const noteLines = notes.map((n) => `${day(n.at)}: ${clip(n.body, 400)}`);
@@ -313,7 +315,7 @@ export async function loadContactProfile(
 
   const messages = await rows<{
     at: Date;
-    channel: 'sms' | 'email' | 'chat';
+    channel: 'sms' | 'email' | 'chat' | 'portal';
     direction: 'inbound' | 'outbound';
     subject: string | null;
     body: string | null;
@@ -329,6 +331,9 @@ export async function loadContactProfile(
               where v.conversation_id = c.id and v.verified_person_id = ${personId}) as verified
           from app.messages m join app.conversations c on c.id = m.conversation_id
           where c.workspace_id = ${workspaceId} and c.person_id = ${personId}
+            -- A thread on a private record (a client's portal thread about their deal) is for that record's people:
+            -- what's said there never becomes a tag or a detail everyone in the business sees.
+            and not c.sealed
             and coalesce(m.body_text, '') <> ''
           order by m.created_at desc limit ${MAX_MESSAGES}) x
         order by x.at`,
@@ -345,7 +350,12 @@ export async function loadContactProfile(
         from app.calls where workspace_id = ${workspaceId} and person_id = ${personId}
         order by started_at desc limit 5`,
   );
-  const HOW = { sms: 'text', email: 'email', chat: 'website chat' } as const;
+  const HOW = {
+    sms: 'text',
+    email: 'email',
+    chat: 'website chat',
+    portal: 'portal message',
+  } as const;
   const lines: (ProfileLine & { t: number })[] = [
     ...messages.map((m) => {
       const words = [m.subject, m.body].filter(Boolean).join('\n');

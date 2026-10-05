@@ -67,9 +67,11 @@ export function unansweredEmail(input: {
   const wrote =
     input.channel === 'chat'
       ? { text: 'wrote to', after: ' in the website chat' }
-      : input.channel === 'email'
-        ? { text: 'emailed', after: '' }
-        : { text: 'texted', after: '' };
+      : input.channel === 'portal'
+        ? { text: 'wrote to', after: ' in their client portal' }
+        : input.channel === 'email'
+          ? { text: 'emailed', after: '' }
+          : { text: 'texted', after: '' };
   const why = input.assignedToYou
     ? 'You’re getting this because the conversation is assigned to you. We send one reminder per message.'
     : 'You’re getting this because you’re an owner or admin and nobody is assigned to the conversation. We send one reminder per message.';
@@ -1348,6 +1350,55 @@ export function chatCodeEmail(input: {
 export const chatCodeText = (business: string, code: string, minutes: number): string =>
   `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;
 
+/** The code a client types to sign in to their portal on a new device (Real Estate round two). */
+export function portalCodeEmail(input: {
+  business: string;
+  firstName: string;
+  code: string;
+  minutes: number;
+}): EmailContent {
+  const subject = `Your ${input.business} code: ${input.code}`;
+  const hi = input.firstName ? `Hi ${input.firstName}, your` : 'Your';
+  const text = `${hi} code to open your ${input.business} portal is ${input.code}. It expires in ${input.minutes} minutes.\n\nIf you didn’t ask for it, ignore this email: nobody can open your portal without it.`;
+  const html = shell(
+    preheader(`Your code is ${input.code}`) +
+      para(
+        `${escapeHtml(hi)} code to open your <strong>${escapeHtml(input.business)}</strong> portal is:`,
+      ) +
+      `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
+      para(`It expires in ${input.minutes} minutes.`) +
+      small('If you didn’t ask for it, ignore this email: nobody can open your portal without it.'),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * A client's portal has a message they haven't read (Real Estate round two). Only a link, never the message: what's
+ * said in a portal stays in the portal (Chris, 2026-09-30).
+ */
+export function portalReplyEmail(input: {
+  business: string;
+  firstName: string;
+  /** Who wrote ("Dana"), or null for the business. */
+  from: string | null;
+  link: string;
+  count: number;
+}): EmailContent {
+  const who = input.from ? `${input.from} at ${input.business}` : input.business;
+  const what = input.count === 1 ? 'a message' : `${input.count} messages`;
+  const subject = `${who} sent you ${what}`;
+  const hi = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const text = `${hi}\n\n${who} sent you ${what} in your portal. Read and reply here: ${input.link}\n\nIf the link asks for a code, we’ll email you one.`;
+  const html = shell(
+    preheader(`${who} sent you ${what}`) +
+      para(escapeHtml(hi)) +
+      para(`<strong>${escapeHtml(who)}</strong> sent you ${what} in your portal.`) +
+      para(`<a href="${escapeHtml(input.link)}">Read and reply</a>`) +
+      small('If the link asks for a code, we’ll email you one.'),
+  );
+  return { subject, text, html };
+}
+
 // ---- Ideas, the roadmap and What's new (0102) ----
 
 const IDEA_FOOT =
@@ -1605,6 +1656,34 @@ export function aiSwitchEmail(input: {
 }
 
 /**
+ * HandsFreeOS support asks to see a business's private records (Real Estate, step 4): to its owners and admins, and
+ * the main person on any private record, who may let support in for 24 hours or say no.
+ */
+export function supportAccessRequestedEmail(input: {
+  business: string;
+  staff: string;
+  note: string;
+  link: string;
+}): EmailContent {
+  const subject = `HandsFreeOS support asks to see ${input.business}’s private deals`;
+  const text = `${input.staff} from HandsFreeOS support is looking at ${input.business} and asks to see the private records you see, like your deals, to help: “${input.note}”\n\nThey’d see them read-only for 24 hours, and you can end it sooner. Nothing is shown until you say yes.\n\nAnswer: ${input.link}`;
+  const html = shell(
+    para(
+      `<strong>${escapeHtml(input.staff)}</strong> from HandsFreeOS support is looking at <strong>${escapeHtml(input.business)}</strong> and asks to see the private records you see, like your deals, to help:`,
+    ) +
+      para(`“${escapeHtml(input.note)}”`) +
+      para(
+        'They’d see them read-only for 24 hours, and you can end it sooner. Nothing is shown until you say yes.',
+      ) +
+      button(input.link, 'Answer') +
+      small(
+        `Sent to the owners and admins of ${escapeHtml(input.business)}, and the main person on each private deal.`,
+      ),
+  );
+  return { subject, text, html };
+}
+
+/**
  * A customer sent the file a qualifying question asks for, like a photo of their electric bill (20261018000400): one
  * email to each person the question says hears about it.
  */
@@ -1657,6 +1736,46 @@ export function fileReceivedEmail(input: {
   return { subject, text, html };
 }
 
+/** How serious an add-on says its alert is, as the email's subject leads with it. */
+const ALERT_LEAD: Readonly<Record<'info' | 'attention' | 'at_risk' | 'critical', string>> = {
+  info: '',
+  attention: '',
+  at_risk: 'At risk: ',
+  critical: 'Critical: ',
+};
+
+/**
+ * An add-on's alert (Real Estate step 5): what it says, in the add-on's words, its deadline, and a button to the
+ * add-on's own page. One that asks to be acknowledged says how.
+ */
+export function addonAlertEmail(input: {
+  business: string;
+  addon: string;
+  severity: 'info' | 'attention' | 'at_risk' | 'critical';
+  title: string;
+  detail: string | null;
+  /** "Due Tue, Oct 6 at 5:00 PM", or "Was due …", already in the business's time. */
+  due: string | null;
+  needsAck: boolean;
+  link: string;
+}): EmailContent {
+  const subject = `${ALERT_LEAD[input.severity]}${input.title}`;
+  const ack = input.needsAck
+    ? 'Open it and press Acknowledge, so everyone knows you’ve seen it.'
+    : null;
+  const lines = [input.detail, input.due, ack].filter((l): l is string => !!l?.trim());
+  const text = `${input.title}\n\n${lines.map((l) => `${l}\n\n`).join('')}Open in ${input.addon}: ${input.link}\n\nFrom ${input.addon} at ${input.business}. Turn these emails off in Settings → Account.`;
+  const html = shell(
+    para(`<strong>${escapeHtml(input.title)}</strong>`) +
+      lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, `Open in ${input.addon}`) +
+      small(
+        `From ${escapeHtml(input.addon)} at ${escapeHtml(input.business)}. Turn these emails off in Settings → Account.`,
+      ),
+  );
+  return { subject, text, html };
+}
+
 /**
  * A lead qualified ("When a lead qualifies → Tell", 20261018000400): one email to each person the AI teammate's
  * settings name, with the answers that qualified it.
@@ -1705,3 +1824,71 @@ export function leadQualifiedEmail(input: {
 /** A question above its answer: the question can be long, so it doesn't sit in a narrow label column. */
 const answerRow = (question: string, answer: string) =>
   `<tr><td colspan="2" style="padding: 6px 0; border-top: 1px solid #e4e8ee;"><div style="color: #676c75;">${escapeHtml(question)}</div><div>${escapeHtml(answer)}</div></td></tr>`;
+
+/**
+ * A safety contact's email when the person they look out for missed a check-out (round six): the place, the
+ * planned end and how to reach them, with the link to say they're OK. It comes from HandsFreeOS for the business.
+ */
+export function safetyAlertEmail(input: {
+  person: string;
+  business: string;
+  place: string;
+  plannedEnd: string;
+  phone: string | null;
+  help: boolean;
+  link: string;
+  map: string | null;
+  /** A teammate, told in the app: the link opens the alert there. */
+  teammate?: boolean;
+}): EmailContent {
+  const first = input.person.split(/\s+/)[0] ?? input.person;
+  const subject = input.help
+    ? `${input.person} asked for help`
+    : `${input.person} hasn’t checked out`;
+  const opening = input.help
+    ? `${input.person} pressed Help at ${input.place}.`
+    : `${input.person} hasn’t checked out of ${input.place}. They planned to leave by ${input.plannedEnd}.`;
+  const call = input.phone ? `Call ${first}: ${input.phone}.` : `Try to reach ${first}.`;
+  const danger = `If you think ${first} is in danger, call 911. HandsFreeOS doesn’t call anyone for you.`;
+  const why = input.teammate
+    ? `You’re getting this because ${input.person} made you a safety contact at ${input.business}.`
+    : `You’re getting this because ${input.person} at ${input.business} made you a safety contact, and you agreed by text.`;
+  const text = [
+    opening,
+    '',
+    call,
+    ...(input.map ? [`Where their phone was: ${input.map}`] : []),
+    '',
+    input.teammate ? `Open the alert: ${input.link}` : `Tell us you reached them: ${input.link}`,
+    '',
+    danger,
+    why,
+  ].join('\n');
+  const html = shell(
+    preheader(`${opening} ${call}`) +
+      wordmark +
+      para(`<strong>${escapeHtml(opening)}</strong>`) +
+      para(escapeHtml(call)) +
+      (input.map ? para(`<a href="${escapeHtml(input.map)}">Where their phone was</a>`) : '') +
+      button(input.link, input.teammate ? 'Open the alert' : `I reached ${first}`) +
+      small(escapeHtml(danger)) +
+      small(escapeHtml(why)),
+  );
+  return { subject, text, html };
+}
+
+/** The all-clear, to a safety contact who was told. */
+export function safetyOkEmail(input: { person: string; business: string }): EmailContent {
+  const subject = `${input.person} is OK`;
+  const line = `${input.person} is OK: they checked out, or someone reached them. Nothing more to do. Thanks for looking out.`;
+  const text = [line, '', `You’re a safety contact for ${input.person} at ${input.business}.`].join(
+    '\n',
+  );
+  const html = shell(
+    preheader(line) +
+      wordmark +
+      para(escapeHtml(line)) +
+      small(escapeHtml(`You’re a safety contact for ${input.person} at ${input.business}.`)),
+  );
+  return { subject, text, html };
+}

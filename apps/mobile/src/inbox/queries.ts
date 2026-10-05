@@ -1,6 +1,10 @@
 /**
  * The inbox's SQL on the phone's copy. Each joins in what the web's queries join (names, the open lead, the last
  * sender), so core's `conversationOf` and `threadItemsOf` can turn the rows into what the inbox's words take.
+ *
+ * A client's portal thread (round six, `records_v1`: only the people on its deal get it) names its deal in its key,
+ * `portal:<person>:<record>`, since the copy's conversation has no column for it; the deal itself is on the phone for
+ * the same people, so its name joins in from `custom_records` ("Portal · Smith purchase").
  */
 
 const userName = (alias: string) => `coalesce(nullif(${alias}.full_name, ''), ${alias}.email)`;
@@ -23,11 +27,13 @@ const CONVERSATION_BASE = `
     s.name AS lead_stage_name, l.value_cents AS lead_value_cents,
     l.next_action AS lead_next_action, l.next_action_at AS lead_next_action_at,
     pn.e164 AS line_e164, pn.label AS line_label, ea.address AS line_address,
-    c.folder, c.private_to,
+    c.folder, c.private_to, cr.id AS record_id, cr.name AS record_name,
     EXISTS (SELECT 1 FROM ai_teammate_drafts d
             WHERE d.conversation_id = c.id AND d.status = 'pending' AND d.kind = 'reply') AS draft_waiting
   FROM conversations c
   LEFT JOIN people p ON p.id = c.person_id
+  LEFT JOIN custom_records cr ON c.channel = 'portal' AND c.counterpart LIKE 'portal:%:%'
+    AND cr.id = substr(c.counterpart, -36)
   LEFT JOIN phone_numbers pn ON pn.id = c.phone_number_id
   LEFT JOIN email_addresses ea ON ea.id = c.email_address_id
   LEFT JOIN users au ON au.id = c.assignee_user_id

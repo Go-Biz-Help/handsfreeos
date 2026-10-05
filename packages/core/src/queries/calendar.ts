@@ -856,6 +856,14 @@ export const scheduleTeam = defineQuery({
       startsAt: iso(i.start),
       endsAt: iso(i.end),
     });
+    // A private record's appointments the caller can't open: when their staff are busy, and nothing else.
+    const hidden = ids.length
+      ? await rows<{ user_id: string; starts_at: Date | string; ends_at: Date | string }>(
+          ctx.tx,
+          sql`select user_id, starts_at, ends_at
+              from private.private_busy(${ws}, ${uuidArray(ids)}, ${new Date(from).toISOString()}, ${new Date(to).toISOString()})`,
+        )
+      : [];
     return {
       timezone: zone,
       people: [...new Set(ids)].map((userId) => {
@@ -878,6 +886,12 @@ export const scheduleTeam = defineQuery({
             note: e.note,
           })),
           busy: s.external.map(span),
+          privateBusy: hidden
+            .filter((h) => h.user_id === userId)
+            .map((h) => ({
+              startsAt: new Date(h.starts_at).toISOString(),
+              endsAt: new Date(h.ends_at).toISOString(),
+            })),
           connection: conn ? connectionOut(conn, fullName) : null,
         };
       }),

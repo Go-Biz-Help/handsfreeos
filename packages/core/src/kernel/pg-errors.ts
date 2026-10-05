@@ -470,6 +470,133 @@ const RULES: Record<string, { status: number; message: string }> = {
   addon_week_decided: { status: 409, message: 'That week already has its pick.' },
   addon_not_tied: { status: 409, message: 'Choose one of the add-ons that tied.' },
   addon_already_picked: { status: 409, message: 'That add-on is already coming soon.' },
+  // Real Estate round six: records on hold.
+  record_on_hold: {
+    status: 409,
+    message:
+      'This record is under a legal hold, so its files and history can’t be changed or deleted. You can still add new ones. An owner or admin lifts the hold from the record’s page.',
+  },
+  record_hold_fixed: {
+    status: 409,
+    message:
+      'A legal hold can only be lifted, with a reason. Place a new one if something else needs holding.',
+  },
+  addon_data_held: {
+    status: 409,
+    message:
+      'This add-on keeps records your business holds, so its data can’t be deleted yet. Settings → Add-ons says how long, and an owner or admin can lift a legal hold from the record’s page.',
+  },
+  workspace_data_held: {
+    status: 409,
+    message:
+      'A record in this business is under a legal hold, so the business can’t be deleted. An owner or admin lifts the hold from the record’s page first.',
+  },
+  // Real Estate step 3: a signed file is kept.
+  file_locked: {
+    status: 409,
+    message:
+      'This file is signed and kept, so it can’t be deleted or changed. Add the newer version as another file instead.',
+  },
+  file_not_ready: {
+    status: 409,
+    message:
+      'This file hasn’t finished uploading, so it can’t be locked yet. Try again in a minute.',
+  },
+  file_hash_is_ours: { status: 403, message: 'Only HandsFreeOS records a file’s fingerprint.' },
+  file_lock_is_later: {
+    status: 400,
+    message: 'A file is locked after it’s added. Add it first, then lock it.',
+  },
+  // Real Estate step 4: records kept to the people on them, and support let in.
+  private_kind_is_addons: {
+    status: 403,
+    message: 'Only an add-on’s kinds of records are kept to the people on them.',
+  },
+  private_kind_fixed: {
+    status: 409,
+    message: 'Whether a kind of record is kept to the people on it never changes.',
+  },
+  record_team_not_yours: {
+    status: 403,
+    message:
+      'Only its main person, or an owner or admin, changes who’s on it. Ask them to add or remove people.',
+  },
+  record_team_outsider: {
+    status: 400,
+    message:
+      'Only someone who works in this business can be on it. Invite them first in Settings → Team.',
+  },
+  task_assignee_not_on_record: {
+    status: 409,
+    message:
+      'That person isn’t on this record, so they can’t be given its task. Put them on it first.',
+  },
+  appointment_staff_not_on_record: {
+    status: 409,
+    message:
+      'That person isn’t on this record, so they can’t work its appointment. Put them on the record first, or pick someone who is.',
+  },
+  support_access_needs_look: {
+    status: 403,
+    message: 'Open this business from its page in /admin first, then ask from there.',
+  },
+  addon_alert_not_yours: {
+    status: 404,
+    message:
+      'That alert isn’t there any more, or it isn’t one you can see. Refresh Home to see what’s left.',
+  },
+  addon_alert_no_ack: {
+    status: 409,
+    message:
+      'That alert doesn’t need acknowledging, or it’s already dealt with. Refresh Home to see where it stands.',
+  },
+  support_access_not_yours: {
+    status: 403,
+    message:
+      'Only an owner or admin, or the main person on a private record, lets HandsFreeOS support in. Ask one of them.',
+  },
+  support_access_not_waiting: {
+    status: 409,
+    message: 'That request was already answered. Refresh to see where it stands.',
+  },
+  // Real Estate steps 6 and 8: what its own tables hold every writer to.
+  realestate_not_a_deal: {
+    status: 400,
+    message: 'That record isn’t a deal. Pick one of the business’s deals.',
+  },
+  realestate_role_not_on_deal: {
+    status: 409,
+    message: 'Only someone on the deal has a part in it. Put them on the deal first.',
+  },
+  realestate_duty_person_not_on_deal: {
+    status: 409,
+    message: 'Only someone on the deal can answer for its duties. Put them on the deal first.',
+  },
+  realestate_document_not_on_deal: {
+    status: 400,
+    message: 'A deal’s document is one of that deal’s own files. Add the file to the deal first.',
+  },
+  realestate_term_fixed: {
+    status: 409,
+    message:
+      'What was entered stays as it was. Enter a correction instead, and it replaces the old value.',
+  },
+  // 20261021000100: an add-on's connections.
+  addon_connection_not_found: {
+    status: 404,
+    message:
+      'That connection isn’t here anymore, or you can’t manage it. Refresh the page to see what’s connected.',
+  },
+  addon_connection_platform_is_ours: {
+    status: 403,
+    message:
+      'HandsFreeOS’s own account is turned on and off by HandsFreeOS. Connect your own account instead, and it’s used in its place.',
+  },
+  realestate_term_settled: {
+    status: 409,
+    message:
+      'That entry was already confirmed, replaced or set aside. Refresh to see the dates as they are now.',
+  },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

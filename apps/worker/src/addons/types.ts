@@ -5,6 +5,12 @@
  * kernel is done as the system acting for it: refused the moment it is off, and marked as its own in history.
  */
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
+import type { FastifyInstance } from 'fastify';
+import type { z } from 'zod';
+import type { HttpDeps } from '../http/common';
+import type { ConnectionTester } from './connections';
+import type { AddonOAuthProvider } from './sign-ins';
+import type { AddonWebhookReceiver } from './webhooks';
 import type { Tx } from '@hfos/db/client';
 import type { EventRow } from '../handlers/types';
 import type { JobResult, JobRow } from '../jobs';
@@ -80,4 +86,40 @@ export interface AddonWorkerModule {
   readonly onUninstall?: (ctx: AddonScopeContext) => Promise<void>;
   /** Lets go of one thing it holds outside HandsFreeOS. Must be safe to repeat (already gone is fine). */
   readonly releaseResource?: (ctx: AddonScopeContext, resource: AddonResource) => Promise<void>;
+  /**
+   * Connector key → service → how to try a key a business pasted (its manifest's `connectors`, for each service
+   * that connects by key). Nothing is kept until it works.
+   */
+  readonly connectors?: Readonly<Record<string, Readonly<Record<string, ConnectionTester>>>>;
+  /**
+   * Connector key → service → how to read the service's updates (its manifest's `connectors`, for each service with
+   * `webhooks`): checked and kept once by the worker's route, then handed here one at a time.
+   */
+  readonly webhooks?: Readonly<Record<string, Readonly<Record<string, AddonWebhookReceiver>>>>;
+  /**
+   * Connector key → service → how a business signs in to it (its manifest's `connectors`, for each service with
+   * `oauth`): the sign-in page, the code's swap for tokens, and their renewal.
+   */
+  readonly oauth?: Readonly<Record<string, Readonly<Record<string, AddonOAuthProvider>>>>;
+  /**
+   * Action name (`<id>.…`) → something a person needs from a connected service right now, which only the worker can
+   * ask (http/addon-actions.ts). Each asks one of the add-on's permissions.
+   */
+  readonly actions?: Readonly<Record<string, AddonWorkerAction>>;
+  /**
+   * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
+   * providers, never in production.
+   */
+  readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
+}
+
+/** One of an add-on's worker actions: who may ask, what they give, and what it does (as the add-on, for them). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- each action's own input; the route parses it first.
+export interface AddonWorkerAction<I = any> {
+  readonly permission: string;
+  readonly input: z.ZodType<I>;
+  readonly run: (
+    ctx: AddonScopeContext & { readonly userId: string },
+    input: I,
+  ) => Promise<unknown>;
 }

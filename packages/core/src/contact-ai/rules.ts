@@ -225,6 +225,12 @@ function phonesIn(text: string): Set<string> {
   return found;
 }
 
+/** Whether words the AI quoted are in the text it read, word for word, ignoring case and spacing. */
+export function quoteFoundIn(quote: string, text: string): boolean {
+  if (!quote.trim() || !text.trim()) return false;
+  return squash(text).includes(squash(quote));
+}
+
 /**
  * Whether a value the AI wants to write is in what was really written or said: a number as a number (however it
  * was typed), anything else word for word, ignoring case and spacing.
@@ -235,7 +241,7 @@ export function foundInWords(field: ContactAiDetailField, value: string, text: s
     const e164 = normalizePhone(value);
     return !!e164 && phonesIn(text).has(e164);
   }
-  return squash(text).includes(squash(value));
+  return quoteFoundIn(value, text);
 }
 
 const isEmail = (v: string): boolean => z.email().safeParse(v).success;

@@ -25,6 +25,9 @@ interface Person {
  * a client's automations while another runs their SEO. Being on a customer shows a member its bills and threads,
  * so owners and admins add and take people off (records.assign); everyone else sees who is on it. One at a time,
  * so two people doing it at once both land.
+ *
+ * A record kept to its people (a deal, Real Estate step 4) uses it too: only they see it, its main person adds and
+ * takes people off, and owners and admins choose its main person.
  */
 export function AssignedCard({
   workspaceId,
@@ -34,25 +37,44 @@ export function AssignedCard({
   team,
   members,
   canEdit,
+  canChooseMain = canEdit,
+  noun: nounOf,
 }: {
   workspaceId: string;
-  recordType: 'person' | 'company';
+  recordType: 'person' | 'company' | 'custom_record';
   recordId: string;
   owner: Person | null;
   team: readonly Person[];
   /** Everyone who can be assigned: the business's people. */
   members: readonly Person[];
   canEdit: boolean;
+  /** May make someone the main person (a private record's: owners and admins only). */
+  canChooseMain?: boolean;
+  /** What it is, for a record ("deal"). */
+  noun?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const assigned = [...(owner ? [owner] : []), ...team];
   const free = members.filter((m) => !assigned.some((a) => a.id === m.id));
-  const noun = recordType === 'person' ? 'customer' : 'company';
+  const kept = recordType === 'custom_record';
+  const noun = nounOf ?? (recordType === 'person' ? 'customer' : 'company');
 
   async function change(kind: 'assign' | 'unassign', userId: string, main = false) {
     setBusy(true);
     try {
+      if (recordType === 'custom_record') {
+        const ref = { workspaceId, customRecordId: recordId, userId };
+        if (kind === 'assign')
+          unwrap(
+            await apiBrowser().POST('/v1/commands/custom_record.assign', {
+              body: { ...ref, main },
+            }),
+          );
+        else unwrap(await apiBrowser().POST('/v1/commands/custom_record.unassign', { body: ref }));
+        router.refresh();
+        return;
+      }
       const ref = { workspaceId, recordType, recordId, userId };
       if (kind === 'assign')
         unwrap(await apiBrowser().POST('/v1/commands/record.assign', { body: { ...ref, main } }));
@@ -68,11 +90,16 @@ export function AssignedCard({
   return (
     <Card className="p-4 md:p-5" data-testid="assigned-card">
       <div className="mb-2.5 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold">Assigned to</h3>
+        <h3 className="text-[15px] font-semibold">{kept ? 'On this ' + noun : 'Assigned to'}</h3>
         {assigned.length > 1 ? (
           <span className="text-[13px] text-text-3">{assigned.length} people</span>
         ) : null}
       </div>
+      {kept ? (
+        <p className="mb-2.5 text-[13px] text-text-2" data-testid="assigned-private">
+          Only the people on it see it, and whoever may see every {noun}.
+        </p>
+      ) : null}
       {assigned.length === 0 ? (
         <p className="text-[13px] text-text-2">
           {canEdit ? 'Nobody yet. Anyone on the team can be added.' : 'Nobody yet.'}
@@ -88,7 +115,7 @@ export function AssignedCard({
                   Main
                 </Badge>
               ) : null}
-              {canEdit ? (
+              {canEdit && (!(i === 0 && owner) || canChooseMain) ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -102,7 +129,7 @@ export function AssignedCard({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    {i === 0 && owner ? null : (
+                    {(i === 0 && owner) || !canChooseMain ? null : (
                       <DropdownMenuItem onSelect={() => void change('assign', p.id, true)}>
                         <Star className="h-4 w-4" strokeWidth={1.5} />
                         Make main

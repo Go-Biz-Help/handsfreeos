@@ -188,6 +188,11 @@ export interface CapabilityContext {
   /** Staff overrides from `platform.addon_overrides`, which only ever take an add-on down. */
   readonly overrides?: Readonly<Record<AddonId, OverrideStatus>>;
   /**
+   * Add-ons still being built that HandsFreeOS handed this business to try (`platform.addon_grants`): installable
+   * here as if they were available.
+   */
+  readonly grants?: readonly AddonId[];
+  /**
    * The person's permissions here, which hold an add-on's permissions only while it is on. Null for the system,
    * a workflow or the AI teammate, which act within the business without a person's permissions.
    */
@@ -211,14 +216,37 @@ export function addonRuns(ctx: CapabilityContext, id: AddonId): boolean {
   );
 }
 
+/** Statuses a staff grant can hand out: still being built, or available (a paid one, before billing exists). */
+const GRANTABLE: ReadonlySet<CatalogStatus> = new Set([
+  'development',
+  'beta',
+  'built',
+  'available',
+]);
+
 /**
- * Whether a business could install this add-on on its own now: `available`, free (paid ones need billing, which
- * doesn't exist yet), not already installed, and every add-on it requires is on here or could be installed with it.
+ * Whether HandsFreeOS offers this add-on to this business: available and free (paid ones need billing, which doesn't
+ * exist yet), or handed to it by staff to try (a grant), whatever it costs.
+ */
+function offeredHere(ctx: CapabilityContext, m: AddonManifest): boolean {
+  const status = effectiveStatus(m, ctx.overrides);
+  if (ctx.grants?.includes(m.id) && GRANTABLE.has(status)) return true;
+  return status === 'available' && m.billing.model === 'free';
+}
+
+/** Whether staff handed this add-on to this business to try (and it isn't switched off or deprecated since). */
+export function grantedHere(ctx: CapabilityContext, id: AddonId): boolean {
+  const m = findAddon(ctx.catalog, id);
+  return !!m && !!ctx.grants?.includes(id) && GRANTABLE.has(effectiveStatus(m, ctx.overrides));
+}
+
+/**
+ * Whether a business could install this add-on on its own now: offered here (available and free, or handed to it by
+ * staff), not already installed, and every add-on it requires is on here or could be installed with it.
  */
 export function installableHere(ctx: CapabilityContext, id: AddonId): boolean {
   const m = findAddon(ctx.catalog, id);
-  if (!m || effectiveStatus(m, ctx.overrides) !== 'available' || m.billing.model !== 'free')
-    return false;
+  if (!m || !offeredHere(ctx, m)) return false;
   if (isInstalledState(ctx.installations[id])) return false;
   return requirementClosure(ctx.catalog, id).every((r) => {
     if (addonRuns(ctx, r)) return true;
@@ -231,7 +259,7 @@ export function installableHere(ctx: CapabilityContext, id: AddonId): boolean {
     if (state === 'installing') return true;
     // On its way out: it has to finish going before anything can rely on it again.
     if (isInstalledState(state)) return false;
-    return status === 'available' && req.billing.model === 'free';
+    return offeredHere(ctx, req);
   });
 }
 

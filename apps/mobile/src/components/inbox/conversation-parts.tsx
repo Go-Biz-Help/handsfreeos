@@ -205,7 +205,7 @@ export function StatusBanner({
     );
   }
   // Someone's own mail is never a customer's while it's theirs: its own banner says so instead.
-  if (!c.person && c.channel !== 'chat' && !c.private) {
+  if (!c.person && c.channel !== 'chat' && c.channel !== 'portal' && !c.private) {
     const b = notCustomerBanner(c.counterpartDisplay, c.channel);
     return (
       <Strip testID="not-customer-banner">

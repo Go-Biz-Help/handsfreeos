@@ -210,16 +210,16 @@ function usageOf(u: Anthropic.Usage): AiUsage {
 /**
  * The conversation is sent again every round of a tool loop, so its end is cached too: the next round reads
  * everything up to it, history and tool results included, and pays full price only for what's new. A picture
- * is the bulk of a turn, so the conversation's last one keeps its own mark unless the end mark already covers
- * it. With the system and lasting marks that is four at most, the API's limit.
+ * or a PDF is the bulk of a turn, so the conversation's last one keeps its own mark unless the end mark already
+ * covers it. With the system and lasting marks that is four at most, the API's limit.
  */
 function messagesOf(messages: readonly AiMessage[]): Anthropic.MessageParam[] {
   const out = messages.map(toAnthropic);
   const lastImage = out.findLastIndex(
-    (m) => typeof m.content !== 'string' && m.content.some((b) => b.type === 'image'),
+    (m) => typeof m.content !== 'string' && m.content.some((b) => BULKY.has(b.type)),
   );
   if (lastImage >= 0 && lastImage < out.length - 1)
-    out[lastImage] = withCacheOn(out[lastImage]!, 'image');
+    out[lastImage] = withCacheOn(out[lastImage]!, 'bulky');
   if (out.length) out[out.length - 1] = withCacheOn(out[out.length - 1]!, 'last');
   return out;
 }
@@ -242,13 +242,15 @@ function toAnthropic(m: AiMessage): Anthropic.MessageParam {
   };
 }
 
-const CACHEABLE = new Set(['text', 'image', 'tool_use', 'tool_result']);
+const CACHEABLE = new Set(['text', 'image', 'document', 'tool_use', 'tool_result']);
+/** The blocks that are most of a turn's size. */
+const BULKY = new Set(['image', 'document']);
 
 /**
- * Marks the message's last image, or its last block. Only our own kinds of block take the mark: never
+ * Marks the message's last image or PDF, or its last block. Only our own kinds of block take the mark: never
  * thinking, a block passed back as the API sent it, or empty text.
  */
-function withCacheOn(m: Anthropic.MessageParam, which: 'image' | 'last'): Anthropic.MessageParam {
+function withCacheOn(m: Anthropic.MessageParam, which: 'bulky' | 'last'): Anthropic.MessageParam {
   if (typeof m.content === 'string')
     return m.content && which === 'last'
       ? {
@@ -257,7 +259,7 @@ function withCacheOn(m: Anthropic.MessageParam, which: 'image' | 'last'): Anthro
         }
       : m;
   const i =
-    which === 'image' ? m.content.findLastIndex((b) => b.type === 'image') : m.content.length - 1;
+    which === 'bulky' ? m.content.findLastIndex((b) => BULKY.has(b.type)) : m.content.length - 1;
   const block = m.content[i];
   if (!block || !CACHEABLE.has(block.type) || (block.type === 'text' && !block.text)) return m;
   const content = [...m.content];
@@ -280,6 +282,12 @@ function toBlock(c: AiContent): Anthropic.ContentBlockParam {
       };
     case 'image':
       return { type: 'image', source: { type: 'base64', media_type: c.mediaType, data: c.data } };
+    case 'document':
+      return {
+        type: 'document',
+        source: { type: 'base64', media_type: c.mediaType, data: c.data },
+        ...(c.title ? { title: c.title } : {}),
+      };
     case 'passthrough':
       // A thinking, server tool use or tool search result block as the API sent it, signature and all.
       return c.block as unknown as Anthropic.ContentBlockParam;

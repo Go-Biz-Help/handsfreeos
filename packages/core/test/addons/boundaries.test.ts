@@ -64,8 +64,13 @@ function pageAddonOf(path: string): string | null {
   return id.startsWith('[') ? null : id;
 }
 
-/** Where an import from `from` lands, relative to the repository: only relative and `@/` imports can land in a folder. */
+/**
+ * Where an import from `from` lands, relative to the repository: relative and `@/` imports, and an add-on's own core
+ * code through the package (`@hfos/core/addons/<id>/…`, which the worker's and the web's halves use).
+ */
 function landing(from: string, specifier: string, alias: string | null): string | null {
+  if (specifier.startsWith('@hfos/core/addons/'))
+    return `packages/core/src/addons/${specifier.slice('@hfos/core/addons/'.length)}`;
   if (specifier.startsWith('.'))
     return relative(REPO, resolve(REPO, dirname(from), specifier))
       .split(sep)
@@ -126,13 +131,18 @@ describe('add-on boundaries', () => {
           "import type { y } from '../../addons/rent/index';",
         ),
         f('apps/web/src/addons/pm/panel.tsx', "const p = import('@/addons/rent/panel');"),
+        f(
+          'apps/worker/src/addons/pm/index.ts',
+          "import { r } from '@hfos/core/addons/rent/words';",
+        ),
+        f('apps/worker/src/jobs.ts', "import { r } from '@hfos/core/addons/pm/words';"),
         f('packages/core/src/commands/task.ts', "export { z } from '../addons/pm/manifest';"),
         f(
           'apps/web/src/app/app/w/[workspaceId]/a/pm/page.tsx',
           "import { L } from '@/addons/rent/list';",
         ),
       ]),
-    ).toHaveLength(5);
+    ).toHaveLength(7);
     expect(
       boundaryViolations([
         f(
@@ -141,6 +151,7 @@ describe('add-on boundaries', () => {
         ),
         f('packages/core/src/addons/catalog.ts', "import { pmAddon } from './pm/manifest';"),
         f('apps/worker/src/addons/modules.ts', "import { pmWorker } from './pm/index';"),
+        f('apps/worker/src/addons/pm/index.ts', "import { w } from '@hfos/core/addons/pm/words';"),
         f('apps/web/src/addons/registry.ts', "const load = () => import('./pm/person-panel');"),
         f(
           'apps/web/src/app/app/w/[workspaceId]/a/pm/page.tsx',

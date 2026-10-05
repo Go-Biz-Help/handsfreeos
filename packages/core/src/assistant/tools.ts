@@ -876,6 +876,10 @@ export const assistantTools = [
       emailWhenAiHandsOver: z.boolean().optional(),
       emailWhenBooked: z.boolean().optional(),
       emailWhenPaid: z.boolean().optional(),
+      emailWhenAddonNeedsYou: z
+        .boolean()
+        .optional()
+        .describe('What an add-on the business uses needs them to see, like a duty running late'),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',

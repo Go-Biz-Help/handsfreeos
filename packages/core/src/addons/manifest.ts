@@ -131,6 +131,13 @@ export interface AddonRecordKind {
    * 2026-09-28), so the tasks, files and timeline lines about one still say what it was.
    */
   readonly writePermission: string;
+  /**
+   * Each record is kept to the people on it: its owner (its main person) and its team see it, and so does anyone
+   * holding `seeAllPermission` (one of the add-on's own); nobody else in the business knows it's there. What hangs
+   * off one (its timeline, tasks, files, Home cards, relationships, and the add-on's rows about it) follows it.
+   * Fixed once the kind is made (Real Estate, step 4).
+   */
+  readonly keptToTeam?: { readonly seeAllPermission: string };
 }
 
 /** One end of a relationship type an add-on manages: a customer, a company, or one of its record kinds. */
@@ -148,12 +155,19 @@ export interface AddonRelationshipType {
   readonly b: AddonRelationshipEnd;
   readonly bLabel: string;
   readonly cardinality?: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
+  /**
+   * The customer at the person end sees the record in their portal, while the add-on is on (Real Estate round two):
+   * a client and their deals. Only between a customer and one of the add-on's own kinds of record.
+   */
+  readonly portal?: true;
 }
 
 /** The places in core screens an add-on can put a panel. The app decides where each one sits. */
 export const ADDON_SLOTS = [
   'person.panels',
   'company.panels',
+  // A Pipeline lead (Real Estate step 6: "Start a buyer deal" from the lead the client came in as).
+  'lead.panels',
   'record.panels',
   'conversation.panels',
   'home.cards',
@@ -173,6 +187,60 @@ export interface AddonNavItem {
   readonly permission?: string;
 }
 
+/**
+ * One of the add-on's tables a phone keeps offline (round six): which columns, the record each row follows, and who
+ * beyond that record's people gets it. A migration registers the same with `private.addon_phone_table()`; a test
+ * holds the two equal. What a phone keeps changes by migration, never by a change to the sync config.
+ */
+export interface AddonOfflineTable {
+  /** The table's name in the add-on's schema, one of `tables`. Needs a `workspace_id` column. */
+  readonly table: string;
+  /** The column naming each row: `id` (the default), or the record for a table with one row per record. */
+  readonly key?: string;
+  /** The column naming the record each row follows (a deal); absent for the business's own rows (its vendors). */
+  readonly record?: string;
+  /** What the phone keeps of each row, beside `id` and `workspace_id`. Never a secret. */
+  readonly columns: readonly string[];
+  /** `team` (the default): only the people on the record. `all`: also whoever sees every record of its kind. */
+  readonly reach?: 'team' | 'all';
+}
+
+/**
+ * One of the add-on's pages the phone draws too. Its links (an alert's push, an email, a Home card) open that screen
+ * on a phone whose build has it, and the web on one that doesn't yet, so they never change when the screen arrives.
+ */
+export interface AddonPhonePage {
+  /** Relative to the add-on's pages, as the web has it: '' for its first page, `deals/:dealId` with `:name` for an id. */
+  readonly path: string;
+  /** The query parameters the screen reads too (`duty`), kept on its address. */
+  readonly query?: readonly string[];
+}
+
+/**
+ * One of the add-on's pages in a customer's portal (`/c/<link>/a/<id>/<path>`), for the records they're on through a
+ * portal relationship. It shows what one of the add-on's customer queries (`<id>.portal.*`) answers, and nothing else.
+ */
+export interface AddonPortalPage {
+  /** Relative to the add-on's portal pages: '' for its first, `deals/:dealId` with `:name` for an id. */
+  readonly path: string;
+  /** Its heading and its place in the portal's menu ("Your home search"). */
+  readonly title: string;
+  /** The customer query it shows. */
+  readonly query: string;
+}
+
+/**
+ * One of the add-on's public pages (`/a/<site>/<id>/<path>`), open to anyone, signed in to nothing (Real Estate round
+ * three): a listing's page, an open house's sign-in. It shows what one of the add-on's public queries
+ * (`<id>.public.*`) answers, only while the add-on is on, and only what that query chooses to publish.
+ */
+export interface AddonPublicPage {
+  /** Relative to the add-on's public pages, with `:name` for a part of the address (`:slug/open-house/:openHouseId`). */
+  readonly path: string;
+  /** The public query it shows. */
+  readonly query: string;
+}
+
 export interface AddonSettingsDeclaration {
   /** The business's settings, checked on every save. Stored in `app.addon_installations.settings`. */
   readonly workspace?: z.ZodType;
@@ -184,6 +252,47 @@ export interface AddonSettingsDeclaration {
   readonly permission?: string;
   /** On/off switches with a default, kept per business in `app.addon_installations.flags`. */
   readonly flags?: Readonly<Record<string, { readonly label: string; readonly default: boolean }>>;
+}
+
+/**
+ * One thing an add-on connects to another service for (round five, 20261021000100): its listing feed, its e-sign. A
+ * business connects it with a key it pastes, a sign-in, or HandsFreeOS's own account; the worker tries and seals what
+ * it's given, and the add-on's worker half uses it (`connectionFor`).
+ */
+export interface AddonConnector {
+  /** Its name in the add-on (`listing_data`). */
+  readonly key: string;
+  readonly label: string;
+  /** Who connects it and lets it go: one of the add-on's own permissions (its owners and admins, usually). */
+  readonly permission: string;
+  /** Several services at once (DocuSign and Dotloop), or one of its own at a time (a listing feed). */
+  readonly many?: boolean;
+  readonly providers: readonly AddonConnectorProvider[];
+}
+
+export interface AddonConnectorProvider {
+  /** The service (`repliers`). */
+  readonly id: string;
+  readonly label: string;
+  /**
+   * How a business connects it: a key it pastes (`key`), a sign-in (`oauth`), or HandsFreeOS's own account
+   * (`platform`), turned on by staff, its key only in the worker's environment.
+   */
+  readonly auth: readonly ('key' | 'oauth' | 'platform')[];
+  /** What a pasted key asks for. A secret one is sealed and never shown again. */
+  readonly fields?: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly secret: boolean;
+    readonly hint?: string;
+    /** It may be left empty (one of two ways a service signs in, say); the service's tester decides. */
+    readonly optional?: boolean;
+  }[];
+  /**
+   * The service sends its updates to the connection's own address (round five, step 2): the add-on's worker half
+   * has a receiver for it, which checks the service's signature and reads what happened.
+   */
+  readonly webhooks?: boolean;
 }
 
 /** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */
@@ -241,10 +350,28 @@ export interface AddonManifest {
   readonly jobs?: readonly string[];
   /** Kinds of things it holds outside HandsFreeOS (`<id>.page_subscription`), released on uninstall. */
   readonly resources?: readonly string[];
+  /** The services it connects to, and what for (round five). */
+  readonly connectors?: readonly AddonConnector[];
+  /**
+   * What phones keep with no signal (round six): the permission a person needs before their phone keeps any of it,
+   * and its tables. Its kinds of records come too, private ones to the people on them; anything not here loads live.
+   */
+  readonly offline?: {
+    readonly permission: string;
+    readonly tables: readonly AddonOfflineTable[];
+    /** Keys of the business's settings the phone keeps too (20261022000800), for pages that rest on them. */
+    readonly settings?: readonly string[];
+  };
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
     readonly nav?: readonly AddonNavItem[];
     readonly slots?: readonly { readonly slot: AddonSlotName; readonly permission?: string }[];
+    /** The pages the phone draws too. Anything else of the add-on's opens the web there. */
+    readonly phone?: readonly AddonPhonePage[];
+    /** Its pages in a customer's portal. They need a relationship type with `portal`. */
+    readonly portal?: readonly AddonPortalPage[];
+    /** Its public pages, for anyone with the link. */
+    readonly public?: readonly AddonPublicPage[];
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
@@ -265,6 +392,9 @@ export interface AddonIssue {
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9a-z.-]+)?$/;
 const KEY_UNDER = (id: string) => new RegExp(`^${id}_[a-z][a-z0-9_]{0,38}$`);
 const DOTTED_UNDER = (id: string) => new RegExp(`^${id}(\\.[a-z][a-z_]*)+$`);
+/** Column names that hold a secret (packages/db/test/sync-secrets.test.ts asks the same of core's tables). */
+const SECRET_COLUMN =
+  /(_enc$|secret|password|pkce|oauth_state|token_hash|_hmac$|(^|_)key_id$|^token$|client_state)/;
 const TABLE_NAME = /^[a-z][a-z0-9_]{0,62}$/;
 
 /** Everything wrong with one manifest on its own. An empty list is a valid manifest. */
@@ -342,6 +472,10 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     label(`record kind "${k.key}"'s name label`, k.nameLabel);
     if (k.icon !== undefined && !(RECORD_ICONS as readonly string[]).includes(k.icon))
       say(`record kind "${k.key}"'s icon "${k.icon}" isn't one of the record icons`);
+    if (k.keptToTeam && !permissionKeys.has(k.keptToTeam.seeAllPermission))
+      say(
+        `record kind "${k.key}" is seen whole with "${k.keptToTeam.seeAllPermission}", which isn't declared`,
+      );
   }
   unique(
     'record kind',
@@ -356,6 +490,13 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
         say(
           `relationship type "${t.key}" names record kind "${end.recordKind}", which isn't declared`,
         );
+    if (t.portal) {
+      const ends = [t.a.kind, t.b.kind].sort().join('+');
+      if (ends !== 'person+record')
+        say(
+          `relationship type "${t.key}" shows a record in a portal, so it joins a customer and a record`,
+        );
+    }
   }
   unique(
     'relationship type',
@@ -370,6 +511,31 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     if (!dotted.test(j)) say(`job kind "${j}" must start with "${m.id}."`);
   for (const r of m.resources ?? [])
     if (!dotted.test(r)) say(`resource kind "${r}" must start with "${m.id}."`);
+
+  for (const c of m.connectors ?? []) {
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(c.key)) say(`connector "${c.key}" isn't a valid key`);
+    if (!permissionKeys.has(c.permission))
+      say(`connector "${c.key}" needs "${c.permission}", which isn't one of its permissions`);
+    if (!c.providers.length) say(`connector "${c.key}" names no service`);
+    for (const p of c.providers) {
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(p.id))
+        say(`connector "${c.key}" service "${p.id}" isn't a valid key`);
+      if (!p.auth.length) say(`connector "${c.key}" service "${p.id}" has no way to connect`);
+      if (p.auth.includes('key') && !p.fields?.some((f) => f.secret))
+        say(`connector "${c.key}" service "${p.id}" takes a key but asks for no secret field`);
+      for (const f of p.fields ?? [])
+        if (!/^[a-z][a-zA-Z0-9_]{0,39}$/.test(f.key))
+          say(`connector "${c.key}" service "${p.id}" field "${f.key}" isn't a valid key`);
+    }
+    unique(
+      `connector "${c.key}" service`,
+      c.providers.map((p) => p.id),
+    );
+  }
+  unique(
+    'connector',
+    (m.connectors ?? []).map((c) => c.key),
+  );
 
   if (m.settings) {
     if (!Number.isInteger(m.settings.version) || m.settings.version < 1)
@@ -388,6 +554,91 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     'menu place',
     (m.ui?.nav ?? []).map((n) => n.key),
   );
+  for (const page of m.ui?.phone ?? []) {
+    const parts = page.path.split('/');
+    if (
+      page.path !== '' &&
+      !parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p))
+    )
+      say(`phone page "${page.path}" must be the web page's path, with ":name" for an id`);
+    for (const q of page.query ?? [])
+      if (!/^[a-z][A-Za-z0-9_]{0,39}$/.test(q))
+        say(`phone page "${page.path}" reads "${q}", which isn't a query key`);
+  }
+  const portalShapes = new Set<string>();
+  for (const page of m.ui?.portal ?? []) {
+    const parts = page.path.split('/');
+    if (
+      page.path !== '' &&
+      !parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p))
+    )
+      say(`portal page "${page.path}" must be a path, with ":name" for an id`);
+    if (!page.title.trim() || page.title.length > 40)
+      say(`portal page "${page.path}"'s title must be 1–40 characters`);
+    if (!page.query.startsWith(`${m.id}.portal.`))
+      say(
+        `portal page "${page.path}" shows "${page.query}", which must be one of "${m.id}.portal.*"`,
+      );
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (portalShapes.has(shape)) say(`portal page "${page.path}" is declared twice`);
+    portalShapes.add(shape);
+  }
+  if ((m.ui?.portal ?? []).length > 0 && !(m.relationshipTypes ?? []).some((t) => t.portal))
+    say('portal pages need a relationship type with "portal", so a customer has records to see');
+  const publicShapes = new Set<string>();
+  for (const page of m.ui?.public ?? []) {
+    const parts = page.path.split('/');
+    if (!parts.every((p) => /^(:[a-z][A-Za-z0-9]{0,39}|[a-z0-9][a-z0-9_-]{0,39})$/.test(p)))
+      say(`public page "${page.path}" must be a path, with ":name" for a part of the address`);
+    if (!page.query.startsWith(`${m.id}.public.`))
+      say(
+        `public page "${page.path}" shows "${page.query}", which must be one of "${m.id}.public.*"`,
+      );
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (publicShapes.has(shape)) say(`public page "${page.path}" is declared twice`);
+    publicShapes.add(shape);
+  }
+  if (m.offline) {
+    if (!permissionKeys.has(m.offline.permission))
+      say(`offline.permission "${m.offline.permission}" isn't one of its permissions`);
+    for (const t of m.offline.tables) {
+      if (!(m.tables ?? []).includes(t.table))
+        say(`offline table "${t.table}" isn't one of its tables`);
+      if (!t.columns.length || t.columns.length > 80)
+        say(`offline table "${t.table}" keeps 1–80 columns`);
+      for (const c of t.columns) {
+        if (!/^[a-z][a-z0-9_]{0,62}$/.test(c))
+          say(`offline table "${t.table}" column "${c}" isn't a column name`);
+        if (SECRET_COLUMN.test(c))
+          say(`offline table "${t.table}" keeps "${c}", which looks like a secret`);
+        if (c === 'id' || c === 'workspace_id')
+          say(`offline table "${t.table}" keeps "${c}" already`);
+      }
+      unique(`offline table "${t.table}" column`, t.columns);
+      if (t.record !== undefined && !/^[a-z][a-z0-9_]{0,62}$/.test(t.record))
+        say(`offline table "${t.table}" record "${t.record}" isn't a column name`);
+    }
+    unique(
+      'offline table',
+      m.offline.tables.map((t) => t.table),
+    );
+    for (const k of m.offline.settings ?? []) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(k))
+        say(`offline setting "${k}" isn't a settings key`);
+      if (SECRET_COLUMN.test(k)) say(`offline setting "${k}" looks like a secret`);
+      const shape = (m.settings?.workspace as { shape?: Record<string, unknown> } | undefined)
+        ?.shape;
+      if (!shape || !(k in shape)) say(`offline setting "${k}" isn't one of its settings`);
+    }
+    unique('offline setting', m.offline.settings ?? []);
+  }
+  const phoneShapes = new Set<string>();
+  for (const page of m.ui?.phone ?? []) {
+    // `deals/:dealId` and `deals/:id` are the same page.
+    const shape = page.path.replace(/:[^/]+/g, ':');
+    if (phoneShapes.has(shape)) say(`phone page "${page.path}" is declared twice`);
+    phoneShapes.add(shape);
+  }
 
   if (m.catalog.status === 'planned') {
     if ((m.tables ?? []).length || (m.jobs ?? []).length || (m.recordKinds ?? []).length)

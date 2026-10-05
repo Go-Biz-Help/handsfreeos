@@ -10,6 +10,8 @@ import {
   canTextOf,
   closedBanner,
   composerPlaceholder,
+  PENDING_REPLY_WORDS,
+  portalReplyLine,
   CONVERSATION_DONE,
   conversationChips,
   crossChannelCanText,
@@ -38,6 +40,7 @@ import {
   previewLine,
   progressShort,
   quietQuestion,
+  SENT_WORDS,
   quietStrip,
   segmentCounterLabel,
   senderOf,
@@ -91,11 +94,21 @@ describe('times', () => {
     );
   });
 
-  it('says when a held text goes, in plain spaces', () => {
-    const now = new Date(2026, 8, 16, 21, 40);
-    expect(heldWhen(new Date(2026, 8, 16, 23, 0).toISOString(), now)).toBe('at 11:00 PM');
-    expect(heldWhen(new Date(2026, 8, 17, 8, 0).toISOString(), now)).toBe('tomorrow at 8:00 AM');
-    expect(heldWhen(new Date(2026, 8, 19, 8, 0).toISOString(), now)).toBe('Saturday at 8:00 AM');
+  it('says when a held text goes where the business is, in plain spaces', () => {
+    // 9:40 PM on Wednesday in Chicago.
+    const now = new Date('2026-09-17T02:40:00Z');
+    const zone = 'America/Chicago';
+    expect(heldWhen('2026-09-17T04:00:00Z', zone, now)).toBe('at 11:00 PM');
+    expect(heldWhen('2026-09-17T13:00:00Z', zone, now)).toBe('tomorrow at 8:00 AM');
+    expect(heldWhen('2026-09-19T13:00:00Z', zone, now)).toBe('Saturday at 8:00 AM');
+    // The same moment for a business in Los Angeles is its own 6:00 AM, whatever zone the phone is in.
+    expect(heldWhen('2026-09-17T13:00:00Z', 'America/Los_Angeles', now)).toBe(
+      'tomorrow at 6:00 AM',
+    );
+    // Just after midnight in Chicago, 8:00 AM that morning is today there.
+    expect(heldWhen('2026-09-17T13:00:00Z', zone, new Date('2026-09-17T05:10:00Z'))).toBe(
+      'at 8:00 AM',
+    );
   });
 
   it('reads snooze times where the business is', () => {
@@ -318,12 +331,13 @@ describe('a thread', () => {
     expect(keywordLine({ direction: 'outbound', body: 'STOP' }, 'Mike')).toBeNull();
   });
 
-  it('says when a held text goes', () => {
-    const now = new Date(2026, 8, 16, 21, 40);
+  it('says when a held text goes, on the business’s clock', () => {
+    const now = new Date('2026-09-17T02:40:00Z');
     expect(
       heldLine(
         { sentBy: { id: ME, fullName: 'Dale Porter' } },
-        new Date(2026, 8, 17, 8, 0).toISOString(),
+        '2026-09-17T13:00:00Z',
+        'America/Chicago',
         now,
       ),
     ).toBe('Dale · Sends tomorrow at 8:00 AM, when quiet hours end');
@@ -601,6 +615,29 @@ describe('the composer', () => {
         compact: true,
       }),
     ).toBe('Reply by email…');
+    // A client's portal: the web's box, the phone's rounded one, and the line under the phone's (board 92).
+    const portal = { mode: 'portal' as const, off: false, note: null, phoneDisplay: '' };
+    expect(composerPlaceholder({ ...portal, firstName: 'Ann', compact: false })).toBe(
+      'Write to Ann in their portal…',
+    );
+    expect(composerPlaceholder({ ...portal, firstName: 'Ann', compact: true })).toBe(
+      'Reply in Ann’s portal…',
+    );
+    expect(composerPlaceholder({ ...portal, firstName: null, compact: true })).toBe(
+      'Reply in their portal…',
+    );
+    expect(portalReplyLine('Ann')).toBe(
+      'Replies go back to the portal, where Ann wrote. Not by text.',
+    );
+    expect(portalReplyLine(null)).toBe(
+      'Replies go back to the portal, where they wrote. Not by text.',
+    );
+    expect(PENDING_REPLY_WORDS.stillSendBody('reply')).toBe(
+      'A reply that waits more than 30 minutes checks with you first.',
+    );
+    expect(PENDING_REPLY_WORDS.stillSendBody('email')).toBe(
+      'An email that waits more than 30 minutes checks with you first.',
+    );
   });
 
   it('counts a text’s length and asks about quiet hours', () => {
@@ -614,6 +651,17 @@ describe('the composer', () => {
       body: 'Send this text to Maria now, or at 8:00 AM when quiet hours end?',
       later: 'Send at 8:00 AM',
     });
+    // Held, the toast says the time the question offered, read where the business is.
+    expect(
+      SENT_WORDS.held(
+        'Maria',
+        '2026-09-17T13:00:00Z',
+        'America/Chicago',
+        new Date('2026-09-17T02:40:00Z'),
+      ),
+    ).toBe(
+      'Held. It goes to Maria tomorrow at 8:00 AM, when quiet hours end. You can cancel it in the thread.',
+    );
   });
 });
 
@@ -629,6 +677,16 @@ describe('a conversation', () => {
     expect(
       threadChannelLine({ ...c, channel: 'email', counterpart: 'mike@example.com' }, null),
     ).toBe('mike@example.com · Email');
+    // A client's portal thread: the web's words, and the phone's header (board 92).
+    const portal = {
+      channel: 'portal' as const,
+      counterpart: 'portal:p-ann:deal-1',
+      counterpartDisplay: 'Ann Smith',
+      record: { name: 'Smith purchase' },
+    };
+    expect(threadChannelLine(portal, null)).toBe('Client portal · Smith purchase');
+    expect(threadChannelLine(portal, null, { compact: true })).toBe('Portal · Smith purchase');
+    expect(threadChannelLine({ ...portal, record: null }, null, { compact: true })).toBe('Portal');
     expect(notCustomerBanner('(713) 555-0168', 'sms').parts).toEqual([
       { strong: '(713) 555-0168 isn’t a customer yet.' },
       ' Add them, or link the number to someone you already have.',

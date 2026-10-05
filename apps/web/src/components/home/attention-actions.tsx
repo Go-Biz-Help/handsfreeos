@@ -404,7 +404,8 @@ export function useItemActions(o: {
             return router.push(reachOf(item));
           case 'revenue_moved':
             return router.push(targetOf(item, workspaceId).href);
-          // Health and quality: the page that checks or fixes it; a lesson is added in one press.
+          // Health and quality: the page that checks or fixes it; a lesson is added in one press. An add-on's
+          // alert opens the add-on's own page.
           case 'channel_quiet':
           case 'connection_error':
           case 'connection_silent':
@@ -413,6 +414,7 @@ export function useItemActions(o: {
           case 'faq_suggestions':
           case 'offer_lapsing':
           case 'texting_rejected':
+          case 'addon_alert':
             return router.push(targetOf(item, workspaceId).href);
           case 'ai_corrections':
             return void withBusy(item.id, () => addLesson(item));
@@ -507,6 +509,15 @@ export function useItemActions(o: {
           settle();
         });
       },
+      acknowledge(item) {
+        const alertId = item.addonAlert?.alertId;
+        if (!alertId) return;
+        void withBusy(item.id, async () => {
+          await cmd.acknowledge(alertId);
+          toast.success(ATTENTION_WORDS.acknowledgedToast);
+          settle();
+        });
+      },
       more(item) {
         open({ type: 'menu', item });
       },
@@ -577,6 +588,32 @@ export function HandleButton({
     >
       {env.busy.has(item.id) ? null : <Icon className="h-4 w-4" strokeWidth={1.75} />}
       {look.label}
+    </Button>
+  );
+}
+
+/** An add-on's alert that waits for someone to say they've seen it: in Let HandsFreeOS Handle's place. */
+export function AcknowledgeButton({
+  item,
+  className,
+}: {
+  item: AttentionItem;
+  className?: string;
+}) {
+  const env = useAttentionEnv();
+  const alert = item.addonAlert;
+  if (!alert?.needsAck || alert.acknowledgedAt) return null;
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      loading={env.busy.has(item.id)}
+      onClick={() => env.act.acknowledge(item)}
+      data-testid="attention-acknowledge"
+      className={className}
+    >
+      {env.busy.has(item.id) ? null : <Check className="h-4 w-4" strokeWidth={1.75} />}
+      {ATTENTION_WORDS.acknowledge}
     </Button>
   );
 }

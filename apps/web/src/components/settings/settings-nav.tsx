@@ -9,6 +9,7 @@ import {
   FileText,
   Inbox,
   KanbanSquare,
+  LifeBuoy,
   ListChecks,
   Mail,
   MessageSquare,
@@ -65,6 +66,9 @@ const GROUPS: readonly { readonly label: string; readonly items: readonly Settin
         needs: 'permissions.manage',
       },
       { path: '/automations', label: 'Automations', icon: Zap, needs: 'workspace.update' },
+      // Check-ins (round six): the business's times and its safety person. Each person's own contacts are on their
+      // Safety page, never here.
+      { path: '/safety', label: 'Safety', icon: LifeBuoy, needs: 'workspace.update' },
       // Named apart from Payments, and kept in another group, on purpose: Payments is the business's own
       // customers paying *them*, and this is what the business pays HandsFreeOS. Two things, two names.
       { path: '/usage', label: 'Usage & balance', icon: Wallet, needs: 'money.manage' },

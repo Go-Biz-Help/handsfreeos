@@ -1,0 +1,39 @@
+# Opens More → Deals (Real Estate Agent's, at the top of More while the add-on runs in the business) from anywhere in
+# the business, closing whatever was opened over the tabs first.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-more'
+# The More tab keeps the screen it was left on (a deal, a duty, its tours): pressed again, it goes back to its first.
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-re-deals'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+# More stays scrolled where it was left (down at Settings, on the way to Test changes): back up to the top.
+- scrollUntilVisible:
+    element:
+      id: 'more-re-deals'
+    direction: UP
+- tapOn:
+    id: 'more-re-deals'
+- extendedWaitUntil:
+    visible:
+      id: 're-deals'
+    timeout: 30000

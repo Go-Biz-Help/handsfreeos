@@ -168,6 +168,46 @@ describe('AnthropicProvider', () => {
     ]);
   });
 
+  it('sends a PDF as a document before the words that ask about it, cached when a later turn follows (round four)', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    await provider.stream({
+      system: 'You read contracts.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              mediaType: 'application/pdf',
+              data: 'JVBERi0=',
+              title: 'Smith contract',
+              pages: 9,
+            },
+            { type: 'text', text: 'Read the contract’s terms.' },
+          ],
+        },
+        { role: 'assistant', content: 'Which ones?' },
+        { role: 'user', content: 'All of them.' },
+      ],
+    });
+    const messages = sent[0]!.body['messages'] as { content: unknown }[];
+    expect(messages[0]!.content).toEqual([
+      {
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: 'JVBERi0=' },
+        title: 'Smith contract',
+        cache_control: { type: 'ephemeral' },
+      },
+      { type: 'text', text: 'Read the contract’s terms.' },
+    ]);
+  });
+
   it('streams the text, collects tool calls and reports usage including the cache', async () => {
     const { sent, fetch } = recording(() => sse(TOOL_TURN));
     const provider = new AnthropicProvider({

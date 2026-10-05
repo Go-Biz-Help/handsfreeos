@@ -22,6 +22,8 @@ export interface NotificationPrefs {
   readonly paymentEmail: boolean;
   /** The worker's daily email to an organization's owners and admins about its businesses. */
   readonly agencyDigest: boolean;
+  /** What an add-on the business uses needs you to see (Real Estate step 5). */
+  readonly addonEmail: boolean;
 }
 
 type EmailKey = keyof NotificationPrefs;
@@ -114,6 +116,13 @@ const ROWS: readonly Row[] = [
       'When something you connected stops working: payments, a calendar, your email, reviews or a phone number. Owners and admins, and whoever the calendar or inbox belongs to.',
     push: 'connections',
     email: null,
+  },
+  {
+    title: 'An add-on needs you',
+    description:
+      'What an add-on your business uses needs you to see, like a duty running late or a deal at risk. Critical ones at any hour; the rest while the business is open.',
+    push: 'addons',
+    email: 'addonEmail',
   },
   {
     title: 'New support tickets',

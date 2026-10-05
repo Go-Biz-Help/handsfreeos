@@ -33,6 +33,8 @@ export const ROLE_PERMISSIONS = {
     'records.write',
     'records.archive',
     'records.assign',
+    // Real Estate round six: putting a record on legal hold, and lifting one.
+    'records.hold',
     'records.import',
     'pipelines.manage',
     'tags.manage',
@@ -74,6 +76,7 @@ export const ROLE_PERMISSIONS = {
     'records.write',
     'records.archive',
     'records.assign',
+    'records.hold',
     'records.import',
     'pipelines.manage',
     'tags.manage',
@@ -215,6 +218,13 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         label: 'Archive and restore',
         description: 'Customers, companies, leads and conversations.',
         requires: ['records.read', 'records.write'],
+      },
+      {
+        permission: 'records.hold',
+        label: 'Put records on legal hold',
+        description:
+          'Keep a record’s files and history exactly as they are until the hold is lifted.',
+        requires: ['records.read'],
       },
       {
         permission: 'records.import',

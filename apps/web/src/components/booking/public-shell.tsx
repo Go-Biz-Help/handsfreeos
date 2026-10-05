@@ -37,7 +37,14 @@ export function PublicHeader({ business }: { business: PublicBusiness }) {
   );
 }
 
-export function Byline({ className }: { className?: string }) {
+export function Byline({
+  className,
+  words = 'Booking by HandsFreeOS',
+}: {
+  className?: string;
+  /** What the page is: "Booking by HandsFreeOS" unless it's another kind of page. */
+  words?: string;
+}) {
   return (
     <p
       className={cn(
@@ -46,16 +53,19 @@ export function Byline({ className }: { className?: string }) {
       )}
     >
       <BrandMark size={13} />
-      Booking by HandsFreeOS
+      {words}
     </p>
   );
 }
 
 export function PublicFrame({
   business,
+  byline,
   children,
 }: {
   business: PublicBusiness | null;
+  /** The line at the bottom, when the page isn't a booking page. */
+  byline?: string;
   children: ReactNode;
 }) {
   return (
@@ -63,7 +73,7 @@ export function PublicFrame({
       {business ? <PublicHeader business={business} /> : null}
       <div className="flex flex-1 flex-col">{children}</div>
       <footer className="px-4 pb-5 pt-3">
-        <Byline />
+        <Byline words={byline} />
       </footer>
     </div>
   );

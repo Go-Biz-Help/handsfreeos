@@ -69,6 +69,7 @@ const bubble = (over: Partial<MessageThreadRow>) =>
     <MessageBubble
       item={messageItemOf(row(over))}
       customerFirstName="Mike"
+      timeZone="America/Chicago"
       onCancelHeld={() => undefined}
     />,
   );
@@ -197,5 +198,34 @@ describe('RCS in the thread', () => {
     expect(screen.queryByTestId('rich-buttons')).toBeNull();
     expect(screen.queryByTestId('transport')).toBeNull();
     expect(screen.getByTestId('delivery')).toHaveTextContent('Delivered', { exact: false });
+  });
+});
+
+describe('a text held for quiet hours', () => {
+  const held = (timeZone: string) =>
+    render(
+      <MessageBubble
+        // Due at 8:00 AM in Chicago (13:00 UTC), whatever zone this phone is in.
+        item={messageItemOf(
+          row({ status: 'queued', error_code: 'scheduled', occurred_at: '2026-09-23T13:00:00Z' }),
+        )}
+        customerFirstName="Mike"
+        timeZone={timeZone}
+        onCancelHeld={() => undefined}
+      />,
+    );
+
+  it('says when it goes on the business’s clock, as the quiet-hours question did', async () => {
+    await held('America/Chicago');
+    expect(screen.getByTestId('held-line').props.children).toMatch(
+      /^Dale · Sends .*8:00 AM, when quiet hours end$/,
+    );
+  });
+
+  it('reads the same moment where a business in another zone is', async () => {
+    await held('America/Los_Angeles');
+    expect(screen.getByTestId('held-line').props.children).toMatch(
+      /6:00 AM, when quiet hours end$/,
+    );
   });
 });

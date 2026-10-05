@@ -7,6 +7,7 @@
  * the database under a lock (`private.check_relationship`) for whoever else writes.
  */
 import { and, eq, isNull, or, sql as dsql } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { customRecordTypes, relationships, relationshipTypes } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
@@ -490,8 +491,23 @@ async function logPair(
       : r.kind === 'company'
         ? { companyId: r.id }
         : { customRecordId: r.id };
+  // A private record (a deal, Real Estate step 4) keeps the line to the people who see it. Where both ends share an
+  // entry, the entry is sealed with it; where each end has its own, the other end's says nothing of it.
+  const isPrivate = async (r: { kind: RelationshipEndKind; id: string }) =>
+    r.kind === 'custom_record' &&
+    (
+      await rows<{ private: boolean }>(
+        ctx.tx,
+        sql`select private.record_is_private(${r.id}::uuid) as private`,
+      )
+    )[0]?.private === true;
   const entries =
-    meta.a.kind === meta.b.kind ? [on(meta.a), on(meta.b)] : [{ ...on(meta.a), ...on(meta.b) }];
+    meta.a.kind === meta.b.kind
+      ? [
+          ...((await isPrivate(meta.b)) && !(await isPrivate(meta.a)) ? [] : [on(meta.a)]),
+          ...((await isPrivate(meta.a)) && !(await isPrivate(meta.b)) ? [] : [on(meta.b)]),
+        ]
+      : [{ ...on(meta.a), ...on(meta.b) }];
   let first = true;
   for (const where of entries) {
     await logSystemActivity(ctx, { subtype, ...where, meta, eventId: first ? eventId : null });

@@ -19,8 +19,11 @@
 import { z } from 'zod';
 import type { Sealer } from '../crypto';
 
-/** Which callback sealed it: one business's connections, or the CRM an organization is leaving. */
-export type HandoffDoor = 'oauth' | 'migration';
+/**
+ * Which callback sealed it: one business's connections, the CRM an organization is leaving, or an add-on's
+ * connection (round five).
+ */
+export type HandoffDoor = 'oauth' | 'migration' | 'addon';
 
 export interface Handoff {
   readonly door: HandoffDoor;

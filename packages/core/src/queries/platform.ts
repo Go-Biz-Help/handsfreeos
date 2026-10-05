@@ -195,9 +195,19 @@ export const platformBusinessGet = defineQuery({
       .where(and(eq(tickets.workspaceId, input.workspaceId), isNull(tickets.mergedInto)))
       .orderBy(desc(tickets.createdAt))
       .limit(20);
+    const grants = await rows<{ addon_id: string; note: string | null; granted_at: string }>(
+      ctx.tx,
+      sql`select addon_id, note, granted_at::text from platform.addon_grants
+          where workspace_id = ${input.workspaceId}::uuid order by addon_id`,
+    );
     return {
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
       isPlatform: row.w.isPlatform,
+      addonGrants: grants.map((g) => ({
+        addonId: g.addon_id,
+        note: g.note,
+        grantedAt: new Date(g.granted_at).toISOString(),
+      })),
       business: {
         workspaceId: row.w.id,
         name: row.w.name,

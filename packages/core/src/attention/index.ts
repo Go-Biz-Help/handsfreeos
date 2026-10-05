@@ -103,4 +103,10 @@ export { type AiCorrectionsFacts } from './detectors/ai-corrections';
 export { type WebsiteChangedFacts } from './detectors/website-changed';
 export { OFFER_LAPSING_DAYS, type OfferLapsingFacts } from './detectors/offer-lapsing';
 export { textingRejectedWords, type TextingRejectedFacts } from './detectors/texting-rejected';
+export {
+  ADDON_ALERT_SEVERITIES,
+  ADDON_ALERT_SEVERITY,
+  type AddonAlertFacts,
+  type AddonAlertSeverity,
+} from './detectors/addon-alert';
 export { FAQ_SUGGESTION_MIN_ASKS, type FaqSuggestionsFacts } from './detectors/faq-suggestions';

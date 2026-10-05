@@ -1,3 +1,6 @@
+import { ADDON_CATALOG } from '@hfos/core/server';
+import { addonDeliveryProcessor } from '../addons/webhooks';
+import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { ProcessorMap } from '../deliveries';
 import { foundingProcessors } from '../founding/checkout';
 import { rcsBillingProcessors } from '../telephony/rcs-billing';
@@ -39,4 +42,6 @@ export const processors: ProcessorMap = {
   ...foundingProcessors,
   ...rcsBillingProcessors,
   ...textingFeeProcessors,
+  // What the services add-ons connect to tell them (round five), each handed to its add-on's receiver.
+  'addon:*': addonDeliveryProcessor(ADDON_CATALOG, ADDON_WORKER_MODULES),
 };

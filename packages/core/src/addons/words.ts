@@ -4,6 +4,7 @@
  * page and the phone's say exactly the same thing (docs/addon-architecture.md).
  */
 import { joinNames } from '../account/settings-words';
+import { intlTimeZone } from '../intl/engine-zones';
 import { requirementClosure, type Catalog } from './graph';
 import type { AddonOffer, InstallationState, LifecycleAction } from './lifecycle';
 import type { AddonCategory, AddonManifest } from './manifest';
@@ -93,10 +94,12 @@ export const ADDON_CHECK_WORDS: Readonly<Record<string, string>> = {
   no_deliveries_pending: 'Some messages for it are still waiting.',
   record_kinds_hidden: 'Some of its records still show.',
   relationship_types_hidden: 'Some of its relationships still show.',
+  no_alerts_showing: 'Some of its alerts still show on Home.',
   no_resources_held: 'It still holds something outside HandsFreeOS.',
   no_rows_left: 'Some of its data is still there.',
   records_tombstoned: 'Some of its records still have their details.',
   no_relationships_left: 'Some of its relationships are still there.',
+  no_alerts_left: 'Some of its alerts are still there.',
   no_settings_left: 'Some of its settings are still there.',
   no_permission_choices_left: 'Some permission choices for it are still there.',
   history_details_removed: 'Some history still has its details.',
@@ -125,6 +128,10 @@ export const ADDON_PAGE_WORDS = {
   noneToAdd: 'When there’s an add-on this business can use, it shows here.',
   comingSoon: 'Coming soon',
   comingSoonDetail: 'Being built now. You can’t add these yet.',
+  /** One HandsFreeOS handed this business to try while it's still being built. */
+  testing: 'Testing',
+  testingDetail:
+    'HandsFreeOS lets this business try it before it’s finished. Things may change, and nobody else has it yet.',
   /** One add-on that is coming soon. */
   notYet: 'It’s being built now. You can’t add it yet.',
   /** Nothing anywhere: none here, none to add, none coming. The catalogue is empty until the first add-on ships. */
@@ -293,6 +300,58 @@ export function addonHoldsLines(action: LifecycleAction, holds: AddonHoldings): 
       `It lets go of ${count(holds.heldResources, 'thing', 'things')} it holds outside HandsFreeOS.`,
     );
   return lines;
+}
+
+/** What an add-on's records on hold keep here (round six): private.addon_holds(). */
+export interface AddonKept {
+  /** Records held: kept for a while yet, or under a legal hold. */
+  readonly records: number;
+  /** Of those, still open: kept with no end yet. */
+  readonly openRecords: number;
+  /** The latest a retention hold ends (ISO), or null. */
+  readonly heldUntil: string | null;
+  /** Records under a legal hold. */
+  readonly legal: number;
+  /** What its records are called ("deals"), or null for "records". */
+  readonly plural?: string | null;
+}
+
+const monthYear = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: intlTimeZone('UTC'),
+  });
+
+/**
+ * Why an add-on's data can't be deleted yet, and when it can (Chris, 2026-10-03: a business keeps closed records the
+ * years it sets, and a legal hold until it's lifted): "Real Estate Agent keeps 214 deals your business holds: 12
+ * are still open and the rest are kept until as late as October 2033, and 1 is on legal hold. Its data can be
+ * deleted once those end. An owner or admin lifts a legal hold from the deal’s page." Null when nothing is held.
+ */
+export function addonDataHeldMessage(addonName: string, kept: AddonKept): string | null {
+  if (kept.records <= 0) return null;
+  const plural = kept.plural?.trim() || 'records';
+  const singular = plural.replace(/s$/, '');
+  const parts: string[] = [];
+  const closed = kept.records - kept.openRecords - kept.legal;
+  if (kept.openRecords > 0)
+    parts.push(
+      `${kept.openRecords.toLocaleString('en-US')} ${kept.openRecords === 1 ? 'is' : 'are'} still open`,
+    );
+  if (kept.heldUntil && closed > 0)
+    parts.push(
+      `${parts.length ? 'the rest are' : `${closed === 1 ? 'it is' : 'they are'}`} kept until as late as ${monthYear(kept.heldUntil)}`,
+    );
+  if (kept.legal > 0)
+    parts.push(
+      `${kept.legal.toLocaleString('en-US')} ${kept.legal === 1 ? 'is' : 'are'} on legal hold`,
+    );
+  const head = `${addonName} keeps ${count(kept.records, singular, plural)} your business holds`;
+  const why = parts.length ? `: ${joinNames(parts)}` : '';
+  const lift =
+    kept.legal > 0 ? ` An owner or admin lifts a legal hold from the ${singular}’s page.` : '';
+  return `${head}${why}. Its data can be deleted once those end.${lift}`;
 }
 
 /** Add-ons that use this one when it's there: "Content Creator uses it and does less without it." */

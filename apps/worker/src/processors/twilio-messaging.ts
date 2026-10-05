@@ -7,11 +7,13 @@ import {
   phoneOfAddress,
   RCS_SENDER_ID,
   rcsSenderIdOf,
+  smsKeyword,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
 import { chargeText } from '../money/usage-capture';
 import { systemActor, workerMeta, type TenantScope } from '../services';
+import { safetyReply } from '../safety/ladder';
 import { loadAccount } from '../telephony/accounts';
 import { needsConverting } from '../telephony/video';
 
@@ -92,6 +94,18 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
     ctx.log.info({ from: p.From }, 'inbound text from a non-phone sender; ignored');
     return 'ignored';
   }
+  // A safety contact agreeing by text (OK) stays out of the Inbox; a STOP from one still goes on (safety/ladder.ts).
+  if (
+    !rcs &&
+    (await safetyReply(
+      ctx,
+      scope,
+      from,
+      p.Body ?? '',
+      p.OptOutType?.toUpperCase() === 'STOP' || smsKeyword(p.Body ?? '') === 'stop',
+    ))
+  )
+    return;
   const mediaCount = Math.min(Math.max(Number(p.NumMedia ?? 0) || 0, 0), 10);
   const tapped = !!(p.ButtonPayload || p.ButtonText);
   const { output } = await executeCommand(

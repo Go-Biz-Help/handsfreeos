@@ -20,6 +20,14 @@
  */
 import type { AddonSlotName } from '@hfos/core';
 import type { ComponentType } from 'react';
+import {
+  House as realestateAddonIcon,
+  ListChecks as realestateDutiesIcon,
+  ListTodo as realestateTodoIcon,
+  Radar as realestateCoordinateIcon,
+  Settings2 as realestateSettingsIcon,
+  Wrench as realestateVendorsIcon,
+} from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -31,6 +39,7 @@ type EverySlot<T extends Record<AddonSlotName, object>> = T;
 export type SlotEntities = EverySlot<{
   'person.panels': { readonly personId: string };
   'company.panels': { readonly companyId: string };
+  'lead.panels': { readonly leadId: string; readonly personId: string | null };
   /** A record of one of the business's own kinds; `recordTypeKey` says which (`pm_property` for an add-on's). */
   'record.panels': {
     readonly recordId: string;
@@ -75,7 +84,47 @@ export interface AddonSettingsProps {
 /** An add-on's settings form, fetched the first time it's opened: `() => import('./<id>/settings')`. */
 export type SettingsLoader = () => Promise<{ default: ComponentType<AddonSettingsProps> }>;
 
+/**
+ * An add-on's part of a customer's portal (`/c/<link>`, components/portal/): drawn only for a customer with records
+ * of its kinds, inside the portal's shell, which hands it `usePortal()` (components/portal/context.tsx).
+ */
+export interface AddonPortalUi {
+  /** Its part of the portal's Home: what's happening on their records, in a card or two. */
+  readonly home?: () => Promise<{ default: ComponentType }>;
+  /**
+   * Its pages (`a/<id>/<path>`): one component for all of them, handed the path's parts. Only the paths the manifest
+   * declares in `ui.portal` open; any other is the portal's not-found.
+   */
+  readonly pages: () => Promise<{ default: ComponentType<{ readonly path: readonly string[] }> }>;
+  /** The icon of each of its places in the portal's menu, by the page's path. */
+  readonly icons?: Readonly<Record<string, AddonIcon>>;
+}
+
 /** What the web knows about one add-on. */
+/** What an add-on's public page is handed: where it is, and what its look-up answered. */
+export interface AddonPublicPageProps {
+  /** The booking site's name the page is under (`/a/<site>/…`). */
+  readonly site: string;
+  /** The manifest's page it is (`:slug/open-house/:openHouseId`), and what each `:name` was. */
+  readonly page: string;
+  readonly params: Readonly<Record<string, string>>;
+  /** What the page's public query answered: the add-on's own shape. */
+  readonly result: unknown;
+  readonly business: { readonly name: string; readonly timeZone: string };
+  readonly botCheck: { readonly siteKey: string | null } | null;
+}
+
+/**
+ * An add-on's public pages (`/a/<site>/<id>/<path>`, Real Estate round three): what anyone with the link sees. The
+ * web's server reads the public query the manifest's `ui.public` names for the path, and hands the answer to one
+ * component for all of them. Only the paths the manifest declares open; any other is the 404 page.
+ */
+export interface AddonPublicUi {
+  readonly pages: () => Promise<{ default: ComponentType<AddonPublicPageProps> }>;
+  /** The page's title in the browser tab, from the same answer. */
+  readonly title?: (props: AddonPublicPageProps) => string;
+}
+
 export interface AddonUi {
   /** Its places in the side menu, and its card on the Add-ons page. */
   readonly icon: AddonIcon;
@@ -85,7 +134,47 @@ export interface AddonUi {
   readonly slots?: { readonly [S in AddonSlotName]?: SlotLoader<S> };
   /** Its own settings form on the Add-ons page, beside its switches. Absent: its switches are all there is. */
   readonly settings?: SettingsLoader;
+  /** Its pages in a customer's portal. */
+  readonly portal?: AddonPortalUi;
+  /** Its public pages, for anyone with the link. */
+  readonly public?: AddonPublicUi;
+  /**
+   * Where it shows its connections (round five), as a path under its own pages (`a/<id>/<path>`). A sign-in comes back
+   * to core's `addons/<id>/connections`, which sends the person on to here. Absent: core's page shows them.
+   */
+  readonly connections?: string;
 }
 
-/** Every add-on's UI, by add-on id. None yet: the first add-on adds the first line. */
-export const ADDON_UI: Readonly<Record<string, AddonUi>> = {};
+/** Every add-on's UI, by add-on id. */
+export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
+  realestate: {
+    icon: realestateAddonIcon,
+    navIcons: {
+      duties: realestateDutiesIcon,
+      coordinate: realestateCoordinateIcon,
+      vendors: realestateVendorsIcon,
+      settings: realestateSettingsIcon,
+    },
+    slots: {
+      'person.panels': () => import('./realestate/person-panel'),
+      'company.panels': () => import('./realestate/company-panel'),
+      'lead.panels': () => import('./realestate/lead-panel'),
+      'record.panels': () => import('./realestate/record-panel'),
+    },
+    settings: () => import('./realestate/settings-link'),
+    connections: 'settings?tab=connections',
+    portal: {
+      home: () => import('./realestate/portal/home-panel'),
+      pages: () => import('./realestate/portal/pages'),
+      icons: { homes: realestateAddonIcon, todo: realestateTodoIcon },
+    },
+    public: {
+      pages: () => import('./realestate/public/pages'),
+      // The home's street, then the business: what the tab and a shared link show.
+      title: (p) => {
+        const street = (p.result as { street?: string } | null)?.street;
+        return street ? `${street} · ${p.business.name}` : p.business.name;
+      },
+    },
+  },
+};

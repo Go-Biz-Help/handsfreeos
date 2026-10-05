@@ -50,11 +50,16 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   job_check: 12 * HOUR_S,
   // Broken until someone reconnects it: still worth hearing about tomorrow.
   connection: 24 * HOUR_S,
+  // A late duty is still late tomorrow, and Home has it either way.
+  addon_alert: 24 * HOUR_S,
   // A bill or a photo a customer sent for a qualifying question, or a lead that qualified: on the lead tomorrow too.
   customer_file: 24 * HOUR_S,
   lead_qualified: 24 * HOUR_S,
   // Someone waiting on HandsFreeOS, like a customer's message to a business; by tomorrow the desk's queue has it.
   support_ticket: 12 * HOUR_S,
+  // A check-in's "Still there?" and a contact's alert: an hour late is too late to matter.
+  safety_check: HOUR_S,
+  safety_alert: HOUR_S,
 };
 
 /**
@@ -62,6 +67,9 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
  * they arrive as ordinary ones): someone has been left waiting. A new message arrives the ordinary way.
  */
 const TIME_SENSITIVE: ReadonlySet<PushCategory> = new Set([
+  // Someone alone who hasn't checked out.
+  'safety_check',
+  'safety_alert',
   'customer_waiting',
   'customer_waiting_no_ai',
   'urgent_lead',

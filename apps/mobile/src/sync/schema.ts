@@ -9,7 +9,7 @@ import { column, Table } from '@powersync/common';
  * The app’s own local tables sit beside these in `app-schema.ts`.
  */
 export const syncedTables = {
-  /** business_v1 */
+  /** business_v1, records_v1 */
   activities: new Table(
     {
       workspace_id: column.text,
@@ -24,6 +24,18 @@ export const syncedTables = {
       actor_type: column.text,
       meta: column.text,
       created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  addon_phone_rows: new Table(
+    {
+      workspace_id: column.text,
+      addon_id: column.text,
+      source: column.text,
+      record_id: column.text,
+      data: column.text,
       updated_at: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
@@ -59,7 +71,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, records_v1 */
   appointment_attendees: new Table(
     {
       workspace_id: column.text,
@@ -84,6 +96,14 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  appointment_records: new Table(
+    {
+      workspace_id: column.text,
+      custom_record_id: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   appointment_staff: new Table(
     {
@@ -96,7 +116,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, records_v1 */
   appointments: new Table(
     {
       workspace_id: column.text,
@@ -128,7 +148,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1, me_v1 */
+  /** business_v1, me_v1, records_v1 */
   attention_items: new Table(
     {
       workspace_id: column.text,
@@ -167,6 +187,18 @@ export const syncedTables = {
       auto_done_at: column.text,
       auto_skip_reason: column.text,
       auto_cancelled_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  booking_sites: new Table(
+    {
+      workspace_id: column.text,
+      slug: column.text,
+      name: column.text,
+      enabled: column.integer,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -301,7 +333,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1, me_v1 */
+  /** business_v1, me_v1, records_v1 */
   conversations: new Table(
     {
       workspace_id: column.text,
@@ -335,6 +367,44 @@ export const syncedTables = {
       updated_at: column.text,
       folder: column.text,
       private_to: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  custom_record_types: new Table(
+    {
+      workspace_id: column.text,
+      key: column.text,
+      singular: column.text,
+      plural: column.text,
+      name_label: column.text,
+      icon: column.text,
+      position: column.integer,
+      archived_at: column.text,
+      addon_id: column.text,
+      kept_to_team: column.integer,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  custom_records: new Table(
+    {
+      workspace_id: column.text,
+      type_id: column.text,
+      name: column.text,
+      notes: column.text,
+      custom: column.text,
+      field_times: column.text,
+      archived_at: column.text,
+      kept_to_team: column.integer,
+      owner_user_id: column.text,
+      team_user_ids: column.text,
+      purged_at: column.text,
+      created_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
@@ -426,7 +496,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, records_v1 */
   files: new Table(
     {
       workspace_id: column.text,
@@ -438,6 +508,7 @@ export const syncedTables = {
       mime_type: column.text,
       size_bytes: column.integer,
       status: column.text,
+      locked_at: column.text,
       created_by: column.text,
       created_at: column.text,
       updated_at: column.text,
@@ -579,7 +650,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1, me_v1 */
+  /** business_v1, me_v1, records_v1 */
   messages: new Table(
     {
       workspace_id: column.text,
@@ -768,6 +839,21 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** records_v1 */
+  portal_access: new Table(
+    {
+      workspace_id: column.text,
+      person_id: column.text,
+      given_by: column.text,
+      given_at: column.text,
+      revoked_at: column.text,
+      revoked_by: column.text,
+      last_used_at: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   products: new Table(
     {
@@ -823,6 +909,91 @@ export const syncedTables = {
       failure_code: column.text,
       refunded_at: column.text,
       requested_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  relationship_types: new Table(
+    {
+      workspace_id: column.text,
+      a_end: column.text,
+      a_record_type_id: column.text,
+      a_label: column.text,
+      b_end: column.text,
+      b_record_type_id: column.text,
+      b_label: column.text,
+      cardinality: column.text,
+      mutual: column.integer,
+      position: column.integer,
+      archived_at: column.text,
+      addon_id: column.text,
+      addon_key: column.text,
+      portal_visible: column.integer,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  relationships: new Table(
+    {
+      workspace_id: column.text,
+      type_id: column.text,
+      a_person_id: column.text,
+      a_company_id: column.text,
+      a_custom_record_id: column.text,
+      b_person_id: column.text,
+      b_company_id: column.text,
+      b_custom_record_id: column.text,
+      note: column.text,
+      created_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  safety_checkins: new Table(
+    {
+      workspace_id: column.text,
+      user_id: column.text,
+      appointment_id: column.text,
+      place: column.text,
+      latitude: column.text,
+      longitude: column.text,
+      located_at: column.text,
+      started_at: column.text,
+      planned_end_at: column.text,
+      extended_count: column.integer,
+      state: column.text,
+      asked_at: column.text,
+      alerted_at: column.text,
+      resolved_at: column.text,
+      resolved_by: column.text,
+      resolved_via: column.text,
+      alert_round: column.integer,
+      last_alerted_at: column.text,
+      checked_out_at: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  safety_contacts: new Table(
+    {
+      workspace_id: column.text,
+      user_id: column.text,
+      contact_user_id: column.text,
+      name: column.text,
+      phone_e164: column.text,
+      email: column.text,
+      asked_at: column.text,
+      agreed_at: column.text,
+      stopped_at: column.text,
+      position: column.integer,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -933,7 +1104,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, records_v1 */
   tasks: new Table(
     {
       workspace_id: column.text,
@@ -951,6 +1122,16 @@ export const syncedTables = {
       created_by: column.text,
       created_at: column.text,
       updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** records_v1 */
+  team_keys: new Table(
+    {
+      user_id: column.text,
+      workspace_id: column.text,
+      addon_id: column.text,
+      role: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
@@ -1027,7 +1208,7 @@ export const syncedTables = {
  * it, or an older row), so screens check before they use one.
  */
 
-/** A row of `activities` (business_v1). */
+/** A row of `activities` (business_v1, records_v1). */
 export interface ActivitiesRow {
   readonly id: string;
   /** uuid */
@@ -1052,6 +1233,21 @@ export interface ActivitiesRow {
   readonly meta: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `addon_phone_rows` (records_v1). */
+export interface AddonPhoneRowsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly addon_id: string | null;
+  readonly source: string | null;
+  /** uuid */
+  readonly record_id: string | null;
+  /** jsonb: JSON text here */
+  readonly data: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly updated_at: string | null;
 }
@@ -1101,7 +1297,7 @@ export interface AiTeammatesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `appointment_attendees` (business_v1). */
+/** A row of `appointment_attendees` (business_v1, records_v1). */
 export interface AppointmentAttendeesRow {
   readonly id: string;
   /** uuid */
@@ -1141,6 +1337,15 @@ export interface AppointmentAttendeesRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `appointment_records` (records_v1). */
+export interface AppointmentRecordsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly custom_record_id: string | null;
+}
+
 /** A row of `appointment_staff` (business_v1). */
 export interface AppointmentStaffRow {
   readonly id: string;
@@ -1158,7 +1363,7 @@ export interface AppointmentStaffRow {
   readonly created_at: string | null;
 }
 
-/** A row of `appointments` (business_v1). */
+/** A row of `appointments` (business_v1, records_v1). */
 export interface AppointmentsRow {
   readonly id: string;
   /** uuid */
@@ -1212,7 +1417,7 @@ export interface AppointmentsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `attention_items` (business_v1, me_v1). */
+/** A row of `attention_items` (business_v1, me_v1, records_v1). */
 export interface AttentionItemsRow {
   readonly id: string;
   /** uuid */
@@ -1278,6 +1483,22 @@ export interface AttentionItemsRow {
   readonly auto_skip_reason: string | null;
   /** uuid */
   readonly auto_cancelled_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `booking_sites` (records_v1). */
+export interface BookingSitesRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** citext */
+  readonly slug: string | null;
+  readonly name: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly enabled: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -1470,7 +1691,7 @@ export interface CompaniesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `conversations` (business_v1, me_v1). */
+/** A row of `conversations` (business_v1, me_v1, records_v1). */
 export interface ConversationsRow {
   readonly id: string;
   /** uuid */
@@ -1531,6 +1752,60 @@ export interface ConversationsRow {
   readonly folder: string | null;
   /** uuid */
   readonly private_to: string | null;
+}
+
+/** A row of `custom_record_types` (records_v1). */
+export interface CustomRecordTypesRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly key: string | null;
+  readonly singular: string | null;
+  readonly plural: string | null;
+  readonly name_label: string | null;
+  readonly icon: string | null;
+  /** integer */
+  readonly position: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
+  readonly addon_id: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly kept_to_team: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `custom_records` (records_v1). */
+export interface CustomRecordsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly type_id: string | null;
+  readonly name: string | null;
+  readonly notes: string | null;
+  /** jsonb: JSON text here */
+  readonly custom: string | null;
+  /** jsonb: JSON text here */
+  readonly field_times: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly kept_to_team: number | null;
+  /** uuid */
+  readonly owner_user_id: string | null;
+  /** uuid[]: a JSON array here */
+  readonly team_user_ids: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly purged_at: string | null;
+  /** uuid */
+  readonly created_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
 }
 
 /** A row of `email_addresses` (business_v1). */
@@ -1666,7 +1941,7 @@ export interface EstimatesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `files` (business_v1). */
+/** A row of `files` (business_v1, records_v1). */
 export interface FilesRow {
   readonly id: string;
   /** uuid */
@@ -1683,6 +1958,8 @@ export interface FilesRow {
   readonly size_bytes: number | null;
   /** app.file_status */
   readonly status: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly locked_at: string | null;
   /** uuid */
   readonly created_by: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -1901,7 +2178,7 @@ export interface LeadsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `messages` (business_v1, me_v1). */
+/** A row of `messages` (business_v1, me_v1, records_v1). */
 export interface MessagesRow {
   readonly id: string;
   /** uuid */
@@ -2186,6 +2463,29 @@ export interface PlansRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `portal_access` (records_v1). */
+export interface PortalAccessRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly person_id: string | null;
+  /** uuid */
+  readonly given_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly given_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly revoked_at: string | null;
+  /** uuid */
+  readonly revoked_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly last_used_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `products` (business_v1). */
 export interface ProductsRow {
   readonly id: string;
@@ -2269,6 +2569,137 @@ export interface RefundsRow {
   readonly refunded_at: string | null;
   /** uuid */
   readonly requested_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `relationship_types` (records_v1). */
+export interface RelationshipTypesRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** app.relationship_end */
+  readonly a_end: string | null;
+  /** uuid */
+  readonly a_record_type_id: string | null;
+  readonly a_label: string | null;
+  /** app.relationship_end */
+  readonly b_end: string | null;
+  /** uuid */
+  readonly b_record_type_id: string | null;
+  readonly b_label: string | null;
+  /** app.relationship_cardinality */
+  readonly cardinality: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly mutual: number | null;
+  /** integer */
+  readonly position: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
+  readonly addon_id: string | null;
+  readonly addon_key: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly portal_visible: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `relationships` (records_v1). */
+export interface RelationshipsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly type_id: string | null;
+  /** uuid */
+  readonly a_person_id: string | null;
+  /** uuid */
+  readonly a_company_id: string | null;
+  /** uuid */
+  readonly a_custom_record_id: string | null;
+  /** uuid */
+  readonly b_person_id: string | null;
+  /** uuid */
+  readonly b_company_id: string | null;
+  /** uuid */
+  readonly b_custom_record_id: string | null;
+  readonly note: string | null;
+  /** uuid */
+  readonly created_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `safety_checkins` (records_v1). */
+export interface SafetyCheckinsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly appointment_id: string | null;
+  readonly place: string | null;
+  /** numeric */
+  readonly latitude: string | null;
+  /** numeric */
+  readonly longitude: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly located_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly started_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly planned_end_at: string | null;
+  /** integer */
+  readonly extended_count: number | null;
+  readonly state: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly asked_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly alerted_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly resolved_at: string | null;
+  /** uuid */
+  readonly resolved_by: string | null;
+  readonly resolved_via: string | null;
+  /** integer */
+  readonly alert_round: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly last_alerted_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly checked_out_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `safety_contacts` (records_v1). */
+export interface SafetyContactsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly contact_user_id: string | null;
+  readonly name: string | null;
+  readonly phone_e164: string | null;
+  readonly email: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly asked_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly agreed_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly stopped_at: string | null;
+  /** integer */
+  readonly position: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -2432,7 +2863,7 @@ export interface TagsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `tasks` (business_v1). */
+/** A row of `tasks` (business_v1, records_v1). */
 export interface TasksRow {
   readonly id: string;
   /** uuid */
@@ -2463,6 +2894,17 @@ export interface TasksRow {
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly updated_at: string | null;
+}
+
+/** A row of `team_keys` (records_v1). */
+export interface TeamKeysRow {
+  readonly id: string;
+  /** uuid */
+  readonly user_id: string | null;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly addon_id: string | null;
+  readonly role: string | null;
 }
 
 /** A row of `user_phones` (me_v1). */
@@ -2568,12 +3010,15 @@ export interface WorkspacesRow {
 /** Each synced table’s row type, by table name. */
 export interface SyncedRows {
   activities: ActivitiesRow;
+  addon_phone_rows: AddonPhoneRowsRow;
   ai_teammate_drafts: AiTeammateDraftsRow;
   ai_teammates: AiTeammatesRow;
   appointment_attendees: AppointmentAttendeesRow;
+  appointment_records: AppointmentRecordsRow;
   appointment_staff: AppointmentStaffRow;
   appointments: AppointmentsRow;
   attention_items: AttentionItemsRow;
+  booking_sites: BookingSitesRow;
   calendar_busy_blocks: CalendarBusyBlocksRow;
   calendar_members: CalendarMembersRow;
   calendar_services: CalendarServicesRow;
@@ -2582,6 +3027,8 @@ export interface SyncedRows {
   command_receipts: CommandReceiptsRow;
   companies: CompaniesRow;
   conversations: ConversationsRow;
+  custom_record_types: CustomRecordTypesRow;
+  custom_records: CustomRecordsRow;
   email_addresses: EmailAddressesRow;
   email_suppressions: EmailSuppressionsRow;
   estimate_lines: EstimateLinesRow;
@@ -2604,10 +3051,15 @@ export interface SyncedRows {
   pipeline_stages: PipelineStagesRow;
   pipelines: PipelinesRow;
   plans: PlansRow;
+  portal_access: PortalAccessRow;
   products: ProductsRow;
   push_devices: PushDevicesRow;
   record_tags: RecordTagsRow;
   refunds: RefundsRow;
+  relationship_types: RelationshipTypesRow;
+  relationships: RelationshipsRow;
+  safety_checkins: SafetyCheckinsRow;
+  safety_contacts: SafetyContactsRow;
   schedule_exceptions: ScheduleExceptionsRow;
   schedules: SchedulesRow;
   service_staff: ServiceStaffRow;
@@ -2615,6 +3067,7 @@ export interface SyncedRows {
   subscriptions: SubscriptionsRow;
   tags: TagsRow;
   tasks: TasksRow;
+  team_keys: TeamKeysRow;
   user_phones: UserPhonesRow;
   users: UsersRow;
   workflow_approvals: WorkflowApprovalsRow;

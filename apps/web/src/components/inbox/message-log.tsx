@@ -56,6 +56,7 @@ export function MessageLog({
   onCancelScheduled,
   compact,
   tail,
+  timeZone,
 }: {
   items: ThreadItem[];
   /** The notes the business wrote about this customer, folded into the thread by time (M10 step 15). */
@@ -75,6 +76,8 @@ export function MessageLog({
   onRetry?: (messageId: string) => void;
   /** The record page's message sheet: tighter padding, day in the time. */
   compact?: boolean;
+  /** The business's time zone: a held text says when it goes on the business's clock, as quiet hours end. */
+  timeZone: string;
 }) {
   let lastDay = '';
   const withDay = (iso: string) => {
@@ -123,6 +126,7 @@ export function MessageLog({
               compact={compact}
               onRetry={onRetry}
               onCancelScheduled={onCancelScheduled}
+              timeZone={timeZone}
             />
           ),
         )}
@@ -164,6 +168,7 @@ function ThreadEntry({
   compact,
   onRetry,
   onCancelScheduled,
+  timeZone,
 }: {
   item: ThreadItem;
   day: string | null;
@@ -173,6 +178,7 @@ function ThreadEntry({
   compact?: boolean;
   onRetry?: (messageId: string) => void;
   onCancelScheduled?: (messageId: string) => void;
+  timeZone: string;
 }) {
   return (
     <>
@@ -201,6 +207,7 @@ function ThreadEntry({
           onCancelScheduled={onCancelScheduled}
           customerFirstName={customerFirstName}
           compact={compact}
+          timeZone={timeZone}
         />
       )}
     </>
@@ -226,9 +233,11 @@ function NoteEntryCard({ note, time }: { note: NoteEntry; time: string }) {
 /** A text held for quiet hours (M10): it waits in the thread with when it goes, and Cancel keeps it from going. */
 function HeldEntry({
   item,
+  timeZone,
   onCancel,
 }: {
   item: ThreadItem & { scheduledFor: string };
+  timeZone: string;
   onCancel?: (messageId: string) => void;
 }) {
   return (
@@ -254,7 +263,7 @@ function HeldEntry({
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-x-[5px] px-1 text-[11.5px] text-text-3">
         <Moon className="h-3 w-3 text-warning-text" strokeWidth={1.75} />
-        <span data-testid={`held-${item.id}`}>{heldLine(item, item.scheduledFor)}</span>
+        <span data-testid={`held-${item.id}`}>{heldLine(item, item.scheduledFor, timeZone)}</span>
         {onCancel ? (
           <Button
             variant="ghost"
@@ -276,12 +285,14 @@ function MessageEntry({
   onCancelScheduled,
   customerFirstName,
   compact,
+  timeZone,
 }: {
   item: ThreadItem;
   onRetry?: (messageId: string) => void;
   onCancelScheduled?: (messageId: string) => void;
   customerFirstName: string | null;
   compact?: boolean;
+  timeZone: string;
 }) {
   const out = item.direction === 'outbound';
   const failed = out && FAILED_STATUSES.has(item.status);
@@ -291,7 +302,11 @@ function MessageEntry({
   const { ai, label: sender } = senderOf(item);
   if (out && item.scheduledFor)
     return (
-      <HeldEntry item={{ ...item, scheduledFor: item.scheduledFor }} onCancel={onCancelScheduled} />
+      <HeldEntry
+        item={{ ...item, scheduledFor: item.scheduledFor }}
+        timeZone={timeZone}
+        onCancel={onCancelScheduled}
+      />
     );
   return (
     <>
@@ -373,7 +388,7 @@ function MessageEntry({
               <TransportTag transport={item.transport} />
               <DeliveryStatus
                 status={item.status}
-                chat={item.channel === 'chat'}
+                chat={item.channel === 'chat' || item.channel === 'portal'}
                 readAt={item.readAt}
               />
               {failed && onRetry ? (

@@ -7,7 +7,8 @@ import type { WalletDeps } from '../money/wallet';
 import type { TenantScope } from '../services';
 
 /** Where AI tokens outside the Assistant were spent (app.ai_usage.source). */
-export type AiUsageSource = 'workflow' | 'builder' | 'knowledge' | 'teammate' | 'automations';
+export type AiUsageSource =
+  'workflow' | 'builder' | 'knowledge' | 'teammate' | 'automations' | 'addon';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -20,6 +21,8 @@ export interface AiUsageRef {
   /** The AI teammate's calls: the teammate (for its share of the limit) and its run. */
   readonly teammateId?: string | null;
   readonly teammateRunId?: string | null;
+  /** An add-on's own use (source addon): which add-on. */
+  readonly addonId?: string | null;
 }
 
 const count = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0);
@@ -36,10 +39,12 @@ export async function recordAiUsage(
   const [row] = await rows<{ id: string }>(
     tx,
     sql`insert into app.ai_usage (workspace_id, source, user_id, workflow_id, run_id, step_key,
-      teammate_id, teammate_run_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
+      teammate_id, teammate_run_id, addon_id, model, input_tokens, output_tokens, cache_read_tokens,
+      cache_write_tokens)
     values (private.system_scope_workspace(), ${input.source}::app.ai_usage_source, ${input.userId ?? null},
       ${input.workflowId ?? null}, ${input.runId ?? null}, ${input.stepKey ? input.stepKey.slice(0, 100) : null},
       ${input.teammateId ?? null}, ${input.teammateRunId ?? null},
+      ${input.source === 'addon' ? (input.addonId ?? null) : null},
       ${input.model.slice(0, 100) || 'unknown'}, ${count(input.usage.inputTokens)}, ${count(input.usage.outputTokens)},
       ${count(input.usage.cacheReadTokens)}, ${count(input.usage.cacheWriteTokens)})
     returning id`,
@@ -54,6 +59,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   knowledge: 'AI reading your knowledge',
   teammate: 'An AI teammate reply',
   automations: 'AI reading customer messages',
+  addon: 'AI in an add-on',
 };
 
 /**

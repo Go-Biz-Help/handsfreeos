@@ -281,6 +281,7 @@ export function listFor(
             summary: m.summary,
             category: m.category,
             status: m.catalog.status,
+            testing: false,
           }))
       : [],
   };
@@ -304,6 +305,7 @@ export function impactOf(over: Partial<AddonImpact> & Pick<AddonImpact, 'addonId
       ownRows: 0,
       usageEvents: 0,
     },
+    kept: null,
     ...over,
   } satisfies AddonImpact;
 }

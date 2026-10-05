@@ -82,6 +82,9 @@ export const FILE_WORDS = {
   /** Opening a file needs the network; the list itself does not. */
   needsSignal: 'Opening a file needs signal.',
   uploading: 'Uploading on its own',
+  /** A locked file (Real Estate, step 3): signed, and never deleted or renamed. */
+  locked: 'Signed · kept',
+  lockedDetail: 'Signed and kept for good. Nobody can remove it; add a newer version instead.',
 } as const;
 
 /** "Remove old-unit.jpg? The stored file is deleted afterwards and the removal is recorded." */

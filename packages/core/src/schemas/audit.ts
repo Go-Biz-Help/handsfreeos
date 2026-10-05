@@ -19,6 +19,8 @@ export const requestChannel = z.enum([
   'mobile',
   // The AI keeping customers' tags and details up to date on its own (0107).
   'contact_ai',
+  // A customer signed in to their portal (Real Estate round two).
+  'portal',
   'test',
 ]);
 export type RequestChannel = z.infer<typeof requestChannel>;

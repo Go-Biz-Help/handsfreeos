@@ -206,10 +206,13 @@ function Delivery({
 export function MessageBubble({
   item,
   customerFirstName,
+  timeZone,
   onCancelHeld,
 }: {
   item: ThreadItemShape;
   customerFirstName: string | null;
+  /** The business's time zone: a held text says when it goes on the business's clock, as quiet hours end. */
+  timeZone: string;
   onCancelHeld: (messageId: string) => void;
 }) {
   const ai = useAiColors();
@@ -229,7 +232,7 @@ export function MessageBubble({
         <View className="flex-row items-center justify-end gap-x-[5px] px-1">
           <Icon as={Moon} className="size-3 text-warning-text" strokeWidth={1.75} />
           <Text className="shrink text-right text-xs text-text-3" testID="held-line">
-            {heldLine(item, item.scheduledFor)}
+            {heldLine(item, item.scheduledFor, timeZone)}
           </Text>
         </View>
         <View className="flex-row justify-end px-1">
@@ -302,7 +305,11 @@ export function MessageBubble({
               )}
               {sender.ai ? <Text className="text-xs text-text-3">{`· ${time}`}</Text> : null}
               <TransportTag transport={item.transport} />
-              <Delivery status={item.status} chat={item.channel === 'chat'} readAt={item.readAt} />
+              <Delivery
+                status={item.status}
+                chat={item.channel === 'chat' || item.channel === 'portal'}
+                readAt={item.readAt}
+              />
             </>
           ) : (
             <>

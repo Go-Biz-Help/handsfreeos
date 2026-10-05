@@ -404,14 +404,16 @@ export async function typingNow(tx: Tx, conversationId: string): Promise<boolean
 // ---- Naming a chat for people ----
 
 /**
- * How emails to the team name a conversation's contact: a text's number, an email's address, and for a website
- * chat the name the visitor typed, or "Website visitor" (never the chat:<id> behind it).
+ * How emails to the team name a conversation's contact: a text's number, an email's address, for a website chat the
+ * name the visitor typed, or "Website visitor" (never the chat:<id> behind it), and for a client's portal "A client
+ * in their portal" (never its portal:<id> key; the client's own name comes first wherever there's one).
  */
 export async function conversationContact(
   tx: Tx,
   conversation: { readonly channel: string; readonly counterpart: string },
 ): Promise<string> {
   if (conversation.channel === 'sms') return formatPhone(conversation.counterpart);
+  if (conversation.channel === 'portal') return 'A client in their portal';
   if (conversation.channel !== 'chat') return conversation.counterpart;
   const id = conversation.counterpart.startsWith('chat:') ? conversation.counterpart.slice(5) : '';
   if (!UUID_RE.test(id)) return CHAT_VISITOR_NAME;

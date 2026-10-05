@@ -204,6 +204,34 @@ describe('email campaigns', () => {
     );
   });
 
+  it('keeps the email it’s given, word for word, with nothing for the AI to write', async () => {
+    const made = await run(
+      campaignCreate,
+      {
+        ...input(),
+        name: 'Just listed',
+        words: {
+          subject: 'Just listed: 2207 Juniper Trail',
+          body: 'Four bedrooms in South Austin.',
+        },
+      },
+      t.owner,
+    );
+    const got = await ask(
+      campaignGet,
+      { workspaceId: t.wsId, campaignId: made.campaignId },
+      t.owner,
+    );
+    expect(got.campaign.email).toMatchObject({
+      subject: 'Just listed: 2207 Juniper Trail',
+      body: 'Four bedrooms in South Austin.',
+    });
+    await expectHfos(
+      () => run(campaignCreate, { ...input(), name: 'No body', words: { subject: 'Hi' } }, t.owner),
+      'validation',
+    );
+  });
+
   it('won’t approve an email campaign with no email', async () => {
     const made = await run(campaignCreate, { ...input(), name: 'Empty' }, t.owner);
     await rows(

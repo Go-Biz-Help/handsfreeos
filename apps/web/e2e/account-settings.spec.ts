@@ -48,7 +48,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
 
   const { token } = await signInOwner(email);
   const me = await api<{ user: { settings: Settings } }>(token, 'queries', 'account.me', {});
-  // All twelve, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
+  // All thirteen, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
   // purpose: a switch arriving without anybody deciding it should is the thing this catches. New support
   // tickets is saved with the rest, though only support people see its row. `qualifying` (20261018000400): the AI
   // teammate's qualifying, a lead qualifying or a file coming in.
@@ -63,6 +63,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
     wallet: true,
     jobs: true,
     connections: true,
+    addons: true,
     supportTickets: true,
     qualifying: true,
   });

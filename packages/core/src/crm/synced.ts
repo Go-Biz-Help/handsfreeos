@@ -412,6 +412,8 @@ export interface SyncedFileRow {
   readonly status: Cell;
   readonly created_by: Cell;
   readonly created_at: Cell;
+  /** Locked (a signed document, Real Estate step 3); absent on a phone whose copy predates it. */
+  readonly locked_at?: Cell;
 }
 
 /** One file as `file.list` answers. */
@@ -427,6 +429,7 @@ export function fileOfSynced(row: SyncedFileRow, names: SyncedNames): FileOut {
     mimeType,
     sizeBytes: row.size_bytes === null || row.size_bytes === undefined ? null : int(row.size_bytes),
     isImage: isImageFile(mimeType),
+    locked: text(row.locked_at ?? null) !== null,
     uploadedBy: userRef(row.created_by, names),
     createdAt: timeOr(row.created_at, new Date(0).toISOString()),
   };

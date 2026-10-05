@@ -887,6 +887,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   wallet: 'Your balance runs out',
   jobs: 'A job you were on is over',
   connections: 'A connection stops working',
+  addons: 'An add-on needs you',
   supportTickets: 'New support tickets',
   qualifying: 'Your AI teammate’s qualifying',
 };
@@ -956,7 +957,7 @@ const updateMyAlerts: SettingsConfirmTool = {
     const now = pushSwitchesOf(me.user.settings);
     const next = nextPush(now, args);
     const digest = bool(args['agencyDigestEmail']);
-    // Settings save a whole top-level key at a time: all ten push switches, and every email switch.
+    // Settings save a whole top-level key at a time: all eleven push switches, and every email switch.
     const settings = {
       ...(PUSH_SWITCHES.some((k) => next[k] !== now[k]) ? { push: next } : {}),
       ...(digest === undefined

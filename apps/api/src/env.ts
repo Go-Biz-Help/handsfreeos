@@ -42,8 +42,11 @@ export interface ApiEnv {
 // Expo's by prefix too (M10): the worker alone holds EXPO_ACCESS_TOKEN, which every push must carry, and EAS's
 // EXPO_TOKEN can build and publish the app. EXPO_PUBLIC_* names are left alone: Expo writes those into the phone
 // app itself, so they are public by design, and a shell set up for the app may have them.
+//
+// ADDON_PLATFORM_KEYS (round five) holds HandsFreeOS's own accounts at the services add-ons connect to (Repliers):
+// the worker's alone, like every other provider key.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^ADDON_PLATFORM_KEYS$|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

@@ -132,6 +132,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
   my_account: [{ name: 'account.me', as: 'me' }],
   my_calendar: [{ name: 'schedule.team', as: 'schedules' }],
+  // Check-ins (round six): the business's times and safety person; never anyone's contacts.
+  safety: [{ name: 'safety.settings', as: 'safety' }],
   imports: [{ name: 'import.list', as: 'imports' }],
   migrations: [
     {

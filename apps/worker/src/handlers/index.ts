@@ -4,6 +4,9 @@ import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
 import { onSweepStarted, withContactAi } from '../contact-ai/index';
+import { onPortalReplySent } from '../portal/replies';
+import { onPortalAccessGiven } from '../portal/invite';
+import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
@@ -116,6 +119,8 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { roadmapHandlers } from '../addons/roadmap';
+import { onFileFingerprint } from './file-fingerprint';
+import { onSupportAccessRequested } from './support-access';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
@@ -137,6 +142,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An agency's reminder to a client business's owners.
     'onboarding.remind_requested': onOnboardingRemindRequested,
     'file.deleted': onFileDeleted,
+    // What a file held when it arrived, and before it was locked as signed (Real Estate, step 3).
+    'file.attached': onFileFingerprint,
+    'file.locked': onFileFingerprint,
     // 20261018000400: a customer's file for a file question: copied onto the lead, and the question's people told.
     'file.received': onFileReceived,
     // "When a lead qualifies → Tell": whoever the AI teammate's settings name hears, with the answers.
@@ -203,7 +211,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An owner deleted a business: the job lets go of what is outside, then purges it (workspace/delete.ts).
     'workspace.deletion_requested': onWorkspaceDeletionRequested,
     // A reply in a website chat is out: people's are marked sent, and the unread follow-up is armed (chat/).
-    'message.sent': onChatReplySent,
+    // A reply in a website chat or a client's portal: marked sent, and the unread follow-up armed.
+    'message.sent': [onChatReplySent, onPortalReplySent],
     'conversation.linked': onConversationLinked,
     'conversation.snoozed': onConversationSnoozed,
     'email_domain.added': onEmailDomainAdded,
@@ -348,6 +357,16 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'knowledge_pack.pushed': onPackPushed,
     // The AI's pass over the whole customer list: its job starts at once (contact-ai/sweep.ts).
     'contact_ai.sweep_started': onSweepStarted,
+    // A client let into their portal, or sent the link again: the email with the signed link (portal/invite.ts).
+    'portal.access_given': onPortalAccessGiven,
+    // Check-ins (round six): the ladder at the planned end, Help at once, the all-clear to whoever was told, and
+    // someone outside asked to agree by text (safety/ladder.ts).
+    'safety.checked_in': onCheckedIn,
+    'safety.extended': onAllClear,
+    'safety.checked_out': onAllClear,
+    'safety.resolved': onAllClear,
+    'safety.help': onHelp,
+    'safety_contact.saved': onContactSaved,
   }),
 );
 
@@ -362,6 +381,8 @@ export const handlers: HandlerMap = {
   // withContactAi appends the AI's look at a customer's tags and details to what happened with them (contact-ai/).
   ...withAddons(withPush(withAttention(withContactAi(ownTeammateAndWorkflows)))),
   ...supportHandlers,
+  // Support asking to see a business's private records (Real Estate step 4).
+  'support_access.requested': [onSupportAccessRequested],
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,
   // Voting on what's next (0109): the team's pick, told to the businesses that voted for it.

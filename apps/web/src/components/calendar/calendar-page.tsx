@@ -179,6 +179,12 @@ export function CalendarPage(props: {
           provider: p.connection?.provider ?? null,
         });
     });
+    // Their appointments on a private record you aren’t on: only that they’re busy.
+    p.privateBusy.forEach((b, i) => {
+      const span = place(b.startsAt, b.endsAt);
+      if (span)
+        blocks.push({ key: `private-${i}`, span, kind: 'busy', title: 'Busy', provider: null });
+    });
     for (const t of p.timeOff) {
       if (t.kind !== 'unavailable') continue;
       const span = place(t.startsAt, t.endsAt);
@@ -424,6 +430,17 @@ export function CalendarPage(props: {
             kind: 'busy',
             title: `Busy in ${person.connection ? calendarProviderName(person.connection.provider) : 'their calendar'}`,
             provider: person.connection?.provider ?? null,
+          });
+      });
+      person?.privateBusy.forEach((b, i) => {
+        const span = place(b.startsAt, b.endsAt);
+        if (span)
+          blocks.push({
+            key: `private-${d}-${i}`,
+            span,
+            kind: 'busy',
+            title: 'Busy',
+            provider: null,
           });
       });
       for (const t of person?.timeOff ?? []) {

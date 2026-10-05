@@ -561,7 +561,8 @@ describe('indexes', () => {
         k.tbl === 'attention_items' ||
         (k.tbl === 'appointment_attendees' && k.col === 'confirmed_by'),
     );
-    expect(ours).toHaveLength(10);
+    // Ten, and the private record a card is about (Real Estate step 4).
+    expect(ours).toHaveLength(11);
     expect(ours.filter((k) => !k.indexed)).toEqual([]);
   });
 });

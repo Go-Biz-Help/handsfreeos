@@ -90,13 +90,13 @@ interface GraphItem {
   lifecycleEvent?: string;
 }
 
-const shell = (title: string, inner: string) =>
+export const shell = (title: string, inner: string) =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title></head>` +
   `<body style="font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #191d25; background: #f7f8fa; margin: 0;">` +
   `<main style="max-width: 440px; margin: 12vh auto; background: #fff; border: 1px solid #e3e6eb; border-radius: 12px; padding: 28px 30px;">${inner}</main></body></html>`;
 
 /** A plain page for the rare dead ends (an expired link, a provider that isn't set up). */
-function deadEnd(
+export function deadEnd(
   reply: FastifyReply,
   status: number,
   title: string,

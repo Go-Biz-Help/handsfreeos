@@ -9,12 +9,20 @@
  * - Texting is ready when the business has an active number (the carriers' registrations don't sync); email can go
  *   when it has an address on the shared domain or a verified one.
  */
+import { ADDON_CATALOG } from '../addons/catalog';
 import { openHoursOf } from '../schemas/workspace';
 import type { Grants } from '../permissions';
+import { ADDON_ALERT_SEVERITIES, ADDON_ALERT_SEVERITY } from './detectors/addon-alert';
 import type { HintConsent, HintConversation, HintFacts, HintSeat } from './hint-facts';
 import { isOpenAt } from './open-time';
 import type { ReachBusiness } from './reach';
-import { mayDecideApproval, type AttentionRow, type AttentionViewer } from './view';
+import {
+  chipsOf,
+  mayDecideApproval,
+  type AttentionRow,
+  type AttentionViewer,
+  type ItemHints,
+} from './view';
 
 type Text = string | null;
 
@@ -267,5 +275,67 @@ export function hintFactsOfSynced(rows: SyncedHintRows, now: number): HintFacts 
     ),
     business: reachBusinessOfSynced(rows),
     openNow: isOpenAt(openHoursOf(settings), rows.timezone || 'UTC', now),
+  };
+}
+
+/**
+ * An add-on's alert on a phone (Real Estate round six). Its Home card reaches the phone through `records_v1` with the
+ * alert's words, how serious it is and whether it still waits for someone to say they've seen it (its chips), but not
+ * the alert's own row (`app.addon_alerts` doesn't sync). So the card's details come from:
+ * - **HandsFreeOS, when the phone last asked** (`attention.list`, with signal): the add-on, and the alert's own page;
+ * - **else the copy**: the add-on is the one whose phone permission the person holds, since a card reaches a phone
+ *   only under its add-on's phone permission (`private.keep_attention_seal`), and it opens at that add-on's first
+ *   page. With two such add-ons the copy can't tell, and the card names none;
+ * - **whether it still asks to be acknowledged**: always the copy's "Not acknowledged yet" chip (the detector shows it
+ *   until someone has), unless this phone has just said so.
+ */
+export function addonAlertOfSynced(
+  row: Pick<AttentionRow, 'kind' | 'subjectId' | 'reasons'>,
+  permissions: readonly string[] | null,
+  known: {
+    /** The alert as HandsFreeOS last described it. */
+    readonly server?: ItemHints['addonAlert'];
+    /** This phone said "Got it" and HandsFreeOS's row hasn't caught up yet. */
+    readonly acknowledgedHere?: boolean;
+    readonly now?: number;
+  } = {},
+): ItemHints['addonAlert'] {
+  if (row.kind !== 'addon_alert' || !row.subjectId) return null;
+  const chips = chipsOf(row);
+  const base = known.server ?? ownAddonAlert(row.subjectId, chips, permissions);
+  if (!base) return null;
+  const waits = chips.some((c) => c.code === 'needs_ack') && !known.acknowledgedHere;
+  return {
+    ...base,
+    needsAck: base.needsAck || waits,
+    acknowledgedAt: waits
+      ? null
+      : (base.acknowledgedAt ??
+        (base.needsAck || known.acknowledgedHere
+          ? new Date(known.now ?? Date.now()).toISOString()
+          : null)),
+  };
+}
+
+/** The alert from the copy alone. */
+function ownAddonAlert(
+  alertId: string,
+  chips: readonly { readonly code: string; readonly label: string }[],
+  permissions: readonly string[] | null,
+): ItemHints['addonAlert'] {
+  const held = new Set(permissions ?? []);
+  const addons = ADDON_CATALOG.filter((m) => !!m.offline && held.has(m.offline.permission));
+  const addon = addons.length === 1 ? addons[0]! : null;
+  if (!addon) return null;
+  const said = chips.find((c) => c.code === 'severity')?.label;
+  return {
+    alertId,
+    addonId: addon.id,
+    addonName: addon.name,
+    severity:
+      ADDON_ALERT_SEVERITIES.find((s) => ADDON_ALERT_SEVERITY[s].label === said) ?? 'attention',
+    href: `/a/${addon.id}`,
+    needsAck: chips.some((c) => c.code === 'needs_ack'),
+    acknowledgedAt: null,
   };
 }

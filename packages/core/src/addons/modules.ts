@@ -4,5 +4,6 @@
  * `pnpm addon:new <id>` writes both. A `planned` add-on has no module: it has no code yet.
  */
 import type { AddonServerModule } from './server';
+import { realestateAddonServer } from './realestate/server';
 
-export const ADDON_SERVER_MODULES: readonly AddonServerModule[] = [];
+export const ADDON_SERVER_MODULES: readonly AddonServerModule[] = [realestateAddonServer];

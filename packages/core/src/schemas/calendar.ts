@@ -596,6 +596,8 @@ export const ScheduleTeamOutput = z.object({
         }),
       ),
       busy: z.array(Span),
+      /** Their appointments on a private record you aren’t on (a deal): only that they’re busy then. */
+      privateBusy: z.array(Span),
       /** Their Google or Outlook link; null when none, or not yours to see. */
       connection: CalendarConnectionOut.nullable(),
     }),

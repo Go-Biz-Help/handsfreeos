@@ -86,6 +86,27 @@ describe('manifestIssues', () => {
     );
   });
 
+  it('checks the pages an add-on says the phone draws', () => {
+    expect(
+      broken({ ui: { phone: [{ path: '' }, { path: 'leases/:leaseId', query: ['tab'] }] } }),
+    ).toEqual([]);
+    expect(
+      broken({
+        ui: {
+          phone: [
+            { path: '/leases' },
+            { path: 'leases/:leaseId', query: ['Tab!'] },
+            { path: 'leases/:id' },
+          ],
+        },
+      }).map((i) => i.message),
+    ).toEqual([
+      'phone page "/leases" must be the web page\'s path, with ":name" for an id',
+      'phone page "leases/:leaseId" reads "Tab!", which isn\'t a query key',
+      'phone page "leases/:id" is declared twice',
+    ]);
+  });
+
   it('refuses a capability or record kind whose permission the add-on does not declare', () => {
     const messages = broken({
       capabilities: [

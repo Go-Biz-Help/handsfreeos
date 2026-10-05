@@ -210,6 +210,27 @@ describe('email campaigns', () => {
     expect(msg?.campaign_recipient_id).toBe(sentRow.id);
   }, 60_000);
 
+  it('goes to review with the exact words it was given, asking the AI for nothing', async () => {
+    // Someone not emailed this week.
+    await listed('Dee');
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Just listed',
+      goal: 'Tell people about the new listing.',
+      audience: { tagIds: [tagId], stageIds: [] },
+      channel: 'email',
+      words: { subject: 'Just listed: 2207 Juniper Trail', body: 'Four bedrooms in South Austin.' },
+    });
+    await drain(w);
+    const got = await statusOf(made.campaignId);
+    expect(got.campaign.status).toBe('review');
+    expect(got.campaign.email).toMatchObject({
+      subject: 'Just listed: 2207 Juniper Trail',
+      body: 'Four bedrooms in South Austin.',
+    });
+    expect(got.recipients.some((r) => r.status === 'drafting')).toBe(false);
+  });
+
   it('pauses rather than send bulk mail when Postmark has no broadcast stream', async () => {
     await listed('Dan');
     const made = await run(w, campaignCreate, {

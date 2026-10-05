@@ -16,9 +16,18 @@ const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
-/** Texts, emails and website chats mirror a conversation: what the customer sent, or what the business sent them. */
+/**
+ * Texts, emails, website chats and portal messages mirror a conversation: what the customer sent, or what the business
+ * sent them.
+ */
 export function isChannelEntry(e: TimelineEntry): boolean {
-  return e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || !!e.meta.direction;
+  return (
+    e.kind === 'sms' ||
+    e.kind === 'email' ||
+    e.kind === 'chat' ||
+    e.kind === 'portal' ||
+    !!e.meta.direction
+  );
 }
 const inbound = (e: TimelineEntry) => isChannelEntry(e) && e.meta.direction === 'inbound';
 const undelivered = (e: TimelineEntry) =>
@@ -61,12 +70,17 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   // A customer who confirmed by text (C, or YES while asked) or with the Confirm button on their appointment page.
   if (e.subtype === 'appointment_confirmed' && (e.meta.via === 'sms' || e.meta.via === 'link'))
     return subjectName || 'The customer';
+  // The customer in their own portal (Real Estate round two): a file they added, a task they did.
+  if (e.actorType === 'customer') return subjectName || 'The client';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'workflow') {
     const name = str(obj(e.meta.workflow).name);
     return name ? `Workflow: ${name}` : 'Workflow';
   }
+  // An add-on writing on its own (Real Estate step 6): named after the add-on.
+  if (e.subtype === 'addon_line' && e.actorType === 'system')
+    return str(obj(e.meta.addon).name) || 'An add-on';
   if (e.actorType === 'system') return e.meta.onBehalfOf ? 'Import' : 'HandsFreeOS';
   return e.actor?.fullName ?? 'Former member';
 }
@@ -136,6 +150,7 @@ export function describeTimeline(
     return undelivered(e) ? `sent an email that bounced${subject}` : `sent an email${subject}`;
   }
   if (e.kind === 'chat') return inbound(e) ? 'chatted on your website' : 'replied in chat';
+  if (e.kind === 'portal') return inbound(e) ? 'wrote in their portal' : 'replied in their portal';
   const title = str(e.meta.title);
   const noun =
     recordType === 'person'
@@ -178,6 +193,18 @@ export function describeTimeline(
       return 'completed a task';
     case 'file_added':
       return 'uploaded a file';
+    case 'file_locked':
+      return 'locked a file as signed and kept';
+    // Round six: a legal hold placed and lifted, with its reason in the well.
+    case 'legal_hold_placed':
+      return 'put this on legal hold';
+    case 'legal_hold_lifted':
+      return 'lifted the legal hold';
+    // An add-on's own line, in its words ("confirmed the inspection deadline").
+    case 'addon_line':
+      return str(e.meta.words) || 'made a change';
+    case 'team_changed':
+      return teamChangedWords(e.meta);
     case 'lead_qualified':
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     case 'edit_not_applied':
@@ -294,7 +321,11 @@ export function timelineBody(e: TimelineEntry): string | null {
   switch (e.subtype) {
     case 'task_done':
     case 'file_added':
+    case 'file_locked':
     case 'next_action':
+    case 'addon_line':
+    case 'legal_hold_placed':
+    case 'legal_hold_lifted':
       return e.body;
     case 'lost':
       return e.body?.replace(/^Lost:\s*/, '') || null;
@@ -311,12 +342,22 @@ export function timelineBody(e: TimelineEntry): string | null {
  */
 export type TimelineTone = 'ai' | 'accent' | 'success' | 'warning' | 'danger' | 'muted';
 
+/** The tones an add-on's own line may wear: every one but the AI teammate's. */
+export const ADDON_LINE_TONES = ['accent', 'success', 'warning', 'danger', 'muted'] as const;
+export type AddonLineTone = (typeof ADDON_LINE_TONES)[number];
+
 export function timelineTone(e: TimelineEntry): TimelineTone {
   if (e.kind === 'sms' && str(e.meta.keyword) === 'stop') return 'muted';
   // The AI teammate's entries wear its violet (an undelivered message still shows red).
   if (aiTeammateOf(e) && !undelivered(e)) return 'ai';
   if (e.subtype === 'lead_qualified') return 'success';
-  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat')
+  if (e.subtype === 'addon_line') {
+    const tone = str(e.meta.tone);
+    return (ADDON_LINE_TONES as readonly string[]).includes(tone)
+      ? (tone as AddonLineTone)
+      : 'accent';
+  }
+  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || e.kind === 'portal')
     return undelivered(e) ? 'danger' : 'accent';
   if (e.kind === 'note') return 'accent';
   if (e.kind === 'call' && ['missed', 'outbound_missed', 'voicemail'].includes(e.subtype ?? ''))
@@ -361,3 +402,20 @@ export const TIMELINE_WORDS = {
   deleteConfirm: 'Delete this entry from the timeline? This is recorded in the audit log.',
   deleted: 'Deleted.',
 } as const;
+
+/** Who a private record's people changed to (Real Estate step 4): "put Marcus Lee on it · took Sam Ortiz off it". */
+function teamChangedWords(meta: Record<string, unknown>): string {
+  const names = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  const list = (xs: string[]) =>
+    xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+  const main = typeof meta['main'] === 'string' ? meta['main'] : null;
+  const added = names(meta['added']).filter((n) => n !== main);
+  const removed = names(meta['removed']);
+  const parts = [
+    ...(main ? [`made ${main} the main person on it`] : []),
+    ...(added.length ? [`put ${list(added)} on it`] : []),
+    ...(removed.length ? [`took ${list(removed)} off it`] : []),
+  ];
+  return parts.join(' · ') || 'changed who’s on it';
+}

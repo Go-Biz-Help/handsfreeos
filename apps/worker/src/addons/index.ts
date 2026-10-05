@@ -29,11 +29,30 @@ import type { JobHandler, JobMap } from '../jobs';
 import { tenantOf, workerMeta } from '../services';
 import { addonScope } from './context';
 import { ADDON_WORKER_MODULES } from './modules';
+import { ADDON_ALERT_JOBS, addonAlertNotifyJob } from './alerts';
 import { ADDON_JOBS, ADDON_SWEEP_KEY, addonReconcileKey, scheduleAddonJob } from './queue';
 import { addonReconcileJob, addonSweepJob } from './reconcile';
 import type { AddonJobHandler, AddonWorkerModule } from './types';
 
 export { ADDON_JOBS, ADDON_SWEEP_KEY, addonReconcileKey, scheduleAddonJob } from './queue';
+export {
+  ADDON_ALERT_JOBS,
+  clearAddonAlert,
+  raiseAddonAlert,
+  type AddonAlertInput,
+  type RaisedAlert,
+} from './alerts';
+
+/** Core events about one add-on's own thing, named by `payload.addonId`: only that add-on hears them. */
+export const ADDON_OWNED_EVENTS: ReadonlySet<string> = new Set([
+  'addon_alert.acknowledged',
+  // Its connections to other services (round five): connected, let go, failing, working again, HandsFreeOS's own.
+  'addon_connection.connected',
+  'addon_connection.disconnected',
+  'addon_connection.failing',
+  'addon_connection.working',
+  'addon_connection.platform_changed',
+]);
 export { addonActor, addonScope } from './context';
 export type * from './types';
 
@@ -49,6 +68,10 @@ export function addonWorkerModuleIssues(
     subscribers = {},
     jobs = {},
     dataMigrations = {},
+    connectors = {},
+    webhooks = {},
+    oauth = {},
+    actions = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -71,6 +94,55 @@ export function addonWorkerModuleIssues(
         issues.push(`${m.id} has a data step for version ${v}, outside 2–${m.dataVersion}`);
     if ((m.resources ?? []).length > 0 && !rest.releaseResource)
       issues.push(`${m.id} holds resources outside HandsFreeOS but can't let go of them`);
+    // Every service a business connects by key has a tester, and nothing else does.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.auth.includes('key') && !connectors[c.key]?.[p.id])
+          issues.push(`${m.id} connects ${c.key} to ${p.id} by key but can't try a key`);
+    for (const [key, testers] of Object.entries(connectors))
+      for (const id of Object.keys(testers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.auth.includes('key'))
+          issues.push(
+            `${m.id} tries keys for ${key} at ${id}, which its manifest doesn't connect by key`,
+          );
+      }
+    // Every service a business signs in to can be signed in to, and nothing else.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.auth.includes('oauth') && !oauth[c.key]?.[p.id])
+          issues.push(`${m.id} connects ${c.key} to ${p.id} by sign-in but can't sign in`);
+    for (const [key, providers] of Object.entries(oauth))
+      for (const id of Object.keys(providers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.auth.includes('oauth'))
+          issues.push(
+            `${m.id} signs in to ${id} for ${key}, which its manifest doesn't connect by sign-in`,
+          );
+      }
+    // Its actions are its own, each asking one of its own permissions.
+    const permissions = new Set(m.permissions.map((p) => p.key));
+    for (const [name, action] of Object.entries(actions)) {
+      if (!name.startsWith(`${m.id}.`))
+        issues.push(`${m.id} has an action ${name} not named for it`);
+      if (!permissions.has(action.permission))
+        issues.push(
+          `${m.id}'s action ${name} asks ${action.permission}, which isn't one of its permissions`,
+        );
+    }
+    // Every service that sends updates has a receiver, and nothing else does.
+    for (const c of m.connectors ?? [])
+      for (const p of c.providers)
+        if (p.webhooks && !webhooks[c.key]?.[p.id])
+          issues.push(`${m.id} hears from ${p.id} for ${c.key} but has no receiver`);
+    for (const [key, receivers] of Object.entries(webhooks))
+      for (const id of Object.keys(receivers)) {
+        const p = m.connectors?.find((c) => c.key === key)?.providers.find((x) => x.id === id);
+        if (!p?.webhooks)
+          issues.push(
+            `${m.id} receives ${id}'s updates for ${key}, which its manifest doesn't say it sends`,
+          );
+      }
   }
   return issues;
 }
@@ -121,12 +193,21 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
     );
   };
 
-  /** The add-ons subscribed to an event type that run in the event's business: one delivery job each. */
+  /**
+   * The add-ons subscribed to an event type that run in the event's business: one delivery job each. An event about
+   * one add-on's own thing (someone acknowledged its alert) goes only to that add-on: no add-on hears another's.
+   */
   const fanOut =
-    (eventType: string, addonIds: readonly string[]): EventHandler =>
+    (eventType: string, subscribed: readonly string[]): EventHandler =>
     async (ctx) => {
       const { workspaceId, organizationId } = ctx.scope;
       if (!workspaceId || !organizationId) return;
+      const owner = ADDON_OWNED_EVENTS.has(eventType)
+        ? (ctx.event.payload as Record<string, unknown> | null)?.['addonId']
+        : undefined;
+      if (owner !== undefined && typeof owner !== 'string') return;
+      const addonIds = owner === undefined ? subscribed : subscribed.filter((id) => id === owner);
+      if (addonIds.length === 0) return;
       const running = await rows<{ addon_id: string; generation: number }>(
         ctx.tx,
         sql`select i.addon_id, i.generation from app.addon_installations i
@@ -194,6 +275,7 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
       [ADDON_JOBS.reconcile]: addonReconcileJob(catalog, modules),
       [ADDON_JOBS.deliver]: deliver,
       [ADDON_JOBS.sweep]: addonSweepJob,
+      [ADDON_ALERT_JOBS.notify]: addonAlertNotifyJob(catalog),
       ...Object.fromEntries(
         modules.flatMap((m) =>
           Object.entries(m.jobs ?? {}).map(([kind, handler]) => [kind, addonJob(m, handler)]),

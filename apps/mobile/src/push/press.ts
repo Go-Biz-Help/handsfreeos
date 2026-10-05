@@ -168,6 +168,18 @@ export const BUTTON_WORDS: Readonly<Record<PushButton, Words>> = {
   call: { unlock: '', waiting: '', refused: '' },
   review: { unlock: '', waiting: '', refused: '' },
   open: { unlock: '', waiting: '', refused: '' },
+  // A check-in's "Still there?" (round six): from the lock screen, with no unlock.
+  im_ok: {
+    unlock: '',
+    waiting: 'You’re checked out on this phone, and HandsFreeOS hears it once it can be reached.',
+    refused:
+      'That didn’t go through. Open HandsFreeOS and check out, or call someone if you need help.',
+  },
+  add_15: {
+    unlock: '',
+    waiting: 'Fifteen more minutes on this phone; HandsFreeOS hears it once it can be reached.',
+    refused: 'No time was added. Open HandsFreeOS and add time, or check out.',
+  },
 };
 
 /**
@@ -411,6 +423,8 @@ export const SENT_WORDS: Readonly<Record<PushButton, string>> = {
   call: '',
   review: '',
   open: '',
+  im_ok: 'Checked out. Glad you’re OK.',
+  add_15: 'Fifteen more minutes.',
 };
 
 /** A press that was already done, on this phone or another. */

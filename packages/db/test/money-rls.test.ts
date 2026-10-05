@@ -942,6 +942,8 @@ describe('parity with core', () => {
       'faq_suggestions',
       'offer_lapsing',
       'texting_rejected',
+      // Real Estate step 5: every add-on's alerts.
+      'addon_alert',
     ]);
     await worker(A)((tx) =>
       tx.execute(

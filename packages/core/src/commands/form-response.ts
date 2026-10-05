@@ -32,6 +32,7 @@ import { insertWithId } from '../crm/client-ids';
 import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
+import { recordSmsConsent } from '../crm/signup';
 import { workspaceZone } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -614,14 +615,7 @@ export const formResponseSubmit = defineCommand({
           on conflict (form_id, day) do update set completions = app.form_days.completions + 1`,
     );
     if (personId && input.smsConsent)
-      await ctx.tx
-        .update(people)
-        .set({
-          smsConsent: 'opted_in',
-          smsConsentAt: dsql`now()`,
-          smsConsentSource: `Form: ${form.name}`,
-        })
-        .where(and(eq(people.id, personId), dsql`sms_consent <> 'opted_out'`));
+      await recordSmsConsent(ctx.tx, personId, `Form: ${form.name}`);
     if (personId && input.offersConsent)
       await recordOffersConsent(ctx.tx, personId, `Form: ${form.name}`.slice(0, 80));
 

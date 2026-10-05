@@ -82,6 +82,7 @@ export function AddonCard({
   onMove,
   onSettings,
   note,
+  testing = false,
 }: {
   addonId: string;
   name: string;
@@ -105,6 +106,8 @@ export function AddonCard({
   onSettings?: () => void;
   /** One line in place of the moves: why it can't be added, or who can turn it on. */
   note?: string | null;
+  /** HandsFreeOS handed this business the add-on to try while it's still being built. */
+  testing?: boolean;
 }) {
   const Icon = ADDON_UI[addonId]?.icon ?? Blocks;
   const state = installed?.state ?? null;
@@ -156,6 +159,11 @@ export function AddonCard({
               {planned ? (
                 <Badge variant="accent" data-testid="addon-coming-soon">
                   {W.comingSoon}
+                </Badge>
+              ) : null}
+              {testing ? (
+                <Badge variant="pending" data-testid="addon-testing" title={W.testingDetail}>
+                  {W.testing}
                 </Badge>
               ) : null}
             </div>

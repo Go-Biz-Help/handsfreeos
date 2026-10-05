@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   asUser,
   asWorker,
+  asCustomer,
   createDb,
   rows,
   sql,
@@ -147,6 +148,12 @@ export const asService =
   (scope: SystemScope) =>
   <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
     asWorker(testDbs().worker.db, scope, fn);
+
+/** As a customer's signed-in portal device (the worker's `portal_actor`). */
+export const asPortal =
+  (sessionId: string) =>
+  <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
+    asCustomer(testDbs().worker.db, sessionId, fn);
 
 export interface OrgBootstrap {
   readonly orgId: string;

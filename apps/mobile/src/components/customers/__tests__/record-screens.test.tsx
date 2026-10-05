@@ -328,6 +328,7 @@ describe('tasks and files', () => {
           mimeType: 'image/jpeg',
           sizeBytes: 2_516_582,
           isImage: true,
+          locked: false,
           uploadedBy: { id: 'u1', fullName: 'Dale' },
           createdAt: '2026-09-17T14:24:00.000Z',
         }}

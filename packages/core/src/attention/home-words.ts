@@ -49,6 +49,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   faq_suggestions: ['question', 'questions'],
   offer_lapsing: ['offer', 'offers'],
   texting_rejected: ['registration', 'registrations'],
+  addon_alert: ['alert', 'alerts'],
 };
 
 /** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
@@ -441,7 +442,7 @@ export function attentionTargetOf(
   item: Pick<
     Item,
     'kind' | 'leadId' | 'conversationId' | 'appointmentId' | 'reasons' | 'subject' | 'personId'
-  >,
+  > & { readonly addonAlert?: Item['addonAlert'] },
   workspaceId: string,
 ): AttentionTarget {
   const base = `/app/w/${workspaceId}`;
@@ -520,6 +521,11 @@ export function attentionTargetOf(
       return { href: `${base}/knowledge/offers`, label: 'Open the offers' };
     case 'texting_rejected':
       return { href: `${base}/settings/texting`, label: 'Open Texting & calls' };
+    // The add-on's own page, as it named it.
+    case 'addon_alert':
+      return item.addonAlert
+        ? { href: `${base}${item.addonAlert.href}`, label: `Open in ${item.addonAlert.addonName}` }
+        : { href: `${base}/add-ons`, label: 'Open Add-ons' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -673,6 +679,8 @@ export function handleButtonOf(
       return { label: 'Open the offer', icon: 'file-text' };
     case 'texting_rejected':
       return { label: 'Fix and send again', icon: 'message' };
+    case 'addon_alert':
+      return { label: 'Open', icon: 'file-text' };
   }
 }
 
@@ -705,6 +713,7 @@ export function letHandleOffReason(
     return 'What the AI learns is yours to decide';
   if (item.kind === 'offer_lapsing') return 'Whether an offer runs longer is your call';
   if (item.kind === 'texting_rejected') return 'Only you can fix the details they turned down';
+  if (item.kind === 'addon_alert') return 'The add-on says when it’s done';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;
@@ -930,9 +939,11 @@ export function letHandleChannelVerb(channel: string | null | undefined, first: 
     ? `Emails ${first} now`
     : channel === 'chat'
       ? `Answers ${first} in the chat now`
-      : channel === 'sms'
-        ? `Texts ${first} now`
-        : `Writes to ${first} now`;
+      : channel === 'portal'
+        ? `Answers ${first} in their portal now`
+        : channel === 'sms'
+          ? `Texts ${first} now`
+          : `Writes to ${first} now`;
 }
 
 /** What handing a customer to the AI teammate does, as the sheet lists it. */
@@ -987,7 +998,13 @@ export function letHandleAskButton(
 
 /** Where a reply goes, above its box. */
 export const letHandleReplyBy = (channel: string | null | undefined): string =>
-  channel === 'email' ? 'By email' : channel === 'chat' ? 'In the website chat' : 'By text';
+  channel === 'email'
+    ? 'By email'
+    : channel === 'chat'
+      ? 'In the website chat'
+      : channel === 'portal'
+        ? 'In their portal'
+        : 'By text';
 
 /** What HandsFreeOS did when the person pressed its button, for the toast. */
 export function letHandleAutoToast(o: {
@@ -1059,6 +1076,11 @@ export const ATTENTION_WORDS = {
       ? `Cancelled. ${first} won’t get a confirmation request.`
       : `Cancelled. ${first} won’t get a follow-up.`,
   asksAtToast: (first: string, at: string) => `HandsFreeOS asks ${first} to confirm at ${at}.`,
+  /** An add-on's alert that waits for someone to say they've seen it. */
+  acknowledge: 'Acknowledge',
+  /** The same, on the phone's card beside its Open button (board 92). */
+  gotIt: 'Got it',
+  acknowledgedToast: 'Acknowledged. Everyone who sees it knows you’ve seen it.',
   noPhoneToast: (first: string) => `There’s no phone number for ${first}.`,
   workingOut: 'Working out what HandsFreeOS would do…',
   whatItSends: 'What it sends',

@@ -7,7 +7,7 @@ import {
   rowName,
   type RowChip,
 } from '@hfos/core';
-import { AlarmClock, Layers, Mail, MessageCircle } from 'lucide-react';
+import { AlarmClock, DoorOpen, Layers, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { StageBadge } from '@/components/crm/chips';
 import { Avatar } from '@/components/ui/avatar';
@@ -108,6 +108,12 @@ export function ConversationRow({
             />
           ) : c.channel === 'chat' ? (
             <WebsiteIcon />
+          ) : c.channel === 'portal' ? (
+            <DoorOpen
+              className="h-3.5 w-3.5 flex-none text-text-3"
+              strokeWidth={1.5}
+              aria-label="Client portal"
+            />
           ) : (
             <MessageCircle
               className="hidden h-3.5 w-3.5 flex-none text-text-3 md:block"

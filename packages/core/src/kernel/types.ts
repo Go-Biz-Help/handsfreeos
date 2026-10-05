@@ -10,7 +10,7 @@ export type { OfflineClass } from '../mobile';
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
 /**
  * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'ai_employee' |
- * 'chat_widget' | 'mobile' | 'contact_ai' | 'test' (one list, shared with the audit filter).
+ * 'chat_widget' | 'mobile' | 'contact_ai' | 'portal' | 'test' (one list, shared with the audit filter).
  */
 export type Channel = z.infer<typeof requestChannel>;
 
@@ -148,7 +148,41 @@ export interface AiEmployeeActor {
 }
 /** Work nobody signed in for: root within one workspace and never a permission check (see `isMachine`). */
 export type MachineActor = SystemActor | WorkflowActor | AiEmployeeActor;
-export type Actor = HumanActor | MachineActor;
+/**
+ * A customer signed in to their portal (Real Estate round two, core), on one device. They may run only the
+ * operations that list 'customer' (named `portal.*`, or `<addon>.portal.*`), and nothing else, whatever they send.
+ * Their look-ups read under row security as `portal_actor`: only themselves, and the records they're on through a
+ * portal-visible relationship. Their changes run as the service actor in their business, which the operation's own
+ * handler keeps to what is theirs, recorded as actor_type 'customer' with actor_id the person, on channel 'portal'.
+ * Either way the database checks the device is still signed in, in the same transaction.
+ */
+export interface CustomerActor {
+  readonly type: 'customer';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  readonly personId: string;
+  /** The signed-in device (app.portal_sessions). */
+  readonly sessionId: string;
+}
+/**
+ * Someone on one of an add-on's public pages, signed in to nothing (Real Estate round three, core): a listing's page,
+ * an open house's sign-in. They may run only the operations that list 'public' (named `<addon>.public.*`), and only
+ * in the business whose page they're on, found from its booking site's name. Everything they do runs as the service
+ * actor in that business, as forms and booking pages do, so each operation's own handler keeps them to what the
+ * business has published. Recorded as the system with `_public` on the event: the site and a hash of their address.
+ */
+export interface PublicActor {
+  readonly type: 'public';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  /** The booking site's name the page is under (`/a/<site>/…`). */
+  readonly site: string;
+  /** A hash of the visitor's address, for the record; never the address itself. */
+  readonly visitor: string;
+}
+/** Who runs in the worker's own transaction: machines, a customer's changes, and a visitor to a public page. */
+export type WorkerActor = MachineActor | CustomerActor | PublicActor;
+export type Actor = HumanActor | MachineActor | CustomerActor | PublicActor;
 export type ActorKind = Actor['type'];
 
 export interface RequestMeta {

@@ -44,6 +44,8 @@ export interface HomeActions {
   dismissNow(item: Item, reason: string | null): void;
   assign(item: Item, userId: string | null): void;
   cancelAuto(item: Item): void;
+  /** Got it, on an add-on's alert that asks to be acknowledged (online: the add-on hears at once). */
+  acknowledge(item: Item): void;
   /** Opens the record behind an item. */
   open(item: Item): void;
 }
@@ -99,8 +101,10 @@ export function useHomeActions(o: {
   readonly myUserId: string;
   readonly members: readonly { readonly id: string; readonly fullName: string }[];
   readonly open: (sheet: HomeSheet) => void;
+  /** An alert this phone just acknowledged: its Got it goes at once, before HandsFreeOS's row comes down. */
+  readonly onAcknowledged?: (alertId: string) => void;
 }): HomeActions {
-  const { workspaceId, timeZone, myUserId, members, open } = o;
+  const { workspaceId, timeZone, myUserId, members, open, onAcknowledged } = o;
   const db = usePowerSync();
   return React.useMemo<HomeActions>(() => {
     const said = (words: string) =>
@@ -208,6 +212,9 @@ export function useHomeActions(o: {
           case 'faq_suggestions':
           case 'offer_lapsing':
           case 'texting_rejected':
+            return target(item);
+          // An add-on's alert opens its page (the deal), on the phone's own screen once this build has it.
+          case 'addon_alert':
             return target(item);
           case 'job_no_address':
             return item.personId
@@ -328,6 +335,20 @@ export function useHomeActions(o: {
           }
         })();
       },
+      // "I've seen this" (addon_alert.acknowledge, as the web's Acknowledge): online only, so with no signal it says so.
+      acknowledge(item) {
+        const alertId = item.addonAlert?.alertId;
+        if (!alertId) return;
+        void (async () => {
+          try {
+            await change('addon_alert.acknowledge', { workspaceId, alertId });
+            onAcknowledged?.(alertId);
+            toast.show(ATTENTION_WORDS.acknowledgedToast);
+          } catch (error) {
+            failed(error);
+          }
+        })();
+      },
     };
-  }, [db, workspaceId, timeZone, myUserId, members, open]);
+  }, [db, workspaceId, timeZone, myUserId, members, open, onAcknowledged]);
 }

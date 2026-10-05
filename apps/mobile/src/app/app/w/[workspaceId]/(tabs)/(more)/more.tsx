@@ -4,6 +4,8 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { useAddonGrants } from '@/add-ons/use-add-ons';
+import { holdsAddon } from '@/addons/gate';
+import { PHONE_ADDONS } from '@/addons/registry';
 import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { useStaff } from '@/admin/staff';
 import { DESK_PHONE_WORDS } from '@/admin/words';
@@ -26,7 +28,7 @@ import {
 import { ApprovalsCount } from '@/components/home/approvals-count';
 import { TEAMMATE_SQL } from '@/home/queries';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
-import { List, ListRow } from '@/components/shell/list';
+import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { UpToDate } from '@/components/shell/up-to-date';
 import { Avatar } from '@/components/ui/avatar';
@@ -41,7 +43,7 @@ import { openWeb } from '@/lib/open-web';
 import { VIEW_AS_PHONE_WORDS } from '@/view-as/words';
 
 /**
- * More: Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
+ * More: the places of add-ons running here (Real Estate's Deals, My duties, Coordinate, Vendors), then Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
  * then Add-ons (for owners and admins), Ideas and Get help, which are about HandsFreeOS itself, and Open on the web
  * for the desk work. Somebody who answers HandsFreeOS support also has the Support desk, which belongs to no business.
  */
@@ -57,6 +59,8 @@ export default function More() {
   const canViewAs = !viewing && holds(grants, 'members.view_as');
   const { staff } = useStaff(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));
+  // Add-ons' places sit at the top while they run here, each only for people who may open it.
+  const addons = PHONE_ADDONS.filter((a) => holdsAddon(grants, a.permission));
   return (
     <Screen title={MORE_WORDS.title} testID="more">
       <Card className="flex-row items-center gap-3 px-3.5 py-3">
@@ -73,6 +77,9 @@ export default function More() {
           {MORE_WORDS.switch}
         </Button>
       </Card>
+      {addons.map((a) => (
+        <a.More key={a.addonId} />
+      ))}
       <List>
         <ListRow
           icon={CloudCheck}
@@ -82,6 +89,7 @@ export default function More() {
           testID="more-changes"
         />
       </List>
+      {addons.length > 0 ? <ListLabel>{MORE_WORDS.yourBusiness}</ListLabel> : null}
       <List>
         <ListRow
           icon={Users}

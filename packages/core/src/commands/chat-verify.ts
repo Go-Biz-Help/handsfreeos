@@ -5,7 +5,6 @@
  * for twelve hours (`chatVerified`). Only a hash of the code is kept; a code lasts ten minutes, a visitor gets
  * three an hour, and five wrong tries end it (a wrong try answers `verified: false`, so it's kept).
  */
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { and, desc, eq, gt, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { chatVerificationCodes, chatVisitors } from '@hfos/db/schema';
@@ -17,30 +16,27 @@ import { defineCommand } from '../kernel/define';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { isOptedOut } from '../messaging/store';
 import {
+  CODE_MINUTES,
+  CODE_TRIES,
+  CODES_PER_HOUR,
+  codeHash,
+  codeMatches,
+  maskContact,
+  newCode,
+} from '../verify/code';
+import {
   ChatCheckCodeForCustomerInput,
   ChatCheckCodeForCustomerOutput,
   ChatSendCodeForCustomerInput,
   ChatSendCodeForCustomerOutput,
 } from '../schemas/ai-team';
 
-export const CODE_MINUTES = 10;
-export const CODES_PER_HOUR = 3;
-export const CODE_TRIES = 5;
+export { CODE_MINUTES, CODES_PER_HOUR, CODE_TRIES, maskContact } from '../verify/code';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
   workspaceId: i.workspaceId,
 });
-
-const hashOf = (visitorId: string, code: string) =>
-  createHash('sha256').update(`${visitorId}:${code}`).digest();
-
-/** "•••• 42" for a phone, "d•••@example.com" for an address. */
-export function maskContact(channel: 'sms' | 'email', to: string): string {
-  if (channel === 'sms') return `•••• ${to.slice(-2)}`;
-  const [name, domain] = to.split('@');
-  return `${(name ?? '').slice(0, 1)}•••@${domain ?? ''}`;
-}
 
 /** The chat the teammate is answering, its visitor, and the customer it matched. */
 async function chatOf(ctx: CommandContext, ai: AiEmployeeActor) {
@@ -122,14 +118,14 @@ export const chatSendCodeForCustomer = defineCommand({
         409,
         'There’s no phone or email on file to send a code to. Hand off, or ask them to use the link in a message we sent.',
       );
-    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const code = newCode();
     const [row] = await ctx.tx
       .insert(chatVerificationCodes)
       .values({
         workspaceId: ws,
         visitorId,
         personId,
-        codeHash: hashOf(visitorId, code),
+        codeHash: codeHash(visitorId, code),
         channel,
         expiresAt: new Date(Date.now() + CODE_MINUTES * 60_000),
       })
@@ -185,7 +181,7 @@ export const chatCheckCodeForCustomer = defineCommand({
     if (!latest) throw expired();
     if (latest.attempts >= CODE_TRIES)
       throw HfosError.rule('too_many_tries', 429, 'Too many wrong tries. Send a new code.');
-    const right = timingSafeEqual(Buffer.from(latest.codeHash), hashOf(visitorId, input.code));
+    const right = codeMatches(latest.codeHash, visitorId, input.code);
     if (!right) {
       // Kept, not thrown: a thrown error would roll the counted try back.
       await ctx.tx

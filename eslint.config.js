@@ -19,7 +19,7 @@ const promiseAllAwaits = [
 // it is turned off or taken out. The registry and the gate (addons/gate.tsx) sit beside the add-ons' folders.
 const addonFolderImport = '^(?:@/|\\./|(?:\\.\\./)+)addons/(?!(?:registry|gate)$)[^/]+';
 const addonFolderMessage =
-  'Only apps/web/src/addons/registry.ts imports from an add-on’s folder: put the panel in the registry and draw it with <AddonSlot>. Inside an add-on’s own folder, import its files relatively.';
+  'Only the registry (apps/web/src/addons/registry.ts, apps/mobile/src/addons/registry.ts) imports from an add-on’s folder: put the panel in the registry and draw it with <AddonSlot> (on the phone, its place in More). Inside an add-on’s own folder, import its files relatively.';
 
 export default tseslint.config(
   {
@@ -70,16 +70,17 @@ export default tseslint.config(
     },
   },
   {
-    // Add-ons' UI (0108): the web's screens, shell and helpers, and add-ons' folders themselves, never import an
-    // add-on's folder, statically or with import(). An add-on's own pages (app/app/w/[workspaceId]/a/<id>/) are
-    // its code and may. Matched from any cwd too: only the web has these folders beside an `addons/` one.
+    // Add-ons' UI (0108): the web's and the phone's screens, shell and helpers, and add-ons' folders themselves,
+    // never import an add-on's folder, statically or with import(). An add-on's own pages are its code and may: the
+    // web's app/app/w/[workspaceId]/a/<id>/, and the phone's, which sit in More so the tab bar stays
+    // (app/app/w/[workspaceId]/(tabs)/(more)/a/<id>/, round six). Matched from any cwd too.
     files: [
       '**/src/app/**/*.{ts,tsx}',
       '**/src/components/**/*.{ts,tsx}',
       '**/src/lib/**/*.{ts,tsx}',
       '**/src/addons/*/**/*.{ts,tsx}',
     ],
-    ignores: ['**/src/app/app/w/*/a/**'],
+    ignores: ['**/src/app/app/w/*/a/**', '**/src/app/app/w/*/(tabs)/(more)/a/**'],
     rules: {
       'no-restricted-imports': [
         'error',

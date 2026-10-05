@@ -29,6 +29,7 @@ export * from './workflow';
 export * from './knowledge';
 export * from './ai-team';
 export * from './chat';
+export * from './portal';
 export * from './attention';
 export * from './automations';
 export * from './referral';
@@ -57,6 +58,10 @@ export * from './founding';
 export * from './job';
 export * from './custom-field';
 export * from './relationship';
+export * from './support-access';
+export * from './record-hold';
+export * from './safety';
+export * from './addon-alert';
 export * from './ai-call';
 // Add-ons (0108).
 export * from './addon';

@@ -26,10 +26,14 @@ export const APPOINTMENTS_SQL = `
     a.capacity, a.seats_taken, a.buffer_before, a.buffer_after, a.calendar_id, a.calendar_revision,
     a.service_id, a.lead_id, a.client_id, a.created_at,
     c.name AS calendar_name, c.color AS calendar_color, c.config AS calendar_config,
-    s.name AS service_name, s.price_cents AS service_price_cents
+    s.name AS service_name, s.price_cents AS service_price_cents,
+    r.name AS record_name, t.singular AS record_kind
   FROM appointments a
   LEFT JOIN calendars c ON c.id = a.calendar_id
   LEFT JOIN services s ON s.id = a.service_id
+  LEFT JOIN appointment_records ar ON ar.id = a.id
+  LEFT JOIN custom_records r ON r.id = ar.custom_record_id
+  LEFT JOIN custom_record_types t ON t.id = r.type_id
   WHERE a.workspace_id = ? AND a.ends_at >= ? AND a.starts_at < ?`;
 
 /** One appointment, the same way. */

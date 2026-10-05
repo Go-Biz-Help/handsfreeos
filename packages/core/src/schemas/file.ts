@@ -14,8 +14,16 @@ export const ATTACHMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
   'text/csv',
+  // A voice note recorded on a phone (Real Estate round six): AAC in an MP4 box from iPhones and Androids, and the
+  // web's own recordings.
+  'audio/mp4',
+  'audio/aac',
+  'audio/mpeg',
+  'audio/webm',
 ] as const;
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+/** What the worker may keep on a record beside what people upload: a transaction export's zip (round six). */
+export const STORED_TYPES = [...ATTACHMENT_TYPES, 'application/zip'] as const;
 
 export const FileBeginUploadInput = z.object({
   workspaceId: uuid,
@@ -41,6 +49,42 @@ export const FileConfirmOutput = z.object({
 export const FileDeleteInput = z.object({ workspaceId: uuid, fileId: uuid });
 export const FileDeleteOutput = z.object({ fileId: uuid });
 
+/** Why a file is locked: a signed document, a final version, or something kept as a record. */
+/**
+ * Worker: a file it fetched or made for a record (a document signed at DocuSign, say), already uploaded to its place
+ * (`storedFilePath`). The id is the worker's, so asking again keeps one file.
+ */
+export const FileStoreInput = z.object({
+  workspaceId: uuid,
+  id: uuid,
+  recordType: attachableRecordType,
+  recordId: uuid,
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.enum(STORED_TYPES, { error: 'That file type is not supported.' }),
+  /** What it came from, for the timeline: `docusign`, say. */
+  from: z.string().trim().min(1).max(60).optional(),
+});
+export const FileStoreOutput = z.object({
+  fileId: uuid,
+  sizeBytes: z.number().int(),
+  /** False when it was kept already: asked again. */
+  changed: z.boolean(),
+});
+
+export const FILE_LOCK_REASONS = ['signed', 'final', 'record'] as const;
+export type FileLockReason = (typeof FILE_LOCK_REASONS)[number];
+export const FileLockInput = z.object({
+  workspaceId: uuid,
+  fileId: uuid,
+  reason: z.enum(FILE_LOCK_REASONS).default('signed'),
+});
+export const FileLockOutput = z.object({
+  fileId: uuid,
+  lockedAt: isoDateTime,
+  /** False when it was already locked: a second press. */
+  changed: z.boolean(),
+});
+
 export const FileOut = z.object({
   id: uuid,
   recordType: attachableRecordType,
@@ -51,6 +95,8 @@ export const FileOut = z.object({
   mimeType: z.string().nullable(),
   sizeBytes: z.number().nullable(),
   isImage: z.boolean(),
+  /** Locked (a signed document): it can't be deleted or renamed, only replaced by a newer file. */
+  locked: z.boolean(),
   uploadedBy: UserRef,
   createdAt: isoDateTime,
 });

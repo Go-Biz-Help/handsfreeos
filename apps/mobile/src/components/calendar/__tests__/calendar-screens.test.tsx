@@ -82,6 +82,23 @@ describe('a row of the day', () => {
     expect(screen.queryByTestId('agenda-not-booked')).toBeNull();
   });
 
+  it('marks a deal’s private appointment with the deal, for the people on it (board 92)', async () => {
+    await render(
+      wrap(
+        <AgendaRow
+          appt={appt({ privateTo: { name: 'Alvarez listing', kind: 'Deal' } })}
+          now={NOW}
+          onPress={() => undefined}
+        />,
+      ),
+    );
+    expect(screen.getByTestId('agenda-private')).toHaveTextContent(
+      'Alvarez listing · private to the deal',
+    );
+    await render(wrap(<AgendaRow appt={appt()} now={NOW} onPress={() => undefined} />));
+    expect(screen.queryByTestId('agenda-private')).toBeNull();
+  });
+
   it('says "Not booked yet" above everything else for a time asked for with no signal', async () => {
     await render(
       wrap(<AgendaRow appt={appt({ requested: true })} now={NOW} onPress={() => undefined} />),

@@ -1,10 +1,17 @@
 import type { QueryDef } from '../kernel/types';
+import { portalAccessGet } from '../commands/portal-access';
+import { portalQueries } from './portal';
+import { portalFileQueries } from '../commands/portal-files';
+import { portalMessageQueries } from '../commands/portal-messages';
 import { formQueries } from './form';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
+import { supportAccessList } from './support-access';
+import { recordHoldQueries } from './record-hold';
+import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { teammateViewQueries } from './teammate-view';
@@ -195,6 +202,12 @@ export const {
 } = addonQueryDefs;
 export { addonQueries } from './addon';
 
+import { addonConnectionQueries } from './addon-connection';
+
+/** What an add-on connects to, and the business's accounts there (round five). */
+export const { list: addonConnectionList } = addonConnectionQueries(ADDON_CATALOG);
+export { addonConnectionQueries } from './addon-connection';
+
 import { addonRoadmapQueries } from './addon-roadmap';
 
 /** Voting on what's next: the planned list, Home's note, and the team's view (0109). */
@@ -207,6 +220,11 @@ export { addonRoadmapQueries, ADDON_NEWS_DAYS } from './addon-roadmap';
 
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
+  portalAccessGet,
+  // A customer's own, in their portal (Real Estate round two).
+  ...portalQueries,
+  ...portalFileQueries,
+  ...portalMessageQueries,
   ...supportQueries,
   ...platformQueries,
   // Viewing the app as a teammate (20261018000100).
@@ -321,12 +339,17 @@ export const queries: readonly QueryDef[] = [
   ...templateQueries,
   ...reviewQueries,
   ...relationshipQueries,
+  // HandsFreeOS support let into private records (Real Estate step 4).
+  supportAccessList,
+  ...recordHoldQueries,
+  ...safetyQueries,
   // Ideas, the roadmap and What's new (0102).
   ...ideaQueries,
   // Add-ons (0108).
   addonList,
   addonImpact,
   addonSettings,
+  addonConnectionList,
   addonSuggestion,
   // Voting on what's next (0109).
   addonRoadmap,
@@ -383,6 +406,7 @@ export {
 };
 
 export * from './form';
+export * from './portal';
 export * from './campaign';
 export * from './contact-ai';
 export * from './maintenance';
@@ -399,5 +423,8 @@ export * from './branded-domain';
 export * from './founding';
 export * from './offer';
 export * from './relationship';
+export * from './support-access';
+export * from './record-hold';
+export * from './safety';
 export * from './onboarding';
 export * from './ideas';
