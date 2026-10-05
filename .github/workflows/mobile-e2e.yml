@@ -32,10 +32,10 @@ jobs:
   maestro-android:
     name: Maestro flows on an Android emulator
     runs-on: ubuntu-latest
-    # About 25 minutes to build the app, 10 to start everything and boot the emulator, and 55 for the flows: a full
-    # run took 88 minutes, and the next, with a slower build, was stopped at 90 in its last flow. This leaves room
-    # for more flows and a slow runner.
-    timeout-minutes: 110
+    # About 25 minutes to build the app, 10 to start everything and boot the emulator, and 80 for the flows now that
+    # they all reach their turn: run 37233083219's flows took 78 minutes, and run 37265519719 was stopped at 110 with
+    # flows still to go. This leaves room for more flows and a slow runner.
+    timeout-minutes: 150
     steps:
       # The runner's disk is mostly toolchains this job never uses, and the Supabase images, both NDKs, Gradle's
       # native builds and the emulator's system image don't fit beside them: one run stopped mid-build with "No space

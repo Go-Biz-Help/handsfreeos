@@ -27,23 +27,33 @@ env:
           id: 'back'
 - tapOn:
     id: 'tab-home'
-- extendedWaitUntil:
-    visible:
-      id: 'attention-card'
-    timeout: 20000
+# The cards come after Getting started, which fills most of the screen while the business is still setting up.
+- scrollUntilVisible:
+    element:
+      id: 'attention-more'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 # Snooze the first card for an hour.
 - tapOn:
     id: 'attention-more'
     index: 0
 - tapOn:
     id: 'snooze-hour'
-- extendedWaitUntil:
-    visible:
+# The waiting changes go in just above the cards, and the list keeps the cards where they were: back up to them.
+- scrollUntilVisible:
+    element:
       id: 'home-waiting-title'
       text: '1 change waiting to send'
+    direction: UP
     timeout: 10000
 # Dismiss the next.
 - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'attention-more'
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: 'attention-more'
     index: 0
@@ -56,10 +66,11 @@ env:
 - tapOn: 'Already taken care of'
 - tapOn:
     id: 'dismiss-confirm'
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: 'home-waiting-title'
       text: '2 changes waiting to send'
+    direction: UP
     timeout: 10000
 - assertVisible:
     id: 'status-strip-text'
