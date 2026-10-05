@@ -28,8 +28,9 @@ export const EXPORT_JOB = 'realestate.export';
 /** Files beyond this are refused: a zip this size still opens on a laptop and attaches to a cloud drive. */
 export const EXPORT_MAX_BYTES = 200 * 1024 * 1024;
 
+/** Also a listing's access instructions (its lockbox code): they go only to the confirmed agent, before a showing. */
 const SECRET =
-  /(_enc$|secret|password|pkce|oauth_state|token_hash|_hmac$|(^|_)key_id$|^token$|client_state|access_code)/;
+  /(_enc$|secret|password|pkce|oauth_state|token_hash|_hmac$|(^|_)key_id$|^token$|client_state|access_code|^showing_access$)/;
 /** Never written down: who someone was by their network address and browser. */
 const PRIVATE_AUDIT = new Set(['ip', 'user_agent']);
 
