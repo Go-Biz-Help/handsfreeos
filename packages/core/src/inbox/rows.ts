@@ -7,9 +7,10 @@
 import { CHAT_VISITOR_NAME } from '../chat/limits';
 import { formatPhone } from '../crm/phone';
 import { CANCELLED_TEXT, scheduledForOf } from '../messaging/quiet-hours';
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES, socialContactName } from '../messaging/social';
 import type { ButtonReply, RichText } from '@hfos/db/schema';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
-import type { ConversationFolderValue } from '../schemas/conversation';
+import type { ConversationChannel, ConversationFolderValue } from '../schemas/conversation';
 import {
   DEFAULT_TELEPHONY_SETTINGS,
   TelephonySettings,
@@ -99,12 +100,19 @@ export interface ConversationListRow {
    */
   readonly record_id?: Text;
   readonly record_name?: Text;
+  /**
+   * Messenger and Instagram (20261025000200): the Page or account the thread is on, and who wrote, as Meta named
+   * them. The phone's copy doesn't hold them yet; without them a thread reads as "Messenger" and its customer.
+   */
+  readonly line_account?: Text;
+  readonly social_name?: Text;
+  readonly social_username?: Text;
 }
 
 /** One of a customer's conversations, as the list's row and the thread's line switcher take it (0089). */
 export interface InboxLane {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   /** "Front desk · (713) 555-0100", "info@lonestarhvac.com", "Website chat". */
   readonly lineDisplay: string;
   readonly unreadCount: number;
@@ -115,13 +123,19 @@ export interface InboxLane {
  * as well as its digits; a lane with no line still says something, because a blank item is not choosable.
  */
 export function lineDisplayOf(l: {
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly e164: Text | undefined;
   readonly label: Text | undefined;
   readonly address: Text | undefined;
   /** A portal thread's record ("12 Main St purchase"). */
   readonly record?: Text | undefined;
+  /** A Messenger or Instagram thread's Page or account ("Bright Plumbing", "@brightplumbing"). */
+  readonly account?: Text | undefined;
 }): string {
+  if (isSocialChannel(l.channel))
+    return l.account
+      ? `${SOCIAL_CHANNEL_NAMES[l.channel]} · ${l.account}`
+      : SOCIAL_CHANNEL_NAMES[l.channel];
   if (l.channel === 'chat') return 'Website chat';
   if (l.channel === 'portal') return l.record ? `Client portal · ${l.record}` : 'Client portal';
   if (l.channel === 'email') return l.address || 'Email';
@@ -173,12 +187,11 @@ const FOLDERS = new Set<string>(['inbox', 'other', 'spam']);
  * A client's portal thread (Real Estate round two) reaches phones with round six, to the people on its deal
  * (records_v1); a channel this build doesn't know reads as a text, as it always did.
  */
-const CHANNELS = new Set(['sms', 'email', 'chat', 'portal']);
+const CHANNELS = new Set(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']);
 const STATUSES = new Set(['open', 'snoozed', 'closed']);
 
 export function conversationOf(r: ConversationListRow): ConversationShape {
-  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as
-    'sms' | 'email' | 'chat' | 'portal';
+  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as ConversationChannel;
   const lastDirection =
     r.last_direction === 'inbound' || r.last_direction === 'outbound' ? r.last_direction : null;
   const record =
@@ -198,7 +211,9 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
           ? CHAT_VISITOR_NAME
           : channel === 'portal'
             ? nameOf(r.first_name, r.last_name) || 'Client portal'
-            : r.counterpart,
+            : isSocialChannel(channel)
+              ? socialContactName(channel, { name: r.social_name, username: r.social_username })
+              : r.counterpart,
     status: (STATUSES.has(r.status) ? r.status : 'open') as ConversationStatus,
     person: r.person_id ? { id: r.person_id, fullName: nameOf(r.first_name, r.last_name) } : null,
     assignee: userRef(r.assignee_user_id, r.assignee_name),
@@ -238,6 +253,7 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
       label: r.line_label,
       address: r.line_address,
       record: record?.name,
+      account: r.line_account,
     }),
     folder: r.folder && FOLDERS.has(r.folder) ? (r.folder as ConversationFolderValue) : 'inbox',
     privateTo: r.private_to ?? null,
@@ -643,10 +659,7 @@ function replyOf(value: Text | undefined): ThreadItemFacts['buttonReply'] {
 }
 
 export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
-  const channel =
-    r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' || r.channel === 'portal'
-      ? r.channel
-      : null;
+  const channel = r.channel && CHANNELS.has(r.channel) ? (r.channel as ConversationChannel) : null;
   const media = json<MediaShape[]>(r.media, []);
   return {
     type: 'message',

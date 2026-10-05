@@ -2,6 +2,8 @@
  * What one conversation's screen says, the same on the web and the phone (M10): the line under the customer's name,
  * the banners (not a customer yet, snoozed, closed), who it's assigned to, the actions and what each did. Browser-safe.
  */
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES } from '../messaging/social';
+import type { ConversationChannel } from '../schemas/conversation';
 import type { WordPart } from './composer';
 import { firstName } from './list';
 import { zonedWhen } from './time';
@@ -18,10 +20,16 @@ export function customerFirstName(
 }
 
 /** "Mike", "this visitor" or "this number": who a sentence about the customer names. */
-export function whoOf(first: string | null, channel: 'sms' | 'email' | 'chat' | 'portal'): string {
+export function whoOf(first: string | null, channel: ConversationChannel): string {
   return (
     first ??
-    (channel === 'chat' ? 'this visitor' : channel === 'portal' ? 'this client' : 'this number')
+    (channel === 'chat'
+      ? 'this visitor'
+      : channel === 'portal'
+        ? 'this client'
+        : isSocialChannel(channel)
+          ? 'this person'
+          : 'this number')
   );
 }
 
@@ -43,7 +51,7 @@ export function chatLine(
  */
 export function threadChannelLine(
   c: {
-    readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+    readonly channel: ConversationChannel;
     readonly counterpart: string;
     readonly counterpartDisplay: string;
     /** A portal thread's record ("12 Main St purchase"). */
@@ -54,8 +62,22 @@ export function threadChannelLine(
     readonly chat?: Parameters<typeof chatLine>[0];
     readonly short?: boolean;
     readonly compact?: boolean;
+    /**
+     * A Messenger or Instagram thread: the customer's @handle and the business's Page or account it's on.
+     * "@jane.doe · Instagram · to @brightplumbing", "Messenger · to Bright Plumbing".
+     */
+    readonly social?: {
+      readonly handle: string | null;
+      readonly account: string | null;
+    } | null;
   } = {},
 ): string {
+  if (isSocialChannel(c.channel)) {
+    const handle = opts.social?.handle ? `@${opts.social.handle.replace(/^@/, '')} · ` : '';
+    const to = opts.social?.account && !opts.compact ? ` · to ${opts.social.account}` : '';
+    const line = `${handle}${SOCIAL_CHANNEL_NAMES[c.channel]}${to}`;
+    return person || opts.short ? line : `${line} · not in Contacts yet`;
+  }
   if (c.channel === 'chat') return chatLine(opts.chat ?? null);
   if (c.channel === 'portal') {
     const word = opts.compact ? 'Portal' : 'Client portal';
@@ -82,12 +104,12 @@ export const ALL_LINES_WORDS = {
 /** "(713) 555-0142 isn’t a customer yet. Add them, or link the number to someone you already have." */
 export function notCustomerBanner(
   counterpartDisplay: string,
-  channel: 'sms' | 'email' | 'chat' | 'portal',
+  channel: ConversationChannel,
 ): { readonly parts: readonly WordPart[]; readonly short: string; readonly action: string } {
   return {
     parts: [
       { strong: `${counterpartDisplay} isn’t a customer yet.` },
-      ` Add them, or link the ${channel === 'chat' ? 'chat' : 'number'} to someone you already have.`,
+      ` Add them, or link the ${channel === 'chat' ? 'chat' : isSocialChannel(channel) ? 'conversation' : 'number'} to someone you already have.`,
     ],
     short: 'Not in Contacts yet.',
     action: 'Add person',
@@ -228,7 +250,7 @@ export const PRIVATE_THREAD_WORDS = {
 export function customerSinceLine(
   person: { readonly phone: string | null; readonly customerSince: string } | null,
   c: {
-    readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+    readonly channel: ConversationChannel;
     readonly counterpart: string;
     readonly counterpartDisplay: string;
   },
@@ -239,7 +261,9 @@ export function customerSinceLine(
       ? c.counterpart
       : c.channel === 'portal'
         ? (person.phone ?? 'Client portal')
-        : (person.phone ?? c.counterpartDisplay);
+        : isSocialChannel(c.channel)
+          ? (person.phone ?? SOCIAL_CHANNEL_NAMES[c.channel])
+          : (person.phone ?? c.counterpartDisplay);
   return `${contact} · Customer since ${new Date(person.customerSince).getFullYear()}`;
 }
 

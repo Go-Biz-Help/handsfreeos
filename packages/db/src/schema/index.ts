@@ -278,6 +278,9 @@ export const activityKind = app.enum('activity_kind', [
   'chat',
   /** A message in a customer's portal (Real Estate round two, 20261018001100). */
   'portal',
+  /** Facebook Messenger and Instagram direct messages (20261025000100). */
+  'messenger',
+  'instagram',
 ]);
 export const fileStatus = app.enum('file_status', ['pending', 'ready']);
 export const importKind = app.enum('import_kind', ['people', 'companies']);
@@ -704,8 +707,18 @@ export const registrationStatus = app.enum('registration_status', [
   'rejected',
   'failed',
 ]);
-/** `portal`: a customer's own portal (Real Estate round two, 20261018001100). */
-export const channel = app.enum('channel', ['sms', 'email', 'chat', 'portal']);
+/**
+ * `portal`: a customer's own portal (Real Estate round two, 20261018001100). `messenger` and `instagram`: direct
+ * messages to a Facebook Page or an Instagram professional account (20261025000100).
+ */
+export const channel = app.enum('channel', [
+  'sms',
+  'email',
+  'chat',
+  'portal',
+  'messenger',
+  'instagram',
+]);
 export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
 export const direction = app.enum('direction', ['inbound', 'outbound']);
 export const messageStatus = app.enum('message_status', [
@@ -929,6 +942,36 @@ export interface FailedAttempt {
   readonly errorCode: string | null;
   readonly errorMessage: string | null;
   readonly occurredAt: string;
+}
+
+/**
+ * Something a customer shared on Messenger or Instagram that isn't a file HandsFreeOS keeps (20261025000200): a post,
+ * a reel, a story that mentioned the business, a sticker, a location. `type` is Meta's (share, ig_reel,
+ * story_mention …). Meta's own links to these stop working after a while, so the thread says what it was.
+ */
+export interface SocialShared {
+  readonly type: string;
+  readonly url: string | null;
+  readonly title: string | null;
+}
+
+/** What Messenger and Instagram add to a message besides its words and files, on `messages.social`. */
+export interface SocialExtras {
+  readonly shared?: readonly SocialShared[];
+  /** The business wrote it in Facebook's or Instagram's own inbox rather than here. */
+  readonly elsewhere?: boolean;
+  /** What it answers: a message in the thread (by Meta's id), or one of the business's stories. */
+  readonly replyTo?: {
+    readonly mid: string | null;
+    readonly story: boolean;
+    readonly storyUrl: string | null;
+  };
+  /** A button they tapped (Get Started, an ice breaker), by what it said. */
+  readonly postback?: { readonly title: string | null };
+  /** Meta's type for each file it carried, as Meta named it (image, video, audio, file), before it was copied. */
+  readonly files?: readonly string[];
+  /** It came with an ad or a link: the attribution touch it made. */
+  readonly touchId?: string;
 }
 
 export const telephonyAccounts = app.table('telephony_accounts', {
@@ -1362,6 +1405,10 @@ export const conversations = app.table('conversations', {
   sealScope: text('seal_scope'),
   /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** Messenger and Instagram: the Page or Instagram account the thread is on, its line (20261025000200). */
+  metaAccountId: uuid('meta_account_id').references((): AnyPgColumn => metaAccounts.id, {
+    onDelete: 'set null',
+  }),
 });
 
 /** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
@@ -1464,6 +1511,20 @@ export const messages = app.table('messages', {
   /** Its thread's seals (round six): what a phone needs before it keeps a sealed message. Kept by a trigger. */
   sealScope: text('seal_scope'),
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /**
+   * Messenger and Instagram: every part a reply went out as (its photos, then its words), by Meta's ids. The first
+   * is also `providerMessageId`; a read receipt or an echo of any of them finds the message.
+   */
+  providerPartIds: text('provider_part_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  /** The customer changed what they wrote (Messenger, Instagram): the body is the newest words. */
+  editedAt: ts('edited_at'),
+  /** The customer took it back: nothing of what it said is kept, only that there was a message. */
+  unsentAt: ts('unsent_at'),
+  /** Messenger and Instagram: what they shared, what it answers, and where the business wrote it. */
+  social: jsonb('social').$type<SocialExtras>().notNull().default({}),
 });
 
 export const calls = app.table('calls', {
@@ -4844,7 +4905,16 @@ export const migrationTombstones = app.table('migration_tombstones', {
 });
 
 // ---------- Milestone 14: lead intake (0072) ----------
-export const intakeKind = app.enum('intake_kind', ['text', 'call', 'email', 'website_form', 'api']);
+export const intakeKind = app.enum('intake_kind', [
+  'text',
+  'call',
+  'email',
+  'website_form',
+  'api',
+  /** A stranger writing to the business's Facebook Page or Instagram account (20261025000100). */
+  'messenger',
+  'instagram',
+]);
 
 /**
  * One row per way a lead arrives. A channel a business never touched has no row and takes the defaults
@@ -5790,6 +5860,176 @@ export const reviews = app.table('reviews', {
   replyPostedAt: ts('reply_posted_at'),
   replyBy: userRef('reply_by'),
   ...timestamps(),
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Facebook Messenger and Instagram direct messages, and the ads that brought people to them (20261025000200).
+
+export type MetaPlatform = 'facebook' | 'instagram';
+
+/** A Facebook sign-in a business made to connect its Pages and Instagram accounts. The token is the worker's alone. */
+export const metaConnections = app.table('meta_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  status: text('status')
+    .$type<'pending' | 'connected' | 'needs_attention' | 'disconnected'>()
+    .notNull()
+    .default('pending'),
+  facebookUserId: text('facebook_user_id'),
+  facebookUserName: text('facebook_user_name'),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  /** Null for a token Facebook says never expires. */
+  tokenExpiresAt: ts('token_expires_at'),
+  lastCheckedAt: ts('last_checked_at'),
+  lastError: text('last_error'),
+  /** person, revoked, failed, replaced. */
+  disconnectedReason: text('disconnected_reason'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** A Facebook Page or Instagram professional account whose direct messages the business answers. */
+export const metaAccounts = app.table('meta_accounts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  connectionId: uuid('connection_id').references(() => metaConnections.id, {
+    onDelete: 'set null',
+  }),
+  platform: text('platform').$type<MetaPlatform>().notNull(),
+  /** The Page's id, or the Instagram account's: what Meta's webhooks name. */
+  externalId: text('external_id').notNull(),
+  /** The Page itself, or the one an Instagram account is linked to: replies go out through it. */
+  pageId: text('page_id').notNull(),
+  name: text('name').notNull(),
+  username: text('username'),
+  status: text('status')
+    .$type<'active' | 'needs_attention' | 'disconnected'>()
+    .notNull()
+    .default('active'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  /** Meta approved the Human Agent tag: a person may answer for seven days after the customer last wrote. */
+  humanAgent: boolean('human_agent').notNull().default(false),
+  subscribedAt: ts('subscribed_at'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  /** reauth, revoked, failed: why it needs somebody. Set exactly while it needs attention. */
+  problem: text('problem').$type<'reauth' | 'revoked' | 'failed'>(),
+  /** person, revoked, failed, moved. */
+  disconnectedReason: text('disconnected_reason'),
+  connectedAt: ts('connected_at').notNull().defaultNow(),
+  disconnectedAt: ts('disconnected_at'),
+  connectedBy: userRef('connected_by'),
+  ...timestamps(),
+});
+
+/** Somebody who wrote to a Page or Instagram account, by the id Meta gives them for it, and their thread. */
+export const metaContacts = app.table('meta_contacts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id')
+    .notNull()
+    .references(() => metaAccounts.id, { onDelete: 'cascade' }),
+  platform: text('platform').$type<MetaPlatform>().notNull(),
+  /** Their page-scoped (Messenger) or Instagram-scoped id. */
+  scopedId: text('scoped_id').notNull(),
+  name: text('name'),
+  username: text('username'),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  profileCheckedAt: ts('profile_checked_at'),
+  ...timestamps(),
+});
+
+export type AdStatus = 'pending' | 'resolved' | 'no_access' | 'not_found' | 'failed';
+
+/** An ad, as its network describes it: campaign, ad set and creative. Looked up once per ad per business. */
+export const ads = app.table('ads', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  network: text('network').$type<'meta'>().notNull().default('meta'),
+  /** The ad's id, as the network names it. */
+  externalId: text('external_id').notNull(),
+  name: text('name'),
+  adAccountId: text('ad_account_id'),
+  adsetId: text('adset_id'),
+  adsetName: text('adset_name'),
+  campaignId: text('campaign_id'),
+  campaignName: text('campaign_name'),
+  campaignObjective: text('campaign_objective'),
+  creativeId: text('creative_id'),
+  creativeName: text('creative_name'),
+  creativeTitle: text('creative_title'),
+  creativeBody: text('creative_body'),
+  creativeThumbnailUrl: text('creative_thumbnail_url'),
+  creativeLink: text('creative_link'),
+  callToAction: text('call_to_action'),
+  effectiveStatus: text('effective_status'),
+  platforms: text('platforms')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  status: text('status').$type<AdStatus>().notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  nextResolveAt: ts('next_resolve_at'),
+  resolvedAt: ts('resolved_at'),
+  lastError: text('last_error'),
+  details: jsonb('details').$type<Json>().notNull().default({}),
+  ...timestamps(),
+});
+
+/**
+ * Each time somebody reached the business from an ad or a link, as it came. Never edited and never folded into the
+ * customer's source: first-touch, last-touch and assisted credit are orderings of these.
+ */
+export const attributionTouches = app.table('attribution_touches', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  network: text('network').$type<'meta'>().notNull().default('meta'),
+  platform: text('platform').$type<MetaPlatform>().notNull(),
+  channel: channel('channel').notNull(),
+  touchedAt: ts('touched_at').notNull(),
+  /** started: it opened the conversation; returned: somebody already talking came back through it. */
+  kind: text('kind').$type<'started' | 'returned'>().notNull(),
+  /** The customer as they are now: follows their conversation through links and merges. */
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  metaAccountId: uuid('meta_account_id').references(() => metaAccounts.id, {
+    onDelete: 'set null',
+  }),
+  metaContactId: uuid('meta_contact_id').references(() => metaContacts.id, {
+    onDelete: 'set null',
+  }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  /** The lead that was open, or opened, when it came. */
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  /** ADS, SHORTLINK and the rest, as Meta says it. */
+  source: text('source'),
+  referralType: text('referral_type'),
+  ref: text('ref'),
+  adId: text('ad_id'),
+  adTitle: text('ad_title'),
+  adPhotoUrl: text('ad_photo_url'),
+  adVideoUrl: text('ad_video_url'),
+  postId: text('post_id'),
+  productId: text('product_id'),
+  refererUri: text('referer_uri'),
+  adRefId: uuid('ad_ref_id').references(() => ads.id, { onDelete: 'set null' }),
+  raw: jsonb('raw').$type<Json>().notNull().default({}),
+  dedupeKey: text('dedupe_key').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /** A text has no subject line and an email does; everything else about the wording is the same. */
@@ -6800,6 +7040,11 @@ export const tables = {
   workspacePlans,
   reviewConnections,
   reviews,
+  metaConnections,
+  metaAccounts,
+  metaContacts,
+  ads,
+  attributionTouches,
   messageTemplates,
   forms,
   formVersions,

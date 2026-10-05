@@ -43,7 +43,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
         .describe('Ignored for the archived box, which lists them all'),
       query: z.string().trim().max(100).optional().describe('A name, number, email or words'),
       personId: uuid.optional().describe('Only this customer’s, open, snoozed or closed'),
-      channel: z.enum(['sms', 'email', 'chat', 'portal']).optional(),
+      channel: z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']).optional(),
       limit: z.int().min(1).max(20).default(10),
     }),
     autonomy: 'auto',

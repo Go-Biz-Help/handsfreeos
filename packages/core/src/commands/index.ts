@@ -357,6 +357,7 @@ import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
 import { aiCallCommands } from './ai-call';
+import { socialCommands } from './social';
 import { paymentConnectionCommands } from './payment-connection';
 import { campaignCommands } from './campaign';
 import { contactAiCommands } from './contact-ai';
@@ -999,6 +1000,8 @@ export const commands: readonly CommandDef[] = [
   ...rcsCommands,
   ...rcsRequestCommands,
   ...textingFeeCommands,
+  // Facebook Messenger and Instagram: the Pages and accounts, their messages, and the ads that start them (20261025000100).
+  ...socialCommands,
   // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
   addonInstall,
   addonEnable,
@@ -1043,6 +1046,7 @@ export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-onlin
 export * from './calendar-connection';
 export * from './number-import';
 export * from './twilio-connection';
+export * from './social';
 export * from './telephony-account';
 export * from './reminder';
 export * from './waitlist-offer';

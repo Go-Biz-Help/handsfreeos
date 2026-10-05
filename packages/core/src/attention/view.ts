@@ -7,6 +7,7 @@
 import { localDateOf, startOfLocalDay } from '../calendar/engine/zoned';
 import { holds, type Grants, type WorkspaceRole } from '../permissions';
 import type { AttentionItemOut, AttentionListOutput } from '../schemas/attention';
+import type { ConversationChannel } from '../schemas/conversation';
 import { chipText } from './chips';
 import {
   ATTENTION_HANDLE_LABELS,
@@ -158,7 +159,7 @@ export function scorableOf(row: AttentionRow): Scorable & { id: string } {
 export interface ItemHints {
   readonly appointmentId: string | null;
   readonly startsAt: string | null;
-  readonly reach: 'sms' | 'email' | 'chat' | 'portal' | null;
+  readonly reach: ConversationChannel | null;
   /** There's a number to ring and the business is open: a money card offers the call first. */
   readonly callable: boolean;
   /** An add-on's alert: from its row on the server, and on a phone from its card (`addonAlertOfSynced`). */

@@ -16,8 +16,10 @@ import { userNames } from '../calendar/load';
 import { formatPhone } from '../crm/phone';
 import { activeSuppression, workspaceAddresses } from '../messaging/email';
 import { quietHoursState, type QuietHoursWindow } from '../messaging/quiet-hours';
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES } from '../messaging/social';
 import { isOptedOut, defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import type { AttentionAskOptionOut, AttentionAutoPlanOut } from '../schemas/attention';
+import type { ConversationChannel } from '../schemas/conversation';
 import { LIVE_RUN_STATUSES } from '../schemas/workflow';
 import { chipsOf } from './items';
 import {
@@ -542,7 +544,7 @@ export async function planAutoAction(
 
 export type HandleConversation = {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly handledBy: 'none' | 'ai' | 'person';
   /** The number, address or chat visitor it's with. */
   readonly counterpart: string;
@@ -740,11 +742,13 @@ export async function askOptions(
         : // A client's portal is for their people: the AI teammate never answers it.
           conv.channel === 'portal'
           ? `${teammate.name} doesn’t answer messages in a client’s portal. Reply yourself.`
-          : !teammateConfigOf(teammate).channels[conv.channel]
-            ? `${teammate.name} doesn’t answer ${channelWords[conv.channel]}.`
-            : conv.handledBy === 'ai'
-              ? `${teammate.name} is already answering them.`
-              : null;
+          : isSocialChannel(conv.channel)
+            ? `${teammate.name} doesn’t answer ${SOCIAL_CHANNEL_NAMES[conv.channel]} messages yet. Reply yourself.`
+            : !teammateConfigOf(teammate).channels[conv.channel]
+              ? `${teammate.name} doesn’t answer ${channelWords[conv.channel]}.`
+              : conv.handledBy === 'ai'
+                ? `${teammate.name} is already answering them.`
+                : null;
   const [person] = item.personId
     ? await rows<{
         phone: string | null;
@@ -792,7 +796,9 @@ export async function askOptions(
             ? 'Reply in chat'
             : channel === 'portal'
               ? 'Reply in their portal'
-              : 'Text them',
+              : isSocialChannel(channel)
+                ? `Reply on ${SOCIAL_CHANNEL_NAMES[channel]}`
+                : 'Text them',
       available: replyWhy === null,
       reason: replyWhy === null ? null : capital(replyWhy),
       channel,

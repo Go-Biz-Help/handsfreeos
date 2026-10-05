@@ -63,6 +63,7 @@ const HEALTH_TARGETS: Readonly<Record<string, AttentionTarget>> = {
   mailbox: { href: '/settings/email', label: 'Open email settings' },
   review_connection: { href: '/reviews', label: 'Open reviews' },
   phone_number: { href: '/settings/texting', label: 'Open phone settings' },
+  meta_account: { href: '/settings/facebook-instagram', label: 'Open Facebook & Instagram' },
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -941,9 +942,13 @@ export function letHandleChannelVerb(channel: string | null | undefined, first: 
       ? `Answers ${first} in the chat now`
       : channel === 'portal'
         ? `Answers ${first} in their portal now`
-        : channel === 'sms'
-          ? `Texts ${first} now`
-          : `Writes to ${first} now`;
+        : channel === 'messenger'
+          ? `Answers ${first} on Messenger now`
+          : channel === 'instagram'
+            ? `Answers ${first} on Instagram now`
+            : channel === 'sms'
+              ? `Texts ${first} now`
+              : `Writes to ${first} now`;
 }
 
 /** What handing a customer to the AI teammate does, as the sheet lists it. */
@@ -1004,7 +1009,11 @@ export const letHandleReplyBy = (channel: string | null | undefined): string =>
       ? 'In the website chat'
       : channel === 'portal'
         ? 'In their portal'
-        : 'By text';
+        : channel === 'messenger'
+          ? 'On Messenger'
+          : channel === 'instagram'
+            ? 'On Instagram'
+            : 'By text';
 
 /** What HandsFreeOS did when the person pressed its button, for the toast. */
 export function letHandleAutoToast(o: {

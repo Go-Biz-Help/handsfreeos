@@ -248,6 +248,8 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
   email: 'email',
   chat: 'website chat',
   portal: 'portal message',
+  messenger: 'Messenger message',
+  instagram: 'Instagram message',
 };
 
 /** "asks to send … a bill": what each money request asks an owner for, before the customer's name. */

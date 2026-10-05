@@ -3,6 +3,7 @@
  * two), what a row says (who, the latest message, when) and the chips under it (waiting, the teammate, a new number,
  * snoozed, closed), and what an empty list says. Browser-safe.
  */
+import type { ConversationChannel } from '../schemas/conversation';
 import { minutesWaiting, waitingFor, zonedWhen } from './time';
 
 /** Every inbox box, the teammate's two and the email folders included. */
@@ -67,7 +68,7 @@ export const firstName = (full: string): string => full.trim().split(/\s+/)[0] |
 
 /** What a row needs to know about its conversation. */
 export interface RowFacts {
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly counterpartDisplay: string;
   readonly status: ConversationStatus;
   readonly person: { readonly id: string; readonly fullName: string } | null;
@@ -84,7 +85,7 @@ export interface RowFacts {
   readonly needsPersonSince: string | null;
   readonly onSiteNow: boolean;
   /** The customer's lanes, so a row can say they also write to another of the business's lines (0089). */
-  readonly lanes?: readonly { readonly channel: 'sms' | 'email' | 'chat' | 'portal' }[];
+  readonly lanes?: readonly { readonly channel: ConversationChannel }[];
   /** A customer this unlinked row looks like, offered rather than merged (0089). */
   readonly sameAs?: { readonly fullName: string } | null;
   /** Someone's own mail (M19): never a customer while it's theirs, so nothing offers to make it one. */
@@ -187,7 +188,14 @@ export function conversationChips(
   if (!c.person && c.channel !== 'chat' && c.channel !== 'portal' && !c.private) {
     // Offered, never taken: one click links them, and until somebody clicks, the row stays what it is.
     if (c.sameAs) chips.push({ kind: 'same_as', label: `Same as ${c.sameAs.fullName}?` });
-    else chips.push({ kind: 'new_number', label: 'New number' });
+    else
+      chips.push({
+        kind: 'new_number',
+        label:
+          c.channel === 'messenger' || c.channel === 'instagram'
+            ? `New on ${channelWord(c.channel)}`
+            : 'New number',
+      });
   }
   if (c.status === 'snoozed' && c.snoozedUntil)
     chips.push({
@@ -199,14 +207,18 @@ export function conversationChips(
 }
 
 /** What a channel is called on a chip, and on the phone's row of a client's portal thread ("Portal"). */
-export const channelWord = (channel: 'sms' | 'email' | 'chat' | 'portal'): string =>
+export const channelWord = (channel: ConversationChannel): string =>
   channel === 'sms'
     ? 'Text'
     : channel === 'email'
       ? 'Email'
       : channel === 'portal'
         ? 'Portal'
-        : 'Chat';
+        : channel === 'messenger'
+          ? 'Messenger'
+          : channel === 'instagram'
+            ? 'Instagram'
+            : 'Chat';
 
 /** "Assigned to Marco Diaz", for the assignee's avatar on a row. */
 export const assignedToLabel = (fullName: string): string => `Assigned to ${fullName}`;

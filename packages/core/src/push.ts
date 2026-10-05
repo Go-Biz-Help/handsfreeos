@@ -242,7 +242,7 @@ export const PUSH_DATA_VERSION = 1;
 export const PushRefs = z.object({
   conversationId: z.uuid().optional(),
   /** The conversation's channel: Reply sends on it. */
-  channel: z.enum(['sms', 'email', 'chat']).optional(),
+  channel: z.enum(['sms', 'email', 'chat', 'messenger', 'instagram']).optional(),
   /** The customer's message a push about a new message is for. */
   messageId: z.uuid().optional(),
   personId: z.uuid().optional(),
