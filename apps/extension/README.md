@@ -28,8 +28,9 @@ its **See all** pages are read the same way.
 
 Facebook draws some pages two ways, and both are read. Since 2026 a profile can have its name, bio and details at the
 top instead of an Intro card, a group's People tab has a row of faces above its tabs (left out: the lists below say
-who each person is), an open chat repeats each message after it for screen readers (read once), and posts in the
-News Feed aren't articles while their comments are (comments are never read as posts).
+who each person is), an open chat repeats each message at the end of it for screen readers, saying who sent it
+(read once, and used to tell whose it is), and posts in the News Feed aren't articles while their comments are
+(comments are never read as posts).
 
 ## Load it in Chrome
 
@@ -57,6 +58,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   headings and Facebook's own words (`src/facebook/vocabulary.ts`), in English for now.
 - **Found by its link.** A person, group or chat is found by the link to it, and read from the largest box around that
   link that holds no link to anything else of the same sort (`collectLinked` in `src/facebook/dom.ts`).
+- **Page order, not the boxes around things.** An outline leaves out the bare boxes Facebook wraps around everything,
+  so a reader never counts on what sits directly inside or beside an element: it goes by what comes before or after
+  it on the page (`isBefore`, `elementsAfter`). `test/boxes.test.ts` reads every test page again with a bare box around
+  each element and expects the same.
 - **Reading only, and only when asked.** The content script answers the panel and nothing else: it reads when the
   panel asks, and while the panel watches its tab it says when the page has changed, so the panel can ask again. It
   never writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions: you press

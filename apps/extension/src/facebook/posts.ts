@@ -19,6 +19,8 @@ const POST_END =
 const COMMENT = /^(comment|reply) by\b/i;
 /** A count on its own, as 2026 posts show them on their buttons: "6", "1.2K". */
 const COUNT = /^[\d.,]+\s*[km]?$/i;
+/** The Like button: "Like", or "Remove Like" (or Love, Haha…) once you've reacted. */
+const LIKE = /^(like|remove (like|love|care|haha|wow|sad|angry))$/i;
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
 
@@ -88,26 +90,24 @@ function firstCount(lines: readonly string[], pattern: RegExp): number | null {
 
 /**
  * The counts on a post's own buttons, as Facebook shows them since 2026 ("👍 2  💬 6"): the number on "Leave a
- * comment" is how many comments it has, and the last number on a button before it, the Like button's, how many
- * reacted. A comment's buttons don't count.
+ * comment" is how many comments it has, and the number on the Like button before it how many reacted. A comment's
+ * buttons don't count.
  */
 function buttonCounts(
   post: Element,
   inComment: (element: Element) => boolean,
 ): { readonly comments: number | null; readonly reactions: number | null } {
   const buttons = [...post.querySelectorAll('[role="button"]')].filter((e) => !inComment(e));
-  const comment = buttons.find((e) =>
-    /^leave a comment$/i.test(clean(e.getAttribute('aria-label'))),
-  );
-  if (!comment?.parentElement) return { comments: null, reactions: null };
-  const number = (e: Element) => {
-    const text = clean(e.textContent);
+  const label = (e: Element) => clean(e.getAttribute('aria-label'));
+  const number = (e: Element | undefined) => {
+    const text = clean(e?.textContent);
     return COUNT.test(text) ? parseCount(text) : null;
   };
-  const bar = comment.parentElement;
-  const before = buttons.filter((e) => bar.contains(e) && isBefore(e, comment));
-  const reactions = before.map(number).filter((count) => count !== null);
-  return { comments: number(comment), reactions: reactions[reactions.length - 1] ?? null };
+  const comment = buttons.find((e) => /^leave a comment$/i.test(label(e)));
+  const like = buttons
+    .filter((e) => LIKE.test(label(e)) && (!comment || isBefore(e, comment)))
+    .pop();
+  return { comments: number(comment), reactions: number(like) };
 }
 
 /**

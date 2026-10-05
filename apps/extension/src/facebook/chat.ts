@@ -2,8 +2,8 @@
  * An open chat (facebook.com/messages/t/…): who it's with, and its messages, oldest first, as far as the page has
  * loaded them. Each message is a row of the conversation, or since 2026 an article. Who wrote it comes from, in order:
  *
- * 1. what the page says for screen readers: "You sent", "Jane replied to you", a sender's name above it, or the line
- *    after it that repeats it with when and by whom it was sent ("Enter, sent Wed 11:02 AM, You: …");
+ * 1. what the page says for screen readers: "You sent", "Jane replied to you", a sender's name above it, or the
+ *    button at the end of it that repeats it with when and by whom it was sent ("Enter, sent Wed 11:02 AM, You: …");
  * 2. the sender's picture beside it: Facebook shows theirs, never yours;
  * 3. the side of the conversation it sits on: yours are against the right edge, theirs against the left;
  * 4. the message before it, when nothing in between says otherwise: Facebook labels a run of messages once.
@@ -14,6 +14,7 @@
 import {
   clean,
   closestWithin,
+  elementsAfter,
   elementsIn,
   isBefore,
   namesOn,
@@ -98,22 +99,24 @@ function pictureIn(row: Element, message: Element): string | null {
 }
 
 /**
- * Who the button after a message says sent it. Facebook repeats each message there for screen readers, with when and
- * by whom it was sent: "Enter, sent Wed 11:02 AM, You: We still on?", where "You" is a piece of text of its own, or
- * "Enter, sent Wed 11:55 AM, Jane: Sounds good" for theirs. Only a button that repeats the message counts.
+ * Who the button at the end of a message says sent it. Facebook repeats each message there for screen readers, with
+ * when and by whom it was sent: "Enter, sent Wed 11:02 AM, You: We still on?", where "You" is a piece of text of its
+ * own, or "Enter, sent Wed 11:55 AM, Jane: Sounds good" for theirs. Only a button after the message and before the
+ * next one counts, and only one that says more than the message: a reaction to "❤" is a "❤" too.
  */
 function repeatedBy(
-  row: Element,
+  message: Element,
   text: string,
+  conversation: Element,
   isRow: ReadonlySet<Element>,
 ): ChatMessage['from'] | null {
-  const next = row.nextElementSibling;
-  if (!next || isRow.has(next) || [...elementsIn(next)].some((element) => isRow.has(element)))
-    return null;
   const start = text.split('\n')[0]!.slice(0, 40);
-  for (const button of outermost(next, '[role="button"]')) {
-    if (!textWithEmoji(button).includes(start)) continue;
-    return textPieces(button).includes('You') ? 'me' : 'them';
+  for (const element of elementsAfter(message, conversation)) {
+    if (isRow.has(element)) break;
+    if (element.getAttribute('role') !== 'button') continue;
+    const repeat = textWithEmoji(element);
+    if (repeat.length > start.length && repeat.includes(start))
+      return textPieces(element).includes('You') ? 'me' : 'them';
   }
   return null;
 }
@@ -227,7 +230,8 @@ export function readChat(
       else continue;
       break;
     }
-    if (from === 'unknown') from = repeatedBy(row, message.text, isRow) ?? 'unknown';
+    if (from === 'unknown')
+      from = repeatedBy(message.element, message.text, conversation, isRow) ?? 'unknown';
     if (from !== 'me' && !sender) {
       const pictured = pictureIn(row, message.element);
       if (pictured) [from, sender] = ['them', pictured];

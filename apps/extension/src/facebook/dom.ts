@@ -66,6 +66,21 @@ export function* elementsIn(root: Node): Generator<Element> {
   for (let node = walker.nextNode(); node; node = walker.nextNode()) yield node as Element;
 }
 
+/**
+ * The elements after `element` under `root`, in page order, leaving out what's inside it. However many boxes Facebook
+ * wraps around each thing, what comes next on the page comes next here.
+ */
+export function* elementsAfter(element: Element, root: Element): Generator<Element> {
+  const walker = documentOf(root).createTreeWalker(root, SHOW_ELEMENT);
+  for (let e: Element | null = element; e && e !== root; e = e.parentElement) {
+    walker.currentNode = e;
+    const next = walker.nextSibling();
+    if (!next) continue;
+    for (let node: Node | null = next; node; node = walker.nextNode()) yield node as Element;
+    return;
+  }
+}
+
 export function isHeading(element: Element): boolean {
   return /^H[1-6]$/.test(element.tagName) || element.getAttribute('role') === 'heading';
 }
