@@ -72,9 +72,9 @@ create trigger ai_teammate_drafts_check_record before insert or update of custom
   on app.ai_teammate_drafts for each row execute function private.check_ai_draft_record();
 
 -- 20261012020100's, and an ask is decided by somebody who works the inbox, may see its thread, and may see its
--- record: a deal kept to its people is decided by one of them (or someone who sees every one).
-drop policy if exists ai_teammate_drafts_update on app.ai_teammate_drafts;
-create policy ai_teammate_drafts_update on app.ai_teammate_drafts for update to authenticated
+-- record: a deal kept to its people is decided by one of them (or someone who sees every one). Altered in place, so
+-- the policy is never missing for a moment.
+alter policy ai_teammate_drafts_update on app.ai_teammate_drafts
   using (status = 'pending'
     and private.has_permission(workspace_id, case when kind in ('reply', 'call', 'ask') then 'inbox.use' else 'ai_team.manage' end)
     and (not private.inbox_narrowed(workspace_id) or member_viewer_ids @> array[(select auth.uid())])
