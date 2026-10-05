@@ -10,7 +10,7 @@ import type { Logger } from 'pino';
 import type { WorkerEnv } from '../env';
 import type { Mailer } from '../mailer';
 import type { WorkerServices } from '../services';
-import { scriptedAi } from './scripted';
+import { scriptedAi, type TeammateRule } from './scripted';
 import { AiSwitchboard } from './switch';
 
 type AiEnv = Pick<
@@ -68,12 +68,14 @@ export function claudeWithBackup(
 export function createAi(
   env: AiEnv & Pick<WorkerEnv, 'openAiModel'>,
   aiSwitch: AiSwitchboard | null = null,
+  /** Add-ons' own lines for the stand-in's teammate (their modules' `scriptedTeammate`), tried before core's. */
+  scriptedTeammate: readonly TeammateRule[] = [],
 ): WorkerServices['ai'] {
   const provider =
     env.assistantProvider === 'anthropic' && env.anthropicApiKey
       ? claudeWithBackup(env, aiSwitch, { model: env.aiModel }, { model: env.openAiModel })
       : env.assistantProvider === 'scripted'
-        ? scriptedAi()
+        ? scriptedAi([], { teammate: scriptedTeammate })
         : null;
   return { provider, dailyTokens: env.assistantDailyTokens };
 }

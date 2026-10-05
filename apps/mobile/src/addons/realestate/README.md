@@ -35,6 +35,9 @@ no signal. The boards are `design/realestate/Phone*.dc.html` (76–93).
   "open with signal"): `src/sync/document-keeper.ts` downloads them on Wi‑Fi into the person's encrypted kept files,
   and the document sheet opens one with no signal (`openKeptDocument`, Quick Look on iPhone, the phone's viewer on
   Android). A replaced or void version is kept only when pinned (Keep on this phone).
+- **A listing's lockboxes** (round seven, board 98) aren't in the phone's copy: Showings asks for them with signal
+  (`lockboxes.tsx`, `realestate.lockbox.list`), and they never carry the code. Don't add a way to show it here;
+  the code goes to the confirmed agent by itself, and only the web shows it again.
 
 ## Writing
 

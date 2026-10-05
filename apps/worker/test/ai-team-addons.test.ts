@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ADDON_SERVER_MODULES,
   aiTeammateDecideDraft,
+  aiTeammateDraftList,
   executeCommand,
   executeQuery,
   HfosError,
@@ -21,6 +22,7 @@ import { createTestUser, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { installRealestate } from '../../../packages/core/test/addons/realestate-fixture';
 import { scriptedAi, type TeammateRule } from '../src/ai/scripted';
+import { REALESTATE_SCRIPTED_TEAMMATE } from '../src/addons/realestate/scripted';
 import {
   admin,
   aiReplies,
@@ -80,41 +82,8 @@ const RULES: TeammateRule[] = [
         ? { calls: [{ name: 'realestate_my_deal', arguments: { dealId: eliDeal } }] }
         : { calls: [{ name: 'reply', arguments: { message: 'I can only see your own deal.' } }] },
   },
-  {
-    when: /add 412 oak/i,
-    step: (t) => {
-      if (!t.results['realestate_my_deals'])
-        return { calls: [{ name: 'realestate_my_deals', arguments: {} }] };
-      if (!t.results['realestate_ask_add_home'])
-        return {
-          calls: [
-            {
-              name: 'realestate_ask_add_home',
-              arguments: {
-                dealId: dealsOf(t)[0]!.dealId,
-                address: '412 Oak St',
-                askSummary: 'Add 412 Oak St to Dana’s homes',
-                messageOnceDone: '412 Oak St is on your list now.',
-              },
-            },
-          ],
-        };
-      return {
-        calls: [{ name: 'reply', arguments: { message: 'I’ve asked your agent to add it.' } }],
-      };
-    },
-  },
-  {
-    when: /what.s the area like/i,
-    step: () => ({
-      calls: [
-        {
-          name: 'reply',
-          arguments: { message: 'It’s a quiet street, and the area has good schools.' },
-        },
-      ],
-    }),
-  },
+  // Real Estate's own lines for the stand-in: asking to add a home, and a reply the fair housing checks hold.
+  ...REALESTATE_SCRIPTED_TEAMMATE,
 ];
 
 beforeAll(async () => {
@@ -229,6 +198,29 @@ describe('asks', () => {
     expect(err).toBeInstanceOf(HfosError);
     expect((err as HfosError).rule).toBe('not_on_record');
     expect(await homesOn(danaDeal)).toEqual([]);
+    // The Inbox and Approvals list it for both, but only someone on the deal sees its name and may decide it.
+    const listed = (actor: HumanActor) =>
+      executeQuery(
+        api(),
+        aiTeammateDraftList,
+        { workspaceId: w.workspaceId, status: 'pending', kind: 'ask' },
+        actor,
+        meta(),
+      ).then((r) => r.items.find((d) => d.id === draftId)!);
+    expect(await listed(ownerOf(w))).toMatchObject({
+      kind: 'ask',
+      canDecide: true,
+      record: { id: danaDeal, name: 'Dana’s home search' },
+      preview: { ask: { summary: 'Add 412 Oak St to Dana’s homes' } },
+    });
+    expect(
+      await listed({
+        type: 'human',
+        userId: member.id,
+        email: member.email,
+        claims: member.claims,
+      }),
+    ).toMatchObject({ kind: 'ask', canDecide: false, record: { id: danaDeal, name: null } });
   });
 
   it('run as the person who approves, then the client hears it’s done', async () => {

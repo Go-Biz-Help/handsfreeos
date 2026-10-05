@@ -192,7 +192,11 @@ export function LockboxesCard({
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setEditing(l)}
+                              onClick={() => {
+                                // A code shown before may be about to change: it's hidden again first.
+                                hide(l.id);
+                                setEditing(l);
+                              }}
                               data-testid="lockbox-edit"
                             >
                               {LOCKBOX_WORDS.edit}

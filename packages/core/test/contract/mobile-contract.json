@@ -9316,6 +9316,22 @@
         "required": ["workspaceId", "dealId"]
       }
     },
+    "realestate.lockbox.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
     "realestate.matches": {
       "input": {
         "type": "object",

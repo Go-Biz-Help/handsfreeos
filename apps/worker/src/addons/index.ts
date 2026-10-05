@@ -108,6 +108,15 @@ export function addonWorkerModuleIssues(
       issues.push(`${m.id} checks the teammate's replies but has nothing to check them with`);
     if (rest.checkTeammateReply && !m.teammate?.checksReplies)
       issues.push(`${m.id} can check the teammate's replies but its manifest doesn't say so`);
+    // The stand-in's lines reach only its own teammate tools.
+    const teammateTools = new Set(
+      [...(m.teammate?.lookups ?? []), ...(m.teammate?.asks ?? [])].map((t) => t.tool),
+    );
+    for (const line of rest.scriptedTeammate ?? [])
+      if (line.tool && !teammateTools.has(line.tool))
+        issues.push(
+          `${m.id}'s stand-in line waits for ${line.tool}, which isn't one of its teammate tools`,
+        );
     // Every service a business connects by key has a tester, and nothing else does.
     for (const c of m.connectors ?? [])
       for (const p of c.providers)

@@ -136,6 +136,8 @@ const QUERIES = [
   'realestate.listing.marketing',
   'realestate.open_houses',
   'realestate.showing.list',
+  // A listing's lockboxes and who opened them, never their codes (round seven).
+  'realestate.lockbox.list',
   'realestate.duty.vendors',
   // A signed document's fingerprint, checked once the phone has downloaded it to keep (round seven).
   'file.fingerprints',

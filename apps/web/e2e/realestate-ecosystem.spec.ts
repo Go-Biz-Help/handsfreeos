@@ -224,7 +224,9 @@ test('connections, the MLS, e-sign, showings and vendors', async ({ page, browse
   await expect(page.getByTestId('showings-open')).toHaveAttribute('aria-checked', 'true');
   await page.getByLabel('Access instructions').fill('Lockbox on the back door, code 4417.');
   await page.getByTestId('showings-save').click();
-  await expect(page.getByTestId('showings-how')).toContainText('Sent 1 hour before');
+  await expect(page.getByTestId('showings-how')).toContainText(
+    'Sent to the confirmed agent 1 hour before',
+  );
   const { requestPath } = await ask<{ requestPath: string }>('realestate.showing.list', {
     dealId: listingId,
   });

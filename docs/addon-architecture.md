@@ -233,6 +233,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     stand-in, and nothing leaves the worker; HandsFreeOS's own account works there without a key.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
+- **Its lines for the scripted model** (round seven): a worker module's `scriptedTeammate` lists how a customer's
+  words reach its teammate tools when the worker runs the scripted stand-in (`ASSISTANT_PROVIDER=scripted`: local
+  development and the browser suite, never production). `main.ts` hands them to the stand-in, before core's; a line
+  with `tool` is tried only when the run offers that tool, which must be one of the add-on's teammate tools.
 - **Connecting by sign-in** (Real Estate round five, step 7): a service with `oauth` in its provider's `auth` is
   connected by signing in to it. The add-on's worker half says how (`oauth[key][service]`: `authorizeUrl`,
   `exchange`, `refresh`; apps/worker/src/addons/sign-ins.ts), and HandsFreeOS's app at the service (its client ID and

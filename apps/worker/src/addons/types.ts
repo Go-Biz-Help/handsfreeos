@@ -7,6 +7,7 @@
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
 import type { FastifyInstance } from 'fastify';
 import type { z } from 'zod';
+import type { TeammateRule } from '../ai/scripted';
 import type { HttpDeps } from '../http/common';
 import type { ConnectionTester } from './connections';
 import type { AddonOAuthProvider } from './sign-ins';
@@ -125,6 +126,11 @@ export interface AddonWorkerModule {
    * providers, never in production.
    */
   readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
+  /**
+   * Its lines for the scripted stand-in model's teammate (ASSISTANT_PROVIDER=scripted: local development and the
+   * browser suite, never production), tried before core's: how a customer's words reach its teammate tools.
+   */
+  readonly scriptedTeammate?: readonly TeammateRule[];
 }
 
 /** The AI teammate's reply an add-on checks (round seven). */

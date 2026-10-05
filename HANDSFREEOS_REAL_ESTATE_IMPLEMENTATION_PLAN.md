@@ -2299,6 +2299,11 @@ Round seven's migrations follow round six's, above `20261022001300`. Boards come
   lockboxes and who opened them, adding one, the teammate's Real Estate switch, an ask and a held reply in the Inbox,
   those on the phone, and steps 1–2's phone screens as built.
 - **Step 8:** tests, phone flows, the browser test, the docs and a video.
+  - As built (steps 7–8): the web's Lockboxes card on Showings and Lockbox emails under Connections; the teammate's
+    Add-ons module; an ask and a held reply on the Inbox's draft card, in Approvals and on the phone (its thread,
+    Approvals and Home). The phone's Showings lists lockboxes and openings while there's signal, never the code. The
+    browser test (`realestate-r7.spec.ts`) drives a real ask and a held reply through the worker's scripted model,
+    which an add-on now gives its own lines (`scriptedTeammate`).
 
 To check with Chris before the lockbox step ships: one real "lockbox opened" email from SentriLock and one from Supra,
 since their wording isn't published.

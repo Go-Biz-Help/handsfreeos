@@ -132,6 +132,17 @@ The core pieces it needed are core's, usable by any add-on: private records and 
 - **Round six: the web.** Deal settings → **Keeping records** (`?tab=records`: years closed deals are kept, and legal
   holds lifted with a reason); a deal's More → **Place a legal hold…** and its banner, and **Export the whole
   transaction…** with **Exports** on Documents; the deal page's **field notes** and **walkthrough**, read-only.
+- **Round seven: lockboxes.** A listing's **Showings** page has a **Lockboxes** card: each one's kind, where it is,
+  its serial and Kept locked; Add a lockbox, Change, Remove, and Show code (the worker's, for someone on the
+  listing, kept in the deal's history). **Who opened them** lists the openings read from SentriLock's and Supra's
+  emails, each marked Fits a showing or No showing booked. Deal settings → Connections → **Lockbox emails** turns
+  reading them on or off. On the phone, Showings lists the lockboxes and who opened them while there's signal, and
+  never the code.
+- **Round seven: the teammate.** The AI teammate's settings have an **Add-ons** module, one switch per add-on it can
+  use (Use Real Estate Agent). In the Inbox, a thread's draft card shows what the teammate **asks** for ("Ava asks:
+  Add 412 Oak St to Dana's homes", Approve or Reject, and who may decide it when you can't), and a reply the fair
+  housing checks **held** (what they found, Send as it is, Edit or Reject); Workflows → Approvals and the phone's
+  thread, Approvals and Home show both too.
 - **Showing safety** (core): Check in from an appointment, a showing, a tour stop or an open house, with a planned
   end and who's told; the banner on every phone screen while checked in (Check out, +15 min, Help); Help with no
   signal uses the phone's own calling and texting; More → Settings → **My safety** for each person's contacts.

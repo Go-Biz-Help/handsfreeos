@@ -10,13 +10,18 @@
  * - A tour of 123 Main St, a second look before closing, starts about an hour after the seed (on Dana's own
  *   calendar, the client not told), so its Check in opens the safety sheet. The buyer agreement is still on paper, so
  *   Dana lets it through with a reason, as an owner may.
+ * - Round seven's phone flow (apps/mobile/maestro/realestate-lockboxes.yaml): her listing, "Alvarez listing" on 2207
+ *   Juniper Trail, has a SentriLock on the front door with its code locked (sealed as the worker seals it), and
+ *   SentriLock's email says Jo Kim opened it two hours before the seed, with no showing booked.
  *
  * Its own account is how it knows it's there: a stack seeded before this business existed gets it on the next
  * `pnpm db:seed`, and a stack that has it is left alone. Every change goes through the commands, as Dana would make it.
  */
+import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { dealOpen } from '@hfos/core/addons/realestate/ops/deals';
 import { homeAdd } from '@hfos/core/addons/realestate/ops/homes';
+import { lockboxSave } from '@hfos/core/addons/realestate/ops/lockboxes';
 import { termEnter } from '@hfos/core/addons/realestate/ops/terms';
 import { tourPlan } from '@hfos/core/addons/realestate/ops/tours';
 import {
@@ -25,6 +30,7 @@ import {
   addonInstall,
   calendarCreate,
   calendarSetStatus,
+  emailReceive,
   executeCommand,
   localDateOf,
   organizationCreate,
@@ -36,7 +42,9 @@ import {
 import { rows, sql, type Db } from '@hfos/db/client';
 import { createTestUser, type TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
+import { sealFor } from '../src/addons/sealed';
 import type { OutboxDeps } from '../src/outbox';
+import { systemActor, workerMeta } from '../src/services';
 import { settle } from './seed-messaging';
 
 export interface SeedRealestateDeps {
@@ -65,6 +73,12 @@ export const HILL_COUNTRY = {
   client: { firstName: 'Ann', lastName: 'Smith', email: 'ann.smith@example.com' },
   deal: 'Smith purchase',
   property: '123 Main St',
+  listing: {
+    client: { firstName: 'Maria', lastName: 'Alvarez', email: 'maria.alvarez@example.com' },
+    deal: 'Alvarez listing',
+    property: '2207 Juniper Trail, Austin, TX 78745',
+    serial: '31118204',
+  },
 } as const;
 
 const QUARTER = 15 * 60_000;
@@ -107,7 +121,7 @@ export async function seedRealestate(
   ): Promise<z.output<O>> =>
     (await executeCommand(d.api, cmd, input, d.actor(who), d.meta())).output;
 
-  const { workspaceId } = await run(organizationCreate, {
+  const { workspaceId, organizationId } = await run(organizationCreate, {
     businessName: HILL_COUNTRY.business,
     timezone: HILL_COUNTRY.timezone,
   });
@@ -180,6 +194,69 @@ export async function seedRealestate(
         'Ann signed the buyer agreement on paper at the office; the scan goes under Documents this week.',
     },
   });
+  await settle(loop);
+
+  d.step(
+    `${HILL_COUNTRY.business}: "${HILL_COUNTRY.listing.deal}", a listing with its lockbox, opened once`,
+  );
+  const seller = await run(personCreate, { workspaceId, ...HILL_COUNTRY.listing.client });
+  const listing = await run(dealOpen, {
+    workspaceId,
+    side: 'listing',
+    name: HILL_COUNTRY.listing.deal,
+    stage: 'active',
+    clientPersonId: seller.personId,
+    newPropertyAddress: HILL_COUNTRY.listing.property,
+  });
+  // The code, sealed as the worker seals what Add a lockbox sends: nobody reads it back.
+  await run(lockboxSave, {
+    workspaceId,
+    dealId: listing.dealId,
+    id: randomUUID(),
+    kind: 'sentrilock',
+    place: 'Front door',
+    serial: HILL_COUNTRY.listing.serial,
+    code: sealFor(
+      d.worker.sealer,
+      { workspaceId, addonId: 'realestate', key: 'lockbox_code' },
+      '4417',
+    ),
+  });
+  // SentriLock's email, as the Inbox receives it: read into the listing by its serial (Lockbox emails are on).
+  const openedAt = new Date(Date.now() - 2 * 60 * 60_000).toLocaleString('en-US', {
+    timeZone: HILL_COUNTRY.timezone,
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  await executeCommand(
+    d.worker.db,
+    emailReceive,
+    {
+      workspaceId,
+      provider: 'fake',
+      providerMessageId: randomUUID(),
+      messageIdHeader: `<${randomUUID()}@sentrilock.example>`,
+      from: { address: 'notifications@sentrilock.com', name: 'SentriLock' },
+      to: [{ address: HILL_COUNTRY.agent.email }],
+      subject: 'Lockbox Access Notification',
+      bodyText: [
+        'Lockbox Access Notification',
+        'Your lockbox has been accessed.',
+        `Property Address: ${HILL_COUNTRY.listing.property}`,
+        `Lockbox Serial Number: ${HILL_COUNTRY.listing.serial}`,
+        'Accessed By: Jo Kim',
+        'Company: Keller Williams',
+        'Phone: (512) 555-0144',
+        `Date/Time: ${openedAt.replace(',', '')}`,
+      ].join('\n'),
+      reminderAfterMs: 86_400_000,
+    },
+    systemActor({ workspaceId, organizationId }),
+    workerMeta(),
+  );
   await settle(loop);
 
   const [duties] = await rows<{ n: number }>(

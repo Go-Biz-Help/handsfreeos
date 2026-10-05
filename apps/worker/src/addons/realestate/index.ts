@@ -17,6 +17,7 @@
  * - **A changed wire:** reported on a deal, it raises a critical alert at once, for everyone who sees the deal, at
  *   any hour, asking to be acknowledged; the phone check finishing (done, waived or cancelled) clears it.
  */
+import { REALESTATE_SCRIPTED_TEAMMATE } from './scripted';
 import { checkTeammateReply } from './teammate';
 import { ladderAlert, rungSince, SEVERITY_RANK } from '@hfos/core/addons/realestate/ladder';
 import { sweep } from '@hfos/core/addons/realestate/ops/health';
@@ -406,4 +407,5 @@ export const realestateAddonWorker: AddonWorkerModule = {
   checkTeammateReply,
   // Playwright's: an at-risk duty aged, and the stand-in e-signature page (./test-routes.ts).
   testRoutes: registerRealestateTestRoutes,
+  scriptedTeammate: REALESTATE_SCRIPTED_TEAMMATE,
 };
