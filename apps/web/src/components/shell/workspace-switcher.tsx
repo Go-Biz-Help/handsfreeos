@@ -1,4 +1,5 @@
 'use client';
+import { STAFF_ROLE_WORDS, type StaffRole } from '@hfos/core';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -17,7 +18,16 @@ import { cn } from '@/lib/utils';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 import { TIMEZONES } from '@/app/onboarding/onboarding-form';
 
-export function WorkspaceSwitcher({ me, current }: { me: Me; current: WorkspaceSummary }) {
+/** `staff` is the person's role at HandsFreeOS support (`platform.me`), or null for everyone who doesn't work here. */
+export function WorkspaceSwitcher({
+  me,
+  current,
+  staff,
+}: {
+  me: Me;
+  current: WorkspaceSummary;
+  staff: StaffRole | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -145,6 +155,28 @@ export function WorkspaceSwitcher({ me, current }: { me: Me; current: WorkspaceS
                 </div>
               ))}
             </div>
+            {/* HandsFreeOS's own support people open the admin area here, as an organization's owners and admins
+                open its agency area above. It belongs to no business, so it sits outside the list and its search. */}
+            {staff ? (
+              <>
+                <div className="h-px bg-border" />
+                <div className="p-1.5">
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-text-3">
+                    <span className="min-w-0 flex-1 truncate">
+                      HandsFreeOS · {STAFF_ROLE_WORDS[staff]}
+                    </span>
+                    <Link
+                      href="/admin"
+                      onClick={() => setOpen(false)}
+                      className="flex-none rounded-[4px] font-semibold text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                      data-testid="admin-area-link"
+                    >
+                      Admin area
+                    </Link>
+                  </div>
+                </div>
+              </>
+            ) : null}
             {canCreate ? (
               <>
                 <div className="h-px bg-border" />

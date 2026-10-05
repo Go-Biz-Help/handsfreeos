@@ -9475,6 +9475,9 @@ Everything above is about the businesses. This is about you: the tickets custome
 that tell you how HandsFreeOS itself is doing. It lives at `app.handsfreeos.com/admin`, in the same app, and
 it does not exist for anyone who does not work here — a customer who guesses the address gets the 404 page.
 
+To get there from a business, open the workspace switcher and click **Admin area**, on its own row under the
+businesses. Only support people see the link.
+
 The phone app has the same desk: **More** → **Support desk**, a row only support people see. Somebody who
 answers support and is in no business opens straight onto it. Every section is there, with the same
 permissions, and it is all live: with no signal it says so. Looking at a business, read-only or as the

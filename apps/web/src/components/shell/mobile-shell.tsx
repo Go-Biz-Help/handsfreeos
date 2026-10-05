@@ -1,5 +1,5 @@
 'use client';
-import { currentMenuPlace, menuFor, menuKeys } from '@hfos/core';
+import { currentMenuPlace, menuFor, menuKeys, type StaffRole } from '@hfos/core';
 import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,7 +32,15 @@ import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
 
 /** Phone chrome: a top bar with the menu and search, a left drawer with the full navigation, and a bottom bar. */
-export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary }) {
+export function MobileShell({
+  me,
+  current,
+  staff,
+}: {
+  me: Me;
+  current: WorkspaceSummary;
+  staff: StaffRole | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [drawer, setDrawer] = useState(false);
@@ -175,7 +183,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
             <div className="px-2.5 pb-3.5 pt-1">
               <Brand />
             </div>
-            <WorkspaceSwitcher me={me} current={current} />
+            <WorkspaceSwitcher me={me} current={current} staff={staff} />
           </div>
           <div
             data-testid="drawer-menu"
