@@ -1,10 +1,10 @@
 /**
  * Posts: in a group, on a profile, in the News Feed, or one on its own page. A feed's posts are the children of its
- * `role="feed"`; elsewhere a post is a top-level `role="article"`; and where posts are neither, as on 2026 profiles,
- * each is found by its "Actions for this post" button. Comments are articles inside a post, and are left out of what
- * the post says.
+ * `role="feed"`; elsewhere a post is a top-level `role="article"`; and where posts are neither, as on 2026 profiles
+ * and the 2026 News Feed, each is found by its "Actions for this post" button. Comments are articles inside a post,
+ * labelled "Comment by …" or "Reply by …", and are left out of what the post says.
  */
-import { clean, inTopBar, isAfter, outermost, textLines } from './dom';
+import { clean, inTopBar, isAfter, isBefore, outermost, textLines } from './dom';
 import { bestName } from './people';
 import type { Named, Post } from './types';
 import { facebookUrl, postUrlFrom, profileFromUrl } from './urls';
@@ -15,20 +15,33 @@ const ACTIONS = /^actions for\b/i;
 /** What closes a post: its comment button, the bar of who reacted, or the box to write a comment in. */
 const POST_END =
   /^(leave a comment|comment|see who reacted to\b.*|write a (public )?comment…?|comment as\b.*)$/i;
+/** A comment or a reply to one: "Comment by Jane Doe 2 hours ago", "Reply by Jane Doe to Sam Carter's comment". */
+const COMMENT = /^(comment|reply) by\b/i;
+/** A count on its own, as 2026 posts show them on their buttons: "6", "1.2K". */
+const COUNT = /^[\d.,]+\s*[km]?$/i;
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
 
-/** The boxes that are posts. Empty articles are Facebook's grey placeholders while posts load. */
+/**
+ * The boxes that are posts, in page order: a feed's children, or else the top-level articles that aren't comments
+ * and the boxes around the "Actions for this post" buttons outside them. Empty articles are Facebook's grey
+ * placeholders while posts load.
+ */
 function postBoxes(root: Element): Element[] {
   const fromFeeds = [...root.querySelectorAll('[role="feed"]')].flatMap((feed) =>
     [...feed.children].filter(hasWords),
   );
   if (fromFeeds.length > 0) return fromFeeds;
   const articles = [...root.querySelectorAll('[role="article"]')].filter(
-    (article) => !article.parentElement?.closest('[role="article"]') && hasWords(article),
+    (article) =>
+      !article.parentElement?.closest('[role="article"]') &&
+      !COMMENT.test(clean(article.getAttribute('aria-label'))) &&
+      hasWords(article),
   );
-  if (articles.length > 0) return articles;
-  return byActions(root);
+  const boxes = [...articles, ...byActions(root)];
+  return boxes
+    .filter((box) => !boxes.some((other) => other !== box && other.contains(box)))
+    .sort((a, b) => (isBefore(a, b) ? -1 : isBefore(b, a) ? 1 : 0));
 }
 
 /**
@@ -74,6 +87,30 @@ function firstCount(lines: readonly string[], pattern: RegExp): number | null {
 }
 
 /**
+ * The counts on a post's own buttons, as Facebook shows them since 2026 ("👍 2  💬 6"): the number on "Leave a
+ * comment" is how many comments it has, and the last number on a button before it, the Like button's, how many
+ * reacted. A comment's buttons don't count.
+ */
+function buttonCounts(
+  post: Element,
+  inComment: (element: Element) => boolean,
+): { readonly comments: number | null; readonly reactions: number | null } {
+  const buttons = [...post.querySelectorAll('[role="button"]')].filter((e) => !inComment(e));
+  const comment = buttons.find((e) =>
+    /^leave a comment$/i.test(clean(e.getAttribute('aria-label'))),
+  );
+  if (!comment?.parentElement) return { comments: null, reactions: null };
+  const number = (e: Element) => {
+    const text = clean(e.textContent);
+    return COUNT.test(text) ? parseCount(text) : null;
+  };
+  const bar = comment.parentElement;
+  const before = buttons.filter((e) => bar.contains(e) && isBefore(e, comment));
+  const reactions = before.map(number).filter((count) => count !== null);
+  return { comments: number(comment), reactions: reactions[reactions.length - 1] ?? null };
+}
+
+/**
  * The post in a box from a feed. Sometimes the post is an article with its comments inside it, and sometimes the box
  * holds the post itself with its comments as articles: the first link in the box (its author) says which.
  */
@@ -103,6 +140,14 @@ export function readPost(box: Element, base: string): Post | null {
     when = clean(anchor.textContent) || clean(anchor.getAttribute('aria-label')) || null;
     break;
   }
+  // Since 2026 a post's own time link stays empty until you point at it, but each comment's time links to the post,
+  // with the comment marked: that gives the post's address, though not when it went up.
+  for (const anchor of url ? [] : post.querySelectorAll('a[href]')) {
+    if (!inComment(anchor)) continue;
+    const link = facebookUrl(anchor.getAttribute('href') ?? '', base);
+    url = link ? postUrlFrom(link) : null;
+    if (url) break;
+  }
 
   const author = authorOf(anchors, base);
 
@@ -112,11 +157,14 @@ export function readPost(box: Element, base: string): Post | null {
   // Line by line, without its "See more" button.
   let text = message ? textLines(message, 200, '[role="button"]').join('\n') : '';
   if (!text) {
-    // No marked message: the longest piece of writing that isn't a heading, a comment, hidden, or the author's name.
+    // No marked message: the longest piece of writing that isn't a heading, a button, a comment, hidden, or the
+    // author's name.
     for (const element of post.querySelectorAll('[dir="auto"]')) {
       if (
         inComment(element) ||
-        element.closest('h1, h2, h3, h4, h5, h6, [role="heading"], [aria-hidden="true"]')
+        element.closest(
+          'h1, h2, h3, h4, h5, h6, [role="heading"], [role="button"], [aria-hidden="true"]',
+        )
       )
         continue;
       const candidate = clean(element.textContent);
@@ -125,8 +173,10 @@ export function readPost(box: Element, base: string): Post | null {
   }
 
   const lines = textLines(post, 120, '[role="article"]');
-  const comments = firstCount(lines, /^([\d.,]+\s*[km]?)\s+comments?$/i);
-  const reactions = firstCount(lines, /^all reactions:?\s*([\d.,]+\s*[km]?)$/i);
+  const counted = buttonCounts(post, inComment);
+  const comments = firstCount(lines, /^([\d.,]+\s*[km]?)\s+comments?$/i) ?? counted.comments;
+  const reactions =
+    firstCount(lines, /^all reactions:?\s*([\d.,]+\s*[km]?)$/i) ?? counted.reactions;
   if (!author && !text) return null;
   return { author, url, when, text, comments, reactions };
 }

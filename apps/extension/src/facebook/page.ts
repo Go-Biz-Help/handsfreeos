@@ -138,7 +138,7 @@ export function readPage(
       `Found no ${expected} here. If the page shows some, save the page outline and send it to us so we can fix the reader.`,
     );
   if (SCROLLS.has(address.kind))
-    notes.push('Facebook loads more as you scroll. Scroll down, then read again to get more.');
+    notes.push('Facebook loads more as you scroll. Scroll down to get more.');
 
   return {
     kind: address.kind,

@@ -97,6 +97,7 @@ describe('outlinePage, on the 2026 layouts', () => {
     ['profile-2026.html', 'https://www.facebook.com/dana.reyes.12'],
     ['group-members-2026.html', 'https://www.facebook.com/groups/4455667788/members'],
     ['chat-2026.html', 'https://www.facebook.com/messages/t/100009000000002/'],
+    ['feed-2026.html', 'https://www.facebook.com/'],
   ] as const;
   const outlines = Object.fromEntries(
     pages.map(([name, url]) => {
@@ -119,6 +120,13 @@ describe('outlinePage, on the 2026 layouts', () => {
         'Sam Carter',
         'Pacific',
         'yeah that works',
+        'Mark Ellis',
+        'Nina Brooks',
+        'asset',
+        'move-in',
+        'Home Team',
+        'pfbid0AbCdEf',
+        'westfieldhometeam',
         'dana.reyes',
         '4455667788',
         '100009000000002',

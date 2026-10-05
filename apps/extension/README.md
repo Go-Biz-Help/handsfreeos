@@ -21,12 +21,15 @@ changes the page. It's here to show how reliably Facebook can be read before any
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
 
-Facebook loads lists as you scroll, so the extension only sees what's on the page. Scroll, then read again. A group's
-People tab shows only a few of each list, admins and moderators too: its **See all** pages are read the same way.
+Facebook loads lists as you scroll, so the extension only sees what's on the page. With **Read when the page
+changes** on, the panel reads again as Facebook adds to the page, and when you reload it or go somewhere new;
+otherwise press **Read this page**. A group's People tab shows only a few of each list, admins and moderators too:
+its **See all** pages are read the same way.
 
 Facebook draws some pages two ways, and both are read. Since 2026 a profile can have its name, bio and details at the
 top instead of an Intro card, a group's People tab has a row of faces above its tabs (left out: the lists below say
-who each person is), and an open chat repeats each message after it for screen readers (read once).
+who each person is), an open chat repeats each message after it for screen readers (read once), and posts in the
+News Feed aren't articles while their comments are (comments are never read as posts).
 
 ## Load it in Chrome
 
@@ -54,9 +57,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   headings and Facebook's own words (`src/facebook/vocabulary.ts`), in English for now.
 - **Found by its link.** A person, group or chat is found by the link to it, and read from the largest box around that
   link that holds no link to anything else of the same sort (`collectLinked` in `src/facebook/dom.ts`).
-- **Reading only, and only when asked.** The content script answers the panel and nothing else. It never writes to
-  the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions: you press send by default,
-  daily limits, and a stop for the day on any Facebook warning.
+- **Reading only, and only when asked.** The content script answers the panel and nothing else: it reads when the
+  panel asks, and while the panel watches its tab it says when the page has changed, so the panel can ask again. It
+  never writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions: you press
+  send by default, daily limits, and a stop for the day on any Facebook warning.
 - **Each reader checks itself.** When a page should have something and the reader finds none, the panel says so and
   asks for the outline (`src/facebook/page.ts`).
 - **An outline never holds what a person wrote.** `test/outline.test.ts` checks that no name, message or id survives.

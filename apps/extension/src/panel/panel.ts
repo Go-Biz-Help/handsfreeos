@@ -1,7 +1,9 @@
 /**
- * The side panel. It asks the Facebook tab beside it to read the page and shows what came back. Nothing is saved or
- * sent anywhere. "Copy page outline" and "Save page outline" give the page's shape with names and words hidden, to
- * send to whoever is tuning the readers when the panel gets a page wrong.
+ * The side panel. It asks the Facebook tab beside it to read the page and shows what came back, and with "Read when
+ * the page changes" on it reads again when the tab goes somewhere new, reloads, or says its page changed (more posts
+ * as you scroll, a new message). Nothing is saved or sent anywhere. "Copy page outline" and "Save page outline" give
+ * the page's shape with names and words hidden, to send to whoever is tuning the readers when the panel gets a page
+ * wrong.
  */
 import { runsGroup } from '../facebook/people';
 import type {
@@ -17,7 +19,7 @@ import type {
   ReadResult,
 } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
-import type { Answer, Ask } from '../messages';
+import { WATCH, type Answer, type Ask, type Note } from '../messages';
 
 const KIND: Record<PageKind, string> = {
   profile: 'A profile',
@@ -217,9 +219,9 @@ function postsView(posts: readonly Post[]): HTMLElement {
             h(
               'div',
               { class: 'muted' },
-              post.reactions !== null ? `${post.reactions} reactions` : null,
+              post.reactions !== null ? counted(post.reactions, 'reaction') : null,
               post.reactions !== null && post.comments !== null ? ' · ' : null,
-              post.comments !== null ? `${post.comments} comments` : null,
+              post.comments !== null ? counted(post.comments, 'comment') : null,
               post.url ? h('span', {}, ' · ', link('Open', post.url)) : null,
             ),
           ),
@@ -316,6 +318,11 @@ function noticesView(notices: readonly Notice[]): HTMLElement {
   );
 }
 
+/** "1 comment", "6 comments". */
+function counted(count: number, thing: string): string {
+  return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
+}
+
 function clip(text: string, length: number): string {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
@@ -368,6 +375,12 @@ let current: { readonly id: number; readonly url: string } | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 /** The window this panel sits in: tabs in other windows are none of its business. */
 let windowId: number | undefined;
+/** The tab the panel hears page changes from, and the line to it. */
+let watching: { readonly id: number; readonly port: chrome.runtime.Port } | null = null;
+/** What the panel shows, so a read that finds the same leaves it as it is. */
+let shown = '';
+/** Counts reads, so the answer to an older one never replaces a newer one's. */
+let reads = 0;
 
 function say(text: string): void {
   status.textContent = text;
@@ -397,25 +410,62 @@ function showPage(kind: PageKind | null, url: string | null): void {
   );
 }
 
-async function read(): Promise<void> {
+/** Hears from a tab when its page changes, and reads it again then. One tab at a time: the one beside the panel. */
+function watch(tabId: number): void {
+  if (watching?.id === tabId) return;
+  unwatch();
+  const port = chrome.tabs.connect(tabId, { name: WATCH });
+  watching = { id: tabId, port };
+  port.onMessage.addListener((note: Note) => {
+    if (note.type === 'hfos-changed' && autoBox.checked && current?.id === tabId) void read(true);
+  });
+  // The tab reloaded, went to another site or closed. The read after it starts watching again.
+  port.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError;
+    if (watching?.port === port) watching = null;
+  });
+}
+
+function unwatch(): void {
+  watching?.port.disconnect();
+  watching = null;
+}
+
+/**
+ * Reads the tab beside the panel and shows what it found. A quiet read, after the page changed, shows its answer
+ * only when it differs from what's shown, and keeps what's shown when the page can't be read just then.
+ */
+async function read(quiet = false): Promise<void> {
   clearTimeout(timer);
+  const seq = ++reads;
   const tab = await facebookTab();
+  if (seq !== reads) return;
   current = tab;
   for (const button of [readButton, copyButton, saveButton]) button.disabled = !tab;
   if (!tab) {
+    unwatch();
+    shown = '';
     showPage(null, null);
     results.replaceChildren();
     say('Open Facebook in this window and this panel shows what it can read there.');
     return;
   }
-  say('Reading the page…');
+  if (!quiet) say('Reading the page…');
   try {
     const answer = await ask(tab.id, { type: 'hfos-read' });
+    if (seq !== reads) return;
     if (!answer.ok) throw new Error(answer.error);
+    if (autoBox.checked) watch(tab.id);
+    const { readAt, ...found } = answer.result;
+    const seen = JSON.stringify(found);
+    if (quiet && seen === shown) return;
+    shown = seen;
     showPage(answer.result.kind, answer.result.url);
     results.replaceChildren(...resultView(answer.result));
-    say(`Read at ${new Date(answer.result.readAt).toLocaleTimeString()}.`);
+    say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
   } catch (error) {
+    if (seq !== reads || quiet) return;
+    shown = '';
     results.replaceChildren();
     say(
       `Couldn’t read this page (${error instanceof Error ? error.message : String(error)}). Reload the Facebook tab and try again.`,
@@ -473,12 +523,15 @@ saveButton.addEventListener('click', async () => {
 autoBox.addEventListener('change', () => {
   void chrome.storage.local.set({ [AUTO_READ]: autoBox.checked }).catch(() => undefined);
   if (autoBox.checked) void read();
+  else unwatch();
 });
 
 chrome.tabs.onActivated.addListener((active) => {
   if (active.windowId === windowId) void read();
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  // A page that starts loading drops its line to the panel; the read once it has loaded opens a new one.
+  if (tabId === watching?.id && change.status === 'loading') unwatch();
   if (!tab.active || tab.windowId !== windowId) return;
   if (tabId === current?.id || (tab.url && facebookUrl(tab.url))) {
     if (change.url || change.status === 'complete') later();

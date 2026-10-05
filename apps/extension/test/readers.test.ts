@@ -210,7 +210,49 @@ describe('a profile, as Facebook drew it in 2026', () => {
         when: null,
         text: 'Craft fair this Saturday!\nBooth 14 at the Westfield market.\nSigns, candles and wreaths. Come say hi.',
         comments: null,
-        reactions: null,
+        // The number on the Like button, which you've pressed here ("Remove Like").
+        reactions: 4,
+      },
+    ]);
+  });
+});
+
+describe('the News Feed, as Facebook drew it in 2026', () => {
+  const result = read('feed-2026.html', 'https://www.facebook.com/');
+
+  it('reads each post once, with its counts, and never its comments as posts', () => {
+    expect(result.kind).toBe('feed');
+    expect(result.posts).toEqual([
+      {
+        author: {
+          name: 'Mark Ellis',
+          profile: {
+            id: '100004000000001',
+            username: null,
+            url: 'https://www.facebook.com/profile.php?id=100004000000001',
+          },
+        },
+        // Its own time link is empty until you point at it: its comments' links give its address.
+        url: 'https://www.facebook.com/permalink.php?story_fbid=pfbid0AbCdEf&id=100004000000001',
+        when: null,
+        text: 'Is the house you live in an asset or not? Curious what you all think.',
+        comments: 6,
+        reactions: 2,
+      },
+      {
+        author: {
+          name: 'Westfield Home Team',
+          profile: {
+            id: null,
+            username: 'westfieldhometeam',
+            url: 'https://www.facebook.com/westfieldhometeam',
+          },
+        },
+        url: null,
+        when: null,
+        text: 'Thinking about selling this spring? Here are five things buyers look at first, and what you can fix in a weekend. …',
+        comments: 24,
+        reactions: 32,
       },
     ]);
   });
