@@ -3,6 +3,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
 import { handlersFor, type HandlerMap } from './handlers/types';
 import type { WorkerServices } from './services';
+import { renewAfterRefusal } from './telephony/tokens';
 
 export interface OutboxDeps extends WorkerServices {
   readonly handlers: HandlerMap;
@@ -125,6 +126,8 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
         { eventId: row.event_id, eventType: row.event_type, attempts, failed, err: message },
         'outbox handler failed',
       );
+      // Twilio refusing a business's own sign-in can mean its token was rotated: the retry gets the new one.
+      await renewAfterRefusal(deps, e);
       await asWorker(deps.db, {}, (tx) =>
         tx
           .update(outbox)

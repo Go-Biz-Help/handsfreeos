@@ -3,6 +3,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { webhookDeliveries } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
 import type { WorkerServices } from './services';
+import { renewAfterRefusal } from './telephony/tokens';
 
 export type DeliveryRow = typeof webhookDeliveries.$inferSelect;
 
@@ -124,6 +125,8 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
         },
         'webhook delivery failed',
       );
+      // Twilio refusing a business's own sign-in can mean its token was rotated: the retry gets the new one.
+      await renewAfterRefusal(deps, e);
       await asWorker(deps.db, {}, (tx) =>
         tx
           .update(webhookDeliveries)

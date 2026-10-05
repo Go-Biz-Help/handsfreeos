@@ -69,6 +69,7 @@ function form(params: Params): URLSearchParams {
 function providerError(
   status: number,
   json: { code?: number; message?: string; more_info?: string },
+  accountSid: string,
 ) {
   const permanent = status >= 400 && status < 500 && ![401, 403, 408, 429].includes(status);
   return new ProviderError(
@@ -76,6 +77,7 @@ function providerError(
     String(json.code ?? status),
     permanent,
     status,
+    accountSid,
   );
 }
 
@@ -96,7 +98,8 @@ async function call<T>(
   });
   if (res.status === 204) return undefined as T;
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+  if (!res.ok)
+    throw providerError(res.status, json as { code?: number; message?: string }, creds.sid);
   return json as T;
 }
 
@@ -111,7 +114,8 @@ async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T>
     body: JSON.stringify(body),
   });
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+  if (!res.ok)
+    throw providerError(res.status, json as { code?: number; message?: string }, creds.sid);
   return json as T;
 }
 
@@ -878,6 +882,15 @@ export function createTwilioTelephony(master: {
       }
     },
 
+    async subaccountToken(accountSid) {
+      // The master account reads its subaccounts, their current Auth Token included.
+      const res = await getIfThere<{ auth_token?: string | null }>(
+        masterCreds,
+        `${API}/Accounts/${accountSid}.json`,
+      );
+      return res?.auth_token || null;
+    },
+
     async createMessagingService(account, opts) {
       const res = await call<{ sid: string }>(credsOf(account), 'POST', `${MESSAGING}/Services`, {
         FriendlyName: opts.friendlyName,
@@ -1229,6 +1242,7 @@ export function createTwilioTelephony(master: {
           String(res.status),
           res.status === 404,
           res.status,
+          account.sid,
         );
       return {
         data: Buffer.from(await res.arrayBuffer()),
@@ -1257,6 +1271,7 @@ export function createTwilioTelephony(master: {
           String(res.status),
           false,
           res.status,
+          account.sid,
         );
       return {
         data: Buffer.from(await res.arrayBuffer()),
@@ -1557,7 +1572,8 @@ export function createTwilioTelephony(master: {
         body,
       });
       const json = (await res.json().catch(() => ({}))) as { sid?: string; message?: string };
-      if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+      if (!res.ok)
+        throw providerError(res.status, json as { code?: number; message?: string }, creds.sid);
       const sid = json.sid;
       if (!sid)
         throw new ProviderError('The carrier did not take the document.', 'port_document', true);
