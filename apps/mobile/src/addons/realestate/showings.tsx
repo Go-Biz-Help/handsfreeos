@@ -23,6 +23,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { addShowing, decideShowing } from './listing-actions';
+import { ShowingLockboxes } from './lockboxes';
 import {
   CheckRow,
   Chips,
@@ -40,6 +41,7 @@ import {
  * A listing's showings on the phone (board 89, first two panels): requests to answer, what's coming up and what
  * buyers said. Answering reaches the buyer's agent, so it goes on its own while fresh and asks again after 30 minutes
  * with no signal; the lockbox code never reaches the phone. A showing coming up offers Check in for showing safety.
+ * Under them, the listing's lockboxes and who opened them (round seven, board 98), while there's signal.
  */
 
 type Showing = ShowingListView['showings'][number];
@@ -108,6 +110,14 @@ export function ShowingsScreen({ dealId }: { dealId: string }) {
           <Text className="text-[14px] text-text-2">{RE_LISTING_ONLY(deal?.name ?? '')}</Text>
         </Card>
       )}
+      {view || server.data ? (
+        <ShowingLockboxes
+          workspaceId={ctx.workspaceId}
+          dealId={dealId}
+          today={ctx.today}
+          timeZone={ctx.timeZone}
+        />
+      ) : null}
       {view ? (
         <RequestSheet
           showing={open}

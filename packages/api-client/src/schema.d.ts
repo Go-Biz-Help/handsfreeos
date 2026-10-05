@@ -44181,7 +44181,7 @@ export interface operations {
                     conversationId?: string;
                     cursor?: string;
                     /** @enum {string} */
-                    kind?: "reply" | "approval" | "call";
+                    kind?: "reply" | "approval" | "call" | "ask";
                     /** @default 50 */
                     limit?: number;
                     /**
@@ -44222,7 +44222,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "reply" | "approval" | "call";
+                            kind: "reply" | "approval" | "call" | "ask";
                             knowledge: unknown[];
                             lead: {
                                 /** Format: uuid */
@@ -44430,6 +44430,12 @@ export interface operations {
                                 } | null;
                             };
                             reason: string | null;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string | null;
+                            } | null;
                             runId: string | null;
                             /** @enum {string} */
                             status: "pending" | "approved" | "rejected" | "expired" | "cancelled";

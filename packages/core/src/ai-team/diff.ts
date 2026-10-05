@@ -2,6 +2,7 @@
  * What changed between two teammate settings documents, as short lines for revision history and the save
  * dialog: "Name: Ava → Max", "Books appointments: off → on", "Added the question “Do you own the home?”".
  */
+import { ADDON_CATALOG } from '../addons/catalog';
 import { formatDuration, formatHours } from '../calendar/format';
 import type { NotifyWho } from '../workflows/actions';
 import type { TeammateCatalogs } from './catalogs';
@@ -265,7 +266,7 @@ export function diffTeammateConfigs(
   // Add-ons (round seven)
   for (const id of [...new Set([...Object.keys(a.addons), ...Object.keys(b.addons)])].sort())
     change(
-      `Uses ${names.addons?.[id] ?? id}`,
+      `Uses ${names.addons?.[id] ?? ADDON_CATALOG.find((m) => m.id === id)?.name ?? id}`,
       a.addons[id]?.on ?? false,
       b.addons[id]?.on ?? false,
       onOff,

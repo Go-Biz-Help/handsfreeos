@@ -121,6 +121,8 @@ export type MatchList = Ok<'/v1/queries/realestate.matches'>;
 export type Match = MatchList['matches'][number];
 export type EsignList = Ok<'/v1/queries/realestate.esign.list'>;
 export type ShowingList = Ok<'/v1/queries/realestate.showing.list'>;
+// Round seven: a listing's lockboxes (never their codes) and who opened them.
+export type LockboxList = Ok<'/v1/queries/realestate.lockbox.list'>;
 export type VendorList = Ok<'/v1/queries/realestate.vendor.list'>;
 export type Vendor = VendorList['vendors'][number];
 export type DutyVendors = Ok<'/v1/queries/realestate.duty.vendors'>;

@@ -34,18 +34,13 @@ import {
   requireOpen,
 } from './common';
 import { requireListingSide } from './listing';
+import { LOCKBOX_KIND_LABELS as KIND_LABELS } from '../lockbox-words';
 
 const MINUTE = 60_000;
 /** An opening this long before a showing starts, or after it ends, still fits it (agents arrive early, leave late). */
 export const OPENING_SLACK_MINUTES = 30;
 
-export const LOCKBOX_KIND_LABELS: Readonly<Record<LockboxKind, string>> = {
-  sentrilock: 'SentriLock',
-  supra: 'Supra',
-  combination: 'Combination lockbox',
-  keypad: 'Keypad',
-  other: 'Lockbox',
-};
+export const LOCKBOX_KIND_LABELS: Readonly<Record<LockboxKind, string>> = KIND_LABELS;
 
 /**
  * The columns a lockbox answers with: never `code_enc`, which no person's role may read, so a query naming it

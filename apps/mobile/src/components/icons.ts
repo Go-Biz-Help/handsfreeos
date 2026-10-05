@@ -46,6 +46,7 @@ export { default as CloudUpload } from 'lucide-react-native/icons/cloud-upload';
 export { default as ContactRound } from 'lucide-react-native/icons/contact-round';
 export { default as CreditCard } from 'lucide-react-native/icons/credit-card';
 export { default as Database } from 'lucide-react-native/icons/database';
+export { default as DoorOpen } from 'lucide-react-native/icons/door-open';
 export { default as Download } from 'lucide-react-native/icons/download';
 export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
 export { default as ExternalLink } from 'lucide-react-native/icons/external-link';

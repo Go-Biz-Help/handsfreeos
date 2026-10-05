@@ -683,9 +683,12 @@ export const AiTeammateGetOutput = z.object({
 });
 
 export const draftStatus = z.enum(['pending', 'approved', 'rejected', 'expired', 'cancelled']);
+/** reply, approval, call, and (round seven) an ask: an add-on's action for a person on a customer's record to OK. */
+export const TEAMMATE_DRAFT_KINDS = ['reply', 'approval', 'call', 'ask'] as const;
+
 export const TeammateDraftOut = z.object({
   id: uuid,
-  kind: z.enum(['reply', 'approval', 'call']),
+  kind: z.enum(TEAMMATE_DRAFT_KINDS),
   status: draftStatus,
   teammate: z.object({ id: uuid, name: z.string() }),
   runId: uuid.nullable(),
@@ -701,8 +704,13 @@ export const TeammateDraftOut = z.object({
   via: z.string().nullable(),
   expiresAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
-  /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
+  /**
+   * Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. Asks (round seven): whoever may see
+   * the record they're about.
+   */
   canDecide: z.boolean(),
+  /** An ask's record, named when the reader may see it (round seven); null for the other kinds. */
+  record: z.object({ id: uuid, name: z.string().nullable() }).nullable().default(null),
   /** The knowledge its run used ({itemId, title} each), as the run recorded it. */
   knowledge: z.array(z.unknown()),
 });
@@ -711,7 +719,7 @@ export const AiTeammateDraftListInput = ListInput.extend({
   workspaceId: uuid,
   /** pending: waiting for someone, oldest first; decided or all: newest first. */
   status: z.enum(['pending', 'decided', 'all']).default('pending'),
-  kind: z.enum(['reply', 'approval', 'call']).optional(),
+  kind: z.enum(TEAMMATE_DRAFT_KINDS).optional(),
   conversationId: uuid.optional(),
 });
 export const AiTeammateDraftListOutput = z.object({
