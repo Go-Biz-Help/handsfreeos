@@ -13,7 +13,7 @@ env:
 - runFlow: subflows/sign-in-with-password.yaml
 - extendedWaitUntil:
     visible:
-      id: 'attention-card'
+      id: 'attention-header'
     timeout: 30000
 - assertVisible:
     id: 'attention-affected'
@@ -30,6 +30,13 @@ env:
     id: 'attention-header'
 - tapOn:
     id: 'scope-everyone'
+# The cards come after Getting started, which fills most of the screen while the business is still setting up.
+- scrollUntilVisible:
+    element:
+      id: 'attention-more'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 # ⋯ on the first card: Snooze first, then Assign (the team) and Dismiss. Nothing is chosen.
 - tapOn:
     id: 'attention-more'
@@ -53,6 +60,13 @@ env:
     id: 'attention-sheet-close'
 - waitForAnimationToEnd
 # Let HandsFreeOS Handle on the first card that offers it: what it would do, from HandsFreeOS.
+- scrollUntilVisible:
+    element:
+      id: 'attention-let-handle'
+      enabled: true
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 - tapOn:
     id: 'attention-let-handle'
     enabled: true

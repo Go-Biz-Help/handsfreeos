@@ -27,10 +27,14 @@ env:
           id: 'back'
 - tapOn:
     id: 'tab-home'
-- extendedWaitUntil:
-    visible:
-      id: 'attention-card'
-    timeout: 20000
+# The cards come after Getting started, which fills most of the screen while the business is still setting up. With
+# the first card in the middle, the waiting changes, which go in just above the cards, stay in view.
+- scrollUntilVisible:
+    element:
+      id: 'attention-more'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 # Snooze the first card for an hour.
 - tapOn:
     id: 'attention-more'
@@ -44,6 +48,11 @@ env:
     timeout: 10000
 # Dismiss the next.
 - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'attention-more'
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: 'attention-more'
     index: 0
