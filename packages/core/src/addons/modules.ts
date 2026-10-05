@@ -5,5 +5,9 @@
  */
 import type { AddonServerModule } from './server';
 import { realestateAddonServer } from './realestate/server';
+import { outreachAddonServer } from './outreach/server';
 
-export const ADDON_SERVER_MODULES: readonly AddonServerModule[] = [realestateAddonServer];
+export const ADDON_SERVER_MODULES: readonly AddonServerModule[] = [
+  realestateAddonServer,
+  outreachAddonServer,
+];

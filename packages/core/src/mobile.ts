@@ -24,10 +24,17 @@ export const CONFIRMED_MINUTES = 5;
 
 /** `x-hfos-client` says a request is from the app. */
 export const APP_CLIENT = 'mobile';
+/**
+ * `x-hfos-client: extension` says a request is from the browser extension (Social Outreach, docs/outreach.md). It
+ * sends the same headers as the app, its own build in `x-hfos-app-version`, and gets the same repeat protection.
+ */
+export const EXTENSION_CLIENT = 'extension';
+/** The clients that say which command a request is and when it was done. */
+export type AppClient = typeof APP_CLIENT | typeof EXTENSION_CLIENT;
 
 /** The request headers the app sends (lower-case, as HTTP servers hand them over). */
 export const APP_HEADERS = {
-  /** `mobile`. */
+  /** `mobile`, or `extension` from the browser extension. */
   client: 'x-hfos-client',
   /** The command's own id (a uuid the phone made when the person acted). A repeat returns the first answer. */
   commandId: 'x-hfos-command-id',

@@ -146,11 +146,13 @@ export class HfosError extends Error {
     );
   }
   /** An app build older than the API accepts: it pauses, keeps its unsent changes and asks to be updated. */
-  static upgradeRequired(minVersion: string): HfosError {
+  static upgradeRequired(minVersion: string, client: 'mobile' | 'extension' = 'mobile'): HfosError {
     return new HfosError(
       'upgrade_required',
       426,
-      'Update the HandsFreeOS app to keep going. Nothing you did is lost.',
+      client === 'extension'
+        ? 'Update the HandsFreeOS Social extension to keep going.'
+        : 'Update the HandsFreeOS app to keep going. Nothing you did is lost.',
       { minVersion },
     );
   }

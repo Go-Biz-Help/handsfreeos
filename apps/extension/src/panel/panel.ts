@@ -1,9 +1,10 @@
 /**
  * The side panel. It asks the Facebook tab beside it to read the page and shows what came back, and with "Read when
  * the page changes" on it reads again when the tab goes somewhere new, reloads, or says its page changed (more posts
- * as you scroll, a new message). Nothing is saved or sent anywhere. "Copy page outline" and "Save page outline" give
- * the page's shape with names and words hidden, to send to whoever is tuning the readers when the panel gets a page
- * wrong.
+ * as you scroll, a new message). Signed in to HandsFreeOS (./hfos.ts), it marks the people and chats saved there and
+ * saves the ones the person picks; nothing is sent until they press Save. "Copy page outline" and "Save page outline"
+ * give the page's shape with names and words hidden, to send to whoever is tuning the readers when the panel gets a
+ * page wrong.
  */
 import { runsGroup } from '../facebook/people';
 import type {
@@ -20,6 +21,17 @@ import type {
 } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
 import { WATCH, type Answer, type Ask, type Note } from '../messages';
+import { chip, clip, h, link, type Child } from './dom';
+import {
+  chatBlock,
+  forget,
+  lookUp,
+  profileBlock,
+  refreshAccount,
+  savedChatChip,
+  savedChip,
+  startHfos,
+} from './hfos';
 
 const KIND: Record<PageKind, string> = {
   profile: 'A profile',
@@ -65,28 +77,6 @@ const AUTO_READ = 'autoRead';
 
 // ------------------------------------------------------------------------------------------------- drawing
 
-type Child = Node | string | null | undefined | false;
-
-/** An element with attributes and children. Text goes in as text, never as HTML. */
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  attributes: Record<string, string | undefined> = {},
-  ...children: Child[]
-): HTMLElementTagNameMap[K] {
-  const element = document.createElement(tag);
-  for (const [name, value] of Object.entries(attributes))
-    if (value !== undefined) element.setAttribute(name, value);
-  for (const child of children)
-    if (child !== null && child !== undefined && child !== false) element.append(child);
-  return element;
-}
-
-/** A link to Facebook, opened in a new tab. Only Facebook's own addresses become links. */
-function link(text: string, url: string | null | undefined): Node {
-  if (!url || !facebookUrl(url)) return document.createTextNode(text);
-  return h('a', { href: url, target: '_blank', rel: 'noreferrer' }, text);
-}
-
 function section(title: string, count: number | null, ...children: Child[]): HTMLElement {
   return h(
     'section',
@@ -98,10 +88,6 @@ function section(title: string, count: number | null, ...children: Child[]): HTM
 
 function more(total: number): Child {
   return total > SHOWN ? h('p', { class: 'more' }, `And ${total - SHOWN} more.`) : null;
-}
-
-function chip(text: string, tone: 'plain' | 'warn' = 'plain'): HTMLElement {
-  return h('span', { class: `chip ${tone}` }, text);
 }
 
 function profileView(profile: ProfilePage): HTMLElement {
@@ -120,6 +106,7 @@ function profileView(profile: ProfilePage): HTMLElement {
     profile.profile
       ? h('p', { class: 'muted' }, link('Open the profile', profile.profile.url))
       : null,
+    profileBlock(profile),
   );
 }
 
@@ -142,7 +129,7 @@ function personView(person: Person): HTMLElement {
   return h(
     'li',
     {},
-    h('div', { class: 'name' }, link(person.name, person.profile?.url)),
+    h('div', { class: 'name' }, link(person.name, person.profile?.url), savedChip(person.profile)),
     person.details.length ? h('div', { class: 'muted' }, person.details.join(' · ')) : null,
     person.badges.length || runsGroup(person)
       ? h(
@@ -214,6 +201,7 @@ function postsView(posts: readonly Post[]): HTMLElement {
               { class: 'name' },
               post.author ? link(post.author.name, post.author.profile?.url) : 'Unknown author',
               post.when ? h('span', { class: 'muted' }, ` · ${post.when}`) : null,
+              savedChip(post.author?.profile),
             ),
             post.text ? h('p', { class: 'text' }, clip(post.text, 280)) : null,
             h(
@@ -237,6 +225,7 @@ function chatView(chat: ChatPage): HTMLElement {
     chat.name ? `Chat with ${chat.name}` : 'Chat',
     chat.messages.length,
     chat.profile ? h('p', { class: 'muted' }, link('Open their profile', chat.profile.url)) : null,
+    chatBlock(chat),
     chat.messages.length > SHOWN ? h('p', { class: 'more' }, `Showing the last ${SHOWN}.`) : null,
     h(
       'ul',
@@ -280,6 +269,7 @@ function chatsView(chats: readonly ChatSummary[]): HTMLElement {
               { class: 'name' },
               link(chat.name, chat.thread.url),
               chat.thread.encrypted ? chip('Encrypted') : null,
+              savedChatChip(chat.thread.id),
             ),
             chat.preview || chat.when
               ? h('div', { class: 'muted' }, [chat.preview, chat.when].filter(Boolean).join(' · '))
@@ -323,10 +313,6 @@ function counted(count: number, thing: string): string {
   return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
 }
 
-function clip(text: string, length: number): string {
-  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
-}
-
 function resultView(result: ReadResult): HTMLElement[] {
   const parts: (HTMLElement | null)[] = [
     result.warnings.length
@@ -363,6 +349,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 
 // --------------------------------------------------------------------------------------------------- state
 
+const accountBox = document.querySelector<HTMLElement>('#account')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -379,11 +366,17 @@ let windowId: number | undefined;
 let watching: { readonly id: number; readonly port: chrome.runtime.Port } | null = null;
 /** What the panel shows, so a read that finds the same leaves it as it is. */
 let shown = '';
+/** The last read shown, drawn again when HandsFreeOS says what's saved. */
+let lastResult: ReadResult | null = null;
 /** Counts reads, so the answer to an older one never replaces a newer one's. */
 let reads = 0;
 
 function say(text: string): void {
   status.textContent = text;
+}
+
+function redraw(): void {
+  if (lastResult) results.replaceChildren(...resultView(lastResult));
 }
 
 /** The tab beside the panel, when it's showing Facebook. Other sites' addresses aren't visible to the extension. */
@@ -445,6 +438,7 @@ async function read(quiet = false): Promise<void> {
   if (!tab) {
     unwatch();
     shown = '';
+    lastResult = null;
     showPage(null, null);
     results.replaceChildren();
     say('Open Facebook in this window and this panel shows what it can read there.');
@@ -460,12 +454,17 @@ async function read(quiet = false): Promise<void> {
     const seen = JSON.stringify(found);
     if (quiet && seen === shown) return;
     shown = seen;
+    lastResult = answer.result;
+    // Pressing Read asks HandsFreeOS again too: something may have been saved somewhere else.
+    if (!quiet) forget(answer.result);
     showPage(answer.result.kind, answer.result.url);
     results.replaceChildren(...resultView(answer.result));
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
+    void lookUp(answer.result);
   } catch (error) {
     if (seq !== reads || quiet) return;
     shown = '';
+    lastResult = null;
     results.replaceChildren();
     say(
       `Couldn’t read this page (${error instanceof Error ? error.message : String(error)}). Reload the Facebook tab and try again.`,
@@ -493,7 +492,10 @@ function later(): void {
   if (autoBox.checked) timer = setTimeout(() => void read(), SETTLE_MS);
 }
 
-readButton.addEventListener('click', () => void read());
+readButton.addEventListener('click', () => {
+  void refreshAccount();
+  void read();
+});
 
 copyButton.addEventListener('click', async () => {
   const made = await outline();
@@ -539,6 +541,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 async function start(): Promise<void> {
+  void startHfos({ into: accountBox, say, redraw });
   windowId = (await chrome.windows.getCurrent()).id;
   try {
     const stored = await chrome.storage.local.get(AUTO_READ);
