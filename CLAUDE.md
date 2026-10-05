@@ -26,6 +26,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
 | The web app                                  | `apps/web/AGENTS.md`: this Next.js has breaking changes, so read its docs in `node_modules/next/dist/docs/` first |
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
+| The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
 | The browser extension                        | `apps/extension/README.md`                                                                                        |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |

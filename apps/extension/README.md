@@ -1,11 +1,12 @@
 # HandsFreeOS Social: the browser extension
 
-The extension that will work beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
-add-on. It connects to HandsFreeOS only for businesses that have that add-on on.
+The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
+add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the first test build (Phase 0).** It reads the Facebook page you have open and shows what it found in
-Chrome's side panel. It doesn't sign in to HandsFreeOS, saves nothing, sends nothing, and never clicks, scrolls or
-changes the page. It's here to show how reliably Facebook can be read before anything is built on it.
+**This is the second test build (Phase 1).** It reads the Facebook page you have open and shows what it found in
+Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, and saves the
+profile or chat you have open when you press its button. It never sends anything on Facebook, and never clicks,
+scrolls or changes the page.
 
 ## What it reads
 
@@ -32,9 +33,28 @@ who each person is), an open chat repeats each message at the end of it for scre
 (read once, and used to tell whose it is), and posts in the News Feed aren't articles while their comments are
 (comments are never read as posts).
 
+## Signing in and saving
+
+The panel signs in the way the phone app does: an emailed 6-digit code, or a password, for an account that already
+exists (new accounts start on the web). It then saves to one business, picked at the top of the panel when there are
+several. Only businesses where Social Outreach is on and the person has **Use Social Outreach** are listed; with none,
+the panel still reads pages and says there's nowhere to save.
+
+| Page      | What it adds                                                                                                                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A profile | **Save to HandsFreeOS**: adds them to Contacts (source Facebook) with their intro and where you stand, or brings a saved one up to date. Customers with the same name are offered first: **It’s them** links the profile to one |
+| A chat    | **Save this chat**: the messages on the page join what was saved before, the latest 100 kept, each with the day it was sent spelled out ("Today" becomes the date)                                                              |
+| Lists     | **In HandsFreeOS** beside each person saved there, and **Saved** beside each chat you've saved                                                                                                                                  |
+
+Saved people link to their page in HandsFreeOS, where a **Social** card shows their profile and chats. Each save says
+what it did in the line under **Read this page**. If Social Outreach is turned off while the panel is open, the next
+save or look-up says so and the business leaves the list.
+
 ## Load it in Chrome
 
-1. Build it: `pnpm --filter @hfos/extension build`. It lands in `apps/extension/dist/chrome`.
+1. Build it: `pnpm --filter @hfos/extension build`. It lands in `apps/extension/dist/chrome`. To sign in, the build
+   needs HandsFreeOS's publishable Supabase key in `HFOS_SUPABASE_PUBLISHABLE_KEY` (see "Where it signs in" below);
+   without it the panel reads pages and doesn't sign in.
 2. Open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked** and pick that folder.
 3. Pin it from the puzzle-piece menu, open facebook.com, and press its button: the side panel opens beside the page.
 
@@ -42,6 +62,22 @@ After a rebuild, press the reload arrow on the extension's card. A Facebook tab 
 loaded gets the reader the first time the panel asks.
 
 `node scripts/build.mjs --watch` rebuilds on every change.
+
+## Where it signs in
+
+The build writes where it signs in and saves into the bundle, from these settings in the environment, or in `.env.local`
+or `.env` beside `package.json` (both gitignored; `.env.example` lists them):
+
+| Setting                         | Left out                                      |
+| ------------------------------- | --------------------------------------------- |
+| `HFOS_API_URL`                  | `https://api.handsfreeos.com`                 |
+| `HFOS_WEB_URL`                  | `https://app.handsfreeos.com`                 |
+| `HFOS_SUPABASE_URL`             | `https://ybupfghakoszfcxhyrby.supabase.co`    |
+| `HFOS_SUPABASE_PUBLISHABLE_KEY` | none: the build reads pages and can't sign in |
+
+The publishable key is public, like the web app's `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and still stays out of the
+repo. **Point it at your own computer:** `pnpm env:local` writes `.env.local` with your local stack's values, so a
+build after it signs in to the API on port 4000.
 
 ## When it reads a page wrong
 
@@ -66,6 +102,17 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   panel asks, and while the panel watches its tab it says when the page has changed, so the panel can ask again. It
   never writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions: you press
   send by default, daily limits, and a stop for the day on any Facebook warning.
+- **Saving only when pressed.** Reading a page asks HandsFreeOS which people and chats on it are saved (the
+  add-on's `outreach.lookup`), and nothing is saved until the person presses a button. It saves through the add-on's
+  commands like any other client: `x-hfos-client: extension`, its version in `x-hfos-app-version`, and a command id
+  and moment on every save, so the API can hold old builds to `MIN_EXTENSION_VERSION` and the audit log says
+  "via browser extension".
+- **The background worker holds the sign-in.** It keeps the Supabase session in the extension's own storage and
+  makes every call to HandsFreeOS (`src/hfos/session.ts`); the panel asks it (`src/hfos/messages.ts`), and it
+  answers only the extension's own pages. One holder means panels in two windows never refresh the sign-in at once.
+- **Cut to fit before sending.** `src/hfos/saves.ts` builds each save from the read, cut to what the commands take
+  (`packages/core/src/addons/outreach/limits.ts`, which has no zod so the panel stays small), and keeps a chat's save
+  under the API's 256 KB limit by sending the newest messages that fit.
 - **Each reader checks itself.** When a page should have something and the reader finds none, the panel says so and
   asks for the outline (`src/facebook/page.ts`).
 - **An outline never holds what a person wrote.** `test/outline.test.ts` checks that no name, message or id survives.
@@ -75,17 +122,18 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the address rules, Facebook's words and the outline |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks                         |
-| `src/panel/`, `public/` | The side panel                                                                              |
-| `src/background.ts`     | Opens the side panel from the toolbar button                                                |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`       |
-| `test/`                 | The readers against the hand-written pages, the addresses, and the outline's hiding         |
+| Path                    | What it is                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/facebook/`         | The readers: one file per kind of page, the address rules, Facebook's words and the outline        |
+| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks                                |
+| `src/panel/`, `public/` | The side panel; `src/panel/hfos.ts` is signing in, what's saved, and the Save buttons              |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves built from a read, and Facebook's times |
+| `src/background.ts`     | Opens the side panel from the toolbar button, and answers the panel's HandsFreeOS asks             |
+| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`              |
+| `test/`                 | The readers against the hand-written pages, the addresses, the outline's hiding, and the saves     |
 
 ## Next
 
-Phase 1 adds signing in to HandsFreeOS, as the phone app does, and saving what it reads through the Social Outreach
-add-on's commands. It lists only the businesses where the add-on is on and the person may use it, and stops when the
-add-on is turned off. Safari on Mac follows in Phase 2.
+The rest of Phase 1: bringing in Facebook's download file (friends, followers, chats, groups) with AI summaries and
+tags, scoring groups and their members, and the day's list of friend requests, openers and follow-ups, which you send
+and HandsFreeOS logs and counts against the daily limits. Safari on Mac follows in Phase 2.

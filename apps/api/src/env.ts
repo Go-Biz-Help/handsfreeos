@@ -27,6 +27,11 @@ export interface ApiEnv {
    * (426) and keeps its unsent changes. Unset, every build is taken.
    */
   readonly minAppVersion: string | null;
+  /**
+   * The oldest browser extension build the API still takes (`MIN_EXTENSION_VERSION`, like "0.2.0"): an older one is
+   * told to update (426). Unset, every build is taken.
+   */
+  readonly minExtensionVersion: string | null;
 }
 
 // Secret-looking names anywhere; provider credentials by the prefixes our config uses; any OAuth client setting
@@ -70,6 +75,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const minAppVersion = env.MIN_APP_VERSION?.trim() || null;
   if (minAppVersion && !/^\d+(\.\d+){0,2}$/.test(minAppVersion))
     throw new Error(`MIN_APP_VERSION must be a build number like 1.4.0, not ${minAppVersion}`);
+  const minExtensionVersion = env.MIN_EXTENSION_VERSION?.trim() || null;
+  if (minExtensionVersion && !/^\d+(\.\d+){0,2}$/.test(minExtensionVersion))
+    throw new Error(
+      `MIN_EXTENSION_VERSION must be a build number like 0.2.0, not ${minExtensionVersion}`,
+    );
   return {
     port,
     host: env.HOST ?? '127.0.0.1',
@@ -85,5 +95,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     trustProxy: env.TRUST_PROXY === 'true',
     serveDocs: env.NODE_ENV !== 'production',
     minAppVersion,
+    minExtensionVersion,
   };
 }

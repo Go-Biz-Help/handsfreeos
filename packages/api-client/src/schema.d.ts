@@ -5337,6 +5337,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.chat.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a chat as the extension read it: finds or adds the customer it’s with from the profile it links to, and adds the messages it hadn’t saved before, keeping the most recent.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved.
+         */
+        post: operations["command_outreach_chat_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.playbook.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a playbook away, or bring an archived one back.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.playbook.archived.
+         */
+        post: operations["command_outreach_playbook_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.playbook.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds and the tags to use.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.playbook.saved.
+         */
+        post: operations["command_outreach_playbook_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.profile.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save someone’s social profile as the extension read it: finds the customer it’s saved to, or the one picked, or adds them, and keeps their intro and where the two of you stand.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
+         */
+        post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/own_business.set": {
         parameters: {
             query?: never;
@@ -14571,6 +14651,66 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_onboarding_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which of the profiles and chats on a social page are saved here, and to whom; and which customers have a name, for someone not saved yet.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A customer’s social profiles and the chats saved with them, newest first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.playbook.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s playbooks for social outreach, the ones in use first, then any archived.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_playbook_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -28481,6 +28621,264 @@ export interface operations {
                         organizationId: string;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_chat_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    messages: {
+                        /** @enum {string} */
+                        from: "me" | "them" | "unknown";
+                        /** @default null */
+                        sender?: string | null;
+                        text: string;
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    name: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    } | null;
+                    thread: {
+                        /** @default false */
+                        encrypted?: boolean;
+                        id: string;
+                        url: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        addedPerson: boolean;
+                        kept: number;
+                        /** Format: uuid */
+                        personId: string;
+                        personName: string;
+                        /** Format: uuid */
+                        threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_playbook_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    archived: boolean;
+                    /** Format: uuid */
+                    playbookId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        details: {
+                            area: string | null;
+                            audience: string | null;
+                            avoid: string[];
+                            disclaimer: string | null;
+                            /** @enum {string} */
+                            goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
+                            groupWords: string[];
+                            link: string | null;
+                            offer: string | null;
+                            platforms: "facebook"[];
+                            questions: string[];
+                            samples: string[];
+                            signs: string[];
+                            skip: string[];
+                            steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
+                            tags: string[];
+                            tone: string | null;
+                        };
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        template: string | null;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_playbook_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    details: {
+                        area: string | null;
+                        audience: string | null;
+                        avoid: string[];
+                        disclaimer: string | null;
+                        /** @enum {string} */
+                        goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
+                        groupWords: string[];
+                        link: string | null;
+                        offer: string | null;
+                        platforms: "facebook"[];
+                        questions: string[];
+                        samples: string[];
+                        signs: string[];
+                        skip: string[];
+                        steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
+                        tags: string[];
+                        tone: string | null;
+                    };
+                    name: string;
+                    /** Format: uuid */
+                    playbookId?: string;
+                    template?: "crm_demos" | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        details: {
+                            area: string | null;
+                            audience: string | null;
+                            avoid: string[];
+                            disclaimer: string | null;
+                            /** @enum {string} */
+                            goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
+                            groupWords: string[];
+                            link: string | null;
+                            offer: string | null;
+                            platforms: "facebook"[];
+                            questions: string[];
+                            samples: string[];
+                            signs: string[];
+                            skip: string[];
+                            steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
+                            tags: string[];
+                            tone: string | null;
+                        };
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        template: string | null;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_profile_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default unknown
+                     * @enum {string}
+                     */
+                    friendship?: "friends" | "request_sent" | "request_received" | "not_friends" | "unknown";
+                    /** @default [] */
+                    intro?: string[];
+                    /** @default null */
+                    mutualFriends?: number | null;
+                    name: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addedPerson: boolean;
+                        /** Format: uuid */
+                        personId: string;
+                        personName: string;
+                        /** Format: uuid */
+                        profileId: string;
                     };
                 };
             };
@@ -45677,7 +46075,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "portal" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "extension" | "contact_ai" | "portal" | "test";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -52135,6 +52533,203 @@ export interface operations {
                         website: string | null;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    names?: string[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** @default [] */
+                    profiles?: {
+                        id: string | null;
+                        username: string | null;
+                    }[];
+                    /** @default [] */
+                    threads?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        profiles: {
+                            id: string | null;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            username: string | null;
+                        }[];
+                        sameName: {
+                            name: string;
+                            people: {
+                                /** Format: date-time */
+                                createdAt: string;
+                                email: string | null;
+                                hasProfile: boolean;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                                phone: string | null;
+                                source: string | null;
+                            }[];
+                        }[];
+                        threads: {
+                            kept: number;
+                            key: string;
+                            /** Format: date-time */
+                            lastSavedAt: string;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            /** Format: uuid */
+                            threadId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        chats: {
+                            encrypted: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSavedAt: string;
+                            messages: {
+                                /** @enum {string} */
+                                from: "me" | "them" | "unknown";
+                                savedAt: string;
+                                sender: string | null;
+                                text: string;
+                                when: string | null;
+                            }[];
+                            ownerName: string | null;
+                            /** @enum {string} */
+                            platform: "facebook";
+                            savedMessages: number;
+                            url: string;
+                        }[];
+                        profiles: {
+                            friendship: string;
+                            /** Format: uuid */
+                            id: string;
+                            intro: string[];
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            mutualFriends: number | null;
+                            name: string;
+                            /** @enum {string} */
+                            platform: "facebook";
+                            url: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_playbook_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        playbooks: {
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            details: {
+                                area: string | null;
+                                audience: string | null;
+                                avoid: string[];
+                                disclaimer: string | null;
+                                /** @enum {string} */
+                                goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
+                                groupWords: string[];
+                                link: string | null;
+                                offer: string | null;
+                                platforms: "facebook"[];
+                                questions: string[];
+                                samples: string[];
+                                signs: string[];
+                                skip: string[];
+                                steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
+                                tags: string[];
+                                tone: string | null;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            template: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
                     };
                 };
             };

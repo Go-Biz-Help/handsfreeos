@@ -5,6 +5,7 @@
  *   apps/api/.env       API settings only (never a secret key)
  *   apps/worker/.env    worker settings (the only app allowed to hold the secret key)
  *   apps/web/.env.local publishable values only
+ *   apps/extension/.env.local  where a build of the browser extension signs in (publishable values only)
  */
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -145,4 +146,10 @@ write('apps/web/.env.local', [
   'NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED=true',
   // The matching always-pass test site key (public). The worker names it too; this is the pages' fallback.
   'NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA',
+]);
+write('apps/extension/.env.local', [
+  'HFOS_API_URL=http://127.0.0.1:4000',
+  'HFOS_WEB_URL=http://localhost:3000',
+  `HFOS_SUPABASE_URL=${vals.API_URL}`,
+  `HFOS_SUPABASE_PUBLISHABLE_KEY=${vals.PUBLISHABLE_KEY}`,
 ]);

@@ -192,6 +192,16 @@ importers:
         version: 4.1.11(@types/node@22.20.2)(jsdom@20.0.3(supports-color@10.2.2))(vite@8.3.0(@types/node@22.20.2)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
 
   apps/extension:
+    dependencies:
+      '@hfos/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@hfos/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@supabase/auth-js':
+        specifier: ^2.116.0
+        version: 2.116.0
     devDependencies:
       '@types/chrome':
         specifier: ^0.3.4

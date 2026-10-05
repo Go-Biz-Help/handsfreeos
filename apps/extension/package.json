@@ -2,13 +2,18 @@
   "name": "@hfos/extension",
   "private": true,
   "type": "module",
-  "version": "0.1.3",
-  "description": "The browser extension that works beside a person on Facebook (README.md). Phase 0: it reads the page you have open and shows what it found; it saves and sends nothing.",
+  "version": "0.2.0",
+  "description": "The browser extension that works beside a person on Facebook (README.md). It reads the page you have open, and saves the people and chats you pick to HandsFreeOS through the Social Outreach add-on.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "lint": "eslint . --config ../../eslint.config.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@hfos/api-client": "workspace:*",
+    "@hfos/core": "workspace:*",
+    "@supabase/auth-js": "^2.116.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.4",

@@ -1,24 +1,27 @@
 /**
- * Requests from the phone app (M10): reading what the app says about a request, and the moment rules a command
- * from it must pass. The API reads the headers once per request; `executeCommand` applies the rules to the command
- * the request is for, never to a command run inside it (those share its moment and were checked with it).
+ * Requests from the phone app (M10) and the browser extension (Social Outreach): reading what they say about a
+ * request, and the moment rules a command from them must pass. The API reads the headers once per request;
+ * `executeCommand` applies the rules to the command the request is for, never to a command run inside it (those
+ * share its moment and were checked with it).
  */
 import { HfosError } from '../errors';
 import {
   APP_CLIENT,
   APP_HEADERS,
   CONFIRMED_MINUTES,
+  EXTENSION_CLIENT,
   ONLINE_MINUTES,
   onServerClock,
+  type AppClient,
 } from '../mobile';
 import type { CommandDef, RequestMeta } from './types';
 
 /** Request headers as an HTTP server hands them over. */
 export type HeaderBag = Readonly<Record<string, string | readonly string[] | undefined>>;
 
-/** What a request from the app adds to RequestMeta, its times already on the server's clock. */
+/** What a request from the app or the extension adds to RequestMeta, its times already on the server's clock. */
 export interface AppRequestDetails {
-  readonly channel: 'mobile';
+  readonly channel: AppClient;
   readonly commandId: string | null;
   readonly occurredAt: Date | null;
   readonly sentAt: Date | null;
@@ -38,16 +41,26 @@ function header(headers: HeaderBag, name: string): string | null {
 
 /** Whether a request says it comes from the app (`x-hfos-client: mobile`). */
 export function isAppRequest(headers: HeaderBag): boolean {
-  return header(headers, APP_HEADERS.client)?.toLowerCase() === APP_CLIENT;
+  return appClientOf(headers) === APP_CLIENT;
 }
 
+/** The app or the extension, when a request says it comes from one of them; null for the web and everything else. */
+export function appClientOf(headers: HeaderBag): AppClient | null {
+  const client = header(headers, APP_HEADERS.client)?.toLowerCase();
+  return client === APP_CLIENT || client === EXTENSION_CLIENT ? client : null;
+}
+
+/** What to update when a client's build sends something HandsFreeOS can't use. */
+const UPDATE: Record<AppClient, string> = { mobile: 'the app', extension: 'the extension' };
+
 /**
- * The app's details on a request, with the times it read off the phone's clock moved onto the server's
- * (`occurredAt + (now − sentAt)`, never later than now); null for any other client. The app always sends them
+ * The app's or the extension's details on a request, with the times it read off its device's clock moved onto the
+ * server's (`occurredAt + (now − sentAt)`, never later than now); null for any other client. They always send them
  * well-formed, so one that isn't is refused rather than guessed at.
  */
 export function readAppRequest(headers: HeaderBag, now: Date): AppRequestDetails | null {
-  if (!isAppRequest(headers)) return null;
+  const client = appClientOf(headers);
+  if (!client) return null;
   const problems: { path: string; message: string }[] = [];
   const time = (name: string): Date | null => {
     const raw = header(headers, name);
@@ -68,10 +81,10 @@ export function readAppRequest(headers: HeaderBag, now: Date): AppRequestDetails
   if (problems.length)
     throw HfosError.validation(
       problems,
-      'The app sent this change with details HandsFreeOS can’t use. Update the app, then try it again.',
+      `${client === APP_CLIENT ? 'The app' : 'The extension'} sent this change with details HandsFreeOS can’t use. Update ${UPDATE[client]}, then try it again.`,
     );
   return {
-    channel: 'mobile',
+    channel: client,
     commandId: commandId?.toLowerCase() ?? null,
     occurredAt: occurredAt ? onServerClock(occurredAt, sentAt, now) : null,
     sentAt,
@@ -90,21 +103,26 @@ export function waitInWords(ms: number): string {
 }
 
 /**
- * Every command from the app says which command it is and when it was done, or it is refused (final), before its
- * receipt is claimed: a fixed build can send it again under the same id.
+ * Every command from the app or the extension says which command it is and when it was done, or it is refused
+ * (final), before its receipt is claimed: a fixed build can send it again under the same id.
  */
 export function assertAppRequest(meta: RequestMeta): void {
-  if (meta.channel === 'mobile' && (!meta.commandId || !meta.occurredAt))
+  const client =
+    meta.channel === APP_CLIENT || meta.channel === EXTENSION_CLIENT ? meta.channel : null;
+  if (client && (!meta.commandId || !meta.occurredAt))
     throw HfosError.validation(
       [
         ...(meta.commandId ? [] : [{ path: APP_HEADERS.commandId, message: 'Required.' }]),
         ...(meta.occurredAt ? [] : [{ path: APP_HEADERS.occurredAt, message: 'Required.' }]),
       ],
-      'The app sent this change without saying which one it is and when it was done. Update the app, then try it again.',
+      `${client === APP_CLIENT ? 'The app' : 'The extension'} sent this change without saying which one it is and when it was done. Update ${UPDATE[client]}, then try it again.`,
     );
 }
 
-/** Where a person decided a draft or an approval, as its `via` says: in the Assistant, on the phone, or on the web. */
+/**
+ * Where a person decided a draft or an approval, as its `via` says: in the Assistant, on the phone, or on the web
+ * (the browser extension is the web too).
+ */
 export const decidedVia = (meta: RequestMeta): 'assistant' | 'mobile' | 'web' =>
   meta.channel === 'assistant' ? 'assistant' : meta.channel === 'mobile' ? 'mobile' : 'web';
 
@@ -114,7 +132,7 @@ export const decidedVia = (meta: RequestMeta): 'assistant' | 'mobile' | 'web' =>
  *   ask) unless they said "Still send?" yes within the last few minutes;
  * - an online-only command done more than two minutes ago is refused (`online_only`, final): money moves, calls
  *   and settings happen with signal or not at all.
- * `occurredAt` is only ever set for the app, so the web's commands pass untouched.
+ * `occurredAt` is only ever set for the app and the extension, so the web's commands pass untouched.
  */
 export function assertOnTime(cmd: CommandDef, meta: RequestMeta, now: Date): void {
   if (!meta.occurredAt || cmd.offline === 'anytime') return;

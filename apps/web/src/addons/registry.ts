@@ -28,6 +28,7 @@ import {
   Settings2 as realestateSettingsIcon,
   Wrench as realestateVendorsIcon,
 } from 'lucide-react';
+import { Handshake as outreachAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -176,5 +177,9 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
         return street ? `${street} · ${p.business.name}` : p.business.name;
       },
     },
+  },
+  outreach: {
+    icon: outreachAddonIcon,
+    slots: { 'person.panels': () => import('./outreach/person-panel') },
   },
 };
