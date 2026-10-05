@@ -28,7 +28,7 @@ Phase 1, steps 1 and 2:
 | What a save takes: lengths, counts, id shapes (no zod) | `packages/core/src/addons/outreach/limits.ts`                                    |
 | Worker half (nothing yet)                              | `apps/worker/src/addons/outreach/`                                               |
 | Playbooks page and the Social card                     | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
-| Tables and permissions                                 | `supabase/migrations/20261022001400_addon_outreach.sql`, schema `addon_outreach` |
+| Tables and permissions                                 | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach` |
 | The extension                                          | `apps/extension`                                                                 |
 
 Operations, all through the kernel:

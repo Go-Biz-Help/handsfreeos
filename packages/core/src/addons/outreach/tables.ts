@@ -1,5 +1,5 @@
 /**
- * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261022001400): the Drizzle
+ * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100): the Drizzle
  * mirror its server code reads and writes through. Server-only. test/addons/outreach-tables.test.ts holds the mirror
  * to the live columns.
  */
