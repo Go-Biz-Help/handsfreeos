@@ -799,7 +799,20 @@ describe('texting', () => {
     await drain();
     const out = s.telephony.sent.find((x) => x.body === body);
     expect(out).toMatchObject({ from: businessNumber, to: MIKE });
-    expect(await load()).toMatchObject({ status: 'sending', providerMessageId: out!.sid });
+    const retried = await load();
+    expect(retried).toMatchObject({ status: 'sending', providerMessageId: out!.sid });
+    // It went just now, so it shows then: as the conversation's latest, and on Mike's timeline.
+    expect(retried.occurredAt.getTime()).toBeGreaterThan(failed.occurredAt.getTime());
+    const [conv] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, retried.conversationId));
+    expect(conv).toMatchObject({ lastMessageAt: retried.occurredAt, lastPreview: body });
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(eq(activities.id, retried.activityId!));
+    expect(entry!.occurredAt).toEqual(retried.occurredAt);
   });
 
   it('marks a text the outbox gave up on before it could say so Not delivered, so it can be sent again', async () => {

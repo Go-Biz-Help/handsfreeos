@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
 import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -1394,6 +1394,33 @@ async function goesFirstTime(
     .where(eq(conversations.id, conv.id));
 }
 
+/**
+ * A text or email that went before and didn't arrive, going again: the customer gets it now, so the thread shows it
+ * now, at the bottom, and it's the conversation's latest. It keeps its one timeline entry, which moves here too when
+ * this attempt reaches the carrier (message.update_status). message.retry does this at once;
+ * message.release_scheduled when quiet hours end.
+ */
+async function goesAgain(
+  ctx: CommandContext,
+  m: typeof messages.$inferSelect,
+  conv: typeof conversations.$inferSelect,
+  now: Date,
+) {
+  await ctx.tx.update(messages).set({ occurredAt: now }).where(eq(messages.id, m.id));
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview:
+        m.channel === 'email'
+          ? emailPreview(m.subject, m.bodyText, m.media.length)
+          : messagePreview(m.bodyText, m.media.length),
+      lastDirection: 'outbound',
+    })
+    .where(eq(conversations.id, conv.id));
+}
+
 export const messageRetry = defineCommand({
   name: 'message.retry',
   description: 'Send a text or email that did not go out one more time.',
@@ -1500,8 +1527,10 @@ export const messageRetry = defineCommand({
       },
     });
     // A held text refused when quiet hours ended never went. This is its first time, so it becomes the
-    // conversation's latest and gets its timeline entry now. One that went before keeps its place and its entry.
-    if (!m.went) await goesFirstTime(ctx, m, conv, eventId, new Date(), false);
+    // conversation's latest and gets its timeline entry now. One that went before goes again now, with its entry.
+    const now = new Date();
+    if (!m.went) await goesFirstTime(ctx, m, conv, eventId, now, false);
+    else await goesAgain(ctx, m, conv, now);
     return { messageId: m.id };
   },
 });
@@ -1678,10 +1707,11 @@ export const messageReleaseScheduled = defineCommand({
       .update(messages)
       .set({ errorCode: null, occurredAt: now, failedAttempt: null })
       .where(eq(messages.id, m.id));
-    // A text that went before is in the conversation already, and on the timeline (or joins it when the conversation
-    // is linked). One that never went (held from the start, or refused when quiet hours ended and tried again) gets
-    // both now.
+    // A text that went before is on the timeline already (or joins it when the conversation is linked), and is the
+    // conversation's latest again now. One that never went (held from the start, or refused when quiet hours ended
+    // and tried again) gets both now.
     if (!m.went) await goesFirstTime(ctx, m, conv, eventId, now, true);
+    else await goesAgain(ctx, m, conv, now);
     return outcome('sent');
   },
 });
@@ -2164,6 +2194,13 @@ export const messageUpdateStatus = defineCommand({
       .set(patch)
       .where(eq(messages.id, m.id))
       .returning({ status: messages.status });
+    // This attempt reached the carrier or mail service. One tried again went later than its timeline entry says
+    // (message.retry moved the message to when it went), so the entry moves there too. A first send's are the same.
+    if (patch.providerMessageId && m.activityId)
+      await ctx.tx
+        .update(activities)
+        .set({ occurredAt: m.occurredAt })
+        .where(and(eq(activities.id, m.activityId), ne(activities.occurredAt, m.occurredAt)));
     const status = after?.status ?? m.status;
     const changed = status !== m.status;
     if (changed) {
