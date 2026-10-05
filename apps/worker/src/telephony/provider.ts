@@ -255,6 +255,11 @@ export interface TelephonyProvider {
    * stops billing. For a business being deleted. One already closed, or never known, is fine.
    */
   closeSubaccount(accountSid: string): Promise<void>;
+  /**
+   * A business's subaccount Auth Token as Twilio has it now, read with the master account. Somebody can rotate it
+   * in the Twilio console. Null when Twilio has no such subaccount under ours.
+   */
+  subaccountToken(accountSid: string): Promise<string | null>;
   createMessagingService(
     account: ProviderAccount,
     opts: { friendlyName: string; inboundUrl: string; statusCallbackUrl: string },
@@ -472,6 +477,11 @@ export class ProviderError extends Error {
     readonly code: string,
     readonly permanent: boolean,
     readonly httpStatus?: number,
+    /**
+     * The account the request signed in as. On a 401 it may be a business's subaccount whose Auth Token was
+     * rotated in the Twilio console (`renewSubaccountToken`).
+     */
+    readonly accountSid?: string,
   ) {
     super(message);
     this.name = 'ProviderError';

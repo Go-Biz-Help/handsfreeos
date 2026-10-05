@@ -4012,7 +4012,9 @@ The worker only checks that the two Twilio values are present, not that they are
 9. In a HandsFreeOS workspace with no number yet, open **Settings** → **Texting & calls**.
 10. Click **Show numbers**. You should see a list of numbers, not "The phone carrier did not answer. Try again in a minute."
 
-Twilio emails every owner and admin when you do this. Each client subaccount has its own token, and rotating the master token doesn't change them. Never rotate a client subaccount's token by hand: the worker keeps its own sealed copy from when it made the subaccount, and Twilio's requests for that client would then fail their signature check.
+Twilio emails every owner and admin when you do this. Each client subaccount has its own token, and rotating the master token doesn't change them.
+
+You can also rotate a client subaccount's token, the same way, inside that subaccount. The worker keeps its own sealed copy, so Twilio refuses the next text and signs the next webhook with a token the worker doesn't have. Either one makes the worker read the new token with the master account and save it, and the log says `the subaccount’s auth token was changed in Twilio, so the new one was saved`. The text is retried and goes out, and the webhook is let through. This needs the master token on the worker to be right: if the log says `could not ask Twilio for the subaccount’s auth token`, fix the master token first.
 
 ### Twilio Step 3: Lock the account down
 
@@ -12039,7 +12041,7 @@ If the page shows "We couldn’t buy <number>: <error> Pick another number." rig
 **Likely cause.** The worker checks each Twilio request's signature against `WORKER_PUBLIC_URL` plus the path Twilio called, never against the address the request arrived on. So `WORKER_PUBLIC_URL` must match exactly what Twilio calls: `https://hooks.handsfreeos.com`, with no port and no path. A client number's requests are checked with that client subaccount's own auth token, which the worker sealed when it made the subaccount. It breaks when:
 
 - the number was bought while `WORKER_PUBLIC_URL` was different (a `fly.dev` address, for example), so Twilio still calls the old address;
-- a client subaccount's auth token was changed by hand in Twilio (the worker keeps its own sealed copy from when it made the subaccount, so never rotate a subaccount's token);
+- a client subaccount's auth token was rotated in Twilio and the worker couldn't read the new one, because the master token on the worker is wrong too. The log then also shows `could not ask Twilio for the subaccount’s auth token`. Fix the master token ("Rotate the master Auth Token later"), and the next webhook brings the new one in;
 - the number was bought by hand in the Twilio console. HandsFreeOS has no record of it. Twilio only calls the worker if someone points the number at it, and then callers hear "Sorry, this number is not in service." and texts to a number in the master account are dropped. If the number sits in a subaccount HandsFreeOS did not create, the worker rejects its requests. Only numbers bought in **Settings** → **Texting & calls** work.
 
 **Fix.**

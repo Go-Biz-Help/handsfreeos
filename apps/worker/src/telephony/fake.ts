@@ -142,6 +142,12 @@ export interface FakeTelephony extends TelephonyProvider {
   transferIn(e164: string, toAccountSid: string): string;
   /** Somebody deleted this API key in the Twilio console: `hasApiKey` says it is gone from then on. */
   deleteApiKey(keySid: string): void;
+  /**
+   * Somebody rotated this subaccount's Auth Token in the Twilio console. From then on sending a text refuses the
+   * old token, the subaccount's webhooks are signed with the new one, and `subaccountToken` reads it. Returns
+   * the new token: `token`, or a made-up one.
+   */
+  rotateSubaccountToken(accountSid: string, token?: string): string;
 }
 
 /** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
@@ -262,8 +268,14 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const subaccounts = new Set<string>();
   /** API keys deleted "in the console" (deleteApiKey). Every other key is still there. */
   const deletedApiKeys = new Set<string>();
+  /** Subaccount tokens rotated "in the console" (rotateSubaccountToken). Every other one is as it was made. */
+  const rotatedTokens = new Map<string, string>();
+  /** What Twilio signs an account's webhooks with: the rotated token once there is one. */
+  const signingToken = (account: ProviderAccount) =>
+    rotatedTokens.get(account.sid) ?? account.authToken;
 
-  const unauthorised = () => new ProviderError('Authenticate', '20003', false, 401);
+  const unauthorised = (accountSid?: string) =>
+    new ProviderError('Authenticate', '20003', false, 401, accountSid);
 
   /** A stand-in account for a local run: three numbers, one of them in use by HighLevel. */
   const demoAccount = (sid: string, secret: string) => {
@@ -280,7 +292,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   /** Signs in the way Twilio does: the account's secret, whichever name it is given under. */
   const signIn = (creds: ExternalTwilioCreds) => {
     if (creds.accountSid === FAKE_MASTER_SID || subaccounts.has(creds.accountSid)) {
-      if (creds.secret !== FAKE_AUTH_TOKEN) throw unauthorised();
+      if (creds.secret !== (rotatedTokens.get(creds.accountSid) ?? FAKE_AUTH_TOKEN))
+        throw unauthorised();
       return {
         sid: creds.accountSid,
         friendlyName: 'HandsFreeOS',
@@ -400,7 +413,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
 
   /** A placed call, the way Twilio would run it against the worker's TwiML. */
   const playOut = async (account: ProviderAccount, c: FakeCall) => {
-    const token = account.authToken;
+    const token = signingToken(account);
     const base = {
       AccountSid: account.sid,
       CallSid: c.sid,
@@ -534,6 +547,15 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       const sid = fakeSid('AC');
       subaccounts.add(sid);
       return { sid, authToken: FAKE_AUTH_TOKEN };
+    },
+    async subaccountToken(accountSid) {
+      return (
+        rotatedTokens.get(accountSid) ?? (subaccounts.has(accountSid) ? FAKE_AUTH_TOKEN : null)
+      );
+    },
+    rotateSubaccountToken(accountSid, token = `fake-rotated-${randomBytes(8).toString('hex')}`) {
+      rotatedTokens.set(accountSid, token);
+      return token;
     },
     async closeSubaccount(accountSid) {
       if (!closedAccounts.includes(accountSid)) closedAccounts.push(accountSid);
@@ -678,6 +700,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       owned.delete(sid);
     },
     async sendMessage(account, message) {
+      if (rotatedTokens.has(account.sid) && account.authToken !== rotatedTokens.get(account.sid))
+        throw unauthorised(account.sid);
       const sid = fakeSid('SM');
       const template = message.contentSid ? contents.get(message.contentSid) : undefined;
       if (message.contentSid && !template)
@@ -716,20 +740,20 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       if (message.body.includes('[fail]'))
         callback(
           message.statusCallbackUrl,
-          account.authToken,
+          signingToken(account),
           { ...base, MessageStatus: 'failed', ErrorCode: '30006' },
           300,
         );
       else {
         callback(
           message.statusCallbackUrl,
-          account.authToken,
+          signingToken(account),
           { ...base, MessageStatus: 'sent' },
           250,
         );
         callback(
           message.statusCallbackUrl,
-          account.authToken,
+          signingToken(account),
           { ...base, MessageStatus: 'delivered' },
           700,
         );
@@ -737,7 +761,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         if (overRcs)
           callback(
             message.statusCallbackUrl,
-            account.authToken,
+            signingToken(account),
             { ...base, MessageStatus: 'read', EventType: 'READ' },
             1500,
           );

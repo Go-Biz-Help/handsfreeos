@@ -4,6 +4,7 @@ import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client'
 import { scheduledJobs } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
 import type { WorkerServices } from './services';
+import { renewAfterRefusal } from './telephony/tokens';
 
 export type JobRow = typeof scheduledJobs.$inferSelect;
 
@@ -202,6 +203,8 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
       const failed = attempts >= MAX_ATTEMPTS;
       const message = errorMessage(e);
       deps.log.warn({ jobId: id, kind: job.kind, attempts, failed, err: message }, 'job failed');
+      // Twilio refusing a business's own sign-in can mean its token was rotated: the retry gets the new one.
+      await renewAfterRefusal(deps, e);
       await finish({
         status: failed ? 'failed' : 'pending',
         attempts,

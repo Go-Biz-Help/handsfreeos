@@ -37,7 +37,7 @@ import {
   type TestUser,
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createSealer } from '../src/crypto';
 import { processDeliveries } from '../src/deliveries';
 import { readEnv } from '../src/env';
@@ -666,6 +666,77 @@ describe('texting', () => {
       .from(webhookDeliveries)
       .where(eq(webhookDeliveries.dedupeKey, params.MessageSid));
     expect(stored).toHaveLength(0);
+  });
+
+  it('sends with the new token once somebody rotates the subaccount’s Auth Token in Twilio', async () => {
+    await drain();
+    const rotated = s.telephony.rotateSubaccountToken(accountSid);
+    const { output } = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, body: 'Your filter is in.' },
+      actor(owner),
+      meta(),
+    );
+    // The first try signs in with the token the worker sealed, Twilio refuses it, and the master account reads
+    // the new one.
+    await reserve();
+    await processOnce({ ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true, handlers });
+    expect(s.telephony.sent.some((m) => m.body === 'Your filter is in.')).toBe(false);
+    const [account] = await admin()
+      .select()
+      .from(telephonyAccounts)
+      .where(eq(telephonyAccounts.accountSid, accountSid));
+    expect(s.sealer.open(account!.authTokenEnc!)).toBe(rotated);
+    // The retry, made due at once, goes out with it.
+    await rows(
+      admin(),
+      sql`update app.outbox set next_attempt_at = now()
+          where workspace_id = ${workspaceId} and status = 'pending'`,
+    );
+    await drain();
+    const out = s.telephony.sent.find((m) => m.body === 'Your filter is in.');
+    expect(out).toMatchObject({ from: businessNumber, to: MIKE, accountSid });
+    const [m] = await admin().select().from(messages).where(eq(messages.id, output.messageId));
+    expect(m).toMatchObject({ providerMessageId: out!.sid, status: 'sending' });
+  });
+
+  it('takes webhooks Twilio signs with a rotated token, and still refuses the rest', async () => {
+    const rotated = s.telephony.rotateSubaccountToken(accountSid);
+    const asked = vi.spyOn(s.telephony, 'subaccountToken');
+    try {
+      const sid = s.telephony.sent.find((m) => m.body === 'Your filter is in.')!.sid;
+      const params = {
+        AccountSid: accountSid,
+        MessageSid: sid,
+        From: businessNumber,
+        To: MIKE,
+        MessageStatus: 'delivered',
+      };
+      expect((await postTwilio(STATUS, params, { token: rotated })).statusCode).toBe(204);
+      const [account] = await admin()
+        .select()
+        .from(telephonyAccounts)
+        .where(eq(telephonyAccounts.accountSid, accountSid));
+      expect(s.sealer.open(account!.authTokenEnc!)).toBe(rotated);
+      // The token it replaced and one that never was are refused. Twilio is asked about the first, and not again
+      // within the minute.
+      expect((await postTwilio(STATUS, params, { token: FAKE_AUTH_TOKEN })).statusCode).toBe(403);
+      expect((await postTwilio(STATUS, params, { token: 'someone-elses-token' })).statusCode).toBe(
+        403,
+      );
+      expect(asked).toHaveBeenCalledTimes(2);
+      await drain();
+      expect((await messageBySid(sid))?.status).toBe('delivered');
+    } finally {
+      asked.mockRestore();
+      // Back to the token the rest of this file signs with.
+      s.telephony.rotateSubaccountToken(accountSid, FAKE_AUTH_TOKEN);
+      await admin()
+        .update(telephonyAccounts)
+        .set({ authTokenEnc: s.sealer.seal(FAKE_AUTH_TOKEN) })
+        .where(eq(telephonyAccounts.accountSid, accountSid));
+    }
   });
 
   it('files an inbound text with its photo and schedules the reply reminder', async () => {

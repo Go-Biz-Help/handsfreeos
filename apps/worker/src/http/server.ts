@@ -23,6 +23,7 @@ import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
 import { loadAccount } from '../telephony/accounts';
 import { ProviderError } from '../telephony/provider';
+import { renewAfterRefusal } from '../telephony/tokens';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
 import { registerTemplateRoutes } from '../workflows/templates-routes';
@@ -212,7 +213,9 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // the same shape as the API's.
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HfosError) return reply.code(err.status).send(err.toBody());
-    if (err instanceof ProviderError)
+    if (err instanceof ProviderError) {
+      // Twilio refusing a business's own sign-in can mean its token was rotated: the next try gets the new one.
+      void renewAfterRefusal({ ...deps, db: deps.httpDb }, err);
       return reply.code(502).send({
         error: {
           code: 'internal',
@@ -220,6 +223,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
           disposition: 'retry',
         },
       });
+    }
     const { statusCode: status, message } = err as { statusCode?: number; message?: string };
     if (status && status >= 400 && status < 500)
       return reply.code(status).send({

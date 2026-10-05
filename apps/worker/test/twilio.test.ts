@@ -422,6 +422,37 @@ describe('numbers and texts', () => {
     ).resolves.toBeUndefined();
     expect(seen.at(-1)!.path).toMatch(/\/Media\/MEphototest\.json$/);
   });
+
+  it('says whose sign-in Twilio refused, and reads a subaccount’s current token with the master account', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST .*\/Accounts\/ACsubtest\/Messages\.json$/,
+        () => ({ status: 401, json: { code: 20003, message: 'Authenticate' } }),
+      ],
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\.json$/,
+        () => ({ json: { sid: 'ACsubtest', status: 'active', auth_token: 'rotated-token' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    await expect(
+      t.sendMessage(account, {
+        from: '+18335551234',
+        messagingServiceSid: 'MGservicetest',
+        to: '+17135550142',
+        body: 'hi',
+        mediaUrls: [],
+        statusCallbackUrl: urls.smsStatusUrl,
+      }),
+    ).rejects.toMatchObject({ permanent: false, httpStatus: 401, accountSid: 'ACsubtest' });
+    expect(await t.subaccountToken('ACsubtest')).toBe('rotated-token');
+    // A subaccount that isn't under ours is a 404 to the master account.
+    expect(await t.subaccountToken('ACnobodytest')).toBeNull();
+    expect(seen.slice(1).map((x) => x.auth)).toEqual([
+      'ACmastertest:master-token',
+      'ACmastertest:master-token',
+    ]);
+  });
 });
 
 describe('toll-free verification', () => {

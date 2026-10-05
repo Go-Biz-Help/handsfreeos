@@ -14,6 +14,7 @@ import type { AssistantServices } from '../assistant/routes';
 import type { MigrationAdapters } from '../migrations/adapters/registry';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
+import { renewSubaccountToken } from '../telephony/tokens';
 import type { AddonConnectionRouteOptions } from './addon-connections';
 import type { BookingHttpOptions } from './booking';
 import type { ChatHttpOptions } from './chat';
@@ -149,11 +150,22 @@ export async function verifiedTwilio(
 ): Promise<VerifiedTwilio | null> {
   const params = (req.body ?? {}) as Record<string, string>;
   const url = `${deps.publicUrl}${req.url}`;
-  const account = await webhookAccount(deps, params['AccountSid']);
-  if (
-    !account ||
-    !verifyTwilioSignature(account.token, url, params, header(req, 'x-twilio-signature'))
-  ) {
+  const signature = header(req, 'x-twilio-signature');
+  let account = await webhookAccount(deps, params['AccountSid']);
+  let signed = !!account && verifyTwilioSignature(account.token, url, params, signature);
+  if (account && !signed && signature) {
+    // The business's token may have been rotated in the Twilio console, and Twilio signs with the new one.
+    const renewed = await renewSubaccountToken(
+      { ...deps, db: deps.httpDb },
+      params['AccountSid']!,
+      { unproven: true },
+    );
+    if (renewed) {
+      account = { ...account, token: renewed };
+      signed = verifyTwilioSignature(renewed, url, params, signature);
+    }
+  }
+  if (!account || !signed) {
     deps.log.warn(
       { path: req.url.split('?')[0], accountSid: params['AccountSid'] },
       'rejected an unsigned or mis-signed webhook',
