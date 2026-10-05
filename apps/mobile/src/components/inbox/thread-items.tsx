@@ -208,12 +208,15 @@ export function MessageBubble({
   customerFirstName,
   timeZone,
   onCancelHeld,
+  onRetry,
 }: {
   item: ThreadItemShape;
   customerFirstName: string | null;
   /** The business's time zone: a held text says when it goes on the business's clock, as quiet hours end. */
   timeZone: string;
   onCancelHeld: (messageId: string) => void;
+  /** Retry on a text that didn't go out, beside Not delivered as on the web. */
+  onRetry?: (messageId: string) => void;
 }) {
   const ai = useAiColors();
   const out = item.direction === 'outbound';
@@ -310,6 +313,9 @@ export function MessageBubble({
                 chat={item.channel === 'chat' || item.channel === 'portal'}
                 readAt={item.readAt}
               />
+              {failed && onRetry ? (
+                <RetryButton label={THREAD_WORDS.retry} onPress={() => onRetry(item.id)} />
+              ) : null}
             </>
           ) : (
             <>
@@ -335,12 +341,16 @@ export function MessageBubble({
 export function EmailCard({
   item,
   customerName,
+  onRetry,
 }: {
   item: ThreadItemShape;
   customerName: string | null;
+  /** Try again on an email that didn't go out. A bounce or a complaint can't go again: the address is stopped. */
+  onRetry?: (messageId: string) => void;
 }) {
   const out = item.direction === 'outbound';
   const status = out ? emailStatusLine(item) : null;
+  const failed = out && FAILED_STATUSES.has(item.status);
   const sender = emailSender(item, customerName);
   return (
     <View
@@ -382,7 +392,7 @@ export function EmailCard({
           ) : null}
           <Text
             className={cn(
-              'text-xs',
+              'shrink text-xs',
               status.bad
                 ? 'font-medium text-danger-text'
                 : status.text === 'Delivered'
@@ -392,9 +402,27 @@ export function EmailCard({
           >
             {status.text}
           </Text>
+          {failed && onRetry ? (
+            <RetryButton label={THREAD_WORDS.tryAgain} onPress={() => onRetry(item.id)} />
+          ) : null}
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Retry or Try again in a sent message's status line, with room around it for a thumb. */
+function RetryButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      role="button"
+      onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+      className="h-6 justify-center px-1.5"
+      testID="retry"
+    >
+      <Text className="text-xs font-semibold text-accent-text">{label}</Text>
+    </Pressable>
   );
 }
 

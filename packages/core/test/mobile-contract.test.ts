@@ -35,11 +35,12 @@ const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
  * calling a customer through the person's own cell, cancelling that call, and verifying that cell; deleting the
  * account; the Assistant's consent; registering the phone for push notifications, or removing it; adding a lesson
  * from correcting the AI to what it knows, from its Home card; deleting a form's answer sheet; moving an email
- * thread between the Inbox, Other mail and Spam, or sharing one's own mail with the team (M19); asking for help, or
- * saving and removing one's own safety contacts, from the safety screens (round six); Got it on an add-on's alert,
- * from its Home card (round six); and on Real Estate's buyer pages (round six, boards 82–84), looking a home up on the
- * MLS, adding or setting aside one of our listings, planning a tour or changing its homes, writing a counter, sharing
- * an offer's summary, and finding a CMA's comps or asking for its summary.
+ * thread between the Inbox, Other mail and Spam, or sharing one's own mail with the team (M19); sending a text or
+ * email that didn't go out again, from its thread; asking for help, or saving and removing one's own safety contacts,
+ * from the safety screens (round six); Got it on an add-on's alert, from its Home card (round six); and on Real
+ * Estate's buyer pages (round six, boards 82–84), looking a home up on the MLS, adding or setting aside one of our
+ * listings, planning a tour or changing its homes, writing a counter, sharing an offer's summary, and finding a CMA's
+ * comps or asking for its summary.
  */
 const ONLINE_COMMANDS = [
   'estimate.create',
@@ -58,6 +59,7 @@ const ONLINE_COMMANDS = [
   'form_response.delete',
   'conversation.move',
   'conversation.share',
+  'message.retry',
   'safety.help',
   'safety_contact.save',
   'safety_contact.remove',
