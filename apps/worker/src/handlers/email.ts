@@ -22,6 +22,7 @@ import { renderEmailHtml } from '../email/render';
 import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
 import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
 import { sendThroughMailbox } from '../mailbox/send';
+import { errorMessage } from '../outbox';
 import {
   INBOUND_REFUSALS,
   isPermanentEmailError,
@@ -148,7 +149,18 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
         : {}),
     });
   } catch (e) {
-    if (!isPermanentEmailError(e)) throw e;
+    if (!isPermanentEmailError(e)) {
+      // Worth another try, until the outbox's last: then it's "Not delivered", not "Sending…" for good.
+      if (ctx.attempt < ctx.maxAttempts) throw e;
+      ctx.log.warn({ err: errorMessage(e) }, 'email gave up after the last try');
+      await update({
+        status: 'failed',
+        errorCode: 'unreachable',
+        errorMessage:
+          'The mail service didn’t answer, so this email didn’t go out. Try again in a minute.',
+      });
+      return;
+    }
     const inactive = e.code === '406';
     // Postmark stopped this address before (a bounce or a complaint): stop it here too.
     if (inactive && m.toAddresses[0])

@@ -394,6 +394,55 @@ describe('replies written on this phone', () => {
       await mockCopy.getOptional('SELECT failed_attempt FROM messages WHERE id = ?', ['m-retry']),
     ).toEqual({ failed_attempt: null });
   });
+
+  it('sends a text that didn’t go out again, once however often it’s tapped, and says when a held one goes', async () => {
+    const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
+    const error = jest.spyOn(toast, 'error').mockImplementation(() => 1);
+    const actions = conversationActions({
+      workspaceId: WS,
+      conversationId: CONV,
+      myUserId: DALE.id,
+    });
+    const retries = () =>
+      jest.mocked(change).mock.calls.filter(([name]) => name === 'message.retry');
+    const before = retries().length;
+
+    let answer: (value: unknown) => void = () => undefined;
+    jest.mocked(change).mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }) as never,
+    );
+    const first = actions.retry('m-failed', 'Mike', 'America/Chicago');
+    // A second tap before HandsFreeOS answers sends nothing more.
+    expect(await actions.retry('m-failed', 'Mike', 'America/Chicago')).toBe(false);
+    answer({ id: 'x', queued: false, output: { messageId: 'm-failed' } });
+    expect(await first).toBe(true);
+    expect(retries().slice(before)).toEqual([
+      ['message.retry', { workspaceId: WS, messageId: 'm-failed' }],
+    ]);
+    expect(show).toHaveBeenLastCalledWith(CONVERSATION_DONE.retrying);
+
+    // In quiet hours it waits for them to end, on the business's clock.
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'x',
+      queued: false,
+      output: { messageId: 'm-failed', scheduledFor: '2026-09-18T13:00:00.000Z' },
+    } as never);
+    expect(await actions.retry('m-failed', 'Mike', 'America/Chicago')).toBe(true);
+    expect(show).toHaveBeenLastCalledWith(
+      expect.stringMatching(/^Held\. It goes to Mike .*8:00 AM, when quiet hours end\./),
+    );
+
+    // Refused, or no signal: the words say why, and it can be tapped again.
+    const still = 'This message is still on its way, so there’s nothing to send again yet.';
+    jest.mocked(change).mockRejectedValueOnce(new Error(still));
+    expect(await actions.retry('m-failed', 'Mike', 'America/Chicago')).toBe(false);
+    expect(error).toHaveBeenLastCalledWith(still);
+    expect(retries().length - before).toBe(3);
+    show.mockRestore();
+    error.mockRestore();
+  });
 });
 
 describe('the thread', () => {

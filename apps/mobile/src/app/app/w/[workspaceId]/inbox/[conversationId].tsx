@@ -697,13 +697,18 @@ function Thread() {
           i.type === 'call' ? (
             <CallCard item={i} workspaceId={business.id} />
           ) : i.channel === 'email' ? (
-            <EmailCard item={i} customerName={person?.fullName ?? null} />
+            <EmailCard
+              item={i}
+              customerName={person?.fullName ?? null}
+              onRetry={(messageId) => void actions.retry(messageId, who, data.timeZone)}
+            />
           ) : (
             <MessageBubble
               item={i}
               customerFirstName={first}
               timeZone={data.timeZone}
               onCancelHeld={(messageId) => void actions.cancelHeld(messageId)}
+              onRetry={(messageId) => void actions.retry(messageId, who, data.timeZone)}
             />
           );
         // "All lines" says which of the business's lines each one was on; one lane's thread says it once, above.

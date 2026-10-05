@@ -3573,6 +3573,23 @@
         "required": ["workspaceId", "messageId"]
       }
     },
+    "message.retry": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "messageId"]
+      }
+    },
     "message.send": {
       "offline": {
         "freshMinutes": 30

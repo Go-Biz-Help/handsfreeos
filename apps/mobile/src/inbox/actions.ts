@@ -1,6 +1,7 @@
 import {
   CONVERSATION_DONE,
   handBackToast,
+  SENT_WORDS,
   takeOverToast,
   type ConversationFolderValue,
 } from '@hfos/core';
@@ -16,8 +17,8 @@ import { cancelHeldHere, markMovedHere } from './outbox';
  * and the web's words for what it did. A change a later one overtook (the customer wrote after a close made with no
  * signal) doesn't apply on the server, and the synced row says so when it arrives.
  *
- * Moving an email thread between folders and sharing someone's own mail (M19) are online only: with signal they go at
- * once, and with none the toast says so.
+ * Moving an email thread between folders, sharing someone's own mail (M19) and sending a text or email that didn't go
+ * out again are online only: with signal they go at once, and with none the toast says so.
  */
 
 export interface ConversationRef {
@@ -44,6 +45,8 @@ const nowIso = () => new Date().toISOString();
 
 export function conversationActions(ref: ConversationRef) {
   const input = { workspaceId: ref.workspaceId, conversationId: ref.conversationId };
+  // Messages being sent again: a second tap before the first answer is ignored, so a double tap sends it once.
+  const retrying = new Set<string>();
   const update =
     (sets: string, values: unknown[]) =>
     (tx: { execute(sql: string, params?: unknown[]): Promise<unknown> }) =>
@@ -153,6 +156,32 @@ export function conversationActions(ref: ConversationRef) {
         await change('conversation.share', input);
         markMovedHere(ref.conversationId, { shared: true });
       }, CONVERSATION_DONE.shared),
+    /**
+     * A text or email that didn't go out, sent again. Its row says Sending… once HandsFreeOS's copy arrives. In quiet
+     * hours a text waits for them to end, like any held text, and the toast says when it goes (`who` and the
+     * business's `timeZone` word that).
+     */
+    retry: async (messageId: string, who: string, timeZone: string): Promise<boolean> => {
+      if (retrying.has(messageId)) return false;
+      retrying.add(messageId);
+      try {
+        const { output } = await change('message.retry', {
+          workspaceId: ref.workspaceId,
+          messageId,
+        });
+        toast.show(
+          output.scheduledFor
+            ? SENT_WORDS.held(who, output.scheduledFor, timeZone)
+            : CONVERSATION_DONE.retrying,
+        );
+        return true;
+      } catch (error) {
+        failed(error);
+        return false;
+      } finally {
+        retrying.delete(messageId);
+      }
+    },
     /** A new text leaves the thread; a failed text tried again goes back as it was, not delivered. */
     cancelHeld: async (messageId: string) => {
       let stays = false;
