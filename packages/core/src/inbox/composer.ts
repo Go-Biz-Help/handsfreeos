@@ -348,9 +348,9 @@ export function sendLabel(
 
 /** What sending did, for the toast. */
 export const SENT_WORDS = {
-  /** A text held until quiet hours end. */
-  held: (who: string, scheduledFor: string, now = new Date()) =>
-    `Held. It goes to ${who} ${heldWhen(scheduledFor, now)}, when quiet hours end. You can cancel it in the thread.`,
+  /** A text held until quiet hours end, when it goes where the business is. */
+  held: (who: string, scheduledFor: string, timeZone: string, now = new Date()) =>
+    `Held. It goes to ${who} ${heldWhen(scheduledFor, timeZone, now)}, when quiet hours end. You can cancel it in the thread.`,
   textElsewhere: (to: string) => `Text sent to ${to}. Texts have their own thread in the inbox.`,
   emailElsewhere: (to: string) => `Email sent to ${to}. Email has its own thread in the inbox.`,
   reopened: 'Sent. The conversation is open again.',

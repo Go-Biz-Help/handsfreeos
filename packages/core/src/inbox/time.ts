@@ -2,8 +2,9 @@
  * The inbox's times, the same on the web and the phone (M10): how long a customer has waited, the time on a
  * conversation row, the divider between days in a thread, when a held text goes, and the snooze menu. Browser-safe.
  *
- * Rows, threads and held texts read the moment as the device does (the browser's or the phone's own clock and zone).
- * The snooze menu and "Snoozed until …" read it where the business is. Each is written out by hand in US English, so
+ * Rows and threads read the moment as the device does (the browser's or the phone's own clock and zone). The snooze
+ * menu, "Snoozed until …" and when a held text goes read it where the business is: quiet hours end on the business's
+ * clock, and the question before a held text says that time ("Send at 8:00 AM"), so the thread says the same. Each is written out by hand in US English, so
  * every engine (Chrome, Safari, Hermes on both phones) shows the same words with plain spaces.
  */
 import { zonedParts, zonedTime } from '../calendar/engine/zoned';
@@ -117,15 +118,19 @@ export function weekdayClock(iso: string): string {
   return `${WEEKDAYS_SHORT[d.getDay()]!} ${clockTime(d)}`;
 }
 
-/** When a held text goes, as the device reads the moment: "at 8:00 AM", "tomorrow at 8:00 AM", "Monday at 8:00 AM". */
-export function heldWhen(iso: string, now = new Date()): string {
-  const d = new Date(iso);
-  const time = clockTime(d);
-  if (d.toDateString() === now.toDateString()) return `at ${time}`;
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  if (d.toDateString() === tomorrow.toDateString()) return `tomorrow at ${time}`;
-  return `${WEEKDAYS_LONG[d.getDay()]!} at ${time}`;
+/**
+ * When a held text goes, where the business is: "at 8:00 AM", "tomorrow at 8:00 AM", "Monday at 8:00 AM". A phone in
+ * another zone says the same time the quiet-hours question offered.
+ */
+export function heldWhen(iso: string, timeZone: string, now = new Date()): string {
+  const p = zonedParts(new Date(iso), timeZone);
+  const n = zonedParts(now, timeZone);
+  const time = formatClock(`${two(p.hour)}:${two(p.minute)}`);
+  const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d);
+  const days = Math.round((day(p.year, p.month, p.day) - day(n.year, n.month, n.day)) / DAY_MS);
+  if (days === 0) return `at ${time}`;
+  if (days === 1) return `tomorrow at ${time}`;
+  return `${WEEKDAYS_LONG[p.weekday]!} at ${time}`;
 }
 
 /** A moment as the business sees it: "3:10 PM", or "Sat 8:00 AM" when it isn't today there. */

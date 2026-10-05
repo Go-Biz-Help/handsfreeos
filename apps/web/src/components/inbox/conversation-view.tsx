@@ -330,7 +330,7 @@ export function ConversationView({
       // In quiet hours a text tried again waits for them to end, like any held text.
       toast.success(
         out.scheduledFor
-          ? SENT_WORDS.held(first ?? c.counterpartDisplay, out.scheduledFor)
+          ? SENT_WORDS.held(first ?? c.counterpartDisplay, out.scheduledFor, timezone)
           : CONVERSATION_DONE.retrying,
       );
       t.refresh();
@@ -416,6 +416,7 @@ export function ConversationView({
     email: email ? c.counterpart : (person?.email ?? null),
     canText: data.canText,
     quiet: data.quiet,
+    timeZone: timezone,
     fromNumber: data.fromNumber,
     businessName,
     // A person's message takes the conversation from the teammate (the phone's draft bar says so itself).
@@ -1010,6 +1011,7 @@ export function ConversationView({
               onRetry={(id) => void retryMessage(id)}
               onCancelScheduled={(id) => void cancelHeld(id)}
               tail={tail}
+              timeZone={timezone}
             />
             {phone && waiting ? (
               <PhoneDraftBar d={decision} progress={tm?.progress ?? null} />

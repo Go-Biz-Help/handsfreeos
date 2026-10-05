@@ -702,6 +702,7 @@ function Thread() {
             <MessageBubble
               item={i}
               customerFirstName={first}
+              timeZone={data.timeZone}
               onCancelHeld={(messageId) => void actions.cancelHeld(messageId)}
             />
           );

@@ -137,10 +137,11 @@ export function keywordLine(
 export function heldLine(
   item: Pick<ThreadItemFacts, 'sentBy'>,
   scheduledFor: string,
+  timeZone: string,
   now = new Date(),
 ): string {
   const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
-  return `${sender} · Sends ${heldWhen(scheduledFor, now)}, when quiet hours end`;
+  return `${sender} · Sends ${heldWhen(scheduledFor, timeZone, now)}, when quiet hours end`;
 }
 
 /** A photo's names under a customer's message with no words: "IMG_2041.jpg · 7:15 AM". */

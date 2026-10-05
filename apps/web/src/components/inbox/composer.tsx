@@ -101,6 +101,8 @@ export interface ComposerTarget {
   readonly email?: string | null;
   readonly canText: ConversationGet['canText'];
   readonly quiet: ConversationGet['quiet'];
+  /** The business's time zone: a held text goes when quiet hours end there. */
+  readonly timeZone: string;
   readonly fromNumber: string | null;
   readonly businessName?: string;
   /**
@@ -543,7 +545,7 @@ export function Composer({
       setFiles([]);
       setRich(null);
       setConfirmQuiet(false);
-      if (out.scheduledFor) toast.success(SENT_WORDS.held(who, out.scheduledFor));
+      if (out.scheduledFor) toast.success(SENT_WORDS.held(who, out.scheduledFor, target.timeZone));
       else if (cross) toast.success(SENT_WORDS.textElsewhere(target.phoneDisplay));
       onSent?.({
         messageId: out.messageId,

@@ -192,6 +192,7 @@ function SheetThread({
         hasEarlier={t.hasEarlier}
         loadingEarlier={t.loadingEarlier}
         onLoadEarlier={() => void t.loadEarlier()}
+        timeZone={data.timezone}
       />
       <Composer
         variant="sheet"
@@ -206,6 +207,7 @@ function SheetThread({
           email: channel === 'email' ? data.conversation.counterpart : (person.email ?? null),
           canText: data.canText,
           quiet: data.quiet,
+          timeZone: data.timezone,
           fromNumber: data.fromNumber,
           rcs: data.rcs,
         }}
