@@ -37,8 +37,10 @@ export function readGroupPage(root: Element, address: PageAddress): GroupPage {
   const name = heading ? clean(heading.textContent) || null : null;
   const lines = textLines(root, 150);
   const privacyLine = lines.find((line) => /^(public|private) group\b/i.test(line));
-  let members: number | null = null;
-  for (const line of lines) {
+  // The People tab's heading has the exact count ("Members · 34,718"); the top rounds it ("34.7K members").
+  const exact = lines.map((line) => /^members\s*[·•]\s*([\d.,]+)$/i.exec(line)?.[1]).find(Boolean);
+  let members = exact ? parseCount(exact) : null;
+  for (const line of members === null ? lines : []) {
     const match = /([\d.,]+\s*[km]?)\s+members\b/i.exec(line);
     if (match?.[1]) {
       members = parseCount(match[1]);

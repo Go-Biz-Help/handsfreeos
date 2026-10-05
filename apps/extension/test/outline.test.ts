@@ -91,3 +91,50 @@ describe('outlinePage', () => {
       expect(outline, secret).not.toContain(secret);
   });
 });
+
+describe('outlinePage, on the 2026 layouts', () => {
+  const pages = [
+    ['profile-2026.html', 'https://www.facebook.com/dana.reyes.12'],
+    ['group-members-2026.html', 'https://www.facebook.com/groups/4455667788/members'],
+    ['chat-2026.html', 'https://www.facebook.com/messages/t/100009000000002/'],
+  ] as const;
+  const outlines = Object.fromEntries(
+    pages.map(([name, url]) => {
+      const doc = load(name, url);
+      return [name, outlinePage(doc, url, { version: '0.1.1', found: readPage(doc, url) })];
+    }),
+  );
+
+  it('leaves out every name, bio, birthday, message and id', () => {
+    for (const [name, outline] of Object.entries(outlines))
+      for (const secret of [
+        'Dana',
+        'Reyes',
+        'Westfield',
+        'danasdesigns',
+        'Craft fair',
+        'June 14',
+        'Rosa',
+        'Chris Gee',
+        'Sam Carter',
+        'Pacific',
+        'yeah that works',
+        'dana.reyes',
+        '4455667788',
+        '100009000000002',
+      ])
+        expect(outline, `${name}: ${secret}`).not.toContain(secret);
+  });
+
+  it('keeps the page’s title, dates and Facebook’s words around them as shapes', () => {
+    const profile = outlines['profile-2026.html']!;
+    expect(profile).toContain('Title: (3) [2 words] | Facebook');
+    expect(profile).toContain('span "(a date)"');
+    expect(profile).toContain('"mutual"');
+    const group = outlines['group-members-2026.html']!;
+    expect(group).toContain('div role="button" aria-label="Follow [2 words]"');
+    expect(group).toContain('div "Joined 7 minutes ago"');
+    expect(group).toContain('"2,761 people follow this"');
+    expect(outlines['chat-2026.html']).toContain('"[1 word]" "[7 words]" "You" "[4 words]"');
+  });
+});

@@ -42,7 +42,11 @@ const BLOCKS = new Set([
   'TR',
   'UL',
 ]);
+/** Roles whose text is a line of its own whatever the tag: Facebook draws lists with `span role="listitem"`. */
+const BLOCK_ROLES = new Set(['article', 'heading', 'list', 'listitem', 'row']);
 const UNREAD = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+/** A picture of an emoji is labelled with it: a pictograph, or a flag's two letters. */
+const EMOJI = /[\p{Extended_Pictographic}\p{Regional_Indicator}]/u;
 
 /** Text with Facebook's invisible characters taken out and its spaces evened out. */
 export function clean(text: string | null | undefined): string {
@@ -77,16 +81,28 @@ function excluded(element: Element, selector: string, root: Node): boolean {
   return match !== null && match !== root && root.contains(match);
 }
 
+/**
+ * Whether an element's text is a line of its own: a block tag, a role that is one, or Facebook's `dir="auto"`, which
+ * it puts on each separate run of text (a name, the line under it) and draws as a block.
+ */
+function startsLine(element: Element): boolean {
+  return (
+    BLOCKS.has(element.tagName) ||
+    BLOCK_ROLES.has(element.getAttribute('role') ?? '') ||
+    element.getAttribute('dir') === 'auto'
+  );
+}
+
 function blockOf(element: Element, root: Node): Node {
   for (let e: Element | null = element; e && e !== root; e = e.parentElement)
-    if (BLOCKS.has(e.tagName)) return e;
+    if (startsLine(e)) return e;
   return root;
 }
 
 /**
- * The lines of text under `root`, in order. Words in one block (a `div`, a heading) make one line, however many
- * `span`s Facebook split them into: "Owner at <a>Smith Plumbing</a>" is one line. Text inside an element under `root`
- * that matches `exclude` is left out.
+ * The lines of text under `root`, in order. Words in one block (a `div`, a heading, a list item, a run of text Facebook
+ * marks `dir="auto"`) make one line, however many `span`s Facebook split them into: "Owner at <a>Smith Plumbing</a>"
+ * is one line. Text inside an element under `root` that matches `exclude` is left out.
  */
 export function textLines(root: Node, max = 60, exclude?: string): string[] {
   const lines: string[] = [];
@@ -114,6 +130,37 @@ export function textLines(root: Node, max = 60, exclude?: string): string[] {
   }
   finish();
   return lines.slice(0, max);
+}
+
+/**
+ * An element's text with the emoji put back: Facebook draws them as pictures labelled with the emoji itself, so
+ * "Thanks <img alt="🙏">" is "Thanks 🙏", and a message that is only an emoji isn't empty.
+ */
+export function textWithEmoji(element: Element): string {
+  let text = '';
+  const walker = documentOf(element).createTreeWalker(element, SHOW_ELEMENT | SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.nodeType === 3) text += node.nodeValue ?? '';
+    else if ((node as Element).tagName === 'IMG') {
+      const alt = (node as Element).getAttribute('alt') ?? '';
+      if (EMOJI.test(alt) && !/\p{L}/u.test(alt)) text += alt;
+    }
+  }
+  return clean(text);
+}
+
+/**
+ * The pieces of text under `root` as the page holds them, each trimmed. React keeps the parts of a sentence it builds
+ * apart: "sent ", "You", ": hi" are three pieces, where `textContent` has one line.
+ */
+export function textPieces(root: Node): string[] {
+  const pieces: string[] = [];
+  const walker = documentOf(root).createTreeWalker(root, SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const piece = (node.nodeValue ?? '').trim();
+    if (piece) pieces.push(piece);
+  }
+  return pieces;
 }
 
 /** The nearest element from `element` up to `root` (both included) that matches `selector`. */
@@ -151,6 +198,24 @@ export function inTopBar(element: Element): boolean {
   return element.closest('[role="banner"]') !== null;
 }
 
+/** A page's tabs (a profile's All, About, Friends…; a group's About, Discussion, People…), outside the top bar. */
+export function tabsIn(root: Element): Element | null {
+  return [...root.querySelectorAll('[role="tablist"]')].find((tabs) => !inTopBar(tabs)) ?? null;
+}
+
+const PRECEDING = 0x2;
+const FOLLOWING = 0x4;
+
+/** Whether `element` comes before `other` in the page, and isn't inside it. */
+export function isBefore(element: Element, other: Element): boolean {
+  return (other.compareDocumentPosition(element) & PRECEDING) !== 0 && !other.contains(element);
+}
+
+/** Whether `element` comes after `other` in the page, and isn't inside it. */
+export function isAfter(element: Element, other: Element): boolean {
+  return (other.compareDocumentPosition(element) & FOLLOWING) !== 0 && !other.contains(element);
+}
+
 /**
  * The names some links carry: first the text of each link, then the labels of the links and of the pictures in them
  * ("Profile picture of Jane Doe" gives "Jane Doe"). Text comes first because a picture's label is the less sure.
@@ -168,7 +233,8 @@ export function namesOn(anchors: readonly Element[]): string[] {
   );
 }
 
-function withoutPicturePrefix(label: string | null): string {
+/** A picture's label without Facebook's words around the name: "Profile picture of Jane Doe" is "Jane Doe". */
+export function withoutPicturePrefix(label: string | null): string {
   return clean(label).replace(/^(profile (picture|photo) of|may be an image of)\s+/i, '');
 }
 

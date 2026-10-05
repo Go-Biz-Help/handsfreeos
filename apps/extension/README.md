@@ -9,19 +9,24 @@ changes the page. It's here to show how reliably Facebook can be read before any
 
 ## What it reads
 
-| Page                                        | What it shows                                                                 |
-| ------------------------------------------- | ----------------------------------------------------------------------------- |
-| A profile                                   | Name, the Intro card, whether you're friends, mutual friends, recent posts    |
-| Friends, followers, following, friends list | Each person, with the line under their name                                   |
-| A group's Members tab                       | The group, and each member; admins and moderators are marked to leave alone   |
-| A group                                     | The group (public or private, members, joined or not) and its posts           |
-| Your groups                                 | Each group, with the line under its name                                      |
-| Search results                              | People, groups and posts                                                      |
-| Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when |
-| Notifications                               | Who accepted your request, reacted, commented or mentioned you                |
-| Any page                                    | Facebook's warnings: a temporary block, a limit, a security check             |
+| Page                                        | What it shows                                                                                        |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A profile                                   | Name, bio and details, whether you're friends, mutual friends, recent posts                          |
+| Friends, followers, following, friends list | Each person, with the line under their name                                                          |
+| A group's People tab                        | The group, and each member with the list they're in; admins and moderators are marked to leave alone |
+| A group                                     | The group (public or private, members, joined or not) and its posts                                  |
+| Your groups                                 | Each group, with the line under its name                                                             |
+| Search results                              | People, groups and posts                                                                             |
+| Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when                        |
+| Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
+| Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
 
-Facebook loads lists as you scroll, so the extension only sees what's on the page. Scroll, then read again.
+Facebook loads lists as you scroll, so the extension only sees what's on the page. Scroll, then read again. A group's
+People tab shows only a few of each list, admins and moderators too: its **See all** pages are read the same way.
+
+Facebook draws some pages two ways, and both are read. Since 2026 a profile can have its name, bio and details at the
+top instead of an Intro card, a group's People tab has a row of faces above its tabs (left out: the lists below say
+who each person is), and an open chat repeats each message after it for screen readers (read once).
 
 ## Load it in Chrome
 

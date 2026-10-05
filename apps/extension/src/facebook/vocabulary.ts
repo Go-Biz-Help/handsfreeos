@@ -18,6 +18,7 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'all',
   'all friends',
   'all reactions:',
+  'and',
   'attach a file',
   'actions for this post',
   'audio call',
@@ -44,12 +45,16 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'edit details',
   'edit featured',
   'edit profile',
+  'education',
   'emoji',
   'enter',
   'events',
+  'facebook',
+  'family members',
   'featured',
   'feed',
   'files',
+  'filters',
   'follow',
   'followers',
   'following',
@@ -61,14 +66,22 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'groups you’ve joined',
   "groups you've joined",
   'hide',
+  'hobbies',
   'home',
+  'interests',
   'intro',
   'invite',
   'join',
   'join group',
   'joined',
   'leave a comment',
+  'learn more',
   'like',
+  'life events',
+  'links',
+  'loading...',
+  'loading…',
+  'manage posts',
   'mark as read',
   'media',
   'member',
@@ -83,14 +96,21 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'more',
   'more actions',
   'most relevant',
+  'mutual',
   'mutual friends',
   'new message',
   'new to the group',
   'newest',
   'notifications',
+  'overview',
+  'pending admin approval',
   'people',
+  'people follow this',
   'people you may know',
+  'person follows this',
+  'personal details',
   'photos',
+  'places lived',
   'posts',
   'private group',
   'profile',
@@ -107,6 +127,7 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'see all friends',
   'see less',
   'see more',
+  'see options',
   'send',
   'settings',
   'share',
@@ -119,12 +140,15 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   'top contributor',
   'unfollow',
   'unread',
+  'unread message',
+  'unread message:',
   'video call',
   'videos',
   'view group',
   'view profile',
   'visit',
   'voice clip',
+  'work',
   'write a comment…',
   'write a public comment…',
   'write something…',
@@ -155,10 +179,21 @@ const WHEN_FORMS = [
   `\\d{1,2}/\\d{1,2}/\\d{2,4}${AT}`,
   CLOCK,
 ];
-const WHEN = new RegExp(`^(?:${WHEN_FORMS.map((form) => `(?:${form})`).join('|')})$`, 'i');
+const ANY_WHEN = `(?:${WHEN_FORMS.map((form) => `(?:${form})`).join('|')})`;
+const WHEN = new RegExp(`^${ANY_WHEN}$`, 'i');
 
 export function isWhen(text: string): boolean {
   return WHEN.test(text.trim());
+}
+
+/** A day on the calendar with no time of day: "June 14", "14 June 2026", "6/14/2026". A birthday looks like this. */
+const DATE = new RegExp(
+  `^(?:${MONTH}\\s\\d{1,2}(?:,?\\s\\d{4})?|\\d{1,2}\\s${MONTH}(?:\\s\\d{4})?|\\d{1,2}/\\d{1,2}/\\d{2,4})$`,
+  'i',
+);
+
+export function isDate(text: string): boolean {
+  return DATE.test(text.trim());
 }
 
 /** Facebook's counts and times, which carry nothing private: "12K members", "3h", "Public group · 1.2K members". */
@@ -166,14 +201,23 @@ const COUNTS_AND_TIMES: readonly RegExp[] = [
   /^[\d.,]+\s*[km]?\s+(members?|comments?|shares?|mutual( friends?)?|friends?|followers?|following|reactions?|posts?( (a|per) (day|week))?|new posts?( today)?)$/i,
   /^(public|private) group(\s*·\s*[\d.,]+\s*[km]?\s+members)?$/i,
   /^all reactions:?\s*[\d.,]*\s*[km]?$/i,
+  /^[\d.,]+\s*[km]?\s+(people|person)\s+follows?\s+this$/i,
+  /^[\d.,]+\s*[km]?\s+mutual friends?\s+including$/i,
   /^[·•|]$/,
   WHEN,
+  new RegExp(`^joined\\s${ANY_WHEN}$`, 'i'),
 ];
 
 /** Whether a piece of text is Facebook's own words rather than something a person wrote. */
 export function isFacebookText(text: string): boolean {
   const t = text.trim().toLowerCase();
   return UI_WORDS.has(t) || COUNTS_AND_TIMES.some((pattern) => pattern.test(t));
+}
+
+/** Whether every part of a line is Facebook's own words: "349 friends • 21 mutual", "Public group · 34.7K members". */
+export function isFacebookLine(line: string): boolean {
+  const parts = line.split(/\s*[·•|]\s*/).filter(Boolean);
+  return parts.length > 0 && parts.every(isFacebookText);
 }
 
 /** The labels Facebook puts on people in a group. Each one alone, as its own piece of text. */
@@ -188,7 +232,12 @@ export const RUNS_GROUP = /\b(admins?|moderators?)\b/i;
  * title comes back without the count.
  */
 const SECTION =
-  /^(admins?\s*(?:and|&)\s*moderators?|moderators?|admins?|group experts?|members|new to the group|friends|friend requests|members with things in common|people you may know|top contributors?|people|groups)(?:\s*[·•]\s*[\d.,]+\s*[km]?)?$/i;
+  /^(admins?\s*(?:and|&)\s*moderators?|moderators?|admins?|group experts?|members|new to the group|friends|friend requests|members with things in common|members near you|people you may know|top contributors?|group contributors|contributors|people|groups)(?:\s*[·•]\s*[\d.,]+\s*[km]?)?$/i;
+
+/** A title without the count Facebook puts after it: "Members near you · 4" is "Members near you". */
+export function withoutCount(text: string): string {
+  return text.replace(/\s*[·•]\s*[\d.,]+\s*[km]?$/i, '').trim();
+}
 
 export function sectionTitleOf(text: string): string | null {
   const match = SECTION.exec(text.trim());

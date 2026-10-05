@@ -1,23 +1,57 @@
 /**
  * Posts: in a group, on a profile, in the News Feed, or one on its own page. A feed's posts are the children of its
- * `role="feed"`; elsewhere a post is a top-level `role="article"`. Comments are articles inside a post, and are left
- * out of what the post says.
+ * `role="feed"`; elsewhere a post is a top-level `role="article"`; and where posts are neither, as on 2026 profiles,
+ * each is found by its "Actions for this post" button. Comments are articles inside a post, and are left out of what
+ * the post says.
  */
-import { clean, outermost, textLines } from './dom';
+import { clean, inTopBar, isAfter, outermost, textLines } from './dom';
 import { bestName } from './people';
 import type { Named, Post } from './types';
 import { facebookUrl, postUrlFrom, profileFromUrl } from './urls';
 import { parseCount } from './vocabulary';
 
-/** The boxes that are posts. */
+/** The menu button at the top of every post. */
+const ACTIONS = /^actions for\b/i;
+/** What closes a post: its comment button, the bar of who reacted, or the box to write a comment in. */
+const POST_END =
+  /^(leave a comment|comment|see who reacted to\b.*|write a (public )?comment…?|comment as\b.*)$/i;
+
+const hasWords = (element: Element) => clean(element.textContent) !== '';
+
+/** The boxes that are posts. Empty articles are Facebook's grey placeholders while posts load. */
 function postBoxes(root: Element): Element[] {
   const fromFeeds = [...root.querySelectorAll('[role="feed"]')].flatMap((feed) =>
-    [...feed.children].filter((child) => clean(child.textContent)),
+    [...feed.children].filter(hasWords),
   );
   if (fromFeeds.length > 0) return fromFeeds;
-  return [...root.querySelectorAll('[role="article"]')].filter(
-    (article) => !article.parentElement?.closest('[role="article"]'),
+  const articles = [...root.querySelectorAll('[role="article"]')].filter(
+    (article) => !article.parentElement?.closest('[role="article"]') && hasWords(article),
   );
+  if (articles.length > 0) return articles;
+  return byActions(root);
+}
+
+/**
+ * Posts that are neither a feed's children nor articles: the smallest box around each post's "Actions for this
+ * post" button and the comment button or reactions bar after it, before the next post's button.
+ */
+function byActions(root: Element): Element[] {
+  const labelled = [...root.querySelectorAll('[aria-label]')].filter((e) => !inTopBar(e));
+  const label = (e: Element) => clean(e.getAttribute('aria-label'));
+  // A menu inside an article is a comment's: here the posts themselves aren't articles.
+  const menus = labelled.filter((e) => ACTIONS.test(label(e)) && !e.closest('[role="article"]'));
+  const ends = labelled.filter((e) => POST_END.test(label(e)));
+  const boxes: Element[] = [];
+  menus.forEach((menu, i) => {
+    const next = menus[i + 1];
+    const end = ends.find((e) => isAfter(e, menu) && (!next || isAfter(next, e)));
+    if (!end) return;
+    let box: Element = menu;
+    while (!box.contains(end) && box.parentElement && box !== root) box = box.parentElement;
+    if (box.contains(end) && !boxes.some((b) => b.contains(box) || box.contains(b)))
+      boxes.push(box);
+  });
+  return boxes;
 }
 
 /** The posts in a part of the page, in page order, `max` at most. */
@@ -75,11 +109,15 @@ export function readPost(box: Element, base: string): Post | null {
   const message = [
     ...post.querySelectorAll('[data-ad-comet-preview="message"], [data-ad-preview="message"]'),
   ].find((element) => !inComment(element));
-  let text = message ? clean(message.textContent) : '';
+  // Line by line, without its "See more" button.
+  let text = message ? textLines(message, 200, '[role="button"]').join('\n') : '';
   if (!text) {
-    // No marked message: the longest piece of writing that isn't a heading, a comment or the author's name.
+    // No marked message: the longest piece of writing that isn't a heading, a comment, hidden, or the author's name.
     for (const element of post.querySelectorAll('[dir="auto"]')) {
-      if (inComment(element) || element.closest('h1, h2, h3, h4, h5, h6, [role="heading"]'))
+      if (
+        inComment(element) ||
+        element.closest('h1, h2, h3, h4, h5, h6, [role="heading"], [aria-hidden="true"]')
+      )
         continue;
       const candidate = clean(element.textContent);
       if (candidate.length > text.length && candidate !== author?.name) text = candidate;

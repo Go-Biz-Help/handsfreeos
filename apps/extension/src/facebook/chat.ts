@@ -1,15 +1,28 @@
 /**
  * An open chat (facebook.com/messages/t/…): who it's with, and its messages, oldest first, as far as the page has
- * loaded them. Who wrote each message comes from, in order:
+ * loaded them. Each message is a row of the conversation, or since 2026 an article. Who wrote it comes from, in order:
  *
- * 1. what the page says for screen readers: "You sent", "Jane replied to you", or a sender's name above it;
- * 2. the side of the conversation it sits on: yours are on the right;
- * 3. the message before it, when nothing in between says otherwise: Facebook labels a run of messages once.
+ * 1. what the page says for screen readers: "You sent", "Jane replied to you", a sender's name above it, or the line
+ *    after it that repeats it with when and by whom it was sent ("Enter, sent Wed 11:02 AM, You: …");
+ * 2. the sender's picture beside it: Facebook shows theirs, never yours;
+ * 3. the side of the conversation it sits on: yours are against the right edge, theirs against the left;
+ * 4. the message before it, when nothing in between says otherwise: Facebook labels a run of messages once.
  *
- * The times between runs of messages ("Today at 10:12 AM") are rows of their own, and each message carries the last
- * one above it.
+ * The times between runs of messages ("Today at 10:12 AM") sit between the messages, and each message carries the
+ * last one above it.
  */
-import { clean, closestWithin, namesOn, outermost, textLines } from './dom';
+import {
+  clean,
+  closestWithin,
+  elementsIn,
+  isBefore,
+  namesOn,
+  outermost,
+  textLines,
+  textPieces,
+  textWithEmoji,
+  withoutPicturePrefix,
+} from './dom';
 import { bestName, isNameLike } from './people';
 import type { ChatMessage, ChatPage, PageAddress, ProfileRef } from './types';
 import { facebookUrl, profileFromUrl } from './urls';
@@ -35,15 +48,19 @@ export interface ChatOptions {
   readonly sideOf?: (element: Element, conversation: Element) => Side | null;
 }
 
-/** Where the boxes are on screen: a message well right of the middle is yours. */
+/**
+ * Where the boxes are on screen: yours sit against the conversation's right edge and theirs against its left, after
+ * their picture, so the nearer edge says whose it is, however wide the message. A line in the middle (a time, "You're
+ * now friends") is neither.
+ */
 export function measuredSide(element: Element, conversation: Element): Side | null {
   const box = element.getBoundingClientRect();
   const around = conversation.getBoundingClientRect();
   if (box.width === 0 || around.width === 0) return null;
-  const middle = around.left + around.width / 2;
-  const center = box.left + box.width / 2;
-  if (Math.abs(center - middle) < around.width * 0.05) return null;
-  return center > middle ? 'right' : 'left';
+  const left = box.left - around.left;
+  const right = around.right - box.right;
+  if (Math.abs(left - right) < Math.max(4, around.width * 0.02)) return null;
+  return left < right ? 'left' : 'right';
 }
 
 /** The box that holds the messages: the one labelled as the conversation, else the main column's grid. */
@@ -54,10 +71,51 @@ function conversationIn(main: Element): Element {
   return main.querySelector('[role="grid"]') ?? main;
 }
 
-/** The conversation's rows, outermost only, or each piece of writing when it has no rows. */
+/** The conversation's messages: its rows, else its articles, else each piece of writing. Outermost only. */
 function rowsIn(conversation: Element): Element[] {
-  const rows = outermost(conversation, '[role="row"]');
-  return rows.length > 0 ? rows : outermost(conversation, '[dir="auto"]');
+  for (const selector of ['[role="row"]', '[role="article"]']) {
+    const rows = outermost(conversation, selector);
+    if (rows.length > 0) return rows;
+  }
+  return outermost(conversation, '[dir="auto"]');
+}
+
+/**
+ * The name on the sender's picture beside a message, before it: Facebook shows the other person's, never yours. A
+ * picture inside the message (an emoji) or after it ("Seen by") isn't the sender's.
+ */
+function pictureIn(row: Element, message: Element): string | null {
+  for (const image of row.querySelectorAll(
+    '[aria-hidden="true"] img[alt], [aria-hidden="true"] [role="img"][aria-label]',
+  )) {
+    if (message.contains(image) || !isBefore(image, message)) continue;
+    const name = withoutPicturePrefix(
+      image.getAttribute('alt') ?? image.getAttribute('aria-label'),
+    );
+    if (/\p{L}/u.test(name) && isNameLike(name) && !NOTICE.test(name)) return name;
+  }
+  return null;
+}
+
+/**
+ * Who the button after a message says sent it. Facebook repeats each message there for screen readers, with when and
+ * by whom it was sent: "Enter, sent Wed 11:02 AM, You: We still on?", where "You" is a piece of text of its own, or
+ * "Enter, sent Wed 11:55 AM, Jane: Sounds good" for theirs. Only a button that repeats the message counts.
+ */
+function repeatedBy(
+  row: Element,
+  text: string,
+  isRow: ReadonlySet<Element>,
+): ChatMessage['from'] | null {
+  const next = row.nextElementSibling;
+  if (!next || isRow.has(next) || [...elementsIn(next)].some((element) => isRow.has(element)))
+    return null;
+  const start = text.split('\n')[0]!.slice(0, 40);
+  for (const button of outermost(next, '[role="button"]')) {
+    if (!textWithEmoji(button).includes(start)) continue;
+    return textPieces(button).includes('You') ? 'me' : 'them';
+  }
+  return null;
 }
 
 function isSenderLabel(text: string): boolean {
@@ -71,7 +129,7 @@ function isSenderLabel(text: string): boolean {
 function messageIn(row: Element): { readonly text: string; readonly element: Element } | null {
   const said = outermost(row, '[dir="auto"]')
     .filter((element) => !closestWithin(element, NOT_SAID, row))
-    .map((element) => ({ element, text: clean(element.textContent) }))
+    .map((element) => ({ element, text: textWithEmoji(element) }))
     .filter(
       ({ text }) =>
         text && !isWhen(text) && !UI_WORDS.has(text.toLowerCase()) && !NOTICE.test(text),
@@ -82,11 +140,14 @@ function messageIn(row: Element): { readonly text: string; readonly element: Ele
   return first ? { element: first.element, text: kept.map(({ text }) => text).join('\n') } : null;
 }
 
-/** The labels in a row: its headings, and any line that says who sent it. */
-function labelsIn(row: Element): { readonly text: string; readonly heading: boolean }[] {
-  const headings = [...row.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].map(
-    (element) => ({ text: clean(element.textContent), heading: true }),
-  );
+/** The labels in a row: its headings above the message, and any line that says who sent it. */
+function labelsIn(
+  row: Element,
+  message: Element,
+): { readonly text: string; readonly heading: boolean }[] {
+  const headings = [...row.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')]
+    .filter((element) => isBefore(element, message))
+    .map((element) => ({ text: clean(element.textContent), heading: true }));
   const lines = textLines(row, 20)
     .filter(isSenderLabel)
     .map((text) => ({ text, heading: false }));
@@ -130,19 +191,34 @@ export function readChat(
   const messages: ChatMessage[] = [];
   let when: string | null = null;
   let previous: Pick<ChatMessage, 'from' | 'sender'> = { from: 'unknown', sender: null };
-  for (const row of rowsIn(conversation)) {
+  const newTime = (time: string) => {
+    when = time;
+    previous = { from: 'unknown', sender: null };
+  };
+  const rows = rowsIn(conversation);
+  const isRow = new Set(rows);
+  const inRow = (element: Element) => {
+    for (let e: Element | null = element; e && e !== conversation; e = e.parentElement)
+      if (isRow.has(e)) return true;
+    return false;
+  };
+  for (const element of elementsIn(conversation)) {
+    if (!isRow.has(element)) {
+      // A time between the messages, outside them: "Sep 25, 2026, 11:39 PM".
+      const text = element.childElementCount === 0 ? clean(element.textContent) : '';
+      if (text && isWhen(text) && !inRow(element)) newTime(text);
+      continue;
+    }
+    const row = element;
     const message = messageIn(row);
     if (!message) {
       const time = textLines(row, 4).find(isWhen);
-      if (time) {
-        when = time;
-        previous = { from: 'unknown', sender: null };
-      }
+      if (time) newTime(time);
       continue;
     }
     let from: ChatMessage['from'] = 'unknown';
     let sender: string | null = null;
-    for (const label of labelsIn(row)) {
+    for (const label of labelsIn(row, message.element)) {
       if (label.text === message.text) continue;
       const replied = REPLIED.exec(label.text);
       if (MINE.test(label.text) || replied?.[1]?.toLowerCase() === 'you') from = 'me';
@@ -150,6 +226,11 @@ export function readChat(
       else if (label.heading && isNameLike(label.text)) [from, sender] = ['them', label.text];
       else continue;
       break;
+    }
+    if (from === 'unknown') from = repeatedBy(row, message.text, isRow) ?? 'unknown';
+    if (from !== 'me' && !sender) {
+      const pictured = pictureIn(row, message.element);
+      if (pictured) [from, sender] = ['them', pictured];
     }
     if (from === 'unknown') {
       const side = sideOf(message.element, conversation);

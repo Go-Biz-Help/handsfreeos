@@ -2,7 +2,7 @@
   "name": "@hfos/extension",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The browser extension that works beside a person on Facebook (README.md). Phase 0: it reads the page you have open and shows what it found; it saves and sends nothing.",
   "scripts": {
     "build": "node scripts/build.mjs",

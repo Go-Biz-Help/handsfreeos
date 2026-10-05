@@ -141,7 +141,7 @@ function personView(person: Person): HTMLElement {
     'li',
     {},
     h('div', { class: 'name' }, link(person.name, person.profile?.url)),
-    person.detail ? h('div', { class: 'muted' }, person.detail) : null,
+    person.details.length ? h('div', { class: 'muted' }, person.details.join(' · ')) : null,
     person.badges.length || runsGroup(person)
       ? h(
           'div',

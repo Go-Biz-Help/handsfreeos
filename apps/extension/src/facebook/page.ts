@@ -5,7 +5,7 @@
  */
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
-import { inTopBar } from './dom';
+import { inTopBar, tabsIn } from './dom';
 import { readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
@@ -70,7 +70,7 @@ export function readPage(
 
   switch (address.kind) {
     case 'profile': {
-      const { profile, posts } = readProfile(main, address, base);
+      const { profile, posts } = readProfile(main, address, base, doc.title);
       found = { profile, posts };
       if (!profile.name) notes.push('Couldn’t find the name on this profile.');
       break;
@@ -81,9 +81,10 @@ export function readPage(
       found = { people: readPeopleAnywhere(doc, main, base) };
       break;
     case 'group-members':
+      // The lists start below the group's tabs: the row of faces above them is a sample of the same people.
       found = {
         group: readGroupPage(main, address),
-        people: readPeople(main, base, { sections: true }),
+        people: readPeople(main, base, { sections: true, after: tabsIn(main) }),
       };
       break;
     case 'group':

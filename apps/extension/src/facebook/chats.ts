@@ -26,18 +26,16 @@ export function readChats(root: Element, base: string): ChatSummary[] {
     let when: string | null = null;
     for (const line of textLines(entry.card, 12)) {
       if (line === name) continue;
-      if (isWhen(line)) {
-        when ??= line;
-        continue;
-      }
-      if (preview !== null || isFacebookText(line)) continue;
-      // "You: see you then · 3h" is one line when Facebook puts the time beside the words.
-      const parts = line.split(/\s+·\s+/);
+      // The time is a line of its own ("3h", "· 3h") or at the end of the words: "You: see you then · 3h".
+      const parts = line.split(/(?:^|\s+)·\s*/);
       const last = parts[parts.length - 1];
-      if (parts.length > 1 && last && isWhen(last)) {
+      if (last && isWhen(last)) {
         when ??= last;
-        preview = parts.slice(0, -1).join(' · ');
-      } else preview = line;
+        parts.pop();
+      }
+      const words = parts.join(' · ').trim();
+      if (!words || preview !== null || isFacebookText(words)) continue;
+      preview = words;
     }
     chats.push({ name, thread: entry.value, preview, when });
   }

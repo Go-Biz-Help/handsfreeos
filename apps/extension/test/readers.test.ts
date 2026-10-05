@@ -4,7 +4,7 @@
  * tune them to the real thing.
  */
 import { describe, expect, it } from 'vitest';
-import { readChat } from '../src/facebook/chat';
+import { measuredSide, readChat } from '../src/facebook/chat';
 import { readPage } from '../src/facebook/page';
 import { runsGroup } from '../src/facebook/people';
 import { classifyUrl } from '../src/facebook/urls';
@@ -27,7 +27,8 @@ describe('a group’s members', () => {
       name: 'Austin Small Business Owners',
       group: { id: 'austinsmallbiz', url: 'https://www.facebook.com/groups/austinsmallbiz/' },
       privacy: 'private',
-      members: 12_300,
+      // The exact count from the Members heading, not the rounded 12.3K at the top.
+      members: 12_317,
       joined: true,
     });
   });
@@ -42,7 +43,7 @@ describe('a group’s members', () => {
     ]);
     const jane = result.people?.find((person) => person.name === 'Jane Doe');
     expect(jane?.profile?.id).toBe('100002222222222');
-    expect(jane?.detail).toBe('Owner at Smith Plumbing');
+    expect(jane?.details).toEqual(['Owner at Smith Plumbing', 'Joined about a week ago']);
   });
 
   it('tells the admins and moderators apart', () => {
@@ -60,13 +61,68 @@ describe('a group’s members', () => {
     expect(result.people?.find((person) => person.name === 'Kim Lee')).toMatchObject({
       badges: ['Top contributor'],
       section: 'New to the group',
-      detail: 'Lives in Austin, Texas',
+      details: ['Lives in Austin, Texas'],
     });
   });
 
   it('says the list grows as you scroll', () => {
     expect(result.notes.join(' ')).toContain('Facebook loads more as you scroll');
     expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('a group’s members, as Facebook drew them in 2026', () => {
+  const url = 'https://www.facebook.com/groups/4455667788/members';
+  const result = read('group-members-2026.html', url);
+
+  it('reads the exact count and that you’re in the group', () => {
+    expect(result.group).toMatchObject({
+      name: 'Westfield Makers Market',
+      group: { id: '4455667788' },
+      privacy: 'public',
+      members: 34_718,
+      joined: true,
+    });
+  });
+
+  it('reads the lists below the tabs, not the row of faces above them', () => {
+    // Rosa Delgado and Hal Becker are in the row of faces too: they count where the lists put them.
+    expect(result.people?.map((person) => [person.name, person.section])).toEqual([
+      ['Chris Gee', 'Members'],
+      ['Rosa Delgado', 'Admins & moderators'],
+      ['Kim Lowe', 'Admins & moderators'],
+      ['Lena Fox', 'Top makers'],
+      ['Hal Becker', 'Members with things in common'],
+      ['Mia Park', 'New to the group'],
+      ['Omar Haddad', 'New to the group'],
+    ]);
+  });
+
+  it('tells the admins and moderators apart from the people under any other heading', () => {
+    expect(result.people?.filter(runsGroup).map((person) => person.name)).toEqual([
+      'Rosa Delgado',
+      'Kim Lowe',
+    ]);
+    expect(result.people?.find((person) => person.name === 'Kim Lowe')?.badges).toEqual([
+      'Moderator',
+    ]);
+  });
+
+  it('keeps every line under a name, and not the title of the part they’re in', () => {
+    expect(
+      Object.fromEntries(result.people?.map((person) => [person.name, person.details]) ?? []),
+    ).toEqual({
+      'Chris Gee': ['Entrepreneur · 2,761 people follow this'],
+      'Rosa Delgado': ['Entrepreneur · 2,177 people follow this'],
+      'Kim Lowe': ['Westfield, Texas'],
+      'Lena Fox': ['Marketing Agency · 870 people follow this'],
+      'Hal Becker': [
+        '37 mutual friends including Sam Carter and Jane Doe',
+        'Digital creator · 5,159 people follow this',
+      ],
+      'Mia Park': ['Joined 7 minutes ago', 'Digital creator · 4,654 people follow this'],
+      'Omar Haddad': ['Joined about an hour ago'],
+    });
   });
 });
 
@@ -110,6 +166,49 @@ describe('a profile', () => {
         url: 'https://www.facebook.com/permalink.php?story_fbid=pfbid02xyz&id=100002222222222',
         when: 'October 1 at 9:12 AM',
         text: 'Big week for the team. Thanks to everyone who came out!',
+        comments: null,
+        reactions: null,
+      },
+    ]);
+  });
+});
+
+describe('a profile, as Facebook drew it in 2026', () => {
+  const url = 'https://www.facebook.com/dana.reyes.12';
+  const result = read('profile-2026.html', url);
+  const dana = {
+    name: 'Dana Reyes',
+    profile: { id: null, username: 'dana.reyes.12', url: 'https://www.facebook.com/dana.reyes.12' },
+  };
+
+  it('reads the name, where you stand and the intro from the top, above the tabs', () => {
+    expect(result.profile).toEqual({
+      ...dana,
+      intro: [
+        'Crafts, candles and custom signs. If you need it handmade, ask me first.',
+        'Westfield High School',
+        'Texas State',
+        'danasdesigns',
+      ],
+      friendship: 'friends',
+      mutualFriends: 21,
+    });
+    expect(result.notes).toEqual([]);
+  });
+
+  it('finds the name on the links to the profile when the page’s title doesn’t have it', () => {
+    const doc = load('profile-2026.html', url);
+    doc.title = 'Facebook';
+    expect(readPage(doc, url, NOW).profile?.name).toBe('Dana Reyes');
+  });
+
+  it('reads a post that isn’t an article, without the hidden words around it or the empty ones loading', () => {
+    expect(result.posts).toEqual([
+      {
+        author: dana,
+        url: null,
+        when: null,
+        text: 'Craft fair this Saturday!\nBooth 14 at the Westfield market.\nSigns, candles and wreaths. Come say hi.',
         comments: null,
         reactions: null,
       },
@@ -254,6 +353,118 @@ describe('a chat', () => {
   });
 });
 
+describe('a chat, as Facebook drew it in 2026', () => {
+  const url = 'https://www.facebook.com/messages/t/100009000000002/';
+  const yours = /^(Hey! Yes|yeah that|We still)/;
+  const where = (element: Element) =>
+    yours.test(element.textContent?.trim() ?? '') ? 'right' : 'left';
+  const readIt = (doc: Document, sideOf: (element: Element) => 'left' | 'right' | null = where) =>
+    readChat(doc, classifyUrl(url), url, { sideOf });
+
+  it('reads each message once, without the line that repeats it, with the time above it', () => {
+    const result = read('chat-2026.html', url);
+    expect(result.chat?.name).toBe('Dana Reyes');
+    expect(result.chat?.profile?.id).toBe('100009000000002');
+    const sep25 = 'Sep 25, 2026, 11:39 PM';
+    expect(readIt(load('chat-2026.html', url)).messages).toEqual([
+      {
+        from: 'them',
+        sender: 'Dana Reyes',
+        text: "Hey Chris! I see you've been busy.",
+        when: sep25,
+      },
+      {
+        from: 'them',
+        sender: 'Dana Reyes',
+        text: 'Could we set up a demo of your CRM? I need something simpler 🙂',
+        when: sep25,
+      },
+      {
+        from: 'me',
+        sender: null,
+        text: "Hey! Yes, definitely. I've got a couple of appointments Monday, other than that I'm free.",
+        when: sep25,
+      },
+      {
+        from: 'them',
+        sender: 'Dana Reyes',
+        text: "I work Tuesdays and Thursdays, so let's do Wednesday. I'm on Pacific time. Maybe 10am?",
+        when: sep25,
+      },
+      { from: 'me', sender: null, text: 'yeah that works', when: sep25 },
+      { from: 'me', sender: null, text: 'We still on in an hour?', when: 'Wed 11:02 AM' },
+    ]);
+  });
+
+  it('goes by the line that repeats each message, wherever the message seems to sit', () => {
+    for (const side of ['left', 'right', null] as const)
+      expect(
+        readIt(load('chat-2026.html', url), () => side).messages.map((message) => message.from),
+        String(side),
+      ).toEqual(['them', 'them', 'me', 'them', 'me', 'me']);
+  });
+
+  it('goes by their picture beside a message before its side', () => {
+    const doc = load('chat-2026.html', url);
+    for (const repeat of doc.querySelectorAll('[role="log"] [role="button"][aria-label^="Enter"]'))
+      repeat.remove();
+    const messages = readIt(doc, () => 'right').messages;
+    // The two with Dana's picture beside them, however wide they are.
+    expect([messages[1], messages[3]].map((message) => [message?.from, message?.sender])).toEqual([
+      ['them', 'Dana Reyes'],
+      ['them', 'Dana Reyes'],
+    ]);
+  });
+
+  it('goes by the side when nothing else says', () => {
+    const doc = load('chat-2026.html', url);
+    for (const said of doc.querySelectorAll(
+      '[role="log"] [role="button"][aria-label^="Enter"], [role="log"] [aria-hidden="true"] img',
+    ))
+      said.remove();
+    expect(readIt(doc).messages.map((message) => [message.from, message.sender])).toEqual([
+      ['them', 'Dana Reyes'],
+      ['them', 'Dana Reyes'],
+      ['me', null],
+      ['them', 'Dana Reyes'],
+      ['me', null],
+      ['me', null],
+    ]);
+  });
+
+  it('reads the chats beside it, without Facebook’s words about them', () => {
+    expect(
+      read('chat-2026.html', url).chats?.map(({ name, preview, when }) => ({
+        name,
+        preview,
+        when,
+      })),
+    ).toEqual([
+      { name: 'Ben Ortiz', preview: 'Sup', when: '2d' },
+      { name: 'Dana Reyes', preview: 'Dana sent a phone number.', when: '4d' },
+    ]);
+  });
+});
+
+describe('measuredSide', () => {
+  // Boxes as a 1440-wide window draws them: the conversation, their messages after their picture, and yours.
+  const box = (left: number, right: number) =>
+    ({ getBoundingClientRect: () => ({ left, right, width: right - left }) }) as unknown as Element;
+  const conversation = box(560, 1465);
+
+  it('goes by the nearer edge, however wide the message', () => {
+    expect(measuredSide(box(653, 1315), conversation)).toBe('left');
+    expect(measuredSide(box(653, 700), conversation)).toBe('left');
+    expect(measuredSide(box(710, 1433), conversation)).toBe('right');
+    expect(measuredSide(box(1404, 1434), conversation)).toBe('right');
+  });
+
+  it('says neither for a line in the middle, or a box that isn’t drawn', () => {
+    expect(measuredSide(box(900, 1125), conversation)).toBeNull();
+    expect(measuredSide(box(0, 0), conversation)).toBeNull();
+  });
+});
+
 describe('notifications', () => {
   const result = read('notifications.html', 'https://www.facebook.com/notifications');
 
@@ -283,15 +494,15 @@ describe('your friends list', () => {
   it('reads the list Facebook puts beside the page', () => {
     const result = read('friends-list.html', 'https://www.facebook.com/friends/list');
     expect(
-      result.people?.map(({ name, profile, detail }) => ({
+      result.people?.map(({ name, profile, details }) => ({
         name,
         profile: profile?.id ?? profile?.username,
-        detail,
+        details,
       })),
     ).toEqual([
-      { name: 'Ben Ortiz', profile: '100005555555555', detail: '12 mutual friends' },
-      { name: 'Rob Hayes', profile: '100006666666666', detail: null },
-      { name: 'Kate Nguyen', profile: 'kate.nguyen.9', detail: '3 mutual friends' },
+      { name: 'Ben Ortiz', profile: '100005555555555', details: ['12 mutual friends'] },
+      { name: 'Rob Hayes', profile: '100006666666666', details: [] },
+      { name: 'Kate Nguyen', profile: 'kate.nguyen.9', details: ['3 mutual friends'] },
     ]);
   });
 });

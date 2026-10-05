@@ -10,7 +10,7 @@
 import { clean } from './dom';
 import type { ReadResult } from './types';
 import { facebookUrl, isFacebookPathWord, pathParts } from './urls';
-import { BADGE, isFacebookText, sectionTitleOf } from './vocabulary';
+import { BADGE, isDate, isFacebookText, sectionTitleOf } from './vocabulary';
 
 /** The attributes worth seeing. Labels among them go through the same hiding as text. */
 const KEPT = [
@@ -21,6 +21,8 @@ const KEPT = [
   'aria-level',
   'aria-selected',
   'aria-expanded',
+  'aria-posinset',
+  'aria-setsize',
   'dir',
   'contenteditable',
   'data-pagelet',
@@ -44,6 +46,7 @@ const SHAPES: readonly RegExp[] = [
   /^(.+?) and \d+ others?$/di,
   /^(.+?)['’]s (?:profile|profile picture|cover photo|post|photo|story)$/di,
   /^(.+?) (?:accepted your friend request|sent you a friend request|reacted to your (?:post|comment|photo|video|message)|commented on your (?:post|photo|video)|mentioned you in a (?:comment|post)|replied to your comment|shared your post|posted in|invited you to join|is typing)(.*)$/di,
+  /^(?:comment as|reply as|follow|unfollow|add friend|cancel request|message|invite) (.+)$/di,
 ];
 
 /**
@@ -60,6 +63,8 @@ function words(text: string): string {
 /** Text with whatever a person wrote hidden, and Facebook's own words kept. */
 export function maskText(text: string): string {
   const t = clean(text);
+  // A day with no time could be a birthday: say it's a date, not which.
+  if (isDate(t)) return '(a date)';
   if (!t || isFacebookText(t) || BADGE.test(t) || sectionTitleOf(t) || PLAIN.test(t)) return t;
   for (const shape of SHAPES) {
     const match = shape.exec(t);
@@ -75,6 +80,12 @@ export function maskText(text: string): string {
     return out + t.slice(at);
   }
   return words(t);
+}
+
+/** The page's title with the name in it hidden: "(3) Jane Doe | Facebook" is "(3) [2 words] | Facebook". */
+export function maskTitle(title: string): string {
+  const match = /^(\(\d+\+?\)\s*)?(.*?)(\s*\|\s*facebook)?$/i.exec(clean(title));
+  return match ? `${match[1] ?? ''}${maskText(match[2] ?? '')}${match[3] ?? ''}` : maskText(title);
 }
 
 /** The values kept as they are: a profile's tab, and what kind of notification a link came from. */
@@ -209,6 +220,7 @@ export function outlinePage(doc: Document, href: string, options: OutlineOptions
   const heading = [
     `HandsFreeOS Social ${options.version ?? ''} · page outline`.replace(/\s+·/, ' ·'),
     `Page: ${options.found?.kind ?? 'unknown'} ${outliner.maskLink(href, href)}`,
+    doc.title ? `Title: ${maskTitle(doc.title)}` : null,
     options.found ? `Found: ${counted(options.found)}` : null,
     options.window ? `Window: ${options.window.width}×${options.window.height}` : null,
     'Hidden: [2 words] is something a person wrote; {1}, {2}… are the people, groups and chats links lead to.',

@@ -59,8 +59,8 @@ export interface Named {
 }
 
 export interface Person extends Named {
-  /** The line under the name, as shown: "12 mutual friends", "Owner at Smith Plumbing". */
-  readonly detail: string | null;
+  /** The lines under the name, as shown: "12 mutual friends", "Owner at Smith Plumbing", "Joined 2 hours ago". */
+  readonly details: readonly string[];
   /** Labels the page puts on them: "Admin", "Moderator", "Group expert". */
   readonly badges: readonly string[];
   /** The part of the list they're in ("Admins and moderators", "Members"), on pages that have parts. */
