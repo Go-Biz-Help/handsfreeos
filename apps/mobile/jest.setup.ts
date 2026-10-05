@@ -283,6 +283,21 @@ jest.mock('expo-notifications', () => {
 jest.mock('expo-task-manager', () => ({
   defineTask: jest.fn(),
   isTaskDefined: jest.fn(() => false),
+  isTaskRegisteredAsync: jest.fn(async () => false),
+}));
+
+// Location updates while a check-in follows the phone (safety/follow.ts): started and stopped, never delivered here.
+jest.mock('expo-location', () => ({
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
+  ActivityType: { Other: 1 },
+  startLocationUpdatesAsync: jest.fn(async () => undefined),
+  stopLocationUpdatesAsync: jest.fn(async () => undefined),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => false),
+  getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined', granted: false })),
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied', granted: false })),
+  getCurrentPositionAsync: jest.fn(async () => {
+    throw new Error('No location in tests.');
+  }),
 }));
 
 jest.mock('expo-network', () => ({

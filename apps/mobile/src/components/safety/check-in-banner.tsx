@@ -2,7 +2,7 @@ import { fmtTime, SAFETY_PHONE_WORDS } from '@hfos/core';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { CircleAlert, Clock, ShieldCheck } from '@/components/icons';
+import { CircleAlert, Clock, MapPin, ShieldCheck } from '@/components/icons';
 import { useOptionalBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -11,7 +11,7 @@ import { toast } from '@/components/ui/toast';
 import { errorMessage } from '@/lib/api';
 import { addTime, checkOut } from '@/safety/actions';
 import type { ActiveCheckIn } from '@/safety/check-in';
-import { useActiveCheckIn } from '@/safety/use-check-in';
+import { useActiveCheckIn, useFollowedCheckIn, useFollowEnds } from '@/safety/use-check-in';
 import { useMyContacts, type MyContact } from '@/safety/use-check-in-context';
 
 import { HelpSheet } from './help-sheet';
@@ -44,8 +44,17 @@ function Banner({
 }) {
   const active = useActiveCheckIn(workspaceId, userId);
   const contacts = useMyContacts(workspaceId, userId);
+  const followed = useFollowedCheckIn();
+  useFollowEnds(workspaceId, userId);
   if (!active) return null;
-  return <CheckInStrip active={active} contacts={contacts} timeZone={timeZone} />;
+  return (
+    <CheckInStrip
+      active={active}
+      contacts={contacts}
+      timeZone={timeZone}
+      sharing={followed === active.id}
+    />
+  );
 }
 
 const firstOf = (name: string) => name.trim().split(/\s+/)[0] ?? name;
@@ -54,10 +63,13 @@ export function CheckInStrip({
   active,
   contacts,
   timeZone,
+  sharing = false,
 }: {
   active: ActiveCheckIn;
   contacts: readonly MyContact[];
   timeZone: string;
+  /** This phone is sharing where it is until the check-out (round seven). */
+  sharing?: boolean;
 }) {
   const [help, setHelp] = React.useState(false);
   const [busy, setBusy] = React.useState<'out' | 'add' | null>(null);
@@ -111,6 +123,19 @@ export function CheckInStrip({
               ? SAFETY_PHONE_WORDS.overdue(until)
               : SAFETY_PHONE_WORDS.until(until, told)}
           </Text>
+          {sharing ? (
+            <View className="flex-row items-center gap-1" testID="check-in-banner-sharing">
+              <Icon
+                as={MapPin}
+                className={`size-[13px] ${active.overdue ? 'text-warning-text' : 'text-success-text'}`}
+              />
+              <Text
+                className={`text-[12.5px] leading-[17px] ${active.overdue ? 'text-warning-text' : 'text-success-text'}`}
+              >
+                {SAFETY_PHONE_WORDS.followingTitle}
+              </Text>
+            </View>
+          ) : null}
         </View>
         <Button
           variant="secondary"

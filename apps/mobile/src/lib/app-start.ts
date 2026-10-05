@@ -5,6 +5,7 @@ import { registerTestFixers } from '@/changes/test-actions';
 import { registerCustomerFixers } from '@/customers/fixers';
 import { registerInboxFixers } from '@/inbox/fixers';
 import { startPush } from '@/push/device';
+import { watchFollowing } from '@/safety/follow';
 import { phoneCopy } from '@/sync';
 import { prepareCopiesFolder } from '@/sync/device-files';
 
@@ -46,6 +47,7 @@ export function startApp(): Promise<void> {
     changes.start();
     phoneCopy.start();
     startPush();
+    watchFollowing();
 
     // supabase-js can't tell when a phone app is in front: refresh the sign-in only while it is.
     AppState.addEventListener('change', (state) => {

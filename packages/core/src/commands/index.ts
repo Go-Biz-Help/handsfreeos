@@ -131,6 +131,7 @@ export {
   safetyExtend,
   safetyHelp,
   safetyResolveByLink,
+  safetyWhere,
 } from './safety';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';

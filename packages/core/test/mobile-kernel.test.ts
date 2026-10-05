@@ -334,6 +334,8 @@ describe('offline classes', () => {
     'safety.check_in': 'anytime',
     'safety.check_out': 'anytime',
     'safety.extend': 'anytime',
+    // Where the phone is, while a check-in shares it (round seven): only the latest waits.
+    'safety.where': 'anytime',
   };
   /**
    * An add-on's commands that may wait are its own test's to hold, against the phone's list (Real Estate:

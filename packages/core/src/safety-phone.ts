@@ -25,7 +25,11 @@ export const SAFETY_PHONE_WORDS = {
   ifYouDont: 'If you don’t, HandsFreeOS tells',
   nobodySet:
     'Nobody set yet, so the business’s safety person is told. Choose your own in More → Settings → My safety.',
-  shareWhere: 'Share where I am when I check in',
+  shareWhere: 'Share where I am until I check out',
+  // Following the phone while checked in (round seven): Android's notification, and the banner's line.
+  followingTitle: 'Sharing where you are',
+  followingBody: (place: string) =>
+    `Until you check out of ${place}. Only the people told if you don’t check out see it.`,
   checkedInToast: (time: string) => `Checked in until ${time}.`,
   // The banner.
   checkedIn: 'Checked in',

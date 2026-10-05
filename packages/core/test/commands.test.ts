@@ -620,6 +620,7 @@ describe('registry', () => {
       'record_hold.place',
       'record_hold.lift',
       'safety.check_in',
+      'safety.where',
       'safety.extend',
       'safety.check_out',
       'safety.help',

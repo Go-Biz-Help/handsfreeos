@@ -5972,6 +5972,8 @@ export const safetyCheckins = app.table('safety_checkins', {
   latitude: numeric('latitude', { precision: 9, scale: 6 }),
   longitude: numeric('longitude', { precision: 9, scale: 6 }),
   locatedAt: ts('located_at'),
+  /** The phone shares where it is until the check-in ends (round seven); safety.where keeps only the latest. */
+  follows: boolean('follows').notNull().default(false),
   startedAt: ts('started_at').notNull(),
   plannedEndAt: ts('planned_end_at').notNull(),
   extendedCount: integer('extended_count').notNull().default(0),

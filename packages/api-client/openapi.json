@@ -45440,7 +45440,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires workspace.read. Emits safety.checked_in, safety.checked_out. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -45482,6 +45482,9 @@
                     "type": "number",
                     "minimum": -180,
                     "maximum": 180
+                  },
+                  "follow": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -45566,6 +45569,85 @@
                   },
                   "required": [
                     "checkIn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/safety.where": {
+      "post": {
+        "operationId": "command_safety_where",
+        "summary": "Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits . Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "checkInId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "checkInId",
+                  "latitude",
+                  "longitude"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkInId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kept": {
+                      "type": "boolean"
+                    },
+                    "open": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "checkInId",
+                    "kept",
+                    "open"
                   ],
                   "additionalProperties": false
                 }

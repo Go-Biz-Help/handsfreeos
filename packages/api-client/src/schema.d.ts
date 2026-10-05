@@ -10168,7 +10168,7 @@ export interface paths {
         put?: never;
         /**
          * Check in somewhere you’re alone, with when you plan to leave. If you don’t check out, HandsFreeOS asks you, then tells your safety contacts where you were.
-         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in, safety.checked_out. Can wait on a phone with no signal.
          */
         post: operations["command_safety_check_in"];
         delete?: never;
@@ -10271,6 +10271,26 @@ export interface paths {
          * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
          */
         post: operations["command_safety_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.where": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.
+         * @description Risk level 0. Requires workspace.read. Emits . Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_where"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38503,6 +38523,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     appointmentId?: string;
+                    follow?: boolean;
                     /** Format: uuid */
                     id: string;
                     latitude?: number;
@@ -38736,6 +38757,42 @@ export interface operations {
                         alertAfterMinutes: number;
                         askAfterMinutes: number;
                         safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_where: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    latitude: number;
+                    longitude: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkInId: string;
+                        kept: boolean;
+                        open: boolean;
                     };
                 };
             };

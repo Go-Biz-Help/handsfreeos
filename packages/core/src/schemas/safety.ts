@@ -54,9 +54,23 @@ export const SafetyCheckInInput = z.object({
   plannedEndAt: isoDateTime,
   latitude: latitude.optional(),
   longitude: longitude.optional(),
+  /**
+   * The phone goes on sharing where it is until the check-in ends (round seven): only with a first reading, which
+   * the person allowed by turning Share where I am on.
+   */
+  follow: z.boolean().optional(),
 });
 
 export const SafetyCheckInRef = z.object({ workspaceId: uuid, checkInId: uuid });
+/** Where the phone is now, during a check-in it shares that for (round seven). Only the latest is kept. */
+export const SafetyWhereInput = SafetyCheckInRef.extend({ latitude, longitude });
+export const SafetyWhereOutput = z.object({
+  checkInId: uuid,
+  /** False when a later spot was already kept, or the check-in had ended: nothing changed. */
+  kept: z.boolean(),
+  /** False once the check-in has ended (checked out here or anywhere else, or answered): the phone stops sharing. */
+  open: z.boolean(),
+});
 export const SafetyExtendInput = SafetyCheckInRef.extend({
   minutes: z.number().int().min(5, 'Add at least 5 minutes.').max(240, 'Add at most 4 hours.'),
 });

@@ -3,7 +3,8 @@ import * as Location from 'expo-location';
 /**
  * Where the phone is, once, for something the person just tapped (On my way, checking in, Help): asked for the first
  * time it's needed, one quick reading, and nothing when they say no or it takes too long, so what they tapped still
- * goes, without a place. Never in the background (app.json's wording says so).
+ * goes, without a place. The only time the phone follows on in the background is a check-in sharing where the person
+ * is, until they check out (`safety/follow.ts`; app.json's wording says so).
  */
 export async function hereOrNull(timeoutMs = 8000): Promise<{ lat: number; lng: number } | null> {
   try {
