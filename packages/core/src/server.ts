@@ -22,6 +22,7 @@ export * from './forms/load';
 export * from './workflows/template-update';
 export * from './knowledge/search';
 export * from './ai-team/load';
+export * from './ai-setup/load';
 export * from './onboarding/load';
 export * from './ai-team/reach';
 export * from './messaging/handling';

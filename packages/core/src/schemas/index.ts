@@ -28,6 +28,7 @@ export * from './calendar';
 export * from './workflow';
 export * from './knowledge';
 export * from './ai-team';
+export * from './ai-setup';
 export * from './chat';
 export * from './portal';
 export * from './attention';

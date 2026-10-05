@@ -88,6 +88,13 @@ function configError(e: unknown): unknown {
   return e;
 }
 
+/** The business has its one teammate already. */
+export const teammateExists = () =>
+  HfosError.conflict(
+    'This business already has an AI teammate, and it can only have one. Open AI teammate to change it.',
+    'teammate_exists',
+  );
+
 /** A draft that isn't in this business. */
 const draftGone = () =>
   HfosError.notFound('That draft isn’t there anymore. Refresh to see what’s waiting for an OK.');
@@ -115,17 +122,18 @@ function parseConfig(raw: unknown): TeammateConfig {
 }
 
 /**
- * The save path (save and restore): refuses a stale draft, writes the settings, labels and name, and a
- * revision row with what changed. Settings conflicts never block a save (they block turning it on). The
- * training counts are no part of it.
+ * The save path (save, restore and quick setup): refuses a stale draft, writes the settings, labels and name, and
+ * a revision row with what changed. Settings conflicts never block a save (they block turning it on). The
+ * training counts are no part of it. `note` heads the revision's lines ("Quick setup").
  */
-async function saveTeammate(
+export async function saveTeammate(
   ctx: CommandContext,
   args: {
     readonly teammateId: string;
     readonly baseRevision: number;
     readonly next: TeammateConfig;
     readonly restoredFrom?: number;
+    readonly note?: string;
   },
 ) {
   const me = requireHuman(ctx).userId;
@@ -155,6 +163,7 @@ async function saveTeammate(
   const diff = diffTeammateConfigs(prev, next, catalogs);
   const changes = [
     ...(args.restoredFrom ? [`Restored revision ${args.restoredFrom}`] : []),
+    ...(args.note ? [args.note] : []),
     ...(diff.length || unchanged ? diff : ['Settings changed']),
   ];
   const labels = [...inferTeammateLabels(next).tags];
@@ -206,14 +215,9 @@ export const aiTeammateCreate = defineCommand({
   scope: inWorkspace,
   emits: ['ai_teammate.created'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
+    requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
-    const exists = () =>
-      HfosError.conflict(
-        'This business already has an AI teammate, and it can only have one. Open AI teammate to change it.',
-        'teammate_exists',
-      );
-    if (await loadTeammate(ctx.tx, ws)) throw exists();
+    if (await loadTeammate(ctx.tx, ws)) throw teammateExists();
     const [workspace] = await ctx.tx
       .select({ industry: workspaces.industry })
       .from(workspaces)
@@ -245,50 +249,76 @@ export const aiTeammateCreate = defineCommand({
       widgetId: widget?.id ?? null,
       calendarIds: open.map((c) => c.id),
     });
-    const labels = [...inferTeammateLabels(config).tags];
     const preset = TEAMMATE_PRESETS.find((p) => p.key === input.preset)!;
-    let teammateId: string;
-    try {
-      const [row] = await ctx.tx
-        .insert(aiTeammates)
-        .values({
-          workspaceId: ws,
-          name: config.identity.name,
-          status: 'off',
-          config: stored(config),
-          configVersion: config.version,
-          revision: 1,
-          labels,
-          createdBy: me,
-        })
-        .returning({ id: aiTeammates.id });
-      teammateId = row!.id;
-    } catch (e) {
-      if (isUniqueViolation(e, 'ai_teammates_one_live')) throw exists();
-      throw e;
-    }
-    await ctx.tx.insert(aiTeammateRevisions).values({
-      workspaceId: ws,
-      teammateId,
-      revision: 1,
-      config: stored(config),
-      configVersion: config.version,
-      labels,
-      diffSummary: [
+    return insertTeammate(ctx, {
+      config,
+      summary:
         preset.key === 'blank' ? 'Created from scratch' : `Created as ${withArticle(preset.name)}`,
-      ] as unknown as Record<string, unknown>[],
-      changedBy: me,
+      preset: { key: preset.key, name: preset.name },
     });
-    await ctx.emit({
-      type: 'ai_teammate.created',
-      entityType: 'ai_teammate',
-      entityId: teammateId,
-      payload: { teammateId, preset: input.preset, name: config.identity.name },
-      after: { name: config.identity.name, preset: preset.name, labels },
-    });
-    return { teammateId, revision: 1 };
   },
 });
+
+/**
+ * Sets up the business's one teammate, off, with its first revision (`ai_teammate.create`, and quick setup's
+ * Save). `summary` is the revision's line ("Created as a Lead Responder").
+ */
+export async function insertTeammate(
+  ctx: CommandContext,
+  args: {
+    readonly config: TeammateConfig;
+    readonly summary: string;
+    /** The preset it came from; null for quick setup. */
+    readonly preset: { readonly key: string; readonly name: string } | null;
+  },
+): Promise<{ teammateId: string; revision: number }> {
+  const me = requireHuman(ctx).userId;
+  const ws = ctx.scope.workspaceId!;
+  const { config } = args;
+  const labels = [...inferTeammateLabels(config).tags];
+  let teammateId: string;
+  try {
+    const [row] = await ctx.tx
+      .insert(aiTeammates)
+      .values({
+        workspaceId: ws,
+        name: config.identity.name,
+        status: 'off',
+        config: stored(config),
+        configVersion: config.version,
+        revision: 1,
+        labels,
+        createdBy: me,
+      })
+      .returning({ id: aiTeammates.id });
+    teammateId = row!.id;
+  } catch (e) {
+    if (isUniqueViolation(e, 'ai_teammates_one_live')) throw teammateExists();
+    throw e;
+  }
+  await ctx.tx.insert(aiTeammateRevisions).values({
+    workspaceId: ws,
+    teammateId,
+    revision: 1,
+    config: stored(config),
+    configVersion: config.version,
+    labels,
+    diffSummary: [args.summary] as unknown as Record<string, unknown>[],
+    changedBy: me,
+  });
+  await ctx.emit({
+    type: 'ai_teammate.created',
+    entityType: 'ai_teammate',
+    entityId: teammateId,
+    payload: { teammateId, preset: args.preset?.key ?? null, name: config.identity.name },
+    after: {
+      name: config.identity.name,
+      ...(args.preset ? { preset: args.preset.name } : {}),
+      labels,
+    },
+  });
+  return { teammateId, revision: 1 };
+}
 
 export const aiTeammateSaveConfig = defineCommand({
   name: 'ai_teammate.save_config',

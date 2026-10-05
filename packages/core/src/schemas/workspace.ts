@@ -27,7 +27,7 @@ export function openHoursOf(
 }
 
 /** Why open hours can't be saved (a day's stretches overlap), or null. */
-function overlapProblem(hours: WeeklyHours): string | null {
+export function openHoursProblem(hours: WeeklyHours): string | null {
   for (let day = 0; day < 7; day++) {
     const list = hours
       .filter((h) => h.day === day)
@@ -80,6 +80,8 @@ export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   addons: 'addon.install',
   // Getting started's answers and skips: the quick questions set the order the business's steps come in.
   onboarding: 'onboarding.save_answers',
+  // Quick setup's answers while someone is part way through, and who finished it.
+  aiSetup: 'ai_setup.save',
 } as const;
 
 export const WorkspaceUpdateInput = z
@@ -141,7 +143,7 @@ export const WorkspaceUpdateInput = z
             path: ['settings', 'openHours', ...issue.path.map((p) => p as string | number)],
           });
       else {
-        const problem = overlapProblem(parsed.data);
+        const problem = openHoursProblem(parsed.data);
         if (problem)
           ctx.addIssue({ code: 'custom', message: problem, path: ['settings', 'openHours'] });
       }

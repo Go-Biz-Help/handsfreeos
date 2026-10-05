@@ -292,6 +292,7 @@ import {
   aiTeammateSendDraft,
   aiTeammateSetStatus,
 } from './ai-team';
+import { aiSetupFinish, aiSetupSave } from './ai-setup';
 import {
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
@@ -875,6 +876,8 @@ export const commands: readonly CommandDef[] = [
   aiTeammateDecideDraft,
   aiTeammateSendDraft,
   aiTeammateRetry,
+  aiSetupSave,
+  aiSetupFinish,
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
@@ -1055,6 +1058,7 @@ export * from './workflow-run';
 export * from './workflow-template';
 export * from './knowledge';
 export * from './ai-team';
+export * from './ai-setup';
 export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';

@@ -57,6 +57,8 @@ export * from './workflows/index';
 export * from './forms/index';
 export * from './knowledge/index';
 export * from './ai-team/index';
+// Quick setup: a few simple questions that set up a working AI teammate.
+export * from './ai-setup/index';
 export * from './chat/index';
 export * from './attention/index';
 // Settings → Automations: the catalog and the switches it owns.
