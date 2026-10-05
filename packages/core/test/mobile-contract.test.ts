@@ -137,6 +137,8 @@ const QUERIES = [
   'realestate.open_houses',
   'realestate.showing.list',
   'realestate.duty.vendors',
+  // A signed document's fingerprint, checked once the phone has downloaded it to keep (round seven).
+  'file.fingerprints',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

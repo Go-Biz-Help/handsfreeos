@@ -4,7 +4,9 @@ import type { AbstractPowerSyncDatabase, SyncStatus } from '@powersync/common';
 
 import type { SessionState } from '@/lib/auth/session';
 
-import { copyFileName, type CopyFiles } from '../files';
+import { copyFileName, keptFilesName, type CopyFiles } from '../files';
+import { documentName } from '../kept-files';
+import { keptStore } from '../kept-store';
 import { CopyKeys, keyName, type SecretStore } from '../keys';
 import {
   CopyRefused,
@@ -15,6 +17,8 @@ import {
 } from '../phone-copy';
 import { KEPT_TTL_S, OPEN_TTL_S } from '../rules';
 import { BUSINESS_STREAM, RECORDS_STREAM } from '../subscriptions';
+
+import { memoryKeptFiles } from './memory-kept-files';
 
 /**
  * The copy's rules through `PhoneCopy` itself, with a stand-in for the Keychain, the files on the phone and PowerSync
@@ -124,11 +128,14 @@ function phone(options: { sqlcipher?: boolean } = {}) {
     if (file && file.key !== key) throw new CopyUnreadable('file is not a database');
     onDisk.set(name, { key });
     onDisk.set(`${name}-wal`, { key });
+    onDisk.set(keptFilesName(userId), { key });
     log.push(`open ${name}`);
     const db = new FakeDb(name, log);
     dbs.push(db);
+    const { kept } = memoryKeptFiles();
     return {
       db: db as unknown as AbstractPowerSyncDatabase,
+      kept: { files: kept, close: () => void log.push(`close ${keptFilesName(userId)}`) },
       cipherVersion: '4.14.0 community',
       openMs: 40,
     };
@@ -177,6 +184,7 @@ function phone(options: { sqlcipher?: boolean } = {}) {
       upload: async () => undefined,
       connected: () => void (queue.connected += 1),
     },
+    kept: keptStore,
     syncUrl: 'http://sync.test',
     appVersion: '1.0.0',
   });
@@ -249,7 +257,7 @@ describe('opening a person’s copy', () => {
       report: { keyForm: 'raw', newKey: true, othersDeleted: 0, cipherVersion: '4.14.0 community' },
     });
     expect(p.secrets.get(keyName(DALE))).toMatch(/^[0-9a-f]{64}$/);
-    expect([...p.onDisk.keys()]).toEqual([file(DALE), `${file(DALE)}-wal`]);
+    expect([...p.onDisk.keys()]).toEqual([file(DALE), `${file(DALE)}-wal`, keptFilesName(DALE)]);
     expect(p.registry()).toEqual([DALE]);
   });
 
@@ -296,6 +304,24 @@ describe('wiping', () => {
     );
   });
 
+  it('opens the files the phone keeps with the copy, and at sign-out lets documents go but keeps photos waiting', async () => {
+    const p = phone();
+    p.copy.start();
+    await p.signIn(DALE);
+    const kept = keptStore.of(DALE);
+    kept.put('f1.jpg', 'waiting', new Uint8Array(10));
+    kept.put(documentName('d1'), 'document', new Uint8Array(10));
+    p.setWaiting(1);
+    await p.signOut();
+    expect(keptStore.current()).toBeNull();
+    expect(kept.list().map((f) => f.name)).toEqual(['f1.jpg']);
+    // Closed before the copy, and kept on the phone with it.
+    expect(p.log.indexOf(`close ${keptFilesName(DALE)}`)).toBeLessThan(
+      p.log.indexOf(`close ${file(DALE)}`),
+    );
+    expect(p.onDisk.has(keptFilesName(DALE))).toBe(true);
+  });
+
   it('keeps the copy and its key, encrypted, when changes are waiting, and opens them again for that person', async () => {
     const p = phone();
     p.copy.start();
@@ -333,7 +359,12 @@ describe('wiping', () => {
       userId: MARCO,
       report: { newKey: true, othersDeleted: 1 },
     });
-    expect([...p.onDisk.keys()].sort()).toEqual([file(MARCO), `${file(MARCO)}-wal`]);
+    // Dale's kept files went with his copy.
+    expect([...p.onDisk.keys()].sort()).toEqual([
+      file(MARCO),
+      `${file(MARCO)}-wal`,
+      keptFilesName(MARCO),
+    ]);
     expect(p.secrets.has(keyName(DALE))).toBe(false);
     expect(p.secrets.get(keyName(MARCO))).not.toBe(daleKey);
     expect(p.registry()).toEqual([MARCO]);

@@ -259,6 +259,15 @@ export interface AddonSettingsDeclaration {
  * business connects it with a key it pastes, a sign-in, or HandsFreeOS's own account; the worker tries and seals what
  * it's given, and the add-on's worker half uses it (`connectionFor`).
  */
+export interface AddonOfflineFiles {
+  /** One of `offline.tables`. */
+  readonly table: string;
+  /** Its column holding a file's id. */
+  readonly column: string;
+  /** Rows whose `column` holds one of `values` keep no file. */
+  readonly skip?: { readonly column: string; readonly values: readonly string[] };
+}
+
 export interface AddonConnector {
   /** Its name in the add-on (`listing_data`). */
   readonly key: string;
@@ -361,6 +370,12 @@ export interface AddonManifest {
     readonly tables: readonly AddonOfflineTable[];
     /** Keys of the business's settings the phone keeps too (20261022000800), for pages that rest on them. */
     readonly settings?: readonly string[];
+    /**
+     * Files its phone rows bring (round seven): each row of `table` keeps the file named in `column` on the phone,
+     * encrypted, downloaded on Wi-Fi, up to the phone's limit, unless `skip` says it's no longer current (a replaced
+     * or void document). The person can pin any other. It goes when its row leaves the phone or stops asking for it.
+     */
+    readonly files?: readonly AddonOfflineFiles[];
   };
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
@@ -631,6 +646,23 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       if (!shape || !(k in shape)) say(`offline setting "${k}" isn't one of its settings`);
     }
     unique('offline setting', m.offline.settings ?? []);
+    for (const f of m.offline.files ?? []) {
+      const table = m.offline.tables.find((t) => t.table === f.table);
+      if (!table)
+        say(`offline files come from "${f.table}", which isn't one of its offline tables`);
+      else {
+        if (!table.columns.includes(f.column))
+          say(`offline files of "${f.table}" name "${f.column}", which it doesn't keep`);
+        if (f.skip && !table.columns.includes(f.skip.column))
+          say(`offline files of "${f.table}" skip by "${f.skip.column}", which it doesn't keep`);
+      }
+      if (f.skip && !f.skip.values.length)
+        say(`offline files of "${f.table}" skip by "${f.skip.column}" but name no values`);
+    }
+    unique(
+      'offline files of',
+      (m.offline.files ?? []).map((f) => `${f.table}.${f.column}`),
+    );
   }
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {

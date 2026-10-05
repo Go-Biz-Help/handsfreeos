@@ -31,7 +31,10 @@ no signal. The boards are `design/realestate/Phone*.dc.html` (76–93).
   `RE_PHONE_WORDS.summaryNote`) and load the rest with signal (`useLiveAnswer` with the server's query;
   `NeedsSignalCard` with no signal). A query the phone asks for is listed in `QUERIES` in
   `packages/core/test/mobile-contract.test.ts`.
-- **Documents are not kept offline** (Chris, 2026-10-03): names, versions and who signed are; opening one needs signal.
+- **Documents' current versions are kept on the phone** (round seven, Chris 2026-10-05; this replaces round six's
+  "open with signal"): `src/sync/document-keeper.ts` downloads them on Wi‑Fi into the person's encrypted kept files,
+  and the document sheet opens one with no signal (`openKeptDocument`, Quick Look on iPhone, the phone's viewer on
+  Android). A replaced or void version is kept only when pinned (Keep on this phone).
 
 ## Writing
 

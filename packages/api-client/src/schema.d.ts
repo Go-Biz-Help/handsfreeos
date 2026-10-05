@@ -13537,6 +13537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/file.fingerprints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What files held when they arrived, so a phone can check the copies it keeps.
+         * @description Requires records.read.
+         */
+        post: operations["query_file_fingerprints"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/file.list": {
         parameters: {
             query?: never;
@@ -48424,6 +48444,41 @@ export interface operations {
                             voidedAt: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_file_fingerprints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fileIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: {
+                            /** Format: uuid */
+                            id: string;
+                            locked: boolean;
+                            sha256: string | null;
+                        }[];
                     };
                 };
             };

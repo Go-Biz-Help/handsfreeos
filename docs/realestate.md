@@ -286,8 +286,9 @@ Round five (Chris, 2026-10-02):
 - **Phones keep what the agent may see, and nothing more** (round six). The manifest's `offline` and the migration's
   `private.addon_phone_table(...)` calls say which columns of which tables reach a phone, and a test holds the two
   equal. People on a deal get it in full; someone who sees every deal gets the summary, duties and dates. Open deals
-  and those ended in the last 90 days stay on phones. Documents' names and states go, never their files: opening a
-  PDF needs signal.
+  and those ended in the last 90 days stay on phones. Each document's current version goes too (round seven,
+  `offline.files`): downloaded on Wi‑Fi into the phone's encrypted kept files, a signed one checked against its
+  fingerprint, so it opens with no signal. A replaced or void one is kept only if the agent pins it.
 - **Closed deals are kept, never deleted on their own** (Chris, 2026-10-03). An open deal is held with no end; an
   ended one until its end date plus the years in Deal settings → Keeping records (7 by default), redone each night
   and whenever the setting changes. While any deal is held, deleting the add-on's data is refused. A legal hold

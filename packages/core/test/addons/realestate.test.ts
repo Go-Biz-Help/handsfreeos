@@ -17,6 +17,26 @@ describe('Real Estate Agent', () => {
     expect(manifestIssues(realestateAddon)).toEqual([]);
   });
 
+  it('keeps only files its phone rows hold, and says which aren’t current', () => {
+    const offline = realestateAddon.offline;
+    const broken = {
+      ...realestateAddon,
+      offline: {
+        ...offline,
+        files: [
+          { table: 'documents', column: 'file_name' },
+          { table: 'documents', column: 'file_id', skip: { column: 'state', values: ['void'] } },
+          { table: 'nowhere', column: 'file_id' },
+        ],
+      },
+    };
+    expect(manifestIssues(broken).map((i) => i.message)).toEqual([
+      `offline files of "documents" name "file_name", which it doesn't keep`,
+      `offline files of "documents" skip by "state", which it doesn't keep`,
+      `offline files come from "nowhere", which isn't one of its offline tables`,
+    ]);
+  });
+
   it('joins core’s operations cleanly', () => {
     const core = {
       commands: commands.filter((c) => c.addon?.id !== 'realestate'),

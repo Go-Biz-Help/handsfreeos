@@ -17,6 +17,7 @@ import {
   handsOverLine,
   joinNames,
   keptBusinessesLine,
+  keptDocumentsLine,
   onlyOwnerLine,
   type ConfirmCard,
 } from '../src/index';
@@ -258,6 +259,17 @@ describe('the settings words', () => {
     expect(keptBusinessesLine([{ name: 'A' }, { name: 'B' }], 0)).toBe(
       '2 businesses · work with no signal',
     );
+  });
+
+  it('says how much of the documents’ room the phone uses, and what mobile data changes', () => {
+    const GB = 1024 * 1024 * 1024;
+    expect(keptDocumentsLine(0, GB)).toBe(
+      'Documents on your deals are kept here to open with no signal. Off, they download on Wi‑Fi only.',
+    );
+    expect(keptDocumentsLine(230 * 1024 * 1024, GB)).toBe(
+      '230 MB of 1 GB kept here, encrypted. Off, they download on Wi‑Fi only.',
+    );
+    expect(keptDocumentsLine(GB, GB)).toMatch(/^1\.0 GB of 1 GB/);
   });
 
   it('names the businesses that stand between someone and deleting their account', () => {

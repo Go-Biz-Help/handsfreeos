@@ -144,7 +144,7 @@ function CardField({
   index: number;
   callNumber: string | null;
   /** Where a picture kept on the phone is, from its file name. */
-  photoUri: (localName: string) => string;
+  photoUri: (localName: string) => string | undefined;
   onChange: (next: DraftCard) => void;
   onPicture: () => void;
   onRemove: (() => void) | null;
@@ -239,7 +239,7 @@ export function RichEditor({
   /** A carousel's pictures go to the customer's files, so it needs a customer. */
   canCarousel: boolean;
   callNumber: string | null;
-  photoUri: (localName: string) => string;
+  photoUri: (localName: string) => string | undefined;
   /** Takes a card's picture; the screen keeps it until the text goes and sets the card's file. */
   onCardPhoto: (cardKey: string, source: 'camera' | 'library') => void;
 }) {

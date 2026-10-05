@@ -8954,6 +8954,27 @@
         "required": ["workspaceId"]
       }
     },
+    "file.fingerprints": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileIds": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "fileIds"]
+      }
+    },
     "form.response_export": {
       "input": {
         "type": "object",

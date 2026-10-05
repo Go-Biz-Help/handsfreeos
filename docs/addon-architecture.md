@@ -117,7 +117,12 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   them, and the links between them (a deal's client and home, 20261022000700), reach the same people through the
   same stream (`apps/sync/README.md`, `records_v1`). Settings a page rests on (Real Estate's closed days) go too when
   `offline.settings` names them and the migration calls `private.addon_phone_settings(...)`: just those keys, as one
-  `_settings` row per business (20261022000800). Turning the add-on off
+  `_settings` row per business (20261022000800). Files its rows name are kept on the phone too when
+  `offline.files` says so (round seven): the table, the column holding a file's id, and which values of which column
+  mean it's no longer current. The phone downloads them on Wi‑Fi into the person's kept files, a second SQLCipher
+  database beside their copy (`apps/mobile/src/sync/kept-files.ts`, where photos waiting to upload are kept too),
+  checks a signed one against `file.fingerprints`, keeps them to 1 GB with the person's pins first, and lets each
+  go when its row leaves the phone or stops asking for it; signing out removes them. Turning the add-on off
   takes its permissions, so its keys, and every row leaves phones with nothing deleted. A record leaves phones
   earlier when the add-on says so (`private.record_phone_window`). An operation a phone may queue says
   `offline: 'anytime'` (or `freshMinutes`) and takes the phone's id for anything it makes.

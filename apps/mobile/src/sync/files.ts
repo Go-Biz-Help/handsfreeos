@@ -7,11 +7,17 @@
 /** The database file of a person's copy. */
 export const copyFileName = (userId: string) => `hfos-${userId}.db`;
 
-/** The folder with a person's photos waiting to upload (where it is: `device-files.ts`). */
+/** The database of files a person's phone keeps (`kept-files.ts`), encrypted with the same key as their copy. */
+export const keptFilesName = (userId: string) => `hfos-${userId}.files.db`;
+
+/**
+ * The folder photos waiting to upload were kept in before round seven, as plain files (where it is:
+ * `device-files.ts`). They move into the person's kept files when their copy opens, and the folder goes.
+ */
 export const photosFolderName = (userId: string) => `hfos-${userId}-photos`;
 
 const COPY_FILE =
-  /^hfos-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.db(-wal|-shm|-journal)?$/;
+  /^hfos-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.files)?\.db(-wal|-shm|-journal)?$/;
 
 /** Whose copy a file belongs to, or null for a file that isn't one. */
 export function personOfFile(name: string): string | null {
@@ -59,7 +65,10 @@ export function hasCopy(files: CopyFiles, userId: string): boolean {
   return files.list().includes(copyFileName(userId));
 }
 
-/** Deletes a person's copy: the database, SQLite's files beside it, and their photos waiting to upload. */
+/**
+ * Deletes a person's copy: the database, the files their phone keeps (photos waiting to upload, documents), SQLite's
+ * files beside both, and the folder photos were kept in before.
+ */
 export function removeCopy(files: CopyFiles, userId: string): number {
   const own = files.list().filter((name) => personOfFile(name) === userId);
   for (const name of own) files.remove(name);

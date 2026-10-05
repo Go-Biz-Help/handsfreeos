@@ -765,6 +765,7 @@ describe('registry', () => {
       'task.list',
       'timeline.list',
       'file.list',
+      'file.fingerprints',
       'import.get',
       'import.list',
       'crm.find_matches',

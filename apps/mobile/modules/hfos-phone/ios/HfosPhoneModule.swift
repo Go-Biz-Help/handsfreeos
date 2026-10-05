@@ -1,6 +1,7 @@
 import Contacts
 import ContactsUI
 import ExpoModulesCore
+import QuickLook
 import UIKit
 
 /// What the app asks the phone itself. On an iPhone the phone does most of it: a notification button that needs the
@@ -49,10 +50,63 @@ public class HfosPhoneModule: Module {
       form.delegate = delegate
       presenter.present(UINavigationController(rootViewController: form), animated: true)
     }.runOnQueue(.main)
+
+    /// Shows a file the app decrypted into its cache (a document kept on the phone) in Quick Look, inside the app.
+    /// "closed" once the person closes it, so the app deletes the copy; "unavailable" when Quick Look can't show it.
+    AsyncFunction("viewFile") { (path: String, _: String, promise: Promise) in
+      guard let presenter = self.appContext?.utilities?.currentViewController() else {
+        promise.resolve("unavailable")
+        return
+      }
+      let parsed = URL(string: path)
+      let item = parsed?.isFileURL == true ? parsed! : URL(fileURLWithPath: path)
+      guard QLPreviewController.canPreview(item as NSURL) else {
+        promise.resolve("unavailable")
+        return
+      }
+      let preview = QLPreviewController()
+      let source = PreviewSource(item: item) {
+        promise.resolve("closed")
+        self.previewing = nil
+      }
+      self.previewing = source
+      preview.dataSource = source
+      preview.delegate = source
+      presenter.present(preview, animated: true)
+    }.runOnQueue(.main)
   }
 
   /// The New Contact screen's delegate, kept while it's open.
   private var pending: NewContactDelegate?
+  /// The document on screen in Quick Look, kept while it's open.
+  private var previewing: PreviewSource?
+}
+
+/// One file for Quick Look, read-only, and when it's closed.
+private final class PreviewSource: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+  private let item: URL
+  private let done: () -> Void
+  init(item: URL, done: @escaping () -> Void) {
+    self.item = item
+    self.done = done
+  }
+
+  func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+
+  func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+    item as NSURL
+  }
+
+  /// A kept document is HandsFreeOS's copy: marking it up here would change nothing anyone else sees.
+  func previewController(_ controller: QLPreviewController, editingModeFor previewItem: QLPreviewItem)
+    -> QLPreviewItemEditingMode
+  {
+    .disabled
+  }
+
+  func previewControllerDidDismiss(_ controller: QLPreviewController) {
+    done()
+  }
 }
 
 private final class NewContactDelegate: NSObject, CNContactViewControllerDelegate {

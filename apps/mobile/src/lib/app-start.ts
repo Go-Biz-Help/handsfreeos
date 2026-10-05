@@ -8,6 +8,7 @@ import { startPush } from '@/push/device';
 import { watchFollowing } from '@/safety/follow';
 import { phoneCopy } from '@/sync';
 import { prepareCopiesFolder } from '@/sync/device-files';
+import { documentKeeper } from '@/sync/document-keeper';
 
 import { applyAppearance } from './appearance';
 import { session } from './auth';
@@ -46,6 +47,7 @@ export function startApp(): Promise<void> {
     registerCustomerFixers();
     changes.start();
     phoneCopy.start();
+    documentKeeper.start();
     startPush();
     watchFollowing();
 

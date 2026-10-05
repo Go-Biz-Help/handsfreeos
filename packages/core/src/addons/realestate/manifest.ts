@@ -259,6 +259,15 @@ export const realestateAddon = defineAddon({
     permission: 'realestate.use',
     // Business days around the days the business is closed: Coordinate's, on the phone.
     settings: ['closedDays'],
+    // Round seven (Chris, 2026-10-05): each document's current version on the deals the agent works, kept on the
+    // phone encrypted; a replaced or void one only if they pin it.
+    files: [
+      {
+        table: 'documents',
+        column: 'file_id',
+        skip: { column: 'status', values: ['superseded', 'void'] },
+      },
+    ],
     tables: [
       {
         table: 'deals',
