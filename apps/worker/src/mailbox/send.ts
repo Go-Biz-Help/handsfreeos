@@ -3,6 +3,7 @@ import { mailboxConnections, messages } from '@hfos/db/schema';
 import { renderEmailHtml } from '../email/render';
 import type { EmailAttachment } from '../email/transport';
 import type { HandlerContext } from '../handlers/types';
+import { errorMessage } from '../outbox';
 import { tenantOf } from '../services';
 import { MailboxAuthError, MailboxError } from './provider';
 import { failMailbox, freshTokens, PROVIDER_NAME } from './sync';
@@ -104,6 +105,13 @@ export async function sendThroughMailbox(
       });
       return;
     }
-    throw e;
+    // Worth another try, until the outbox's last: then it's "Not delivered", not "Sending…" for good.
+    if (ctx.attempt < ctx.maxAttempts) throw e;
+    ctx.log.warn({ err: errorMessage(e) }, 'email gave up after the last try');
+    await update({
+      status: 'failed',
+      errorCode: 'mailbox_unreachable',
+      errorMessage: `${label} didn’t answer, so this email didn’t go out. Try again in a minute.`,
+    });
   }
 }

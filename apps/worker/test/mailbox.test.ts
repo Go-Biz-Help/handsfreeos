@@ -4,6 +4,7 @@ import {
   executeCommand,
   mailboxConnect,
   mailboxDisconnect,
+  messageRetry,
   messageSend,
   organizationCreate,
   personCreate,
@@ -20,14 +21,14 @@ import {
   type TestUser,
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
 import { sha256Hex } from '../src/mailbox/sync';
 import { MailboxError, type TokenSet } from '../src/mailbox/provider';
-import { processOnce } from '../src/outbox';
+import { MAX_ATTEMPTS, processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { finishSignIn, testTokenVerifier } from './finish-sign-in';
@@ -427,6 +428,67 @@ describe('sending through a mailbox', () => {
     const [m] = await admin().select().from(messages).where(eq(messages.id, sent.output.messageId));
     expect(m).toMatchObject({ status: 'sent', messageIdHeader: queued!.messageIdHeader });
     expect(s.mailboxes.fake.sent(gmail).at(-1)?.threadId).toBe(inbound!.providerThreadId);
+  });
+
+  it('says Not delivered when Outlook still doesn’t answer on the last try, so it can be sent again', async () => {
+    await drain();
+    const sent = await executeCommand(
+      api(),
+      messageSend,
+      {
+        workspaceId,
+        personId: mikeId,
+        channel: 'email',
+        subject: 'Re: Thermostat',
+        body: 'Thursday at 10.',
+        mailboxConnectionId: outlookId,
+      },
+      actor(owner),
+      meta(),
+    );
+    const load = async () =>
+      (await admin().select().from(messages).where(eq(messages.id, sent.output.messageId)))[0]!;
+    const down = vi
+      .spyOn(s.mailboxes.providers.microsoft, 'send')
+      .mockRejectedValue(new MailboxError('Outlook answered 503.', 503));
+    try {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Skip the backoff: each try is due at once.
+        await rows(
+          admin(),
+          sql`update app.outbox set next_attempt_at = now()
+              where workspace_id = ${workspaceId} and status = 'pending'`,
+        );
+        await reserve();
+        await processOnce({
+          ...s,
+          workerId: WORKER_ID,
+          batchSize: 200,
+          reservedOnly: true,
+          handlers,
+        });
+        expect((await load()).status).toBe(attempt < MAX_ATTEMPTS ? 'queued' : 'failed');
+      }
+    } finally {
+      down.mockRestore();
+    }
+    expect(await load()).toMatchObject({
+      errorCode: 'mailbox_unreachable',
+      errorMessage: expect.stringContaining('Outlook didn’t answer'),
+    });
+    // Still connected: Outlook not answering for a while says nothing about the sign-in.
+    expect(await box(outlookId)).toMatchObject({ status: 'active' });
+
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: sent.output.messageId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect((await load()).status).toBe('sent');
+    expect(s.mailboxes.fake.sent(outlook).at(-1)).toMatchObject({ subject: 'Re: Thermostat' });
   });
 });
 

@@ -65,6 +65,12 @@ import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
 import { scheduledTextJobs } from './messaging/scheduled';
+import {
+  UNSENT_FIRST_SWEEP_MS,
+  UNSENT_JOBS,
+  UNSENT_SWEEP_KEY,
+  unsentJobs,
+} from './messaging/unsent';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
 import {
   nextReconcileAt,
@@ -567,6 +573,8 @@ export const jobs: JobMap = {
   ...cellJobs,
   // A text that waited for quiet hours to end goes then (messaging/scheduled.ts).
   ...scheduledTextJobs,
+  // Texts and emails the worker gave up sending without saying so, marked "Not delivered" (messaging/unsent.ts).
+  ...unsentJobs,
   // Phones: the nightly time-window sweep, one business at a time, and the daily receipts clean-up (housekeeping/).
   ...syncWindowJobs,
   ...receiptJobs,
@@ -598,6 +606,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: 'webhook_deliveries.sweep',
       dedupeKey: 'sweep:webhook_deliveries',
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Hourly, from a minute after the start: a text or email the worker gave up sending without saying so is
+    // marked "Not delivered", so it can be sent again (messaging/unsent.ts).
+    await scheduleJob(tx, {
+      kind: UNSENT_JOBS.sweep,
+      dedupeKey: UNSENT_SWEEP_KEY,
+      runAt: new Date(Date.now() + UNSENT_FIRST_SWEEP_MS),
       payload: {},
       workspaceId: null,
       organizationId: null,

@@ -67,6 +67,17 @@ function purchaseTrouble(e: unknown): string {
   return 'Setting up the number kept failing.';
 }
 
+/** Why the carrier kept turning a text away, under it in the thread once the worker stops trying. */
+function sendTrouble(e: unknown): string {
+  if (e instanceof ProviderError) {
+    if (e.httpStatus === 401 || e.httpStatus === 403)
+      return 'The phone carrier refused this business’s account, so this text didn’t go out. Try again in a minute, or ask HandsFreeOS support.';
+    if (e.httpStatus === 429)
+      return 'The phone carrier was too busy, so this text didn’t go out. Try again in a minute.';
+  }
+  return 'The phone carrier didn’t answer, so this text didn’t go out. Try again in a minute.';
+}
+
 /**
  * Buys the number people picked: subaccount and messaging service first (each committed), then the number.
  * A refusal is recorded at once; trouble worth retrying is retried, and on the last try the number is marked
@@ -469,6 +480,15 @@ export const onMessageQueued: EventHandler = async (ctx) => {
       systemActor(scope),
       metaOf(ctx),
     );
+  /**
+   * Trouble worth another try goes back to the outbox, until its last try. Then the text is "Not delivered" and
+   * says why, so a person can send it again: thrown on the last try, it would say "Sending…" for good.
+   */
+  const giveUp = async (e: unknown) => {
+    if (ctx.attempt < ctx.maxAttempts) throw e;
+    ctx.log.warn({ err: errorMessage(e) }, 'text gave up after the last try');
+    await fail(e instanceof ProviderError ? e.code : 'unreachable', sendTrouble(e));
+  };
   const [conv] = await ctx.tx
     .select()
     .from(conversations)
@@ -539,8 +559,8 @@ export const onMessageQueued: EventHandler = async (ctx) => {
         }),
       ));
     } catch (e) {
-      if (!isPermanentProviderError(e)) throw e;
-      await fail(e.code, e.message);
+      if (isPermanentProviderError(e)) await fail(e.code, e.message);
+      else await giveUp(e);
       return;
     }
   }
@@ -564,8 +584,8 @@ export const onMessageQueued: EventHandler = async (ctx) => {
       await ctx.telephony
         .deleteContent(account, contentSid)
         .catch((err: unknown) => ctx.log.warn({ err }, 'could not delete an unsent rcs template'));
-    if (!isPermanentProviderError(e)) throw e;
-    await fail(e.code, e.message);
+    if (isPermanentProviderError(e)) await fail(e.code, e.message);
+    else await giveUp(e);
     return;
   }
   await executeCommand(
