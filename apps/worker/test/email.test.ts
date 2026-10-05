@@ -14,7 +14,7 @@ import {
   type HumanActor,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { conversations, messages } from '@hfos/db/schema';
+import { activities, conversations, messages } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -282,8 +282,24 @@ describe('sending', () => {
       meta(),
     );
     await drain();
-    expect((await message(sent.output.messageId)).status).toBe('sent');
+    const retried = await message(sent.output.messageId);
+    expect(retried.status).toBe('sent');
     await mailTo(mike, subject);
+    // It went just now, so it shows then: as the conversation's latest, and on Mike's timeline.
+    expect(retried.occurredAt.getTime()).toBeGreaterThan(failed.occurredAt.getTime());
+    const [c] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, sent.output.conversationId));
+    expect(c).toMatchObject({
+      lastMessageAt: retried.occurredAt,
+      lastPreview: `${subject} · Hi Mike, it’s ready.`,
+    });
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(eq(activities.id, retried.activityId!));
+    expect(entry!.occurredAt).toEqual(retried.occurredAt);
   });
 });
 

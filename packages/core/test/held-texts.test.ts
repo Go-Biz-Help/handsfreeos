@@ -10,9 +10,11 @@
  * - A failed text tried again in quiet hours waits for them to end the same way, then goes in place of the attempt
  *   that failed, without a second line on the timeline. Cancelled, it goes back as it was: not delivered, with its
  *   reason, in its place in the thread, to be tried again.
+ * - A failed text tried again shows when it went, by day at once or when quiet hours end: at the bottom of the
+ *   thread, as the conversation's latest, and its timeline entry too once the carrier takes it.
  * - A held text refused when quiet hours ended never reached the timeline: tried again, by day or held once more,
  *   it gets its one entry and the conversation's preview when it goes. With no customer it still becomes the
- *   preview then; a text that went before doesn't.
+ *   preview then, as a text that went before does.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -129,6 +131,13 @@ const messageRow = async (id: string) =>
   (await admin().select().from(messages).where(eq(messages.id, id)))[0]!;
 const eventTypes = async (id: string) =>
   (await admin().select().from(events).where(eq(events.entityId, id))).map((e) => e.eventType);
+const entriesOf = (messageId: string) =>
+  admin()
+    .select()
+    .from(activities)
+    .where(sql`${activities.meta}->>'messageId' = ${messageId}`);
+const conversationOf = async (id: string) =>
+  (await admin().select().from(conversations).where(eq(conversations.id, id)))[0]!;
 
 beforeAll(async () => {
   [dale, marco, outsider] = await Promise.all([
@@ -569,13 +578,35 @@ describe('a failed text tried again in quiet hours', () => {
       .from(activities)
       .where(sql`${activities.meta}->>'messageId' = ${sent.messageId}`);
     expect(entries).toHaveLength(1);
+
+    // It went when quiet hours ended, so it shows then: as the conversation's latest, and on the timeline once the
+    // carrier takes it.
+    const went = await messageRow(sent.messageId);
+    expect(Date.now() - went.occurredAt.getTime()).toBeLessThan(30_000);
+    expect(await conversationOf(sent.conversationId)).toMatchObject({
+      lastMessageAt: went.occurredAt,
+      lastPreview: 'Your part came in today.',
+    });
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: sent.messageId,
+      providerMessageId: `SMretry${uniq()}`,
+      replacesProviderMessageId: failed.providerMessageId,
+      status: 'sending',
+    });
+    expect((await entriesOf(sent.messageId)).map((e) => e.occurredAt)).toEqual([went.occurredAt]);
   });
 
-  it('goes now outside quiet hours', async () => {
+  it('goes now outside quiet hours, and shows when it went: at the bottom of the thread, as the latest', async () => {
     await quietNow(false);
+    const { personId } = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: 'Ana', lastName: 'Diaz', phone: nextPhone() },
+      dale,
+    );
     const sent = await run(
       messageSend,
-      { workspaceId: wsId, personId: mikeId, body: 'Daytime retry' },
+      { workspaceId: wsId, personId, body: 'Daytime retry' },
       marco,
     );
     await sys(messageUpdateStatus, {
@@ -584,19 +615,51 @@ describe('a failed text tried again in quiet hours', () => {
       status: 'failed',
       errorCode: '30008',
     });
+    // It failed an hour ago, and another text went since.
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    await admin()
+      .update(messages)
+      .set({ occurredAt: hourAgo })
+      .where(eq(messages.id, sent.messageId));
+    await admin()
+      .update(activities)
+      .set({ occurredAt: hourAgo })
+      .where(sql`${activities.meta}->>'messageId' = ${sent.messageId}`);
+    const later = await run(
+      messageSend,
+      { workspaceId: wsId, personId, body: 'We can come at 2.' },
+      dale,
+    );
+
     const out = await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
     expect(out).toEqual({ messageId: sent.messageId });
-    expect(await messageRow(sent.messageId)).toMatchObject({ status: 'queued', errorCode: null });
+    const row = await messageRow(sent.messageId);
+    expect(row).toMatchObject({ status: 'queued', errorCode: null });
+    // It goes now, so it shows now: at the bottom of the thread, and as the conversation's latest.
+    expect(Date.now() - row.occurredAt.getTime()).toBeLessThan(30_000);
+    const thread = await ask(
+      conversationThread,
+      { workspaceId: wsId, conversationId: sent.conversationId },
+      marco,
+    );
+    expect(thread.items.map((i) => i.id).slice(0, 2)).toEqual([sent.messageId, later.messageId]);
+    expect(await conversationOf(sent.conversationId)).toMatchObject({
+      lastMessageAt: row.occurredAt,
+      lastOutboundAt: row.occurredAt,
+      lastPreview: 'Daytime retry',
+      lastDirection: 'outbound',
+    });
+    // Its one timeline entry moves there too, once the carrier takes it.
+    expect((await entriesOf(sent.messageId)).map((e) => e.occurredAt)).toEqual([hourAgo]);
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: sent.messageId,
+      providerMessageId: `SMretry${uniq()}`,
+      status: 'sending',
+    });
+    expect((await entriesOf(sent.messageId)).map((e) => e.occurredAt)).toEqual([row.occurredAt]);
   });
 });
-
-const entriesOf = (messageId: string) =>
-  admin()
-    .select()
-    .from(activities)
-    .where(sql`${activities.meta}->>'messageId' = ${messageId}`);
-const conversationOf = async (id: string) =>
-  (await admin().select().from(conversations).where(eq(conversations.id, id)))[0]!;
 
 describe('cancelling a failed text tried again in quiet hours', () => {
   it('puts it back as it was: not delivered, with its reason, in its place, to be tried again', async () => {
@@ -790,7 +853,7 @@ describe('a held text refused when quiet hours ended, tried again', () => {
     expect(queued!.payload).toMatchObject({ scheduled: true, retry: true });
   });
 
-  it('with no customer, by day, becomes the conversation’s preview; a text that went before doesn’t', async () => {
+  it('with no customer, by day, becomes the conversation’s preview, as a text that went before does', async () => {
     // A number nobody knows yet.
     const last4 = String(1000 + Math.floor(Math.random() * 8999));
     const toPhone = `(281) 555-${last4}`;
@@ -843,8 +906,10 @@ describe('a held text refused when quiet hours ended, tried again', () => {
     expect(conv).toMatchObject({ lastPreview: 'Your quote is ready.', lastDirection: 'outbound' });
     expect(Date.now() - conv.lastOutboundAt!.getTime()).toBeLessThan(30_000);
 
-    // The other went before: tried again, it keeps its place.
+    // The other went before: tried again, it goes now too, so it's the latest again.
     await run(messageRetry, { workspaceId: wsId, messageId: other.messageId }, dale);
-    expect((await conversationOf(held.conversationId)).lastPreview).toBe('Your quote is ready.');
+    expect((await conversationOf(held.conversationId)).lastPreview).toBe(
+      'Running late, there by 10.',
+    );
   });
 });
