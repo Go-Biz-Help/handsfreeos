@@ -2295,7 +2295,9 @@ Round seven's migrations follow round six's, above `20261022001300`. Boards come
 - **Step 5 (core):** the teammate's add-on look-ups as the customer, asks held for a person on the deal, and reply
   checks; the per-add-on switch.
 - **Step 6 (Real Estate):** what its teammate may look up and ask for, and fair housing on its replies.
-- **Step 7:** boards, then the screens on the web and the phone.
+- **Step 7:** boards, then the screens on the web and the phone. Boards 94–99 (`design/realestate`): a listing's
+  lockboxes and who opened them, adding one, the teammate's Real Estate switch, an ask and a held reply in the Inbox,
+  those on the phone, and steps 1–2's phone screens as built.
 - **Step 8:** tests, phone flows, the browser test, the docs and a video.
 
 To check with Chris before the lockbox step ships: one real "lockbox opened" email from SentriLock and one from Supra,
