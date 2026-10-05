@@ -55,7 +55,13 @@ const HELD = JSON.stringify({
   },
   actions: [],
   discount: null,
-  flags: [{ addonId: 'realestate', addonName: 'Real Estate Agent', message: 'Fair housing: “good schools”.' }],
+  flags: [
+    {
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      message: 'Fair housing: “good schools”.',
+    },
+  ],
 });
 
 function decisionOf(r: TeammateDraftRow): DraftDecision & { approve: jest.Mock } {
