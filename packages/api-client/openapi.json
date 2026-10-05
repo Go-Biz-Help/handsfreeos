@@ -70419,7 +70419,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.profile.saved. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.profile.saved.",
         "requestBody": {
           "required": true,
           "content": {
@@ -70576,7 +70576,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved.",
         "requestBody": {
           "required": true,
           "content": {

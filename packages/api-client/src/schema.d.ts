@@ -5348,7 +5348,7 @@ export interface paths {
         put?: never;
         /**
          * Save a chat as the extension read it: finds or adds the customer it’s with from the profile it links to, and adds the messages it hadn’t saved before, keeping the most recent.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved.
          */
         post: operations["command_outreach_chat_save"];
         delete?: never;
@@ -5408,7 +5408,7 @@ export interface paths {
         put?: never;
         /**
          * Save someone’s social profile as the extension read it: finds the customer it’s saved to, or the one picked, or adds them, and keeps their intro and where the two of you stand.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
         delete?: never;

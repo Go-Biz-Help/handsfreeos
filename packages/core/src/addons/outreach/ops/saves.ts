@@ -54,7 +54,6 @@ export const profileSave = defineAddonCommand(outreachAddon, {
   output: ProfileSaveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  offline: 'anytime',
   emits: ['outreach.profile.saved'],
   async handler(ctx, input) {
     const saved = await once(() =>
@@ -93,7 +92,6 @@ export const chatSave = defineAddonCommand(outreachAddon, {
   output: ChatSaveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  offline: 'anytime',
   emits: ['outreach.chat.saved', 'outreach.profile.saved'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
