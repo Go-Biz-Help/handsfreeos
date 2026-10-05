@@ -75,19 +75,22 @@ const LIST = {
   ],
 };
 
+// The API client's own types are too deep for jest.mocked.
+const post = api.POST as unknown as jest.Mock;
+
 beforeEach(() => {
   mockOnline = true;
-  jest.mocked(api.POST).mockReset();
+  post.mockReset();
 });
 
 describe('lockboxes on the phone', () => {
   it('lists each lockbox and who opened them, and says the code never comes onto phones', async () => {
-    jest.mocked(api.POST).mockResolvedValue({ data: LIST } as never);
+    post.mockResolvedValue({ data: LIST });
     await render(
       <ShowingLockboxes workspaceId={WS} dealId={DEAL} today="2026-10-05" timeZone={TZ} />,
     );
     await waitFor(() => expect(screen.getByText('Lockboxes  2')).toBeTruthy());
-    expect(jest.mocked(api.POST)).toHaveBeenCalledWith('/v1/queries/realestate.lockbox.list', {
+    expect(post).toHaveBeenCalledWith('/v1/queries/realestate.lockbox.list', {
       body: { workspaceId: WS, dealId: DEAL },
     });
     expect(screen.getByText('SentriLock · front door')).toBeTruthy();
@@ -106,7 +109,7 @@ describe('lockboxes on the phone', () => {
   });
 
   it('says a listing with none yet how a code goes out', async () => {
-    jest.mocked(api.POST).mockResolvedValue({ data: { lockboxes: [], openings: [] } } as never);
+    post.mockResolvedValue({ data: { lockboxes: [], openings: [] } });
     await render(
       <ShowingLockboxes workspaceId={WS} dealId={DEAL} today="2026-10-05" timeZone={TZ} />,
     );
@@ -117,7 +120,7 @@ describe('lockboxes on the phone', () => {
 
   it('waits for signal when there isn’t any', async () => {
     mockOnline = false;
-    jest.mocked(api.POST).mockRejectedValue(new Error('Network request failed'));
+    post.mockRejectedValue(new Error('Network request failed'));
     await render(
       <ShowingLockboxes workspaceId={WS} dealId={DEAL} today="2026-10-05" timeZone={TZ} />,
     );
