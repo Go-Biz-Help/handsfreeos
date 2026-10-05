@@ -9783,6 +9783,40 @@
                         "additionalProperties": false
                       }
                     ]
+                  },
+                  "sealedParts": {
+                    "default": [],
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "marker": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 120
+                        },
+                        "sealed": {
+                          "type": "string",
+                          "maxLength": 8200,
+                          "pattern": "^sealed:v1\\.[0-9a-f]{8}\\.[A-Za-z0-9_-]{16}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{1,8000}$"
+                        },
+                        "addonId": {
+                          "type": "string",
+                          "pattern": "^[a-z]{2,16}$"
+                        },
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                        }
+                      },
+                      "required": [
+                        "marker",
+                        "sealed",
+                        "addonId",
+                        "key"
+                      ]
+                    }
                   }
                 },
                 "required": [

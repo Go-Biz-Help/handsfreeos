@@ -107,11 +107,22 @@ export interface AddonWorkerModule {
    */
   readonly actions?: Readonly<Record<string, AddonWorkerAction>>;
   /**
+   * Sealed value (its manifest's `sealed`) → where one is kept: the sealed value of one of its rows (`itemId`) on a
+   * record, read as the worker, or null when there's none (round seven, http/addon-sealed.ts).
+   */
+  readonly sealed?: Readonly<Record<string, AddonSealedReader>>;
+  /**
    * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
    * providers, never in production.
    */
   readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
 }
+
+/** Reads one sealed value of an add-on's: the row's, if it's on that record in that business. */
+export type AddonSealedReader = (
+  tx: Tx,
+  at: { readonly workspaceId: string; readonly recordId: string; readonly itemId: string },
+) => Promise<string | null>;
 
 /** One of an add-on's worker actions: who may ask, what they give, and what it does (as the add-on, for them). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each action's own input; the route parses it first.

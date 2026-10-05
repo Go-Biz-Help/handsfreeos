@@ -702,6 +702,7 @@ describe('registry', () => {
       'addon_connection.end_sign_in',
       'addon_connection.tokens',
       'addon_connection.platform',
+      'addon_sealed.viewed',
       'onboarding.save_answers',
       'onboarding.skip',
       'onboarding.as_you_go',

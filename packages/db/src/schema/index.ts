@@ -1466,6 +1466,27 @@ export const messages = app.table('messages', {
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
 });
 
+/**
+ * A sealed value an email carries (round seven): its body has `marker`, and the worker puts the value in place only
+ * as it sends. The worker's alone: no person's role can read it.
+ */
+export const messageSealedParts = app.table(
+  'message_sealed_parts',
+  {
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    workspaceId: workspaceRef(),
+    marker: text('marker').notNull(),
+    valueEnc: text('value_enc').notNull(),
+    addonId: text('addon_id').notNull(),
+    key: text('key').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.messageId, t.position] })],
+);
+
 export const calls = app.table('calls', {
   id: id(),
   workspaceId: workspaceRef(),

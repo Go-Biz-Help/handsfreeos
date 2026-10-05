@@ -52,6 +52,8 @@ export const ADDON_OWNED_EVENTS: ReadonlySet<string> = new Set([
   'addon_connection.failing',
   'addon_connection.working',
   'addon_connection.platform_changed',
+  // One of its sealed values shown again (round seven).
+  'addon_sealed.viewed',
 ]);
 export { addonActor, addonScope } from './context';
 export type * from './types';
@@ -72,6 +74,7 @@ export function addonWorkerModuleIssues(
     webhooks = {},
     oauth = {},
     actions = {},
+    sealed: readers = {},
     ...rest
   } of modules) {
     if (seen.has(m.id)) issues.push(`${m.id} has two worker modules`);
@@ -94,6 +97,12 @@ export function addonWorkerModuleIssues(
         issues.push(`${m.id} has a data step for version ${v}, outside 2–${m.dataVersion}`);
     if ((m.resources ?? []).length > 0 && !rest.releaseResource)
       issues.push(`${m.id} holds resources outside HandsFreeOS but can't let go of them`);
+    // Every value it keeps sealed can be read to show again, and nothing else.
+    for (const v of m.sealed ?? [])
+      if (!readers[v.key]) issues.push(`${m.id} seals ${v.key} but can't read it back`);
+    for (const key of Object.keys(readers))
+      if (!m.sealed?.some((v) => v.key === key))
+        issues.push(`${m.id} reads a sealed ${key} its manifest doesn't declare`);
     // Every service a business connects by key has a tester, and nothing else does.
     for (const c of m.connectors ?? [])
       for (const p of c.providers)

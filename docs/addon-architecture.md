@@ -171,6 +171,18 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     on the server, and the registry's `public` entry draws it (`pages`, one component handed the answer, and the
     tab's `title`). Its forms post from the visitor's browser (`publicAddonCommand`), with core's words for agreeing
     to texts (`smsConsentWords`).
+- **Sealed values** (round seven): a value an add-on keeps that nobody should read back in the clear (Real Estate's
+  lockbox codes) is declared in the manifest's `sealed` (its key, label, the permission that sets it and the one
+  that shows it again). The app posts what the person typed to the worker (`POST /v1/addons/sealed`,
+  apps/worker/src/http/addon-sealed.ts), which seals it for that business, add-on and value and hands it back; the
+  add-on's command takes it only in that form (`sealedValue(label)` refuses anything else), so the database, the
+  API, phones, history and exports only ever hold it sealed (keep it in a column ending `_enc`, which syncing and
+  exports leave out, with no `select` grant to people). Showing it again is the worker's too (`/reveal`): the add-on
+  must be on, the person must hold `reveal` and see the record, the add-on's worker half reads it back (`sealed`
+  readers), and `addon_sealed.viewed` keeps the moment in the record's history. An email may carry one
+  (`message.send`'s `sealedParts`, HandsFreeOS's own messages only): its stored body keeps a marker, and the worker
+  puts the value in place only as it hands the email to the provider (`app.message_sealed_parts`, the worker's
+  alone).
 - **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
   (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
   connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —

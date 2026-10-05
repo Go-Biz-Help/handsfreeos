@@ -259,6 +259,23 @@ export interface AddonSettingsDeclaration {
  * business connects it with a key it pastes, a sign-in, or HandsFreeOS's own account; the worker tries and seals what
  * it's given, and the add-on's worker half uses it (`connectionFor`).
  */
+/**
+ * A value an add-on keeps sealed (round seven): a lockbox's code, say. The app hands it to the worker, which seals it
+ * with its own key before any command sees it (`POST /v1/addons/sealed`); the database, the API, phones, history and
+ * exports only ever hold it sealed. Showing it again goes through the worker too (`/reveal`), for someone with
+ * `reveal` who can see the record, and is kept in the history as viewed.
+ */
+export interface AddonSealedValue {
+  /** Its name in the add-on (`lockbox_code`). */
+  readonly key: string;
+  /** What it is, in the words people use ("Lockbox code"). */
+  readonly label: string;
+  /** Who may set it: one of the add-on's own permissions. */
+  readonly permission: string;
+  /** Who may see it again: one of the add-on's own permissions. */
+  readonly reveal: string;
+}
+
 export interface AddonOfflineFiles {
   /** One of `offline.tables`. */
   readonly table: string;
@@ -361,6 +378,8 @@ export interface AddonManifest {
   readonly resources?: readonly string[];
   /** The services it connects to, and what for (round five). */
   readonly connectors?: readonly AddonConnector[];
+  /** Values it keeps sealed by the worker, never in the clear (round seven). */
+  readonly sealed?: readonly AddonSealedValue[];
   /**
    * What phones keep with no signal (round six): the permission a person needs before their phone keeps any of it,
    * and its tables. Its kinds of records come too, private ones to the people on them; anything not here loads live.
@@ -550,6 +569,23 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
   unique(
     'connector',
     (m.connectors ?? []).map((c) => c.key),
+  );
+
+  for (const v of m.sealed ?? []) {
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(v.key)) say(`sealed value "${v.key}" isn't a valid key`);
+    if (!v.label.trim()) say(`sealed value "${v.key}" needs a label`);
+    if (!permissionKeys.has(v.permission))
+      say(
+        `sealed value "${v.key}" is set with "${v.permission}", which isn't one of its permissions`,
+      );
+    if (!permissionKeys.has(v.reveal))
+      say(
+        `sealed value "${v.key}" is shown with "${v.reveal}", which isn't one of its permissions`,
+      );
+  }
+  unique(
+    'sealed value',
+    (m.sealed ?? []).map((v) => v.key),
   );
 
   if (m.settings) {

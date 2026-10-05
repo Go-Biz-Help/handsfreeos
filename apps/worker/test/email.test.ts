@@ -12,7 +12,7 @@ import {
   personCreate,
   type HumanActor,
 } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asUser, asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, messages } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
@@ -32,6 +32,8 @@ import {
   jobs,
   sweepSpam,
 } from '../src/scheduled';
+import { sealFor } from '../src/addons/sealed';
+import { systemActor, workerMeta } from '../src/services';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -231,6 +233,76 @@ describe('sending', () => {
     );
     expect(`<${mail.MessageID}>`).toBe(m.messageIdHeader);
     expect(mail.Text).toContain('It’s attached.');
+  });
+});
+
+describe('a sealed part (round seven)', () => {
+  const MARKER = '[Lockbox code, kept locked]';
+  const sealedFor = (ws: string, value: string) =>
+    sealFor(s.sealer, { workspaceId: ws, addonId: 'realestate', key: 'lockbox_code' }, value);
+  const sendSealed = (subject: string, sealed: string) =>
+    executeCommand(
+      s.db,
+      messageSend,
+      {
+        workspaceId,
+        personId: mikeId,
+        channel: 'email',
+        subject,
+        body: `Lockbox on the side gate. Code: ${MARKER}`,
+        keepConversationStatus: true,
+        sealedParts: [{ marker: MARKER, sealed, addonId: 'realestate', key: 'lockbox_code' }],
+      },
+      systemActor({ workspaceId, organizationId }),
+      workerMeta(),
+    );
+
+  it('goes in only as the email is sent: the stored body keeps its marker, and no person can read it', async () => {
+    const subject = `How to get in ${token()}`;
+    const sent = await sendSealed(subject, sealedFor(workspaceId, '7392'));
+    await drain();
+    const m = await message(sent.output.messageId);
+    expect(m.status).toBe('sent');
+    expect(m.bodyText).toBe(`Lockbox on the side gate. Code: ${MARKER}`);
+    expect((await mailTo(mike, subject)).Text).toContain('Code: 7392');
+    await expect(
+      asUser(api(), owner.claims, (tx) => rows(tx, sql`select * from app.message_sealed_parts`)),
+    ).rejects.toMatchObject({ cause: { code: '42501' } });
+  });
+
+  it('isn’t sent when it won’t open here, and says what to do', async () => {
+    const sent = await sendSealed(`Elsewhere ${token()}`, sealedFor(randomUUID(), '1111'));
+    await drain();
+    const m = await message(sent.output.messageId);
+    expect(m.status).toBe('failed');
+    expect(m.errorCode).toBe('sealed_unopened');
+  });
+
+  it('is HandsFreeOS’s own: a person can’t send one', async () => {
+    const refused = await executeCommand(
+      api(),
+      messageSend,
+      {
+        workspaceId,
+        personId: mikeId,
+        channel: 'email',
+        subject: 'x',
+        body: `Code: ${MARKER}`,
+        sealedParts: [
+          {
+            marker: MARKER,
+            sealed: sealedFor(workspaceId, '1'),
+            addonId: 'realestate',
+            key: 'lockbox_code',
+          },
+        ],
+      },
+      actor(owner),
+      meta(),
+    ).catch((e: unknown) => e);
+    expect(JSON.stringify((refused as { details?: unknown }).details)).toMatch(
+      /Only HandsFreeOS itself/,
+    );
   });
 });
 

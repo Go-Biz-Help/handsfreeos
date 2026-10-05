@@ -26839,6 +26839,13 @@ export interface operations {
                         /** @enum {string} */
                         kind: "carousel";
                     };
+                    /** @default [] */
+                    sealedParts?: {
+                        addonId: string;
+                        key: string;
+                        marker: string;
+                        sealed: string;
+                    }[];
                     /** @default false */
                     sendAfterQuietHours?: boolean;
                     subject?: string;
