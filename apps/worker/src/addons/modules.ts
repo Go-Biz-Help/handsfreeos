@@ -5,5 +5,9 @@
  */
 import type { AddonWorkerModule } from './types';
 import { realestateAddonWorker } from './realestate/index';
+import { outreachAddonWorker } from './outreach/index';
 
-export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [realestateAddonWorker];
+export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [
+  realestateAddonWorker,
+  outreachAddonWorker,
+];

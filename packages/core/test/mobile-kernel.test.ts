@@ -21,8 +21,10 @@ import {
   onServerClock,
 } from '../src/mobile';
 import {
+  appClientOf,
   assertAppRequest,
   assertOnTime,
+  isAppRequest,
   readAppRequest,
   waitInWords,
 } from '../src/kernel/app-request';
@@ -134,6 +136,28 @@ describe('the app’s request details', () => {
     }
   });
 
+  it('reads the browser extension the same way, under its own name', () => {
+    const extension = headers({
+      [APP_HEADERS.client]: 'extension',
+      [APP_HEADERS.appVersion]: '0.2.0',
+    });
+    expect(appClientOf(extension)).toBe('extension');
+    expect(isAppRequest(extension)).toBe(false);
+    expect(readAppRequest(extension, NOW)).toMatchObject({
+      channel: 'extension',
+      commandId: '0192a4b7-8c2e-4d31-9f60-4a1e2c9d7b10',
+      appVersion: '0.2.0',
+    });
+    expect(appClientOf(headers({ [APP_HEADERS.client]: 'web' }))).toBeNull();
+    try {
+      readAppRequest({ ...extension, [APP_HEADERS.occurredAt]: 'yesterday' }, NOW);
+      throw new Error('expected a refusal');
+    } catch (e) {
+      expect((e as HfosError).code).toBe('validation');
+      expect((e as HfosError).message).toContain('Update the extension');
+    }
+  });
+
   it('compares app builds, treating one it can’t read as too old', () => {
     expect(appVersionAtLeast('1.4.2', '1.4.0')).toBe(true);
     expect(appVersionAtLeast('1.4.0', '1.4.0')).toBe(true);
@@ -240,6 +264,15 @@ describe('the moment rules', () => {
       APP_HEADERS.commandId,
       APP_HEADERS.occurredAt,
     ]);
+  });
+
+  it('refuses an extension command that doesn’t say which one it is, in the extension’s words', () => {
+    const missing = refusal(() =>
+      assertAppRequest(phone({ channel: 'extension', commandId: null, occurredAt: null })),
+    )!;
+    expect(missing).toMatchObject({ code: 'validation', status: 400 });
+    expect(missing.message).toContain('Update the extension');
+    expect(refusal(() => assertAppRequest(phone({ channel: 'extension' })))).toBeNull();
   });
 
   it('makes a command online unless its definition says otherwise', () => {

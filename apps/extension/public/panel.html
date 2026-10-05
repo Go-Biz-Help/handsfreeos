@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HandsFreeOS Social</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon-32.png" width="24" height="24" alt="" />
+      <div>
+        <h1>HandsFreeOS Social</h1>
+        <p class="sub">
+          Test build. It reads the Facebook page you have open, and saves the people and chats you
+          pick to HandsFreeOS. It never sends anything on Facebook.
+        </p>
+      </div>
+    </header>
+
+    <div id="account" class="account"></div>
+
+    <div id="page" class="page"></div>
+
+    <div class="actions">
+      <button id="read" type="button" class="primary">Read this page</button>
+      <label class="auto"
+        ><input id="auto" type="checkbox" checked /> Read when the page changes</label
+      >
+    </div>
+
+    <p id="status" class="status" role="status"></p>
+
+    <main id="results"></main>
+
+    <footer>
+      <h2>Page got read wrong?</h2>
+      <p>
+        Copy or save the page outline and send it to us. It keeps the page's layout and Facebook's
+        own words, and hides names, messages and posts. Look it over before you send it.
+      </p>
+      <div class="actions">
+        <button id="copy-outline" type="button">Copy page outline</button>
+        <button id="save-outline" type="button">Save page outline</button>
+      </div>
+    </footer>
+
+    <script src="panel.js"></script>
+  </body>
+</html>

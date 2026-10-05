@@ -7,6 +7,7 @@ HandsFreeOS runs the customer side of a small business. It's a pnpm monorepo:
 - `apps/api`: the Fastify API;
 - `apps/worker`: the background worker;
 - `apps/sync`: the PowerSync sync service;
+- `apps/extension`: the browser extension, a test build for now;
 - `apps/site`: the marketing site.
 
 It all runs on Supabase Postgres (`supabase/`), with the domain logic in `packages/core`. `README.md` explains every part and how to run it locally.
@@ -25,6 +26,8 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
 | The web app                                  | `apps/web/AGENTS.md`: this Next.js has breaking changes, so read its docs in `node_modules/next/dist/docs/` first |
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
+| The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
+| The browser extension                        | `apps/extension/README.md`                                                                                        |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
 | Screen designs                               | `design/m1` to `design/m10`, and `design/realestate`; the brand mark is in `design/brand`                         |

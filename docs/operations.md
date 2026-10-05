@@ -9475,6 +9475,9 @@ Everything above is about the businesses. This is about you: the tickets custome
 that tell you how HandsFreeOS itself is doing. It lives at `app.handsfreeos.com/admin`, in the same app, and
 it does not exist for anyone who does not work here — a customer who guesses the address gets the 404 page.
 
+To get there from a business, open the workspace switcher and click **Admin area**, on its own row under the
+businesses. Only support people see the link.
+
 The phone app has the same desk: **More** → **Support desk**, a row only support people see. Somebody who
 answers support and is in no business opens straight onto it. Every section is there, with the same
 permissions, and it is all live: with no signal it says so. Looking at a business, read-only or as the
@@ -12111,6 +12114,8 @@ Delivery and bounce events rejected with a 403 are not sent again, so those emai
 **Sending when quiet hours end.** In quiet hours, a person can choose to send a text when they end instead of now (the phone app's "Send at 8:00 AM", `message.send` with `sendAfterQuietHours`). The text shows in the conversation as scheduled, with its time, and can be cancelled until it goes. When quiet hours end, the worker sends it as that person, checking everything again first: if the customer texted STOP in the meantime, or texting stopped working, the text fails with that reason instead. If the quiet hours were changed, it waits for the new end. A cancelled text doesn't show in the conversation.
 
 If a text went out and then failed, open it in the subaccount's Messaging logs and look up the error code (see "Where to look in the Twilio console" and "When something goes wrong" in "The phone carrier: Twilio").
+
+**A text Twilio never took.** The worker tries 5 times to hand a text to Twilio, waiting 5, 10, 20 and 40 seconds between tries. If Twilio still refuses it or doesn't answer on the last try, the text shows **Not delivered** with the reason, such as "The phone carrier didn’t answer, so this text didn’t go out. Try again in a minute.", and **Retry** sends it again. The worker log shows `outbox handler failed` for each try, then `text gave up after the last try`. Email works the same way and logs `email gave up after the last try`. "The phone carrier refused this business’s account" means Twilio refused the business's subaccount: check that the subaccount is active, and that the worker's master token is right (see "Rotate the master Auth Token later"). A text whose last try never finished, because the worker stopped in the middle, is caught within the hour: it shows **Not delivered** with "This text didn’t go out. Try again, and if it fails again, ask HandsFreeOS support.", and the log says `a message the worker gave up sending is now marked not delivered`.
 
 If the review page says "The carriers turned down the texting registration.", read "Their reason". Some reasons come from HandsFreeOS itself, before the carriers ever see it, and send no email (see "Carrier review and how long it takes" in "The phone carrier: Twilio"):
 

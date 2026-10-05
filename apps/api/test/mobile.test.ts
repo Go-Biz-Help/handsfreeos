@@ -198,5 +198,59 @@ describe('an old app build', () => {
     expect(() => readEnv({ ...base, MIN_APP_VERSION: 'soon' })).toThrow(/MIN_APP_VERSION/);
     expect(readEnv({ ...base, MIN_APP_VERSION: '1.4' }).minAppVersion).toBe('1.4');
     expect(readEnv(base).minAppVersion).toBeNull();
+    expect(() => readEnv({ ...base, MIN_EXTENSION_VERSION: 'next' })).toThrow(
+      /MIN_EXTENSION_VERSION/,
+    );
+    expect(readEnv({ ...base, MIN_EXTENSION_VERSION: '0.2' }).minExtensionVersion).toBe('0.2');
+    expect(readEnv(base).minExtensionVersion).toBeNull();
+  });
+});
+
+describe('the browser extension', () => {
+  const fromExtension = (version: string) =>
+    fromApp({ 'x-hfos-client': 'extension', 'x-hfos-app-version': version });
+
+  it('is recorded as the extension’s, with the same repeat protection as the app', async () => {
+    const headers = fromExtension('0.2.0');
+    const body = { workspaceId, firstName: 'Evan', lastName: 'Extension' };
+    const first = await post('/v1/commands/person.create', body, headers);
+    expect(first.statusCode).toBe(200);
+    const again = await post('/v1/commands/person.create', body, headers);
+    expect(again.json()).toEqual(first.json());
+    const [audit] = await rows<{ channel: string }>(
+      testDbs().admin.db,
+      sql`select a.channel from app.events e join app.audit_logs a on a.event_id = e.id
+          where e.entity_id = ${first.json().personId as string} and e.event_type = 'person.created'`,
+    );
+    expect(audit!.channel).toBe('extension');
+  });
+
+  it('is held to its own oldest build, never the app’s', async () => {
+    const strict = await buildApp({
+      env: { ...apiEnv(), minAppVersion: '2.0.0', minExtensionVersion: '0.2.0' },
+      logger: false,
+      db: testDbs().api,
+    });
+    try {
+      const call = (headers: Record<string, string>) =>
+        strict.inject({
+          method: 'POST',
+          url: '/v1/queries/account.me',
+          payload: {},
+          headers: { authorization: `Bearer ${token}`, ...headers },
+        });
+      const old = await call(fromExtension('0.1.3'));
+      expect(old.statusCode).toBe(426);
+      expect(old.json().error).toMatchObject({
+        code: 'upgrade_required',
+        message: 'Update the HandsFreeOS Social extension to keep going.',
+        details: { minVersion: '0.2.0' },
+      });
+      expect((await call(fromExtension('0.2.0'))).statusCode).toBe(200);
+      // An app build that new would be too old, but the app's minimum isn't the extension's.
+      expect((await call(fromApp({ 'x-hfos-app-version': '0.2.0' }))).statusCode).toBe(426);
+    } finally {
+      await strict.close();
+    }
   });
 });

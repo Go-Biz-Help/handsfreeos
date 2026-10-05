@@ -36,6 +36,8 @@ const VIA: Record<RequestChannel, string | null> = {
   chat_widget: 'via website chat',
   // Someone working in the phone app is working in the app.
   mobile: null,
+  // Saved from Facebook with the browser extension (Social Outreach).
+  extension: 'via browser extension',
   // The AI keeping customers' tags and details up to date (0107): its name leads the row, its reason is below.
   contact_ai: null,
   // A client in their own portal (Real Estate round two, core).

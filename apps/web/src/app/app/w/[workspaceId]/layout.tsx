@@ -13,7 +13,7 @@ import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { WorkspaceShellProvider } from '@/components/shell/workspace-shell';
-import { getMe, getWorkspaceShell } from '@/lib/api/server';
+import { apiServer, getMe, getWorkspaceShell, unwrap } from '@/lib/api/server';
 import { guideOf } from '@/lib/guide';
 import { CallProvider } from '@/lib/calls/call-provider';
 import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
@@ -34,10 +34,20 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceId: string }>;
 }) {
   const { workspaceId } = await params;
-  const me = await getMe();
-  // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
-  // or the founder working in it as its owner, or anyone viewing it as a teammate (20261018000100).
-  const { current, viewingAs, teammateView, staleView } = await getWorkspaceShell(workspaceId);
+  const { api } = await apiServer();
+  const [me, { current, viewingAs, teammateView, staleView }, platform] = await Promise.all([
+    getMe(),
+    // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
+    // or the founder working in it as its owner, or anyone viewing it as a teammate (20261018000100).
+    getWorkspaceShell(workspaceId),
+    // Whether they answer HandsFreeOS support: only then does the workspace switcher link to the admin area. Only a
+    // hint, so a failure just leaves the link out; /admin asks again on every page.
+    api
+      .POST('/v1/queries/platform.me', { body: {} })
+      .then(unwrap)
+      .catch(() => null),
+  ]);
+  const staff = platform?.staff?.role ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>
       {/* Inside LiveProvider: the shell is drawn again when an add-on is turned on or off (0108). */}
@@ -78,9 +88,9 @@ export default async function WorkspaceLayout({
                     ) : null}
                     {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
                     <div className="flex min-h-0 flex-1">
-                      <Sidebar me={me} current={current} />
+                      <Sidebar me={me} current={current} staff={staff} />
                       <div className="flex min-w-0 flex-1 flex-col">
-                        <MobileShell me={me} current={current} />
+                        <MobileShell me={me} current={current} staff={staff} />
                         <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
                       </div>
                       <AssistantPanel />

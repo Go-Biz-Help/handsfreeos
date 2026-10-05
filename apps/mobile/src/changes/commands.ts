@@ -92,6 +92,8 @@ import {
   LeadUpdateOutput,
   MessageCancelScheduledInput,
   MessageCancelScheduledOutput,
+  MessageRetryInput,
+  MessageRetryOutput,
   MessageSendInput,
   MessageSendOutput,
   PaymentStateOutput,
@@ -394,6 +396,8 @@ export const PHONE_COMMANDS = {
     MessageCancelScheduledInput,
     MessageCancelScheduledOutput,
   ),
+  // A text or email that didn't go out, sent again from its thread: with signal only, since it goes at once.
+  'message.retry': command(ONLINE, MessageRetryInput, MessageRetryOutput),
   'message.send': command(FRESH, MessageSendInput, MessageSendOutput),
   'person.archive': command(ANYTIME, PersonArchiveInput, PersonArchiveOutput),
   'person.create': command(ANYTIME, PersonCreateInput, PersonCreateOutput),

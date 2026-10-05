@@ -258,4 +258,38 @@ describe('the whole transaction, exported', () => {
     );
     expect(alert!.title).toBe('The whole transaction for Okafor purchase is ready');
   });
+
+  it('leaves out how to get into a listing: its lockbox code goes only to the confirmed agent', async () => {
+    const listing = (
+      await run('realestate.deal.open', {
+        side: 'listing',
+        name: 'Brennan listing',
+        stage: 'active',
+        newPropertyAddress: '418 Cedar Hollow, Austin, TX 78745',
+      })
+    ).dealId;
+    await run('realestate.showing.settings', {
+      dealId: listing,
+      from: '09:00',
+      to: '18:00',
+      access: 'Lockbox on the side gate, code 7392.',
+    });
+    const asked = await run('realestate.deal.export', { dealId: listing });
+    await drain();
+    const [x] = (await ask('realestate.exports', { dealId: listing })).exports;
+    expect(x).toMatchObject({ id: asked.exportId, state: 'ready' });
+    const [f] = await rows<{ bucket: string; object_path: string }>(
+      admin(),
+      sql`select bucket, object_path from app.files where id = ${x.fileId}`,
+    );
+    const zip = unzip(await s.store.download(f!.bucket, f!.object_path));
+    const [row] = JSON.parse(zip.get('data/listings.json')!.toString('utf8')) as Record<
+      string,
+      unknown
+    >[];
+    expect(row).not.toHaveProperty('showing_access');
+    // The hours a showing may be asked for aren't a secret, and stay.
+    expect(row).toHaveProperty('showing_access_hours');
+    expect([...zip.values()].some((b) => b.toString('utf8').includes('7392'))).toBe(false);
+  });
 });

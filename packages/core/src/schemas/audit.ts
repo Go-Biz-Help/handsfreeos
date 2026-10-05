@@ -17,6 +17,8 @@ export const requestChannel = z.enum([
   'ai_employee',
   'chat_widget',
   'mobile',
+  // The browser extension, for Social Outreach (docs/outreach.md).
+  'extension',
   // The AI keeping customers' tags and details up to date on its own (0107).
   'contact_ai',
   // A customer signed in to their portal (Real Estate round two).

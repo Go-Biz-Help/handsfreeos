@@ -43,11 +43,13 @@ import { processDeliveries } from '../src/deliveries';
 import { readEnv } from '../src/env';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
-import { processJobs } from '../src/jobs';
+import { processJobs, type JobRow } from '../src/jobs';
+import { sweepUnsent } from '../src/messaging/unsent';
 import { MAX_ATTEMPTS, processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs, unansweredCheck } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
+import { ProviderError } from '../src/telephony/provider';
 import { twilioSignature, verifyTwilioSignature } from '../src/telephony/signature';
 import { payTextingFee, TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
 
@@ -737,6 +739,126 @@ describe('texting', () => {
         .set({ authTokenEnc: s.sealer.seal(FAKE_AUTH_TOKEN) })
         .where(eq(telephonyAccounts.accountSid, accountSid));
     }
+  });
+
+  it('says Not delivered when the carrier still won’t take a text on its last try, so it can be sent again', async () => {
+    await drain();
+    const body = 'Running late, there by 3.';
+    const { output } = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, body },
+      actor(owner),
+      meta(),
+    );
+    const load = async () =>
+      (await admin().select().from(messages).where(eq(messages.id, output.messageId)))[0]!;
+    const down = vi
+      .spyOn(s.telephony, 'sendMessage')
+      .mockRejectedValue(new ProviderError('Twilio answered 503', '503', false, 503, accountSid));
+    try {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Skip the backoff: each try is due at once.
+        await rows(
+          admin(),
+          sql`update app.outbox set next_attempt_at = now()
+              where workspace_id = ${workspaceId} and status = 'pending'`,
+        );
+        await reserve();
+        await processOnce({
+          ...s,
+          workerId: WORKER_ID,
+          batchSize: 200,
+          reservedOnly: true,
+          handlers,
+        });
+        expect((await load()).status).toBe(attempt < MAX_ATTEMPTS ? 'queued' : 'failed');
+      }
+      expect(down).toHaveBeenCalledTimes(MAX_ATTEMPTS);
+    } finally {
+      down.mockRestore();
+    }
+    const failed = await load();
+    expect(failed).toMatchObject({ errorCode: '503', providerMessageId: null });
+    expect(failed.errorMessage).toContain('didn’t answer');
+    const [outboxRow] = await rows<{ status: string }>(
+      admin(),
+      sql`select o.status::text as status from app.outbox o join app.events e on e.id = o.event_id
+          where e.entity_id = ${output.messageId} and e.event_type = 'message.queued'`,
+    );
+    expect(outboxRow?.status).toBe('done');
+
+    // Not delivered, so Retry takes it, and the carrier has it this time.
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: output.messageId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const out = s.telephony.sent.find((x) => x.body === body);
+    expect(out).toMatchObject({ from: businessNumber, to: MIKE });
+    const retried = await load();
+    expect(retried).toMatchObject({ status: 'sending', providerMessageId: out!.sid });
+    // It went just now, so it shows then: as the conversation's latest, and on Mike's timeline.
+    expect(retried.occurredAt.getTime()).toBeGreaterThan(failed.occurredAt.getTime());
+    const [conv] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, retried.conversationId));
+    expect(conv).toMatchObject({ lastMessageAt: retried.occurredAt, lastPreview: body });
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(eq(activities.id, retried.activityId!));
+    expect(entry!.occurredAt).toEqual(retried.occurredAt);
+  });
+
+  it('marks a text the outbox gave up on before it could say so Not delivered, so it can be sent again', async () => {
+    await drain();
+    const body = 'Your part came in.';
+    const { output } = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, body },
+      actor(owner),
+      meta(),
+    );
+    const load = async () =>
+      (await admin().select().from(messages).where(eq(messages.id, output.messageId)))[0]!;
+    // How a text the carrier refused five times was left before: queued, its send given up on.
+    const giveUp = () =>
+      rows(
+        admin(),
+        sql`update app.outbox set status = 'failed', attempts = ${MAX_ATTEMPTS},
+              last_error = 'Twilio answered 401'
+            where status = 'pending' and event_id in (select id from app.events
+              where entity_id = ${output.messageId} and event_type = 'message.queued')`,
+      );
+    await giveUp();
+    expect((await load()).status).toBe('queued');
+    const sweep = () =>
+      sweepUnsent({ ...s, job: {} as JobRow, scope: {}, attempt: 1, now: Date.now() });
+    expect(await sweep()).toMatchObject({ rescheduleAt: expect.any(Date) });
+    const failed = await load();
+    expect(failed).toMatchObject({ status: 'failed', errorCode: 'not_sent' });
+    expect(failed.errorMessage).toContain('This text didn’t go out.');
+
+    // Sent again: the old give-up is behind the new send, so the sweep leaves it be while it waits.
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: output.messageId },
+      actor(owner),
+      meta(),
+    );
+    await sweep();
+    expect((await load()).status).toBe('queued');
+    await drain();
+    const out = s.telephony.sent.find((x) => x.body === body);
+    expect(out).toMatchObject({ from: businessNumber, to: MIKE });
+    expect((await load()).status).toBe('sending');
   });
 
   it('files an inbound text with its photo and schedules the reply reminder', async () => {

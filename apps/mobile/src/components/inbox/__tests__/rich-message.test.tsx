@@ -2,12 +2,12 @@ import { messageItemOf, readLine, type MessageThreadRow } from '@hfos/core';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
 
-import { MessageBubble } from '@/components/inbox/thread-items';
+import { EmailCard, MessageBubble } from '@/components/inbox/thread-items';
 
 /**
  * RCS in the phone's thread (0103), from a synced row through core's `messageItemOf` to the screen: buttons, a card
  * and a carousel as the customer saw them, the RCS tag and when it was read, the plain text a phone without RCS got,
- * and the button a customer's reply came from.
+ * and the button a customer's reply came from. Then Retry on a text or email that didn't go out.
  */
 
 // Pictures load through signed links: here, one made up from where the picture is kept.
@@ -227,5 +227,68 @@ describe('a text held for quiet hours', () => {
     expect(screen.getByTestId('held-line').props.children).toMatch(
       /6:00 AM, when quiet hours end$/,
     );
+  });
+});
+
+describe('a text or email that didn’t go out', () => {
+  const notSent =
+    'The phone carrier didn’t answer, so this text didn’t go out. Try again in a minute.';
+  const sent = (over: Partial<MessageThreadRow>, onRetry?: (messageId: string) => void) =>
+    render(
+      <MessageBubble
+        item={messageItemOf(row(over))}
+        customerFirstName="Mike"
+        timeZone="America/Chicago"
+        onCancelHeld={() => undefined}
+        onRetry={onRetry}
+      />,
+    );
+
+  it('says Not delivered and why, with Retry beside it, as on the web', async () => {
+    const onRetry = jest.fn();
+    await sent(
+      { status: 'failed', error_code: 'unreachable', error_message: notSent, delivered_at: null },
+      onRetry,
+    );
+    expect(screen.getByText('Not delivered')).toBeTruthy();
+    expect(screen.getByText(notSent)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledWith('m1');
+  });
+
+  it('offers no Retry on a text that went, or one still on its way', async () => {
+    await sent({}, jest.fn());
+    expect(screen.queryByTestId('retry')).toBeNull();
+    await sent({ status: 'queued', delivered_at: null }, jest.fn());
+    expect(screen.getByText('· Sending…')).toBeTruthy();
+    expect(screen.queryByTestId('retry')).toBeNull();
+  });
+
+  it('offers Try again on an email that didn’t go out, and nothing on one that bounced', async () => {
+    const onRetry = jest.fn();
+    const email = (over: Partial<MessageThreadRow>) =>
+      render(
+        <EmailCard
+          item={messageItemOf(
+            row({ channel: 'email', subject: 'Your visit', delivered_at: null, ...over }),
+          )}
+          customerName="Mike Johnson"
+          onRetry={onRetry}
+        />,
+      );
+    await email({
+      status: 'failed',
+      error_code: 'unreachable',
+      error_message: 'The mail service didn’t answer, so this email didn’t go out.',
+    });
+    expect(
+      screen.getByText('Not sent: The mail service didn’t answer, so this email didn’t go out.'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(onRetry).toHaveBeenCalledWith('m1');
+
+    await email({ status: 'bounced', error_message: 'The mailbox doesn’t exist.' });
+    expect(screen.getByText('Bounced: The mailbox doesn’t exist.')).toBeTruthy();
+    expect(screen.queryByTestId('retry')).toBeNull();
   });
 });

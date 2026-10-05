@@ -7,22 +7,24 @@ import {
   emailDomainRemove,
   emailDomainVerify,
   executeCommand,
+  messageRetry,
   messageSend,
   organizationCreate,
   personCreate,
   type HumanActor,
 } from '@hfos/core/server';
 import { asUser, asWorker, rows, sql } from '@hfos/db/client';
-import { conversations, messages } from '@hfos/db/schema';
+import { activities, conversations, messages } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
 import { LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
+import { EmailError } from '../src/email/transport';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobRow } from '../src/jobs';
-import { processOnce } from '../src/outbox';
+import { MAX_ATTEMPTS, processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import {
   checkEmailDomain,
@@ -233,6 +235,73 @@ describe('sending', () => {
     );
     expect(`<${mail.MessageID}>`).toBe(m.messageIdHeader);
     expect(mail.Text).toContain('It’s attached.');
+  });
+
+  it('says Not delivered when the mail service still doesn’t answer on the last try, so it can be sent again', async () => {
+    const subject = `Your invoice ${token()}`;
+    const sent = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, channel: 'email', subject, body: 'Hi Mike, it’s ready.' },
+      actor(owner),
+      meta(),
+    );
+    const down = vi
+      .spyOn(s.email.transport, 'send')
+      .mockRejectedValue(new EmailError('Postmark answered 503', '503', false, 503));
+    try {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Skip the backoff: each try is due at once.
+        await rows(
+          admin(),
+          sql`update app.outbox set next_attempt_at = now()
+              where workspace_id = ${workspaceId} and status = 'pending'`,
+        );
+        await reserve();
+        await processOnce({
+          ...s,
+          workerId: WORKER_ID,
+          batchSize: 200,
+          reservedOnly: true,
+          handlers,
+        });
+        expect((await message(sent.output.messageId)).status).toBe(
+          attempt < MAX_ATTEMPTS ? 'queued' : 'failed',
+        );
+      }
+    } finally {
+      down.mockRestore();
+    }
+    const failed = await message(sent.output.messageId);
+    expect(failed.errorCode).toBe('unreachable');
+    expect(failed.errorMessage).toContain('The mail service didn’t answer');
+
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: sent.output.messageId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const retried = await message(sent.output.messageId);
+    expect(retried.status).toBe('sent');
+    await mailTo(mike, subject);
+    // It went just now, so it shows then: as the conversation's latest, and on Mike's timeline.
+    expect(retried.occurredAt.getTime()).toBeGreaterThan(failed.occurredAt.getTime());
+    const [c] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, sent.output.conversationId));
+    expect(c).toMatchObject({
+      lastMessageAt: retried.occurredAt,
+      lastPreview: `${subject} · Hi Mike, it’s ready.`,
+    });
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(eq(activities.id, retried.activityId!));
+    expect(entry!.occurredAt).toEqual(retried.occurredAt);
   });
 });
 

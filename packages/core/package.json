@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
+    "./mobile": "./src/mobile.ts",
     "./addons/*": "./src/addons/*.ts"
   },
   "scripts": {
