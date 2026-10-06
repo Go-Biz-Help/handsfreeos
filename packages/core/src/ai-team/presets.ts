@@ -2,13 +2,12 @@
  * Answers to "What should your AI teammate do?". A preset only prefills skills: the result is an ordinary
  * settings document that can be changed in any way afterwards, and its labels follow the settings.
  */
-import { isHomeServices } from '../industries';
+import { SETUP_KIND_INFO, setupKindOf } from '../ai-setup/kinds';
 import {
   applyTeammatePatch,
   emptyTeammateConfig,
   type DisclosureMode,
   type QualifyingQuestion,
-  type QualifyingQuestionInput,
   type TeammateConfig,
   type TeammatePatch,
 } from './config';
@@ -90,41 +89,14 @@ export interface TeammatePresetContext {
   readonly calendarIds?: readonly string[];
 }
 
-const HOME_SERVICES: QualifyingQuestionInput[] = [
-  {
-    id: 'need',
-    question: 'What do you need help with?',
-    kind: 'choice',
-    options: ['Repair', 'Maintenance', 'New installation', 'Something else'],
-  },
-  {
-    id: 'timeline',
-    question: 'How soon do you need it done?',
-    kind: 'choice',
-    options: ['Today or tomorrow', 'This week', 'This month', 'Just planning'],
-  },
-  { id: 'owner', question: 'Do you own the home?', kind: 'yes_no' },
-  { id: 'zip', question: 'What ZIP code is the job in?', kind: 'text' },
-];
-
-const GENERAL: QualifyingQuestionInput[] = [
-  { id: 'need', question: 'What can we help you with?', kind: 'text' },
-  {
-    id: 'timeline',
-    question: 'When are you hoping to get started?',
-    kind: 'choice',
-    options: ['As soon as possible', 'In the next month', 'Just looking'],
-  },
-  { id: 'budget', question: 'Do you have a budget in mind?', kind: 'text', required: false },
-];
-
 /**
- * Starting questions for the workspace's industry: a home-services trade asks about the job and the home, anything else
- * (or none) gets general ones. Nothing rules a lead out.
+ * Starting questions for the workspace's kind of business (quick setup's kinds: a home-services trade asks about the
+ * job and the home, a salon about the visit, an agent about the move or the policy; anything else gets general
+ * ones). Nothing rules a lead out.
  */
 export function suggestedQuestions(industry?: string | null): QualifyingQuestion[] {
-  const list = isHomeServices(industry) ? HOME_SERVICES : GENERAL;
-  return applyTeammatePatch(emptyTeammateConfig(), { qualify: { questions: list } }).qualify
+  const list = SETUP_KIND_INFO[setupKindOf(industry)].questions;
+  return applyTeammatePatch(emptyTeammateConfig(), { qualify: { questions: [...list] } }).qualify
     .questions;
 }
 
