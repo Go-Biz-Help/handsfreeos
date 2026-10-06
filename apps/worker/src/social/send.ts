@@ -6,8 +6,9 @@
  * message anybody may answer; after that, up to seven days, only a person, with the Human Agent tag Meta approves
  * for the app. A Page whose sign-in stopped working is marked so as the reply fails, and its owners hear once.
  *
- * A part that went can't be taken back. So when one fails after others went, the reply keeps the ids of the parts
- * that went and says only part of it reached them, and sending it again (message.retry) sends only the rest.
+ * A part that went can't be taken back. So each part's id is kept the moment it goes: another try, the outbox's or a
+ * person's (message.retry), sends only the rest, and an echo of a part is known as this reply's. A send Meta never
+ * answered may have gone, so it isn't tried again by itself; the reply says to check first.
  */
 import {
   accountUnavailable,
@@ -45,6 +46,7 @@ type FailureCode =
   | 'too_long'
   | 'partial'
   | 'unreachable'
+  | 'no_answer'
   | 'refused';
 
 /** A part of the reply, made into what Meta takes only when it's its turn. */
@@ -59,7 +61,7 @@ export async function sendSocialReply(ctx: HandlerContext, m: MessageRow): Promi
   const went: string[] = [];
 
   const record = (
-    status: 'sent' | 'failed',
+    status: 'sending' | 'sent' | 'failed',
     error: { code: FailureCode; message: string } | null,
   ) => {
     const parts = [...before, ...went];
@@ -151,13 +153,15 @@ export async function sendSocialReply(ctx: HandlerContext, m: MessageRow): Promi
       await refused(e);
       return;
     }
+    // Kept before the next part goes, so nothing that went is ever sent again.
+    if (i < parts.length - 1) await record('sending', null);
   }
   await record('sent', null);
 
   /**
-   * What Meta said no with decides what the reply says. Trouble worth another try goes back to the outbox while
-   * nothing new went, until its last try; once a part went, another try would send it twice, so the reply stops
-   * there and a person sends the rest.
+   * What Meta said no with decides what the reply says. Trouble worth another try goes back to the outbox until its
+   * last try, with the parts that went kept, so the try sends only the rest. A send Meta never answered may have gone:
+   * the reply stops there and says so.
    */
   async function refused(e: unknown): Promise<void> {
     const err = e instanceof MetaError ? e : null;
@@ -165,9 +169,10 @@ export async function sendSocialReply(ctx: HandlerContext, m: MessageRow): Promi
       { err: errorMessage(e), code: err?.code, subcode: err?.subcode, kind: err?.kind },
       'Meta refused a Messenger or Instagram reply',
     );
-    const retryable = !err || err.retryable;
-    if (retryable && went.length === 0 && ctx.attempt < ctx.maxAttempts) throw e;
     const partly = went.length > 0 || before.length > 0;
+    if (err?.uncertain) return void (await fail(partly ? 'partial' : 'no_answer'));
+    const retryable = !err || err.retryable;
+    if (retryable && ctx.attempt < ctx.maxAttempts) throw e;
     switch (err?.kind) {
       case 'auth':
         // The Page's sign-in stopped working: every reply would fail the same way, so the Page says so.

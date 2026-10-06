@@ -6,7 +6,7 @@
  *   from an ad, and again for the ones nobody here could see when somebody connects Facebook with ads allowed.
  * - `meta.plan`, daily for the whole server, queues `meta.check` for each business with a Page connected: each
  *   Page's sign-in is looked at with Meta, a Page Meta isn't sending messages for is asked again, and one whose
- *   sign-in stopped working is marked so, which tells its owners once.
+ *   sign-in stopped working is marked so, which tells its owners once. Sign-ins nobody finished forget their token.
  */
 import {
   adResolve,
@@ -116,6 +116,11 @@ export const metaResolveAd: JobHandler = async (ctx) => {
 
 /** Daily: each business with a Page or account connected gets its check. */
 export const metaPlan: JobHandler = async (ctx) => {
+  // A Facebook sign-in nobody finished keeps neither its token nor who it was.
+  const [forgotten] = await asWorker(ctx.db, {}, (tx) =>
+    rows<{ n: number }>(tx, sql`select private.meta_forget_unfinished_sign_ins() as n`),
+  );
+  if (forgotten?.n) ctx.log.info({ count: forgotten.n }, 'forgot unfinished Facebook sign-ins');
   const businesses = await asWorker(ctx.db, {}, (tx) =>
     rows<{ workspace_id: string; organization_id: string }>(
       tx,

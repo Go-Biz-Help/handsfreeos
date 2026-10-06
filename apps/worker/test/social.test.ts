@@ -4,12 +4,16 @@
  *
  * What's worth holding:
  *   - a sign-in that manages several Pages asks which, and connects only those; one Page connects straight away;
+ *   - a sign-in nobody finished forgets its token, and who it was;
  *   - Meta's webhooks are taken only when Meta signed them, and an event Meta sends twice is kept once;
  *   - a stranger who writes becomes a customer and a lead, named as Facebook names them;
  *   - an ad that brought somebody is a touch of its own, every time, and its campaign is looked up at Meta;
  *   - photos are copied off Meta, and go when the customer takes the message back;
  *   - a reply goes out through the Page and comes back as an echo that isn't kept twice; receipts move it on;
- *   - a reply that only partly went sends the rest when it's tried again, never the part that went;
+ *   - a Page's instant reply is kept, but the thread still waits for a person;
+ *   - a reply keeps each part as it goes: another try sends only the rest, never the part that went, and an echo of a
+ *     part is known as the reply's before the rest goes; one read even before that still never sends a part twice;
+ *   - a send Meta never answered may have gone, so it isn't tried again by itself;
  *   - a Page whose sign-in stops working says so, and connecting again mends it;
  *   - removing the app on Facebook, or asking for deletion, stops the sign-in; letting a Page go stops Meta sending.
  */
@@ -44,6 +48,7 @@ import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { FAKE_META_APP_ID, FAKE_META_APP_SECRET } from '../src/social/fake';
+import { splitWebhook } from '../src/social/events';
 import { MetaError } from '../src/social/graph';
 import { finishSignIn, pickAccounts, testTokenVerifier, type Finished } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
@@ -83,20 +88,26 @@ const igCustomer = digits(17);
 
 const runner = `vitest-social-${process.pid}`;
 
+/** This business's stored webhooks from Meta, each read once now; how many were. */
+async function readWebhooks(): Promise<number> {
+  await admin().execute(
+    sql`update app.webhook_deliveries set locked_at = now(), locked_by = ${runner}, next_attempt_at = now()
+        where workspace_id = ${workspaceId}::uuid and status = 'pending'`,
+  );
+  const { claimed } = await processDeliveries({
+    ...s,
+    processors,
+    workerId: runner,
+    batchSize: 50,
+    reservedOnly: true,
+  });
+  return claimed;
+}
+
 /** Everything this business has waiting (events, Meta’s stored webhooks and its jobs), until it’s quiet. */
 async function drain(limit = 40): Promise<void> {
   for (let i = 0; i < limit; i++) {
-    await admin().execute(
-      sql`update app.webhook_deliveries set locked_at = now(), locked_by = ${runner}, next_attempt_at = now()
-          where workspace_id = ${workspaceId}::uuid and status = 'pending'`,
-    );
-    const delivered = await processDeliveries({
-      ...s,
-      processors,
-      workerId: runner,
-      batchSize: 50,
-      reservedOnly: true,
-    });
+    const delivered = await readWebhooks();
     await admin().execute(
       sql`update app.outbox set locked_at = now(), locked_by = ${runner}, next_attempt_at = now()
           where status = 'pending' and event_id in (select id from app.events
@@ -120,7 +131,7 @@ async function drain(limit = 40): Promise<void> {
       batchSize: 50,
       reservedOnly: true,
     });
-    if (done.claimed === 0 && events.claimed === 0 && delivered.claimed === 0) return;
+    if (done.claimed === 0 && events.claimed === 0 && delivered === 0) return;
   }
 }
 
@@ -224,6 +235,35 @@ const account = (platform: 'facebook' | 'instagram', externalId: string) =>
         where workspace_id = ${workspaceId}::uuid and platform = ${platform} and external_id = ${externalId}`,
   );
 
+/** A photo in the business's files, ready to go with a reply. */
+async function aPhoto(personId: string): Promise<string> {
+  const path = `${workspaceId}/${randomUUID()}.png`;
+  await s.store.upload(
+    'attachments',
+    path,
+    Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+    'image/png',
+  );
+  const file = await one<{ id: string }>(
+    sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes,
+          status, created_by)
+        values (${workspaceId}::uuid, 'person', ${personId}::uuid, ${path}, 'Quote.png', 'image/png', 68,
+          'ready', ${owner.id}::uuid)
+        returning id`,
+  );
+  return file.id;
+}
+
+/** What went to Meta since `from` sends: a photo or file is an attachment, words are text. */
+const partsSince = (from: number) =>
+  s.social.fake
+    .sent()
+    .slice(from)
+    .map((x) => Object.keys(x.message)[0]);
+
 beforeAll(async () => {
   owner = await createTestUser('social-dana', { fullName: 'Dana Owner' });
   const org = await run<{ workspaceId: string }>(organizationCreate, {
@@ -312,6 +352,74 @@ describe('connecting Facebook', () => {
     const back = await connect({ messaging: false });
     expect(back.body).toContain('Some permissions were left unticked');
   });
+
+  it('forgets a sign-in nobody finished: at once when it ends, or once it’s long gone', async () => {
+    const helper = digits(15);
+    s.social.fake.addUser({
+      id: helper,
+      name: 'Lee Helper',
+      pages: [
+        { id: digits(15), name: 'Helper Heating' },
+        { id: digits(15), name: 'Helper Cooling' },
+      ],
+    });
+    const waitingOne = async () =>
+      (
+        await one<{ id: string }>(
+          sql`select id from app.meta_connections
+              where workspace_id = ${workspaceId}::uuid and status = 'pending' and facebook_user_id = ${helper}`,
+        )
+      ).id;
+    const signIn = (id: string) =>
+      one<{
+        status: string;
+        token_enc: string | null;
+        facebook_user_id: string | null;
+        facebook_user_name: string | null;
+        scopes: string[];
+      }>(
+        sql`select status, token_enc, facebook_user_id, facebook_user_name, scopes from app.meta_connections
+            where id = ${id}::uuid`,
+      );
+
+    // Left at the checklist: the sign-in waits there, with its token, for its ten minutes.
+    const left = await connect({ user: helper });
+    expect(left.pick).toBeTruthy();
+    const leftId = await waitingOne();
+    expect(await signIn(leftId)).toMatchObject({
+      status: 'pending',
+      facebook_user_name: 'Lee Helper',
+    });
+    expect((await signIn(leftId)).token_enc).toBeTruthy();
+    // Long gone: the daily look forgets its token and who it was.
+    await admin().execute(
+      sql`update app.meta_connections set oauth_state_expires_at = now() - interval '2 hours'
+          where id = ${leftId}::uuid`,
+    );
+    await asWorker(s.db, {}, (tx) =>
+      rows(tx, sql`select private.meta_forget_unfinished_sign_ins() as n`),
+    );
+    expect(await signIn(leftId)).toEqual({
+      status: 'pending',
+      token_enc: null,
+      facebook_user_id: null,
+      facebook_user_name: null,
+      scopes: [],
+    });
+
+    // Ended with nothing picked: its token goes at once.
+    const asked = await connect({ user: helper });
+    const askedId = await waitingOne();
+    const done = await pickAccounts(
+      app,
+      asked.pick!.answer,
+      asked.handoff!,
+      [],
+      await signInTestUser(owner),
+    );
+    expect(new URL(done.location!).searchParams.get('meta')).toBe('cancelled');
+    expect((await signIn(askedId)).token_enc).toBeNull();
+  });
 });
 
 describe('Meta’s webhooks', () => {
@@ -345,6 +453,20 @@ describe('Meta’s webhooks', () => {
     await admin().execute(
       sql`delete from app.webhook_deliveries where workspace_id = ${workspaceId}::uuid and provider = 'meta'`,
     );
+  });
+
+  it('reads every event in a batch, however many Meta sends at once', () => {
+    const many = (n: number) =>
+      Array.from({ length: n }, (_, i) => fromCustomer(maria, pageA, { text: `#${i + 1}` }));
+    // Meta batches up to 1,000 events in one post: all in one Page's entry, or an entry each.
+    const together = splitWebhook(batch('facebook', pageA, many(250)));
+    expect(together).toHaveLength(250);
+    expect(new Set(together.map((e) => e.dedupeKey)).size).toBe(250);
+    const apart = splitWebhook({
+      object: 'page',
+      entry: many(250).map((event) => ({ id: pageA, time: Date.now(), messaging: [event] })),
+    });
+    expect(apart).toHaveLength(250);
   });
 });
 
@@ -658,32 +780,57 @@ describe('answering', () => {
     });
   });
 
+  it('keeps a Page’s instant reply, but the thread still waits for a person', async () => {
+    const lee = digits(16);
+    s.social.fake.setProfile(lee, { name: 'Lee Park', username: null });
+    const wrote = Date.now() - 5 * 60_000;
+    await webhook(
+      batch('facebook', pageA, [
+        fromCustomer(lee, pageA, { text: 'Are you open Saturdays?' }, wrote),
+      ]),
+    );
+    await drain();
+    const thread = () =>
+      one<{ id: string; unread_count: number; awaiting_reply_since: string | null }>(
+        sql`select id, unread_count, awaiting_reply_since from app.conversations
+            where workspace_id = ${workspaceId}::uuid and counterpart = ${`messenger:${pageA}:${lee}`}`,
+      );
+    const fromPage = (text: string, at: number) =>
+      batch('facebook', pageA, [
+        {
+          sender: { id: pageA },
+          recipient: { id: lee },
+          timestamp: at,
+          message: { mid: `m_${randomUUID()}`, is_echo: true, app_id: '263902037430900', text },
+        },
+      ]);
+    // Facebook's instant reply, two seconds after they wrote: kept, but nobody has answered them yet.
+    await webhook(fromPage('Thanks for getting in touch! We’ll reply soon.', wrote + 2_000));
+    await drain();
+    const waiting = await thread();
+    expect(waiting.unread_count).toBe(1);
+    expect(waiting.awaiting_reply_since).toBeTruthy();
+    expect((await messagesIn(waiting.id)).at(-1)).toMatchObject({
+      direction: 'outbound',
+      body_text: 'Thanks for getting in touch! We’ll reply soon.',
+      social: { elsewhere: true },
+    });
+    // Somebody answering on Facebook a minute later has.
+    await webhook(fromPage('Yes, 8 to 2.', wrote + 60_000));
+    await drain();
+    expect(await thread()).toMatchObject({ unread_count: 0, awaiting_reply_since: null });
+  });
+
   it('sends the rest of a reply that only partly went, and never the part that did', async () => {
     const conv = await conversationOf(`messenger:${pageA}:${maria}`);
-    const path = `${workspaceId}/${randomUUID()}.png`;
-    await s.store.upload(
-      'attachments',
-      path,
-      Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-        'base64',
-      ),
-      'image/png',
-    );
-    const file = await one<{ id: string }>(
-      sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes,
-            status, created_by)
-          values (${workspaceId}::uuid, 'person', ${conv.person_id}::uuid, ${path}, 'Quote.png', 'image/png', 68,
-            'ready', ${owner.id}::uuid)
-          returning id`,
-    );
+    const photo = await aPhoto(conv.person_id!);
     const sentBefore = s.social.fake.sent().length;
     const { messageId } = await run<{ messageId: string }>(messageSend, {
       workspaceId,
       channel: 'messenger',
       conversationId,
       body: 'Here’s the quote we talked about.',
-      attachmentFileIds: [file.id],
+      attachmentFileIds: [photo],
     });
     // The photo goes; the words are refused.
     const realSend = s.social.graph.send.bind(s.social.graph);
@@ -701,12 +848,7 @@ describe('answering', () => {
     const failed = (await messagesIn(conversationId)).find((m) => m.id === messageId)!;
     expect(failed).toMatchObject({ status: 'failed', error_code: 'partial' });
     expect(failed.provider_part_ids).toHaveLength(1);
-    expect(
-      s.social.fake
-        .sent()
-        .slice(sentBefore)
-        .map((x) => Object.keys(x.message)[0]),
-    ).toEqual(['attachment']);
+    expect(partsSince(sentBefore)).toEqual(['attachment']);
 
     await run(messageRetry, { workspaceId, messageId });
     await drain();
@@ -716,12 +858,146 @@ describe('answering', () => {
     expect(went.provider_part_ids).toHaveLength(2);
     expect(went.provider_part_ids[0]).toBe(failed.provider_part_ids[0]);
     // The photo once, the words once.
-    expect(
-      s.social.fake
-        .sent()
-        .slice(sentBefore)
-        .map((x) => Object.keys(x.message)[0]),
-    ).toEqual(['attachment', 'text']);
+    expect(partsSince(sentBefore)).toEqual(['attachment', 'text']);
+  });
+
+  it('keeps each part as it goes: Meta’s echo of it is known, and the next try sends only the rest', async () => {
+    const conv = await conversationOf(`messenger:${pageA}:${maria}`);
+    const photo = await aPhoto(conv.person_id!);
+    const before = await messagesIn(conversationId);
+    const sentBefore = s.social.fake.sent().length;
+    const { messageId } = await run<{ messageId: string }>(messageSend, {
+      workspaceId,
+      channel: 'messenger',
+      conversationId,
+      body: 'And here’s the old tank.',
+      attachmentFileIds: [photo],
+    });
+    const realSend = s.social.graph.send.bind(s.social.graph);
+    let calls = 0;
+    let kept: string[] = [];
+    let duringSend = { waiting: -1, messages: -1 };
+    s.social.graph.send = async (input) => {
+      calls++;
+      if (calls !== 2) return realSend(input);
+      // The photo went, and is the reply's already, before the words go.
+      kept = (await messagesIn(conversationId)).find((m) => m.id === messageId)!.provider_part_ids;
+      // Meta's echo of the photo, without an app id as Instagram sends them: it waits its turn twice while the reply
+      // is on its way, then core knows it as the reply's.
+      await webhook(
+        batch('facebook', pageA, [
+          {
+            sender: { id: pageA },
+            recipient: { id: maria },
+            timestamp: Date.now(),
+            message: {
+              mid: kept[0],
+              is_echo: true,
+              attachments: [
+                { type: 'image', payload: { url: 'https://lookaside.fbsbx.com/echo-photo' } },
+              ],
+            },
+          },
+        ]),
+      );
+      for (let i = 0; i < 3; i++) await readWebhooks();
+      const [left] = await rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.webhook_deliveries
+            where workspace_id = ${workspaceId}::uuid and status = 'pending'`,
+      );
+      duringSend = { waiting: left!.n, messages: (await messagesIn(conversationId)).length };
+      // Then Meta is busy: back to the outbox, whose next try sends the words.
+      throw new MetaError('(#2) Service temporarily unavailable', 'server', 2, null, true);
+    };
+    try {
+      await drain();
+    } finally {
+      s.social.graph.send = realSend;
+    }
+    expect(kept).toHaveLength(1);
+    expect(duringSend).toEqual({ waiting: 0, messages: before.length + 1 });
+    const went = (await messagesIn(conversationId)).find((m) => m.id === messageId)!;
+    expect(went).toMatchObject({ status: 'sent', error_code: null });
+    expect(went.provider_part_ids).toEqual([kept[0], expect.any(String)]);
+    // The photo once, the words once, and the echo kept as nothing of its own.
+    expect(partsSince(sentBefore)).toEqual(['attachment', 'text']);
+    expect(await messagesIn(conversationId)).toHaveLength(before.length + 1);
+  });
+
+  it('sends each part once even when Meta’s echo of one was kept before its id was', async () => {
+    const conv = await conversationOf(`messenger:${pageA}:${maria}`);
+    const photo = await aPhoto(conv.person_id!);
+    const sentBefore = s.social.fake.sent().length;
+    const { messageId } = await run<{ messageId: string }>(messageSend, {
+      workspaceId,
+      channel: 'messenger',
+      conversationId,
+      body: 'One more, of the valve.',
+      attachmentFileIds: [photo],
+    });
+    const realSend = s.social.graph.send.bind(s.social.graph);
+    let calls = 0;
+    s.social.graph.send = async (input) => {
+      const sent = await realSend(input);
+      if (++calls === 1) {
+        // The photo's echo, without an app id, read before the worker keeps the photo's id: past its waiting, it's
+        // kept as one written on Facebook, under the photo's id.
+        await webhook(
+          batch('facebook', pageA, [
+            {
+              sender: { id: pageA },
+              recipient: { id: maria },
+              timestamp: Date.now(),
+              message: {
+                mid: sent.messageId,
+                is_echo: true,
+                attachments: [
+                  { type: 'image', payload: { url: 'https://lookaside.fbsbx.com/echo-valve' } },
+                ],
+              },
+            },
+          ]),
+        );
+        for (let i = 0; i < 3; i++) await readWebhooks();
+      }
+      return sent;
+    };
+    try {
+      await drain();
+    } finally {
+      s.social.graph.send = realSend;
+    }
+    const went = (await messagesIn(conversationId)).find((m) => m.id === messageId)!;
+    expect(went).toMatchObject({ status: 'sent', error_code: null });
+    expect(went.provider_part_ids).toHaveLength(2);
+    // The photo once, the words once.
+    expect(partsSince(sentBefore)).toEqual(['attachment', 'text']);
+  });
+
+  it('doesn’t send a reply again by itself when Meta never answered, and says to check first', async () => {
+    const sentBefore = s.social.fake.sent().length;
+    s.social.fake.failNextSend(
+      new MetaError('Couldn’t reach Meta (timeout).', 'server', null, null, false, true),
+    );
+    const { messageId } = await run<{ messageId: string }>(messageSend, {
+      workspaceId,
+      channel: 'messenger',
+      conversationId,
+      body: 'Did my last message come through?',
+    });
+    await drain();
+    const m = await one<{
+      status: string;
+      error_code: string | null;
+      error_message: string | null;
+    }>(
+      sql`select status::text, error_code, error_message from app.messages where id = ${messageId}::uuid`,
+    );
+    expect(m).toMatchObject({ status: 'failed', error_code: 'no_answer' });
+    expect(m.error_message).toContain('Check your Messenger inbox');
+    // Tried once, and never again: had the outbox tried, the stand-in would have taken it.
+    expect(s.social.fake.sent()).toHaveLength(sentBefore);
   });
 
   it('answers late with the Human Agent tag, when a person writes it', async () => {

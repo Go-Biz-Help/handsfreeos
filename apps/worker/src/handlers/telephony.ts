@@ -461,7 +461,9 @@ export const onMessageQueued: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const [m] = await ctx.tx.select().from(messages).where(eq(messages.id, ctx.event.entityId!));
   if (!m || m.direction !== 'outbound') return;
-  if (m.providerMessageId && m.providerMessageId !== retryReplaces(ctx)) return;
+  // A Messenger or Instagram reply keeps each part's id as it goes: one still sending carries on after the last.
+  const partway = isSocialChannel(m.channel) && m.status === 'sending';
+  if (m.providerMessageId && m.providerMessageId !== retryReplaces(ctx) && !partway) return;
   if (m.status !== 'queued' && m.status !== 'sending') return;
   if (m.channel === 'email') {
     await sendQueuedEmail(ctx, m);

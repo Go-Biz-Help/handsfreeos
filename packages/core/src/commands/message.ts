@@ -2413,17 +2413,37 @@ export const messageUpdateStatus = defineCommand({
     }
     if (input.messageId && input.providerMessageId && !attempt.providerMessageId) {
       patch.providerMessageId = input.providerMessageId;
-      if (!m.dedupeKey) patch.dedupeKey = input.providerMessageId;
+      /*
+       * Meta's echo of a Messenger or Instagram part can be kept (as written on Facebook) before the part's id is
+       * here. The key stays with that copy then: taking it would fail, and the send would go again.
+       */
+      if (!m.dedupeKey) {
+        const [taken] = await ctx.tx
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.workspaceId, workspaceId),
+              eq(messages.dedupeKey, input.providerMessageId),
+            ),
+          )
+          .limit(1);
+        if (!taken) patch.dedupeKey = input.providerMessageId;
+      }
     }
     if (input.contentSid && m.channel === 'sms' && !attempt.contentSid)
       patch.contentSid = input.contentSid;
-    // Messenger and Instagram: every part the reply went out as, so a receipt or an echo of any of them finds it.
+    /*
+     * Messenger and Instagram: every part the reply went out as, so a receipt or an echo of any of them finds it.
+     * Each part is recorded as it goes, so the list only grows: a late record of fewer parts never shortens it.
+     */
+    const parts = input.providerPartIds ?? [];
     if (
-      input.providerPartIds?.length &&
+      parts.length > attempt.providerPartIds.length &&
       isSocialChannel(m.channel) &&
-      !attempt.providerPartIds.length
+      attempt.providerPartIds.every((id, i) => parts[i] === id)
     )
-      patch.providerPartIds = [...input.providerPartIds];
+      patch.providerPartIds = [...parts];
     const reached = input.status === 'delivered' || input.status === 'read';
     if ((input.status === 'sent' || reached) && !attempt.sentAt) patch.sentAt = now;
     if (reached && !attempt.deliveredAt) patch.deliveredAt = now;

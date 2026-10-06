@@ -35,6 +35,7 @@ import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import {
   channelOfPlatform,
@@ -87,6 +88,12 @@ export const SOCIAL_JOBS = {
 
 /** The same ad or link twice this close together is one visit: Meta sometimes says so twice, in two ways. */
 const SAME_VISIT_MS = 10 * 60_000;
+
+/**
+ * A reply from the Page this soon after the customer wrote is its own instant reply or away message, not a person:
+ * Meta says it back like any other, with nothing to tell them apart.
+ */
+const INSTANT_REPLY_MS = 10_000;
 
 /**
  * A Page or account as a person may read it: every column but its sealed token. Named, never `select()`: the token
@@ -422,12 +429,13 @@ export const metaAccountConnect = defineCommand({
       sql`select workspace_id from private.meta_account_holders(array[${input.externalId}]::text[])
           where platform = ${input.platform} and workspace_id <> ${workspaceId}`,
     );
-    if (elsewhere)
-      throw HfosError.rule(
+    const takenElsewhere = () =>
+      HfosError.rule(
         'meta_account_elsewhere',
         409,
         `${label} already answers its messages in another business on HandsFreeOS. Disconnect it there first, then connect it here.`,
       );
+    if (elsewhere) throw takenElsewhere();
     const now = new Date();
     const [existing] = await ctx.tx
       .select()
@@ -460,16 +468,27 @@ export const metaAccountConnect = defineCommand({
       connectedBy: c.createdBy,
     };
     let accountId: string;
-    if (existing) {
-      await ctx.tx.update(metaAccounts).set(values).where(eq(metaAccounts.id, existing.id));
-      accountId = existing.id;
-    } else {
-      const [row] = await ctx.tx
-        .insert(metaAccounts)
-        .values({ workspaceId, platform: input.platform, externalId: input.externalId, ...values })
-        .returning({ id: metaAccounts.id });
-      if (!row) throw HfosError.forbidden();
-      accountId = row.id;
+    try {
+      if (existing) {
+        await ctx.tx.update(metaAccounts).set(values).where(eq(metaAccounts.id, existing.id));
+        accountId = existing.id;
+      } else {
+        const [row] = await ctx.tx
+          .insert(metaAccounts)
+          .values({
+            workspaceId,
+            platform: input.platform,
+            externalId: input.externalId,
+            ...values,
+          })
+          .returning({ id: metaAccounts.id });
+        if (!row) throw HfosError.forbidden();
+        accountId = row.id;
+      }
+    } catch (e) {
+      // Another business connected it in the same moment: the index decides, and says so the same way.
+      if (isUniqueViolation(e, 'meta_accounts_live')) throw takenElsewhere();
+      throw e;
     }
     const reconnected = !!existing && existing.status !== 'active';
     await ctx.emit({
@@ -1140,7 +1159,12 @@ export const metaMessageReceive = defineCommand({
         activityId,
         social,
       });
-      // Answered, on Facebook or Instagram: nobody here needs to answer it again.
+      // Answered, on Facebook or Instagram: nobody here needs to answer it again. An instant reply answers nobody.
+      const sinceTheyWrote = conv.lastInboundAt
+        ? at.getTime() - conv.lastInboundAt.getTime()
+        : null;
+      const instant =
+        sinceTheyWrote !== null && sinceTheyWrote >= 0 && sinceTheyWrote < INSTANT_REPLY_MS;
       await ctx.tx
         .update(conversations)
         .set({
@@ -1148,8 +1172,7 @@ export const metaMessageReceive = defineCommand({
             ? { lastMessageAt: at, lastPreview: preview, lastDirection: 'outbound' as const }
             : {}),
           lastOutboundAt: sql`greatest(${conversations.lastOutboundAt}, ${at.toISOString()}::timestamptz)`,
-          awaitingReplySince: null,
-          unreadCount: 0,
+          ...(instant ? {} : { awaitingReplySince: null, unreadCount: 0 }),
           ...(conv.metaAccountId ? {} : { metaAccountId: account.id }),
         })
         .where(eq(conversations.id, conv.id));

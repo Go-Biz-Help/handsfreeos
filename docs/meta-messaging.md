@@ -45,10 +45,13 @@ and files copied off Meta into storage. A stranger who writes becomes a customer
 turned that off in **Settings** → **Lead intake** ("Someone messages your Facebook Page", and the same for Instagram).
 
 **Replying.** A reply is `message.send` with `channel: 'messenger'` or `'instagram'`, queued like a text. The worker
-sends its photos and files first, each a message of its own, then the words, and keeps every part's id on the
-message (`provider_part_ids`). Meta's echo of a reply finds it by any of them, so it isn't kept twice. A reply only
-partly sent sends the rest when retried, never the part that already went. A reply written in Facebook's or
-Instagram's own inbox comes back as an echo and is kept as the business's, marked "Sent from Facebook".
+sends its photos and files first, each a message of its own, then the words, and keeps each part's id on the
+message (`provider_part_ids`) the moment it goes. Meta's echo of a reply finds it by any of them, so it isn't kept
+twice, and another try, the outbox's or a person's, sends only the parts that didn't go. A send Meta never answered
+may have gone, so it isn't tried again by itself: the reply fails and says to check first. A reply written in
+Facebook's or Instagram's own inbox comes back as an echo and is kept as the business's, marked "Sent from
+Facebook", and the thread counts as answered. One within ten seconds of the customer's message is taken for the
+Page's instant reply or away message, which Meta says back the same way: the thread still waits for a person.
 
 **What else Meta sends.** Delivered and Seen; a customer's edit (the newest words are kept) and a message they take
 back (its words and files go, as Meta asks); a button they tapped; and the ad or link they came from.
@@ -57,7 +60,8 @@ back (its words and files go, as Meta asks); a button they tapped; and the ad or
 attention" in Settings, replies say why they can't go, and the owners get Automations' "Connection broke" once.
 Connecting again (`meta_account.recover`) mends it in place, and its conversations keep their line. Removing the app
 on Facebook (`/meta/deauthorize`) stops every sign-in of that person, in every business; asking Facebook to delete
-their data (`/meta/data-deletion`) also forgets who they were. `meta.plan` runs daily and queues `meta.check` for
+their data (`/meta/data-deletion`) also forgets who they were. A sign-in nobody finished forgets its token as soon as
+it ends, or at the daily look once its ten minutes are long gone. `meta.plan` runs daily and queues `meta.check` for
 each business with a Page connected, which notices a sign-in that stopped working and asks Meta again for a Page's
 messages when Meta stopped sending them.
 
@@ -104,7 +108,9 @@ website or Messenger's Discover tab: a `referral`, on its own or inside their fi
   `meta_account_id` and `meta_contact_id` (the Page and the person as Meta knows them), `conversation_id`,
   `message_id`, and `lead_id`, the lead open or opened when it came.
 
-A touch is never edited or collapsed into another; Meta sending the same event twice keeps it once (`dedupe_key`).
+One visit is one touch, and a touch is never written over. Meta often reports a visit twice (the referral on its
+own, then with the first message), so the same ad or link from the same person within ten minutes is the same touch;
+Meta sending the same event twice keeps it once (`dedupe_key`).
 The ad itself is an `ads` row, shared by every touch from it: `meta.resolve_ad` asks Meta's Marketing API for its
 name, ad set, campaign and creative with a sign-in here that may read ads (`ads_read`). It says `no_access` when
 nobody connected here can see that ad account, and asks again once somebody connects with ads allowed.

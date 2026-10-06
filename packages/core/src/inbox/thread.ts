@@ -393,6 +393,8 @@ export function socialFailureHelp(
       return `Only part of this reply reached them on ${name}. Send it again and the rest goes, without what already went.`;
     case 'unreachable':
       return `HandsFreeOS couldn’t reach ${name} to send this. Send it again in a minute.`;
+    case 'no_answer':
+      return `${name} didn’t answer in time, so this reply may have reached them or not. Check your ${name} inbox before you send it again.`;
     default:
       return item.errorMessage || `${name} didn’t deliver this reply.`;
   }

@@ -22,8 +22,11 @@ import { errorMessage } from '../outbox';
 import { systemActor, workerMeta } from '../services';
 import { META_DELIVERY_KIND, readSignedRequest, splitWebhook, verifyMetaSignature } from './events';
 
-/** Meta batches up to a thousand events; a megabyte and a half is past any honest batch. */
-const WEBHOOK_MAX_BYTES = 1_500_000;
+/**
+ * Meta batches up to a thousand events in one post, each with its links and the ad it came from. Every one is kept:
+ * a post refused for its size is sent again just as big, and lost.
+ */
+const WEBHOOK_MAX_BYTES = 10 * 1024 * 1024;
 
 export async function registerMetaRoutes(app: FastifyInstance, deps: HttpDeps): Promise<void> {
   const meta = deps.social;

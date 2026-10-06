@@ -62,11 +62,29 @@ export class MetaError extends Error {
     readonly subcode: number | null = null,
     /** Worth trying again later: Meta was busy or broken rather than refusing. */
     readonly retryable = false,
+    /** A send that went and got no answer: Meta may have delivered it, so it isn't sent again by itself. */
+    readonly uncertain = false,
   ) {
     super(message);
     this.name = 'MetaError';
   }
 }
+
+/** A call that failed before it reached Meta: nothing happened there, so it may simply go again. */
+function neverArrived(e: unknown): boolean {
+  const cause = e instanceof Error ? (e.cause as { code?: unknown } | undefined) : undefined;
+  const code = typeof cause?.code === 'string' ? cause.code : null;
+  return (
+    code === 'ENOTFOUND' ||
+    code === 'EAI_AGAIN' ||
+    code === 'ECONNREFUSED' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT'
+  );
+}
+
+/** How long a call may take. A photo or file is fetched from us by Meta while the send waits. */
+const CALL_MS = 30_000;
+const FILE_SEND_MS = 120_000;
 
 const RATE_LIMITS = new Set([
   4, 17, 32, 613, 80001, 80002, 80003, 80004, 80005, 80006, 80008, 80014,
@@ -348,6 +366,8 @@ export function createMetaGraph(opts: {
     token: string | null,
     params: Record<string, string> = {},
     body?: unknown,
+    /** `once`: going twice would do it twice (a message sent), so an unanswered call is never retried as if it failed. */
+    how: { readonly timeoutMs?: number; readonly once?: boolean } = {},
   ): Promise<T> {
     if (!configured) throw new MetaError('Facebook isn’t set up on this server yet.', 'permission');
     const q = new URLSearchParams(params);
@@ -362,15 +382,17 @@ export function createMetaGraph(opts: {
         method,
         headers: body === undefined ? {} : { 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(how.timeoutMs ?? CALL_MS),
       });
     } catch (e) {
+      const unsure = !!how.once && !neverArrived(e);
       throw new MetaError(
         `Couldn’t reach Meta (${e instanceof Error ? e.message : String(e)}).`,
         'server',
         null,
         null,
-        true,
+        !unsure,
+        unsure,
       );
     }
     const answer = (await res.json().catch(() => ({}))) as unknown;
@@ -416,8 +438,11 @@ export function createMetaGraph(opts: {
         },
       );
       if (!short.access_token) throw new MetaError('Facebook sent no token back.', 'auth');
-      // Swapped for the sixty-day token straight away: the Page tokens read with it then never expire. A business's
-      // system user's token already lasts, and can't be swapped; it's kept as it came.
+      /*
+       * Swapped for the sixty-day token straight away: the Page tokens read with it then never expire. A business's
+       * system user's token already lasts, and can't be swapped; it's kept as it came. Meta busy or out of reach is
+       * another matter: the sign-in fails and is tried again, rather than connecting Pages that stop in an hour.
+       */
       const long = await call<{ access_token?: string; expires_in?: number }>(
         'GET',
         '/oauth/access_token',
@@ -428,7 +453,10 @@ export function createMetaGraph(opts: {
           client_secret: opts.appSecret ?? '',
           fb_exchange_token: short.access_token,
         },
-      ).catch(() => short);
+      ).catch((e: unknown) => {
+        if (e instanceof MetaError && e.retryable) throw e;
+        return short;
+      });
       const token = long.access_token ?? short.access_token;
       const expiresIn = Number(long.expires_in ?? 0);
       return {
@@ -547,6 +575,7 @@ export function createMetaGraph(opts: {
           ...(input.tag ? { tag: input.tag } : {}),
           message,
         },
+        { once: true, timeoutMs: 'text' in input.message ? CALL_MS : FILE_SEND_MS },
       );
       if (!out.message_id) throw new MetaError('Meta took the reply but gave no id.', 'server');
       return { messageId: String(out.message_id) };

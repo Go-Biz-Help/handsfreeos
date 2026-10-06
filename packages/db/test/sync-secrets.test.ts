@@ -106,6 +106,9 @@ const SECRET_TABLES = [
   'intake_sources',
   'invitations',
   'mailbox_connections',
+  // 20261025000200: a Facebook Page's token, and the Facebook sign-in that reads its ads, sealed. No phone needs them.
+  'meta_accounts',
+  'meta_connections',
   'migration_connections',
   'payment_connections',
   // Real Estate round two: a client's signed-in device, kept only as its bearer's hash. No phone ever needs it.

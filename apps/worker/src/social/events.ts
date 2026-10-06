@@ -74,14 +74,17 @@ export interface SplitEvent {
   readonly dedupeKey: string;
 }
 
-/** A webhook's events, one each, for the Pages and accounts it names. Anything else in it (comments, feed) is left. */
+/**
+ * A webhook's events, one each, for the Pages and accounts it names. Anything else in it (comments, feed) is left.
+ * Nothing is cut short: Meta counts the whole post delivered once it hears back, so an event left out is lost.
+ */
 export function splitWebhook(body: unknown): SplitEvent[] {
   const o = obj(body);
   const platform =
     o['object'] === 'page' ? 'facebook' : o['object'] === 'instagram' ? 'instagram' : null;
   if (!platform) return [];
   const out: SplitEvent[] = [];
-  for (const entry of arr(o['entry']).slice(0, 200)) {
+  for (const entry of arr(o['entry'])) {
     const e = obj(entry);
     const id = str(e['id'], 40);
     if (!id || !ACCOUNT_ID.test(id)) continue;
@@ -89,7 +92,7 @@ export function splitWebhook(body: unknown): SplitEvent[] {
       [e['messaging'], false],
       [e['standby'], true],
     ] as const)
-      for (const raw of arr(list).slice(0, 200)) {
+      for (const raw of arr(list)) {
         const event = obj(raw);
         if (!Object.keys(event).length) continue;
         out.push({

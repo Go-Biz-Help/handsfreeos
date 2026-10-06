@@ -19,7 +19,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { metaConnections } from '@hfos/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { HttpDeps } from '../http/common';
 import type { FinishOutcome, FinishPickOption } from '../http/handoff';
 import { errorMessage } from '../outbox';
@@ -125,14 +125,34 @@ const pageOut = (deps: HttpDeps, row: MetaSignIn, title: string, body: string): 
   },
 });
 
-async function note(deps: HttpDeps, row: MetaSignIn, error: string | null): Promise<void> {
-  await asWorker(deps.httpDb, scopeOf(row), (tx) =>
-    tx
+/**
+ * Why a sign-in didn't finish, kept on it. One that ends here without connecting anything forgets the token it got:
+ * nothing is left to use it for.
+ */
+async function note(
+  deps: HttpDeps,
+  row: MetaSignIn,
+  error: string | null,
+  ended = false,
+): Promise<void> {
+  await asWorker(deps.httpDb, scopeOf(row), async (tx) => {
+    await tx
       .update(metaConnections)
       .set({ lastError: error ? error.slice(0, 2000) : null })
-      .where(eq(metaConnections.id, row.connection_id)),
-  );
+      .where(eq(metaConnections.id, row.connection_id));
+    if (ended)
+      await tx
+        .update(metaConnections)
+        .set({ tokenEnc: null, tokenKeyId: null, tokenExpiresAt: null })
+        .where(
+          and(eq(metaConnections.id, row.connection_id), eq(metaConnections.status, 'pending')),
+        );
+  });
 }
+
+/** Another try at the same sign-in (a checklist sent twice) finished it first: that one's answer stands. */
+const finishedElsewhere = (e: unknown): boolean =>
+  e instanceof HfosError && e.rule === 'meta_connection_not_pending';
 
 /** Facebook's answer, from the app: connect what can be, or ask which. */
 export async function finishMetaSignIn(
@@ -178,11 +198,16 @@ export async function finishMetaSignIn(
         'That Facebook account doesn’t manage a Page. Messenger and Instagram messages reach a business through its Facebook Page, so sign in with an account that manages yours, or create a Page first.',
       );
     }
-    // Kept now, still pending, so the checklist's answer doesn't have to carry it.
+    /*
+     * Kept now, still pending, so the checklist's answer doesn't have to carry it; with who it is, so removing the
+     * app on Facebook, or asking for their data to be deleted, finds it too.
+     */
     await asWorker(deps.httpDb, scopeOf(row), (tx) =>
       tx
         .update(metaConnections)
         .set({
+          facebookUserId: me.id,
+          facebookUserName: me.name,
           tokenEnc: deps.sealer.seal(token.accessToken),
           tokenKeyId: deps.sealer.keyId,
           tokenExpiresAt: token.expiresAt ? new Date(token.expiresAt) : null,
@@ -199,7 +224,7 @@ export async function finishMetaSignIn(
     const here = standing.filter((x) => x.s === 'here');
     if (free.length === 0 && here.length === 0) {
       const elsewhere = standing.some((x) => x.s === 'elsewhere');
-      await note(deps, row, 'Nothing that sign-in manages could be connected here.');
+      await note(deps, row, 'Nothing that sign-in manages could be connected here.', true);
       return pageOut(
         deps,
         row,
@@ -216,7 +241,7 @@ export async function finishMetaSignIn(
       (pages.length === 1 && standing.every((x) => x.s === 'free' || x.s === 'here')) ||
       free.length === 0
     )
-      return connectChosen(deps, row, {
+      return await connectChosen(deps, row, {
         token: token.accessToken,
         tokenExpiresAt: token.expiresAt,
         me,
@@ -233,11 +258,12 @@ export async function finishMetaSignIn(
       },
     };
   } catch (e) {
+    if (finishedElsewhere(e)) return back('connected');
     deps.log.warn(
       { connectionId: row.connection_id, err: errorMessage(e) },
       'a Facebook sign-in did not finish',
     );
-    await note(deps, row, errorMessage(e));
+    await note(deps, row, errorMessage(e), true);
     return back('failed');
   }
 }
@@ -280,7 +306,7 @@ export async function answerMetaPick(
       'Sign-in links last ten minutes. Go back to Settings → Facebook & Instagram, and choose Connect again.',
     );
   if (ids.length === 0) {
-    await note(deps, row, 'Nothing was picked.');
+    await note(deps, row, 'Nothing was picked.', true);
     return { next: `${metaSettingsUrl(deps, row.workspace_id)}?meta=cancelled` };
   }
   try {
@@ -297,14 +323,16 @@ export async function answerMetaPick(
       const s = standingOf(x, held, row.workspace_id);
       return s === 'here' || (s === 'free' && wanted.has(optionId(x.platform, x.externalId)));
     });
-    if (!chosen.some((x) => wanted.has(optionId(x.platform, x.externalId))))
+    if (!chosen.some((x) => wanted.has(optionId(x.platform, x.externalId)))) {
+      await note(deps, row, 'Nothing picked could be connected.', true);
       return pageOut(
         deps,
         row,
         'Nothing could be connected',
         'The Pages you picked can’t be connected now: another business may have just connected them, or your Facebook role changed. Choose Connect again to see where they stand.',
       );
-    return connectChosen(deps, row, {
+    }
+    return await connectChosen(deps, row, {
       token,
       tokenExpiresAt: c.tokenExpiresAt?.toISOString() ?? null,
       me,
@@ -312,11 +340,13 @@ export async function answerMetaPick(
       chosen,
     });
   } catch (e) {
+    if (finishedElsewhere(e))
+      return { next: `${metaSettingsUrl(deps, row.workspace_id)}?meta=connected` };
     deps.log.warn(
       { connectionId: row.connection_id, err: errorMessage(e) },
       'Facebook Pages did not connect',
     );
-    await note(deps, row, errorMessage(e));
+    await note(deps, row, errorMessage(e), true);
     return { next: `${metaSettingsUrl(deps, row.workspace_id)}?meta=failed` };
   }
 }

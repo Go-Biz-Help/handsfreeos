@@ -407,12 +407,30 @@ language sql stable security definer set search_path = '' as $$
   where a.status <> 'disconnected'
 $$;
 
+-- A sign-in nobody finished keeps nothing: once its ten minutes are long gone, the token it got and who it was go.
+-- The worker's daily look does this for every business at once.
+create or replace function private.meta_forget_unfinished_sign_ins()
+returns integer
+language sql volatile security definer set search_path = '' as $$
+  with forgotten as (
+    update app.meta_connections
+    set token_enc = null, token_key_id = null, token_expires_at = null, facebook_user_id = null,
+      facebook_user_name = null, scopes = '{}', oauth_state_hash = null, oauth_state_expires_at = null
+    where status = 'pending'
+      and (token_enc is not null or facebook_user_id is not null or oauth_state_hash is not null)
+      and coalesce(oauth_state_expires_at, created_at) < now() - interval '1 hour'
+    returning 1
+  )
+  select count(*)::integer from forgotten
+$$;
+
 revoke all on function private.meta_account_route(text, text), private.meta_account_holders(text[]),
   private.meta_connections_of(text, boolean), private.meta_page_live(text), private.meta_account_workspaces(),
-  private.check_meta_refs(), private.touches_follow_conversation()
+  private.meta_forget_unfinished_sign_ins(), private.check_meta_refs(), private.touches_follow_conversation()
   from public;
 grant execute on function private.meta_account_route(text, text), private.meta_account_holders(text[]),
-  private.meta_connections_of(text, boolean), private.meta_page_live(text), private.meta_account_workspaces()
+  private.meta_connections_of(text, boolean), private.meta_page_live(text), private.meta_account_workspaces(),
+  private.meta_forget_unfinished_sign_ins()
   to service_actor;
 
 -- ---------- the sign-in shares one callback with the others ----------
