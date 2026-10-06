@@ -22,6 +22,7 @@ import { onboardingClients, onboardingStatus, platformOnboardingCounts } from '.
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import { aiSetupGet, aiSetupTemplateList } from './ai-setup';
+import { onboardingSetupGet } from './onboarding-setup';
 import {
   attentionForRecord,
   attentionList,
@@ -369,6 +370,8 @@ export const queries: readonly QueryDef[] = [
   onboardingStatus,
   onboardingClients,
   platformOnboardingCounts,
+  // The onboarding setup.
+  onboardingSetupGet,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -415,6 +418,7 @@ export {
   aiTeammateActivity,
   aiSetupGet,
   aiSetupTemplateList,
+  onboardingSetupGet,
 };
 
 export * from './form';

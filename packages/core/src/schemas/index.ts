@@ -69,5 +69,6 @@ export * from './ai-call';
 export * from './addon';
 // Getting started.
 export * from './onboarding';
+export * from './onboarding-setup';
 // Viewing the app as a teammate (20261018000100).
 export * from './teammate-view';

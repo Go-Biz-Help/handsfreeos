@@ -728,6 +728,8 @@ describe('registry', () => {
       'onboarding.send_link',
       'onboarding.set_enabled',
       'onboarding.remind',
+      'onboarding_setup.save',
+      'onboarding_setup.finish',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -919,6 +921,7 @@ describe('registry', () => {
       'onboarding.status',
       'onboarding.clients',
       'platform.onboarding.counts',
+      'onboarding_setup.get',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

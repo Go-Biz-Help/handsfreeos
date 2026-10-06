@@ -1142,8 +1142,8 @@ describe('the plan Save carries out', () => {
     expect(plan.faqs).toHaveLength(1);
     expect(plan.booking).toEqual({
       services: [
-        { name: 'AC repair', description: '' },
-        { name: 'Furnace tune-up', description: '' },
+        { name: 'AC repair', description: '', minutes: null, priceCents: null },
+        { name: 'Furnace tune-up', description: '', minutes: null, priceCents: null },
       ],
       calendar: 'Service calls',
       zipCodes: ['77494', '77433'],

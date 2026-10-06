@@ -53,6 +53,23 @@ export type AiSetupTone = (typeof AI_SETUP_TONES)[number];
 export const AiSetupService = z.object({
   name: z.string().trim().min(1, 'Name the service.').max(120, 'Keep it under 120 characters.'),
   description: z.string().trim().max(500, 'Keep it under 500 characters.').default(''),
+  /**
+   * What it costs, in cents, when the business says: the onboarding setup asks it, for the price list, the business
+   * profile and booking. Left out or null: not said.
+   */
+  priceCents: z
+    .int()
+    .min(0, 'Prices can’t be below zero.')
+    .max(100_000_000, 'That price is too high.')
+    .nullable()
+    .optional(),
+  /** How long it takes, in minutes, when the business says: what customers book. Left out or null: not said. */
+  minutes: z
+    .int()
+    .min(5, 'At least 5 minutes.')
+    .max(720, 'At most 12 hours.')
+    .nullable()
+    .optional(),
 });
 export type AiSetupService = z.infer<typeof AiSetupService>;
 

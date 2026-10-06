@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { WeeklyHours } from '../calendar/config';
 import { parseClock } from '../calendar/engine/zoned';
+import { BusinessAddress } from '../onboarding-setup/address';
 import {
   displayName,
   industry,
@@ -82,6 +83,8 @@ export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   onboarding: 'onboarding.save_answers',
   // Quick setup's answers while someone is part way through, and who finished it.
   aiSetup: 'ai_setup.save',
+  // The onboarding setup's answers while someone is part way through, and who finished it.
+  onboardingSetup: 'onboarding_setup.save',
 } as const;
 
 export const WorkspaceUpdateInput = z
@@ -147,6 +150,17 @@ export const WorkspaceUpdateInput = z
         if (problem)
           ctx.addIssue({ code: 'custom', message: problem, path: ['settings', 'openHours'] });
       }
+    }
+    // The business's address (the onboarding setup asks it): a US street address. null clears it.
+    if ('address' in s && s['address'] !== null) {
+      const parsed = BusinessAddress.safeParse(s['address']);
+      if (!parsed.success)
+        for (const issue of parsed.error.issues)
+          ctx.addIssue({
+            code: 'custom',
+            message: issue.message,
+            path: ['settings', 'address', ...issue.path.map((p) => p as string | number)],
+          });
     }
   });
 
