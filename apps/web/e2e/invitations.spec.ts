@@ -3,9 +3,9 @@ import {
   confirmEmail,
   createBusiness,
   linkFrom,
+  PASSWORD,
   signIn,
   signOut,
-  signUp,
   signUpAndConfirm,
   uniqueEmail,
   waitForMail,
@@ -44,12 +44,20 @@ test('owner invites a teammate; the teammate accepts the emailed link; roles and
   await page.getByTestId('switch-account').click();
   await expect(page).toHaveURL(/\/sign-in\?next=%2Finvite%2F/);
 
-  // The invitee signs up in a second browser context, confirms, and accepts.
+  // The invitee opens the link in a second browser context, signed out: Create an account keeps the invitation, so
+  // confirming the emailed code comes straight back to it.
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 832 } });
   const other = await ctx.newPage();
-  await signUp(other, { name: 'Test Invitee', email: invitee });
-  await confirmEmail(other, invitee);
   await other.goto(link);
+  await expect(other).toHaveURL(/\/sign-in\?next=%2Finvite%2F/);
+  await other.getByRole('link', { name: 'Create an account' }).click();
+  await expect(other).toHaveURL(/\/sign-up\?next=%2Finvite%2F/);
+  await other.getByLabel('Full name').fill('Test Invitee');
+  await other.getByLabel('Work email').fill(invitee);
+  await other.getByLabel('Password').fill(PASSWORD);
+  await other.getByRole('button', { name: 'Create account' }).click();
+  await confirmEmail(other, invitee);
+  await expect(other).toHaveURL(link);
   await expect(other.getByTestId('accept-invite')).toBeVisible();
   await other.getByTestId('accept-invite').click();
   await expect(other).toHaveURL(new RegExp(`/app/w/${workspaceId}`));

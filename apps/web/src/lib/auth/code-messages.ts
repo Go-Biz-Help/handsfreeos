@@ -1,9 +1,9 @@
 import { isAuthApiError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 
 /**
- * What the sign-in page says when Supabase Auth refuses an emailed code, in the phone app's words
- * (apps/mobile/src/lib/auth/messages.ts) where the web has none of its own. New accounts start on the web, so an
- * unknown address points at Create an account.
+ * What the sign-in and sign-up pages say when Supabase Auth refuses an emailed code, in the phone app's words
+ * (apps/mobile/src/lib/auth/messages.ts) where the web has none of its own. An unknown address points at Create an
+ * account.
  */
 
 /** How long before another code can be sent (Supabase Auth's own limit on the hosted project). */
@@ -14,7 +14,8 @@ function codeOf(error: unknown): string | null {
   return isAuthApiError(error) && typeof error.code === 'string' ? error.code : null;
 }
 
-const NO_CONNECTION = 'HandsFreeOS couldn’t be reached. Check your connection and try again.';
+export const NO_CONNECTION =
+  'HandsFreeOS couldn’t be reached. Check your connection and try again.';
 
 /** Email me a code. */
 export function sendCodeMessage(error: unknown): string {

@@ -14,7 +14,7 @@ appId: com.gobizhelp.handsfreeos
 # coming down, or locked after 30 days without a sync).
 - extendedWaitUntil:
     visible:
-      id: 'sign-in|lock-screen|home|test-unlock-prompt|more|settings|copy-progress|copy-locked|phone-copy'
+      id: 'sign-in|lock-screen|home|test-unlock-prompt|more|settings|copy-progress|copy-locked|phone-copy|choose-business'
     timeout: 45000
 - runFlow:
     when:
@@ -39,6 +39,16 @@ appId: com.gobizhelp.handsfreeos
     commands:
       - tapOn:
           id: 'copy-sign-out'
+      - tapOn:
+          id: 'confirm-sign-out'
+# Signed in to an account with no business yet (one a flow just made).
+- runFlow:
+    when:
+      visible:
+        id: 'choose-business-sign-out'
+    commands:
+      - tapOn:
+          id: 'choose-business-sign-out'
       - tapOn:
           id: 'confirm-sign-out'
 - runFlow:

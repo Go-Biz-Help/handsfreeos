@@ -23,6 +23,7 @@
       },
       "bundleIdentifier": "com.gobizhelp.handsfreeos",
       "buildNumber": "1",
+      "usesAppleSignIn": true,
       "associatedDomains": ["applinks:app.handsfreeos.com"],
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
@@ -185,6 +186,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {

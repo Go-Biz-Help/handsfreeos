@@ -1,0 +1,65 @@
+appId: com.gobizhelp.handsfreeos
+name: Create an account with an emailed code
+# A new account made on the phone, confirmed with the code supabase/templates/confirmation.html sends, read from the
+# local stack's Mailpit. With no business yet it lands on No business yet, and signs out for the next flow.
+tags:
+  - ci
+  - code
+---
+- runFlow: subflows/start-signed-out.yaml
+- evalScript: ${output.email = 'phone-signup-' + Date.now() + '@hfos.test'}
+- scrollUntilVisible:
+    element:
+      id: 'create-an-account'
+- tapOn:
+    id: 'create-an-account'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-up'
+    timeout: 10000
+- assertVisible: 'Create your account'
+# Too short a password is refused before anything is sent.
+- tapOn:
+    id: 'full-name'
+- inputText: 'Priya Natarajan'
+- tapOn:
+    id: 'email'
+- inputText: ${output.email}
+# The password's return key creates the account, as Create account does.
+- tapOn:
+    id: 'password'
+- inputText: 'too-short'
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: 'Use at least 12 characters. A short sentence works well.'
+    timeout: 10000
+- tapOn:
+    id: 'password'
+- eraseText: 20
+- inputText: 'correct-horse-battery-staple'
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: 'code-screen'
+    timeout: 15000
+- assertVisible: 'Check your email'
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      EMAIL: ${output.email}
+      SUBJECT: 'Confirm your HandsFreeOS email'
+- tapOn:
+    id: 'code-input'
+- inputText: ${output.code}
+# Signed in, and in no business yet.
+- extendedWaitUntil:
+    visible: 'No business yet'
+    timeout: 30000
+- tapOn:
+    id: 'choose-business-sign-out'
+- tapOn:
+    id: 'confirm-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in'
+    timeout: 20000

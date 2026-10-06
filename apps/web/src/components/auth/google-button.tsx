@@ -1,4 +1,5 @@
 'use client';
+import { providerSignInMessage } from '@hfos/core';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -28,11 +29,18 @@ function GoogleG() {
   );
 }
 
+/**
+ * Continue with Google, on the sign-in and sign-up pages once Google is turned on in Supabase. It signs in, or makes
+ * the account the first time. `visitor` is the website's Opinly visitor id from a sign-up link, kept on a new account
+ * by the callback as the email sign-up keeps it.
+ */
 export function GoogleButton({
   next,
+  visitor,
   label = 'Continue with Google',
 }: {
   next?: string;
+  visitor?: string;
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
@@ -45,14 +53,16 @@ export function GoogleButton({
       data-testid="google-sign-in"
       onClick={async () => {
         setBusy(true);
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext(next))}`;
+        const back = new URLSearchParams({ next: safeNext(next) });
+        if (visitor) back.set('oa', visitor);
+        const redirectTo = `${window.location.origin}/auth/callback?${back}`;
         const { data, error } = await supabaseBrowser().auth.signInWithOAuth({
           provider: 'google',
           options: { redirectTo, skipBrowserRedirect: true },
         });
         if (error || !data.url) {
           setBusy(false);
-          toast.error(error?.message ?? 'Google sign-in is not available right now.');
+          toast.error(providerSignInMessage('google', error?.code ?? null));
           return;
         }
         window.location.assign(data.url);

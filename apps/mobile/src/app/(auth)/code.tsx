@@ -18,9 +18,14 @@ function countdown(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** "Check your email": the 6-digit code, typed, pasted or filled in from the email. */
+/**
+ * "Check your email": the 6-digit code, typed, pasted or filled in from the email. Signing in by code, and confirming
+ * a new account's email (`purpose` sign-up, from Create account or a password sign-in that isn't confirmed yet), which
+ * signs in too.
+ */
 export default function Code() {
-  const { email = '' } = useLocalSearchParams<{ email: string }>();
+  const { email = '', purpose } = useLocalSearchParams<{ email: string; purpose?: string }>();
+  const signingUp = purpose === 'sign-up';
   const [code, setCode] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [checking, setChecking] = React.useState(false);
@@ -36,7 +41,11 @@ export default function Code() {
     async (token: string) => {
       setChecking(true);
       setError(null);
-      const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: signingUp ? 'signup' : 'email',
+      });
       if (verifyError) {
         setChecking(false);
         setError(verifyCodeMessage(verifyError));
@@ -44,15 +53,14 @@ export default function Code() {
       }
       await session.refreshFromStorage();
     },
-    [email],
+    [email, signingUp],
   );
 
   const resend = async () => {
     setError(null);
-    const { error: sendError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
+    const { error: sendError } = signingUp
+      ? await supabase.auth.resend({ type: 'signup', email })
+      : await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
     if (sendError) return setError(sendCodeMessage(sendError));
     setCode('');
     setWait(RESEND_SECONDS);
@@ -63,19 +71,30 @@ export default function Code() {
       back
       testID="code-screen"
       footer={
-        <Button
-          variant="ghost"
-          onPress={() => router.replace({ pathname: '/password', params: { email } })}
-          testID="use-my-password-instead"
-        >
-          Use my password instead
-        </Button>
+        signingUp ? (
+          <Button
+            variant="ghost"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/sign-up'))}
+            testID="use-a-different-email"
+          >
+            Use a different email
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            onPress={() => router.replace({ pathname: '/password', params: { email } })}
+            testID="use-my-password-instead"
+          >
+            Use my password instead
+          </Button>
+        )
       }
     >
       <View className="gap-1.5">
         <Text variant="title">Check your email</Text>
         <Text variant="lead">
           We sent a 6-digit code to <Text className="font-semibold text-text">{email}</Text>.
+          {signingUp ? ' Type it here to finish creating your account.' : null}
         </Text>
       </View>
       <View className="mt-1.5 gap-2">

@@ -46,6 +46,15 @@ export function linkFrom(body: string, pattern: RegExp): string {
   return m[0];
 }
 
+/** The 6-digit code in an email: signing up's, or Email me a code's. */
+export function codeFrom(mail: { text: string; html: string }): string {
+  const code = /\b(\d{6})\b/.exec(mail.text || mail.html.replace(/<[^>]+>/g, ' '))?.[1];
+  if (!code) throw new Error('no 6-digit code in the email');
+  return code;
+}
+
+export const SIGN_UP_SUBJECT = 'Confirm your HandsFreeOS email';
+
 export async function signUp(
   page: Page,
   opts: { name: string; email: string; password?: string },
@@ -58,13 +67,11 @@ export async function signUp(
   await expect(page.getByTestId('check-email')).toBeVisible();
 }
 
+/** Types the code from the sign-up email where the account is being made, and waits until it's signed in. */
 export async function confirmEmail(page: Page, email: string): Promise<void> {
-  const mail = await waitForMail(email, 'Confirm your HandsFreeOS email');
-  const link = linkFrom(
-    mail.text || mail.html,
-    /http:\/\/localhost:3000\/auth\/confirm\?token_hash=[^\s"<]+/,
-  );
-  await page.goto(link);
+  const mail = await waitForMail(email, SIGN_UP_SUBJECT);
+  await page.getByTestId('check-email').getByLabel('6-digit code').fill(codeFrom(mail));
+  await expect(page).not.toHaveURL(/\/sign-up/);
 }
 
 export async function signUpAndConfirm(
