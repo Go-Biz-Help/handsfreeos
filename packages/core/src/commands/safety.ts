@@ -32,6 +32,8 @@ import {
   SafetyResolveOutput,
   SafetySettingsInput,
   SafetySettingsOutput,
+  SafetyWhereInput,
+  SafetyWhereOutput,
 } from '../schemas/safety';
 import { contactStatus, SAFETY_LIMITS } from '../safety';
 
@@ -94,7 +96,8 @@ export const safetyCheckIn = defineCommand({
   output: SafetyCheckInOutput,
   permission: 'workspace.read',
   scope,
-  emits: ['safety.checked_in'],
+  // An earlier check-in still open ends here, checked out.
+  emits: ['safety.checked_in', 'safety.checked_out'],
   actors: ['human'],
   offline: 'anytime',
   async handler(ctx, input) {
@@ -133,13 +136,16 @@ export const safetyCheckIn = defineCommand({
     );
     for (const e of ended) await emitFor(ctx, 'safety.checked_out', e.id);
     const located = input.latitude !== undefined && input.longitude !== undefined;
+    // Following the phone needs a first reading: the person turned Share where I am on, and allowed it.
+    const follows = located && input.follow === true;
     const row = await rows<CheckInRow>(
       ctx.tx,
       sql`insert into app.safety_checkins (id, workspace_id, user_id, appointment_id, place, latitude, longitude,
-            located_at, started_at, planned_end_at)
+            located_at, follows, started_at, planned_end_at)
           values (${input.id}::uuid, ${ws}::uuid, ${me.userId}::uuid, ${input.appointmentId ?? null}::uuid,
             ${input.place}, ${located ? input.latitude! : null}, ${located ? input.longitude! : null},
-            ${located ? startedIso : null}::timestamptz, ${startedIso}::timestamptz, ${end.toISOString()}::timestamptz)
+            ${located ? startedIso : null}::timestamptz, ${follows}, ${startedIso}::timestamptz,
+            ${end.toISOString()}::timestamptz)
           returning ${COLUMNS}`,
     )
       .then((r) => r[0])
@@ -185,6 +191,56 @@ export const safetyExtend = defineCommand({
     );
     await emitFor(ctx, 'safety.extended', r.id, { wasAlerted });
     return { checkIn: shape(row!) };
+  },
+});
+
+/**
+ * Where the phone is now, during a check-in it shares that for (round seven, Chris 2026-10-05): one spot per
+ * check-in, the latest by when it was taken, never a trail. It waits on the phone with no signal (only the latest is
+ * sent), so one taken after the check-in ended, or older than the spot kept, changes nothing. No event: the ladder
+ * reads the spot when it tells someone, and the history keeps only that the check-in was shared.
+ */
+export const safetyWhere = defineCommand({
+  name: 'safety.where',
+  description:
+    'Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.',
+  risk: 0,
+  input: SafetyWhereInput,
+  output: SafetyWhereOutput,
+  permission: 'workspace.read',
+  scope,
+  emits: [],
+  actors: ['human'],
+  offline: 'anytime',
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const r = await ownCheckIn(ctx, input.checkInId);
+    const at = changeMoment(ctx.meta).toISOString();
+    const [moved] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`update app.safety_checkins
+          set latitude = ${input.latitude}, longitude = ${input.longitude}, located_at = ${at}::timestamptz
+          where id = ${r.id}::uuid and follows
+            and state in ('in', 'asked', 'alerted', 'help')
+            and (located_at is null or located_at < ${at}::timestamptz)
+          returning id`,
+    );
+    if (moved) return { checkInId: r.id, kept: true, open: true };
+    const [f] = await rows<{ follows: boolean; state: string }>(
+      ctx.tx,
+      sql`select follows, state from app.safety_checkins where id = ${r.id}::uuid`,
+    );
+    if (!f?.follows)
+      throw HfosError.rule(
+        'safety_not_shared',
+        409,
+        'This check-in doesn’t share where you are. Check in again with Share where I am on to share it.',
+      );
+    return {
+      checkInId: r.id,
+      kept: false,
+      open: ['in', 'asked', 'alerted', 'help'].includes(f.state),
+    };
   },
 });
 
@@ -628,6 +684,7 @@ export const safetySettingsSave = defineCommand({
 
 export const safetyCommands = [
   safetyCheckIn,
+  safetyWhere,
   safetyExtend,
   safetyCheckOut,
   safetyHelp,

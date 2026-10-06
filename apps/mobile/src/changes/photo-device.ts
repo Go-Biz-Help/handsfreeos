@@ -1,16 +1,17 @@
-import { Directory, File, UploadType } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { Platform } from 'react-native';
 
-import { photosFolderUri } from '@/sync/device-files';
+import { PIECE_BYTES } from '@/sync/kept-files';
+import { keptStore } from '@/sync/kept-store';
 
 import type { PhotoTransport, StorageAnswer } from './photos';
 
 /**
  * Photos on the phone itself: taking or picking one (asking for the camera only when it's used; picking needs no
- * permission), shrinking it to a JPEG about 2,048 px on its longest side, keeping it in the person's photos folder until
- * HandsFreeOS confirms it (see `photosFolderUri`), and the requests to Storage.
+ * permission), shrinking it to a JPEG about 2,048 px on its longest side, keeping it encrypted in the person's kept
+ * files until HandsFreeOS confirms it (`sync/kept-files.ts`; round seven, never a plain file), and the requests to
+ * Storage.
  */
 
 /** The longest side a photo is shrunk to. */
@@ -21,7 +22,7 @@ export const PHOTO_QUALITY = 0.75;
 export type PhotoSource = 'camera' | 'library';
 
 export interface KeptPhoto {
-  /** The file's name in the person's photos folder. */
+  /** Its name in the person's kept files. */
   readonly localName: string;
   readonly sizeBytes: number;
   readonly width: number;
@@ -33,11 +34,7 @@ export type TakePhotoResult =
   | { readonly kind: 'cancelled' }
   | { readonly kind: 'no-camera-permission' };
 
-const folderUri = photosFolderUri;
-const fileUri = (userId: string, name: string) =>
-  `${folderUri(userId)}/${encodeURIComponent(name)}`;
-
-/** Takes a photo with the camera, or picks one, then shrinks it and keeps it in the person's photos folder. */
+/** Takes a photo with the camera, or picks one, then shrinks it and keeps it in the person's kept files. */
 export async function takePhoto(input: {
   readonly userId: string;
   readonly source: PhotoSource;
@@ -66,8 +63,8 @@ export async function takePhoto(input: {
 }
 
 /**
- * Shrinks an image to a JPEG no more than 2,048 px on its longest side (an iPhone's HEIC included) and moves it out of
- * the cache folder the manipulator writes to, into the person's photos folder.
+ * Shrinks an image to a JPEG no more than 2,048 px on its longest side (an iPhone's HEIC included) and keeps it in the
+ * person's kept files, deleting the plain one the manipulator wrote to the cache folder.
  */
 export async function keepPhoto(input: {
   readonly userId: string;
@@ -82,13 +79,15 @@ export async function keepPhoto(input: {
     context.resize(input.width >= input.height ? { width: PHOTO_EDGE } : { height: PHOTO_EDGE });
   const image = await context.renderAsync();
   const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: PHOTO_QUALITY });
-  const folder = new Directory(folderUri(input.userId));
-  folder.create({ intermediates: true, idempotent: true });
   const localName = `${input.fileId}.jpg`;
-  const target = new File(fileUri(input.userId, localName));
-  if (target.exists) target.delete();
-  new File(saved.uri).moveSync(target);
-  return { localName, sizeBytes: target.size, width: saved.width, height: saved.height };
+  const plain = new File(saved.uri);
+  try {
+    const bytes = plain.bytesSync();
+    keptStore.of(input.userId).put(localName, 'waiting', bytes, { mimeType: 'image/jpeg' });
+    return { localName, sizeBytes: bytes.length, width: saved.width, height: saved.height };
+  } finally {
+    if (plain.exists) plain.delete();
+  }
 }
 
 /**
@@ -101,27 +100,21 @@ export function keepLargeTestFile(input: {
   readonly sizeBytes: number;
   readonly randomBytes: (count: number) => Uint8Array;
 }): KeptPhoto {
-  const folder = new Directory(folderUri(input.userId));
-  folder.create({ intermediates: true, idempotent: true });
+  const kept = keptStore.of(input.userId);
   const localName = `${input.fileId}.jpg`;
-  const file = new File(fileUri(input.userId, localName));
-  if (file.exists) file.delete();
-  file.create();
-  const handle = file.open();
-  try {
-    const piece = 1024 * 1024;
-    for (let written = 0; written < input.sizeBytes; written += piece)
-      handle.writeBytes(input.randomBytes(Math.min(piece, input.sizeBytes - written)));
-  } finally {
-    handle.close();
-  }
-  return { localName, sizeBytes: file.size, width: 0, height: 0 };
+  kept.begin(localName, 'waiting', input.sizeBytes, { mimeType: 'image/jpeg' });
+  for (let written = 0; written < input.sizeBytes; written += PIECE_BYTES)
+    kept.append(
+      localName,
+      written,
+      input.randomBytes(Math.min(PIECE_BYTES, input.sizeBytes - written)),
+    );
+  return { localName, sizeBytes: input.sizeBytes, width: 0, height: 0 };
 }
 
 /** Deletes a photo kept for upload. */
 export function removePhoto(userId: string, localName: string): void {
-  const file = new File(fileUri(userId, localName));
-  if (file.exists) file.delete();
+  keptStore.current(userId)?.remove(localName);
 }
 
 function answerOf(
@@ -154,32 +147,34 @@ const headersOf = (response: Response) => {
   return out;
 };
 
-/** Storage and the photos folder, for one person's photos. */
+/** Storage and the person's kept files, for one person's photos. */
 export function devicePhotoTransport(input: {
   readonly userId: () => string | null;
   readonly fetch: typeof fetch;
   /** Test builds' No signal switch fails uploads too. */
   readonly offline: () => boolean;
 }): PhotoTransport {
-  const file = (name: string) => {
+  const kept = () => {
     const userId = input.userId();
     if (!userId) throw new Error('Nobody is signed in.');
-    return new File(fileUri(userId, name));
+    return keptStore.of(userId);
   };
   return {
+    // Read from the kept files and sent from the app (6 MB at most): no plain file for the system to send in the
+    // background, so an upload stopped by leaving the app goes again on coming back.
     async uploadWhole(request, onProgress) {
       if (input.offline()) return { reached: false, message: 'No signal.' };
       try {
-        const result = await file(request.localName).upload(request.url, {
-          httpMethod: 'POST',
-          uploadType: UploadType.BINARY_CONTENT,
-          headers: request.headers,
-          mimeType: request.mimeType,
-          // An iPhone carries the upload on while the app is in the background; Android ignores it.
-          ...(Platform.OS === 'ios' ? { sessionType: 'background' as const } : {}),
-          onProgress: ({ bytesSent }) => onProgress(bytesSent),
+        const bytes = kept().read(request.localName);
+        if (!bytes) return { reached: false, message: 'The photo isn’t on this phone.' };
+        const response = await input.fetch(request.url, {
+          method: 'POST',
+          headers: { 'content-type': request.mimeType, ...request.headers },
+          body: bytes,
         });
-        return answerOf(result.status, result.body, result.headers);
+        const body = await response.text();
+        if (response.ok) onProgress(bytes.length);
+        return answerOf(response.status, body, headersOf(response));
       } catch (error) {
         return unreachable(error);
       }
@@ -221,28 +216,19 @@ export function devicePhotoTransport(input: {
         return unreachable(error);
       }
     },
-    readPiece(localName, offset, length) {
-      const handle = file(localName).open();
-      try {
-        handle.offset = offset;
-        return handle.readBytes(length);
-      } finally {
-        handle.close();
-      }
-    },
+    readPiece: (localName, offset, length) => kept().readRange(localName, offset, length),
     exists: (localName) => {
       try {
-        return file(localName).exists;
+        return kept().has(localName);
       } catch {
         return false;
       }
     },
     remove: (localName) => {
       try {
-        const f = file(localName);
-        if (f.exists) f.delete();
+        kept().remove(localName);
       } catch {
-        // Nobody signed in: their copy's folder goes with the copy.
+        // Nobody signed in, or their copy isn't open: their kept files go with the copy.
       }
     },
   };

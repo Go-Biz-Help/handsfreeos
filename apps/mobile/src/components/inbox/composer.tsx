@@ -42,7 +42,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import type { TrayPhoto } from '@/inbox/send';
 import { cn } from '@/lib/utils';
-import { photosFolderUri } from '@/sync/device-files';
+import { keptPhotoUri } from '@/sync/kept-uri';
 import { useColors } from '@/theme';
 
 import { newRichDraft, RichEditor } from './rich-editor';
@@ -53,9 +53,9 @@ export type ComposerMode = 'sms' | 'email' | 'chat' | 'portal';
 /** Over the box while a reply waiting on the phone is reopened from Still send? or the quiet-hours question. */
 export const EDITING = 'Editing what you wrote. Send puts it back in line.';
 
-/** A photo on the tray, as the phone keeps it until the reply goes. */
-export function localPhotoUri(userId: string, localName: string): string {
-  return `${photosFolderUri(userId)}/${encodeURIComponent(localName)}`;
+/** A photo on the tray, as the phone keeps it (encrypted) until the reply goes; nothing once it's gone. */
+export function localPhotoUri(userId: string, localName: string): string | undefined {
+  return keptPhotoUri(userId, localName) ?? undefined;
 }
 
 /** A sentence with a word or two in bold. */

@@ -115,6 +115,14 @@ describe('the banner while checked in', () => {
     expect(addTime).toHaveBeenCalledWith({ workspaceId: WS, checkInId: ACTIVE.id }, 15);
     await fireEvent.press(screen.getByTestId('check-in-out'));
     expect(checkOut).toHaveBeenCalledWith({ workspaceId: WS, checkInId: ACTIVE.id });
+    expect(screen.queryByTestId('check-in-banner-sharing')).toBeNull();
+  });
+
+  it('says when the phone is sharing where it is until the check-out', async () => {
+    await render(<CheckInStrip active={ACTIVE} contacts={CONTACTS} timeZone={TZ} sharing />);
+    expect(screen.getByTestId('check-in-banner-sharing')).toHaveTextContent(
+      'Sharing where you are',
+    );
   });
 
   it('asks whether they’re OK once it’s past the planned end', async () => {

@@ -2,8 +2,8 @@ import { requireNativeModule } from 'expo';
 
 /**
  * What the app asks the phone itself: whether it's locked (Android; an iPhone checks before a button reaches the app),
- * opening a page on the web in the browser, never back in HandsFreeOS (the app claims app.handsfreeos.com/app/…), and
- * adding the business's number to Contacts.
+ * opening a page on the web in the browser, never back in HandsFreeOS (the app claims app.handsfreeos.com/app/…),
+ * adding the business's number to Contacts, and showing a document the phone keeps.
  */
 interface HfosPhoneModule {
   /** Android: locked with its PIN, pattern, password or fingerprint. iOS: always false (iOS checks itself). */
@@ -18,6 +18,12 @@ interface HfosPhoneModule {
     name: string,
     phone: string,
   ): Promise<'added' | 'cancelled' | 'opened' | 'unavailable'>;
+  /**
+   * Shows a file the app decrypted into its cache (a document kept on the phone). iOS: Quick Look inside the app,
+   * "closed" once it's closed. Android: the phone's viewer for its type, "opened" (it doesn't say when it's closed).
+   * Either: "unavailable" when nothing can show it.
+   */
+  viewFile(path: string, mimeType: string): Promise<'closed' | 'opened' | 'unavailable'>;
 }
 
 export default requireNativeModule<HfosPhoneModule>('HfosPhone');

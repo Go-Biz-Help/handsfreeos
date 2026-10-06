@@ -46,6 +46,7 @@ import { connectionQueries } from './ops/connections';
 import { searchCommands, searchQueries } from './ops/searches';
 import { fieldCommands, fieldQueries } from './ops/field';
 import { exportCommands, exportQueries } from './ops/export';
+import { lockboxCommands, lockboxQueries } from './ops/lockboxes';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
@@ -89,6 +90,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...searchCommands,
     ...fieldCommands,
     ...exportCommands,
+    ...lockboxCommands,
   ],
   queries: [
     ...realestateQueries,
@@ -123,5 +125,6 @@ export const realestateAddonServer: AddonServerModule = {
     ...searchQueries,
     ...fieldQueries,
     ...exportQueries,
+    ...lockboxQueries,
   ],
 };

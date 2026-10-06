@@ -84,7 +84,7 @@ export function CheckInSheet({
         place: placeWords,
         plannedEndAt: plannedEnd,
         ...(appointmentId ? { appointmentId } : {}),
-        ...(here ? { latitude: here.lat, longitude: here.lng } : {}),
+        ...(here ? { latitude: here.lat, longitude: here.lng, follow: true } : {}),
       });
       toast.show(SAFETY_PHONE_WORDS.checkedInToast(fmtTime(Date.parse(plannedEnd), tz)));
       onClose();

@@ -28,6 +28,8 @@ export type TeammateToolAutonomy = 'auto' | 'draft' | 'approval';
 export type TeammateToolSkill =
   | TeammateSkill
   | 'core'
+  /** Round seven: an add-on's tools, offered while it runs and an owner turned it on (`addons/teammate.ts`). */
+  | 'addons'
   | 'discounts'
   | 'deals'
   | 'photos'
@@ -756,6 +758,8 @@ export function teammateTools(
 ): TeammateTool[] {
   const on: Readonly<Record<TeammateToolSkill, boolean>> = {
     core: true,
+    // Never one of these: an add-on's tools come from `teammateAddonTools`.
+    addons: false,
     respond: config.respond.enabled,
     answer: config.answer.enabled,
     qualify: config.qualify.enabled,

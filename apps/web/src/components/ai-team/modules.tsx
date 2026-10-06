@@ -11,6 +11,7 @@ import {
   PHONE_VOICES,
   QUIET_FOLLOW_UP_MINUTES,
   TEAMMATE_LINKS,
+  teammateUsesAddon,
   type NotifyWho,
   type PhoneAnswerMode,
   type PhoneVoice,
@@ -50,6 +51,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { teammateActions } from '@/lib/ai-team/actions';
 import {
   afterHoursWords,
@@ -61,6 +63,7 @@ import {
   percentOfLimit,
   plural,
   progressView,
+  teammateAddonsHere,
   type ModuleKey,
 } from '@/lib/ai-team/describe';
 import type { TeammateProgress } from '@/lib/ai-team/types';
@@ -1671,6 +1674,62 @@ function HandOffModule({ draft, patch, catalogs }: ModuleProps) {
   );
 }
 
+// ---------- Add-ons (round seven) ----------
+
+/**
+ * The add-ons it uses in a customer's conversation, each off until an owner turns it on: it looks things up as the
+ * customer (what their portal shows them), asks a person on their record before anything is done, and an add-on's
+ * checks run on its replies.
+ */
+function AddonsModule({ draft, patch }: ModuleProps) {
+  const offered = teammateAddonsHere(useWorkspaceShell().addons);
+  const name = draft.identity.name;
+  return (
+    <>
+      <ModuleHeading
+        title="Add-ons"
+        description={`${name} uses an add-on in a customer’s conversation only once you turn it on here, and only while the add-on is on.`}
+      />
+      {offered.map((m, i) => {
+        const t = m.teammate!;
+        const on = teammateUsesAddon(draft, m.id);
+        return (
+          <SetRow
+            key={m.id}
+            first={i === 0}
+            title={`Use ${m.name}`}
+            description={
+              <span className="flex flex-col gap-1">
+                <span>For {t.directory}.</span>
+                <span>
+                  Looks things up as the customer: what their portal shows them, nothing about
+                  anyone else.
+                </span>
+                {t.asks?.length ? (
+                  <span>Asks a person on their record before anything is done, done as them.</span>
+                ) : null}
+                {t.checksReplies ? (
+                  <span>
+                    {m.name}’s checks run on every reply; one they flag waits for you, even when{' '}
+                    {name} answers on its own.
+                  </span>
+                ) : null}
+              </span>
+            }
+          >
+            <Switch
+              checked={on}
+              label={`Use ${m.name}`}
+              testId={`addon-${m.id}`}
+              onChange={(v) => patch({ addons: { [m.id]: { on: v } } }, onOff(v, m.name))}
+            />
+          </SetRow>
+        );
+      })}
+    </>
+  );
+}
+
 // ---------- The form ----------
 
 function ModuleBody(props: ModuleProps & { module: ModuleKey }) {
@@ -1697,6 +1756,8 @@ function ModuleBody(props: ModuleProps & { module: ModuleKey }) {
       return <LimitsModule {...props} />;
     case 'handOff':
       return <HandOffModule {...props} />;
+    case 'addons':
+      return <AddonsModule {...props} />;
   }
 }
 

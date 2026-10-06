@@ -1,5 +1,5 @@
 'use client';
-import { APPROVALS_WORDS, draftDecidedLine } from '@hfos/core';
+import { APPROVALS_WORDS, DRAFT_WORDS, draftDecidedLine } from '@hfos/core';
 import { Check, Clock, Info, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -357,12 +357,37 @@ export function TeammateDraftCard({
               </span>
             </div>
           ) : null}
+          {d.kind === 'ask' && d.preview.ask ? (
+            <div className="flex flex-col gap-1.5" data-testid="teammate-draft-ask">
+              <span className={SECTION}>{DRAFT_WORDS.askFrom(name, d.preview.ask.addonName)}</span>
+              <p className="rounded-[10px] border border-border px-3 py-2.5 text-[13.5px] font-medium leading-[1.5]">
+                {d.preview.ask.summary}
+              </p>
+              <span className="text-xs text-text-3">
+                {DRAFT_WORDS.askThen(first, message?.body ?? null)}
+              </span>
+            </div>
+          ) : null}
+          {d.preview.flags.length ? (
+            <div
+              className="flex flex-col gap-1.5 rounded-[10px] border border-[color-mix(in_oklab,var(--warning)_35%,transparent)] bg-warning-soft px-3 py-2.5 text-[13px] text-warning-text"
+              data-testid="teammate-draft-flags"
+            >
+              <span className="font-medium">{DRAFT_WORDS.heldWhy(name)}</span>
+              {d.preview.flags.map((f, i) => (
+                <span key={i}>{f.message}</span>
+              ))}
+            </div>
+          ) : null}
           <DraftActions draft={d} />
           <p className="flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2">
             <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
             <span>
               {d.kind === 'approval' && !d.canDecide
                 ? 'Only owners and admins decide what the AI teammate asks approval for. '
+                : ''}
+              {d.kind === 'ask' && !d.canDecide
+                ? `${DRAFT_WORDS.askWho(d.record?.name ?? null)} `
                 : ''}
               {bookHolds
                 ? 'Approving books the time first, then sends. If someone took that time meanwhile, the conversation goes to a person with a note. '
@@ -389,7 +414,15 @@ export function TeammateDraftCard({
               data-testid="teammate-draft-approve"
             >
               {busy === 'approve' ? null : <Check className="h-4 w-4" strokeWidth={1.75} />}
-              {d.kind === 'call' ? 'Approve the call' : message ? 'Approve and send' : 'Approve'}
+              {d.kind === 'call'
+                ? 'Approve the call'
+                : d.kind === 'ask'
+                  ? DRAFT_WORDS.approve
+                  : d.preview.flags.length
+                    ? DRAFT_WORDS.sendAsItIs
+                    : message
+                      ? 'Approve and send'
+                      : 'Approve'}
             </Button>
             <Button
               variant="secondary"
@@ -402,7 +435,9 @@ export function TeammateDraftCard({
           </>
         ) : (
           <span className="text-[13px] text-text-2" data-testid="teammate-draft-readonly">
-            Waiting for an owner or admin.
+            {d.kind === 'ask'
+              ? DRAFT_WORDS.askWho(d.record?.name ?? null)
+              : 'Waiting for an owner or admin.'}
           </span>
         )}
         <span className="flex-1" />

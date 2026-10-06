@@ -131,6 +131,7 @@ export {
   safetyExtend,
   safetyHelp,
   safetyResolveByLink,
+  safetyWhere,
 } from './safety';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
@@ -445,6 +446,12 @@ export {
   connectorOf,
   CONNECTION_FAILURES_BEFORE_ERROR,
 } from './addon-connection';
+
+import { addonSealedCommands } from './addon-sealed';
+
+/** Values an add-on keeps sealed (round seven): each time one is shown again, kept in the history. */
+export const { viewed: addonSealedViewed } = addonSealedCommands(ADDON_CATALOG);
+export { addonSealedCommands } from './addon-sealed';
 
 export {
   conversationAssign,
@@ -1025,6 +1032,8 @@ export const commands: readonly CommandDef[] = [
   addonConnectionEndSignIn,
   addonConnectionTokens,
   addonConnectionPlatform,
+  // A sealed value shown again (round seven).
+  addonSealedViewed,
   // Getting started.
   onboardingSaveAnswers,
   onboardingSkip,

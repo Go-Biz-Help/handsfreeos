@@ -129,6 +129,7 @@ describe('defaults', () => {
 
   it('keeps the status and the training counts out of the document', () => {
     expect(Object.keys(emptyTeammateConfig()).sort()).toEqual([
+      'addons',
       'answer',
       'autonomy',
       'book',

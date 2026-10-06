@@ -743,6 +743,54 @@
       "y": 30264,
       "w": 2234,
       "h": 1040
+    },
+    {
+      "file": "LockboxesWeb.dc.html",
+      "title": "94 \u00b7 A listing\u2019s lockboxes, Show code, who opened them, the alert",
+      "x": 0,
+      "y": 31504,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "LockboxAdd.dc.html",
+      "title": "95 \u00b7 Adding a lockbox (the code locked as it\u2019s saved), reading their emails, the access email",
+      "x": 1360,
+      "y": 31504,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "TeammateAddons.dc.html",
+      "title": "96 \u00b7 The AI teammate\u2019s settings: using Real Estate, off until an owner turns it on",
+      "x": 2720,
+      "y": 31504,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "TeammateInbox.dc.html",
+      "title": "97 \u00b7 In the Inbox: what the teammate asked for, and a reply the fair housing checks held",
+      "x": 4080,
+      "y": 31504,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PhoneLockboxesTeammate.dc.html",
+      "title": "98 \u00b7 Phone: lockboxes (never the code), the opened alert, what the teammate asked for, a held reply",
+      "x": 0,
+      "y": 32504,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "PhoneSharingDocuments.dc.html",
+      "title": "99 \u00b7 Phone: sharing where you are until check-out, documents kept on the phone (built in steps 1\u20132)",
+      "x": 1858,
+      "y": 32504,
+      "w": 1738,
+      "h": 1040
     }
   ]
 }

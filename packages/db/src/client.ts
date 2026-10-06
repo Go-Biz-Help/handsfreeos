@@ -127,6 +127,27 @@ export async function asCustomer<T>(
   });
 }
 
+/**
+ * Runs `fn` in one transaction as the customer the AI teammate is answering (round seven): `portal_actor` again,
+ * with the teammate's run in place of a device's session. The database finds the customer from the run, and only
+ * while it is still answering, so the teammate reads what that client's portal shows them and nothing else.
+ */
+export async function asCustomerTeammate<T>(
+  db: Db,
+  runId: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('role', 'portal_actor', true),
+            set_config('app.portal.teammate_run', ${runId}, true),
+            set_config('statement_timeout', ${USER_STATEMENT_TIMEOUT}, true),
+            set_config('idle_in_transaction_session_timeout', ${USER_IDLE_IN_TRANSACTION_TIMEOUT}, true)`,
+    );
+    return fn(tx);
+  });
+}
+
 /** Rows from a raw `sql` query, typed by the caller. */
 export async function rows<T extends Record<string, unknown>>(
   tx: Tx | Db,

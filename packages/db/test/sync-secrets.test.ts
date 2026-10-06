@@ -106,6 +106,8 @@ const SECRET_TABLES = [
   'intake_sources',
   'invitations',
   'mailbox_connections',
+  // A sealed part of an email (round seven): the worker's alone.
+  'message_sealed_parts',
   'migration_connections',
   'payment_connections',
   // Real Estate round two: a client's signed-in device, kept only as its bearer's hash. No phone ever needs it.

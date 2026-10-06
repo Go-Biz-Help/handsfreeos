@@ -22,6 +22,7 @@ import {
   draftActionLine,
   draftShort,
   draftTitle,
+  DRAFT_WORDS,
   emailNote,
   emailStatusLine,
   expiresLine,
@@ -42,6 +43,7 @@ import {
   quietQuestion,
   SENT_WORDS,
   quietStrip,
+  rejectedToast,
   segmentCounterLabel,
   senderOf,
   snoozedBanner,
@@ -545,6 +547,62 @@ describe('the AI teammate', () => {
         'Mike',
       ),
     ).toBe('Approved. That’s 20: Ava replies on its own from now on.');
+  });
+
+  it('words what it asks for with an add-on, and a reply an add-on’s check held (round seven)', () => {
+    const ask = draft({
+      kind: 'ask',
+      preview: {
+        message: { body: '412 Oak St is on your list now.' },
+        actions: [],
+        discount: null,
+        ask: { addonName: 'Real Estate Agent', summary: 'Add 412 Oak St to Dana’s homes' },
+      },
+    });
+    expect(draftTitle(ask)).toBe('Ava asks: Add 412 Oak St to Dana’s homes');
+    expect(draftShort(ask)).toBe('Ava asks: Add 412 Oak St to Dana’s homes');
+    const progress = {
+      status: 'training',
+      approvedCount: 3,
+      approvalsNeeded: 20,
+      becameAutomatic: false,
+    } as const;
+    expect(approvedToast(ask, progress, false, 'Dana')).toBe(
+      'Done, as you. Ava lets Dana know now.',
+    );
+    expect(
+      approvedToast(
+        { ...ask, preview: { ...ask.preview, message: null } },
+        progress,
+        false,
+        'Dana',
+      ),
+    ).toBe('Done, as you. Nothing was sent.');
+    expect(rejectedToast(ask, 'Dana')).toBe('Rejected. Nothing changed, and nothing went to Dana.');
+    expect(decideRefusal('not_on_record', 'Dana', 'Ava')).toMatch(
+      /^Only someone who works the record/,
+    );
+    expect(DRAFT_WORDS.askFrom('Ava', 'Real Estate Agent')).toBe('Ava asks · Real Estate Agent');
+    expect(DRAFT_WORDS.askThen('Dana', '412 Oak St is on your list now.')).toBe(
+      'Approving does it as you, then Dana gets: “412 Oak St is on your list now.”',
+    );
+    expect(DRAFT_WORDS.askThen('Dana', null)).toBe('Approving does it as you. Nothing is sent.');
+    expect(DRAFT_WORDS.askWho('Dana’s home search')).toBe(
+      'Only people on Dana’s home search can decide it.',
+    );
+    expect(DRAFT_WORDS.askWho(null)).toBe(
+      'Only someone who works the record it’s about can decide it.',
+    );
+    const held = draft({
+      preview: {
+        message: { body: 'It’s a quiet street with good schools.' },
+        actions: [],
+        discount: null,
+        flags: [{ addonName: 'Real Estate Agent', message: 'Fair housing: “good schools”.' }],
+      },
+    });
+    expect(draftShort(held)).toBe('Ava’s reply, held for you');
+    expect(DRAFT_WORDS.heldWhy('Ava')).toBe('Ava answers on its own, but this reply waits for you');
   });
 });
 

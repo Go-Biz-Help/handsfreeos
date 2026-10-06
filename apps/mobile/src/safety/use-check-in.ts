@@ -1,7 +1,10 @@
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
-import { activeCheckIn, type ActiveCheckIn, type CheckInRow } from './check-in';
+import { deviceStore } from '@/lib/device-store';
+
+import { activeCheckIn, OPEN_STATES, type ActiveCheckIn, type CheckInRow } from './check-in';
+import { following, reconcileFollowing } from './follow';
 
 /** The person's own check-ins in a business, from the phone's copy (records_v1), newest first. */
 export const MY_CHECK_INS_SQL = `
@@ -23,4 +26,28 @@ export function useActiveCheckIn(workspaceId: string, userId: string): ActiveChe
     return () => clearInterval(t);
   }, []);
   return React.useMemo(() => activeCheckIn(data, now), [data, now]);
+}
+
+const followedId = () => following()?.checkInId ?? null;
+
+/** The check-in this phone is sharing where it is for, if any (`follow.ts`). */
+export function useFollowedCheckIn(): string | null {
+  return React.useSyncExternalStore(deviceStore.subscribe, followedId, followedId);
+}
+
+/**
+ * Stops sharing where the phone is when the phone's copy says the check-in ended somewhere else: checked out on
+ * another phone, or answered by the business. Only once the copy has been read, so an empty first answer stops nothing.
+ */
+export function useFollowEnds(workspaceId: string, userId: string): void {
+  const { data, isLoading } = useQuery<CheckInRow>(MY_CHECK_INS_SQL, [workspaceId, userId]);
+  const open = isLoading
+    ? null
+    : data
+        .filter((r) => OPEN_STATES.includes(r.state))
+        .map((r) => r.id)
+        .join(',');
+  React.useEffect(() => {
+    if (open !== null) void reconcileFollowing(workspaceId, open ? open.split(',') : []);
+  }, [workspaceId, open]);
 }

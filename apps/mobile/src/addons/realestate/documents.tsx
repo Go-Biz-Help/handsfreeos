@@ -22,12 +22,14 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { signedUrl } from '@/inbox/storage';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
 import { cn } from '@/lib/utils';
+import { openKeptDocument, pinDocument, useKeptDocument } from '@/sync/document-keeper';
 
 import { useRealestateCopy } from './copy';
 import { addDocument, photoOnDeal } from './deal-actions';
@@ -361,7 +363,10 @@ export function DocumentsView({
   );
 }
 
-/** One document, with no signal: what the phone knows of it, and Open it with signal. */
+/**
+ * One document: what the phone knows of it, and Open it. A current one is kept on the phone (round seven) and opens
+ * with no signal once it's here; a replaced or void one opens with signal, or is kept here if the person asks.
+ */
 function DocumentSheet({
   document,
   versions,
@@ -385,11 +390,19 @@ function DocumentSheet({
   }>('SELECT bucket, object_path, size_bytes FROM files WHERE id = ?', [document?.fileId ?? '']);
   const file = document ? (files[0] ?? null) : null;
   const size = file?.size_bytes ? exportSizeWords(file.size_bytes) : null;
+  const kept = useKeptDocument(document?.fileId);
+  const here = kept?.complete === true;
+  const current = document ? !['superseded', 'void'].includes(document.status) : false;
   const d = document;
   const day = (iso: string | null) =>
     iso ? dayOf(localDateOf(Date.parse(iso), timeZone), timeZone, now) : null;
   const signedBy = signing?.state === 'completed' ? signing.signers.map((s) => s.name) : [];
   const openIt = async () => {
+    if (here && d) {
+      if (!(await openKeptDocument(d.fileId).catch(() => false)))
+        toast.error(RE_DOCUMENTS_WORDS.noViewer);
+      return;
+    }
     if (!file?.bucket || !file.object_path) {
       toast.error(RE_DOCUMENTS_WORDS.cantOpen);
       return;
@@ -411,19 +424,44 @@ function DocumentSheet({
           <Card className="items-center gap-2 px-5 py-6">
             <Icon as={FileText} className="size-7 text-text-2" />
             <Text className="text-center text-[16px] font-semibold">{`${d.title || d.kindLabel} · v${d.version}`}</Text>
-            {online ? (
+            {here || online ? (
               <Button variant="secondary" onPress={() => void openIt()} testID="re-document-open">
                 {RE_DOCUMENTS_WORDS.open}
               </Button>
-            ) : (
+            ) : null}
+            {here ? (
+              <Text className="text-center text-[13.5px] text-text-2" testID="re-document-kept">
+                {RE_DOCUMENTS_WORDS.keptHere(size)}
+              </Text>
+            ) : current || kept ? (
+              <Text className="text-center text-[13.5px] text-text-2" testID="re-document-coming">
+                {RE_DOCUMENTS_WORDS.comingHere}
+              </Text>
+            ) : !online ? (
               <Text
                 className="text-center text-[13.5px] text-text-2"
                 testID="re-document-needs-signal"
               >
                 {RE_DOCUMENTS_WORDS.openNeedsSignal(size)}
               </Text>
-            )}
+            ) : null}
           </Card>
+          {!current ? (
+            <Card className="flex-row items-center gap-3 px-3.5 py-3">
+              <View className="min-w-0 flex-1">
+                <Text className="text-[15px]">{RE_DOCUMENTS_WORDS.keepHere}</Text>
+                <Text className="text-[12.5px] leading-[17px] text-text-3">
+                  {RE_DOCUMENTS_WORDS.keepHereDetail}
+                </Text>
+              </View>
+              <Switch
+                label={RE_DOCUMENTS_WORDS.keepHere}
+                checked={kept?.pinned ?? false}
+                onCheckedChange={(on) => pinDocument(d.fileId, on)}
+                testID="re-document-keep"
+              />
+            </Card>
+          ) : null}
           <GroupLabel label={RE_DOCUMENTS_WORDS.knows} />
           <Card>
             {[

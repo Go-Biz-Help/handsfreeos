@@ -207,6 +207,25 @@ export type DraftAction = z.infer<typeof DraftAction>;
  * What approving a draft does, as the person saw it: its held-back actions in order, then its message. An
  * approval draft (a discount) also says what it proposes.
  */
+/**
+ * Round seven: what the teammate asks a person on the customer's team to do with an add-on (an `ask` draft). Approving
+ * runs `operation` as that person, with `input` and the business's ids, their permission checked then.
+ */
+export const DraftAsk = z.object({
+  addonId: z.string().regex(/^[a-z]{2,16}$/),
+  addonName: z.string().trim().min(1).max(60),
+  operation: z.string().trim().min(3).max(120),
+  /** The tool it called, for Activity. */
+  tool: z.string().trim().min(1).max(64),
+  /** The operation's input as the model gave it, without the business's ids. */
+  input: z.record(z.string(), z.unknown()),
+  /** The customer's record it's about (also the draft's custom_record_id). */
+  recordId: uuid,
+  /** What the card says it is: "Add 412 Oak St to Dana’s homes". */
+  summary: z.string().trim().min(1).max(300),
+});
+export type DraftAsk = z.infer<typeof DraftAsk>;
+
 export const TeammateDraftPreview = z.object({
   message: DraftMessage.nullable().default(null),
   actions: z
@@ -219,6 +238,21 @@ export const TeammateDraftPreview = z.object({
     .default(null),
   /** A call draft: the call the AI means to place once someone approves it. */
   call: DraftCall.nullable().default(null),
+  /** An ask draft (round seven): the add-on's action it asks a person on their team for. */
+  ask: DraftAsk.nullable().default(null),
+  /**
+   * Round seven: what an add-on's check found in the reply (Real Estate's fair housing), so it waits for a person
+   * even when the teammate answers on its own.
+   */
+  flags: z
+    .array(
+      z.object({
+        addonName: z.string().trim().min(1).max(60),
+        message: z.string().trim().min(1).max(600),
+      }),
+    )
+    .max(10)
+    .default(() => []),
 });
 export type TeammateDraftPreview = z.infer<typeof TeammateDraftPreview>;
 
@@ -649,9 +683,12 @@ export const AiTeammateGetOutput = z.object({
 });
 
 export const draftStatus = z.enum(['pending', 'approved', 'rejected', 'expired', 'cancelled']);
+/** reply, approval, call, and (round seven) an ask: an add-on's action for a person on a customer's record to OK. */
+export const TEAMMATE_DRAFT_KINDS = ['reply', 'approval', 'call', 'ask'] as const;
+
 export const TeammateDraftOut = z.object({
   id: uuid,
-  kind: z.enum(['reply', 'approval', 'call']),
+  kind: z.enum(TEAMMATE_DRAFT_KINDS),
   status: draftStatus,
   teammate: z.object({ id: uuid, name: z.string() }),
   runId: uuid.nullable(),
@@ -667,8 +704,13 @@ export const TeammateDraftOut = z.object({
   via: z.string().nullable(),
   expiresAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
-  /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
+  /**
+   * Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. Asks (round seven): whoever may see
+   * the record they're about.
+   */
   canDecide: z.boolean(),
+  /** An ask's record, named when the reader may see it (round seven); null for the other kinds. */
+  record: z.object({ id: uuid, name: z.string().nullable() }).nullable().default(null),
   /** The knowledge its run used ({itemId, title} each), as the run recorded it. */
   knowledge: z.array(z.unknown()),
 });
@@ -677,7 +719,7 @@ export const AiTeammateDraftListInput = ListInput.extend({
   workspaceId: uuid,
   /** pending: waiting for someone, oldest first; decided or all: newest first. */
   status: z.enum(['pending', 'decided', 'all']).default('pending'),
-  kind: z.enum(['reply', 'approval', 'call']).optional(),
+  kind: z.enum(TEAMMATE_DRAFT_KINDS).optional(),
   conversationId: uuid.optional(),
 });
 export const AiTeammateDraftListOutput = z.object({

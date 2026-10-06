@@ -5,6 +5,7 @@ import { FakePowerSync } from '@/changes/__tests__/fake-powersync';
 
 import { changeFromPress } from '../actions';
 import { reminderId } from '../check-in';
+import { following, startFollowing } from '../follow';
 
 /**
  * The reminder's buttons with no signal (round six): +15 min moves the check-in and its reminder on this phone, and the
@@ -139,8 +140,10 @@ describe('the check-in reminder’s buttons, with no signal', () => {
     expect(reminder?.content.body).toMatch(/answer in 10 minutes/);
   });
 
-  it('I’m OK checks out on this phone and clears the reminder', async () => {
+  it('I’m OK checks out on this phone, clears the reminder and stops sharing where the phone is', async () => {
     const p = phone({});
+    await startFollowing({ workspaceId: WS, checkInId: CHECK_IN, place: '2207 Juniper Trail' });
+    expect(following()?.checkInId).toBe(CHECK_IN);
     await changeFromPress(
       'safety.extend',
       { workspaceId: WS, checkInId: CHECK_IN, minutes: 15 },
@@ -156,6 +159,7 @@ describe('the check-in reminder’s buttons, with no signal', () => {
     );
     expect(p.checkIn().state).toBe('out');
     expect(scheduled()).toHaveLength(0);
+    expect(following()).toBeNull();
 
     // Time added to a check-in that's over sets nothing.
     await changeFromPress(
