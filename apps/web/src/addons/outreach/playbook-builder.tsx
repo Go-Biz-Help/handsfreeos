@@ -53,6 +53,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
+import { outreachHref } from './address';
 import type { Playbook } from './types';
 
 // ---------- the answers ----------
@@ -316,7 +317,7 @@ export function PlaybookBuilder({
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
-  const home = `/app/w/${workspaceId}/a/outreach`;
+  const home = outreachHref(workspaceId, { view: 'playbooks' });
   const [start] = useState<Draft>(() =>
     playbook
       ? fromDetails(playbook.name, playbook.details as PlaybookDetails)

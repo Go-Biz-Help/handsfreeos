@@ -7,3 +7,4 @@ import type { Ok } from '@/lib/api/types';
 export type PlaybookList = Ok<'/v1/queries/outreach.playbook.list'>;
 export type Playbook = PlaybookList['playbooks'][number];
 export type PersonSocial = Ok<'/v1/queries/outreach.person'>;
+export type Activity = Ok<'/v1/queries/outreach.activity'>;

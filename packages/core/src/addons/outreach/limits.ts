@@ -71,3 +71,13 @@ export const DAILY_WORDS: Readonly<
   comment: { label: 'Comments', many: 'comments' },
   like: { label: 'Likes', many: 'likes' },
 };
+
+/** The warning when a day's steps go past the limits: null while they're within them. */
+export function pastLimitWords(done: Readonly<Record<DailyStep, number>>): string | null {
+  const past = DAILY_STEPS.filter((step) => done[step] > DAILY_LIMITS[step]);
+  if (!past.length) return null;
+  const steps = past.map((step) => DAILY_WORDS[step].many);
+  const listed =
+    steps.length > 1 ? `${steps.slice(0, -1).join(', ')} and ${steps[steps.length - 1]}` : steps[0];
+  return `Past today’s limit for ${listed}. Slow down, so Facebook doesn’t block you.`;
+}

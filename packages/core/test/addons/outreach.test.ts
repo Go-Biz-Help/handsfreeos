@@ -1,6 +1,7 @@
 /**
  * Social Outreach's manifest and operations, held to the add-on rules (docs/addon-architecture.md), its playbook
- * templates, and how a chat read again joins what was saved before. Pure: no database.
+ * templates, how a chat read again joins what was saved before, and the warning past the daily limits. Pure: no
+ * database.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -21,6 +22,7 @@ import {
   upgradePlaybookDetails,
   type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
+import { DAILY_LIMITS, pastLimitWords } from '../../src/addons/outreach/limits';
 import { joinMessages, type ChatMessage, type SavedMessage } from '../../src/addons/outreach/saves';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 
@@ -261,5 +263,24 @@ describe('a chat read again', () => {
     const joined = joinMessages(before, [them('three'), them('four')], LATER, 3);
     expect(texts(joined.messages)).toEqual(['two', 'three', 'four']);
     expect(joined.added).toBe(1);
+  });
+});
+
+describe('the daily limits', () => {
+  const day = { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 };
+
+  it('warns only past a limit, naming each step past it', () => {
+    expect(pastLimitWords({ ...day, friend_request: DAILY_LIMITS.friend_request })).toBeNull();
+    expect(pastLimitWords({ ...day, like: DAILY_LIMITS.like + 1 })).toBe(
+      'Past today’s limit for likes. Slow down, so Facebook doesn’t block you.',
+    );
+    expect(
+      pastLimitWords({
+        ...day,
+        friend_request: 21,
+        comment: 16,
+        like: 41,
+      }),
+    ).toMatch(/^Past today’s limit for friend requests, comments and likes\./);
   });
 });

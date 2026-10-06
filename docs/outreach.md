@@ -1,20 +1,28 @@
 # Social Outreach
 
 Social Outreach is an add-on (id `outreach`, in Sales) and a browser extension (`apps/extension`) that work beside a
-person on Facebook, and later LinkedIn and Instagram. The extension reads the page they have open; the add-on keeps
-the people they find there, their chats with them, and the business's playbooks in HandsFreeOS.
+person on Facebook, and later LinkedIn and Instagram. The extension reads the page they have open and notes the steps
+they take there; the add-on keeps the people they find, their chats with them, what they've done, and the business's
+playbooks in HandsFreeOS.
 
 It's in `development`: offered to nobody, and installable only where HandsFreeOS staff hand it out to try
 (docs/addon-architecture.md, "Handing one out to try").
 
 ## What's built
 
-Phase 1, steps 1 and 2, and the playbook builder:
+Phase 1, steps 1 and 2, the playbook builder, and tracking with the activity panel:
 
-- **Playbooks** (`/a/outreach`): what the business is looking for on social media, how it sounds and which of its
-  tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where to look, the
-  steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer and the tags.
-  The first template is **CRM demos**; a blank one is always there.
+- **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
+  or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
+  the group each person was found in, and person by person with how far each has come; and the person's own day
+  against the daily limits. Owners and admins can see the whole team's (`?who=everyone`).
+- **Noting what the person does on Facebook**: signed in, the extension notes each friend request, like, comment and
+  message the person sends there themselves, with who it was to and the group they found them in, never what they
+  wrote. Its side panel shows the day so far (apps/extension/README.md, "What it notes").
+- **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
+  which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
+  to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
+  and the tags. The first template is **CRM demos**; a blank one is always there.
 - **The playbook builder** (`/a/outreach/playbooks/new`, `/a/outreach/playbooks/<id>`): a playbook asked a step at a
   time, ten steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
   step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
@@ -34,9 +42,11 @@ Phase 1, steps 1 and 2, and the playbook builder:
 | Manifest, operations, tables, shapes                   | `packages/core/src/addons/outreach/`                                             |
 | What a save takes: lengths, counts, id shapes (no zod) | `packages/core/src/addons/outreach/limits.ts`                                    |
 | Worker half: data version 2                            | `apps/worker/src/addons/outreach/`                                               |
-| Playbooks page and the Social card                     | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
+| What the extension notes, and the panel's shapes       | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`               |
+| The page: Activity and Playbooks tabs, the Social card | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
 | The playbook builder                                   | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`   |
 | Tables and permissions                                 | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach` |
+| Groups and steps noted                                 | `supabase/migrations/20261026000100_outreach_activity.sql`                       |
 | The extension                                          | `apps/extension`                                                                 |
 
 Operations, all through the kernel:
@@ -49,6 +59,8 @@ Operations, all through the kernel:
 | `outreach.chat.save`                                  | `outreach.use`    | A chat as read: the new messages join what was saved                                                 |
 | `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, and who in Contacts has a name                         |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                 |
+| `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from   |
+| `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, by group and person, and the day; everyone's for owners, admins  |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -78,10 +90,10 @@ The owner answered the plan's questions on 5 Oct 2026. These are settled: ask be
 The owner answered the next round on 6 Oct 2026 (plan.md, "Next: what you asked for on 6 Oct"). These are settled too:
 
 7. **An activity panel in both places:** the full view on the Social Outreach page, today's numbers in the
-   extension's side panel. Requests sent and from which group, likes, comments, chats started, replies.
+   extension's side panel. Requests sent and from which group, likes, comments, chats started, replies. Built.
 8. **The extension notes what the person does on Facebook themselves:** Add friend, Like, Comment and Send, with the
-   group they found the person in. When that arrives it replaces "nothing is saved until the person presses a
-   button" for those four steps.
+   group they found the person in. It replaces "nothing is saved until the person presses a button" for those four
+   steps. Built.
 9. **Playbooks are asked, not filled in,** and have a conversation where each answer adds a tag and picks what's
    next. Built.
 10. **Unfriending is a setting:** suggestions confirmed one by one (the default), or on its own within a daily limit
@@ -98,7 +110,20 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Rules worth knowing before changing anything
 
-- **Nothing is saved until the person presses a button.** Reading a page only looks things up.
+- **Nothing is saved until the person presses a button,** except the four steps the extension notes (decision 8).
+  Reading a page only looks things up.
+- **Noting a step adds nobody to Contacts.** Someone reached is kept as a profile with no customer, and the group
+  they were first found in, until the person saves them; saving keeps their steps. A friend request marks the profile
+  "request sent".
+- **A step counts once.** The same post liked again, or another friend request to them within a day, comes back
+  `repeated` and isn't counted again; comments and messages each count. A step that waited in the extension keeps
+  the moment it was taken (`offline: 'anytime'`), and the extension sends it again with the same command id.
+- **A message's place is worked out as it's noted** (`messageStep`): the first to someone starts a chat, the first on
+  a later day follows up, and the rest of a day's, and answers, are neither. The daily limits count only those.
+- **The limits count, they don't stop.** The person takes these steps on Facebook themselves, so the panel and the
+  extension warn past a limit (`pastLimitWords`) and nothing is refused.
+- **Each person's steps are their own** (`user_id`). Owners and admins can see everyone's; anyone else asking is
+  refused (`outreach_activity_everyone`), and the page shows them their own.
 - **A profile is known by its number or its username,** whichever its links show. Saved one way and seen the other,
   the two can't be matched automatically: a save offers the customers with the same name first (`sameName` in
   `outreach.lookup`, with `hasProfile`), and **It’s them** saves with that `personId`. Two profiles on one customer
@@ -136,9 +161,8 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Not yet
 
-Next, in the owner's order: the extension noting requests, likes, comments and messages with their group, and the
-activity panel; then friends (requests received, the friends list, Keep, Don't pitch, cancelling old requests and
-unfriending). The AI suggesting a conversation from the rest of the playbook comes with AI drafting.
+Next, in the owner's order: friends (requests received, the friends list, Keep, Don't pitch, cancelling old requests
+and unfriending). The AI suggesting a conversation from the rest of the playbook comes with AI drafting.
 
 The rest of Phase 1, in order: bringing in Facebook's download file with AI summaries and tags; groups, scored against
 the playbook, with their members saved and admins and moderators skipped; the day's list (friend requests, openers,

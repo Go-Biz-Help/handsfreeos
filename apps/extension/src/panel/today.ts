@@ -8,6 +8,7 @@ import {
   DAILY_LIMITS,
   DAILY_STEPS,
   DAILY_WORDS,
+  pastLimitWords,
   TOUCH_KINDS,
 } from '@hfos/core/addons/outreach/limits';
 import type { Activity, Noted, Problem, Today, Touched } from '../hfos/messages';
@@ -93,7 +94,7 @@ function recentView(recent: readonly Noted[]): Child {
 
 function limitsView(activity: Activity): Child[] {
   const done = activity.today;
-  const past = DAILY_STEPS.filter((step) => done[step] > DAILY_LIMITS[step]);
+  const past = pastLimitWords(done);
   return [
     h(
       'ul',
@@ -112,13 +113,7 @@ function limitsView(activity: Activity): Child[] {
         );
       }),
     ),
-    past.length
-      ? h(
-          'p',
-          { class: 'warn-line' },
-          `Past today’s limit for ${past.map((step) => DAILY_WORDS[step].many).join(' and ')}. Slow down, so Facebook doesn’t block you.`,
-        )
-      : null,
+    past ? h('p', { class: 'warn-line' }, past) : null,
     h('p', { class: 'muted' }, reachedWords(activity.numbers.people, activity.numbers.replies)),
   ];
 }
