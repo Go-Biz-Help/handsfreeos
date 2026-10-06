@@ -219,6 +219,9 @@ export type AiTeammateSaveBody = Body<'/v1/commands/ai_teammate.save_config'>;
 // Quick setup for the AI teammate (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md)
 export type AiSetupSaveBody = Body<'/v1/commands/ai_setup.save'>;
 export type AiSetupFinishBody = Body<'/v1/commands/ai_setup.finish'>;
+// An agency's saved answers for quick setup (§9)
+export type AiSetupTemplateList = Ok<'/v1/queries/ai_setup_template.list'>;
+export type AiSetupTemplate = AiSetupTemplateList['items'][number];
 
 // Milestone 7: website chat
 export type ChatWidgetList = Ok<'/v1/queries/chat_widget.list'>;

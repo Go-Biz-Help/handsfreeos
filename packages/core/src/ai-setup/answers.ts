@@ -35,8 +35,16 @@ export const AI_SETUP_STEPS = [
 ] as const;
 export type AiSetupStep = (typeof AI_SETUP_STEPS)[number];
 
-/** How many of each list the answers take: the screens stop offering more at these. */
-export const AI_SETUP_MAX = { services: 50, topQuestions: 3, questions: 10 } as const;
+/**
+ * How many of each list the answers take: the screens stop offering more at these. `templateName`: the longest name
+ * an agency gives answers it saves (§9).
+ */
+export const AI_SETUP_MAX = {
+  services: 50,
+  topQuestions: 3,
+  questions: 10,
+  templateName: 80,
+} as const;
 
 /** `keep`: what's written in Knowledge → Business profile isn't one of the three, and stays. */
 export const AI_SETUP_TONES = [...SETUP_TONES, 'keep'] as const;
@@ -248,6 +256,11 @@ export interface AiSetupRecord {
   readonly reached: AiSetupStep | null;
   /** The kind of business the draft was answered for. */
   readonly kind: SetupKind | null;
+  /**
+   * The agency's saved answers picked on the first screen (§9), null for today's picks; left out while nobody
+   * picked, so the newest for the business's kind is used.
+   */
+  readonly template?: string | null;
   readonly started: AiSetupMark | null;
   /** The last time it was finished. */
   readonly finished: AiSetupMark | null;
@@ -269,10 +282,13 @@ export function aiSetupOf(settings: Record<string, unknown> | null | undefined):
   const draft = raw['draft'] == null ? null : parsed(AiSetupAnswers, raw['draft']);
   const reached = draft ? parsed(z.enum(AI_SETUP_STEPS), raw['reached']) : null;
   const runs = raw['runs'];
+  const template =
+    raw['template'] === null ? null : (parsed(z.uuid(), raw['template']) ?? undefined);
   return {
     draft: reached ? draft : null,
     reached,
     kind: reached ? parsed(z.enum(SETUP_KINDS), raw['kind']) : null,
+    ...(reached && template !== undefined ? { template } : {}),
     started: parsed(AiSetupMark, raw['started']),
     finished: parsed(AiSetupMark, raw['finished']),
     runs: typeof runs === 'number' && Number.isInteger(runs) && runs > 0 ? runs : 0,
@@ -283,7 +299,12 @@ export function aiSetupOf(settings: Record<string, unknown> | null | undefined):
 export function storedAiSetup(next: AiSetupRecord): Record<string, unknown> {
   return {
     ...(next.draft && next.reached
-      ? { draft: next.draft, reached: next.reached, ...(next.kind ? { kind: next.kind } : {}) }
+      ? {
+          draft: next.draft,
+          reached: next.reached,
+          ...(next.kind ? { kind: next.kind } : {}),
+          ...(next.template !== undefined ? { template: next.template } : {}),
+        }
       : {}),
     ...(next.started ? { started: next.started } : {}),
     ...(next.finished ? { finished: next.finished } : {}),

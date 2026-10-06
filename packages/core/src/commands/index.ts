@@ -295,6 +295,11 @@ import {
 } from './ai-team';
 import { aiSetupFinish, aiSetupNoteFound, aiSetupSave } from './ai-setup';
 import {
+  aiSetupTemplateDelete,
+  aiSetupTemplateRename,
+  aiSetupTemplateSave,
+} from './ai-setup-template';
+import {
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
   attendeeRescheduleForCustomer,
@@ -887,6 +892,9 @@ export const commands: readonly CommandDef[] = [
   aiSetupSave,
   aiSetupFinish,
   aiSetupNoteFound,
+  aiSetupTemplateSave,
+  aiSetupTemplateRename,
+  aiSetupTemplateDelete,
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
@@ -1073,6 +1081,7 @@ export * from './workflow-template';
 export * from './knowledge';
 export * from './ai-team';
 export * from './ai-setup';
+export * from './ai-setup-template';
 export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';

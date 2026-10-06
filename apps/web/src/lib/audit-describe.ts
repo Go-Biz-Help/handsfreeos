@@ -920,6 +920,13 @@ function describeAction(e: AuditEntry): string {
       ];
       return `read ${kbSite(e.after?.url)} for quick setup and found ${andJoin(found)}`;
     }
+    // An agency's saved answers for quick setup (the agency area's AI setups)
+    case 'ai_setup_template.save':
+      return `saved ${s(e.after?.from) ? `${s(e.after?.from)}’s ` : ''}quick setup answers as the AI setup “${name(e)}”`;
+    case 'ai_setup_template.rename':
+      return `renamed the AI setup “${s(e.before?.name)}” to “${s(e.after?.name)}”`;
+    case 'ai_setup_template.delete':
+      return `removed the AI setup “${name(e)}”`;
     case 'conversation.hand_off':
       return `handed the conversation with ${withWho(e)} to a person${handoffReasonWords(e)}`;
     case 'conversation.pick_up':

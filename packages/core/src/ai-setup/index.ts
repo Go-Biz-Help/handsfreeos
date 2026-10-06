@@ -10,4 +10,5 @@ export * from './found';
 export * from './plan';
 export * from './summary';
 export * from './flow';
+export * from './templates';
 export * from './words';

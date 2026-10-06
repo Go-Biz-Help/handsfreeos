@@ -33,6 +33,8 @@ export function aiSetupActions(workspaceId: string) {
       step: AiSetupStep;
       answers: AiSetupAnswers;
       business?: AiSetupBusiness;
+      /** The first screen's "Start from": saved answers, or null for our picks. Left out: as it was. */
+      templateId?: string | null;
     }): Promise<AiSetupSaved> =>
       AiSetupSaveOutput.parse(
         unwrap(
@@ -44,9 +46,17 @@ export function aiSetupActions(workspaceId: string) {
               ...(input.business
                 ? { business: input.business as AiSetupSaveBody['business'] }
                 : {}),
+              ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
             },
           }),
         ),
+      ),
+    /** "Save these answers for your other businesses", for the agency's owners and admins. */
+    saveForOthers: async (organizationId: string, name: string) =>
+      unwrap(
+        await api().POST('/v1/commands/ai_setup_template.save', {
+          body: { organizationId, workspaceId, name },
+        }),
       ),
     finish: async (input: {
       answers: AiSetupAnswers;

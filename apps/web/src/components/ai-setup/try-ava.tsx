@@ -10,21 +10,23 @@
  */
 import {
   AI_SETUP_FIELD_WORDS as W,
+  AI_SETUP_MAX,
   AI_SETUP_OUTCOME_WORDS,
+  AI_SETUP_TEMPLATE_WORDS as T,
   AI_SETUP_WORDS,
   aiSetupChatSnippet,
   aiSetupWentToPerson,
   withAiName,
   type TestOutcome,
 } from '@hfos/core';
-import { AlertTriangle, Check, MessageSquare, Send, UserRound } from 'lucide-react';
+import { AlertTriangle, Building2, Check, MessageSquare, Send, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { Callout, Note } from '@/components/ai-team/parts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
-import { FieldError } from '@/components/ui/field';
+import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { AiSetupActions } from '@/lib/ai-setup/actions';
@@ -65,6 +67,7 @@ export function TryAva({
   settingsHref,
   actions,
   onDone,
+  saveTo = null,
 }: {
   workspaceId: string;
   name: string;
@@ -80,6 +83,11 @@ export function TryAva({
   actions: AiSetupActions;
   /** Turned on, or "Not yet". */
   onDone: (turnedOn: boolean) => void;
+  /**
+   * "Save these answers for your other businesses", for the agency's owners and admins (§9): its name, and the
+   * name the answers start with.
+   */
+  saveTo?: { organizationId: string; agency: string; suggested: string } | null;
 }) {
   const [list, setList] = useState<readonly Asked[]>(() => questions.map((q, i) => asked(i, q)));
   const [own, setOwn] = useState('');
@@ -245,6 +253,8 @@ export function TryAva({
         <Note>{withAiName(W.textTip, name)}</Note>
       </section>
 
+      {saveTo ? <SaveForOthers saveTo={saveTo} name={name} actions={actions} /> : null}
+
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
         {on ? (
           <>
@@ -284,6 +294,95 @@ export function TryAva({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** Keeps these answers for the agency's other businesses to start from. */
+function SaveForOthers({
+  saveTo,
+  name,
+  actions,
+}: {
+  saveTo: NonNullable<Parameters<typeof TryAva>[0]['saveTo']>;
+  name: string;
+  actions: AiSetupActions;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(saveTo.suggested);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  async function save() {
+    const named = title.trim();
+    if (!named) return setError('Name these answers.');
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await actions.saveForOthers(saveTo.organizationId, named);
+      setSaved(out.name);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (saved)
+    return (
+      <Callout icon={Check} testId="ai-setup-saved-for-others">
+        {T.saved(saved)}
+      </Callout>
+    );
+  if (!open)
+    return (
+      <div>
+        <Button
+          variant="secondary"
+          onClick={() => setOpen(true)}
+          data-testid="ai-setup-save-for-others"
+        >
+          <Building2 className="h-4 w-4" strokeWidth={1.75} />
+          {T.saveTitle}
+        </Button>
+      </div>
+    );
+  return (
+    <section className="flex flex-col gap-3 rounded-menu border border-border p-4">
+      <h3 className="flex items-center gap-2 font-semibold">
+        <Building2 className="h-4 w-4" strokeWidth={1.75} />
+        {T.saveTitle}
+      </h3>
+      <p className="text-[13px] text-text-2">{withAiName(T.saveHint(saveTo.agency), name)}</p>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <Field label={T.saveName} htmlFor="ai-setup-save-name" className="min-w-[220px] flex-1">
+          <Input
+            id="ai-setup-save-name"
+            value={title}
+            maxLength={AI_SETUP_MAX.templateName}
+            invalid={!!error}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setError(null);
+            }}
+            data-testid="ai-setup-save-name"
+          />
+        </Field>
+        <Button type="submit" loading={busy} data-testid="ai-setup-save-for-others-save">
+          {T.saveAction}
+        </Button>
+        <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
+          {AI_SETUP_WORDS.cancel}
+        </Button>
+      </form>
+      <FieldError>{error}</FieldError>
+    </section>
   );
 }
 

@@ -7819,7 +7819,7 @@ Where to find them:
 
 - **Workflows** is in the sidebar after **Calendar** (in the menu drawer on phones). Its tabs are **Workflows**, **Runs** and **Approvals**.
 - **Knowledge** is in the sidebar after **Workflows**. Its tabs are **Overview**, **Items**, **Documents**, **Website** and **Suggestions**.
-- The agency area is at `https://app.handsfreeos.com/app/org/<organization id>`. Open the workspace switcher and click **Agency area** next to the organization's name. Only the organization's owners and admins see the link. The area has **Client businesses**, **Templates** and **Knowledge packs**.
+- The agency area is at `https://app.handsfreeos.com/app/org/<organization id>`. Open the workspace switcher and click **Agency area** next to the organization's name. Only the organization's owners and admins see the link. The area has **Client businesses**, **Templates**, **Knowledge packs** and **AI setups**.
 
 Owners and admins of a business build, test, publish and pause its workflows, and edit its knowledge base. Everyone in the business can look at both, add a customer to a workflow or take them out, and decide an approval that names them.
 
@@ -8058,6 +8058,15 @@ A knowledge pack is a set of FAQs, articles and facts for many businesses, such 
 4. Click **Push** and pick the businesses.
 
 Each business gets the items as suggestions under **Suggestions** → **Go Biz Help**, to accept, edit or reject. Nothing is added until someone there accepts it, and an item the business already has isn't suggested.
+
+#### AI setups
+
+An AI setup is the answers one business gave in the AI teammate's quick setup, kept so the agency's other businesses start from them: what the teammate helps with, when it answers, its name, how it says it's AI, its tone, prices and questions for leads. Nothing about the business itself is kept.
+
+1. Run quick setup in one business. On the test chat after **Save**, click **Save these answers for your other businesses** and name them. Or, in the agency area, open **AI setups** and click **Save from a business**.
+2. A business that hasn't set up its teammate starts quick setup from the newest AI setup saved for its kind of business. Its first screen's **Start from** picks another one, or our picks.
+
+Renaming or removing an AI setup changes no business. The table comes from `20261026000100_saved_ai_setups.sql`; see "Apply new migrations".
 
 #### The daily agency digest
 

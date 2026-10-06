@@ -3,6 +3,7 @@ import {
   AI_SETUP_WORDS,
   AiSetupGetOutput,
   aiSetupStateOf,
+  aiSetupTemplateAbout,
   emptyKnowledgeProfile,
   setupKindOf,
   startingAiSetupAnswers,
@@ -11,6 +12,7 @@ import {
   type AiSetupAnswers,
   type AiSetupStateOut,
   type AiSetupStep,
+  type AiSetupTemplate,
   type TestConsoleBody,
   type TestEvent,
 } from '@hfos/core';
@@ -33,7 +35,7 @@ import { pushRegistration } from '@/push/device';
  * and the worker's test chat played by stand-ins: the first screen keeps the business at once; the kind of business
  * comes from a searchable sheet; the hours editor; qualifying questions; carrying on what was started on the
  * computer, Save and the test chat with "Add the answer", then turning it on; what will change for a business that
- * has a teammate; and no signal, and someone who can't run it.
+ * has a teammate; starting from answers the agency saved; and no signal, and someone who can't run it.
  */
 
 jest.mock('expo-router', () => ({
@@ -142,6 +144,49 @@ function gotOf(
     started: null,
     finished: null,
     runs: 0,
+  });
+}
+
+const PLUMBERS = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+/** Answers Lone Star's agency saved from another of its businesses: Max, professional, asks qualifying questions. */
+const PLUMBERS_ANSWERS: Partial<AiSetupTemplate> = {
+  name: 'Max',
+  jobs: ['reply', 'answer', 'qualify', 'follow_up'],
+  tone: 'professional',
+};
+
+/**
+ * What `ai_setup.get` says for a business whose agency saved answers: the screens start from them, or from our picks
+ * (null); `picked`, whether someone picked on the first screen.
+ */
+function gotWithSaved(
+  templateId: string | null,
+  picked: boolean,
+  reached: AiSetupStep | null = null,
+) {
+  const starting = startingAiSetupAnswers(
+    aiSetupStateOf(STATE),
+    templateId ? PLUMBERS_ANSWERS : null,
+  );
+  return AiSetupGetOutput.parse({
+    state: STATE,
+    answers: starting,
+    starting,
+    reached,
+    started: null,
+    finished: null,
+    runs: 0,
+    templates: [
+      {
+        id: PLUMBERS,
+        name: 'Plumbers',
+        kind: STATE.kind,
+        about: aiSetupTemplateAbout(PLUMBERS_ANSWERS),
+        updatedAt: '2026-10-01T12:00:00.000Z',
+      },
+    ],
+    templateId,
+    templatePicked: picked,
   });
 }
 
@@ -288,6 +333,60 @@ describe('the first screen', () => {
     await screen.findByTestId('ai-setup-step-business');
     await fireEvent.press(screen.getByTestId('ai-setup-myself'));
     expect(openWeb).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/ai-team?myself=1`);
+    // Its agency saved no answers, so there's nothing to start from.
+    expect(screen.queryByTestId('ai-setup-start-picks')).toBeNull();
+  });
+
+  it('starts from answers the agency saved, or from our picks', async () => {
+    answers['/v1/queries/ai_setup.get'] = gotWithSaved(PLUMBERS, false);
+    await open();
+    await screen.findByTestId('ai-setup-step-business');
+    // While nobody picks: the newest saved for its kind of business.
+    const saved = screen.getByTestId(`ai-setup-start-${PLUMBERS}`);
+    const picks = screen.getByTestId('ai-setup-start-picks');
+    expect(saved).toBeChecked();
+    expect(saved).toHaveTextContent(
+      'Max · Professional · Replies to new leads, answers questions, asks qualifying questions, follows up',
+      { exact: false },
+    );
+    expect(picks).not.toBeChecked();
+    expect(screen.getByTestId('ai-setup-summary')).toHaveTextContent(
+      'Max replies to new leads within a minute.',
+      { exact: false },
+    );
+    // It follows the kind of business: the agency saved nothing for dentists.
+    await fireEvent.press(screen.getByTestId('ai-setup-kind'));
+    await fireEvent.changeText(await screen.findByTestId('ai-setup-kind-search'), 'dentist');
+    await fireEvent.press(screen.getByTestId('ai-setup-kind-dental'));
+    await waitFor(() => expect(screen.getByTestId('ai-setup-start-picks')).toBeChecked());
+    await fireEvent.press(screen.getByTestId('ai-setup-kind'));
+    await fireEvent.changeText(await screen.findByTestId('ai-setup-kind-search'), 'hvac');
+    await fireEvent.press(screen.getByTestId('ai-setup-kind-hvac'));
+    await waitFor(() => expect(screen.getByTestId(`ai-setup-start-${PLUMBERS}`)).toBeChecked());
+
+    // Our picks instead: kept from the first screen, which picks those answers again.
+    await fireEvent.press(screen.getByTestId('ai-setup-start-picks'));
+    expect(screen.getByTestId('ai-setup-start-picks')).toBeChecked();
+    expect(screen.getByTestId(`ai-setup-start-${PLUMBERS}`)).not.toBeChecked();
+    answers['/v1/queries/ai_setup.get'] = gotWithSaved(null, true, 'business');
+    await fireEvent.press(screen.getByTestId('ai-setup-next'));
+    await screen.findByTestId('ai-setup-step-jobs');
+    expect(sent('/v1/commands/ai_setup.save')).toEqual([
+      expect.objectContaining({ step: 'business', templateId: null }),
+    ]);
+    expect(screen.getByTestId('ai-setup-job-qualify')).not.toBeChecked();
+    expect(screen.getByTestId('ai-setup-summary')).toHaveTextContent(
+      'Ava replies to new leads within a minute.',
+      { exact: false },
+    );
+
+    // Back on the first screen it stays picked, and Next keeps it as it is.
+    await fireEvent.press(screen.getByTestId('ai-setup-back'));
+    await screen.findByTestId('ai-setup-step-business');
+    expect(screen.getByTestId('ai-setup-start-picks')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('ai-setup-next'));
+    await screen.findByTestId('ai-setup-step-jobs');
+    expect(sent('/v1/commands/ai_setup.save')[1]).not.toHaveProperty('templateId');
   });
 });
 

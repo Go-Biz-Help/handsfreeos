@@ -1020,6 +1020,17 @@
                 ]
               }
             }
+          },
+          "templateId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "step", "answers"]

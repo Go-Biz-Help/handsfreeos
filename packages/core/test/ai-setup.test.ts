@@ -27,6 +27,12 @@ import {
   aiSetupNextStep,
   aiSetupOf,
   aiSetupPreviousStep,
+  aiSetupTemplateAbout,
+  aiSetupTemplateOf,
+  aiSetupTemplateOfBusiness,
+  chosenAiSetupTemplate,
+  defaultAiSetupTemplate,
+  withAiSetupTemplate,
   aiSetupProblemAt,
   aiSetupProblems,
   aiSetupProblemsOf,
@@ -51,6 +57,7 @@ import {
   quickFactsFor,
   resumeAiSetup,
   SETUP_KIND_INFO,
+  SETUP_KIND_LABELS,
   SETUP_KINDS,
   setupFor,
   setupKindOf,
@@ -624,6 +631,31 @@ describe('what the business keeps part way through', () => {
     });
   });
 
+  it('keeps where the answers start from with the draft, our picks included', () => {
+    const record = {
+      draft: answers(),
+      reached: 'business' as const,
+      kind: 'home' as const,
+      started: mark,
+      finished: null,
+      runs: 0,
+    };
+    for (const template of [uid(40), null])
+      expect(aiSetupOf({ aiSetup: storedAiSetup({ ...record, template }) })).toEqual({
+        ...record,
+        template,
+      });
+    // Nobody picked yet.
+    expect(aiSetupOf({ aiSetup: storedAiSetup(record) })).not.toHaveProperty('template');
+    expect(
+      aiSetupOf({ aiSetup: { ...storedAiSetup(record), template: 'Plumbers' } }),
+    ).not.toHaveProperty('template');
+    // Finished: the next run picks again.
+    expect(
+      storedAiSetup({ ...record, template: uid(40), draft: null, reached: null }),
+    ).not.toHaveProperty('template');
+  });
+
   it('carries on with the screens finished, and today’s picks for the rest', () => {
     const state = business();
     const starting = startingAiSetupAnswers(state);
@@ -841,6 +873,129 @@ describe('where the answers start', () => {
       financing: 'no',
       licensed: 'no',
     });
+  });
+});
+
+describe('an agency’s saved answers', () => {
+  const MAX_Q = {
+    id: 'tank',
+    question: 'Is the water heater gas or electric?',
+    kind: 'choice' as const,
+    options: ['Gas', 'Electric'],
+    required: true,
+  };
+
+  it('names every kind of business', () => {
+    for (const kind of SETUP_KINDS) expect(SETUP_KIND_LABELS[kind]).toMatch(/^[A-Z]/);
+  });
+
+  it('reads each saved answer on its own, leaving one that doesn’t read to the business’s picks', () => {
+    expect(
+      aiSetupTemplateOf({
+        jobs: ['reply', 'fly'],
+        name: 'Max',
+        tone: 'keep',
+        disclosure: 'when_asked',
+        questions: 'none',
+        // Not one an agency saves.
+        description: 'Pipes and drains.',
+      }),
+    ).toEqual({ name: 'Max', disclosure: 'when_asked' });
+    expect(aiSetupTemplateOf(null)).toEqual({});
+    expect(aiSetupTemplateOf(['Max'])).toEqual({});
+
+    const salon = business({ industry: 'hair_salon' });
+    const started = startingAiSetupAnswers(salon, { name: 'Max', allowPrices: true });
+    expect(started).toMatchObject({ name: 'Max', allowPrices: true });
+    // The rest are the salon's own picks.
+    expect(started.jobs).toEqual(startingAiSetupAnswers(salon).jobs);
+    expect(started.tone).toBe(SETUP_KIND_INFO.salon.tone);
+    expect(started.questions).toEqual(startingAiSetupAnswers(salon).questions);
+  });
+
+  it('keeps what a business was set up with, but not its own words or questions it doesn’t ask', () => {
+    const set = withTeammate(
+      {
+        identity: { name: 'Max', disclosure: 'when_asked' },
+        qualify: { enabled: true, questions: [MAX_Q] },
+        hours: { mode: 'after_hours' },
+      },
+      { profile: { ...emptyKnowledgeProfile(), tone: AI_SETUP_TONE_TEXTS.professional } },
+    );
+    const kept = aiSetupTemplateOfBusiness(set);
+    expect(Object.keys(kept).sort()).toEqual(
+      [
+        'allowPrices',
+        'answerWhen',
+        'customHours',
+        'disclosure',
+        'jobs',
+        'name',
+        'questions',
+        'tone',
+      ].sort(),
+    );
+    expect(kept).toMatchObject({
+      name: 'Max',
+      disclosure: 'when_asked',
+      answerWhen: 'after_hours',
+      tone: 'professional',
+      questions: [expect.objectContaining({ question: MAX_Q.question })],
+    });
+
+    const own = aiSetupTemplateOfBusiness(
+      withTeammate(
+        { qualify: { enabled: false, questions: [] } },
+        { profile: { ...emptyKnowledgeProfile(), tone: 'Like a pirate.' } },
+      ),
+    );
+    expect(own).not.toHaveProperty('tone');
+    expect(own).not.toHaveProperty('questions');
+  });
+
+  it('picks the saved answers again in place of what was answered, and nothing else', () => {
+    const state = business();
+    const answered = answers({
+      ...startingAiSetupAnswers(state),
+      description: 'We fix AC.',
+      jobs: ['answer'],
+      name: 'Sam',
+    });
+    const now = withAiSetupTemplate(answered, state, { name: 'Max', tone: 'short' });
+    expect(now).toMatchObject({ description: 'We fix AC.', name: 'Max', tone: 'short' });
+    expect(now.jobs).toEqual(startingAiSetupAnswers(state).jobs);
+    // Our picks for this kind of business.
+    expect(withAiSetupTemplate(answered, state, null)).toMatchObject({
+      description: 'We fix AC.',
+      name: 'Ava',
+    });
+  });
+
+  it('starts from the ones picked, else the newest saved for the kind of business', () => {
+    const saved = [
+      { id: uid(41), kind: 'home', updatedAt: '2026-10-01T10:00:00.000Z' },
+      { id: uid(42), kind: 'home', updatedAt: '2026-10-03T10:00:00.000Z' },
+      { id: uid(43), kind: 'salon', updatedAt: '2026-10-04T10:00:00.000Z' },
+    ];
+    expect(defaultAiSetupTemplate(saved, 'home')?.id).toBe(uid(42));
+    expect(defaultAiSetupTemplate(saved, 'health')).toBeNull();
+    expect(chosenAiSetupTemplate(saved, undefined, 'salon')?.id).toBe(uid(43));
+    expect(chosenAiSetupTemplate(saved, uid(41), 'salon')?.id).toBe(uid(41));
+    // Our picks, picked; and ones removed since.
+    expect(chosenAiSetupTemplate(saved, null, 'home')).toBeNull();
+    expect(chosenAiSetupTemplate(saved, uid(49), 'home')).toBeNull();
+  });
+
+  it('says what saved answers set, in a line', () => {
+    expect(
+      aiSetupTemplateAbout({
+        name: 'Max',
+        tone: 'professional',
+        jobs: ['follow_up', 'reply', 'book'],
+      }),
+    ).toBe('Max · Professional · Replies to new leads, books appointments, follows up');
+    expect(aiSetupTemplateAbout({ jobs: ['answer'] })).toBe('Answers questions');
+    expect(aiSetupTemplateAbout({})).toBe('');
   });
 });
 

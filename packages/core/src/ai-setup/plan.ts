@@ -113,19 +113,22 @@ function fieldOr<K extends keyof AiSetupAnswers>(key: K, value: unknown): AiSetu
 
 /**
  * Every answer picked before anyone answers. A business with a teammate starts from what's saved now; one without
- * starts from its Getting started goal and its kind of business, or from its agency's saved answers. What the
- * business hasn't said yet (what it does, its services, where it works, its hours, quick facts, questions for
- * leads) starts from what Ava read on its website.
+ * starts from its Getting started goal and its kind of business, or from its agency's saved answers (each one that
+ * still reads, `aiSetupTemplateOf`). What the business hasn't said yet (what it does, its services, where it works,
+ * its hours, quick facts, questions for leads) starts from what Ava read on its website.
  */
 export function startingAiSetupAnswers(
   state: AiSetupState,
-  template: AiSetupTemplate | null = null,
+  template: Partial<AiSetupTemplate> | null = null,
 ): AiSetupAnswers {
   const t = state.teammate?.config ?? null;
   const tpl = t ? null : template;
   const p = state.profile;
   const read = state.found;
-  const tone = tpl && !p.tone.trim() ? tpl.tone : toneOfProfile(p.tone, state.kind);
+  const tone =
+    tpl?.tone && tpl.tone !== 'keep' && !p.tone.trim()
+      ? tpl.tone
+      : toneOfProfile(p.tone, state.kind);
   return {
     jobs: fieldOr('jobs', tpl?.jobs ?? (t ? jobsOf(t) : startingJobs(state.goal, state.kind))),
     description: fieldOr('description', p.description.trim() || read?.description),
@@ -145,7 +148,7 @@ export function startingAiSetupAnswers(
     name: fieldOr('name', tpl?.name ?? t?.identity.name),
     disclosure: fieldOr('disclosure', tpl?.disclosure ?? t?.identity.disclosure),
     tone,
-    allowPrices: tpl && !p.allowPrices ? tpl.allowPrices : p.allowPrices,
+    allowPrices: tpl?.allowPrices !== undefined && !p.allowPrices ? tpl.allowPrices : p.allowPrices,
     topQuestions: [],
     keepFindings: [],
     dropFindings: [],
@@ -153,7 +156,7 @@ export function startingAiSetupAnswers(
       'questions',
       t?.qualify.questions.length
         ? t.qualify.questions
-        : tpl?.questions.length
+        : tpl?.questions?.length
           ? tpl.questions
           : read?.questions.length
             ? read.questions

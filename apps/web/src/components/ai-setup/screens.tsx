@@ -10,6 +10,7 @@ import {
   AI_SETUP_FIELD_WORDS as W,
   AI_SETUP_JOB_LABELS,
   AI_SETUP_PRICE_LABELS,
+  AI_SETUP_TEMPLATE_WORDS,
   AI_SETUP_TONE_LABELS,
   AI_SETUP_TONE_TEXTS,
   aiSetupProblemAt,
@@ -17,6 +18,7 @@ import {
   HOURS_MODES,
   quickFactsFor,
   SETUP_JOBS,
+  SETUP_KIND_LABELS,
   SETUP_TONES,
   setupFor,
   toneOfProfile,
@@ -27,6 +29,7 @@ import {
   type AiSetupProblems,
   type AiSetupState,
   type AiSetupStep,
+  type AiSetupTemplateOption,
   type AiSetupTone,
 } from '@hfos/core';
 import { AlertTriangle, Check, FileUp, Info, Loader2, Smartphone } from 'lucide-react';
@@ -65,6 +68,13 @@ export interface ScreenProps {
   readonly setBusiness: (patch: Partial<AiSetupBusinessDraft>) => void;
   readonly findings: readonly AiSetupFinding[];
   readonly data: AiSetupData;
+  /** The first screen's "Start from", while the agency has saved answers and the business has no teammate. */
+  readonly startFrom?: {
+    readonly templates: readonly AiSetupTemplateOption[];
+    /** The saved answers picked, or null for our picks. */
+    readonly value: string | null;
+    readonly onChange: (templateId: string | null) => void;
+  } | null;
 }
 
 export function AiSetupScreen(props: ScreenProps) {
@@ -112,7 +122,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function BusinessScreen({ answers, business, setBusiness, problems }: ScreenProps) {
+function BusinessScreen({ answers, business, setBusiness, problems, startFrom }: ScreenProps) {
   const name = nameOf(answers);
   return (
     <>
@@ -153,7 +163,38 @@ function BusinessScreen({ answers, business, setBusiness, problems }: ScreenProp
         hint={withAiName(business.noSite ? W.noWebsiteHint : W.websiteHint, name)}
         error={problems['business.website']}
       />
+      {startFrom ? <StartFrom {...startFrom} /> : null}
     </>
+  );
+}
+
+/** Where the answers start: answers the agency saved, or our picks (§9). */
+function StartFrom({ templates, value, onChange }: NonNullable<ScreenProps['startFrom']>) {
+  const T = AI_SETUP_TEMPLATE_WORDS;
+  return (
+    <div>
+      <Label>{T.startFrom}</Label>
+      <Hint className="mb-2 mt-0">{T.startFromHint}</Hint>
+      <Group label={T.startFrom}>
+        {templates.map((t) => (
+          <Option
+            key={t.id}
+            on={value === t.id}
+            onSelect={() => onChange(t.id)}
+            title={t.name}
+            badge={<Badge className="h-5 text-[11.5px]">{SETUP_KIND_LABELS[t.kind]}</Badge>}
+            description={t.about}
+            testId={`ai-setup-start-${t.id}`}
+          />
+        ))}
+        <Option
+          on={value === null}
+          onSelect={() => onChange(null)}
+          title={T.ourPicks}
+          testId="ai-setup-start-picks"
+        />
+      </Group>
+    </div>
   );
 }
 
