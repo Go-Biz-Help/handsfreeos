@@ -2,12 +2,20 @@
  * Runs in each Facebook tab. It reads the page only when the side panel asks, and answers only the panel. While the
  * panel reads as the page changes, it also tells the panel when the page has changed, so the panel can ask again.
  *
- * As the person works, it notices the steps they take themselves (a friend request, a like, a comment, a message:
- * src/facebook/actions.ts) and tells the extension's background, which notes them in HandsFreeOS; and it tells it who
- * they open from a group. Only the person's own clicks and keys count, never the page's, and never what they wrote.
- * The switch in the panel turns this off. It never changes the page, clicks, scrolls, or sends anything on Facebook.
+ * As the person works, it notices the steps they take themselves (a friend request, a like, a comment, a message,
+ * and Confirm or Delete on a friend request they got: src/facebook/actions.ts) and tells the extension's background,
+ * which notes them in HandsFreeOS; and it tells it who they open from a group. Only the person's own clicks and keys
+ * count, never the page's, and never what they wrote. The switch in the panel turns this off. It never changes the
+ * page, clicks, scrolls, or sends anything on Facebook.
  */
-import { seenFromClick, stepFromClick, stepFromEnter, type Step } from './facebook/actions';
+import {
+  answerFromClick,
+  seenFromClick,
+  stepFromClick,
+  stepFromEnter,
+  type Answered,
+  type Step,
+} from './facebook/actions';
 import { outlinePage } from './facebook/outline';
 import { readPage } from './facebook/page';
 import { NOTING_KEY, WATCH, type Answer, type Ask, type Note, type TabNote } from './messages';
@@ -85,6 +93,16 @@ if (!here.hfosSocialListening) {
     if (key) last = { key, at: now };
     return true;
   };
+  const answered = (answer: Answered | null) => {
+    if (!answer) return false;
+    const now = Date.now();
+    // Facebook takes the buttons away once pressed, but a quick second press can land first.
+    const key = JSON.stringify([answer.answer, answer.to.profile]);
+    if (last?.key !== key || now - last.at > SAME_PRESS_MS)
+      tell({ type: 'hfos-answered', answered: answer, at: new Date(now).toISOString() });
+    last = { key, at: now };
+    return true;
+  };
   const watching = (event: Event) =>
     noting && event.isTrusted && event.target instanceof Element ? event.target : null;
 
@@ -97,6 +115,7 @@ if (!here.hfosSocialListening) {
       if (!target) return;
       try {
         if (noted(stepFromClick(target, document, location.href))) return;
+        if (answered(answerFromClick(target, document, location.href))) return;
         const seen = seenFromClick(target, document, location.href);
         if (seen) tell({ type: 'hfos-seen', seen });
       } catch (error) {
@@ -115,8 +134,9 @@ if (!here.hfosSocialListening) {
         // Enter sends what's written; Enter or Space presses a button Facebook draws as a box. A real button makes a
         // click of it, heard above.
         if (event.key === 'Enter' && noted(stepFromEnter(target, document, location.href))) return;
-        if ((event.key === 'Enter' || event.key === ' ') && target.tagName !== 'BUTTON')
-          noted(stepFromClick(target, document, location.href));
+        if ((event.key !== 'Enter' && event.key !== ' ') || target.tagName === 'BUTTON') return;
+        if (!noted(stepFromClick(target, document, location.href)))
+          answered(answerFromClick(target, document, location.href));
       } catch (error) {
         console.debug('HandsFreeOS Social couldn’t tell what that key was', error);
       }

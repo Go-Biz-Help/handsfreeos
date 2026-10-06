@@ -1,9 +1,15 @@
 /**
  * The steps the extension notices as the person takes them on Facebook, against the hand-written pages in
- * test/fixtures: what each click or Enter was, who it was to, and the group they were found in.
+ * test/fixtures: what each click or Enter was, who it was to, and the group they were found in; and the person's
+ * answers to the friend requests they get.
  */
 import { describe, expect, it } from 'vitest';
-import { seenFromClick, stepFromClick, stepFromEnter } from '../src/facebook/actions';
+import {
+  answerFromClick,
+  seenFromClick,
+  stepFromClick,
+  stepFromEnter,
+} from '../src/facebook/actions';
 import { boxEverything, load } from './load';
 
 const FB = 'https://www.facebook.com';
@@ -338,6 +344,84 @@ describe('where someone was found', () => {
   });
 });
 
+describe('answers to friend requests', () => {
+  const requests = `${FB}/friends/requests/?profile_id=100007000000001`;
+  const avery = { name: 'Avery Lane', profile: byId('100007000000001') };
+
+  it('notes Confirm and Delete on a request in the list, to whoever asked, with their mutual friends', () => {
+    const doc = load('friend-requests.html', requests);
+    expect(answerFromClick(button(doc, 'Confirm', 0), doc, requests)).toEqual({
+      answer: 'confirm',
+      to: avery,
+      mutualFriends: 12,
+    });
+    // The words inside the button are the button's.
+    const inner = button(doc, 'Delete Quinn Harper').querySelector('span')!;
+    expect(answerFromClick(inner, doc, requests)).toEqual({
+      answer: 'delete',
+      to: { name: 'Quinn Harper', profile: byId('100007000000002') },
+      mutualFriends: 1,
+    });
+    expect(answerFromClick(button(doc, 'Confirm', 1), doc, requests)).toEqual({
+      answer: 'confirm',
+      to: { name: 'Rowan Blake', profile: byName('rowan.blake.4') },
+      mutualFriends: null,
+    });
+  });
+
+  it('notes the answer at the top of the profile picked beside the list, as theirs', () => {
+    const doc = load('friend-requests.html', requests);
+    // Their mutual friends from the top of the profile: "12 mutual".
+    expect(answerFromClick(button(doc, 'Delete request'), doc, requests)).toEqual({
+      answer: 'delete',
+      to: avery,
+      mutualFriends: 12,
+    });
+  });
+
+  it('notes Confirm or Delete in the menu a profile’s Respond opens', () => {
+    const url = `${FB}/jane.doe.5`;
+    const doc = load('profile.html', url);
+    const respond = button(doc, 'Add friend', 0);
+    respond.setAttribute('aria-label', 'Respond');
+    respond.textContent = 'Respond';
+    const menu = doc.createElement('div');
+    menu.setAttribute('role', 'menu');
+    for (const label of ['Confirm', 'Delete request']) {
+      const item = doc.createElement('div');
+      item.setAttribute('role', 'menuitem');
+      item.innerHTML = `<span>${label}</span>`;
+      menu.append(item);
+    }
+    doc.body.append(menu);
+    const [confirm, remove] = menu.querySelectorAll('[role="menuitem"] span');
+    expect(answerFromClick(confirm!, doc, url)).toEqual({
+      answer: 'confirm',
+      to: { name: 'Jane Doe', profile: byName('jane.doe.5') },
+      mutualFriends: null,
+    });
+    expect(answerFromClick(remove!, doc, url)?.answer).toBe('delete');
+    // Without Respond on the page, the same words are some other menu's.
+    respond.setAttribute('aria-label', 'Message');
+    respond.textContent = 'Message';
+    expect(answerFromClick(confirm!, doc, url)).toBeNull();
+  });
+
+  it('notes nothing for a button that isn’t one of a request’s two', () => {
+    const doc = load('friend-requests.html', requests);
+    expect(answerFromClick(button(doc, 'Message'), doc, requests)).toBeNull();
+    // A Delete with no Confirm beside it is some other Delete.
+    button(doc, 'Confirm', 1).remove();
+    expect(answerFromClick(button(doc, 'Delete', 1), doc, requests)).toBeNull();
+    // Nor is an answer to yourself one.
+    const you = load('friend-requests.html', requests);
+    you
+      .querySelector('a[href*="profile_id=100007000000001"]')!
+      .setAttribute('href', `${FB}/jordan.owner.1`);
+    expect(answerFromClick(button(you, 'Confirm', 0), you, `${FB}/friends/requests/`)).toBeNull();
+  });
+});
+
 describe('pages with more boxes than their outline shows', () => {
   const groupPost = `${FB}/groups/7766554433221100/posts/5555666677778888/`;
   const CASES: readonly (readonly [
@@ -414,6 +498,18 @@ describe('pages with more boxes than their outline shows', () => {
       'chat-2026.html',
       `${FB}/messages/t/100009000000002/`,
       (doc, url) => stepFromEnter(write(doc, 'Message Dana Reyes', 'Hi'), doc, url),
+    ],
+    [
+      'Confirm on a friend request',
+      'friend-requests.html',
+      `${FB}/friends/requests/?profile_id=100007000000001`,
+      (doc, url) => answerFromClick(button(doc, 'Confirm', 1), doc, url),
+    ],
+    [
+      'Delete at the top of the profile picked beside the requests',
+      'friend-requests.html',
+      `${FB}/friends/requests/?profile_id=100007000000001`,
+      (doc, url) => answerFromClick(button(doc, 'Delete request'), doc, url),
     ],
     [
       'someone opened from a group',

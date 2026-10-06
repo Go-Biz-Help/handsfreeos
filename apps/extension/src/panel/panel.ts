@@ -22,12 +22,19 @@ import type {
 import { facebookUrl } from '../facebook/urls';
 import { WATCH, type Answer, type Ask, type Note } from '../messages';
 import { chip, clip, counted, h, link, type Child } from './dom';
+import type { Fit } from '@hfos/core/addons/outreach/fit';
 import {
   chatBlock,
+  dontPitchLine,
+  fitView,
   forget,
+  inFitOrder,
+  listBlock,
   lookUp,
+  markChips,
   profileBlock,
   refreshAccount,
+  requestFits,
   savedChatChip,
   savedChip,
   startHfos,
@@ -126,12 +133,19 @@ function groupView(group: GroupPage): HTMLElement {
   );
 }
 
-function personView(person: Person): HTMLElement {
+function personView(person: Person, fit: Fit | undefined): HTMLElement {
   return h(
     'li',
     {},
-    h('div', { class: 'name' }, link(person.name, person.profile?.url), savedChip(person.profile)),
+    h(
+      'div',
+      { class: 'name' },
+      link(person.name, person.profile?.url),
+      savedChip(person.profile),
+      ...markChips(person.profile),
+    ),
     person.details.length ? h('div', { class: 'muted' }, person.details.join(' · ')) : null,
+    fitView(fit),
     person.badges.length || runsGroup(person)
       ? h(
           'div',
@@ -145,18 +159,21 @@ function personView(person: Person): HTMLElement {
   );
 }
 
-function peopleView(people: readonly Person[]): HTMLElement {
+/** The people on the page; on your friends pages, the button that saves your list, and the requests by fit. */
+function peopleView(result: ReadResult, people: readonly Person[]): HTMLElement {
+  const fits = requestFits(result);
   const items: HTMLElement[] = [];
   let part: string | null = null;
-  for (const person of people.slice(0, SHOWN)) {
+  for (const person of inFitOrder(people, fits).slice(0, SHOWN)) {
     if (person.section !== part && person.section)
       items.push(h('li', { class: 'part' }, person.section));
     part = person.section;
-    items.push(personView(person));
+    items.push(personView(person, fits.get(person)));
   }
   return section(
     'People',
     people.length,
+    listBlock(result),
     h('ul', { class: 'list' }, ...items),
     more(people.length),
   );
@@ -226,6 +243,7 @@ function chatView(chat: ChatPage): HTMLElement {
     chat.name ? `Chat with ${chat.name}` : 'Chat',
     chat.messages.length,
     chat.profile ? h('p', { class: 'muted' }, link('Open their profile', chat.profile.url)) : null,
+    dontPitchLine(chat.profile),
     chatBlock(chat),
     chat.messages.length > SHOWN ? h('p', { class: 'more' }, `Showing the last ${SHOWN}.`) : null,
     h(
@@ -327,7 +345,7 @@ function resultView(result: ReadResult): HTMLElement[] {
     result.profile ? profileView(result.profile) : null,
     result.group ? groupView(result.group) : null,
     result.chat ? chatView(result.chat) : null,
-    result.people?.length ? peopleView(result.people) : null,
+    result.people?.length ? peopleView(result, result.people) : null,
     result.groups?.length ? groupsView(result.groups) : null,
     result.notices?.length ? noticesView(result.notices) : null,
     result.posts?.length ? postsView(result.posts) : null,
@@ -393,9 +411,23 @@ async function ask(tabId: number, message: Ask): Promise<Answer> {
   }
 }
 
-function showPage(kind: PageKind | null, url: string | null): void {
+/** Your own lists, where a friends page is one. */
+const YOUR_LIST: Record<NonNullable<ReadResult['friendList']>, string> = {
+  friends: 'Your friends',
+  requests: 'Your friend requests',
+};
+
+function showPage(
+  kind: PageKind | null,
+  url: string | null,
+  list?: ReadResult['friendList'],
+): void {
   page.replaceChildren(
-    h('div', { class: 'kind' }, kind ? KIND[kind] : 'No Facebook page open'),
+    h(
+      'div',
+      { class: 'kind' },
+      list ? YOUR_LIST[list] : kind ? KIND[kind] : 'No Facebook page open',
+    ),
     h('div', { class: 'url' }, url ? clip(url.replace(/^https:\/\/(www\.)?/, ''), 80) : null),
   );
 }
@@ -454,7 +486,7 @@ async function read(quiet = false): Promise<void> {
     lastResult = answer.result;
     // Pressing Read asks HandsFreeOS again too: something may have been saved somewhere else.
     if (!quiet) forget(answer.result);
-    showPage(answer.result.kind, answer.result.url);
+    showPage(answer.result.kind, answer.result.url, answer.result.friendList);
     results.replaceChildren(...resultView(answer.result));
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
     void lookUp(answer.result);

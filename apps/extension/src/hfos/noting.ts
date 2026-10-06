@@ -1,9 +1,10 @@
 /**
  * The steps the person takes on Facebook, noted in HandsFreeOS as they take them (docs/outreach.md, decisions 7 and
  * 8), in the background worker. A Facebook tab tells it each step (src/facebook/actions.ts), and it sends the step to
- * the business the panel saves to (`outreach.touch.save`) with the moment it was taken. While HandsFreeOS can't be
- * reached, steps wait in the extension's own storage with their ids, oldest first, so sending one again never notes
- * it twice, and a message's place (a chat started, a follow-up) is worked out in the order they were sent.
+ * the business the panel saves to (`outreach.touch.save`) with the moment it was taken; and the same for their answer
+ * to a friend request they got, Confirm or Delete (`outreach.friend.note`, decisions 10 to 13). While HandsFreeOS
+ * can't be reached, these wait in the extension's own storage with their ids, oldest first, so sending one again never
+ * notes it twice, and a message's place (a chat started, a follow-up) is worked out in the order they were sent.
  *
  * While the browser is open it also remembers the group each person was opened from, for a step taken later on their
  * own profile, whose address doesn't say which. Nothing is noted while the switch in the panel is off, or while
@@ -11,12 +12,13 @@
  */
 import { isApiErrorBody } from '@hfos/api-client';
 import { APP_HEADERS } from '@hfos/core/mobile';
-import { TOUCH_KIND_KEYS } from '@hfos/core/addons/outreach/limits';
-import type { Seen, Step, StepGroup } from '../facebook/actions';
+import { FRIEND_ANSWER_KEYS, TOUCH_KIND_KEYS } from '@hfos/core/addons/outreach/limits';
+import type { Answered, Seen, Step, StepGroup } from '../facebook/actions';
 import { profileKey } from '../facebook/urls';
 import { NOTING_KEY, type TabNote } from '../messages';
 import { config } from './config';
 import type {
+  FriendNoteInput,
   HfosAnswer,
   HfosAsk,
   Noted,
@@ -25,7 +27,7 @@ import type {
   TouchInput,
   TouchSaved,
 } from './messages';
-import { nameKey, touchSave } from './saves';
+import { friendNote, nameKey, touchSave, type Built } from './saves';
 import { answerWith, api, call, Refused, savingTo } from './session';
 
 /** Steps waiting to be sent, kept across restarts. */
@@ -41,14 +43,18 @@ export const GROUPS_MOST = 300;
 /** How many of the last steps the panel lists. */
 export const RECENT_MOST = 5;
 
+/** What's sent: a step (`outreach.touch.save`), or an answer to a friend request (`outreach.friend.note`). */
+type Sending =
+  | { readonly op?: undefined; readonly input: TouchInput }
+  | { readonly op: 'answer'; readonly input: FriendNoteInput };
+
 /** A step waiting to be sent: its id and moment stay the same however many times it's sent. */
-interface Waiting {
+type Waiting = Sending & {
   readonly commandId: string;
   readonly occurredAt: string;
   /** Whose step it is: it's sent only while they're signed in. */
   readonly userId: string;
-  readonly input: TouchInput;
-}
+};
 
 /** The group someone was opened from, by their profile, with their name to find them by when a link didn't match. */
 export interface Remembered {
@@ -65,7 +71,7 @@ interface Kept extends Noted {
 
 /** What came of sending a step. */
 export type Sent =
-  | { readonly kind: 'saved'; readonly saved: TouchSaved }
+  | { readonly kind: 'saved'; readonly saved: Pick<TouchSaved, 'step' | 'repeated'> }
   /** Saved at the same moment as another for the same person: send it again, under a new id. */
   | { readonly kind: 'again' }
   /** HandsFreeOS couldn't take it now: keep it waiting. */
@@ -131,14 +137,20 @@ export function isTabNote(note: unknown): note is TabNote {
   if (!isObject(note)) return false;
   const withProfile = (person: unknown): person is Record<string, unknown> =>
     isObject(person) && isObject(person.profile);
+  const named = (person: unknown) => withProfile(person) && typeof person.name === 'string';
   if (note.type === 'hfos-seen') return withProfile(note.seen) && isObject(note.seen.group);
-  if (note.type !== 'hfos-noted' || !isObject(note.step) || typeof note.at !== 'string')
-    return false;
-  const { kind, to } = note.step;
+  if (typeof note.at !== 'string') return false;
+  if (note.type === 'hfos-answered')
+    return (
+      isObject(note.answered) &&
+      (FRIEND_ANSWER_KEYS as readonly unknown[]).includes(note.answered.answer) &&
+      named(note.answered.to)
+    );
   return (
-    (TOUCH_KIND_KEYS as readonly unknown[]).includes(kind) &&
-    withProfile(to) &&
-    typeof to.name === 'string'
+    note.type === 'hfos-noted' &&
+    isObject(note.step) &&
+    (TOUCH_KIND_KEYS as readonly unknown[]).includes(note.step.kind) &&
+    named(note.step.to)
   );
 }
 
@@ -185,16 +197,30 @@ function inTurn<T>(work: () => Promise<T>): Promise<T> {
 
 // ------------------------------------------------------------------------------------------------- sending
 
+/** HandsFreeOS's answer to one sending: what it kept, as the panel shows it, or why not. */
+async function post(entry: Waiting) {
+  const headers = {
+    [APP_HEADERS.commandId]: entry.commandId,
+    [APP_HEADERS.occurredAt]: entry.occurredAt,
+  };
+  if (entry.op === 'answer') {
+    const { data, error, response } = await api().POST('/v1/commands/outreach.friend.note', {
+      body: entry.input,
+      headers,
+    });
+    return { saved: data && { step: null, repeated: false }, error, response };
+  }
+  const { data, error, response } = await api().POST('/v1/commands/outreach.touch.save', {
+    body: entry.input,
+    headers,
+  });
+  return { saved: data && { step: data.step, repeated: data.repeated }, error, response };
+}
+
 async function sendOnce(entry: Waiting): Promise<Sent> {
   try {
-    const { data, error, response } = await api().POST('/v1/commands/outreach.touch.save', {
-      body: entry.input,
-      headers: {
-        [APP_HEADERS.commandId]: entry.commandId,
-        [APP_HEADERS.occurredAt]: entry.occurredAt,
-      },
-    });
-    if (data !== undefined && response.ok) return { kind: 'saved', saved: data };
+    const { saved, error, response } = await post(entry);
+    if (saved !== undefined && response.ok) return { kind: 'saved', saved };
     return outcomeOf(response.status, error);
   } catch {
     // No answer: no connection, or the sign-in couldn't be refreshed.
@@ -259,29 +285,28 @@ function tellPages(): void {
 }
 
 /**
- * A step the person took: sent to HandsFreeOS after any still waiting, or kept to send when it can be reached. A
- * step HandsFreeOS refuses (Social Outreach turned off, say) isn't kept: the panel's last steps say why.
+ * Something the person did: sent to HandsFreeOS after anything still waiting, or kept to send when it can be reached.
+ * What HandsFreeOS refuses (Social Outreach turned off, someone on the Don't pitch list) isn't kept: the panel's last
+ * steps say why.
  */
-async function noteStep(step: Step, at: string): Promise<void> {
+async function noteDone(
+  what: Pick<Noted, 'kind' | 'name'>,
+  at: string,
+  build: (businessId: string) => Promise<Built<Sending>>,
+): Promise<void> {
   if (!(await isNoting())) return;
   const to = await savingTo().catch(() => null);
   // Nobody signed in, or nowhere to save: nothing is noted.
   if (!to) return;
-  const built = touchSave(step, to.businessId, rememberedFor(await groupsNow(), step));
+  const built = await build(to.businessId);
   const id = crypto.randomUUID();
   const occurredAt = momentOf(at, new Date());
-  const base = {
-    id,
-    businessId: to.businessId,
-    kind: step.kind,
-    name: step.to.name,
-    at: occurredAt,
-  };
+  const base = { id, businessId: to.businessId, ...what, at: occurredAt };
   if (!built.ok) {
     await keepRecent(id, () => ({ ...base, ...keptAs({ kind: 'refused', why: built.why }) }));
     return tellPages();
   }
-  const entry: Waiting = { commandId: id, occurredAt, userId: to.userId, input: built.input };
+  const entry: Waiting = { ...built.input, commandId: id, occurredAt, userId: to.userId };
   const clear = await sendWaiting(to.userId);
   const { sent, entry: last } = clear
     ? await send(entry)
@@ -294,7 +319,23 @@ async function noteStep(step: Step, at: string): Promise<void> {
   tellPages();
 }
 
-/** What a Facebook tab told the background: a step taken, or someone opened from a group. */
+/** A step the person took, with the group they found the person in when the page or the background knows it. */
+function noteStep(step: Step, at: string): Promise<void> {
+  return noteDone({ kind: step.kind, name: step.to.name }, at, async (businessId) => {
+    const built = touchSave(step, businessId, rememberedFor(await groupsNow(), step));
+    return built.ok ? { ok: true, input: { input: built.input } } : built;
+  });
+}
+
+/** The person's answer to a friend request they got. */
+function noteAnswer(answered: Answered, at: string): Promise<void> {
+  return noteDone({ kind: answered.answer, name: answered.to.name }, at, async (businessId) => {
+    const built = friendNote(answered, businessId);
+    return built.ok ? { ok: true, input: { op: 'answer', input: built.input } } : built;
+  });
+}
+
+/** What a Facebook tab told the background: a step taken, a friend request answered, or someone opened from a group. */
 export function takeNote(note: TabNote): void {
   const work =
     note.type === 'hfos-seen'
@@ -302,7 +343,9 @@ export function takeNote(note: TabNote): void {
           const groups = withSeen(await groupsNow(), note.seen, Date.now());
           await chrome.storage.session.set({ [GROUPS_KEY]: groups });
         }
-      : () => noteStep(note.step, note.at);
+      : note.type === 'hfos-answered'
+        ? () => noteAnswer(note.answered, note.at)
+        : () => noteStep(note.step, note.at);
   inTurn(work).catch((error: unknown) =>
     console.error('HandsFreeOS Social couldn’t note a step', note.type, error),
   );

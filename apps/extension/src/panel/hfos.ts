@@ -1,17 +1,54 @@
 /**
  * HandsFreeOS in the side panel: signing in, the business it saves to, which people and chats on the page are saved
- * there already, and the Save buttons. The background worker does the talking (src/hfos/session.ts); this keeps what
- * it said and draws it. Nothing is saved until the person presses a button.
+ * there already, and the Save buttons. On your friends pages it saves the list, and puts the friend requests in order
+ * of how they fit the business's playbooks; on a profile, Keep and Don't pitch (docs/outreach.md, decisions 10 to
+ * 13). The background worker does the talking (src/hfos/session.ts); this keeps what it said and draws it. Nothing is
+ * saved until the person presses a button.
  */
-import type { ChatPage, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
-import { LOOKUP_NAMES, LOOKUP_PROFILES, LOOKUP_THREADS } from '@hfos/core/addons/outreach/limits';
+import {
+  bestFit,
+  byFit,
+  FIT_LEVELS,
+  type Fit,
+  type FitPlaybook,
+} from '@hfos/core/addons/outreach/fit';
+import {
+  DONT_PITCH_TAG,
+  LOOKUP_NAMES,
+  LOOKUP_PROFILES,
+  LOOKUP_THREADS,
+} from '@hfos/core/addons/outreach/limits';
+import { mutualFriendsIn } from '../facebook/friends';
+import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
 import { profileKey } from '../facebook/urls';
-import type { Account, Business, HfosAnswer, Lookup, Problem } from '../hfos/messages';
-import { chatSave, nameKey, onPage, profileSave } from '../hfos/saves';
+import type {
+  Account,
+  Business,
+  FriendSetInput,
+  HfosAnswer,
+  Lookup,
+  Problem,
+} from '../hfos/messages';
+import {
+  chatSave,
+  friendSet,
+  friendsSave,
+  listOnPage,
+  nameKey,
+  onPage,
+  profileSave,
+  type ListOnPage,
+} from '../hfos/saves';
 import { ask } from './ask';
 import { ago, button, chip, counted, h, hfosLink, type Child } from './dom';
 
 type SameName = Lookup['sameName'][number]['people'][number];
+/** Where the person's own Facebook stands with someone kept in HandsFreeOS, Keep, Don't pitch, and what fit reads. */
+type Mark = Lookup['marks'][number];
+type DontPitch = NonNullable<Mark['dontPitch']>;
+
+/** How long the playbooks are taken as they were, before HandsFreeOS is asked again. */
+const PLAYBOOKS_FOR_MS = 5 * 60_000;
 
 interface Saved {
   readonly personId: string;
@@ -31,6 +68,11 @@ class Known {
   readonly threads = new Map<string, SavedChat | null>();
   /** By `nameKey`: the customers with that name. */
   readonly names = new Map<string, readonly SameName[]>();
+  /** By `profileKey`; null when HandsFreeOS keeps no profile for them. */
+  readonly marks = new Map<string, Mark | null>();
+  /** The playbooks in use, as much as fit reads: null until asked. */
+  playbooks: readonly FitPlaybook[] | null = null;
+  playbooksAt = 0;
   constructor(readonly business: Business) {}
 }
 
@@ -376,9 +418,10 @@ export async function lookUp(result: ReadResult): Promise<void> {
   lastRead = result;
   const k = known;
   if (!k) return;
+  if (listOnPage(result)?.list === 'requests') void loadPlaybooks(k);
   const on = onPage(result);
   const profiles = on.profiles
-    .filter((p) => !k.profiles.has(profileKey(p)))
+    .filter((p) => !k.profiles.has(profileKey(p)) || !k.marks.has(profileKey(p)))
     .slice(0, LOOKUP_PROFILES);
   const threads = on.threads.filter((t) => !k.threads.has(t)).slice(0, LOOKUP_THREADS);
   const names = on.name && !k.names.has(nameKey(on.name)) ? [on.name].slice(0, LOOKUP_NAMES) : [];
@@ -394,15 +437,40 @@ export async function lookUp(result: ReadResult): Promise<void> {
     },
   });
   if (!answer.ok) return problem(answer.problem);
-  for (const p of profiles) k.profiles.set(profileKey(p), null);
+  for (const p of profiles) {
+    k.profiles.set(profileKey(p), null);
+    k.marks.set(profileKey(p), null);
+  }
   for (const saved of answer.value.profiles) {
     const found = { personId: saved.personId, name: saved.name };
     if (saved.id) k.profiles.set(`id:${saved.id}`, found);
     if (saved.username) k.profiles.set(`user:${saved.username.toLowerCase()}`, found);
   }
+  for (const mark of answer.value.marks) setMark(k, mark);
   for (const t of threads) k.threads.set(t, null);
   for (const t of answer.value.threads) k.threads.set(t.key, t);
   for (const n of answer.value.sameName) k.names.set(nameKey(n.name), n.people);
+  if (k === known) redraw();
+}
+
+/** Keeps what HandsFreeOS said about someone, by each way the page may link to them. */
+function setMark(k: Known, mark: Mark): void {
+  if (mark.id) k.marks.set(`id:${mark.id}`, mark);
+  if (mark.username) k.marks.set(`user:${mark.username.toLowerCase()}`, mark);
+}
+
+/** Asks for the business's playbooks, to put the friend requests in order: again after a few minutes. */
+async function loadPlaybooks(k: Known): Promise<void> {
+  if (k.playbooks && Date.now() - k.playbooksAt < PLAYBOOKS_FOR_MS) return;
+  k.playbooksAt = Date.now();
+  const answer = await ask({ type: 'hfos-playbooks', workspaceId: k.business.id });
+  if (!answer.ok) {
+    k.playbooksAt = 0;
+    return problem(answer.problem);
+  }
+  k.playbooks = answer.value.playbooks
+    .filter((playbook) => !playbook.archivedAt)
+    .map(({ id, name, details }) => ({ id, name, details }));
   if (k === known) redraw();
 }
 
@@ -410,7 +478,11 @@ export async function lookUp(result: ReadResult): Promise<void> {
 export function forget(result: ReadResult): void {
   if (!known) return;
   const on = onPage(result);
-  for (const p of on.profiles) known.profiles.delete(profileKey(p));
+  for (const p of on.profiles) {
+    known.profiles.delete(profileKey(p));
+    known.marks.delete(profileKey(p));
+  }
+  known.playbooks = null;
   for (const t of on.threads) known.threads.delete(t);
   if (on.name) known.names.delete(nameKey(on.name));
 }
@@ -482,6 +554,85 @@ async function saveChat(chat: ChatPage, personId?: string): Promise<void> {
   redraw();
 }
 
+/** Saves your list on the page, in parts when it's long, and says what came of it. */
+async function saveList(mine: ListOnPage): Promise<void> {
+  const k = known;
+  if (!k) return;
+  const built = friendsSave(mine.people, mine.list, k.business.id);
+  if (!built.ok) return say(built.why);
+  const key = `list:${mine.list}`;
+  saving.add(key);
+  redraw();
+  const done = { saved: 0, added: 0, changed: 0 };
+  for (const input of built.input) {
+    const answer = await ask({ type: 'hfos-save-friends', input });
+    if (!answer.ok) {
+      saving.delete(key);
+      redraw();
+      if (done.saved) say(`Saved ${done.saved.toLocaleString()} before this stopped.`);
+      return problem(answer.problem);
+    }
+    done.saved += answer.value.saved;
+    done.added += answer.value.added;
+    done.changed += answer.value.changed;
+  }
+  saving.delete(key);
+  // What HandsFreeOS keeps about them changed: ask again.
+  for (const person of mine.people) if (person.profile) k.marks.delete(profileKey(person.profile));
+  const what = mine.list === 'friends' ? 'friend' : 'friend request';
+  const news = [
+    done.added ? `${done.added.toLocaleString()} new` : null,
+    done.changed ? `${done.changed.toLocaleString()} changed` : null,
+  ].filter(Boolean);
+  say(
+    `Saved ${counted(done.saved, what)} in ${k.business.name}${news.length ? `: ${news.join(', ')}` : ''}.`,
+  );
+  redraw();
+  await lookUpAgain();
+}
+
+/** Keep, or Don't pitch, for someone on the page. */
+async function setFriend(
+  to: { readonly profile: ProfileRef; readonly name: string },
+  change: Pick<FriendSetInput, 'keep' | 'dontPitch'>,
+): Promise<void> {
+  const k = known;
+  if (!k) return;
+  const key = profileKey(to.profile);
+  const mark = k.marks.get(key) ?? null;
+  const built = friendSet(to, k.business.id, change, mark?.profileId);
+  if (!built.ok) return say(built.why);
+  saving.add(`mark:${key}`);
+  redraw();
+  const answer = await ask({ type: 'hfos-set-friend', input: built.input });
+  saving.delete(`mark:${key}`);
+  if (answer.ok) {
+    const set = answer.value;
+    const next: Mark = {
+      ...(mark ?? { state: null, intro: [], mutualFriends: null, groupName: null }),
+      profileId: set.profileId,
+      id: mark?.id ?? to.profile.id,
+      username: mark?.username ?? to.profile.username,
+      keep: set.keep,
+      dontPitch: set.dontPitch,
+    };
+    k.marks.set(key, next);
+    setMark(k, next);
+    say(
+      change.dontPitch === true
+        ? `${to.name} is on the Don’t pitch list in ${k.business.name}.`
+        : change.dontPitch === false
+          ? set.dontPitch
+            ? `${to.name} is off the Don’t pitch list, but tagged ${DONT_PITCH_TAG} in Contacts, so they still aren’t pitched.`
+            : `${to.name} is off the Don’t pitch list.`
+          : set.keep
+            ? `You’ll keep ${to.name}: they’re never suggested for unfriending.`
+            : `${to.name} isn’t on your Keep list anymore.`,
+    );
+  } else problem(answer.problem);
+  redraw();
+}
+
 // ------------------------------------------------------------------------------------------------- drawing
 
 function block(...children: Child[]): HTMLElement {
@@ -540,6 +691,63 @@ function sameNameView(
   );
 }
 
+/** "Added by Jordan Owner on Oct 6": who put someone on the Don't pitch list, and when. */
+function addedBy(never: DontPitch): string {
+  const on = never.at
+    ? ` on ${new Date(never.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    : '';
+  return never.by ? `added by ${never.by}${on}` : `added${on}`;
+}
+
+/** Why someone isn't pitched: the list, the Contacts tag, or both. */
+function dontPitchWords(never: DontPitch): string {
+  const listed = never.at !== null;
+  if (listed && never.tagged)
+    return `On the Don’t pitch list (${addedBy(never)}), and tagged ${DONT_PITCH_TAG} in Contacts.`;
+  if (listed) return `On the Don’t pitch list, ${addedBy(never)}.`;
+  return `Tagged ${DONT_PITCH_TAG} in Contacts, so nobody pitches them. To pitch them, take the tag off in Contacts.`;
+}
+
+function toggle(text: string, on: boolean, busy: boolean, change: (on: boolean) => void) {
+  const input = h('input', { type: 'checkbox' });
+  input.checked = on;
+  input.disabled = busy;
+  input.addEventListener('change', () => change(input.checked));
+  return h('label', { class: 'auto' }, input, ` ${text}`);
+}
+
+/**
+ * Keep and Don't pitch for the person on a profile: Keep only for a friend. Steps to someone on the Don't pitch list
+ * aren't counted as outreach, and the line says why they're on it.
+ */
+function marksView(to: { readonly profile: ProfileRef; readonly name: string }, friends: boolean) {
+  const k = known;
+  const key = profileKey(to.profile);
+  const mark = k?.marks.get(key);
+  if (!k || mark === undefined) return null;
+  const busy = saving.has(`mark:${key}`);
+  const never = mark?.dontPitch ?? null;
+  return h(
+    'div',
+    { class: 'marks' },
+    never ? h('p', { class: 'warn-line' }, dontPitchWords(never)) : null,
+    toggle(
+      'Don’t pitch: no outreach to them from anyone here',
+      never !== null && never.at !== null,
+      busy,
+      (on) => void setFriend(to, { dontPitch: on }),
+    ),
+    friends || mark?.state === 'friends' || mark?.keep
+      ? toggle(
+          'Keep: never suggest unfriending them',
+          mark?.keep ?? false,
+          busy,
+          (on) => void setFriend(to, { keep: on }),
+        )
+      : null,
+  );
+}
+
 /** Saving the profile on the page: where it's saved, or the button. Nothing while there's nowhere to save. */
 export function profileBlock(page: ProfilePage): HTMLElement | null {
   const k = known;
@@ -549,10 +757,15 @@ export function profileBlock(page: ProfilePage): HTMLElement | null {
   const saved = k.profiles.get(key);
   const sameNames = k.names.get(nameKey(page.name));
   if (saved === undefined || (saved === null && sameNames === undefined)) return checking();
+  const marks = marksView(
+    { profile: page.profile, name: page.name },
+    page.friendship === 'friends',
+  );
   if (saved)
     return block(
       h('p', {}, 'In HandsFreeOS as ', hfosLink(saved.name, personUrl(saved.personId)), '.'),
       button(busy ? 'Saving…' : 'Save again', () => void saveProfile(page), { disabled: busy }),
+      marks,
     );
   const same = sameNames ?? [];
   return block(
@@ -560,6 +773,109 @@ export function profileBlock(page: ProfilePage): HTMLElement | null {
     button(
       busy ? 'Saving…' : same.length ? 'Save as someone new' : 'Save to HandsFreeOS',
       () => void saveProfile(page),
+      { primary: true, disabled: busy },
+    ),
+    marks,
+  );
+}
+
+/** The line over a chat with someone nobody pitches. */
+export function dontPitchLine(profile: ProfileRef | null | undefined): Child {
+  const never = profile ? known?.marks.get(profileKey(profile))?.dontPitch : null;
+  return never ? h('p', { class: 'warn-line' }, dontPitchWords(never)) : null;
+}
+
+/** "Don't pitch" and "Keep" beside someone in a list. */
+export function markChips(profile: ProfileRef | null | undefined): Child[] {
+  const mark = profile ? known?.marks.get(profileKey(profile)) : null;
+  if (!mark) return [];
+  return [mark.dontPitch ? chip('Don’t pitch', 'warn') : null, mark.keep ? chip('Keep') : null];
+}
+
+// ------------------------------------------------------------------------------------ your friends pages
+
+/** How someone in your requests fits the playbooks in use, from what the page and HandsFreeOS know about them. */
+function fitOf(k: Known, person: Person): Fit | null {
+  if (!k.playbooks || !person.profile) return null;
+  const mark = k.marks.get(profileKey(person.profile)) ?? null;
+  return bestFit(k.playbooks, {
+    lines: [...person.details, ...(mark?.intro ?? [])],
+    mutualFriends: mutualFriendsIn(person.details) ?? mark?.mutualFriends ?? null,
+    groupName: mark?.groupName ?? null,
+  });
+}
+
+/** The friend requests on the page, each with how they fit, once the playbooks are known. */
+export function requestFits(result: ReadResult): ReadonlyMap<Person, Fit> {
+  const k = known;
+  const mine = listOnPage(result);
+  const fits = new Map<Person, Fit>();
+  if (!k || mine?.list !== 'requests') return fits;
+  for (const person of mine.people) {
+    const fit = fitOf(k, person);
+    if (fit) fits.set(person, fit);
+  }
+  return fits;
+}
+
+/**
+ * The people on the page in the order to show them: the friend requests by how they fit the playbooks, the best
+ * first, in the places the requests had; everyone else as the page had them.
+ */
+export function inFitOrder(people: readonly Person[], fits: ReadonlyMap<Person, Fit>): Person[] {
+  if (!fits.size) return [...people];
+  const sorted = byFit(
+    people
+      .filter((person) => fits.has(person))
+      .map((person) => ({
+        person,
+        fit: fits.get(person)!,
+        mutualFriends: mutualFriendsIn(person.details),
+      })),
+  ).map(({ person }) => person);
+  let next = 0;
+  return people.map((person) => (fits.has(person) ? sorted[next++]! : person));
+}
+
+/** How a request fits, beside them: "Good fit", and why. */
+export function fitView(fit: Fit | undefined): Child {
+  if (!fit || !known?.playbooks?.length) return null;
+  return h(
+    'div',
+    {},
+    chip(
+      FIT_LEVELS[fit.level],
+      fit.level === 'skip' ? 'warn' : fit.level === 'good' ? 'saved' : 'plain',
+    ),
+    fit.reasons.length ? h('span', { class: 'muted' }, fit.reasons.join(' · ')) : null,
+  );
+}
+
+/** Saving your friends or your requests, over the list. */
+export function listBlock(result: ReadResult): HTMLElement | null {
+  const k = known;
+  const mine = listOnPage(result);
+  if (!k || !mine?.people.length) return null;
+  const busy = saving.has(`list:${mine.list}`);
+  const count = mine.people.length;
+  const friends = mine.list === 'friends';
+  return block(
+    h(
+      'p',
+      { class: 'muted' },
+      friends
+        ? 'Facebook shows your friends as you scroll. Scroll to the end of the list, then save it.'
+        : k.playbooks?.length
+          ? 'Sorted by how they fit your playbooks, the best first.'
+          : 'Say what to look for in a playbook, in quotes, to sort these by fit.',
+    ),
+    button(
+      busy
+        ? 'Saving…'
+        : friends
+          ? `Save my ${counted(count, 'friend')}`
+          : `Save ${count === 1 ? 'this request' : `these ${count.toLocaleString()} requests`}`,
+      () => void saveList(mine),
       { primary: true, disabled: busy },
     ),
   );

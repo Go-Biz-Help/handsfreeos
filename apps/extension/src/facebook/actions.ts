@@ -1,8 +1,9 @@
 /**
  * The steps a person takes on Facebook themselves, noticed as they take them (docs/outreach.md, decisions 7 and 8): a
- * friend request, a like, a comment and a message. The content script hears the click or the Enter that takes one,
- * and these work out from the page around it what it was, who it was to, and the group they were found in. They read
- * the page and never change it, and they never keep what a comment or a message says: only that one was sent.
+ * friend request, a like, a comment and a message; and their answer to a friend request they got, Confirm or Delete
+ * (decisions 10 to 13). The content script hears the click or the Enter that takes one, and these work out from the
+ * page around it what it was, who it was to, and the group they were found in. They read the page and never change
+ * it, and they never keep what a comment or a message says: only that one was sent.
  *
  * Like the readers, they go by labels, links and page order, never class names, and in English for now:
  *
@@ -14,11 +15,25 @@
  *   to whoever wrote the post, or for a reply, the comment it answers.
  * - **Message:** the same in an open chat, to who it's with; or in a chat open in a small window over another page, to
  *   the one person the window links to.
+ * - **Confirm or Delete** on a friend request: the two buttons side by side on its card (the requests page, /friends,
+ *   a notification), to the one person the card links to; the same at the top of their profile; or in the menu their
+ *   profile's Respond opens.
  *
  * A step to yourself (your own post) isn't one, and neither is a step the page can't tie to exactly one person.
  */
 import { readChat } from './chat';
-import { clean, inTopBar, isAfter, isBefore, labelOf, namesOn, tabsIn, textWithEmoji } from './dom';
+import {
+  clean,
+  inTopBar,
+  isAfter,
+  isBefore,
+  labelOf,
+  namesOn,
+  tabsIn,
+  textLines,
+  textWithEmoji,
+} from './dom';
+import { mutualFriendsIn } from './friends';
 import { bestName, isNameLike } from './people';
 import { commentAround, commentsIn, postAround, postBefore, readPost } from './posts';
 import { nameFromTitle } from './profile';
@@ -484,4 +499,113 @@ export function seenFromClick(target: Element, doc: Document, href: string): See
   if (!group) return null;
   const name = bestName(namesOn([anchor]));
   return isYou({ profile, name }, doc, href) ? null : { profile, name, group };
+}
+
+// ------------------------------------------------------------------------------------- answering a request
+
+/** The person's answer to a friend request they got, and who asked. Plain data, like a step. */
+export interface Answered {
+  readonly answer: 'confirm' | 'delete';
+  readonly to: Reached;
+  /** As the card said: "12 mutual friends". */
+  readonly mutualFriends: number | null;
+}
+
+/** A request's two buttons: "Confirm" or "Confirm Jane Doe", and "Delete" or "Delete request". */
+const CONFIRM = /^(?:confirm(?: friend)?(?: request)?|accept(?: request)?)(?:\s+(.+))?$/i;
+const DELETE =
+  /^(?:delete(?: friend)?(?: request)?|remove request|decline(?: request)?)(?:\s+(.+))?$/i;
+/** The same in the menu a profile's Respond opens: only these words, since other menus say "Delete". */
+const MENU_CONFIRM = /^confirm(?: request)?$/i;
+const MENU_DELETE = /^delete(?: friend)? request$/i;
+const RESPOND = /^respond$/i;
+
+const controlsIn = (box: Element) => box.querySelectorAll('[role="button"], button');
+
+/**
+ * The two buttons a request's button is one of: the nearest box around it that has the other one too. A box that
+ * has the other button of more than one request is a list of them, so this one has none beside it.
+ */
+function requestButtons(control: Element, other: RegExp, root: Element): Element | null {
+  let box = control.parentElement;
+  for (let steps = 0; box && steps < CARD_STEPS; steps++) {
+    const others = [...controlsIn(box)].filter(
+      (found) => found !== control && other.test(labelOf(found)),
+    );
+    if (others.length) return others.length === 1 ? box : null;
+    if (box === root) break;
+    box = box.parentElement;
+  }
+  return null;
+}
+
+/** The card someone's request is on: the nearest box around its button that links to them. */
+function cardOf(control: Element, to: Reached, root: Element, base: string): Element | null {
+  const key = profileKey(to.profile);
+  let box = control.parentElement;
+  for (let steps = 0; box && steps < CARD_STEPS; steps++) {
+    const linked = peopleLinked(box.querySelectorAll('a[href]'), base);
+    if (linked.some((person) => profileKey(person.profile) === key)) return box;
+    if (box === root) break;
+    box = box.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Whose profile is open beside the requests list (/friends/requests/?profile_id=…): the number in the address, and
+ * the name on the links to them or the heading.
+ */
+function previewPerson(doc: Document, href: string): Reached | null {
+  const url = facebookUrl(href);
+  if (!url || pathParts(url)[0]?.toLowerCase() !== 'friends') return null;
+  const profile = profileFromUrl(url);
+  if (!profile) return null;
+  const key = profileKey(profile);
+  const heading = clean(mainOf(doc).querySelector('h1, h2')?.textContent);
+  const name =
+    peopleLinked(doc.querySelectorAll('a[href]'), href).find(
+      (person) => profileKey(person.profile) === key,
+    )?.name ?? (isNameLike(heading) ? heading : null);
+  return name ? { name, profile } : null;
+}
+
+/** The answer a click gives a friend request, when it's on one of the buttons that answer one. */
+export function answerFromClick(target: Element, doc: Document, href: string): Answered | null {
+  const item = target.closest('[role="menuitem"]');
+  if (item) {
+    // The menu a profile's Respond opens, on a profile that shows a request from them.
+    const label = labelOf(item);
+    const answer = MENU_CONFIRM.test(label) ? 'confirm' : MENU_DELETE.test(label) ? 'delete' : null;
+    const address = classifyUrl(href);
+    const main = mainOf(doc);
+    const responding = [...controlsIn(main)].some((control) => RESPOND.test(labelOf(control)));
+    const to = answer && responding ? pagePerson(doc, address, href) : null;
+    return answer && to && !isYou(to, doc, href) ? { answer, to, mutualFriends: null } : null;
+  }
+  const control = target.closest('[role="button"], button');
+  if (!control || inTopBar(control) || control.getAttribute('aria-disabled') === 'true')
+    return null;
+  const label = labelOf(control);
+  const confirm = CONFIRM.exec(label);
+  const remove = confirm ? null : DELETE.exec(label);
+  if (!confirm && !remove) return null;
+  const answer = confirm ? 'confirm' : 'delete';
+  const root = rootOf(control, doc);
+  if (!requestButtons(control, confirm ? DELETE : CONFIRM, root)) return null;
+  const named = clean((confirm ?? remove)?.[1]) || null;
+  const address = classifyUrl(href);
+  const main = mainOf(doc);
+  let to: Reached | null = null;
+  if (main.contains(control)) {
+    // At the top of their profile, above its tabs, or of the profile open beside the requests list.
+    const page = pagePerson(doc, address, href) ?? previewPerson(doc, href);
+    const tabs = tabsIn(main);
+    if (page && (!tabs || isBefore(control, tabs) || (named && sameName(named, page.name))))
+      to = page;
+  }
+  to ??= personNear(control, root, href, named);
+  if (!to || isYou(to, doc, href)) return null;
+  const card = cardOf(control, to, root, href);
+  return { answer, to, mutualFriends: card ? mutualFriendsIn(textLines(card, 12)) : null };
 }

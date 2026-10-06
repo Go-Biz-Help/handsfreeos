@@ -28,6 +28,14 @@ export type Me = Ok<'/v1/queries/account.me'>;
 export type TouchInput = Body<'/v1/commands/outreach.touch.save'>;
 export type TouchSaved = Ok<'/v1/commands/outreach.touch.save'>;
 export type Activity = Ok<'/v1/queries/outreach.activity'>;
+/** Friends (packages/core/src/addons/outreach/friends.ts): an answer to a request, a list saved, Keep and Don't pitch. */
+export type FriendNoteInput = Body<'/v1/commands/outreach.friend.note'>;
+export type FriendsSaveInput = Body<'/v1/commands/outreach.friends.save'>;
+export type FriendsSaved = Ok<'/v1/commands/outreach.friends.save'>;
+export type FriendSetInput = Body<'/v1/commands/outreach.friend.set'>;
+export type FriendSet = Ok<'/v1/commands/outreach.friend.set'>;
+/** The business's playbooks, which the requests on a page are sorted by (packages/core/src/addons/outreach/fit.ts). */
+export type Playbooks = Ok<'/v1/queries/outreach.playbook.list'>;
 
 /** A business the extension can save to: Social Outreach is on there, and the person may use it. */
 export interface Business {
@@ -52,9 +60,9 @@ export type Account =
       readonly webUrl: string;
     };
 
-/** One of the last steps noted, as the panel lists them. */
+/** One of the last steps noted, as the panel lists them: a step, or an answer to a friend request. */
 export interface Noted {
-  readonly kind: TouchInput['kind'];
+  readonly kind: TouchInput['kind'] | FriendNoteInput['answer'];
   readonly name: string;
   readonly at: string;
   /** Kept in HandsFreeOS, waiting to be sent while it can't be reached, or not kept (`why` says). */
@@ -95,6 +103,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-lookup'; readonly input: LookupInput }
   | { readonly type: 'hfos-save-profile'; readonly input: ProfileInput }
   | { readonly type: 'hfos-save-chat'; readonly input: ChatInput }
+  | { readonly type: 'hfos-save-friends'; readonly input: FriendsSaveInput }
+  | { readonly type: 'hfos-set-friend'; readonly input: FriendSetInput }
+  | { readonly type: 'hfos-playbooks'; readonly workspaceId: string }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
 
@@ -109,6 +120,9 @@ export interface HfosValues {
   readonly 'hfos-lookup': Lookup;
   readonly 'hfos-save-profile': ProfileSaved;
   readonly 'hfos-save-chat': ChatSaved;
+  readonly 'hfos-save-friends': FriendsSaved;
+  readonly 'hfos-set-friend': FriendSet;
+  readonly 'hfos-playbooks': Playbooks;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
 }
@@ -123,6 +137,9 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-lookup',
   'hfos-save-profile',
   'hfos-save-chat',
+  'hfos-save-friends',
+  'hfos-set-friend',
+  'hfos-playbooks',
   'hfos-today',
   'hfos-noting',
 ]);

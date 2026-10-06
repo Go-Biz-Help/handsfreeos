@@ -8,6 +8,7 @@ import {
   DAILY_LIMITS,
   DAILY_STEPS,
   DAILY_WORDS,
+  FRIEND_ANSWERS,
   pastLimitWords,
   TOUCH_KINDS,
 } from '@hfos/core/addons/outreach/limits';
@@ -50,7 +51,10 @@ async function turn(on: boolean): Promise<void> {
   draw();
 }
 
-/** What a step was, in a few words: "Message · Dana Reyes · chat started". */
+/** What each step or answer noted is called. */
+const NOTED: Record<Noted['kind'], string> = { ...TOUCH_KINDS, ...FRIEND_ANSWERS };
+
+/** What a step was, in a few words: "Message · Dana Reyes · chat started", "Confirmed · Dana Reyes". */
 function stepWords(noted: Noted): string {
   const place =
     noted.step === 'first_message'
@@ -58,7 +62,7 @@ function stepWords(noted: Noted): string {
       : noted.step === 'follow_up'
         ? 'follow-up'
         : null;
-  return [TOUCH_KINDS[noted.kind], noted.name, place].filter(Boolean).join(' · ');
+  return [NOTED[noted.kind], noted.name, place].filter(Boolean).join(' · ');
 }
 
 /** "6 people reached · 1 wrote back". */

@@ -6,29 +6,30 @@
  */
 import { z } from 'zod';
 import { FIT_LEVEL_KEYS } from './fit';
-import { FRIEND_STATE_KEYS, FRIENDS_SAVE_MOST, INTRO_LINE_MOST, INTRO_LINES } from './limits';
+import {
+  FRIEND_ANSWER_KEYS,
+  FRIEND_STATE_KEYS,
+  FRIENDS_SAVE_MOST,
+  INTRO_LINE_MOST,
+  INTRO_LINES,
+} from './limits';
 import { PLATFORM_KEYS } from './playbooks';
 import { DontPitch, PersonName, ProfileRef } from './saves';
 
 export { DontPitch } from './saves';
 export {
   DONT_PITCH_TAG,
+  FRIEND_ANSWER_KEYS,
+  FRIEND_ANSWERS,
   FRIEND_STATE_KEYS,
   FRIEND_STATES,
   FRIENDS_CAP,
   FRIENDS_SAVE_MOST,
+  type FriendAnswer,
   type FriendState,
 } from './limits';
 
 const mutualFriends = z.number().int().min(0).max(100_000).nullable().default(null);
-
-/** The person pressed Confirm or Delete on a friend request they got, on Facebook. */
-export const FRIEND_ANSWERS = {
-  confirm: 'Confirmed',
-  delete: 'Deleted request',
-} as const;
-export type FriendAnswer = keyof typeof FRIEND_ANSWERS;
-export const FRIEND_ANSWER_KEYS = Object.keys(FRIEND_ANSWERS) as [FriendAnswer, ...FriendAnswer[]];
 
 export const FriendNoteInput = z.object({
   workspaceId: z.uuid(),

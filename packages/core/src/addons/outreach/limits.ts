@@ -96,6 +96,14 @@ export const FRIEND_STATES = {
 export type FriendState = keyof typeof FRIEND_STATES;
 export const FRIEND_STATE_KEYS = Object.keys(FRIEND_STATES) as [FriendState, ...FriendState[]];
 
+/** The person's answer to a friend request they got, on Facebook, as the extension notes it (./friends.ts). */
+export const FRIEND_ANSWERS = {
+  confirm: 'Confirmed',
+  delete: 'Deleted request',
+} as const;
+export type FriendAnswer = keyof typeof FRIEND_ANSWERS;
+export const FRIEND_ANSWER_KEYS = Object.keys(FRIEND_ANSWERS) as [FriendAnswer, ...FriendAnswer[]];
+
 /** Facebook's cap on friends: the Friends tab counts toward it. */
 export const FRIENDS_CAP = 5000;
 /** The most people one save of a list sends: the extension sends a longer list in parts. */

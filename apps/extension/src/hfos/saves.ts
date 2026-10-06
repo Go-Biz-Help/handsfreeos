@@ -1,10 +1,11 @@
 /**
  * What the panel sends HandsFreeOS when the person presses Save, what it asks to learn which people and chats on a
- * page are saved already, and what the background sends for each step the person takes on Facebook: the Social
- * Outreach add-on's commands and look-up (packages/core/src/addons/outreach), built from what the page showed and
- * cut to what they take. Plain functions, so the tests check them.
+ * page are saved already, and what the background sends for each step the person takes on Facebook and each friend
+ * request they answer: the Social Outreach add-on's commands and look-up (packages/core/src/addons/outreach), built
+ * from what the page showed and cut to what they take. Plain functions, so the tests check them.
  */
 import {
+  FRIENDS_SAVE_MOST,
   GROUP_ID,
   GROUP_SLUG,
   INTRO_LINE_MOST,
@@ -17,10 +18,20 @@ import {
   USERNAME,
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
-import type { Step, StepGroup } from '../facebook/actions';
-import type { ChatPage, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
+import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
+import { asked, mutualFriendsIn, type FriendList } from '../facebook/friends';
+import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
 import { profileKey } from '../facebook/urls';
-import type { Business, ChatInput, Me, ProfileInput, TouchInput } from './messages';
+import type {
+  Business,
+  ChatInput,
+  FriendNoteInput,
+  FriendSetInput,
+  FriendsSaveInput,
+  Me,
+  ProfileInput,
+  TouchInput,
+} from './messages';
 import { resolveWhen } from './when';
 
 type ChatMessage = ChatInput['messages'][number];
@@ -52,6 +63,9 @@ function ref(profile: ProfileRef): ProfileInput['profile'] {
   };
 }
 
+/** Mutual friends as HandsFreeOS takes them. */
+const mutual = (count: number | null) => (count !== null && count <= 100_000 ? count : null);
+
 export type Built<T> =
   { readonly ok: true; readonly input: T } | { readonly ok: false; readonly why: string };
 
@@ -80,8 +94,7 @@ export function profileSave(
         .filter(Boolean)
         .slice(0, INTRO_LINES),
       friendship: page.friendship,
-      mutualFriends:
-        page.mutualFriends !== null && page.mutualFriends <= 100_000 ? page.mutualFriends : null,
+      mutualFriends: mutual(page.mutualFriends),
       ...(personId ? { personId } : {}),
     },
   };
@@ -144,6 +157,17 @@ export function chatSave(
 const facebookAddress = (url: string | null) =>
   url && url.length <= 500 && url.startsWith('https://www.facebook.com/') ? url : null;
 
+const NOT_WHOSE = 'Couldn’t tell whose profile it was.';
+
+/** Who a step or an answer was to, as HandsFreeOS takes them: null when the page didn't give a profile it keeps. */
+function whom(to: Pick<Reached, 'name' | 'profile'>): Pick<TouchInput, 'profile' | 'name'> | null {
+  const profile = ref(to.profile);
+  const name = clip(to.name, NAME_MOST);
+  return (profile.id || profile.username) && facebookAddress(profile.url) && name
+    ? { profile, name }
+    : null;
+}
+
 /** A group as HandsFreeOS takes it: by its number, or by the name in its link when that's all the link showed. */
 function groupRef(group: StepGroup): TouchInput['group'] {
   const id = GROUP_ID.test(group.id) ? group.id : null;
@@ -163,10 +187,8 @@ export function touchSave(
   workspaceId: string,
   remembered: StepGroup | null = null,
 ): Built<TouchInput> {
-  const profile = ref(step.to.profile);
-  const name = clip(step.to.name, NAME_MOST);
-  if ((!profile.id && !profile.username) || !facebookAddress(profile.url) || !name)
-    return { ok: false, why: 'Couldn’t tell whose profile it was.' };
+  const who = whom(step.to);
+  if (!who) return { ok: false, why: NOT_WHOSE };
   const group = step.group ?? remembered;
   return {
     ok: true,
@@ -174,8 +196,7 @@ export function touchSave(
       workspaceId,
       platform: 'facebook',
       kind: step.kind,
-      profile,
-      name,
+      ...who,
       group: group ? groupRef(group) : null,
       postUrl:
         step.kind === 'like' || step.kind === 'comment' ? facebookAddress(step.postUrl) : null,
@@ -186,6 +207,93 @@ export function touchSave(
       replying: step.kind === 'message' ? step.replying : null,
     },
   };
+}
+
+/** The person's answer to a friend request they got, to note: Confirm or Delete, who asked, and their mutual friends. */
+export function friendNote(answered: Answered, workspaceId: string): Built<FriendNoteInput> {
+  const who = whom(answered.to);
+  if (!who) return { ok: false, why: NOT_WHOSE };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: 'facebook',
+      answer: answered.answer,
+      ...who,
+      mutualFriends: mutual(answered.mutualFriends),
+    },
+  };
+}
+
+/** One of your lists on the page, and the people in it as far as it has loaded. */
+export interface ListOnPage {
+  readonly list: FriendList;
+  readonly people: readonly Person[];
+}
+
+/**
+ * Your list on the page: your friends, or the friend requests you've got; on /friends, the requests in its "Friend
+ * requests" part. Null on any other page, someone else's friends among them.
+ */
+export function listOnPage(result: ReadResult): ListOnPage | null {
+  const people = result.people ?? [];
+  if (result.friendList) return { list: result.friendList, people };
+  if (result.kind !== 'friends') return null;
+  const requests = people.filter((person) => asked(person, null));
+  return requests.length ? { list: 'requests', people: requests } : null;
+}
+
+/**
+ * The people in one of your lists, to save, each once: in parts of FRIENDS_SAVE_MOST, which the panel sends one
+ * after another. Someone without a profile link the page showed is left out.
+ */
+export function friendsSave(
+  people: readonly Person[],
+  list: FriendList,
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    if (!person.profile || seen.has(profileKey(person.profile))) continue;
+    const who = whom({ name: person.name, profile: person.profile });
+    if (!who) continue;
+    seen.add(profileKey(person.profile));
+    kept.push({ ...who, mutualFriends: mutual(mutualFriendsIn(person.details)) });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why:
+        list === 'friends'
+          ? 'There are no friends on the page to save. Scroll down so Facebook shows them, then try again.'
+          : 'There are no friend requests on the page to save.',
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: 'facebook',
+      list,
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}
+
+/**
+ * Keep or Don't pitch for someone: by the profile HandsFreeOS keeps (`profileId`, from the look-up), or by their
+ * profile on the page and their name when it keeps none yet.
+ */
+export function friendSet(
+  to: { readonly profile: ProfileRef; readonly name: string },
+  workspaceId: string,
+  change: Pick<FriendSetInput, 'keep' | 'dontPitch'>,
+  profileId?: string,
+): Built<FriendSetInput> {
+  const base = { workspaceId, platform: 'facebook' as const, ...change };
+  if (profileId) return { ok: true, input: { ...base, profileId } };
+  const who = whom(to);
+  return who ? { ok: true, input: { ...base, ...who } } : { ok: false, why: NOT_WHOSE };
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */

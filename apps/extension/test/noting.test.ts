@@ -1,9 +1,10 @@
 /**
- * What the extension sends HandsFreeOS for each step the person takes on Facebook, cut to what the command takes;
- * and how the background decides what to do with one: keep it waiting, send it again, or let it go.
+ * What the extension sends HandsFreeOS for each step the person takes on Facebook, and each friend request they
+ * answer, cut to what the command takes; and how the background decides what to do with one: keep it waiting, send
+ * it again, or let it go.
  */
 import { describe, expect, it } from 'vitest';
-import type { Seen, Step, StepGroup } from '../src/facebook/actions';
+import type { Answered, Seen, Step, StepGroup } from '../src/facebook/actions';
 import {
   GROUPS_MOST,
   isTabNote,
@@ -13,7 +14,7 @@ import {
   withSeen,
   type Remembered,
 } from '../src/hfos/noting';
-import { touchSave } from '../src/hfos/saves';
+import { friendNote, touchSave } from '../src/hfos/saves';
 
 const WS = '6f0a3c1e-2b4d-4e8f-9a1b-3c5d7e9f1a2b';
 const FB = 'https://www.facebook.com';
@@ -118,6 +119,39 @@ describe('touchSave', () => {
   });
 });
 
+describe('friendNote', () => {
+  const answered = (more: Partial<Answered> = {}): Answered => ({
+    answer: 'confirm',
+    to: { name: 'Kim Lowe', profile: kim },
+    mutualFriends: 12,
+    ...more,
+  });
+
+  it('sends the answer, who asked, and their mutual friends', () => {
+    expect(friendNote(answered(), WS)).toEqual({
+      ok: true,
+      input: {
+        workspaceId: WS,
+        platform: 'facebook',
+        answer: 'confirm',
+        profile: { id: '100003000000002', username: null, url: kim.url },
+        name: 'Kim Lowe',
+        mutualFriends: 12,
+      },
+    });
+    const deleted = friendNote(answered({ answer: 'delete', mutualFriends: 900_000 }), WS);
+    expect(deleted.ok && deleted.input).toMatchObject({ answer: 'delete', mutualFriends: null });
+  });
+
+  it('notes nobody it can’t tell the profile of', () => {
+    const nobody = { id: null, username: null, url: `${FB}/friends/requests/` };
+    expect(friendNote(answered({ to: { name: 'Kim Lowe', profile: nobody } }), WS)).toEqual({
+      ok: false,
+      why: 'Couldn’t tell whose profile it was.',
+    });
+  });
+});
+
 describe('what comes of sending a step', () => {
   const refused = (status: number, rule?: string, disposition?: string) => [
     status,
@@ -190,10 +224,27 @@ describe('the group someone was opened from', () => {
 });
 
 describe('a tab’s note', () => {
-  it('takes notes shaped like a step or someone seen, and nothing else', () => {
+  it('takes notes shaped like a step, an answer or someone seen, and nothing else', () => {
     expect(isTabNote({ type: 'hfos-noted', step: step(), at: '2026-10-06T06:00:00.000Z' })).toBe(
       true,
     );
+    const answered = {
+      answer: 'delete',
+      to: { name: 'Kim Lowe', profile: kim },
+      mutualFriends: null,
+    };
+    expect(isTabNote({ type: 'hfos-answered', answered, at: 'now' })).toBe(true);
+    expect(
+      isTabNote({ type: 'hfos-answered', answered: { ...answered, answer: 'block' }, at: 'now' }),
+    ).toBe(false);
+    expect(isTabNote({ type: 'hfos-answered', answered })).toBe(false);
+    expect(
+      isTabNote({
+        type: 'hfos-answered',
+        answered: { ...answered, to: { profile: kim } },
+        at: 'now',
+      }),
+    ).toBe(false);
     expect(
       isTabNote({ type: 'hfos-seen', seen: { profile: kim, name: null, group: makers } }),
     ).toBe(true);
