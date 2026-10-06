@@ -6,8 +6,10 @@ import { company, urls } from '@/content/site';
 /*
  * Reviewed by Chris before launch. Written from what the product actually does, not from a template.
  *
- * Three parts of this page exist because somebody checks them:
+ * These parts of this page exist because somebody checks them:
  *   - "Google user data" (#google) carries the Limited Use wording Google's OAuth review reads.
+ *   - "Facebook and Instagram data" (#meta) says what HandsFreeOS does with what Meta's APIs give it, and how to
+ *     have it deleted, which Meta's App Review reads.
  *   - "Texting" (#messaging) carries the opt-in wording the carriers and Twilio's A2P review read.
  *   - "What happens to AI" names Anthropic, and OpenAI as its backup, because Apple guideline 5.1.2(i)
  *     asks us to.
@@ -15,7 +17,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'September 29, 2026';
+const LAST_UPDATED = 'October 6, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy: what we collect and why',
@@ -87,9 +89,12 @@ export default function PrivacyPage() {
             <tr>
               <td>
                 Conversations: texts, calls and voicemail (including recordings and transcripts if
-                you turn them on), emails, website chats
+                you turn them on), emails, website chats, Facebook Messenger and Instagram messages
               </td>
-              <td>You and the people who contact your business number, address or website</td>
+              <td>
+                You and the people who contact your business number, address, website, Facebook Page
+                or Instagram account
+              </td>
               <td>To show the whole history in one thread and let the AI answer sensibly</td>
             </tr>
             <tr>
@@ -227,6 +232,36 @@ export default function PrivacyPage() {
           . The same goes for a Microsoft mailbox or calendar.
         </p>
 
+        <h2 id="meta">Facebook and Instagram data</h2>
+        <p>
+          If you connect a Facebook Page or an Instagram professional account, HandsFreeOS receives
+          the messages people send it and sends the replies your team writes. For each person who
+          writes, it keeps the name or username Facebook or Instagram shares, and, when they came
+          from one of your ads or links, which one it was. With your permission it reads that
+          ad&rsquo;s name, its campaign and ad set, and its picture and words from your ad account,
+          so you can see which ad brought each customer.
+        </p>
+        <ul>
+          <li>
+            We use this only to run your inbox and to show you where your customers came from. We
+            never use it for advertising, and we never sell it.
+          </li>
+          <li>
+            We do not read your posts, your friends or anything else on Facebook or Instagram, and
+            we do not post anything for you.
+          </li>
+          <li>
+            Messages people send your business belong to your business, like the rest of its
+            customer records.
+          </li>
+        </ul>
+        <p>
+          Disconnecting a Page or account in Settings stops it at once. If you remove HandsFreeOS
+          from your Facebook settings, every connection you made stops. If you ask Facebook to have
+          your data deleted, we delete your Facebook sign-in and who you are on Facebook, and give
+          you a confirmation code. You can also write to us (below).
+        </p>
+
         <h2>What happens with AI</h2>
         <p>
           The Assistant and the AI teammate are built on Claude, made by Anthropic. When they answer
@@ -302,6 +337,13 @@ export default function PrivacyPage() {
             <tr>
               <td>Google and Microsoft</td>
               <td>Only the mailbox or calendar you choose to connect</td>
+            </tr>
+            <tr>
+              <td>Meta</td>
+              <td>
+                Delivers messages to and from the Facebook Page or Instagram account you choose to
+                connect
+              </td>
             </tr>
             <tr>
               <td>Expo</td>

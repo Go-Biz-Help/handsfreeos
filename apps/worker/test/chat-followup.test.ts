@@ -246,9 +246,9 @@ describe('chats in the rest of the app', () => {
     await unnamed.send('Hello?');
     const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
     const contactOf = async (conversationId: string) => {
-      const [c] = await rows<{ channel: string; counterpart: string }>(
+      const [c] = await rows<{ id: string; channel: string; counterpart: string }>(
         admin(),
-        sql`select channel::text as channel, counterpart from app.conversations where id = ${conversationId}`,
+        sql`select id, channel::text as channel, counterpart from app.conversations where id = ${conversationId}`,
       );
       return asWorker(w.s.db, scope, (tx) => conversationContact(tx, c!));
     };

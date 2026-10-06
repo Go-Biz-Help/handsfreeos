@@ -1,4 +1,4 @@
-import { ALL_LINES_WORDS, unreadLabel, type InboxLane } from '@hfos/core';
+import { ALL_LINES_WORDS, isSocialChannel, unreadLabel, type InboxLane } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -7,6 +7,8 @@ import { Globe, KeyRound, Layers, Mail, MessageCircle } from '@/components/icons
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+
+import { SOCIAL_ICONS } from './social-icons';
 
 /**
  * Which of the business's lines this customer is being answered on, and a way to change it (0089).
@@ -46,14 +48,16 @@ export function LaneSwitcher({
               key={l.id}
               on={on}
               icon={
-                l.channel === 'email'
-                  ? Mail
-                  : l.channel === 'chat'
-                    ? Globe
-                    : // A client's portal, which they sign in to (round six).
-                      l.channel === 'portal'
-                      ? KeyRound
-                      : MessageCircle
+                isSocialChannel(l.channel)
+                  ? SOCIAL_ICONS[l.channel]
+                  : l.channel === 'email'
+                    ? Mail
+                    : l.channel === 'chat'
+                      ? Globe
+                      : // A client's portal, which they sign in to (round six).
+                        l.channel === 'portal'
+                        ? KeyRound
+                        : MessageCircle
               }
               label={l.lineDisplay}
               // Unread elsewhere, not on the thread being read (it is read by being open).

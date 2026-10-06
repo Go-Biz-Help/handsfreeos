@@ -16,6 +16,7 @@ import type { ConversationSummary } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { AiTag, NeedTag, SiteTag, WebsiteIcon } from './ai-bits';
 import { ContactAvatar, CountBadge, Pill, WaitChip } from './bits';
+import { SocialMark } from './social-bits';
 
 /** One chip under a row, as core words it. */
 function Chip({ chip }: { chip: RowChip }) {
@@ -94,7 +95,11 @@ export function ConversationRow({
         selected ? 'bg-accent-soft' : 'hover:bg-card-2',
       )}
     >
-      <ContactAvatar person={c.person} chat={c.channel === 'chat'} />
+      <ContactAvatar
+        person={c.person}
+        chat={c.channel === 'chat'}
+        social={c.channel === 'messenger' || c.channel === 'instagram' ? c.channel : null}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>
@@ -114,6 +119,8 @@ export function ConversationRow({
               strokeWidth={1.5}
               aria-label="Client portal"
             />
+          ) : c.channel === 'messenger' || c.channel === 'instagram' ? (
+            <SocialMark channel={c.channel} className="text-text-3" />
           ) : (
             <MessageCircle
               className="hidden h-3.5 w-3.5 flex-none text-text-3 md:block"

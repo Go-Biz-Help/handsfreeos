@@ -1,6 +1,7 @@
 /**
  * A connection broken or silent (Automations' "Connection broke" and "Connection went silent"): the systems the
- * business connected — Stripe or Square, a calendar, an email inbox, Google or Facebook reviews, a phone number.
+ * business connected — Stripe or Square, a calendar, an email inbox, Google or Facebook reviews, a phone number, a
+ * Facebook Page or Instagram account whose messages come to the inbox.
  *
  * - `connection_error`: it stopped working (a sign-in expired, access was removed, the provider refused it).
  *   Urgent at once — payments, bookings or messages are failing until someone reconnects — and never dismissed.
@@ -22,7 +23,7 @@ export const CONNECTION_SILENT_GAPS = 3;
 export const CONNECTION_SILENT_MIN_MS = 2 * HOUR;
 
 /** Which page fixes it. */
-export type ConnectionSystem = 'payments' | 'calendar' | 'mailbox' | 'reviews' | 'phone';
+export type ConnectionSystem = 'payments' | 'calendar' | 'mailbox' | 'reviews' | 'phone' | 'social';
 /** What went wrong: the sign-in expired, access was taken back, or it failed. */
 export type ConnectionProblem = 'reauth' | 'revoked' | 'failed';
 

@@ -14,6 +14,9 @@ import {
   noteLine,
   readLine,
   senderOf,
+  socialDeliveryWords,
+  socialFailureHelp,
+  socialLinesOf,
   textFailureHelp,
   THREAD_WORDS,
   threadWithNotes,
@@ -22,7 +25,7 @@ import {
   VIDEO_LINK_WORDS,
   FILE_LINK_WORDS,
 } from '@hfos/core';
-import { CheckCheck, CircleAlert, Moon, Sparkles } from 'lucide-react';
+import { CheckCheck, CircleAlert, CornerUpLeft, Link2, Moon, Sparkles } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { CallCard } from '@/components/calls/call-card';
 import { Button } from '@/components/ui/button';
@@ -300,6 +303,8 @@ function MessageEntry({
   const keyword = keywordLine(item, customerFirstName);
   // The AI teammate's reply reads "Ava (AI)", with "approved by Chris" when a person's OK sent it.
   const { ai, label: sender } = senderOf(item);
+  // Messenger and Instagram: what it shared, what it answers, and whether it was changed or taken back.
+  const social = socialLinesOf(item, customerFirstName);
   if (out && item.scheduledFor)
     return (
       <HeldEntry
@@ -320,46 +325,95 @@ function MessageEntry({
           out ? 'items-end self-end' : 'self-start',
         )}
       >
-        {/* A rich text's buttons, card or carousel go with its words (RCS, 0103). */}
-        <RichContent
-          item={item}
-          bubble={
-            <>
-              {item.media.map((m) => (
-                <MediaThumb
-                  key={m.objectPath}
-                  bucket={m.bucket}
-                  objectPath={m.objectPath}
-                  name={m.name}
-                  contentType={m.contentType}
-                />
-              ))}
-              {item.media.some((m) => m.via === 'video_link') ? (
-                <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-video-link">
-                  {VIDEO_LINK_WORDS.cameByLink}
-                </span>
-              ) : item.media.some((m) => m.via === 'file_link') ? (
-                <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-file-link">
-                  {FILE_LINK_WORDS.cameByLink}
-                </span>
-              ) : null}
-              {item.body ? (
-                <div
-                  className={cn(
-                    'whitespace-pre-wrap rounded-2xl px-[13px] py-[9px] text-[15px] leading-[1.45] [overflow-wrap:anywhere] md:text-sm',
-                    out
-                      ? failed
-                        ? 'rounded-br-[5px] bg-danger-soft text-danger-text'
-                        : 'rounded-br-[5px] bg-accent text-white'
-                      : 'rounded-bl-[5px] border border-border bg-card',
-                  )}
+        {social?.replyTo ? (
+          <span
+            className="inline-flex items-center gap-1 px-1 text-[11.5px] text-text-3"
+            data-testid={`reply-to-${item.id}`}
+          >
+            <CornerUpLeft className="h-3 w-3" strokeWidth={1.75} />
+            {social.replyTo}
+          </span>
+        ) : null}
+        {social?.unsent ? (
+          <div
+            className="rounded-2xl border border-dashed border-border px-[13px] py-[9px] text-[13px] italic text-text-3"
+            data-testid={`unsent-${item.id}`}
+          >
+            {social.unsent}
+          </div>
+        ) : (
+          /* A rich text's buttons, card or carousel go with its words (RCS, 0103). */
+          <RichContent
+            item={item}
+            bubble={
+              <>
+                {item.media.map((m) => (
+                  <MediaThumb
+                    key={m.objectPath}
+                    bucket={m.bucket}
+                    objectPath={m.objectPath}
+                    name={m.name}
+                    contentType={m.contentType}
+                  />
+                ))}
+                {item.media.some((m) => m.via === 'video_link') ? (
+                  <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-video-link">
+                    {VIDEO_LINK_WORDS.cameByLink}
+                  </span>
+                ) : item.media.some((m) => m.via === 'file_link') ? (
+                  <span className="px-1 text-[11.5px] text-text-3" data-testid="came-by-file-link">
+                    {FILE_LINK_WORDS.cameByLink}
+                  </span>
+                ) : null}
+                {item.body ? (
+                  <div
+                    className={cn(
+                      'whitespace-pre-wrap rounded-2xl px-[13px] py-[9px] text-[15px] leading-[1.45] [overflow-wrap:anywhere] md:text-sm',
+                      out
+                        ? failed
+                          ? 'rounded-br-[5px] bg-danger-soft text-danger-text'
+                          : 'rounded-br-[5px] bg-accent text-white'
+                        : 'rounded-bl-[5px] border border-border bg-card',
+                    )}
+                  >
+                    {item.body}
+                  </div>
+                ) : null}
+              </>
+            }
+          />
+        )}
+        {social && !social.unsent
+          ? social.shared.map((x, i) =>
+              x.url ? (
+                <a
+                  key={i}
+                  href={x.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex max-w-full items-center gap-1 rounded-[10px] border border-border bg-card px-2.5 py-1.5 text-[13px] text-accent-text hover:underline"
+                  data-testid={`shared-${item.id}`}
                 >
-                  {item.body}
-                </div>
-              ) : null}
-            </>
-          }
-        />
+                  <Link2 className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
+                  <span className="truncate">{x.title ? `${x.label}: ${x.title}` : x.label}</span>
+                </a>
+              ) : (
+                <span
+                  key={i}
+                  className="rounded-[10px] border border-border bg-card px-2.5 py-1.5 text-[13px] text-text-2"
+                  data-testid={`shared-${item.id}`}
+                >
+                  {x.title ? `${x.label}: ${x.title}` : x.label}
+                </span>
+              ),
+            )
+          : null}
+        {social?.postback ? (
+          <span className="px-1 text-[11.5px] text-text-3">{social.postback}</span>
+        ) : null}
+        {social?.missingFiles ? (
+          <span className="max-w-full px-1 text-[11.5px] text-text-3">{social.missingFiles}</span>
+        ) : null}
         {out && item.rich && (item.transport === 'sms' || item.transport === 'mms') ? (
           <PlainFace smsText={item.rich.smsText} />
         ) : null}
@@ -382,13 +436,14 @@ function MessageEntry({
                 </>
               ) : (
                 <span>
-                  {sender} · {time}
+                  {social?.elsewhere ?? sender} · {time}
                 </span>
               )}
               <TransportTag transport={item.transport} />
               <DeliveryStatus
                 status={item.status}
                 chat={item.channel === 'chat' || item.channel === 'portal'}
+                social={!!social}
                 readAt={item.readAt}
               />
               {failed && onRetry ? (
@@ -405,13 +460,14 @@ function MessageEntry({
           ) : (
             <>
               <span>{mediaOnlyLine(item, time)}</span>
+              {social?.edited ? <span>· {social.edited}</span> : null}
               <TransportTag transport={item.transport} />
             </>
           )}
         </div>
         {failed ? (
           <div className="max-w-full px-1 text-right text-xs text-text-2">
-            {textFailureHelp(item)}
+            {social ? socialFailureHelp(item) : textFailureHelp(item)}
           </div>
         ) : null}
       </div>
@@ -425,20 +481,23 @@ function MessageEntry({
 }
 
 /**
- * Where a reply is. A website chat's is "Seen" once the visitor's chat window read it; an RCS message's is
- * "Read" once the customer opened it, with the time on hover.
+ * Where a reply is. A website chat's is "Seen" once the visitor's chat window read it, and a Messenger or Instagram
+ * reply's once they opened it; an RCS message's is "Read" once the customer opened it, with the time on hover.
  */
 function DeliveryStatus({
   status,
   chat,
+  social,
   readAt,
 }: {
   status: string;
   chat?: boolean;
+  /** Messenger and Instagram say "Seen", as their own apps do. */
+  social?: boolean;
   readAt?: string | null;
 }) {
   const state = deliveryStateOf(status);
-  const words = deliveryWords(state, chat);
+  const words = social ? socialDeliveryWords(state) : deliveryWords(state, chat);
   if (state === 'sending' || state === 'sent') return <span>· {words}</span>;
   if (arrived(state))
     return (

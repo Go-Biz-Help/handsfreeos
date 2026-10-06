@@ -9,6 +9,7 @@ import { uuidArray } from '../calendar/load';
 import { workspaceMessaging } from '../messaging/store';
 import { openHoursOf } from '../schemas/workspace';
 import { reachBusinessOf } from './auto-plan';
+import type { ConversationChannel } from '../schemas/conversation';
 import {
   hintLookupsOf,
   itemHintsOf,
@@ -76,7 +77,7 @@ export async function loadItemHints(
       ? await rows<{
           id: string;
           person_id: string | null;
-          channel: 'sms' | 'email' | 'chat' | 'portal';
+          channel: ConversationChannel;
           counterpart: string;
           last_message_at: Date | string | null;
         }>(

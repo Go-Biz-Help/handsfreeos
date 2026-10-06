@@ -60,6 +60,7 @@ import { registerMoneyRoutes } from './money';
 import { registerMigrationRoutes } from './migrations';
 import { registerNumberImportRoutes } from './number-import';
 import { registerOAuthRoutes } from './oauth';
+import { registerMetaRoutes } from '../social/routes';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
 import { registerVoiceAgentRoute } from './voice-agent';
@@ -262,6 +263,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVoiceAgentRoute(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
+  // Facebook Messenger and Instagram: Meta's webhook, and its deauthorize and data deletion callbacks.
+  await registerMetaRoutes(app, deps);
   // Signing in to the CRM a business is leaving (M11).
   if (deps.migrationAdapters) registerMigrationRoutes(app, deps, deps.migrationAdapters);
   // The stand-in provider's own payment page; it registers nothing when the real providers are configured.

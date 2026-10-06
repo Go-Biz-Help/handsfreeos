@@ -90,8 +90,10 @@ export async function loadChannels(
           select case m.channel when 'sms' then 'text' when 'email' then 'email' else 'chat' end as kind,
             m.occurred_at as at
           from app.messages m
-          -- A client's portal isn't a channel the business watches for going quiet.
-          where m.workspace_id = ${workspaceId} and m.direction = 'inbound' and m.channel <> 'portal'
+          -- A client's portal isn't a channel the business watches for going quiet, and Messenger and Instagram
+          -- aren't its website chat: their quiet is the Page's to show.
+          where m.workspace_id = ${workspaceId} and m.direction = 'inbound'
+            and m.channel not in ('portal', 'messenger', 'instagram')
             and m.occurred_at > ${now.toISOString()}::timestamptz - ${`${CHANNEL_DAYS} days`}::interval
           union all
           select 'call', c.started_at from app.calls c
@@ -144,6 +146,7 @@ export const CONNECTION_SUBJECT: Readonly<Record<ConnectionSystem, string>> = {
   mailbox: 'mailbox',
   reviews: 'review_connection',
   phone: 'phone_number',
+  social: 'meta_account',
 };
 
 export interface ConnectionInfo {
@@ -231,6 +234,14 @@ export async function loadConnections(
             pn.updated_at, null, null, null
           from app.phone_numbers pn
           where pn.workspace_id = ${workspaceId}
+          union all
+          -- A Facebook Page or Instagram account whose messages stopped coming or can't be answered.
+          select ma.id, 'social',
+            case ma.platform when 'facebook' then 'Facebook Page · ' || ma.name
+              else 'Instagram · ' || coalesce('@' || ma.username, ma.name) end,
+            ma.problem, ma.updated_at, null, null, null
+          from app.meta_accounts ma
+          where ma.workspace_id = ${workspaceId}
         ) c
         where c.id = any(${named})
           ${all ? sql`or c.problem is not null or c.last_data_at is not null` : sql``}`,

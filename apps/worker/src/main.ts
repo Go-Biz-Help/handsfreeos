@@ -17,6 +17,7 @@ import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
 import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createReviews } from './reviews/index';
+import { createMeta } from './social/index';
 import { createMailboxes } from './mailbox/index';
 import { createUnsubscribeLinks } from './email/unsubscribe';
 import { createMoneyLinks } from './money/links';
@@ -107,6 +108,7 @@ const services: EngineServices = {
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
   reviews: createReviews(env),
+  social: createMeta(env),
   payments: createPayments(env),
   bookingLinks: createBookingLinks({
     webUrl: env.webUrl,
@@ -244,6 +246,8 @@ log.info(
     mailboxes: env.mailboxProvider,
     calendars: env.calendarProvider,
     payments: env.paymentsProvider,
+    // Facebook Messenger and Instagram: `none` until the Meta app's id and secret are here.
+    meta: services.social.graph.configured ? env.metaProvider : 'none',
     migrations: env.migrationSource,
     addonConnectors: env.addonConnectors,
     addonPlatformKeys: Object.keys(env.addonPlatformKeys),

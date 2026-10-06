@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { uuid } from './common';
 
-/** The three ways a stranger reaches a business by themselves (M14 slice A). */
-export const IntakeChannelKind = z.enum(['text', 'call', 'email']);
+/**
+ * The ways a stranger reaches a business by themselves (M14 slice A), and a message to its Facebook Page or Instagram
+ * account (20261025000200).
+ */
+export const IntakeChannelKind = z.enum(['text', 'call', 'email', 'messenger', 'instagram']);
 
 /** Forms on a business's own website, and services that send leads over (M14 slice B). */
 export const IntakeKeyedKind = z.enum(['website_form', 'api']);

@@ -1,8 +1,9 @@
 'use client';
 /**
- * Settings → Lead intake (M14). Two cards: the three channels a stranger reaches the business on, each a
- * row that saves the moment it is flipped; and the ways a lead arrives from somewhere else — a form on the
- * business's own website, and the apps connected to it, each with a key of its own.
+ * Settings → Lead intake (M14). Two cards: the channels a stranger reaches the business on (texts, calls, email,
+ * and Messenger and Instagram since 20261025000200), each a row that saves the moment it is flipped; and the ways a
+ * lead arrives from somewhere else — a form on the business's own website, and the apps connected to it, each with
+ * a key of its own.
  *
  * A form's key is public and can be read back at any time; an app's secret key is shown once when it is made
  * or replaced, and after that only its last four characters.
@@ -18,7 +19,7 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,9 +33,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { publicEnv } from '@/lib/env';
 import { cn, relativeTime } from '@/lib/utils';
+import { InstagramIcon, MessengerIcon } from '@/components/inbox/social-bits';
 import { SetRow } from './set-row';
 
-export type IntakeChannel = 'text' | 'call' | 'email';
+export type IntakeChannel = 'text' | 'call' | 'email' | 'messenger' | 'instagram';
 export type IntakeKind = IntakeChannel | 'website_form' | 'api';
 
 export interface IntakeSourceRow {
@@ -73,7 +75,7 @@ export interface IntakePipeline {
 
 const CHANNELS: Record<
   IntakeChannel,
-  { title: string; description: string; icon: typeof MessageSquare }
+  { title: string; description: string; icon: (p: { className?: string }) => ReactNode }
 > = {
   text: {
     title: 'Someone texts your number',
@@ -93,10 +95,26 @@ const CHANNELS: Record<
       'A sender you don’t have writes in. Bounces, out-of-office replies and newsletters are left out of it.',
     icon: MailIcon,
   },
+  messenger: {
+    title: 'Someone messages your Facebook Page',
+    description:
+      'Somebody new writes on Messenger, or taps one of your ads that opens a chat. The lead says which ad brought them.',
+    icon: MessengerIcon,
+  },
+  instagram: {
+    title: 'Someone messages your Instagram account',
+    description:
+      'Somebody new sends a direct message, or comes from one of your Instagram ads. The lead says which ad brought them.',
+    icon: InstagramIcon,
+  },
 };
 
 const isChannel = (kind: IntakeKind): kind is IntakeChannel =>
-  kind === 'text' || kind === 'call' || kind === 'email';
+  kind === 'text' ||
+  kind === 'call' ||
+  kind === 'email' ||
+  kind === 'messenger' ||
+  kind === 'instagram';
 
 /** Where a form posts, and where an app sends. */
 const formUrl = (key: string) => `${publicEnv.workerUrl}/intake/f/${key}`;
@@ -216,7 +234,7 @@ export function LeadIntakeSettings({
                 center
                 title={
                   <span className="flex items-center gap-2">
-                    <Icon aria-hidden className="size-4 text-text-3" />
+                    <Icon className="size-4 flex-none text-text-3" />
                     {channel.title}
                   </span>
                 }

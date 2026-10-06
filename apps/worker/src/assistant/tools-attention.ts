@@ -108,6 +108,8 @@ const CHANNEL_WORD = {
   email: 'Email',
   chat: 'Website chat',
   portal: 'Client portal',
+  messenger: 'Messenger',
+  instagram: 'Instagram',
 } as const;
 
 /** "Maria Lopez" from "Maria Lopez · AC install" (a task's title is its own). */
@@ -248,6 +250,9 @@ function confirmCard(
   };
 }
 
+/** Where a reply to an item goes. */
+type Reach = 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
+
 /** What handling this item would do right now, worked out from attention.preview_handle. */
 type HandlePlan =
   | { readonly kind: 'blocked'; readonly why: string; readonly warning: string }
@@ -256,12 +261,12 @@ type HandlePlan =
       readonly kind: 'hand_to_ai';
       readonly teammate: string;
       readonly label: string;
-      readonly channel: 'sms' | 'email' | 'chat' | 'portal' | null;
+      readonly channel: Reach | null;
       readonly conversationId: string | null;
     }
   | {
       readonly kind: 'reply';
-      readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+      readonly channel: Reach;
       readonly body: string;
       readonly subject: string | null;
       readonly to: string | null;
@@ -383,7 +388,13 @@ async function handlePlan(
         channel,
         body,
         subject,
-        to: channel === 'sms' ? (person?.person.phone ?? null) : (person?.person.email ?? null),
+        // Messenger and Instagram answer in the thread they wrote in; there's no address to show.
+        to:
+          channel === 'sms'
+            ? (person?.person.phone ?? null)
+            : channel === 'email'
+              ? (person?.person.email ?? null)
+              : null,
         quiet: setup?.quiet.quiet ? setup.quiet.localTime : null,
       };
     }
@@ -505,7 +516,9 @@ const handleItem: AttentionConfirmTool = {
                   ? `Reply to ${first} in the chat?`
                   : plan.channel === 'portal'
                     ? `Reply to ${first} in their portal?`
-                    : `Send this text to ${first}?`,
+                    : plan.channel === 'messenger' || plan.channel === 'instagram'
+                      ? `Reply to ${first} on ${CHANNEL_WORD[plan.channel]}?`
+                      : `Send this text to ${first}?`,
             fields: [
               { label: 'To', value: [name, plan.to].filter(Boolean).join(' · ') },
               ...(plan.subject ? [{ label: 'Subject', value: plan.subject }] : []),
@@ -522,7 +535,7 @@ const handleItem: AttentionConfirmTool = {
             confirmLabel:
               plan.channel === 'email'
                 ? 'Send email'
-                : plan.channel === 'chat' || plan.channel === 'portal'
+                : plan.channel !== 'sms'
                   ? 'Send reply'
                   : plan.quiet
                     ? 'Send anyway'

@@ -7,8 +7,18 @@ import { QuietState } from './telephony';
 /** What a person can open a conversation on (conversation.open): a text or an email. */
 export const messageChannel = z.enum(['sms', 'email']);
 export type MessageChannel = z.infer<typeof messageChannel>;
-/** What a conversation is on: a text, an email, a website chat (M7), or a customer's portal (Real Estate round two). */
-export const conversationChannel = z.enum(['sms', 'email', 'chat', 'portal']);
+/**
+ * What a conversation is on: a text, an email, a website chat (M7), a customer's portal (Real Estate round two), or a
+ * Facebook Messenger or Instagram direct message (20261025000200).
+ */
+export const conversationChannel = z.enum([
+  'sms',
+  'email',
+  'chat',
+  'portal',
+  'messenger',
+  'instagram',
+]);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
 /**
@@ -174,6 +184,8 @@ export const canTextReason = z.enum([
   'email_channel',
   'chat_channel',
   'portal_channel',
+  /** A Messenger or Instagram thread: its own rules say whether a reply can go (`social`). */
+  'social_channel',
 ]);
 /**
  * A website chat's visitor, for the inbox: what they typed ("Said their name is …", never verified), the
@@ -235,6 +247,38 @@ export const ConversationGetOutput = z.object({
     }),
   ),
   canText: z.object({ ok: z.boolean(), reason: canTextReason.nullable() }),
+  /**
+   * Messenger and Instagram threads only: the Page or account it's on and whether it still works, who the customer
+   * is there, and Meta's reply window (a day from their last message; seven for a person with the Human Agent tag).
+   */
+  social: z
+    .object({
+      /** Null when the Page or account it was on is gone from HandsFreeOS altogether. */
+      account: z
+        .object({
+          id: uuid,
+          platform: z.enum(['facebook', 'instagram']),
+          name: z.string(),
+          username: z.string().nullable(),
+          /** "Bright Plumbing", "@brightplumbing": what the screens call it. */
+          label: z.string(),
+          status: z.enum(['active', 'needs_attention', 'disconnected']),
+          problem: z.enum(['reauth', 'revoked', 'failed']).nullable(),
+        })
+        .nullable(),
+      /** Who wrote, as Meta named them: their name ("Facebook user" when Meta won't say) and @handle. */
+      contact: z.object({ name: z.string(), username: z.string().nullable() }),
+      /** They have written at least once: Meta lets a business answer only somebody who wrote first. */
+      everWrote: z.boolean(),
+      window: z.object({
+        open: z.boolean(),
+        peopleOnly: z.boolean(),
+        closesAt: isoDateTime.nullable(),
+      }),
+      /** The most words one reply carries there. */
+      textLimit: z.number().int(),
+    })
+    .nullable(),
   fromNumber: z.string().nullable(),
   /**
    * Texts here go RCS first (0103): the business's RCS sender is connected, approved and switched on. A phone

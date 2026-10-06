@@ -1,5 +1,13 @@
 'use client';
-import { CONTACT_EDIT_WORDS, PRIVATE_THREAD_WORDS, splitName, THREAD_NOTE_WORDS } from '@hfos/core';
+import {
+  CONTACT_EDIT_WORDS,
+  isSocialChannel,
+  PRIVATE_THREAD_WORDS,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_CONTACT_NAMES,
+  splitName,
+  THREAD_NOTE_WORDS,
+} from '@hfos/core';
 import {
   ArrowRight,
   CalendarPlus,
@@ -17,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
+import { AttributionSection } from '@/components/crm/attribution-card';
 import { firstName } from '@/components/calendar/appt';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
@@ -161,6 +170,15 @@ export function ContextPanel({
 }) {
   const router = useRouter();
   const { person, conversation: c } = data;
+  // Messenger or Instagram (20261025000200): its own words for somebody new, and the ads that brought them.
+  const social = isSocialChannel(c.channel) ? c.channel : null;
+  const socialName =
+    social && data.social && data.social.contact.name !== SOCIAL_CONTACT_NAMES[social]
+      ? data.social.contact.name
+      : null;
+  const cameFrom = social ? (
+    <AttributionSection workspaceId={workspaceId} conversationId={c.id} />
+  ) : null;
   const [newLead, setNewLead] = useState(false);
   const [newTask, setNewTask] = useState(false);
   const [booking, setBooking] = useState(false);
@@ -230,11 +248,15 @@ export function ContextPanel({
     return (
       <div className="flex flex-col gap-3" data-testid="context-panel">
         <div className="flex items-center gap-3">
-          <ContactAvatar person={null} size="panel" />
+          <ContactAvatar person={null} size="panel" social={social} />
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold">{c.counterpartDisplay}</h3>
             <div className="text-xs text-text-3">
-              {c.channel === 'chat' ? 'First wrote in the website chat' : 'First texted'}{' '}
+              {c.channel === 'chat'
+                ? 'First wrote in the website chat'
+                : social
+                  ? `First wrote on ${SOCIAL_CHANNEL_NAMES[social]}`
+                  : 'First texted'}{' '}
               {formatDate(c.createdAt, { time: true })}
             </div>
           </div>
@@ -247,13 +269,21 @@ export function ContextPanel({
             <p className="text-[13px] text-text-2">
               {c.channel === 'chat'
                 ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
-                : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
+                : social
+                  ? `They don’t match anyone in Contacts yet: ${SOCIAL_CHANNEL_NAMES[social]} doesn’t share a phone number or email. Once you add or link them, this conversation and the ads that brought them show on their record.`
+                  : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
             </p>
             <AddPersonInline
               workspaceId={workspaceId}
               phone={c.channel === 'sms' ? c.counterpartDisplay : (data.chat?.phone ?? null)}
               email={c.channel === 'email' ? c.counterpart : null}
-              defaultName={c.channel === 'chat' ? (data.chat?.name ?? undefined) : undefined}
+              defaultName={
+                c.channel === 'chat'
+                  ? (data.chat?.name ?? undefined)
+                  : social
+                    ? (socialName ?? undefined)
+                    : undefined
+              }
               onCreated={onPersonCreated}
               onMoreDetails={onAddPerson}
             />
@@ -268,6 +298,7 @@ export function ContextPanel({
             </Button>
           </>
         )}
+        {cameFrom}
         {extra}
       </div>
     );
@@ -366,7 +397,7 @@ export function ContextPanel({
           compact
         />
         <div className="mt-1 flex gap-2">
-          {calls.available ? (
+          {calls.available && (!social || person.phoneE164) ? (
             <Button
               variant="secondary"
               size="sm"
@@ -375,7 +406,8 @@ export function ContextPanel({
               onClick={() =>
                 calls.openDialer({
                   name: person.fullName,
-                  phone: c.counterpart,
+                  // A Messenger or Instagram thread's counterpart is who they are there: their phone is the record's.
+                  phone: social ? (person.phoneE164 ?? '') : c.counterpart,
                   personId: person.id,
                   conversationId: c.id,
                 })
@@ -405,6 +437,8 @@ export function ContextPanel({
       </section>
 
       <div className="h-px bg-border" />
+
+      {cameFrom}
 
       {/* What they owe, before the lead: it changes how you answer, and only shows when there is something. */}
       <InboxOwed workspaceId={workspaceId} personId={person.id} found={owed} />

@@ -16,8 +16,11 @@ export const attentionScope = z.enum(['mine', 'everyone']);
 export const autoAction = z.enum(AUTO_ACTIONS);
 export const autoState = z.enum(['scheduled', 'sent', 'skipped', 'cancelled']);
 export const handledVia = z.enum(['person', 'let_handle', 'auto']);
-/** The channel an item would use with the customer: a text, an email, or a reply in a website chat or their portal. */
-export const attentionReach = z.enum(['sms', 'email', 'chat', 'portal']);
+/**
+ * The channel an item would use with the customer: a text, an email, or a reply in a website chat, their portal, or
+ * their Messenger or Instagram thread.
+ */
+export const attentionReach = z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']);
 
 /** What Let HandsFreeOS Handle does for an ask-first item, as the person who chose it. */
 export const ATTENTION_ASK_ACTIONS = ['hand_to_ai', 'reply', 'set_next_action'] as const;

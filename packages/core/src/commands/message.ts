@@ -10,6 +10,8 @@ import {
   files,
   messages,
   messageSealedParts,
+  metaAccounts,
+  metaContacts,
   optOuts,
   people,
   phoneNumbers,
@@ -74,6 +76,19 @@ import {
 } from '../messaging/rcs';
 import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
 import {
+  isSocialChannel,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_MAX_ATTACHMENTS,
+  socialAttachmentKind,
+  socialAttachmentMaxBytes,
+  socialAttachmentTypesWords,
+  socialContactName,
+  socialReplyWindow,
+  socialWindowNote,
+  type SocialAttachmentKind,
+  type SocialChannel,
+} from '../messaging/social';
+import {
   findOrCreateConversation,
   isOptedOut,
   conversationNumber,
@@ -111,6 +126,7 @@ import {
 } from '../schemas/message';
 import type { RichInput } from '../schemas/rcs';
 import { announceConfirmed } from './attendee-confirm';
+import { accountUnavailable, META_ACCOUNT_COLUMNS } from './social';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -145,6 +161,8 @@ const THREAD_WORDS: Readonly<Record<Conversation['channel'], string>> = {
   email: 'an email thread',
   chat: 'a website chat',
   portal: 'a client’s portal thread',
+  messenger: 'a Messenger conversation',
+  instagram: 'an Instagram conversation',
 };
 
 async function resolveSmsConversation(
@@ -1095,10 +1113,226 @@ async function sendPortal(ctx: CommandContext, input: z.infer<typeof MessageSend
   return { messageId, conversationId: conv.id, status, duplicate: false };
 }
 
+/** Who the customer is in a Messenger or Instagram thread: their name on the record, else what Meta calls them. */
+async function socialWho(ctx: CommandContext, conv: Conversation, channel: SocialChannel) {
+  if (conv.personId) {
+    const [p] = await ctx.tx
+      .select({ firstName: people.firstName, lastName: people.lastName })
+      .from(people)
+      .where(eq(people.id, conv.personId));
+    const name = p ? fullName(p.firstName, p.lastName) : '';
+    if (name) return name;
+  }
+  const [c] = await ctx.tx
+    .select({ name: metaContacts.name, username: metaContacts.username })
+    .from(metaContacts)
+    .where(eq(metaContacts.conversationId, conv.id))
+    .limit(1);
+  return socialContactName(channel, c);
+}
+
+/**
+ * What every Messenger and Instagram reply passes (20261025000200): the Page or account it goes out through still
+ * answers here, and Meta's window is open. A business may answer for a day after the customer last wrote; with the
+ * Human Agent tag (Meta approves it for the app), a person may answer for seven, but never the AI teammate, a
+ * workflow or HandsFreeOS itself. The worker looks again when it sends, since a queued reply can wait.
+ */
+async function assertSocialCanSend(
+  ctx: CommandContext,
+  conv: Conversation,
+  channel: SocialChannel,
+) {
+  const [account] = conv.metaAccountId
+    ? await ctx.tx
+        .select(META_ACCOUNT_COLUMNS)
+        .from(metaAccounts)
+        .where(eq(metaAccounts.id, conv.metaAccountId))
+    : [];
+  const unavailable = accountUnavailable(account);
+  if (unavailable) throw HfosError.rule('social_account_unavailable', 409, unavailable);
+  const window = socialReplyWindow(conv.lastInboundAt, account!.humanAgent);
+  if (window.open || (window.peopleOnly && ctx.actor.type === 'human'))
+    return { account: account!, window };
+  const who = await socialWho(ctx, conv, channel);
+  const name = SOCIAL_CHANNEL_NAMES[channel];
+  throw HfosError.rule(
+    'social_window_closed',
+    409,
+    !conv.lastInboundAt
+      ? `${who} hasn’t written to the business on ${name} yet, and ${name} only lets a business answer somebody who wrote first.`
+      : window.peopleOnly
+        ? `${who} last wrote more than a day ago, so only a person on the team can answer them on ${name} now. Workflows and HandsFreeOS’s own messages can’t.`
+        : socialWindowNote(channel, window, who)!,
+  );
+}
+
+/** A reply's photos and files, checked against what this channel carries: its types, its sizes, five at most. */
+async function socialAttachments(
+  ctx: CommandContext,
+  channel: SocialChannel,
+  fileIds: readonly string[],
+): Promise<MediaRef[]> {
+  if (fileIds.length === 0) return [];
+  const name = SOCIAL_CHANNEL_NAMES[channel];
+  const unique = [...new Set(fileIds)];
+  if (unique.length > SOCIAL_MAX_ATTACHMENTS)
+    throw HfosError.validation(
+      [
+        {
+          path: 'attachmentFileIds',
+          message: `A reply carries ${SOCIAL_MAX_ATTACHMENTS} files at most.`,
+        },
+      ],
+      `A ${name} reply carries ${SOCIAL_MAX_ATTACHMENTS} photos or files at most, and this one has ${unique.length}. Take some off, or send them in two replies.`,
+    );
+  const list = await ctx.tx
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.workspaceId, ctx.scope.workspaceId!),
+        inArray(files.id, unique),
+        isNull(files.deletedAt),
+      ),
+    );
+  if (list.length !== unique.length || list.some((f) => f.status !== 'ready'))
+    throw HfosError.validation(
+      [{ path: 'attachmentFileIds', message: 'Attach files that finished uploading.' }],
+      'A file on this reply hasn’t finished uploading, or was removed. Wait for it to finish, or attach it again.',
+    );
+  const KIND_WORDS: Readonly<Record<SocialAttachmentKind, string>> = {
+    image: 'a photo',
+    video: 'a video',
+    audio: 'a recording',
+    file: 'a file',
+  };
+  for (const f of list) {
+    const kind = socialAttachmentKind(channel, f.mimeType);
+    if (!kind)
+      throw HfosError.rule(
+        'attachment_type',
+        400,
+        `“${f.name}” can’t go on ${name}. ${name} takes ${socialAttachmentTypesWords(channel)}, so attach one of those, or send the file by email.`,
+      );
+    const max = socialAttachmentMaxBytes(channel, kind);
+    if ((f.sizeBytes ?? 0) > max)
+      throw HfosError.rule(
+        'attachment_too_large',
+        400,
+        `“${f.name}” is ${formatBytes(f.sizeBytes)}, and ${name} takes ${formatBytes(max)} at most for ${KIND_WORDS[kind]}. Send a smaller one, or send it by email.`,
+      );
+  }
+  const byId = new Map(list.map((f) => [f.id, f]));
+  return unique.map((id) => {
+    const f = byId.get(id)!;
+    return {
+      bucket: f.bucket,
+      objectPath: f.objectPath,
+      contentType: f.mimeType ?? 'application/octet-stream',
+      sizeBytes: f.sizeBytes ?? 0,
+      name: f.name,
+      fileId: f.id,
+    };
+  });
+}
+
+/**
+ * A reply on Messenger or Instagram (20261025000200), in the customer's thread there. No number, carrier or quiet
+ * hours: Meta's window instead (assertSocialCanSend). Queued here like a text, and the worker sends it through the
+ * Page, photos and files first, each a message of its own, then the words. The AI teammate doesn't answer these yet.
+ */
+async function sendSocial(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
+  const workspaceId = ctx.scope.workspaceId!;
+  const channel = input.channel as SocialChannel;
+  const conv = await loadConversation(ctx, input.conversationId!);
+  if (conv.channel !== channel)
+    throw HfosError.rule(
+      'channel_mismatch',
+      400,
+      `This conversation is ${THREAD_WORDS[conv.channel]}, not ${THREAD_WORDS[channel]}. Reply there instead.`,
+    );
+  if (input.clientId) {
+    const [dup] = await ctx.tx
+      .select({ id: messages.id, status: messages.status })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conv.id), eq(messages.clientId, input.clientId)));
+    if (dup)
+      return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
+  }
+  if (ctx.actor.type === 'ai_employee')
+    throw HfosError.forbidden(
+      `The AI teammate doesn’t answer on ${SOCIAL_CHANNEL_NAMES[channel]} yet, so someone on the team answers these.`,
+      'social_people_only',
+    );
+  const { account } = await assertSocialCanSend(ctx, conv, channel);
+  const media = await socialAttachments(ctx, channel, input.attachmentFileIds);
+  const messageId = randomUUID();
+  const now = new Date();
+  const preview = messagePreview(input.body, media.length);
+  const to = await socialWho(ctx, conv, channel);
+  const eventId = await ctx.emit({
+    type: 'message.queued',
+    entityType: 'message',
+    entityId: messageId,
+    payload: {
+      conversationId: conv.id,
+      personId: conv.personId,
+      channel,
+      mediaCount: media.length,
+    },
+    after: { to, preview: preview.slice(0, 80), mediaCount: media.length, channel },
+  });
+  const activityId = await logChannelActivity(ctx, {
+    kind: channel,
+    subtype: 'outbound',
+    personId: conv.personId,
+    body: input.body,
+    occurredAt: now,
+    eventId,
+    meta: {
+      direction: 'outbound',
+      messageId,
+      conversationId: conv.id,
+      status: 'queued',
+      mediaCount: media.length,
+    },
+  });
+  await ctx.tx.insert(messages).values({
+    id: messageId,
+    workspaceId,
+    conversationId: conv.id,
+    channel,
+    direction: 'outbound',
+    status: 'queued',
+    fromAddress: account.externalId,
+    toAddresses: [conv.counterpart],
+    bodyText: input.body,
+    media,
+    provider: 'meta',
+    ...senderColumns(ctx),
+    clientId: input.clientId ?? null,
+    occurredAt: now,
+    activityId,
+  });
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview: preview,
+      lastDirection: 'outbound',
+      ...afterOutbound(input.keepConversationStatus, false, now),
+    })
+    .where(eq(conversations.id, conv.id));
+  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await claimOnReply(ctx, conv);
+  return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
+}
+
 export const messageSend = defineCommand({
   name: 'message.send',
   description:
-    'Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.',
+    'Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.',
   risk: 2,
   input: MessageSendInput,
   output: MessageSendOutput,
@@ -1200,6 +1434,8 @@ export const messageSend = defineCommand({
     if (input.channel === 'email') return sendEmail(ctx, input);
     if (input.channel === 'chat') return sendChat(ctx, input);
     if (input.channel === 'portal') return sendPortal(ctx, input);
+    if (input.channel === 'messenger' || input.channel === 'instagram')
+      return sendSocial(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
     if (input.clientId) {
@@ -1451,7 +1687,8 @@ async function goesAgain(
 
 export const messageRetry = defineCommand({
   name: 'message.retry',
-  description: 'Send a text or email that did not go out one more time.',
+  description:
+    'Send a text, email, or Messenger or Instagram reply that did not go out one more time.',
   risk: 2,
   input: MessageRetryInput,
   output: MessageRetryOutput,
@@ -1487,7 +1724,8 @@ export const messageRetry = defineCommand({
       const stopped = await activeSuppression(ctx.tx, ctx.scope.workspaceId!, conv.counterpart);
       if (stopped)
         throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
-    } else
+    } else if (isSocialChannel(m.channel)) await assertSocialCanSend(ctx, conv, m.channel);
+    else
       // A text tried again in quiet hours never goes at night: it waits for them to end, like "Send at 8:00 AM".
       ({ holdUntil } = await assertCanText(ctx, conv, {
         acknowledgeQuietHours: false,
@@ -1549,9 +1787,15 @@ export const messageRetry = defineCommand({
       },
       before: { status: m.status, errorCode: m.errorCode },
       after: {
-        to: m.channel === 'sms' ? formatPhone(conv.counterpart) : conv.counterpart,
+        to:
+          m.channel === 'sms'
+            ? formatPhone(conv.counterpart)
+            : isSocialChannel(m.channel)
+              ? await socialWho(ctx, conv, m.channel)
+              : conv.counterpart,
         status: 'queued',
         retry: true,
+        channel: m.channel,
       },
     });
     // A held text refused when quiet hours ended never went. This is its first time, so it becomes the
@@ -2176,6 +2420,7 @@ export const messageUpdateStatus = defineCommand({
       input.replacesProviderMessageId === m.providerMessageId;
     const fresh = {
       providerMessageId: null,
+      providerPartIds: [] as string[],
       contentSid: null,
       transport: null,
       sentAt: null,
@@ -2196,10 +2441,37 @@ export const messageUpdateStatus = defineCommand({
     }
     if (input.messageId && input.providerMessageId && !attempt.providerMessageId) {
       patch.providerMessageId = input.providerMessageId;
-      if (!m.dedupeKey) patch.dedupeKey = input.providerMessageId;
+      /*
+       * Meta's echo of a Messenger or Instagram part can be kept (as written on Facebook) before the part's id is
+       * here. The key stays with that copy then: taking it would fail, and the send would go again.
+       */
+      if (!m.dedupeKey) {
+        const [taken] = await ctx.tx
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.workspaceId, workspaceId),
+              eq(messages.dedupeKey, input.providerMessageId),
+            ),
+          )
+          .limit(1);
+        if (!taken) patch.dedupeKey = input.providerMessageId;
+      }
     }
     if (input.contentSid && m.channel === 'sms' && !attempt.contentSid)
       patch.contentSid = input.contentSid;
+    /*
+     * Messenger and Instagram: every part the reply went out as, so a receipt or an echo of any of them finds it.
+     * Each part is recorded as it goes, so the list only grows: a late record of fewer parts never shortens it.
+     */
+    const parts = input.providerPartIds ?? [];
+    if (
+      parts.length > attempt.providerPartIds.length &&
+      isSocialChannel(m.channel) &&
+      attempt.providerPartIds.every((id, i) => parts[i] === id)
+    )
+      patch.providerPartIds = [...parts];
     const reached = input.status === 'delivered' || input.status === 'read';
     if ((input.status === 'sent' || reached) && !attempt.sentAt) patch.sentAt = now;
     if (reached && !attempt.deliveredAt) patch.deliveredAt = now;
@@ -2318,6 +2590,8 @@ export const messageAttachMedia = defineCommand({
         and(eq(messages.id, input.messageId), eq(messages.workspaceId, ctx.scope.workspaceId!)),
       );
     if (!m) throw HfosError.notFound('Message not found.');
+    // Taken back on Messenger or Instagram while its files were being copied: nothing of it is kept.
+    if (m.unsentAt) return { messageId: m.id };
     const known = new Set(m.media.map((x) => x.objectPath));
     const added = input.media.filter((x) => !known.has(x.objectPath));
     if (added.length === 0) return { messageId: m.id };
@@ -2328,7 +2602,7 @@ export const messageAttachMedia = defineCommand({
       entityType: 'message',
       entityId: m.id,
       payload: { conversationId: m.conversationId, count: media.length },
-      after: { photos: media.length },
+      after: { photos: media.length, channel: m.channel },
     });
     return { messageId: m.id };
   },

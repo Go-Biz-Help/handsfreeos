@@ -176,8 +176,8 @@ export const ATTENTION_SUBJECT_OF = {
   // One of the business's channels. Stored as the channel's own type (HEALTH_SUBJECT_TYPES), so the card knows
   // which page checks it; the id is derived from the business and the channel.
   channel_quiet: 'channel',
-  // A row of payment_connections, calendar_connections, mailbox_connections, review_connections or
-  // phone_numbers, stored as that table's type (HEALTH_SUBJECT_TYPES).
+  // A row of payment_connections, calendar_connections, mailbox_connections, review_connections, phone_numbers
+  // or meta_accounts, stored as that table's type (HEALTH_SUBJECT_TYPES).
   connection_error: 'connection',
   connection_silent: 'connection',
   // An AI teammate.
@@ -205,6 +205,7 @@ export const HEALTH_SUBJECT_TYPES = [
   'mailbox',
   'review_connection',
   'phone_number',
+  'meta_account',
 ] as const;
 export type HealthSubjectType = (typeof HEALTH_SUBJECT_TYPES)[number];
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind] | HealthSubjectType;
