@@ -29,6 +29,10 @@ function visitorFromLink(): string | undefined {
   return id && /^[A-Za-z0-9-]{8,128}$/.test(id) ? id : undefined;
 }
 
+/** HandsFreeOS's own terms and privacy policy, on the website (apps/site's /terms and /privacy). */
+const TERMS_URL = 'https://handsfreeos.com/terms';
+const PRIVACY_URL = 'https://handsfreeos.com/privacy';
+
 export function SignUpForm({ children }: { children?: ReactNode }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -207,11 +211,24 @@ export function SignUpForm({ children }: { children?: ReactNode }) {
         </Button>
         <p className="text-center text-xs leading-relaxed text-text-3">
           By continuing you agree to the{' '}
-          <a href="#" className="text-accent-text hover:underline">
+          {/* A new tab, so what's typed here is still here after reading them. */}
+          <a
+            href={TERMS_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-accent-text hover:underline"
+            data-testid="sign-up-terms"
+          >
             Terms
           </a>{' '}
           and{' '}
-          <a href="#" className="text-accent-text hover:underline">
+          <a
+            href={PRIVACY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-accent-text hover:underline"
+            data-testid="sign-up-privacy"
+          >
             Privacy Policy
           </a>
           .

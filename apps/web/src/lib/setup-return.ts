@@ -2,16 +2,17 @@ import type { WizardStepKey } from '@hfos/core';
 import { setupHref } from './setup';
 
 /**
- * The way back to the setup wizard from a sign-in that leaves the app (Stripe, Square, GoHighLevel). The worker
- * always sends a finished sign-in to the step's Settings page; a wizard step that starts one keeps a note in this
- * tab first, and the finishing page goes back to the step instead, with what happened (`?payments=connected`).
+ * The way back to the setup wizard from a sign-in that leaves the app (Stripe, Square, GoHighLevel), or from
+ * paying the carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a
+ * payment, to the step's Settings page; a wizard step that starts one keeps a note in this tab first, and the
+ * finishing page goes back to the step instead, with what happened (`?payments=connected`, `?fees=paid`).
  * Only in this tab, only for a while, and only when the worker was sending the person to that step's own page.
  */
 const KEY = 'hfos:setup-return';
 const LASTS_MS = 30 * 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type Leaves = Extract<WizardStepKey, 'payments' | 'customers'>;
+type Leaves = Extract<WizardStepKey, 'payments' | 'customers' | 'number'>;
 
 /** Where the worker sends each step's sign-in back to. */
 const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
@@ -20,6 +21,8 @@ const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
     new RegExp(`^/app/w/${ws}/settings/migrations$`),
     /^\/app\/org\/[0-9a-f-]{36}\/migrations$/i,
   ],
+  // The texting fees' payment page, made by the worker before anyone says where they are.
+  number: (ws) => [new RegExp(`^/app/w/${ws}/settings/texting$`)],
 };
 
 export function keepSetupReturn(workspaceId: string, step: Leaves): void {
@@ -44,7 +47,7 @@ export function setupReturnFor(next: string): string {
   if (
     typeof workspaceId !== 'string' ||
     !UUID.test(workspaceId) ||
-    (step !== 'payments' && step !== 'customers') ||
+    (step !== 'payments' && step !== 'customers' && step !== 'number') ||
     typeof at !== 'number' ||
     Date.now() - at > LASTS_MS
   )
