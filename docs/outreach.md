@@ -46,7 +46,7 @@ Phase 1, steps 1 and 2, the playbook builder, and tracking with the activity pan
 | The page: Activity and Playbooks tabs, the Social card | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
 | The playbook builder                                   | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`   |
 | Tables and permissions                                 | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach` |
-| Groups and steps noted                                 | `supabase/migrations/20261026000100_outreach_activity.sql`                       |
+| Groups and steps noted                                 | `supabase/migrations/20261026000300_outreach_activity.sql`                       |
 | The extension                                          | `apps/extension`                                                                 |
 
 Operations, all through the kernel:

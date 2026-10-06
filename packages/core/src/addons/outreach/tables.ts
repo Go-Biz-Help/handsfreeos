@@ -1,6 +1,6 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, and
- * 20261026000100 for groups and touches): the Drizzle mirror its server code reads and writes through. Server-only.
+ * 20261026000300 for groups and touches): the Drizzle mirror its server code reads and writes through. Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
