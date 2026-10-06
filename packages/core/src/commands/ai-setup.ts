@@ -12,9 +12,9 @@
  * own permission and events. The teammate is set up or saved here, with "Quick setup" heading its revision. It
  * stays off: the last screen tests it, and turning it on is `ai_teammate.set_status`.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { workspaces } from '@hfos/db/schema';
+import { knowledgeSources, workspaces } from '@hfos/db/schema';
 import {
   aiSetupOf,
   laterAiSetupStep,
@@ -22,10 +22,11 @@ import {
   AI_SETUP_SETTINGS_KEY,
   type AiSetupRecord,
 } from '../ai-setup/answers';
+import { AI_SETUP_READ_ASKED_KEY, aiSetupReadDue } from '../ai-setup/found';
 import { setupKindOf, type SetupKind } from '../ai-setup/kinds';
 import { loadAiSetupState } from '../ai-setup/load';
 import { planAiSetup, teammateFromAiSetup } from '../ai-setup/plan';
-import { AI_SETUP_FACT_TAG } from '../ai-setup/state';
+import { AI_SETUP_FACT_TAG, AI_SETUP_FOUND_KEY, AiSetupFound } from '../ai-setup/state';
 import { aiSetupProblems } from '../ai-setup/summary';
 import { AI_SETUP_AREA_NAME } from '../ai-setup/words';
 import { HfosError, type HfosErrorCode } from '../errors';
@@ -36,6 +37,8 @@ import type { CommandContext } from '../kernel/types';
 import {
   AiSetupFinishInput,
   AiSetupFinishOutput,
+  AiSetupNoteFoundInput,
+  AiSetupNoteFoundOutput,
   AiSetupSaveInput,
   AiSetupSaveOutput,
 } from '../schemas/ai-setup';
@@ -162,10 +165,31 @@ async function saveBusiness(
     workspaceId: ws,
     url: website,
   });
-  // Read it unless it's been read, or is being read, at this address.
+  const { sourceId } = source.output;
+  // What the screens start from (what the business does, its services, area, hours and questions for leads):
+  // the worker reads the site's main pages (ai-setup/read-site), once per address unless nothing came of it.
+  const [src] = await ctx.tx
+    .select({ url: knowledgeSources.url, settings: knowledgeSources.settings })
+    .from(knowledgeSources)
+    .where(eq(knowledgeSources.id, sourceId))
+    .for('update');
+  const now = new Date();
+  if (src && aiSetupReadDue(src, now)) {
+    const asked = { [AI_SETUP_READ_ASKED_KEY]: { url: src.url, at: now.toISOString() } };
+    await ctx.tx.execute(sql`update app.knowledge_sources
+        set settings = settings || ${JSON.stringify(asked)}::jsonb where id = ${sourceId}`);
+    await ctx.emit({
+      type: 'ai_setup.read_requested',
+      entityType: 'knowledge_source',
+      entityId: sourceId,
+      payload: { sourceId, url: src.url, requestedBy: requireHuman(ctx).userId },
+      after: { url: src.url },
+    });
+  }
+  // The scan, for Knowledge: unless it's been read, or is being read, at this address.
   const [read] = await rows<{ id: string }>(
     ctx.tx,
-    sql`select id from app.knowledge_scans where source_id = ${source.output.sourceId}
+    sql`select id from app.knowledge_scans where source_id = ${sourceId}
         and status in ('queued', 'running', 'done') limit 1`,
   );
   if (read) return { scanStarted: false };
@@ -185,7 +209,7 @@ export const aiSetupSave = defineCommand({
   output: AiSetupSaveOutput,
   permission: 'ai_team.manage',
   scope: inWorkspace,
-  emits: ['ai_setup.started'],
+  emits: ['ai_setup.started', 'ai_setup.read_requested'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -434,5 +458,56 @@ export const aiSetupFinish = defineCommand({
       calendarId,
       notes,
     };
+  },
+});
+
+export const aiSetupNoteFound = defineCommand({
+  name: 'ai_setup.note_found',
+  description:
+    'System: keep what the AI teammate read on the business’s website for quick setup to start from: what the business does, its services, where it works, its open hours, the quick facts it answers and questions to ask leads. Kept with the website in Knowledge; a newer website address is read on its own.',
+  risk: 0,
+  input: AiSetupNoteFoundInput,
+  output: AiSetupNoteFoundOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['ai_setup.found'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [source] = await ctx.tx
+      .select({
+        id: knowledgeSources.id,
+        url: knowledgeSources.url,
+        settings: knowledgeSources.settings,
+      })
+      .from(knowledgeSources)
+      .where(and(eq(knowledgeSources.id, input.sourceId), eq(knowledgeSources.workspaceId, ws)))
+      .for('update');
+    // The website changed (or went) while it was being read.
+    if (!source || source.url !== input.found.url) return { kept: false };
+    const found = AiSetupFound.parse({ ...input.found, at: new Date().toISOString() });
+    await ctx.tx
+      .update(knowledgeSources)
+      .set({
+        settings: {
+          ...((source.settings ?? {}) as Record<string, unknown>),
+          [AI_SETUP_FOUND_KEY]: found,
+        },
+      })
+      .where(eq(knowledgeSources.id, source.id));
+    const counts = {
+      services: found.services.length,
+      questions: found.questions.length,
+      hours: found.openHours !== null,
+      facts: Object.keys(found.facts).length,
+    };
+    await ctx.emit({
+      type: 'ai_setup.found',
+      entityType: 'knowledge_source',
+      entityId: source.id,
+      payload: { sourceId: source.id, url: source.url, ...counts },
+      after: { url: source.url, ...counts },
+    });
+    return { kept: true };
   },
 });

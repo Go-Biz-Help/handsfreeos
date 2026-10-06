@@ -15,6 +15,7 @@ import { workspaceAddresses } from '../messaging/email';
 import { defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import { businessOnboardingOf } from '../onboarding/settings';
 import { setupKindOf } from './kinds';
+import { aiSetupFoundOf, aiSetupReading } from './found';
 import { AI_SETUP_FACT_TAG, type AiSetupScanState, type AiSetupState } from './state';
 
 const SCAN_STATES: Readonly<Record<string, AiSetupScanState>> = {
@@ -42,7 +43,11 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
     );
   const settings = (ws.settings ?? {}) as Record<string, unknown>;
   const [source] = await tx
-    .select({ id: knowledgeSources.id, url: knowledgeSources.url })
+    .select({
+      id: knowledgeSources.id,
+      url: knowledgeSources.url,
+      settings: knowledgeSources.settings,
+    })
     .from(knowledgeSources)
     .where(eq(knowledgeSources.workspaceId, workspaceId));
   const typed = typeof settings['website'] === 'string' ? settings['website'].trim() : '';
@@ -141,5 +146,7 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
       state: scan ? (SCAN_STATES[scan.status] ?? 'failed') : 'none',
       pending: counts?.pending ?? 0,
     },
+    found: source ? aiSetupFoundOf(source) : null,
+    reading: source ? aiSetupReading(source, new Date()) : false,
   };
 }

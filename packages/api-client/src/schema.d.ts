@@ -508,7 +508,7 @@ export interface paths {
         put?: never;
         /**
          * Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website.
-         * @description Risk level 1. Requires ai_team.manage. Emits ai_setup.started.
+         * @description Risk level 1. Requires ai_team.manage. Emits ai_setup.started, ai_setup.read_requested.
          */
         post: operations["command_ai_setup_save"];
         delete?: never;
@@ -45507,6 +45507,70 @@ export interface operations {
                                 tags: string[];
                                 title: string;
                             }[];
+                            found: {
+                                /** @default  */
+                                area: string;
+                                /** Format: date-time */
+                                at: string;
+                                /** @default  */
+                                description: string;
+                                /** @default {} */
+                                facts: {
+                                    [key: string]: "yes" | "no";
+                                };
+                                /** @default null */
+                                openHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[] | null;
+                                /** @default [] */
+                                questions: {
+                                    id: string;
+                                    /**
+                                     * @default text
+                                     * @enum {string}
+                                     */
+                                    kind: "text" | "choice" | "yes_no" | "number" | "file";
+                                    notAFitIf: {
+                                        /** @default null */
+                                        above: number | null;
+                                        /** @default [] */
+                                        answers: string[];
+                                        /** @default null */
+                                        below: number | null;
+                                    };
+                                    /** @default null */
+                                    notify: ({
+                                        /** @enum {string} */
+                                        kind: "admins";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "users";
+                                        userIds: (string | {
+                                            $ph: string;
+                                        })[];
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "lead_assignee";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "person_owner";
+                                    }) | null;
+                                    /** @default [] */
+                                    options: string[];
+                                    question: string;
+                                    /** @default true */
+                                    required: boolean;
+                                }[];
+                                /** @default [] */
+                                services: {
+                                    /** @default  */
+                                    description: string;
+                                    name: string;
+                                }[];
+                                url: string;
+                            } | null;
                             goal: ("leads" | "booked" | "paid" | "organized") | null;
                             industry: string | null;
                             /** @enum {string} */
@@ -45545,6 +45609,7 @@ export interface operations {
                                 /** @default [] */
                                 wordsToUse: string[];
                             };
+                            reading: boolean;
                             scan: {
                                 pending: number;
                                 /** @enum {string} */

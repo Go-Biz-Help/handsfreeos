@@ -25,10 +25,14 @@ export const WeeklyHours = z
   .array(
     z
       .object({ day: z.int().min(0).max(6), start: clock, end: clock })
-      .refine((h) => parseClock(h.start) < parseClock(h.end), {
-        error: 'End after the start.',
-        path: ['end'],
-      }),
+      // Times that aren't times are wrong already (above); this compares real ones.
+      .refine(
+        (h) => !isClock(h.start) || !isClock(h.end) || parseClock(h.start) < parseClock(h.end),
+        {
+          error: 'End after the start.',
+          path: ['end'],
+        },
+      ),
   )
   .max(50);
 export type WeeklyHours = z.infer<typeof WeeklyHours>;

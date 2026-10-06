@@ -280,12 +280,48 @@ const EMERGENCIES: readonly (readonly [EmergencyKind, RegExp])[] = [
 const SERVICE_QUESTION =
   /\b(?:do|does|can|could|will|would)\s+(?:you|y'all|your\s+(?:company|team|guys|techs?))\s+(?:guys\s+)?(?:fix|repair|handle|service|work\s+on|install|check|detect|test|inspect|replace|deal\s+with|offer|sell|do|come\s+out\s+for)\b|\bhow\s+much\b|\bwhat\s+(?:does|do)\b[^.?!]*\bcost\b/;
 
+const COVERED = String.raw`\b(?:cover|covers|covered|coverage|insure|insures|insured)\b`;
+const COVER_WORD = new RegExp(COVERED);
+const ASKS_COVER = new RegExp(
+  String.raw`^(?:does|do|did|would|will|is|are|am|was|were)\b.*${COVERED}`,
+);
+const WHAT_IF = /^(?:what\s+if|if|in\s+case)\b/;
+const HISTORY_BEFORE =
+  /\b(?:any|ever|history\s+of|prone\s+to|risk\s+of|signs?\s+of)\s+(?:[a-z']+\s+){0,2}$/;
+const HISTORY_AFTER = /^\s*(?:history|zones?|risk|damage|issues?|problems?)\b/;
+const HAPPENING_NOW = /\b(?:right\s+now|currently|at\s+the\s+moment|as\s+we\s+speak)\b/;
+
+/**
+ * A question about insurance or about a home's past, not an emergency: "Does my policy cover flooding?", "What if
+ * my pipes burst, am I covered?", "Has the house had any flooding?", "Is it in a flooding zone?". Only a question
+ * counts (the sentence ends with "?") that doesn't say it's happening right now, and only when the hazard's own
+ * clause asks about cover (does, is, am… opening it; cover, covered, insured… in it), or the sentence opens with
+ * "if" or "what if" and asks about cover after the hazard, or the words around the hazard ask about its history
+ * (any, ever, history of before it; zone, risk, damage after it). "My house is flooding, am I covered?" reports
+ * one, so it still is.
+ */
+function asksAboutHazard(sentence: string, from: number, to: number): boolean {
+  const s = sentence.trimEnd();
+  if (!s.endsWith('?') || HAPPENING_NOW.test(s)) return false;
+  const comma = s.indexOf(',', to);
+  const clause = s.slice(s.lastIndexOf(',', from) + 1, comma < 0 ? undefined : comma).trim();
+  return (
+    ASKS_COVER.test(clause) ||
+    (WHAT_IF.test(s) && COVER_WORD.test(s.slice(to))) ||
+    HISTORY_BEFORE.test(s.slice(0, from)) ||
+    HISTORY_AFTER.test(s.slice(to))
+  );
+}
+
 /** What kind of emergency a message describes: a gas smell, carbon monoxide, fire, flooding or someone hurt. */
 export function emergencyKind(text: string): EmergencyKind | null {
   for (const sentence of sentences(norm(text)))
     for (const [kind, re] of EMERGENCIES) {
       const m = re.exec(sentence);
-      if (m && !SERVICE_QUESTION.test(sentence.slice(0, m.index))) return kind;
+      if (!m) continue;
+      if (SERVICE_QUESTION.test(sentence.slice(0, m.index))) continue;
+      if (asksAboutHazard(sentence, m.index, m.index + m[0].length)) continue;
+      return kind;
     }
   return null;
 }
@@ -352,6 +388,17 @@ const SENSITIVE: readonly (readonly [Exclude<SensitiveKind, 'custom'>, string, R
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
+ * Topics quick setup adds for a kind of business (`SETUP_KIND_INFO`), found by what customers say about them
+ * rather than by the topic's own words: "Am I covered if my basement floods?" is about what a policy covers.
+ * Keyed by the topic as `norm` writes it.
+ */
+export const HAND_OFF_TOPIC_WORDS: Readonly<Record<string, RegExp>> = {
+  'insurance claims': /\bclaims?\b|\badjusters?\b/,
+  'what a policy covers':
+    /\bcovered\b|\bcoverages?\b|\b(?:policy|policies|insurance|plan|it|that|this|they)\s+(?:[a-z]+\s+)?covers?\b|\bdeductibles?\b/,
+};
+
+/**
  * A topic the AI never handles: a legal threat, a complaint, a refund, cancelling service, or one of the
  * business's own topics (handOff.sensitiveTopics). The first found, or null.
  */
@@ -362,9 +409,10 @@ export function sensitiveTopic(
   const t = norm(text);
   for (const [kind, label, re] of SENSITIVE) if (re.test(t)) return { kind, label };
   for (const topic of custom) {
-    const words = norm(topic);
+    const words = norm(topic).trim();
     if (!words) continue;
-    const re = new RegExp(`\\b${escapeRe(words).replace(/ /g, '\\s+')}\\b`);
+    const re =
+      HAND_OFF_TOPIC_WORDS[words] ?? new RegExp(`\\b${escapeRe(words).replace(/ /g, '\\s+')}\\b`);
     if (re.test(t)) return { kind: 'custom', label: topic.trim() };
   }
   return null;

@@ -7,8 +7,9 @@ apply. At the end the business has a teammate that knows its business, website a
 it, and a button to turn it on with training wheels. Everything else stays on today's full settings page, one link
 away.
 
-> **Status: step 1 of §11 is built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
-> `ai_setup.save` and `ai_setup.finish`). The flow chart the owner approved is the "AI quick setup flow" artifact.
+> **Status: steps 1 and 2 of §11 are built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
+> `ai_setup.save` and `ai_setup.finish`; the worker: reading the website for the screens, and insurance questions
+> that aren't emergencies). The flow chart the owner approved is the "AI quick setup flow" artifact.
 
 ---
 
@@ -159,12 +160,32 @@ calendar that can't be turned on yet; each comes back as a note ("Service calls 
 
 ## 6. Reading the website (worker)
 
-- **Fill the profile from the scan** for the person to check on screen 3: what the business does, services, where
-  it works and hours.
-- **Suggest qualifying questions from the website** (30B), checked against `PROTECTED_WORDS`; the kind's starters
-  when it finds none.
-- **Insurance questions aren't emergencies.** "Does my policy cover flooding?" reads as a flood today
-  (`ai-team/guardrails.ts`); a question about coverage is a question.
+Saving screen 1 with a website asks Ava to read it (`ai_setup.read_requested`), once per address: again only when
+nothing came of it for 10 minutes (the site was down, or no AI was set up). The worker's `ai_setup.read_site` job
+(`apps/worker/src/ai-setup/read-site.ts`) reads the start page, its footer included, and up to two more pages on
+the same site: its services first, then where it works, then about, hours or contact. It honours robots.txt, and
+every request goes through `fetchUrl` like the website scan. The model reads the pages as quoted data and says:
+
+- **What the business does, its services, where it works and its open hours**, which the screens start from where
+  the business hasn't said (§5); the person checks them on screens 3 and 4.
+- **The answers to its kind's quick facts** (`quickFactsFor`, listed for the model by key): yes only when the pages
+  say so, no only when they clearly say not, and nothing for the rest. They fill in screen 5 for the facts the
+  business hasn't answered and has no fact for; one a person wrote stays theirs.
+- **Qualifying questions for its leads** (30B), checked against `PROTECTED_WORDS` and kept without apostrophes;
+  the kind's starters when it finds none.
+
+`aiSetupFoundFrom` checks and trims what it says (12 services, 6 questions, hours that can be open hours, quick facts
+the business is asked), and `ai_setup.note_found` (the worker only) keeps it in the website's settings in
+Knowledge, for that address only. For two minutes after it's asked, `ai_setup.get` says Ava is reading
+(`state.reading`), so the screens wait for it; what arrives later still fills in the screens not finished yet.
+The tokens count as Knowledge's. Without a model, or when robots.txt or the site keeps it out, nothing is kept and
+the screens ask instead.
+
+**Questions aren't emergencies** (`ai-team/guardrails.ts`): "Does my policy cover flooding?", "What if my pipes
+burst, am I covered?" and a buyer's "Has the house had any flooding?" no longer read as a flood. "My house is
+flooding, am I covered?" still does, and so does anything happening right now. An insurance business's "What a
+policy covers" and "Insurance claims" go to a person by what customers say ("Am I covered…", "deductible",
+"claim"), not only those exact words.
 
 ## 7. Web
 
@@ -194,7 +215,7 @@ Limits and Autonomy move under "Advanced", and the page gets "Run quick setup ag
 Each step is its own pull request.
 
 1. **Core** ✓: kinds, answers, plan, summary, words; `ai_setup.get`, `ai_setup.save`, `ai_setup.finish`; tests.
-2. **Worker**: the profile and qualifying questions from the website; the insurance false alarm.
+2. **Worker** ✓: the profile and qualifying questions from the website; the insurance false alarm.
 3. **Web**: the screens, the summary, the test chat and its report, turning it on.
 4. **Phone**: the same screens.
 5. **Agencies**: saving answers as a starting point (with its migration).
@@ -206,4 +227,10 @@ Each step is its own pull request.
   start, the plan and its words, the summary, what a screen still needs, and the test questions.
 - `packages/core/test/ai-setup-commands.test.ts` (local database): the look-up, keeping the answers, the first
   screen and its scan, Save with everything it makes, a second run that changes nothing, a revision headed "Quick
-  setup", stale answers, and who may run it.
+  setup", stale answers, and who may run it; asking for the website to be read once, keeping what was read for
+  its address only, and only from the worker.
+- `apps/worker/test/ai-setup-read-site.test.ts` (the stand-in website): which pages it reads, robots.txt, the
+  pages reaching the model only as quoted data, what's kept and where the screens start, and nothing kept without
+  a model or for a website that changed.
+- `packages/core/test/ai-team-guardrails.test.ts`: insurance and home-history questions that aren't emergencies,
+  the reports that still are, and an insurance business's topics found by what customers say.

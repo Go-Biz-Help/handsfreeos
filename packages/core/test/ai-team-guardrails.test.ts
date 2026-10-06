@@ -8,6 +8,7 @@ import {
   EMERGENCY_KINDS,
   EMERGENCY_SAFETY_TEXT,
   emergencyKind,
+  HAND_OFF_TOPIC_WORDS,
   isEmergency,
   looksFrustrated,
   optOutPhrase,
@@ -16,6 +17,7 @@ import {
   sensitiveTopic,
   type ReplyCheckContext,
 } from '../src/ai-team/index';
+import { SETUP_KIND_INFO, SETUP_KINDS } from '../src/ai-setup/kinds';
 
 /** Each detector against phrasings it must catch, and near misses it must let through. */
 function table(fn: (s: string) => unknown, yes: readonly string[], no: readonly string[]): void {
@@ -325,6 +327,41 @@ describe('emergencies', () => {
     expect(isEmergency(text)).toBe(false);
   });
 
+  // An insurance agent's or a real estate agent's customers ask about these all day.
+  it.each([
+    'Does my policy cover flooding?',
+    'Does home insurance cover flooding?',
+    'Am I covered if my basement is flooded?',
+    'What if my pipes burst, am I covered?',
+    'Is a burst pipe covered by my policy?',
+    'Does it cover water coming through the ceiling?',
+    'Does the policy cover injuries if someone got hurt at my house?',
+    'If someone is hurt on my property am I covered?',
+    'Does my auto insurance cover me if I got hurt in an accident?',
+    'Has the house had any flooding?',
+    'Is the property in a flooding zone?',
+    'Any history of flooding or burst pipes?',
+    'Has the basement ever been flooded?',
+    'Was there ever a fire in the house?',
+  ])('lets a question about insurance or a home’s past through: “%s”', (text) => {
+    expect(emergencyKind(text)).toBeNull();
+  });
+
+  it.each<[string, (typeof EMERGENCY_KINDS)[number]]>([
+    ['My house is flooding, am I covered?', 'flooding'],
+    ['My house is flooding right now!', 'flooding'],
+    ['Pipes burst and water is everywhere', 'flooding'],
+    ['If you’re insured, please come now, water is gushing everywhere!', 'flooding'],
+    ['We are insured with you and the basement is flooding, what do we do?', 'flooding'],
+    ['Are you insured, the basement is flooding?', 'flooding'],
+    ['If my basement is flooding right now, am I covered?', 'flooding'],
+    ['My neighbor’s pipe burst, is there any flooding in my unit?', 'flooding'],
+    ['Pipes burst. Is that covered?', 'flooding'],
+    ['Someone is hurt, are we covered?', 'injury'],
+  ])('still sees “%s” as %s', (text, kind) => {
+    expect(emergencyKind(text)).toBe(kind);
+  });
+
   it('has fixed safety text for each kind, in plain characters', () => {
     expect(Object.keys(EMERGENCY_SAFETY_TEXT).sort()).toEqual([...EMERGENCY_KINDS].sort());
     for (const text of Object.values(EMERGENCY_SAFETY_TEXT)) expect(text).toBe(plainSmsText(text));
@@ -394,6 +431,22 @@ describe('sensitiveTopic', () => {
       label: 'a refund',
     });
     expect(sensitiveTopic('Do you offer financing?', [])).toBeNull();
+  });
+
+  it('finds the topics quick setup adds by what customers say', () => {
+    const insurance = SETUP_KIND_INFO.insurance.sensitiveTopics;
+    const label = (text: string) => sensitiveTopic(text, insurance)?.label ?? null;
+    expect(label('Does my policy cover flooding?')).toBe('What a policy covers');
+    expect(label('Am I covered if my basement is flooded?')).toBe('What a policy covers');
+    expect(label('What’s my deductible?')).toBe('What a policy covers');
+    expect(label('I need to file a claim')).toBe('Insurance claims');
+    expect(label('Has the adjuster called yet?')).toBe('Insurance claims');
+    expect(label('Do you cover Oklahoma?')).toBeNull();
+    expect(label('Can I get a quote for my car?')).toBeNull();
+    expect(sensitiveTopic('Does my policy cover flooding?', [])).toBeNull();
+    for (const kind of SETUP_KINDS)
+      for (const topic of SETUP_KIND_INFO[kind].sensitiveTopics)
+        expect(HAND_OFF_TOPIC_WORDS[topic.toLowerCase()]).toBeInstanceOf(RegExp);
   });
 });
 

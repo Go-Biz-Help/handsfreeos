@@ -65,6 +65,7 @@ import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
+import { READ_SITE_JOB, readSiteJob } from './ai-setup/read-site';
 import { mailboxSync } from './mailbox/sync';
 import { scheduledTextJobs } from './messaging/scheduled';
 import {
@@ -515,6 +516,8 @@ export const jobs: JobMap = {
   [WINDOW_END_JOB]: waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
+  // Quick setup: what the business's website says, for its screens to start from.
+  [READ_SITE_JOB]: readSiteJob,
   // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
   ...workflowJobs,
   // The agency's pushes: a template or knowledge pack into one business each.

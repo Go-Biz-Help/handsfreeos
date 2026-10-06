@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { DISCLOSURE_MODES, HOURS_MODES, QualifyingQuestion } from '../ai-team/config';
 import { WeeklyHours } from '../calendar/config';
+import { isClock } from '../calendar/engine/zoned';
 import { DEFAULT_OPEN_HOURS, openHoursProblem } from '../schemas/workspace';
 import { SETUP_JOBS, SETUP_KINDS, SETUP_TONES, type SetupKind } from './kinds';
 
@@ -65,10 +66,13 @@ const findings = z
   .refine(unique, { error: 'Each finding once.' })
   .default(() => []);
 
-const hours = WeeklyHours.superRefine((h, ctx) => {
+/** Weekly hours that can be saved as open hours: no day's stretches overlap. */
+export const AiSetupHours = WeeklyHours.superRefine((h, ctx) => {
+  if (!h.every((x) => isClock(x.start) && isClock(x.end))) return;
   const problem = openHoursProblem(h);
   if (problem) ctx.addIssue({ code: 'custom', message: problem });
 });
+const hours = AiSetupHours;
 
 export const AiSetupAnswers = z.object({
   /** "What should Ava help with?" */

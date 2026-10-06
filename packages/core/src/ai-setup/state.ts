@@ -4,14 +4,47 @@
  * from it and the answers, the same way on the web, on the phone and in `ai_setup.finish`. Browser-safe.
  */
 import { z } from 'zod';
-import { parseTeammateConfig, type TeammateConfig } from '../ai-team/config';
+import { parseTeammateConfig, QualifyingQuestion, type TeammateConfig } from '../ai-team/config';
 import { WeeklyHours } from '../calendar/config';
 import { KnowledgeProfile } from '../knowledge/profile';
 import { ONBOARDING_GOALS } from '../onboarding/steps';
+import { AiSetupHours, AiSetupService } from './answers';
 import { SETUP_KINDS } from './kinds';
 
 /** Facts quick setup writes carry this tag, so it finds its own again and never rewrites one a person wrote. */
 export const AI_SETUP_FACT_TAG = 'Quick setup';
+
+/** Where what Ava read on the website is kept: the website's own settings in Knowledge (knowledge_sources). */
+export const AI_SETUP_FOUND_KEY = 'aiSetupFound';
+
+/**
+ * What Ava read on the business's website when quick setup was given it (the worker's ai-setup/read-site): what
+ * the business does, its services, where it works, its open hours, the quick facts it answers and questions to ask
+ * leads. The screens start from it where the business hasn't said, and a person checks it there. It counts only
+ * while that address is still the business's website.
+ */
+export const AiSetupFound = z.object({
+  /** The website it read, as Knowledge keeps it (`normalizeSiteUrl`). */
+  url: z.string().max(2100),
+  at: z.iso.datetime(),
+  description: z.string().trim().max(2000).default(''),
+  services: z
+    .array(AiSetupService)
+    .max(20)
+    .default(() => []),
+  area: z.string().trim().max(500).default(''),
+  /** Null when the website doesn't say. */
+  openHours: AiSetupHours.nullable().default(null),
+  /** The quick facts the website answers, by key (`quickFactsFor`); one it doesn't answer is left out. */
+  facts: z.record(z.string().max(40), z.enum(['yes', 'no'])).default(() => ({})),
+  /** Questions to ask a lead, written for this business (checked like the starters: see `PROTECTED_WORDS`). */
+  questions: z
+    .array(QualifyingQuestion)
+    .max(10)
+    .default(() => []),
+});
+export type AiSetupFound = z.infer<typeof AiSetupFound>;
+export type AiSetupFoundInput = z.input<typeof AiSetupFound>;
 
 const id = z.uuid();
 const named = z.object({ id, name: z.string() });
@@ -71,6 +104,10 @@ export const AiSetupStateOut = z.object({
     /** What it found that nobody has kept or turned down. */
     pending: z.int(),
   }),
+  /** What Ava read on the website for the screens; null until it has. */
+  found: AiSetupFound.nullable(),
+  /** Ava is reading the website now: asked to in the last couple of minutes, with nothing kept yet. */
+  reading: z.boolean(),
 });
 export type AiSetupStateOut = z.infer<typeof AiSetupStateOut>;
 

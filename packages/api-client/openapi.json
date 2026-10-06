@@ -25129,7 +25129,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires ai_team.manage. Emits ai_setup.started.",
+        "description": "Risk level 1. Requires ai_team.manage. Emits ai_setup.started, ai_setup.read_requested.",
         "requestBody": {
           "required": true,
           "content": {
@@ -107219,6 +107219,315 @@
                             "pending"
                           ],
                           "additionalProperties": false
+                        },
+                        "found": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string",
+                                  "maxLength": 2100
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                "description": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "services": {
+                                  "default": [],
+                                  "maxItems": 20,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 120
+                                      },
+                                      "description": {
+                                        "default": "",
+                                        "type": "string",
+                                        "maxLength": 500
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "description"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "area": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 500
+                                },
+                                "openHours": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "maxItems": 50,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "day": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 6
+                                          },
+                                          "start": {
+                                            "type": "string"
+                                          },
+                                          "end": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "day",
+                                          "start",
+                                          "end"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "facts": {
+                                  "default": {},
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "maxLength": 40
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string",
+                                    "enum": [
+                                      "yes",
+                                      "no"
+                                    ]
+                                  }
+                                },
+                                "questions": {
+                                  "default": [],
+                                  "maxItems": 10,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 40
+                                      },
+                                      "question": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "kind": {
+                                        "default": "text",
+                                        "type": "string",
+                                        "enum": [
+                                          "text",
+                                          "choice",
+                                          "yes_no",
+                                          "number",
+                                          "file"
+                                        ]
+                                      },
+                                      "options": {
+                                        "default": [],
+                                        "maxItems": 20,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 100
+                                        }
+                                      },
+                                      "required": {
+                                        "default": true,
+                                        "type": "boolean"
+                                      },
+                                      "notAFitIf": {
+                                        "type": "object",
+                                        "properties": {
+                                          "answers": {
+                                            "default": [],
+                                            "maxItems": 20,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 100
+                                            }
+                                          },
+                                          "below": {
+                                            "default": null,
+                                            "type": [
+                                              "number",
+                                              "null"
+                                            ]
+                                          },
+                                          "above": {
+                                            "default": null,
+                                            "type": [
+                                              "number",
+                                              "null"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "answers",
+                                          "below",
+                                          "above"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "notify": {
+                                        "default": null,
+                                        "anyOf": [
+                                          {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "admins"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "users"
+                                                    ]
+                                                  },
+                                                  "userIds": {
+                                                    "minItems": 1,
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "anyOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "format": "uuid",
+                                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                        },
+                                                        {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "$ph": {
+                                                              "type": "string",
+                                                              "pattern": "^[a-z][a-z0-9_]{0,59}$"
+                                                            }
+                                                          },
+                                                          "required": [
+                                                            "$ph"
+                                                          ],
+                                                          "additionalProperties": false
+                                                        }
+                                                      ]
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "userIds"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "lead_assignee"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "person_owner"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "question",
+                                      "kind",
+                                      "options",
+                                      "required",
+                                      "notAFitIf",
+                                      "notify"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "url",
+                                "at",
+                                "description",
+                                "services",
+                                "area",
+                                "openHours",
+                                "facts",
+                                "questions"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reading": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -107239,7 +107548,9 @@
                         "chat",
                         "number",
                         "textingReady",
-                        "scan"
+                        "scan",
+                        "found",
+                        "reading"
                       ],
                       "additionalProperties": false
                     },

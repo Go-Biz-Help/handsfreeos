@@ -6,14 +6,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   AI_SETUP_FACT_TAG,
+  AI_SETUP_FOUND_KEY,
+  AI_SETUP_FOUND_LIMITS,
   AI_SETUP_NEW_CALENDAR,
+  AI_SETUP_READ_AGAIN_MS,
+  AI_SETUP_READ_ASKED_KEY,
+  AI_SETUP_READING_MS,
   AI_SETUP_STEPS,
   AI_SETUP_TONE_TEXTS,
   AiSetupAnswers,
+  aiSetupFoundFrom,
+  aiSetupFoundOf,
   aiSetupNextStep,
   aiSetupOf,
   aiSetupPreviousStep,
   aiSetupProblems,
+  aiSetupReadDue,
+  aiSetupReading,
   aiSetupSteps,
   aiSetupSummary,
   aiSetupTestQuestions,
@@ -35,6 +44,8 @@ import {
   toneOfProfile,
   zipCodesOnly,
   type AiSetupAnswersInput,
+  type AiSetupFound,
+  type AiSetupSiteReading,
   type AiSetupState,
   type TeammatePatch,
 } from '../src';
@@ -69,6 +80,8 @@ function business(patch: Partial<AiSetupState> = {}): AiSetupState {
     number: true,
     textingReady: true,
     scan: { state: 'none', pending: 0 },
+    found: null,
+    reading: false,
     ...patch,
   };
 }
@@ -83,6 +96,52 @@ function withTeammate(patch: TeammatePatch = {}, state: Partial<AiSetupState> = 
 }
 
 const answers = (patch: AiSetupAnswersInput = {}): AiSetupAnswers => AiSetupAnswers.parse(patch);
+
+const SITE = 'https://lonestarhvac.com';
+
+/** What the model said about the fixture's pages, repeats, slips and all. */
+const READING: AiSetupSiteReading = {
+  description: '  We repair and replace heating and air conditioning\n for homes across Austin. ',
+  services: [
+    { name: 'AC repair', description: 'Same day when you call before noon.' },
+    { name: ' ac  REPAIR ', description: 'The same service again.' },
+    { name: '   ', description: 'A service without a name.' },
+    { name: 'Furnace installation', description: 'With a ten-year parts warranty. '.repeat(20) },
+    ...Array.from({ length: 15 }, (_, i) => ({ name: `Service ${i + 1}`, description: '' })),
+  ],
+  area: 'Austin, Round Rock and Pflugerville',
+  hours: [
+    ...[1, 2, 3, 4, 5].map((day) => ({ day, start: '7:00', end: '18:00' })),
+    { day: 6, start: '08:00', end: '14:00' },
+  ],
+  facts: [
+    { key: 'emergency', answer: 'yes' },
+    { key: 'warranty', answer: ' YES' },
+    // A second answer for the same question: the first counts.
+    { key: 'emergency', answer: 'no' },
+    { key: 'financing', answer: 'maybe' },
+    // Not a question this business is asked.
+    { key: 'walk_ins', answer: 'yes' },
+  ],
+  questions: [
+    { question: 'What needs fixing?', kind: 'choice', options: ['Cooling', 'Heating', 'Both'] },
+    { question: 'Do you have kids at home?', kind: 'yes_no', options: [] },
+    { question: 'What’s the address?', kind: 'text', options: [] },
+    { question: 'what needs  fixing?', kind: 'text', options: [] },
+    { question: 'Do you own the home?', kind: 'yes_no', options: ['Yes', 'No'] },
+    { question: 'When should we come?', kind: 'whenever', options: [] },
+    { question: 'Which unit?', kind: 'choice', options: ['Upstairs'] },
+  ],
+};
+
+/** The quick facts an HVAC business is asked. */
+const HVAC_FACTS = quickFactsFor('hvac').map((f) => f.key);
+
+const found = (patch: Partial<AiSetupFound> = {}): AiSetupFound => ({
+  ...aiSetupFoundFrom(READING, SITE, HVAC_FACTS),
+  at: '2026-10-06T00:00:00.000Z',
+  ...patch,
+});
 
 describe('kinds of business', () => {
   it('come from the industry, with anything the lists don’t name as other', () => {
@@ -344,6 +403,74 @@ describe('where the answers start', () => {
     ).toEqual([{ name: 'Tune-up', description: '' }]);
   });
 
+  it('fills what the business hasn’t said from what Ava read on its website', () => {
+    const a = startingAiSetupAnswers(business({ website: SITE, found: found() }));
+    expect(a.description).toBe(
+      'We repair and replace heating and air conditioning for homes across Austin.',
+    );
+    expect(a.services.slice(0, 2).map((x) => x.name)).toEqual([
+      'AC repair',
+      'Furnace installation',
+    ]);
+    expect(a.area).toBe('Austin, Round Rock and Pflugerville');
+    expect(a.openHours).toContainEqual({ day: 1, start: '07:00', end: '18:00' });
+    expect(a.questions.map((q) => q.question)).toEqual([
+      'What needs fixing?',
+      'Do you own the home?',
+      'When should we come?',
+    ]);
+    // What the business has said, and the questions its teammate asks, come first.
+    const profile = {
+      ...emptyKnowledgeProfile(),
+      description: 'Our own words.',
+      serviceArea: 'Katy',
+    };
+    const said = startingAiSetupAnswers(
+      withTeammate(
+        {
+          qualify: { questions: [{ id: 'roof', question: 'How old is the roof?', kind: 'text' }] },
+        },
+        { website: SITE, found: found(), profile, openHours: WEEKDAYS_8_TO_5 },
+      ),
+    );
+    expect(said).toMatchObject({ description: 'Our own words.', area: 'Katy' });
+    expect(said.openHours).toEqual(WEEKDAYS_8_TO_5);
+    expect(said.questions.map((q) => q.id)).toEqual(['roof']);
+    // Nothing read: the kind's starters, and the usual hours.
+    const none = startingAiSetupAnswers(
+      business({ found: found({ questions: [], openHours: null }) }),
+    );
+    expect(none.questions).toEqual(startingAiSetupAnswers(business()).questions);
+    expect(none.openHours).toEqual(startingAiSetupAnswers(business()).openHours);
+  });
+
+  it('answers the quick facts the website answers, unless the business has its own answer', () => {
+    expect(startingAiSetupAnswers(business({ website: SITE, found: found() })).facts).toEqual({
+      emergency: 'yes',
+      warranty: 'yes',
+    });
+    // What quick setup saved before stands, and a fact a person rewrote is theirs.
+    const facts = [
+      {
+        id: uid(60),
+        title: 'Emergency service',
+        body: 'We don’t take emergency calls.',
+        tags: [AI_SETUP_FACT_TAG],
+        status: 'published' as const,
+      },
+      {
+        id: uid(61),
+        title: 'Warranty',
+        body: 'Two years on parts and labor.',
+        tags: [AI_SETUP_FACT_TAG],
+        status: 'published' as const,
+      },
+    ];
+    expect(
+      startingAiSetupAnswers(business({ website: SITE, found: found(), facts })).facts,
+    ).toEqual({ emergency: 'no' });
+  });
+
   it('keeps a tone of voice a person wrote', () => {
     expect(toneOfProfile('', 'office')).toBe('professional');
     expect(toneOfProfile(AI_SETUP_TONE_TEXTS.short, 'home')).toBe('short');
@@ -398,6 +525,109 @@ describe('where the answers start', () => {
       financing: 'no',
       licensed: 'no',
     });
+  });
+});
+
+describe('what Ava read on the website', () => {
+  it('keeps the services once each, named, trimmed and at most twelve', () => {
+    const { services } = aiSetupFoundFrom(READING, SITE);
+    expect(services).toHaveLength(AI_SETUP_FOUND_LIMITS.services);
+    expect(services[0]).toEqual({
+      name: 'AC repair',
+      description: 'Same day when you call before noon.',
+    });
+    expect(services[1]!.name).toBe('Furnace installation');
+    expect(services[1]!.description.length).toBeLessThanOrEqual(
+      AI_SETUP_FOUND_LIMITS.serviceDescription,
+    );
+    expect(services[1]!.description.endsWith('…')).toBe(true);
+    expect(services.filter((x) => x.name.toLowerCase() === 'ac repair')).toHaveLength(1);
+  });
+
+  it('keeps questions that never ask who someone is, send without apostrophes, and each once', () => {
+    const { questions } = aiSetupFoundFrom(READING, SITE);
+    expect(questions).toEqual([
+      expect.objectContaining({
+        id: 'what_needs_fixing',
+        question: 'What needs fixing?',
+        kind: 'choice',
+        options: ['Cooling', 'Heating', 'Both'],
+      }),
+      expect.objectContaining({ id: 'do_you_own_the_home', kind: 'yes_no', options: [] }),
+      // A kind it doesn't know is a question answered in words.
+      expect.objectContaining({ id: 'when_should_we_come', kind: 'text' }),
+    ]);
+    const many = aiSetupFoundFrom(
+      {
+        ...READING,
+        questions: Array.from({ length: 9 }, (_, i) => ({
+          question: `Question number ${i + 1}?`,
+          kind: 'text',
+          options: [],
+        })),
+      },
+      SITE,
+    );
+    expect(many.questions).toHaveLength(AI_SETUP_FOUND_LIMITS.questions);
+  });
+
+  it('keeps open hours only when they can be the business’s open hours', () => {
+    expect(aiSetupFoundFrom(READING, SITE).openHours).toEqual([
+      ...[1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '18:00' })),
+      { day: 6, start: '08:00', end: '14:00' },
+    ]);
+    const hours = (h: AiSetupSiteReading['hours']) =>
+      aiSetupFoundFrom({ ...READING, hours: h }, SITE).openHours;
+    expect(hours([])).toBeNull();
+    expect(hours([{ day: 1, start: '9 AM', end: '5 PM' }])).toBeNull();
+    expect(hours([{ day: 8, start: '09:00', end: '17:00' }])).toBeNull();
+    expect(
+      hours([
+        { day: 1, start: '08:00', end: '12:00' },
+        { day: 1, start: '11:00', end: '17:00' },
+      ]),
+    ).toBeNull();
+  });
+
+  it('keeps the quick facts the website answers: only the ones asked, yes or no, the first answer each', () => {
+    expect(found().facts).toEqual({ emergency: 'yes', warranty: 'yes' });
+    expect(aiSetupFoundFrom(READING, SITE).facts).toEqual({});
+  });
+
+  it('is being read for a little while after it’s asked for, until it’s kept', () => {
+    const now = new Date('2026-10-06T00:30:00.000Z');
+    const asked = (ago: number, url = SITE) => ({
+      url: SITE,
+      settings: {
+        [AI_SETUP_READ_ASKED_KEY]: { url, at: new Date(now.getTime() - ago).toISOString() },
+      },
+    });
+    const read = {
+      url: SITE,
+      settings: { ...asked(1_000).settings, [AI_SETUP_FOUND_KEY]: found() },
+    };
+    expect(aiSetupReading(asked(1_000), now)).toBe(true);
+    expect(aiSetupReading(asked(AI_SETUP_READING_MS), now)).toBe(false);
+    expect(aiSetupReading(asked(1_000, 'https://lonestarhvac.net'), now)).toBe(false);
+    expect(aiSetupReading({ url: SITE, settings: {} }, now)).toBe(false);
+    expect(aiSetupReading(read, now)).toBe(false);
+    // Asked again only when nothing came of it for a while.
+    expect(aiSetupReadDue(asked(AI_SETUP_READING_MS), now)).toBe(false);
+    expect(aiSetupReadDue(asked(AI_SETUP_READ_AGAIN_MS), now)).toBe(true);
+    expect(aiSetupReadDue({ url: SITE, settings: null }, now)).toBe(true);
+    expect(aiSetupReadDue(read, now)).toBe(false);
+  });
+
+  it('counts only while that address is still the website', () => {
+    const kept = found();
+    const settings = { other: true, [AI_SETUP_FOUND_KEY]: kept };
+    expect(aiSetupFoundOf({ url: SITE, settings })).toEqual(kept);
+    expect(aiSetupFoundOf({ url: 'https://lonestarhvac.net', settings })).toBeNull();
+    expect(aiSetupFoundOf({ url: SITE, settings: {} })).toBeNull();
+    expect(aiSetupFoundOf({ url: SITE, settings: null })).toBeNull();
+    expect(
+      aiSetupFoundOf({ url: SITE, settings: { [AI_SETUP_FOUND_KEY]: 'nonsense' } }),
+    ).toBeNull();
   });
 });
 

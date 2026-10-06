@@ -76,6 +76,20 @@ export function factAnswersOf(state: AiSetupState): Record<string, 'yes' | 'no'>
   return out;
 }
 
+/**
+ * The quick facts as the website answers them (`state.found`), for the ones the business hasn't answered and has
+ * no fact for: a fact a person wrote or rewrote is theirs.
+ */
+function factsFromSite(state: AiSetupState): Record<string, 'yes' | 'no'> {
+  const read = state.found?.facts ?? {};
+  const out: Record<string, 'yes' | 'no'> = {};
+  for (const f of quickFactsFor(state.industry)) {
+    const answer = read[f.key];
+    if (answer && !saved(state, f.title)) out[f.key] = answer;
+  }
+  return out;
+}
+
 /** The answers an agency can save to start its clients from: none of them is about one business. */
 export const AI_SETUP_TEMPLATE_FIELDS = [
   'jobs',
@@ -98,7 +112,9 @@ function fieldOr<K extends keyof AiSetupAnswers>(key: K, value: unknown): AiSetu
 
 /**
  * Every answer picked before anyone answers. A business with a teammate starts from what's saved now; one without
- * starts from its Getting started goal and its kind of business, or from its agency's saved answers.
+ * starts from its Getting started goal and its kind of business, or from its agency's saved answers. What the
+ * business hasn't said yet (what it does, its services, where it works, its hours, quick facts, questions for
+ * leads) starts from what Ava read on its website.
  */
 export function startingAiSetupAnswers(
   state: AiSetupState,
@@ -107,21 +123,24 @@ export function startingAiSetupAnswers(
   const t = state.teammate?.config ?? null;
   const tpl = t ? null : template;
   const p = state.profile;
+  const read = state.found;
   const tone = tpl && !p.tone.trim() ? tpl.tone : toneOfProfile(p.tone, state.kind);
   return {
     jobs: fieldOr('jobs', tpl?.jobs ?? (t ? jobsOf(t) : startingJobs(state.goal, state.kind))),
-    description: fieldOr('description', p.description),
+    description: fieldOr('description', p.description.trim() || read?.description),
     services: fieldOr(
       'services',
       p.services.length
         ? p.services.map((s) => ({ name: s.name, description: s.description }))
-        : state.services.map((s) => ({ name: s.name, description: '' })),
+        : state.services.length
+          ? state.services.map((s) => ({ name: s.name, description: '' }))
+          : read?.services,
     ),
-    area: fieldOr('area', p.serviceArea),
-    openHours: fieldOr('openHours', state.openHours ?? DEFAULT_OPEN_HOURS),
+    area: fieldOr('area', p.serviceArea.trim() || read?.area),
+    openHours: fieldOr('openHours', state.openHours ?? read?.openHours ?? DEFAULT_OPEN_HOURS),
     answerWhen: fieldOr('answerWhen', tpl?.answerWhen ?? t?.hours.mode),
     customHours: fieldOr('customHours', tpl?.customHours ?? t?.hours.custom),
-    facts: factAnswersOf(state),
+    facts: { ...factsFromSite(state), ...factAnswersOf(state) },
     name: fieldOr('name', tpl?.name ?? t?.identity.name),
     disclosure: fieldOr('disclosure', tpl?.disclosure ?? t?.identity.disclosure),
     tone,
@@ -135,7 +154,9 @@ export function startingAiSetupAnswers(
         ? t.qualify.questions
         : tpl?.questions.length
           ? tpl.questions
-          : SETUP_KIND_INFO[state.kind].questions,
+          : read?.questions.length
+            ? read.questions
+            : SETUP_KIND_INFO[state.kind].questions,
     ),
     chat: !!state.website && !state.chat,
   };
