@@ -86,12 +86,8 @@ export function WizardFrame({
   const current = status.steps.find((s) => s.key === step);
   const nextStep = at >= 0 ? basics[at + 1] : undefined;
   const prevStep = at > 0 ? basics[at - 1] : undefined;
-  // The first step goes back to the questions that put the steps in this order, when they were answered.
-  const back = prevStep
-    ? setupHref(workspaceId, prevStep.key as WizardStepKey)
-    : at === 0 && status.answers
-      ? `/onboarding/${workspaceId}/questions`
-      : home;
+  // The first step goes back to Home: the questions that put the steps in order are the guided setup's now.
+  const back = prevStep ? setupHref(workspaceId, prevStep.key as WizardStepKey) : home;
   // Out of the wizard, Home shows the tour of the menu the first time (components/onboarding/tour.tsx).
   const out = `${home}?tour=1`;
   const next = wizardNextHref(workspaceId, status, step);

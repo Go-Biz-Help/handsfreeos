@@ -234,9 +234,9 @@ const PayBody = z.object({
 export interface PublicMoneyBusiness extends PublicBusiness {
   /**
    * Where the business is, as they wrote it in Settings → Payments (`money.businessAddress`) — the address
-   * that belongs at the top of a document they send. Failing that, the one they typed for "at our place" on a
-   * calendar, which is the same string the booking page already shows customers, and which was never really
-   * meant to be the business's own address. Null when they have given neither, and never parsed into parts.
+   * that belongs at the top of a document they send. Failing that, the address the onboarding setup asked for,
+   * then the one they typed for "at our place" on a calendar, which is the same string the booking page already
+   * shows customers. Null when they have given none (`businessPostalAddress`).
    */
   readonly address: string | null;
 }

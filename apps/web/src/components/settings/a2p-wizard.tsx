@@ -38,6 +38,7 @@ import {
   type A2pDraft,
   type A2pField,
   type A2pIssue,
+  type BusinessAddress,
   type OptInPath,
   type PreflightCheck,
   type SensitiveTopicId,
@@ -142,13 +143,14 @@ const USE_CASES = [
 
 /**
  * Reads the last submission back into the form, so a turned-down registration is corrected, not retyped. A first
- * one starts from the website the business already gave (Settings → Workspace, or setup's quick questions).
+ * one starts from the website and the address the business already gave (Settings → Workspace, or setup).
  */
 export function wizardFormFrom(
   initial: Record<string, unknown> | null,
   businessName: string,
   me: { fullName: string; email: string },
   businessWebsite: string | null = null,
+  businessAddress: BusinessAddress | null = null,
 ): WizardForm {
   const b = (initial ?? {}) as {
     legalName?: string;
@@ -174,10 +176,14 @@ export function wizardFormFrom(
     businessType: b.businessType ?? 'llc',
     ein: b.ein ?? '',
     website: b.website ?? businessWebsite ?? '',
-    line1: b.address?.line1 ?? '',
-    city: b.address?.city ?? '',
-    state: b.address?.state ?? '',
-    postalCode: b.address?.postalCode ?? '',
+    line1:
+      b.address?.line1 ??
+      (businessAddress
+        ? [businessAddress.line1, businessAddress.line2].filter(Boolean).join(', ')
+        : ''),
+    city: b.address?.city ?? businessAddress?.city ?? '',
+    state: b.address?.state ?? businessAddress?.state ?? '',
+    postalCode: b.address?.postalCode ?? businessAddress?.postalCode ?? '',
     contactFirst: b.contact?.firstName ?? meFirst,
     contactLast: b.contact?.lastName ?? meRest.join(' '),
     contactEmail: b.contact?.email ?? me.email,
@@ -826,6 +832,7 @@ export function A2pWizard({
   workspaceId,
   businessName,
   businessWebsite = null,
+  businessAddress = null,
   number,
   me,
   initial,
@@ -839,6 +846,8 @@ export function A2pWizard({
   businessName: string;
   /** The website the business already gave, which a first registration starts from. */
   businessWebsite?: string | null;
+  /** The address setup asked for, which a first registration starts from too. */
+  businessAddress?: BusinessAddress | null;
   /**
    * The number this registration is for. Null when it goes ahead of the number (a local registration sent
    * while the business's own number is being moved here, or before it has one): that is always 10DLC, and
@@ -860,7 +869,7 @@ export function A2pWizard({
   onSubmitted: (fee: { id: string; amountCents: number } | null) => void;
 }) {
   const [form, setForm] = useState<WizardForm>(() =>
-    withDraft(wizardFormFrom(initial, businessName, me, businessWebsite), draft),
+    withDraft(wizardFormFrom(initial, businessName, me, businessWebsite, businessAddress), draft),
   );
   const [surfaces, setSurfaces] = useState<HostedSurfaces>(initialSurfaces);
   const [at, setAt] = useState(() => {

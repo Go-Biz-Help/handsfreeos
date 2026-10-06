@@ -52,7 +52,7 @@ test('a teammate gets set up: their own four steps, the tour, then done', async 
   for (const key of ['app', 'notifications', 'my_calendar', 'sign_in'])
     await expect(mem.getByTestId(`getting-started-${key}`)).toBeVisible();
   await expect(mem.getByTestId('getting-started-number')).toHaveCount(0);
-  await expect(mem.getByTestId('getting-started-questions')).toHaveCount(0);
+  await expect(mem.getByTestId('getting-started-setup')).toHaveCount(0);
   await expect(mem.getByTestId('getting-started-tour')).toHaveCount(0);
 
   // Each row opens what does it.

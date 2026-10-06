@@ -85,22 +85,41 @@ export async function signUpAndConfirm(
   return { email, name };
 }
 
+/** The address `createBusiness` gives: in Chicago, so the business is on Central time, as every one was before. */
+export const BUSINESS_ADDRESS = {
+  line1: '233 S Wacker Dr',
+  city: 'Chicago',
+  state: 'IL',
+  postalCode: '60606',
+} as const;
+
+/**
+ * The guided setup's first screen, which makes the business: general home services in Chicago, as every business
+ * was before setup asked, and a website only when one is given. Then Home, as Finish later would, unless `setup`
+ * stays on the setup's next screen (onboarding-setup.spec.ts goes through the rest).
+ */
 export async function createBusiness(
   page: Page,
-  opts: { name: string; agencyName?: string; answerQuestions?: boolean },
+  opts: { name: string; agencyName?: string; website?: string; setup?: boolean },
 ): Promise<string> {
   await expect(page).toHaveURL(/\/onboarding/);
-  await page.getByLabel('Business name').fill(opts.name);
+  await page.getByTestId('setup-business-name').fill(opts.name);
+  await page.getByTestId('setup-kind-button-home').click();
+  await page.getByTestId('setup-kind-home_services').click();
+  await page.getByTestId('setup-line1').fill(BUSINESS_ADDRESS.line1);
+  await page.getByTestId('setup-city').fill(BUSINESS_ADDRESS.city);
+  await page.getByTestId('setup-state').selectOption(BUSINESS_ADDRESS.state);
+  await page.getByTestId('setup-postal-code').fill(BUSINESS_ADDRESS.postalCode);
+  if (opts.website) await page.getByTestId('ai-setup-website-input').fill(opts.website);
   if (opts.agencyName) {
-    await page.getByRole('switch').click();
-    await page.getByLabel('Agency name').fill(opts.agencyName);
+    await page.getByTestId('setup-agency').click();
+    await page.getByTestId('setup-agency-name').fill(opts.agencyName);
   }
-  await page.getByRole('button', { name: 'Create business' }).click();
-  // The quick questions and the setup wizard come next (getting-started.spec.ts goes through them); everything
-  // else goes straight to Home, as Finish later would.
-  await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\/questions$/);
+  await page.getByTestId('onboarding-setup-next').click();
+  await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\?at=goal$/);
+  await expect(page.getByTestId('onboarding-setup')).toHaveAttribute('data-screen', 'goal');
   const id = /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
-  if (opts.answerQuestions) return id;
+  if (opts.setup) return id;
   await page.goto(`/app/w/${id}`);
   await expect(page).toHaveURL(new RegExp(`/app/w/${id}$`));
   return id;

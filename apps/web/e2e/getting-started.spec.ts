@@ -4,9 +4,9 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6). On Home, a new business's owner sees the
- * business's steps, the number first; skips one and takes it back; opens the phone app's links; hides the guide and
- * gets it back from Get help. Before that, the quick questions after Create business put the steps in order, and
- * the setup wizard walks them.
+ * business's steps, the number first, and the guided setup they started (onboarding-setup.spec.ts goes through
+ * it) to carry on; skips a step and takes it back; opens the phone app's links; hides the guide and gets it back
+ * from Get help. The guided setup's answers put the steps in order, and the setup wizard walks them.
  */
 test('a new owner works through Getting started on Home, hides it, and brings it back', async ({
   page,
@@ -19,13 +19,15 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
   await expect(guide.getByText('The basics')).toBeVisible();
   await expect(guide.getByText('When you’re ready')).toBeVisible();
-  // They skipped the quick questions, so the card offers them.
-  await expect(page.getByTestId('getting-started-questions')).toHaveAttribute(
+  // They left the guided setup after its first screen, so the card says to carry on.
+  const setup = page.getByTestId('getting-started-setup');
+  await expect(setup).toContainText('Finish setting up your business');
+  await expect(setup.getByRole('link', { name: 'Carry on' })).toHaveAttribute(
     'href',
-    /\/questions\?from=guide$/,
+    /\/onboarding\/[0-9a-f-]{36}$/,
   );
 
-  // The business number comes first, and is the next step: its button is the page's one primary action.
+  // The business number comes first.
   const number = page.getByTestId('getting-started-number');
   await expect(number).toContainText('Business number & texting');
   await expect(number.getByRole('link', { name: 'Get a number' })).toHaveAttribute(
@@ -91,38 +93,64 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(page.getByRole('dialog', { name: 'Ask us for help' })).toBeVisible();
 });
 
-test('the quick questions put the steps in order, and the wizard walks them', async ({ page }) => {
+test('the guided setup’s answers put the steps in order, and the wizard walks them', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
   await signUpAndConfirm(page, 'guide-questions');
-  const workspaceId = await createBusiness(page, {
-    name: 'Questions Test Roofing',
-    answerQuestions: true,
-  });
-  await expect(page.getByRole('heading', { name: 'A few quick questions' })).toBeVisible();
+  const workspaceId = await createBusiness(page, { name: 'Questions Test Roofing', setup: true });
+  const at = (screen: string) =>
+    expect(page.getByTestId('onboarding-setup')).toHaveAttribute('data-screen', screen);
+  const next = page.getByTestId('onboarding-setup-next');
 
-  // Continuing before answering says what's missing, and how to skip instead.
-  await page.getByTestId('questions-continue').click();
-  await expect(page.getByText('Pick an answer for each question', { exact: false })).toBeVisible();
+  // Getting paid comes first, it's just them, and their customers are in GoHighLevel.
+  await page.getByTestId('setup-goal-paid').click();
+  await expect(page.getByTestId('ai-setup-team-size-solo')).toHaveAttribute('aria-checked', 'true');
+  await next.click();
+  await at('about');
+  await page.getByTestId('ai-setup-description').fill('Roof repairs and new roofs in Chicago.');
+  await next.click();
+  await at('hours');
+  await next.click();
+  await at('customers');
+  await page.getByTestId('setup-customers-ghl').click();
+  // GoHighLevel's private token is pasted right here.
+  await expect(page.getByTestId('migration-connect')).toBeVisible();
+  await next.click();
+  await at('number');
 
-  await page.getByTestId('question-goal').getByRole('button', { name: 'Getting paid' }).click();
-  await page.getByTestId('question-customers').getByRole('button', { name: 'GoHighLevel' }).click();
-  await page.getByTestId('question-team').getByRole('button', { name: 'Just me' }).click();
+  // Finish later: out of setup, the tour, five stops down the menu, Back and Next, then Done.
+  await page.getByTestId('onboarding-setup-finish-later').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}`));
+  const tour = page.getByTestId('tour');
+  const stops: string[] = [];
+  await expect(tour).toBeVisible();
+  for (let i = 0; i < 5; i++) {
+    stops.push((await tour.getAttribute('data-stop'))!);
+    await expect(tour).toContainText(`${i + 1} of 5`);
+    if (i === 1) {
+      await page.getByTestId('tour-back').click();
+      await expect(tour).toHaveAttribute('data-stop', 'home');
+      await page.getByTestId('tour-next').click();
+    }
+    if (i < 4) await page.getByTestId('tour-next').click();
+  }
+  expect(stops).toEqual(['home', 'inbox', 'pipeline', 'calendar', 'ask']);
+  await expect(tour).toContainText('Ask HandsFreeOS anything');
+  await page.getByTestId('tour-done').click();
+  await expect(tour).toHaveCount(0);
+  await expect(page.getByTestId('getting-started-tour')).toHaveCount(0);
 
-  // The order follows the answers as they're given: payments second, and no Invite your team.
-  const preview = page.getByTestId('questions-preview');
-  await expect(preview.getByRole('listitem').nth(1)).toContainText('Connect payments');
-  await expect(preview.getByRole('listitem').nth(2)).toContainText('Move them from GoHighLevel');
-  await expect(preview).not.toContainText('Invite your team');
-
-  // A website that isn't one is refused, under the field.
-  await page.getByLabel('What’s your website?').fill('nope');
-  await page.getByTestId('questions-continue').click();
-  await expect(page.locator('#website-error')).toHaveText(
-    'Enter a full web address, like https://example.com.',
-  );
-  await page.getByLabel('What’s your website?').fill('questionsroofing.test');
-  await page.getByTestId('questions-continue').click();
+  // Home follows the answers: payments is a must-do, second, and there's no team step.
+  const rows = page.getByTestId('getting-started').locator('li[data-state]');
+  await expect(rows.nth(1)).toHaveAttribute('data-testid', 'getting-started-payments');
+  await expect(page.getByTestId('getting-started-team')).toHaveCount(0);
 
   // The wizard, in the answers' order: the number first, then payments. Invite your team isn't anywhere.
+  await page
+    .getByTestId('getting-started-number')
+    .getByRole('link', { name: 'Get a number' })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/setup/number$`));
   const rail = page.getByTestId('setup-rail');
   await expect(rail.getByRole('link')).toHaveCount(5);
@@ -171,35 +199,17 @@ test('the quick questions put the steps in order, and the wizard walks them', as
   await expect(page.getByTestId('teammate-preset-picker')).toBeVisible();
   await page.getByTestId('setup-skip').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
+  // The tour was taken already.
+  await expect(page.getByTestId('tour')).toHaveCount(0);
 
-  // Out of the wizard, the tour: five stops down the menu, Back and Next, then Done.
-  const tour = page.getByTestId('tour');
-  const stops: string[] = [];
-  await expect(tour).toBeVisible();
-  for (let i = 0; i < 5; i++) {
-    stops.push((await tour.getAttribute('data-stop'))!);
-    await expect(tour).toContainText(`${i + 1} of 5`);
-    if (i === 1) {
-      await page.getByTestId('tour-back').click();
-      await expect(tour).toHaveAttribute('data-stop', 'home');
-      await page.getByTestId('tour-next').click();
-    }
-    if (i < 4) await page.getByTestId('tour-next').click();
-  }
-  expect(stops).toEqual(['home', 'inbox', 'pipeline', 'calendar', 'ask']);
-  await expect(tour).toContainText('Ask HandsFreeOS anything');
-  await page.getByTestId('tour-done').click();
-  await expect(tour).toHaveCount(0);
-  await expect(page.getByTestId('getting-started-tour')).toHaveCount(0);
-
-  // Home follows the answers and the wizard: payments is a must-do, second; there's no team step; customers are
-  // done; three steps were skipped; nothing to answer again.
-  const rows = page.getByTestId('getting-started').locator('li[data-state]');
+  // Home follows the answers and the wizard: payments is second; customers are done; three steps were skipped;
+  // and the guided setup is still there to finish.
   await expect(rows.nth(1)).toHaveAttribute('data-testid', 'getting-started-payments');
-  await expect(page.getByTestId('getting-started-team')).toHaveCount(0);
   await expect(page.getByTestId('getting-started-customers')).toHaveAttribute('data-state', 'done');
   await expect(page.getByTestId('getting-started-count')).toHaveText('1 of 5 done');
-  await expect(page.getByTestId('getting-started-questions')).toHaveCount(0);
+  await expect(page.getByTestId('getting-started-setup')).toContainText(
+    'Finish setting up your business',
+  );
 });
 
 test('a sign-in started in the wizard comes back to it', async ({ page }) => {

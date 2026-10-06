@@ -35,6 +35,8 @@ test('Email campaign: one email, edit it, approve; the unsubscribe page', async 
     workspaceId: ws,
     settings: {
       openHours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
+      // No address, like a business made before setup asked for one.
+      address: null,
     },
   });
   // Open all day and no quiet hours, so the emails go out at whatever hour it runs.

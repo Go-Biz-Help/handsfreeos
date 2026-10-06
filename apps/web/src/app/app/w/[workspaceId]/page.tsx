@@ -1,4 +1,4 @@
-import { addDays, can, industryLabel, localInstant } from '@hfos/core';
+import { addDays, can, industryLabel, localInstant, onboardingSetupOf } from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
@@ -83,12 +83,16 @@ export default async function WorkspaceHomePage({
   const greeted = (await getWorkspaceShell(workspaceId)).teammateView?.person ?? me.user;
   const firstName = (greeted.fullName || greeted.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
+  // The guided setup, which Getting started points at until it's finished.
+  const setupRecord = onboardingSetupOf(ws.settings as Record<string, unknown>);
+  const setup = { started: !!setupRecord.started, finished: !!setupRecord.finished };
   const guide = onboarding ? (
     <GettingStarted
       workspaceId={ws.id}
       status={onboarding}
       permissions={ws.permissions}
       compact={false}
+      setup={setup}
     />
   ) : null;
   // A brand-new business's Home says what it will become: no customers, and nothing needing attention. Someone
@@ -239,6 +243,7 @@ export default async function WorkspaceHomePage({
             status={onboarding}
             permissions={ws.permissions}
             compact
+            setup={setup}
           />
         ) : null
       }

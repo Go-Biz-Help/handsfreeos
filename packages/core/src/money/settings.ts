@@ -261,6 +261,8 @@ export interface MoneyIssue {
 export interface MoneyFacts {
   /** Whether this business has ever sent an estimate or an invoice. */
   readonly hasSentDocuments?: boolean;
+  /** The address the onboarding setup asked for, which documents carry while none is typed here. */
+  readonly setupAddress?: string | null;
 }
 
 /** An error stops the settings being saved; a warning never does. */
@@ -281,8 +283,12 @@ export function checkMoneySettings(settings: MoneySettings, facts: MoneyFacts = 
 
   // A warning, never an error: documents go out perfectly well without it, and stopping a save over it would
   // be worse than the gap. It waits until they have actually sent something, so a business setting itself up
-  // is never told off for a field it hasn't reached yet.
-  if (facts.hasSentDocuments === true && !settings.businessAddress.trim())
+  // is never told off for a field it hasn't reached yet, and the setup's address is on documents meanwhile.
+  if (
+    facts.hasSentDocuments === true &&
+    !settings.businessAddress.trim() &&
+    !facts.setupAddress?.trim()
+  )
     issues.push({
       code: 'no_business_address',
       severity: 'warning',

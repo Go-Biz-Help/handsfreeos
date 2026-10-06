@@ -13,7 +13,10 @@ import {
   aiSetupProblemAt,
   asksAboutWhoSomeoneIs,
   isAiSetupQuestionKind,
+  money,
   newAiSetupQuestion,
+  ONBOARDING_SETUP_WORDS,
+  parseMoney,
   withAiSetupQuestionKind,
   type AiSetupProblems,
   type AiSetupService,
@@ -21,7 +24,7 @@ import {
   type QualifyingQuestion,
 } from '@hfos/core';
 import { Check, Plus, Trash2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -299,43 +302,131 @@ export function WebsiteField({
   );
 }
 
+/** How long a service takes, to pick from; a length typed elsewhere shows too. */
+const LENGTHS = [15, 30, 45, 60, 90, 120, 180, 240, 480] as const;
+
+/** A price that may be left empty: empty is "not said" (null), never $0.00. */
+function PriceInput({
+  cents,
+  onChange,
+  label,
+  testId,
+}: {
+  cents: number | null | undefined;
+  onChange: (cents: number | null) => void;
+  label: string;
+  testId: string;
+}) {
+  const shown = cents == null ? '' : money(cents);
+  // What's typed, while it's being typed; otherwise the price as it is, so a row moved up shows its own.
+  const [typing, setTyping] = useState<string | null>(null);
+  const text = typing ?? shown;
+  return (
+    <Input
+      aria-label={label}
+      placeholder={label}
+      inputMode="decimal"
+      autoComplete="off"
+      value={text}
+      invalid={!!text.trim() && parseMoney(text) === null}
+      onFocus={() => setTyping(shown)}
+      onChange={(e) => {
+        setTyping(e.target.value);
+        if (!e.target.value.trim()) onChange(null);
+        else {
+          const next = parseMoney(e.target.value);
+          if (next !== null) onChange(next);
+        }
+      }}
+      onBlur={() => setTyping(null)}
+      data-testid={testId}
+    />
+  );
+}
+
 export function ServicesField({
   services,
   onChange,
   problems,
+  legend = W.services,
+  priced = false,
 }: {
   services: readonly AiSetupService[];
   onChange: (next: AiSetupService[]) => void;
   problems: AiSetupProblems;
+  /** The list's heading: what the business calls what it sells ("Menu", "Classes and sessions"). */
+  legend?: string;
+  /** Each with an optional price and length, as the onboarding setup asks them. */
+  priced?: boolean;
 }) {
   const set = (i: number, patch: Partial<AiSetupService>) =>
     onChange(services.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const O = ONBOARDING_SETUP_WORDS;
   return (
     <fieldset data-testid="ai-setup-services">
-      <legend className="mb-2 text-[13px] font-medium">{W.services}</legend>
+      <legend className="mb-2 text-[13px] font-medium">{legend}</legend>
       <ul className="flex flex-col gap-2">
         {services.map((s, i) => (
-          <li key={i} className="flex items-start gap-2" data-testid={`ai-setup-service-${i}`}>
-            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              <div>
+          <li
+            key={i}
+            className={cn('flex items-start gap-2', priced && 'rounded-menu bg-card-2 p-3')}
+            data-testid={`ai-setup-service-${i}`}
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                <div>
+                  <Input
+                    aria-label={W.serviceName}
+                    placeholder={W.serviceName}
+                    value={s.name}
+                    maxLength={120}
+                    invalid={!!problems[`services.${i}.name`]}
+                    onChange={(e) => set(i, { name: e.target.value })}
+                    data-testid={`ai-setup-service-${i}-name`}
+                  />
+                  <FieldError>{problems[`services.${i}.name`]}</FieldError>
+                </div>
                 <Input
-                  aria-label={W.serviceName}
-                  placeholder={W.serviceName}
-                  value={s.name}
-                  maxLength={120}
-                  invalid={!!problems[`services.${i}.name`]}
-                  onChange={(e) => set(i, { name: e.target.value })}
-                  data-testid={`ai-setup-service-${i}-name`}
+                  aria-label={W.serviceDescription}
+                  placeholder={W.serviceDescription}
+                  value={s.description}
+                  maxLength={500}
+                  onChange={(e) => set(i, { description: e.target.value })}
                 />
-                <FieldError>{problems[`services.${i}.name`]}</FieldError>
               </div>
-              <Input
-                aria-label={W.serviceDescription}
-                placeholder={W.serviceDescription}
-                value={s.description}
-                maxLength={500}
-                onChange={(e) => set(i, { description: e.target.value })}
-              />
+              {priced ? (
+                <div className="grid grid-cols-2 gap-2 sm:max-w-[360px]">
+                  <div>
+                    <PriceInput
+                      cents={s.priceCents}
+                      onChange={(priceCents) => set(i, { priceCents })}
+                      label={O.servicePrice}
+                      testId={`ai-setup-service-${i}-price`}
+                    />
+                    <FieldError>{problems[`services.${i}.priceCents`]}</FieldError>
+                  </div>
+                  <div>
+                    <Select
+                      aria-label={O.serviceLength}
+                      value={s.minutes == null ? '' : String(s.minutes)}
+                      onChange={(e) =>
+                        set(i, { minutes: e.target.value ? Number(e.target.value) : null })
+                      }
+                      data-testid={`ai-setup-service-${i}-minutes`}
+                    >
+                      <option value="">{O.serviceLength}</option>
+                      {[...new Set([...LENGTHS, ...(s.minutes == null ? [] : [s.minutes])])]
+                        .sort((a, b) => a - b)
+                        .map((m) => (
+                          <option key={m} value={m}>
+                            {O.minutes(m)}
+                          </option>
+                        ))}
+                    </Select>
+                    <FieldError>{problems[`services.${i}.minutes`]}</FieldError>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <Button
               variant="ghost"

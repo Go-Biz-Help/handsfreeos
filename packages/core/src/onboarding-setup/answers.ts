@@ -2,7 +2,7 @@
  * The onboarding setup's screens and answers, and what the business keeps of them
  * (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4–§5). Browser-safe.
  *
- * - The screens come in stops, as the flow chart draws them. Stop 12, the AI teammate, is the AI quick setup's own
+ * - The screens come in stops, as the flow chart draws them. Stop 10, the AI teammate, is the AI quick setup's own
  *   screens, minus the ones already asked: the business, its services and area, and its hours.
  * - The answers are one document, `OnboardingSetupAnswers`: the setup's own, and the AI quick setup's under `ai`,
  *   since "About your business" and "When are you open?" answer the AI part's questions too. Every field is picked

@@ -7,7 +7,7 @@ import { setupFor } from '../ai-setup/kinds';
 import { serviceNameKey } from '../ai-setup/plan';
 import { formatHours } from '../calendar/format';
 import { industryLabel } from '../industries';
-import { cityAndState, usTimeZoneLabel } from './address';
+import { cityAndState, usTimeZoneLabel, type BusinessAddress } from './address';
 import { AI_SCREEN_OF, type OnboardingSetupAnswers, type OnboardingSetupScreen } from './answers';
 import type { OnboardingSetupState } from './state';
 
@@ -92,6 +92,20 @@ function paymentsLine(state: OnboardingSetupState, answers: OnboardingSetupAnswe
 }
 
 /**
+ * The summary's first line, "Lone Star HVAC: HVAC in Austin, Texas, on Central time.", also for the first screen
+ * before the business is made.
+ */
+export function onboardingSetupBusinessLine(
+  b: Pick<OnboardingSetupState, 'businessName' | 'industry' | 'timeZone'> & {
+    readonly address: Pick<BusinessAddress, 'city' | 'state'> | null;
+  },
+): string {
+  const kind = b.industry ? industryLabel(b.industry) : null;
+  const place = b.address ? ` in ${cityAndState(b.address)}` : '';
+  return `${b.businessName}${kind ? `: ${kind}` : ''}${place}, on ${usTimeZoneLabel(b.timeZone)} time.`;
+}
+
+/**
  * The summary beside the questions, in plain sentences: "Lone Star HVAC: HVAC in Austin, Texas, on Central time.",
  * "Open Mon–Fri 7:00 AM–6:00 PM.", "Ava replies to new leads within a minute, with training wheels.". It follows the
  * answers as they change; on the phone it's a "See the summary" sheet.
@@ -100,12 +114,7 @@ export function onboardingSetupSummary(
   state: OnboardingSetupState,
   answers: OnboardingSetupAnswers,
 ): string[] {
-  const lines: string[] = [];
-  const kind = state.industry ? industryLabel(state.industry) : null;
-  const place = state.address ? ` in ${cityAndState(state.address)}` : '';
-  lines.push(
-    `${state.businessName}${kind ? `: ${kind}` : ''}${place}, on ${usTimeZoneLabel(state.timeZone)} time.`,
-  );
+  const lines: string[] = [onboardingSetupBusinessLine(state)];
 
   const hours = answers.ai.openHours;
   lines.push(hours.length ? `Open ${formatHours(hours)}.` : 'No open hours yet.');

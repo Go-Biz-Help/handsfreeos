@@ -134,7 +134,7 @@ export function SignUpForm({
       <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.015em]">
         Create your account
       </h1>
-      <p className="mt-1.5 text-text-2">Set up your business in about two minutes.</p>
+      <p className="mt-1.5 text-text-2">Then you’ll set up your business.</p>
       {google ? (
         <>
           <div className="mt-6">
