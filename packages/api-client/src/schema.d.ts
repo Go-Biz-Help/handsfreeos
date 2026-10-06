@@ -5457,6 +5457,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.friend.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note the person answering a friend request on a social network themselves, as the extension saw it: Confirm makes them friends, and Delete turns the request down. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friend.answered. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_friend_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.friend.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or take them off it.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friend.marked.
+         */
+        post: operations["command_outreach_friend_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.friends.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, or the friend requests they’ve got. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved.
+         */
+        post: operations["command_outreach_friends_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.playbook.archive": {
         parameters: {
             query?: never;
@@ -5511,6 +5571,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.touch.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment or a message, to whom and from which group. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_touch_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14891,6 +14971,46 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_onboarding_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person did on social media in a stretch of days, as the extension noted it: the people reached, friend requests, likes, comments, chats started, follow-ups and replies, by group and person; and their day so far against the daily limits. Owners and admins can see everyone’s.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own friends on a social network as the extension saved them, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch list.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_friends"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29455,6 +29575,153 @@ export interface operations {
             };
         };
     };
+    command_outreach_friend_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "confirm" | "delete";
+                    /** @default null */
+                    mutualFriends?: number | null;
+                    name: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        personId: string | null;
+                        /** Format: uuid */
+                        profileId: string;
+                        /** @enum {string} */
+                        state: "friends" | "request_sent" | "request_received" | "declined" | "not_friends";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_friend_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dontPitch?: boolean;
+                    keep?: boolean;
+                    name?: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile?: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** Format: uuid */
+                    profileId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dontPitch: {
+                            at: string | null;
+                            by: string | null;
+                            tagged: boolean;
+                        } | null;
+                        keep: boolean;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_friends_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    list: "friends" | "requests";
+                    people: {
+                        /** @default null */
+                        mutualFriends?: number | null;
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        changed: number;
+                        saved: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_playbook_archive: {
         parameters: {
             query?: never;
@@ -29494,8 +29761,20 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            pace: {
+                                followUpAfterDays: number;
+                                messageAfterDays: number;
+                            };
                             platforms: "facebook"[];
-                            questions: string[];
+                            questions: {
+                                answers: {
+                                    label: string;
+                                    next: ("continue" | "offer" | "later" | "stop") | string;
+                                    tag: string | null;
+                                }[];
+                                id: string;
+                                text: string;
+                            }[];
                             samples: string[];
                             signs: string[];
                             skip: string[];
@@ -29534,8 +29813,20 @@ export interface operations {
                         groupWords: string[];
                         link: string | null;
                         offer: string | null;
+                        pace: {
+                            followUpAfterDays: number;
+                            messageAfterDays: number;
+                        };
                         platforms: "facebook"[];
-                        questions: string[];
+                        questions: {
+                            answers: {
+                                label: string;
+                                next: ("continue" | "offer" | "later" | "stop") | string;
+                                tag: string | null;
+                            }[];
+                            id: string;
+                            text: string;
+                        }[];
                         samples: string[];
                         signs: string[];
                         skip: string[];
@@ -29573,8 +29864,20 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            pace: {
+                                followUpAfterDays: number;
+                                messageAfterDays: number;
+                            };
                             platforms: "facebook"[];
-                            questions: string[];
+                            questions: {
+                                answers: {
+                                    label: string;
+                                    next: ("continue" | "offer" | "later" | "stop") | string;
+                                    tag: string | null;
+                                }[];
+                                id: string;
+                                text: string;
+                            }[];
                             samples: string[];
                             signs: string[];
                             skip: string[];
@@ -29644,6 +29947,68 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_touch_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    group?: {
+                        id: string | null;
+                        /** @default null */
+                        name?: string | null;
+                        slug: string | null;
+                        url: string;
+                    } | null;
+                    /** @enum {string} */
+                    kind: "friend_request" | "like" | "comment" | "message";
+                    name: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** @default null */
+                    postUrl?: string | null;
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** @default null */
+                    replying?: boolean | null;
+                    /** @default null */
+                    threadKey?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        personId: string | null;
+                        /** Format: uuid */
+                        profileId: string;
+                        repeated: boolean;
+                        step: ("first_message" | "follow_up") | null;
+                        /** Format: uuid */
+                        touchId: string;
                     };
                 };
             };
@@ -54145,6 +54510,162 @@ export interface operations {
             };
         };
     };
+    query_outreach_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default today
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        /** Format: date-time */
+                        from: string;
+                        groups: {
+                            chatsStarted: number;
+                            friendRequests: number;
+                            /** Format: uuid */
+                            groupId: string;
+                            name: string | null;
+                            people: number;
+                            replies: number;
+                            url: string;
+                            warmedUp: number;
+                        }[];
+                        morePeople: number;
+                        numbers: {
+                            chatsStarted: number;
+                            comments: number;
+                            followUps: number;
+                            friendRequests: number;
+                            likes: number;
+                            people: number;
+                            replies: number;
+                        };
+                        people: {
+                            commentedAt: string | null;
+                            group: {
+                                name: string | null;
+                                url: string;
+                            } | null;
+                            /** Format: date-time */
+                            lastAt: string;
+                            likedAt: string | null;
+                            messagedAt: string | null;
+                            name: string;
+                            personId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            repliedAt: string | null;
+                            requestedAt: string | null;
+                            url: string;
+                        }[];
+                        timezone: string;
+                        today: {
+                            comment: number;
+                            first_message: number;
+                            follow_up: number;
+                            friend_request: number;
+                            like: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_friends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    search?: string;
+                    /**
+                     * @default friends
+                     * @enum {string}
+                     */
+                    view?: "friends" | "requests" | "sent" | "keep" | "dont_pitch";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cap: number;
+                        counts: {
+                            dontPitch: number;
+                            friends: number;
+                            keep: number;
+                            requests: number;
+                            sent: number;
+                        };
+                        more: number;
+                        people: {
+                            dontPitch: {
+                                at: string | null;
+                                by: string | null;
+                                tagged: boolean;
+                            } | null;
+                            fit: {
+                                /** @enum {string} */
+                                level: "good" | "maybe" | "unknown" | "skip";
+                                playbookName: string | null;
+                                reasons: string[];
+                                score: number;
+                            } | null;
+                            group: {
+                                name: string | null;
+                                url: string;
+                            } | null;
+                            intro: string[];
+                            keep: boolean;
+                            mutualFriends: number | null;
+                            name: string;
+                            personId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            since: string | null;
+                            state: ("friends" | "request_sent" | "request_received" | "declined" | "not_friends") | null;
+                            url: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_lookup: {
         parameters: {
             query?: never;
@@ -54182,6 +54703,22 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        marks: {
+                            dontPitch: {
+                                at: string | null;
+                                by: string | null;
+                                tagged: boolean;
+                            } | null;
+                            groupName: string | null;
+                            id: string | null;
+                            intro: string[];
+                            keep: boolean;
+                            mutualFriends: number | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            state: ("friends" | "request_sent" | "request_received" | "declined" | "not_friends") | null;
+                            username: string | null;
+                        }[];
                         profiles: {
                             id: string | null;
                             name: string;
@@ -54321,8 +54858,20 @@ export interface operations {
                                 groupWords: string[];
                                 link: string | null;
                                 offer: string | null;
+                                pace: {
+                                    followUpAfterDays: number;
+                                    messageAfterDays: number;
+                                };
                                 platforms: "facebook"[];
-                                questions: string[];
+                                questions: {
+                                    answers: {
+                                        label: string;
+                                        next: ("continue" | "offer" | "later" | "stop") | string;
+                                        tag: string | null;
+                                    }[];
+                                    id: string;
+                                    text: string;
+                                }[];
                                 samples: string[];
                                 signs: string[];
                                 skip: string[];

@@ -52,3 +52,17 @@ export function button(
 export function clip(text: string, length: number): string {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
+
+/** "1 comment", "6 comments". */
+export function counted(count: number, thing: string): string {
+  return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
+}
+
+/** How long ago, in words: "just now", "5 minutes ago", "on Oct 3". */
+export function ago(iso: string): string {
+  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${counted(minutes, 'minute')} ago`;
+  if (minutes < 24 * 60) return `${counted(Math.round(minutes / 60), 'hour')} ago`;
+  return `on ${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}

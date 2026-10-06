@@ -160,10 +160,10 @@ beforeAll(async () => {
   session = await signedIn(linh);
   omarSession = await signedIn(omar);
 });
-afterAll(async () => {
-  await rows(admin(), sql.raw(`drop schema if exists ${SCHEMA} cascade`));
-  await closeAll();
-});
+// The add-on's schema stays behind, as sync-streams.test.ts's does: its name is random. Dropping it needs both
+// app.workspaces and app.custom_records to itself, for the triggers behind its keys, which deadlocked with the other
+// suites sharing the database.
+afterAll(closeAll);
 
 describe('a signed-in customer', () => {
   it('sees themselves and their business, and nobody else', async () => {

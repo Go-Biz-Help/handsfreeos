@@ -1,6 +1,7 @@
 /**
  * Social Outreach's manifest and operations, held to the add-on rules (docs/addon-architecture.md), its playbook
- * templates, and how a chat read again joins what was saved before. Pure: no database.
+ * templates, how a chat read again joins what was saved before, the warning past the daily limits, and how someone
+ * who asked to be friends fits a playbook. Pure: no database.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,10 +13,24 @@ import {
 } from '../../src/server';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import {
+  answerNextLabel,
   blankPlaybook,
+  nextQuestionId,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
+  renumberQuestions,
+  upgradePlaybookDetails,
+  type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
+import {
+  bestFit,
+  byFit,
+  fitFor,
+  placesIn,
+  quoted,
+  type FitPlaybook,
+} from '../../src/addons/outreach/fit';
+import { DAILY_LIMITS, pastLimitWords } from '../../src/addons/outreach/limits';
 import { joinMessages, type ChatMessage, type SavedMessage } from '../../src/addons/outreach/saves';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 
@@ -54,7 +69,19 @@ describe('playbooks', () => {
   it('starts with the owner’s CRM-demo playbook, with their questions and tags', () => {
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     expect(crm.details.goal).toBe('demo');
-    expect(crm.details.questions).toContain('Do you use a CRM?');
+    expect(crm.details.questions.map((q) => q.text)).toEqual([
+      'Do you use a CRM?',
+      'Which one?',
+      'Is it doing what you need?',
+      'How do you keep track of follow-ups now?',
+    ]);
+    // "No" skips the questions about the CRM they don't have; "Not really" makes the offer.
+    expect(crm.details.questions[0]!.answers.find((a) => a.label === 'No')!.next).toBe('q4');
+    expect(crm.details.questions[2]!.answers.find((a) => a.label === 'Not really')).toEqual({
+      label: 'Not really',
+      tag: 'Unhappy with CRM',
+      next: 'offer',
+    });
     expect(crm.details.skip).toContain('Group admins and moderators');
     expect(crm.details.tags).toEqual([
       'Business owner',
@@ -76,6 +103,110 @@ describe('playbooks', () => {
     expect(issues({ signs: ['Owner', '  '] })).toEqual(['signs.1']);
     expect(issues({ link: 'book with me' })).toEqual(['link']);
     expect(issues({ link: 'https://example.com/book' })).toBeUndefined();
+  });
+});
+
+describe('a playbook’s conversation', () => {
+  const ask = (id: string, text: string, answers: PlaybookQuestion['answers'] = []) => ({
+    id,
+    text,
+    answers,
+  });
+  const issues = (questions: PlaybookQuestion[], tags = ['Uses a CRM']) =>
+    PlaybookDetails.safeParse({ ...blankPlaybook(), tags, questions }).error?.issues.map(
+      (i) => `${i.path.join('.')}: ${i.message}`,
+    );
+
+  it('lets an answer add one of the playbook’s tags and lead to a question further down', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: 'uses a crm', next: 'q2' },
+          { label: 'No', tag: null, next: 'offer' },
+        ]),
+        ask('q2', 'Which one?'),
+      ]),
+    ).toBeUndefined();
+  });
+
+  it('refuses a tag the playbook doesn’t have, a step back up, and a question that isn’t there', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: 'Loves spreadsheets', next: 'continue' },
+          { label: 'No', tag: null, next: 'q9' },
+        ]),
+        ask('q2', 'Which one?', [{ label: 'HubSpot', tag: null, next: 'q1' }]),
+      ]),
+    ).toEqual([
+      'questions.0.answers.0.tag: “Loves spreadsheets” isn’t one of this playbook’s tags. Add it under Tags, or pick another.',
+      'questions.0.answers.1.next: That question isn’t in this playbook anymore. Pick what happens next again.',
+      'questions.1.answers.0.next: An answer can only lead to a question further down.',
+    ]);
+  });
+
+  it('refuses the same question name twice, the same answer twice, and a question leading to itself', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: null, next: 'q1' },
+          { label: 'yes', tag: null, next: 'stop' },
+        ]),
+        ask('q1', 'Which one?'),
+      ]),
+    ).toEqual([
+      'questions.0.answers: Each answer once.',
+      'questions.0.answers.0.next: An answer can only lead to a question further down.',
+      'questions.1.id: Each question once.',
+    ]);
+  });
+
+  it('reads one saved before questions had answers, and before it had a pace', () => {
+    const { questions, pace, ...rest } = blankPlaybook();
+    void questions;
+    void pace;
+    const old = { ...rest, questions: ['Do you use a CRM?', 'Which one?'] };
+    const now = PlaybookDetails.parse(upgradePlaybookDetails(old));
+    expect(now.questions).toEqual([ask('q1', 'Do you use a CRM?'), ask('q2', 'Which one?')]);
+    expect(now.pace).toEqual({ messageAfterDays: 1, followUpAfterDays: 3 });
+    // One in today's shape comes back as it was.
+    const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
+    expect(upgradePlaybookDetails(crm)).toBe(crm);
+  });
+
+  it('renames questions q1, q2… in order on saving, with every answer leading where it did', () => {
+    const out = renumberQuestions([
+      ask('q4', 'Do you use a CRM?', [{ label: 'No', tag: null, next: 'q7' }]),
+      ask('q2', 'Which one?'),
+      ask('q7', 'How do you keep track now?', [{ label: 'Notes', tag: null, next: 'offer' }]),
+    ]);
+    expect(out.map((q) => q.id)).toEqual(['q1', 'q2', 'q3']);
+    expect(out[0]!.answers[0]!.next).toBe('q3');
+    expect(out[2]!.answers[0]!.next).toBe('offer');
+    expect(nextQuestionId(out)).toBe('q4');
+    expect(nextQuestionId([])).toBe('q1');
+  });
+
+  it('says what an answer leads to in words', () => {
+    const qs = [ask('q2', 'Which one?')];
+    expect(answerNextLabel('offer', qs)).toBe('Make the offer');
+    expect(answerNextLabel('q2', qs)).toBe('Ask “Which one?”');
+    expect(answerNextLabel('q5', qs)).toBe('A question that isn’t here anymore');
+  });
+
+  it('keeps the pace to whole days within its limits', () => {
+    const pace = (p: object) =>
+      PlaybookDetails.safeParse({ ...blankPlaybook(), pace: p }).error?.issues.map((i) =>
+        i.path.join('.'),
+      );
+    expect(pace({ messageAfterDays: 0, followUpAfterDays: 30 })).toBeUndefined();
+    expect(pace({ messageAfterDays: 15, followUpAfterDays: 0 })).toEqual([
+      'pace.messageAfterDays',
+      'pace.followUpAfterDays',
+    ]);
+    expect(pace({ messageAfterDays: 1.5, followUpAfterDays: 3 })).toEqual([
+      'pace.messageAfterDays',
+    ]);
   });
 });
 
@@ -140,5 +271,96 @@ describe('a chat read again', () => {
     const joined = joinMessages(before, [them('three'), them('four')], LATER, 3);
     expect(texts(joined.messages)).toEqual(['two', 'three', 'four']);
     expect(joined.added).toBe(1);
+  });
+});
+
+describe('the daily limits', () => {
+  const day = { friend_request: 0, first_message: 0, follow_up: 0, comment: 0, like: 0 };
+
+  it('warns only past a limit, naming each step past it', () => {
+    expect(pastLimitWords({ ...day, friend_request: DAILY_LIMITS.friend_request })).toBeNull();
+    expect(pastLimitWords({ ...day, like: DAILY_LIMITS.like + 1 })).toBe(
+      'Past today’s limit for likes. Slow down, so Facebook doesn’t block you.',
+    );
+    expect(
+      pastLimitWords({
+        ...day,
+        friend_request: 21,
+        comment: 16,
+        like: 41,
+      }),
+    ).toMatch(/^Past today’s limit for friend requests, comments and likes\./);
+  });
+});
+
+describe('how someone fits a playbook', () => {
+  const crm: FitPlaybook = {
+    id: 'crm',
+    name: 'CRM demos',
+    details: {
+      ...PLAYBOOK_TEMPLATES.crm_demos.details,
+      skip: ['“Realtor”', 'Competitors'],
+      area: 'within 30 miles of Austin, TX',
+    },
+  };
+  const facts = (lines: string[], mutualFriends: number | null = null, groupName = null) => ({
+    lines,
+    mutualFriends,
+    groupName,
+  });
+
+  it('reads the words in quotes, and the places an area names', () => {
+    expect(quoted('“Owner”, “Founder” or "CEO" in their intro')).toEqual([
+      'Owner',
+      'Founder',
+      'CEO',
+    ]);
+    expect(placesIn('Austin and Round Rock')).toEqual(['Austin', 'Round Rock']);
+    expect(placesIn('within 30 miles of Denver, CO')).toEqual(['Denver']);
+    expect(placesIn('the Phoenix metro area')).toEqual(['Phoenix']);
+    expect(placesIn('Texas')).toEqual(['Texas']);
+    expect(placesIn(null)).toEqual([]);
+  });
+
+  it('counts the signs in quotes, the area, mutual friends and the group, and says why', () => {
+    expect(fitFor(crm, facts(['Owner at Cole Landscaping', 'Lives in Austin, Texas'], 12))).toEqual(
+      {
+        level: 'good',
+        score: 6,
+        playbookId: 'crm',
+        playbookName: 'CRM demos',
+        reasons: ['“Owner” on their profile', 'In Austin', '12 mutual friends'],
+      },
+    );
+    // Whole words only: "Ownership" isn't "Owner".
+    expect(fitFor(crm, facts(['Ownership coach'], 1)).reasons).toEqual(['1 mutual friend']);
+    expect(fitFor(crm, facts([])).level).toBe('unknown');
+    expect(
+      fitFor(null, { lines: [], mutualFriends: null, groupName: 'Westfield Makers Market' }),
+    ).toMatchObject({ level: 'maybe', reasons: ['Found in Westfield Makers Market'] });
+  });
+
+  it('skips who the playbook says to, whatever else fits', () => {
+    expect(fitFor(crm, facts(['Owner and Realtor in Austin'], 50))).toMatchObject({
+      level: 'skip',
+      reasons: ['“Realtor” on their profile'],
+    });
+  });
+
+  it('takes the playbook they fit best, and orders requests best first', () => {
+    const roofing: FitPlaybook = {
+      id: 'roof',
+      name: 'Roofing estimates',
+      details: { signs: ['“Homeowner”'], skip: [], area: 'Round Rock' },
+    };
+    const fit = bestFit([crm, roofing], facts(['Homeowner in Round Rock']));
+    expect(fit).toMatchObject({ playbookName: 'Roofing estimates', score: 4 });
+    const list = [
+      { name: 'A', fit: { score: 0 }, mutualFriends: 3 },
+      { name: 'B', fit: { score: 4 }, mutualFriends: 0 },
+      { name: 'C', fit: { score: 0 }, mutualFriends: 9 },
+      { name: 'D', fit: null, mutualFriends: null },
+    ];
+    expect(byFit(list).map((x) => x.name)).toEqual(['B', 'C', 'A', 'D']);
   });
 });
