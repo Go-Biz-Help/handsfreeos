@@ -157,6 +157,8 @@ export interface ReadResult {
   readonly posts?: readonly Post[];
   readonly chats?: readonly ChatSummary[];
   readonly notices?: readonly Notice[];
+  /** Which of your own lists the page shows (./friends.ts): your friends, or the friend requests you've got. */
+  readonly friendList?: 'friends' | 'requests';
   /** Facebook's own warnings on the page: a block, a limit, a security check. Later phases stop for the day on any. */
   readonly warnings: readonly string[];
   /** What the person should know about this read: "Facebook loads members as you scroll." */

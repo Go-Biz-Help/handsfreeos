@@ -69,6 +69,38 @@ function byActions(root: Element): Element[] {
   return boxes;
 }
 
+/** The box of the post something on the page is in, when it's in one: a button, a comment, the box to comment in. */
+export function postAround(element: Element, root: Element): Element | null {
+  return postBoxes(root).find((box) => box !== element && box.contains(element)) ?? null;
+}
+
+/**
+ * The last post that ends before something on the page, with no other post starting in between: the one a box to
+ * comment in belongs to when Facebook draws the box below the post rather than in it.
+ */
+export function postBefore(element: Element, root: Element): Element | null {
+  const before = postBoxes(root).filter((box) => isBefore(box, element) && !box.contains(element));
+  const last = before[before.length - 1];
+  if (!last) return null;
+  const menus = [...root.querySelectorAll('[aria-label]')].filter(
+    (e) => ACTIONS.test(clean(e.getAttribute('aria-label'))) && !inTopBar(e),
+  );
+  return menus.some((menu) => isAfter(menu, last) && isBefore(menu, element)) ? null : last;
+}
+
+/** A post's comments and replies, in page order: the articles inside it. */
+export function commentsIn(box: Element): Element[] {
+  const post = postIn(box);
+  return [...post.querySelectorAll('[role="article"]')].filter((article) => article !== post);
+}
+
+/** The comment or reply something in a post is in, when it's in one. */
+export function commentAround(element: Element, box: Element): Element | null {
+  const post = postIn(box);
+  const article = element.closest('[role="article"]');
+  return article && article !== post && post.contains(article) ? article : null;
+}
+
 /** The posts in a part of the page, in page order, `max` at most. */
 export function readPosts(root: Element, base: string, max = 30): Post[] {
   const posts: Post[] = [];

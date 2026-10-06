@@ -57,9 +57,9 @@ export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps):
         if (!SLUG_RE.test(site) || (kind !== 'privacy' && kind !== 'terms'))
           return reply.code(404).send({ error: 'not_found' });
 
-        const [route] = await rows<RouteRow>(
-          deps.db,
-          sql`select * from private.booking_route(${site}::text, null::text)`,
+        // As the system actor, like the booking page: the worker's own sign-in can't see schema private.
+        const [route] = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<RouteRow>(tx, sql`select * from private.booking_route(${site}::text, null::text)`),
         );
         if (!route) return reply.code(404).send({ error: 'not_found' });
 

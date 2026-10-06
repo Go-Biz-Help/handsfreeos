@@ -7,11 +7,31 @@
  * succeeds. Declare in the manifest what's here: `events.consumes` for each subscriber, `jobs` for each job,
  * `resources` for what it makes at a provider (and then `releaseResource`).
  */
+import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
+import { rows, sql } from '@hfos/db/client';
 import type { AddonWorkerModule } from '../types';
 
 export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
+  dataMigrations: {
+    // 2: a playbook's questions have answers, and it has a pace. Reading upgrades an older one too
+    // (outreach.playbook.list), so this only tidies what a reinstall brings back.
+    2: async ({ tx, scope }) => {
+      const kept = await rows<{ id: string; details: unknown }>(
+        tx,
+        sql`select id, details from addon_outreach.playbooks where workspace_id = ${scope.workspaceId}`,
+      );
+      for (const p of kept) {
+        const details = upgradePlaybookDetails(p.details);
+        if (details !== p.details)
+          await tx.execute(
+            sql`update addon_outreach.playbooks set details = ${JSON.stringify(details)}::jsonb
+                where id = ${p.id}`,
+          );
+      }
+    },
+  },
   // subscribers: { 'person.updated': async (ctx) => { … } },
   // jobs: { 'outreach.daily': async (ctx) => { … } },
   // onEnable: arm recurring jobs with scheduleAddonJob, from now: nothing that came due while it was off runs late.
