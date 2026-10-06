@@ -290,6 +290,10 @@ describe('the whole transaction, exported', () => {
     expect(row).not.toHaveProperty('showing_access');
     // The hours a showing may be asked for aren't a secret, and stay.
     expect(row).toHaveProperty('showing_access_hours');
-    expect([...zip.values()].some((b) => b.toString('utf8').includes('7392'))).toBe(false);
+    // Nothing in it says how to get in. The words, not the bare code: four digits can turn up inside an id or a time.
+    const leaks = [...zip.entries()]
+      .filter(([, b]) => ['side gate', 'code 7392'].some((w) => b.toString('utf8').includes(w)))
+      .map(([name]) => name);
+    expect(leaks).toEqual([]);
   });
 });
