@@ -1154,7 +1154,10 @@ export function createFakeSourceAdapter(): FakeSource {
       };
     },
 
-    async *scan(_connection, scope) {
+    async *scan(connection, scope) {
+      // Worded as the real adapter words it, door by door: a token was made without the access, a sign-in had
+      // it unticked. Either way the fix is a token now, since the screens no longer offer the sign-in.
+      const token = connection.authKind === 'private_token';
       for (const category of Object.keys(CATEGORY_TYPE)) {
         const support = supportOf(category);
         const cat = migrationCategory(category);
@@ -1164,17 +1167,21 @@ export function createFakeSourceAdapter(): FakeSource {
             count: 0,
             countQuality: 'permission_limited',
             capability: 'not_available',
-            notes: 'This sign-in was not given access to it.',
+            notes: token
+              ? 'The private integration was not given access to it.'
+              : 'This sign-in was not given access to it.',
             findings: [
               {
                 code: 'access.scope_missing',
                 capability: 'not_available',
                 severity: 'action',
-                summary: `This sign-in cannot read ${(cat?.label ?? category).toLowerCase()}.`,
+                summary: `GoHighLevel would not let us read ${(cat?.label ?? category).toLowerCase()}.`,
                 whatImports: 'Nothing from this category.',
                 whatChanges:
                   'The count is unknown, not zero: we were not allowed to look, so we will not pretend there is nothing there.',
-                recommendedAction: 'Sign in again and allow the extra access, then scan once more.',
+                recommendedAction: token
+                  ? 'In GoHighLevel, edit the private integration, tick the read access for this, then scan again.'
+                  : 'In GoHighLevel, make a private integration token that can read this, connect it from the Migrations page, then start the move again from there.',
                 detail: { missingScopes: support.missingScopes },
               },
             ],

@@ -38623,7 +38623,7 @@
                     ]
                   },
                   "authKind": {
-                    "default": "oauth",
+                    "default": "private_token",
                     "type": "string",
                     "enum": [
                       "oauth",

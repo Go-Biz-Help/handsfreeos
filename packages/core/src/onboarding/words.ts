@@ -521,7 +521,7 @@ export const WIZARD_WORDS = {
     migrate: {
       title: 'Move from GoHighLevel',
       detail:
-        'Sign in to GoHighLevel. We count what’s there and show you before anything moves. Nothing in GoHighLevel is changed or cancelled.',
+        'Make a private integration token in GoHighLevel and paste it here. We count what’s there and show you before anything moves. Nothing in GoHighLevel is changed or cancelled.',
     },
     sheet: {
       title: 'Import a spreadsheet',

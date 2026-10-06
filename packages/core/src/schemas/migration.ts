@@ -54,6 +54,14 @@ export const migrationAuthKind = z.enum(MIGRATION_AUTH_KINDS);
 /** The sources a private token can be pasted for. GoHighLevel calls its own "private integrations". */
 export const PRIVATE_TOKEN_SOURCES: readonly MigrationSourceSystem[] = ['gohighlevel'];
 
+/**
+ * The sources the screens offer a sign-in for. None today: GoHighLevel's marketplace app is being retired (the
+ * owner's call, 2026-10-06), so a business connects GoHighLevel with a private integration token, one
+ * sub-account per token. The sign-in door itself stays on the worker for any connection already made through
+ * it, and for a source that brings a sign-in of its own later.
+ */
+export const SIGN_IN_SOURCES: readonly MigrationSourceSystem[] = [];
+
 export const MIGRATION_CONNECTION_STATUSES = [
   'pending',
   'active',
@@ -136,9 +144,10 @@ export const MigrationConnectInput = z.object({
   /**
    * Which door (0069). A private token is always one sub-account, so `installKind` is ignored for it rather
    * than argued with. No token is ever sent to this command: it is pasted straight to the worker, which is
-   * the only place that can seal one.
+   * the only place that can seal one. The token is the default because it is the door the screens offer
+   * (`SIGN_IN_SOURCES`).
    */
-  authKind: migrationAuthKind.default('oauth'),
+  authKind: migrationAuthKind.default('private_token'),
 });
 export const MigrationConnectOutput = z.object({
   connectionId: uuid,

@@ -60,7 +60,7 @@ export const CAPABILITY_WORDS: Record<MigrationCapability, CapabilityWords> = {
   },
   not_available: {
     label: 'The old system will not give it',
-    blurb: 'Either its API does not offer this, or this sign-in cannot reach it.',
+    blurb: 'Either its API does not offer this, or we were not given access to it.',
     countsReal: false,
   },
   not_supported: {
@@ -84,7 +84,7 @@ export const CAPABILITY_WORDS: Record<MigrationCapability, CapabilityWords> = {
 export const COUNT_QUALITY_WORDS: Record<CountQuality, string> = {
   complete: 'Counted',
   estimated: 'About',
-  permission_limited: 'This sign-in cannot see all of these',
+  permission_limited: 'We were not allowed to see all of these',
   not_enumerable: 'The old system will not count these',
   unknown: 'Not counted yet',
 };
@@ -100,7 +100,7 @@ export function countWords(count: number, quality: CountQuality): string {
     case 'estimated':
       return `about ${count.toLocaleString()}`;
     case 'permission_limited':
-      return count > 0 ? `at least ${count.toLocaleString()}` : 'not visible to this sign-in';
+      return count > 0 ? `at least ${count.toLocaleString()}` : 'not shared with us';
     case 'not_enumerable':
       return 'not counted by the old system';
     case 'unknown':

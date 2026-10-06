@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import {
   LIVE_SOURCES,
   PRIVATE_TOKEN_SOURCES,
+  SIGN_IN_SOURCES,
   SOURCE_LABELS,
   type MigrationAuthKind,
   type MigrationSourceSystem,
@@ -50,7 +51,7 @@ async function pasteToken(input: {
 }
 
 /**
- * Connecting the CRM a business is leaving. Two things are said before anybody signs in, because both are
+ * Connecting the CRM a business is leaving. Two things are said before anything is connected, because both are
  * true and neither is obvious: the look that follows only reads, and the old account is never touched.
  */
 export function ConnectSourceButton({
@@ -61,7 +62,10 @@ export function ConnectSourceButton({
   organizationId: string;
   /** Set on a business's own Settings page: the connection is then recorded as that business's. */
   workspaceId?: string;
-  /** Just before the browser leaves for the old system's sign-in: the setup wizard notes its way back. */
+  /**
+   * Just before the browser leaves for the old system's sign-in, for a source that has one: the setup wizard
+   * notes its way back. A pasted token never leaves the page.
+   */
   beforeLeave?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -104,7 +108,10 @@ function ConnectDialog({
   const [error, setError] = useState<string | null>(null);
   const label = SOURCE_LABELS[source];
   const canPaste = PRIVATE_TOKEN_SOURCES.includes(source);
-  const pasting = canPaste && how === 'private_token';
+  const canSignIn = SIGN_IN_SOURCES.includes(source);
+  // GoHighLevel takes the token only, now its app is being retired. The choice comes back for a source that
+  // offers both doors.
+  const pasting = canPaste && (!canSignIn || how === 'private_token');
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -174,7 +181,7 @@ function ConnectDialog({
               ))}
             </div>
           </Field>
-          {canPaste ? (
+          {canPaste && canSignIn ? (
             <Field label="How to connect" htmlFor="migration-how">
               <div className="flex flex-col gap-2" id="migration-how">
                 <RadioCard
@@ -189,7 +196,7 @@ function ConnectDialog({
                   onSelect={() => setHow('private_token')}
                   testId="migration-how-token"
                   title="Paste a private token"
-                  description="For an account that can't add an app. You make a read-only token in GoHighLevel and paste it here, with the sub-account's Location ID. One business at a time."
+                  description={`For an account that can't add an app. You make a read-only token in ${label} and paste it here, with the sub-account's Location ID. One business at a time.`}
                 />
               </div>
             </Field>
@@ -245,6 +252,12 @@ function ConnectDialog({
                 We only ever read with it, and it never leaves HandsFreeOS. Delete the private
                 integration in {label} whenever you like — after the move is the usual time.
               </Hint>
+              {workspaceId ? null : (
+                <Hint>
+                  A token reaches one sub-account. Moving several? Connect each one with its own
+                  token, then choose where each one lands — several can share one business.
+                </Hint>
+              )}
             </>
           ) : workspaceId ? null : (
             <Field label="What it reaches" htmlFor="migration-reach" error={error}>
@@ -277,7 +290,7 @@ function ConnectDialog({
               disabled={pasting && (!token.trim() || !accountId.trim())}
               data-testid="migration-connect-go"
             >
-              {pasting ? 'Connect with the token' : `Sign in to ${label}`}
+              {pasting ? 'Connect' : `Sign in to ${label}`}
             </Button>
           </div>
         </form>

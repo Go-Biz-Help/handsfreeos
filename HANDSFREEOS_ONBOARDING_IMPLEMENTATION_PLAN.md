@@ -230,13 +230,14 @@ The boards in `design/onboarding` show each one.
     scan, and links to Knowledge and to turning the teammate on.
   - `customers`: move from GoHighLevel, import a spreadsheet, or add them as you go, with the answer's way marked.
     `ImportWizard` as it is; `ConnectSourceButton`, then `StartMigrationButton`, which stays in the wizard while the
-    count runs, with a link to the move's own page.
+    count runs, with a link to the move's own page. Since 2026-10-06 GoHighLevel connects with a private
+    integration token pasted in place (its marketplace app is being retired), so the move never leaves the page.
   - `calendar`: not `CalendarBuilder`. `ServicesPage`, then "Make my booking calendar" (a `service` calendar with
     every service on it, turned on), `BookingSiteForm`, and a link to connecting Google or Outlook. A booking page
     that's there but off (publishing a form, like the texting agreement box's, names it without opening it) is
     turned on by "Make my booking calendar", or by "Turn it on" when the calendar was made another way.
   - `payments`: Stripe or Square through `connectPaymentAccount`.
-  - **Back from a sign-in.** The worker sends a finished Stripe, Square or GoHighLevel sign-in to the step's
+  - **Back from a sign-in.** The worker sends a finished Stripe or Square sign-in (and, before 2026-10-06, GoHighLevel's) to the step's
     Settings page. A step that starts one keeps a note in the tab first (`lib/setup-return.ts`), and the finishing
     page goes back to the wizard instead, with `?payments=` as it came. Paying the carriers' texting fees from the
     number step works the same way: Stripe's page returns to Settings → Texting, which sends them on with `?fees=`.

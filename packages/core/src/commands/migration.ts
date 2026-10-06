@@ -81,6 +81,7 @@ import {
   MigrationTaskDoneOutput,
   LIVE_SOURCES,
   PRIVATE_TOKEN_SOURCES,
+  SIGN_IN_SOURCES,
   SOURCE_LABELS,
   type MigrationLifecycle,
   type MigrationSourceSystem,
@@ -203,6 +204,7 @@ const CONNECTION_COLUMNS = {
   id: migrationConnections.id,
   sourceSystem: migrationConnections.sourceSystem,
   installKind: migrationConnections.installKind,
+  authKind: migrationConnections.authKind,
   status: migrationConnections.status,
   externalAccountId: migrationConnections.externalAccountId,
   displayName: migrationConnections.displayName,
@@ -236,13 +238,27 @@ async function loadConnection(ctx: CommandContext, id: string): Promise<LoadedCo
   return c as LoadedConnection;
 }
 
-/** Why a connection to the old system can't be used yet, and what to do, from its status. */
-function notConnectedMessage(name: string, status: string): string {
-  if (status === 'pending')
-    return `Signing in to ${name} hasn’t finished yet. Finish connecting it from the Migrations page, then try again.`;
-  if (status === 'reauth_required')
-    return `${name} needs you to sign in again. Reconnect it from the Migrations page, then try again.`;
-  if (status === 'error')
+/**
+ * Why a connection to the old system can't be used yet, and what to do, from its status and its door. A sign-in
+ * is only ever suggested where the source still offers one (`SIGN_IN_SOURCES`); everywhere else the way back in
+ * is a private token the business makes itself, so a connection made by signing in is pointed at one too.
+ */
+function notConnectedMessage(c: LoadedConnection): string {
+  const name = c.displayName ?? sourceLabel(c.sourceSystem);
+  const source = sourceLabel(c.sourceSystem);
+  const signIn = c.authKind === 'oauth' && SIGN_IN_SOURCES.includes(c.sourceSystem);
+  if (c.status === 'pending')
+    return signIn
+      ? `Signing in to ${name} hasn’t finished yet. Finish connecting it from the Migrations page, then try again.`
+      : `Connecting ${name} hasn’t finished yet. Connect it again from the Migrations page with a private integration token, then try again.`;
+  if (c.status === 'reauth_required') {
+    if (signIn)
+      return `${name} needs you to sign in again. Reconnect it from the Migrations page, then try again.`;
+    return c.authKind === 'private_token'
+      ? `${source} stopped accepting the private integration token for ${name}. Make a new one in ${source} under Settings → Private Integrations, then connect it again from the Migrations page.`
+      : `${name} needs connecting again, now with a private integration token. Make one in ${source} under Settings → Private Integrations, then connect it from the Migrations page.`;
+  }
+  if (c.status === 'error')
     return `The connection to ${name} stopped working. Reconnect it from the Migrations page, then try again.`;
   return `${name} was disconnected. Connect it again from the Migrations page first.`;
 }
@@ -516,11 +532,7 @@ export const migrationCreate = defineCommand({
     requireAccess(ctx);
     const c = await loadConnection(ctx, input.connectionId);
     if (c.status !== 'active')
-      throw HfosError.rule(
-        'migration_connection_not_active',
-        409,
-        notConnectedMessage(c.displayName ?? sourceLabel(c.sourceSystem), c.status),
-      );
+      throw HfosError.rule('migration_connection_not_active', 409, notConnectedMessage(c));
     const [row] = await ctx.tx
       .insert(migrations)
       .values({

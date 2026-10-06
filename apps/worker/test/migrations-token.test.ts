@@ -11,12 +11,15 @@
  *   - a private token claims no access it has not been given: `scopes` is empty on purpose, and the scan is
  *     what finds out;
  *   - the two doors are not interchangeable — a sign-in's state cannot be pasted to, and a token's state
- *     cannot be signed in with.
+ *     cannot be signed in with;
+ *   - the token is the door taken when none is named, and a connection that stops working asks for a new
+ *     token rather than a sign-in GoHighLevel no longer offers.
  */
 import { randomUUID } from 'node:crypto';
 import {
   executeCommand,
   migrationConnect,
+  migrationCreate,
   organizationCreate,
   type HumanActor,
 } from '@hfos/core/server';
@@ -76,17 +79,42 @@ afterAll(async () => {
   await closeTestDbs();
 });
 
-/** Starting a connection through the command, the way the screen does. */
-async function start(authKind: 'oauth' | 'private_token') {
+/** Starting a connection through the command, the way the screen does. No door named takes the default. */
+async function start(authKind?: 'oauth' | 'private_token') {
   const { output } = await executeCommand(
     api(),
     migrationConnect,
-    { organizationId, source: 'gohighlevel', authKind },
+    { organizationId, source: 'gohighlevel', ...(authKind ? { authKind } : {}) },
     actorOf(owner),
     meta(),
   );
   return output;
 }
+
+/** What starting a migration from a connection is refused with, or null when it isn't. */
+async function refusedToStart(
+  connectionId: string,
+): Promise<{ rule?: string; message: string } | null> {
+  return executeCommand(
+    api(),
+    migrationCreate,
+    { organizationId, connectionId, name: 'From GoHighLevel' },
+    actorOf(owner),
+    meta(),
+  ).then(
+    () => null,
+    (e: unknown) => e as { rule?: string; message: string },
+  );
+}
+
+/** As the worker leaves a connection whose token or sign-in the old system stopped accepting. */
+const stopAccepting = (id: string) =>
+  asWorker(worker(), { organizationId }, (tx) =>
+    rows(
+      tx,
+      sql`update app.migration_connections set status = 'reauth_required' where id = ${id} returning id`,
+    ),
+  );
 
 const paste = (body: Record<string, unknown>) =>
   app.inject({ method: 'POST', url: '/migrations/token', payload: body });
@@ -243,5 +271,39 @@ describe('connecting with a private token', () => {
       accountId: AUSTIN,
     });
     expect(res.statusCode).toBe(410);
+  }, 60_000);
+
+  it('is the door taken when none is named, because it is the one the screens offer', async () => {
+    const started = await start();
+    expect(started.authKind).toBe('private_token');
+    expect(started.startPath).toBe('/migrations/token');
+  }, 60_000);
+});
+
+describe('a connection the old system stopped accepting', () => {
+  it('asks for a new private token, and says where to make one', async () => {
+    const started = await start('private_token');
+    const res = await paste({
+      state: started.state,
+      token: 'pit-not-a-real-token',
+      accountId: AUSTIN,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    await stopAccepting(started.connectionId);
+
+    const refused = await refusedToStart(started.connectionId);
+    expect(refused).toMatchObject({ rule: 'migration_connection_not_active' });
+    expect(refused!.message).toContain('Settings → Private Integrations');
+    expect(refused!.message).not.toMatch(/sign in/i);
+  }, 60_000);
+
+  it('points a sign-in GoHighLevel no longer offers at a private token too', async () => {
+    const signIn = await start('oauth');
+    await stopAccepting(signIn.connectionId);
+
+    const refused = await refusedToStart(signIn.connectionId);
+    expect(refused).toMatchObject({ rule: 'migration_connection_not_active' });
+    expect(refused!.message).toContain('private integration token');
+    expect(refused!.message).not.toMatch(/sign in again/i);
   }, 60_000);
 });

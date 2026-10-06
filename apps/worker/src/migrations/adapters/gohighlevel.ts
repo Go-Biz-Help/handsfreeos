@@ -429,6 +429,14 @@ const ENDPOINTS: Record<string, Endpoint> = {
 const COUNT_ONLY: readonly string[] = ['workflows'];
 
 /**
+ * What a connection made through the GoHighLevel app does about access it was never given. The app is retired
+ * (the owner's call, 2026-10-06) and the screens no longer offer its sign-in, so the way back is a private
+ * integration token that can read the thing, connected as its own connection.
+ */
+const SIGN_IN_MISSING_ACCESS =
+  'In GoHighLevel, make a private integration token that can read this, connect it from the Migrations page, then start the move again from there.';
+
+/**
  * Categories HighLevel will not give us a count of at all, and why. Said out loud on the screen rather than
  * left as a dash beside the words "counted now" — a promise the adapter cannot keep is worse than a gap it
  * admits to.
@@ -1810,7 +1818,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
                 whatImports: 'Nothing from this category.',
                 whatChanges:
                   'The count is unknown, not zero: we were not allowed to look, so we will not pretend there is nothing there.',
-                recommendedAction: 'Sign in again and allow the extra access, then scan once more.',
+                recommendedAction: SIGN_IN_MISSING_ACCESS,
                 detail: { missingScopes: missing },
               },
             ],
@@ -1840,7 +1848,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
               recommendedAction:
                 connection.authKind === 'private_token'
                   ? 'In GoHighLevel, edit the private integration, tick the read access for this, then scan again.'
-                  : 'Sign in again and allow the extra access, then scan once more.',
+                  : SIGN_IN_MISSING_ACCESS,
               detail: { requiredScopes: required },
             });
         } catch (e) {
