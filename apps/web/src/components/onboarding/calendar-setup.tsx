@@ -14,6 +14,10 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
  * The wizard's calendar step (board 5): the services customers book, one calendar that takes them, and the booking
  * page, each the screen Settings → Calendars already has. Not the calendar builder: the wizard makes a service
  * calendar with every service on it and turns it on, and the builder is there for anything more.
+ *
+ * The booking page can be there already and off: publishing a form (the texting opt-in's "Set this up for me")
+ * names the business's public pages without opening them for booking. Making the booking calendar turns it on,
+ * and so does "Turn it on" when the calendar was made some other way; otherwise the step never finished.
  */
 export function CalendarSetup({
   workspaceId,
@@ -30,6 +34,15 @@ export function CalendarSetup({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const ids = services.services.filter((s) => !s.archivedAt).map((s) => s.id);
+  const off = site.site && !site.site.enabled ? site.site : null;
+
+  /** The booking page as it is, switched on. */
+  const turnOnPage = async (page: NonNullable<typeof off>) =>
+    unwrap(
+      await apiBrowser().POST('/v1/commands/booking_site.update', {
+        body: { workspaceId, name: page.name, slug: page.slug, intro: page.intro, enabled: true },
+      }),
+    );
 
   async function make() {
     setBusy(true);
@@ -49,6 +62,19 @@ export function CalendarSetup({
           body: { workspaceId, calendarId: made.calendarId, status: 'active' },
         }),
       );
+      if (off) await turnOnPage(off);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+      router.refresh();
+    }
+  }
+
+  async function turnOn(page: NonNullable<typeof off>) {
+    setBusy(true);
+    try {
+      await turnOnPage(page);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -98,7 +124,16 @@ export function CalendarSetup({
           </Button>
         </Card>
       )}
-      <BookingSiteForm {...site} />
+      {calendar?.bookable && off ? (
+        <Card className="flex flex-wrap items-center gap-3 p-5" data-testid="setup-booking-off">
+          <p className="min-w-0 flex-1 text-[13.5px]">{WIZARD_WORDS.bookingOff}</p>
+          <Button loading={busy} onClick={() => void turnOn(off)} data-testid="setup-booking-on">
+            {WIZARD_WORDS.bookingTurnOn}
+          </Button>
+        </Card>
+      ) : null}
+      {/* Keyed on the switch: the form keeps what's typed, so a page turned on above starts again from on. */}
+      <BookingSiteForm key={String(site.site?.enabled ?? 'new')} {...site} />
       <div className="flex flex-wrap items-center gap-3 rounded-menu border border-border bg-card px-4 py-3.5">
         <CalendarDays className="h-4 w-4 flex-none text-text-3" strokeWidth={1.75} />
         <div className="min-w-0 flex-1">

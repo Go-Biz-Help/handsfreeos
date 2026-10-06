@@ -24,7 +24,9 @@ for (const k of Object.keys(process.env)) if (PRIVILEGED.test(k)) delete process
 // The knowledge base's stand-in website (apps/worker/fixtures/knowledge-site), served below. The worker the global
 // setup starts may scan only these local origins (outside production, with the fake carrier). Not a secret.
 const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
-process.env.FETCH_TEST_ORIGINS ??= KNOWLEDGE_SITE;
+// The web app too: a texting registration's review opens the privacy policy, terms and agreement-box form we host
+// for the business, as a carrier's reviewer would (setup-number-and-booking.spec.ts).
+process.env.FETCH_TEST_ORIGINS ??= `${KNOWLEDGE_SITE},http://localhost:3000`;
 
 // The stand-in business websites the website chat specs paste the snippet on (e2e/fixtures/chat-site.mjs): the
 // widget allows the first, and the browser refuses to show the chat window on the second.
