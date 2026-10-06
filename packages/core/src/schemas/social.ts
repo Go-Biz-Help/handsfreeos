@@ -40,6 +40,11 @@ export const MetaConnectionDisconnectInput = z.object({
   connectionId: uuid,
   /** The worker's: the person removed the app on Facebook (revoked). People always disconnect as themselves. */
   reason: z.enum(['person', 'revoked', 'failed']).optional(),
+  /**
+   * The worker's: Facebook asked HandsFreeOS to delete what it knows about the person who signed in, so who they are
+   * goes with their token. Works on a sign-in that's already disconnected too.
+   */
+  forget: z.boolean().optional(),
 });
 export const MetaConnectionDisconnectOutput = z.object({
   connectionId: uuid,
@@ -89,6 +94,8 @@ export const MetaAccountRecoverInput = z.object({
   accountId: uuid,
   /** Meta agreed to send its messages here again. */
   subscribed: z.boolean().optional(),
+  /** Whether Meta has approved the Human Agent tag for the app, as the worker is set up now. */
+  humanAgent: z.boolean().optional(),
 });
 
 // ------------------------------------------------------------------------------------------------------ receiving

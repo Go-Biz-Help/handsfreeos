@@ -20,6 +20,8 @@ import type { FakePush } from '../src/push/fake';
 import { fakePushServices, type PushServices } from '../src/push/index';
 import { fakeReviewServices, type ReviewServices } from '../src/reviews/index';
 import type { FakeReviews } from '../src/reviews/fake';
+import type { FakeMeta } from '../src/social/fake';
+import { fakeMetaServices, type MetaServices } from '../src/social/index';
 import type { SafeFetch } from '../src/http/safe-fetch';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore, type ObjectStore } from '../src/storage';
@@ -36,6 +38,7 @@ export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
 
 export type TestServices = WorkerServices & {
   readonly reviews: ReviewServices & { readonly fake: FakeReviews };
+  readonly social: MetaServices & { readonly fake: FakeMeta };
   readonly telephony: FakeTelephony;
   readonly transcriber: FakeTranscriber;
   readonly video: ReturnType<typeof createFakeVideoConverter>;
@@ -128,6 +131,8 @@ export function testServices(
     calendars: fakeCalendarServices(TEST_PUBLIC_URL, 60_000),
     // Reviews in memory; a place is asked again only when a test asks.
     reviews: fakeReviewServices(TEST_PUBLIC_URL, 60_000),
+    // Facebook Pages and Instagram accounts in memory, and every reply sent kept for the test to read.
+    social: fakeMetaServices(TEST_PUBLIC_URL),
     // The stand-in provider. A bank transfer settles only when a test asks (settleMs 0), and token refreshes
     // run when a test asks: the job's next run is a minute out.
     payments: paymentsForTests(),

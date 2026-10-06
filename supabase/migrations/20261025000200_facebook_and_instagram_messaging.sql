@@ -380,20 +380,40 @@ language sql stable security definer set search_path = '' as $$
   where a.external_id = any (p_external_ids) and a.status <> 'disconnected'
 $$;
 
--- The sign-ins a Facebook user made, in every business: when they remove the app, each of them stops.
-create or replace function private.meta_connections_of(p_facebook_user_id text)
+-- The sign-ins a Facebook user made, in every business: when they remove the app, each of them stops. Asked to
+-- forget them, the ones already disconnected are named too, since they still say who it was.
+create or replace function private.meta_connections_of(p_facebook_user_id text, p_all boolean default false)
 returns table (connection_id uuid, workspace_id uuid, organization_id uuid)
 language sql stable security definer set search_path = '' as $$
   select c.id, c.workspace_id, w.organization_id
   from app.meta_connections c join app.workspaces w on w.id = c.workspace_id
-  where c.facebook_user_id = p_facebook_user_id and c.status <> 'disconnected'
+  where c.facebook_user_id = p_facebook_user_id and (p_all or c.status <> 'disconnected')
+$$;
+
+-- Whether any business still answers through this Page: its Messenger, or the Instagram account linked to it. Only
+-- then does letting one of them go leave the Page subscribed to the app.
+create or replace function private.meta_page_live(p_page_id text)
+returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from app.meta_accounts a where a.page_id = p_page_id and a.status <> 'disconnected')
+$$;
+
+-- The businesses with a Page or account still connected, for the worker's daily look at each one's sign-in.
+create or replace function private.meta_account_workspaces()
+returns table (workspace_id uuid, organization_id uuid)
+language sql stable security definer set search_path = '' as $$
+  select distinct a.workspace_id, w.organization_id
+  from app.meta_accounts a join app.workspaces w on w.id = a.workspace_id
+  where a.status <> 'disconnected'
 $$;
 
 revoke all on function private.meta_account_route(text, text), private.meta_account_holders(text[]),
-  private.meta_connections_of(text), private.check_meta_refs(), private.touches_follow_conversation()
+  private.meta_connections_of(text, boolean), private.meta_page_live(text), private.meta_account_workspaces(),
+  private.check_meta_refs(), private.touches_follow_conversation()
   from public;
 grant execute on function private.meta_account_route(text, text), private.meta_account_holders(text[]),
-  private.meta_connections_of(text) to service_actor;
+  private.meta_connections_of(text, boolean), private.meta_page_live(text), private.meta_account_workspaces()
+  to service_actor;
 
 -- ---------- the sign-in shares one callback with the others ----------
 create or replace function private.oauth_connection_by_state(p_state_hash text)

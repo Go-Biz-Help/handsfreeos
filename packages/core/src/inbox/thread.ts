@@ -389,10 +389,21 @@ export function socialFailureHelp(
       return `${name} couldn’t take one of the files. Try a smaller one, or a photo instead.`;
     case 'too_long':
       return `${name} took only part of this reply. Shorten it and send it again.`;
+    case 'partial':
+      return `Only part of this reply reached them on ${name}. Send it again and the rest goes, without what already went.`;
+    case 'unreachable':
+      return `HandsFreeOS couldn’t reach ${name} to send this. Send it again in a minute.`;
     default:
       return item.errorMessage || `${name} didn’t deliver this reply.`;
   }
 }
+
+/**
+ * On the phone, in place of a Messenger or Instagram message with no words or photos: a post, reel or story they
+ * shared, or a message they took back. The phone's copy keeps neither, so it says where to see it.
+ */
+export const SOCIAL_NOT_ON_PHONE =
+  'Something the phone can’t show yet, like a post they shared. Open this conversation on the web to see it.';
 
 /** What a Messenger or Instagram message shows besides its words and files. */
 export interface SocialLines {

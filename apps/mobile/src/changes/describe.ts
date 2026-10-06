@@ -1,4 +1,4 @@
-import { channelWord } from '@hfos/core';
+import { channelWord, isSocialChannel, SOCIAL_CHANNEL_NAMES } from '@hfos/core';
 
 import {
   describeRealestate,
@@ -295,6 +295,17 @@ export function describe(
         return words(
           input.channel === 'portal' ? `Reply in ${who}’s portal` : `Reply to ${who} in the chat`,
           `a ${channelWord(input.channel).toLowerCase()} reply`,
+          'inbox',
+          person,
+          quoteOf(input.body),
+        );
+      }
+      // "Reply to Ann Webb on Messenger": it goes to their inbox there, never by text.
+      if (typeof input.channel === 'string' && isSocialChannel(input.channel)) {
+        const name = SOCIAL_CHANNEL_NAMES[input.channel];
+        return words(
+          `Reply to ${forName(person, 'a customer')} on ${name}`,
+          `a ${name} reply`,
           'inbox',
           person,
           quoteOf(input.body),

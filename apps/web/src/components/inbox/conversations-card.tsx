@@ -1,5 +1,5 @@
 'use client';
-import { firstName, minutesWaiting } from '@hfos/core';
+import { firstName, isSocialChannel, minutesWaiting, SOCIAL_CHANNEL_NAMES } from '@hfos/core';
 import { DoorOpen, Globe, Mail, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,10 +9,12 @@ import type { ConversationSummary } from '@/lib/api/types';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { ChannelIcon, WaitChip } from './bits';
+import { SOCIAL_ICONS } from './social-bits';
 
 /**
  * On the customer's page: their conversations, one per channel. A text or email opens the message sheet in
- * that channel; a website chat opens in the inbox, where its composer replies in the chat.
+ * that channel; a website chat, a portal, Messenger and Instagram open in the inbox, where the composer replies
+ * where they wrote.
  */
 export function ConversationsCard({
   workspaceId,
@@ -88,8 +90,8 @@ export function ConversationsCard({
                 key={c.id}
                 type="button"
                 onClick={() =>
-                  // A chat or a client's portal is answered in its own thread.
-                  c.channel === 'chat' || c.channel === 'portal'
+                  // A chat, a client's portal, Messenger or Instagram is answered in its own thread.
+                  c.channel === 'chat' || c.channel === 'portal' || isSocialChannel(c.channel)
                     ? router.push(`/app/w/${workspaceId}/inbox/${c.id}`)
                     : onOpen(c.channel === 'email' ? 'email' : 'sms')
                 }
@@ -105,7 +107,9 @@ export function ConversationsCard({
                         ? Globe
                         : c.channel === 'portal'
                           ? DoorOpen
-                          : MessageCircle
+                          : isSocialChannel(c.channel)
+                            ? SOCIAL_ICONS[c.channel]
+                            : MessageCircle
                   }
                 />
                 <span className="min-w-0 flex-1">
@@ -116,7 +120,9 @@ export function ConversationsCard({
                         ? 'Website chat'
                         : c.channel === 'portal'
                           ? `Client portal${c.record ? ` · ${c.record.name}` : ''}`
-                          : `Texts · ${c.counterpartDisplay}`}
+                          : isSocialChannel(c.channel)
+                            ? `${SOCIAL_CHANNEL_NAMES[c.channel]} · ${c.counterpartDisplay}`
+                            : `Texts · ${c.counterpartDisplay}`}
                   </span>
                   <span className="block truncate text-xs text-text-3">{c.lastPreview}</span>
                 </span>

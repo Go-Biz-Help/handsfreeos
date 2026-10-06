@@ -19,7 +19,7 @@ const userName = (alias: string) => `coalesce(nullif(${alias}.full_name, ''), ${
 const CONVERSATION_BASE = `
   SELECT c.id, c.channel, c.counterpart, c.status, c.person_id, p.first_name, p.last_name,
     c.assignee_user_id, ${userName('au')} AS assignee_name,
-    c.unread_count, c.last_message_at, c.last_preview, c.last_direction,
+    c.unread_count, c.last_message_at, c.last_inbound_at, c.last_preview, c.last_direction,
     ls.sent_by AS last_sender_id, ${userName('lu')} AS last_sender_name,
     c.awaiting_reply_since, c.snoozed_until, c.created_at, c.handled_by, c.ai_teammate_id, t.name AS teammate_name,
     c.needs_person_since, c.handoff_reason, c.handoff_note, c.taken_over_by, ${userName('tu')} AS taken_over_name,

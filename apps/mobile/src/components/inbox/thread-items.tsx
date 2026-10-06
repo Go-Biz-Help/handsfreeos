@@ -8,10 +8,14 @@ import {
   emailStatusLine,
   FAILED_STATUSES,
   heldLine,
+  isSocialChannel,
   keywordLine,
   mediaOnlyLine,
   readLine,
   senderOf,
+  socialDeliveryWords,
+  socialFailureHelp,
+  SOCIAL_NOT_ON_PHONE,
   textFailureHelp,
   THREAD_WORDS,
   type MediaShape,
@@ -169,19 +173,26 @@ function Bubble({
 
 /**
  * Where a reply the business sent is: Sending…, Sent, Delivered (or Seen in a chat), Read, Not delivered. An RCS
- * message the customer opened says when, since a phone has nowhere to hover for it: "Read Tue 2:14 PM".
+ * message the customer opened says when, since a phone has nowhere to hover for it: "Read Tue 2:14 PM". Messenger and
+ * Instagram say "Seen", as their own apps do.
  */
 function Delivery({
   status,
   chat,
+  social = false,
   readAt,
 }: {
   status: string;
   chat: boolean;
+  social?: boolean;
   readAt?: string | null;
 }) {
   const state = deliveryStateOf(status);
-  const words = state === 'read' ? readLine(readAt) : deliveryWords(state, chat);
+  const words = social
+    ? socialDeliveryWords(state)
+    : state === 'read'
+      ? readLine(readAt)
+      : deliveryWords(state, chat);
   if (!words) return null;
   if (arrived(state))
     return (
@@ -202,7 +213,10 @@ function Delivery({
   return <Text className="text-xs text-text-3">{`· ${words}`}</Text>;
 }
 
-/** A text (or a website chat message) in the thread: the customer on the left, the business on the right. */
+/**
+ * A text (or a website chat, Messenger or Instagram message) in the thread: the customer on the left, the business on
+ * the right.
+ */
 export function MessageBubble({
   item,
   customerFirstName,
@@ -256,6 +270,9 @@ export function MessageBubble({
   const failed = out && FAILED_STATUSES.has(item.status);
   const sender = senderOf(item);
   const keyword = keywordLine(item, customerFirstName);
+  const social = isSocialChannel(item.channel);
+  // A post they shared, or a message they took back: neither is in the phone's copy.
+  const nothing = social && !item.body && item.media.length === 0;
   return (
     <>
       <View
@@ -284,6 +301,16 @@ export function MessageBubble({
                   {item.body}
                 </Bubble>
               ) : null}
+              {nothing ? (
+                <View
+                  className="rounded-[18px] border border-dashed border-border-strong px-3.5 py-2"
+                  testID="social-not-on-phone"
+                >
+                  <Text className="text-[14px] italic leading-[20px] text-text-2">
+                    {SOCIAL_NOT_ON_PHONE}
+                  </Text>
+                </View>
+              ) : null}
             </>
           }
         />
@@ -311,6 +338,7 @@ export function MessageBubble({
               <Delivery
                 status={item.status}
                 chat={item.channel === 'chat' || item.channel === 'portal'}
+                social={social}
                 readAt={item.readAt}
               />
               {failed && onRetry ? (
@@ -325,7 +353,9 @@ export function MessageBubble({
           )}
         </View>
         {failed ? (
-          <Text className="px-1 text-right text-[13px] text-text-2">{textFailureHelp(item)}</Text>
+          <Text className="px-1 text-right text-[13px] text-text-2">
+            {social ? socialFailureHelp(item) : textFailureHelp(item)}
+          </Text>
         ) : null}
       </View>
       {keyword ? (

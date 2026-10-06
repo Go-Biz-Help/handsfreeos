@@ -169,6 +169,17 @@ describe('what a press does', () => {
     ).toMatchObject({
       command: { input: { channel: 'email' } },
     });
+    // A Messenger or Instagram reply goes back there: `social` carries the channel, which older builds leave out.
+    const messenger = customerMessage({
+      category: 'customer_message_no_ai',
+      refs: { conversationId: CONVERSATION, social: 'messenger' },
+    });
+    expect(
+      pressAction({ data: messenger, actionId: 'reply', typed: 'On my way', pressedAt: PRESSED }),
+    ).toMatchObject({
+      command: { input: { channel: 'messenger', body: 'On my way' } },
+    });
+    expect(PushData.safeParse(messenger).success).toBe(true);
   });
 
   it('sends nothing for an empty reply', () => {

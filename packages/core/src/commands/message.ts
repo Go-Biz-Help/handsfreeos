@@ -1767,6 +1767,7 @@ export const messageRetry = defineCommand({
               : conv.counterpart,
         status: 'queued',
         retry: true,
+        channel: m.channel,
       },
     });
     // A held text refused when quiet hours ended never went. This is its first time, so it becomes the
@@ -2541,6 +2542,8 @@ export const messageAttachMedia = defineCommand({
         and(eq(messages.id, input.messageId), eq(messages.workspaceId, ctx.scope.workspaceId!)),
       );
     if (!m) throw HfosError.notFound('Message not found.');
+    // Taken back on Messenger or Instagram while its files were being copied: nothing of it is kept.
+    if (m.unsentAt) return { messageId: m.id };
     const known = new Set(m.media.map((x) => x.objectPath));
     const added = input.media.filter((x) => !known.has(x.objectPath));
     if (added.length === 0) return { messageId: m.id };
@@ -2551,7 +2554,7 @@ export const messageAttachMedia = defineCommand({
       entityType: 'message',
       entityId: m.id,
       payload: { conversationId: m.conversationId, count: media.length },
-      after: { photos: media.length },
+      after: { photos: media.length, channel: m.channel },
     });
     return { messageId: m.id };
   },

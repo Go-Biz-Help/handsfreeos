@@ -182,6 +182,12 @@ export const socialAttachmentMaxBytes = (
   kind: SocialAttachmentKind,
 ): number => ATTACHMENT_RULES[channel][kind].maxBytes;
 
+/** A file picker's `accept` for a reply on this channel: every type it carries. */
+export const socialAttachmentAccept = (channel: SocialChannel): string =>
+  Object.values(ATTACHMENT_RULES[channel])
+    .flatMap((rule) => rule.types)
+    .join(',');
+
 /** "JPG, PNG or GIF photos, MP4 videos, …": what a refusal says this channel takes. */
 export function socialAttachmentTypesWords(channel: SocialChannel): string {
   return channel === 'messenger'

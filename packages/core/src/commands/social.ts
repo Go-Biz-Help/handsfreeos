@@ -28,7 +28,7 @@ import {
   type SocialExtras,
   type SocialShared,
 } from '@hfos/db/schema';
-import { workspaceZone } from '../calendar/load';
+import { textArray, workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
 import { intakeFromChannel, type IntakeResult } from '../crm/intake';
 import { fullName } from '../crm/records';
@@ -264,12 +264,15 @@ export const metaConnectionActivate = defineCommand({
       })
       .where(eq(metaConnections.id, c.id));
     const readsAds = input.scopes.includes('ads_read');
-    // Ads this business's sign-ins couldn't read before may be readable now: look again.
+    // Ads this business's sign-ins couldn't read before may be readable now: look again. Meta says "no such ad"
+    // about one in an ad account the person can't see, so those are asked about again too.
     if (readsAds) {
       const waiting = await ctx.tx
         .update(ads)
         .set({ status: 'pending', nextResolveAt: now, attempts: 0 })
-        .where(and(eq(ads.workspaceId, workspaceId), eq(ads.status, 'no_access')))
+        .where(
+          and(eq(ads.workspaceId, workspaceId), inArray(ads.status, ['no_access', 'not_found'])),
+        )
         .returning({ id: ads.id });
       for (const a of waiting.slice(0, 200))
         await scheduleJob(ctx.tx, {
@@ -309,12 +312,14 @@ export const metaConnectionDisconnect = defineCommand({
   actors: ['human', 'system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
-    if (ctx.actor.type === 'human' && input.reason && input.reason !== 'person')
+    if (ctx.actor.type === 'human' && ((input.reason && input.reason !== 'person') || input.forget))
       throw HfosError.validation([
         { path: 'reason', message: 'People disconnect Facebook as themselves.' },
       ]);
     const reason = input.reason ?? 'person';
     const now = new Date();
+    // Facebook asked us to forget who signed in: their name and id go with the token.
+    const forget = input.forget ? { facebookUserId: null, facebookUserName: null } : {};
     const [c] = await ctx.tx
       .update(metaConnections)
       .set({
@@ -325,6 +330,7 @@ export const metaConnectionDisconnect = defineCommand({
         tokenKeyId: null,
         oauthStateHash: null,
         oauthStateExpiresAt: null,
+        ...forget,
       })
       .where(
         and(
@@ -334,6 +340,21 @@ export const metaConnectionDisconnect = defineCommand({
         ),
       )
       .returning({ id: metaConnections.id, name: metaConnections.facebookUserName });
+    if (!c && input.forget) {
+      // Already disconnected: only who it was is left to forget.
+      const [gone] = await ctx.tx
+        .update(metaConnections)
+        .set(forget)
+        .where(
+          and(
+            eq(metaConnections.id, input.connectionId),
+            eq(metaConnections.workspaceId, workspaceId),
+          ),
+        )
+        .returning({ id: metaConnections.id });
+      if (!gone) throw HfosError.notFound('That Facebook sign-in isn’t here anymore.');
+      return { connectionId: gone.id, accountIds: [] };
+    }
     if (!c)
       throw HfosError.notFound(
         'That Facebook sign-in isn’t connected anymore. Refresh Settings → Facebook & Instagram to see where it stands.',
@@ -359,7 +380,7 @@ export const metaConnectionDisconnect = defineCommand({
       entityType: 'meta_connection',
       entityId: c.id,
       payload: { reason, accounts: accounts.length },
-      after: { facebookUserName: c.name, reason },
+      after: { facebookUserName: input.forget ? null : c.name, reason },
     });
     return { connectionId: c.id, accountIds: accounts.map((a) => a.id) };
   },
@@ -601,6 +622,7 @@ export const metaAccountRecover = defineCommand({
         failures: 0,
         lastError: null,
         ...(input.subscribed ? { subscribedAt: new Date() } : {}),
+        ...(input.humanAgent !== undefined ? { humanAgent: input.humanAgent } : {}),
       })
       .where(eq(metaAccounts.id, a.id));
     const changed = a.status === 'needs_attention';
@@ -1031,8 +1053,9 @@ export const metaMessageReceive = defineCommand({
 
     // What it carried: files the worker copies in next, and things shared that aren't files we keep.
     const files = input.attachments.filter((a) => FILE_TYPES.has(a.type)).map((a) => a.type);
+    // A story they answered is the reply's own line (replyTo), not something they shared.
     const shared: SocialShared[] = input.attachments
-      .filter((a) => !FILE_TYPES.has(a.type))
+      .filter((a) => !FILE_TYPES.has(a.type) && a.type !== 'story')
       .map((a) => ({ type: a.type, url: a.url, title: a.title }));
     const text =
       clean(input.text, 10000) ??
@@ -1307,8 +1330,8 @@ export const metaMessageReceipt = defineCommand({
         ctx.tx,
         sql`select max(occurred_at)::text as at from app.messages
             where conversation_id = ${conversationId} and direction = 'outbound'
-              and (provider_message_id = any(${input.mids}::text[])
-                or provider_part_ids && ${input.mids}::text[])`,
+              and (provider_message_id = any(${textArray(input.mids)})
+                or provider_part_ids && ${textArray(input.mids)})`,
       );
       upTo = m?.at ?? null;
     }

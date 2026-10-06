@@ -5,6 +5,7 @@ import {
   FAMILY_KINDS,
   familyFor,
   formatPhone,
+  isSocialChannel,
   latestByKind,
   conversationNumber,
   currentRcsSender,
@@ -18,6 +19,7 @@ import {
   rcsSending,
   registrationUpdateStatus,
   scheduleJob,
+  socialPreview,
   unsettledTextingFee,
   WALLET_REFUSALS,
   walletRoom,
@@ -34,6 +36,7 @@ import {
 } from '@hfos/db/schema';
 import { textingApprovedEmail, textingRejectedEmail } from '../emails/templates';
 import { sendQueuedEmail } from './email';
+import { sendSocialReply } from '../social/send';
 import { TEXT_STATUS } from '../processors/twilio-messaging';
 import {
   systemActor,
@@ -464,6 +467,11 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     await sendQueuedEmail(ctx, m);
     return;
   }
+  // Messenger and Instagram go out through the business's Facebook Page (social/send.ts).
+  if (isSocialChannel(m.channel)) {
+    await sendSocialReply(ctx, m);
+    return;
+  }
   // A chat or portal reply is never a text: it's read where it was written (message.send never queues one).
   if (m.channel === 'chat' || m.channel === 'portal') return;
   const fail = (errorCode: string, errorMessage: string) =>
@@ -635,12 +643,23 @@ export const onConversationLinked: EventHandler = async (ctx) => {
       .values({
         workspaceId: scope.workspaceId,
         kind:
-          m.channel === 'email' || m.channel === 'chat' || m.channel === 'portal'
+          m.channel === 'email' ||
+          m.channel === 'chat' ||
+          m.channel === 'portal' ||
+          isSocialChannel(m.channel)
             ? m.channel
             : 'sms',
         subtype: m.direction,
         personId,
-        body: m.bodyText || messagePreview(null, m.media.length) || null,
+        body:
+          m.bodyText ||
+          (isSocialChannel(m.channel)
+            ? socialPreview(null, [
+                ...(m.social.files ?? []),
+                ...(m.social.shared ?? []).map((s) => s.type),
+              ])
+            : messagePreview(null, m.media.length)) ||
+          null,
         occurredAt: was ? new Date(was.occurredAt) : m.occurredAt,
         authorUserId: null,
         actorType: 'system',

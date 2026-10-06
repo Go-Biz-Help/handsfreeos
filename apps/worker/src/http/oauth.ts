@@ -30,6 +30,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   calendarConnections,
   mailboxConnections,
+  metaConnections,
   paymentConnections,
   reviewConnections,
 } from '@hfos/db/schema';
@@ -52,6 +53,12 @@ import {
 import { nextRefreshAt } from '../payments/refresh';
 import { errorMessage } from '../outbox';
 import { systemActor, workerMeta, type TenantScope } from '../services';
+import {
+  answerMetaPick,
+  finishMetaSignIn,
+  META_PICK_ANSWER,
+  metaSettingsUrl,
+} from '../social/connect';
 import { authenticate, parseBody, type HttpDeps } from './common';
 import {
   finishUrl,
@@ -70,13 +77,14 @@ const isProvider = (p: string): p is MailboxProviderName => p === 'microsoft' ||
  * three share /oauth/:provider/start and /callback.
  */
 type StateRow = {
-  kind: 'mailbox' | 'calendar' | 'payment' | 'reviews';
+  /** `meta`: a business's Facebook Pages and Instagram accounts for the inbox (20261025000200). */
+  kind: 'mailbox' | 'calendar' | 'payment' | 'reviews' | 'meta';
   connection_id: string;
   workspace_id: string;
   organization_id: string;
   /**
    * Mailboxes and calendars name their providers the same way; payments name Stripe and Square; reviews
-   * name Google and Facebook.
+   * name Google and Facebook; the inbox's Pages are always Facebook's.
    */
   provider: MailboxProviderName | PaymentProviderName | ReviewProviderName;
   status: string;
@@ -125,6 +133,10 @@ const sendPage = (reply: FastifyReply, status: number, page: FinishPage) =>
 
 /** The chooser's answer, posted by the app. */
 const PlaceBody = HandoffBody.extend({ place: z.string().min(1).max(500) });
+/** The Facebook checklist's answer: the Pages and Instagram accounts ticked. */
+const PickBody = HandoffBody.extend({
+  ids: z.array(z.string().regex(/^(facebook|instagram):[0-9]{1,40}$/)).max(200),
+});
 
 export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void {
   const { providers, fake } = deps.mailboxes;
@@ -172,6 +184,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     calendar: 'My calendar',
     payment: 'Payments',
     reviews: 'Reviews',
+    meta: 'Facebook & Instagram',
   };
   /**
    * Which Settings page to send someone back to when their link is dead. A used or expired state has no row
@@ -181,12 +194,16 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   const kindOf = (provider: string, found: StateRow | null): StateRow['kind'] | undefined =>
     found?.kind ?? (isPaymentProvider(provider) ? 'payment' : undefined);
 
-  const expiredPage = (kind?: StateRow['kind']): FinishPage => ({
+  const expiredPage = (kind?: StateRow['kind'], provider?: string): FinishPage => ({
     title: 'This sign-in link has expired',
-    body: `Sign-in links last ten minutes. Go back to Settings, open ${SETTINGS_PAGE[kind ?? 'mailbox']}, and choose Connect again.`,
+    body:
+      !kind && provider === 'facebook'
+        ? // Facebook signs in for the inbox and for reviews, and a used link no longer says which.
+          'Sign-in links last ten minutes. Go back to where you pressed Connect (Settings → Facebook & Instagram, or Reviews), and choose Connect again.'
+        : `Sign-in links last ten minutes. Go back to Settings, open ${SETTINGS_PAGE[kind ?? 'mailbox']}, and choose Connect again.`,
   });
-  const expired = (reply: FastifyReply, kind?: StateRow['kind']) =>
-    sendPage(reply, 400, expiredPage(kind));
+  const expired = (reply: FastifyReply, kind?: StateRow['kind'], provider?: string) =>
+    sendPage(reply, 400, expiredPage(kind, provider));
   /** A dead end, for the app to show. */
   const page = (title: string, body: string, link?: FinishPage['link']): FinishOutcome => ({
     page: { title, body, ...(link ? { link } : {}) },
@@ -199,7 +216,8 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const { state } = req.query as { state?: string };
     const found = await lookup(provider, state);
     const row = waiting(provider, found);
-    if (!row || !state) return expired(reply, kindOf(provider, found));
+    if (!row || !state) return expired(reply, kindOf(provider, found), provider);
+    if (row.kind === 'meta') return startMeta(row, state, reply);
     if (row.kind === 'payment') return startPayment(row, state, reply);
     if (row.kind === 'calendar') return startCalendar(row, state, reply);
     if (row.kind === 'reviews') return startReviews(row, state, reply);
@@ -242,7 +260,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const q = req.query as CallbackQuery;
     const found = await lookup(provider, q.state);
     const row = waiting(provider, found);
-    if (!row || !q.state) return expired(reply, kindOf(provider, found));
+    if (!row || !q.state) return expired(reply, kindOf(provider, found), provider);
     const sealed = sealHandoff(deps.sealer, {
       door: 'oauth',
       provider,
@@ -270,7 +288,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (!h) return { outcome: { page: expiredPage() } };
     const found = await lookupHash(h.provider, h.stateHash);
     const row = waiting(h.provider, found);
-    if (!row) return { outcome: { page: expiredPage(kindOf(h.provider, found)) } };
+    if (!row) return { outcome: { page: expiredPage(kindOf(h.provider, found), h.provider) } };
     const [started] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<{ by: string | null }>(
         tx,
@@ -318,6 +336,12 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
           .update(paymentConnections)
           .set(ended)
           .where(eq(paymentConnections.id, row.connection_id));
+      else if (row.kind === 'meta')
+        // The person's own token may already wait on it, for the checklist: it goes too.
+        await tx
+          .update(metaConnections)
+          .set({ ...ended, tokenEnc: null, tokenKeyId: null })
+          .where(eq(metaConnections.id, row.connection_id));
       else
         await tx
           .update(reviewConnections)
@@ -332,6 +356,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     reply.header('cache-control', 'no-store');
     if ('outcome' in got) return got.outcome;
     const { row, q } = got;
+    if (row.kind === 'meta') return finishMetaSignIn(deps, row, q);
     if (row.kind === 'payment') return paymentCallback(row, q);
     if (row.kind === 'calendar') return calendarCallback(row, q);
     if (row.kind === 'reviews') return reviewsCallback(row, q);
@@ -669,6 +694,35 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
       return next(`${reviewsUrl(row.workspace_id)}?reviews=failed`);
     }
+  });
+
+  // ---------- the inbox's Facebook Pages and Instagram accounts: back to Settings → Facebook & Instagram ----------
+
+  async function startMeta(row: StateRow, state: string, reply: FastifyReply) {
+    const graph = deps.social.graph;
+    if (!graph.configured)
+      return deadEnd(
+        reply,
+        503,
+        'Facebook isn’t set up yet',
+        'This server can’t connect Facebook Pages or Instagram accounts yet.',
+        { href: metaSettingsUrl(deps, row.workspace_id), label: 'Back to Settings' },
+      );
+    // No PKCE: Facebook's own sign-in is finished with the app's secret, and the one-time state, hashed on the row
+    // with ten minutes to live, is what ties the answer back to the business.
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .redirect(graph.authorizeUrl({ state, redirectUri: callbackUrl('facebook') }), 302);
+  }
+
+  /** The checklist's answer, from the app: the same handoff, the same person, still within its ten minutes. */
+  app.post(META_PICK_ANSWER, async (req, reply) => {
+    const { handoff, ids } = parseBody(PickBody, req.body);
+    const got = await finishing(req, handoff);
+    reply.header('cache-control', 'no-store');
+    if ('outcome' in got) return got.outcome;
+    if (got.row.kind !== 'meta') return { page: expiredPage('meta') };
+    return answerMetaPick(deps, got.row, ids);
   });
 
   // ---------- the account a business is paid into: back to Settings → Payments ----------

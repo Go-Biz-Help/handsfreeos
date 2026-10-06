@@ -27,14 +27,33 @@ export interface Finished {
   readonly body: string;
   /** The review places to choose from, when the sign-in speaks for several. */
   readonly places: readonly { id: string; name: string }[] | null;
+  /** The checklist of Facebook Pages and Instagram accounts, when the sign-in manages several. */
+  readonly pick?: Pick | null;
   /** The sealed handoff, for answering the chooser. */
   readonly handoff: string | null;
+}
+
+export interface Pick {
+  readonly title: string;
+  readonly body: string;
+  readonly submit: string;
+  readonly answer: string;
+  readonly options: readonly {
+    id: string;
+    name: string;
+    detail: string | null;
+    parent: string | null;
+    checked: boolean;
+    disabled: boolean;
+    note: string | null;
+  }[];
 }
 
 type Outcome =
   | { next: string }
   | { page: { title: string; body: string } }
-  | { choose: { places: { id: string; name: string }[] } };
+  | { choose: { places: { id: string; name: string }[] } }
+  | { pick: Pick };
 
 /** The handoff and its door, if this answer is the callback sending the browser to the app. */
 export function handoffOf(
@@ -56,6 +75,8 @@ const asFinished = (res: LightMyRequestResponse, handoff: string | null): Finish
   if ('next' in out) return { status: 302, location: out.next, body: '', places: null, handoff };
   if ('choose' in out)
     return { status: 200, location: null, body: '', places: out.choose.places, handoff };
+  if ('pick' in out)
+    return { status: 200, location: null, body: '', places: null, pick: out.pick, handoff };
   return {
     status: 200,
     location: null,
@@ -101,6 +122,23 @@ export async function choosePlace(
     url: '/v1/oauth/place',
     headers: token ? { authorization: `Bearer ${token}` } : {},
     payload: { handoff, place },
+  });
+  return asFinished(res, handoff);
+}
+
+/** Answers the Facebook checklist with the ids ticked, as the app's Connect button does. */
+export async function pickAccounts(
+  app: FastifyInstance,
+  answer: string,
+  handoff: string,
+  ids: readonly string[],
+  token: string | null,
+): Promise<Finished> {
+  const res = await app.inject({
+    method: 'POST',
+    url: answer,
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+    payload: { handoff, ids },
   });
   return asFinished(res, handoff);
 }

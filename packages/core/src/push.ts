@@ -242,7 +242,13 @@ export const PUSH_DATA_VERSION = 1;
 export const PushRefs = z.object({
   conversationId: z.uuid().optional(),
   /** The conversation's channel: Reply sends on it. */
-  channel: z.enum(['sms', 'email', 'chat', 'messenger', 'instagram']).optional(),
+  channel: z.enum(['sms', 'email', 'chat']).optional(),
+  /**
+   * A Messenger or Instagram conversation's channel (20261025000200): Reply sends on it. Kept apart from `channel`
+   * because builds before it drop a push whose `channel` they don't know, while a ref they don't know they leave out;
+   * theirs reply by text, which the server refuses on these threads rather than sending.
+   */
+  social: z.enum(['messenger', 'instagram']).optional(),
   /** The customer's message a push about a new message is for. */
   messageId: z.uuid().optional(),
   personId: z.uuid().optional(),

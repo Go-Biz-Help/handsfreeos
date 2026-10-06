@@ -11,6 +11,7 @@ import {
   DRAFT_AFTER,
   handlingView,
   handoverNote,
+  isSocialChannel,
   mailMoves,
   memberLabel,
   NO_NUMBER_WORDS,
@@ -21,6 +22,7 @@ import {
   SENT_WORDS,
   snoozedBanner,
   snoozeOptions,
+  SOCIAL_CONTACT_NAMES,
   threadChannelLine,
   whoOf,
   zonedClock,
@@ -111,6 +113,7 @@ import { useConversationActions, useCustomerNotes, useThread } from './hooks';
 import { useInbox } from './inbox-shell';
 import { LinkPersonDialog } from './link-person-dialog';
 import { MessageLog } from './message-log';
+import { SocialMark } from './social-bits';
 
 /** How long an approved draft's message may take to arrive before the thread stops saying "Sending…". */
 const SENDING_FOR_MS = 10 * 60_000;
@@ -183,7 +186,13 @@ export function ConversationView({
   const c = data.conversation;
   const person = data.person;
   const chat = c.channel === 'chat';
-  const first = customerFirstName(person, chat ? data.chat?.name : null);
+  // Messenger or Instagram (20261025000200): the name they go by there, until they're a customer.
+  const social = isSocialChannel(c.channel) ? c.channel : null;
+  const socialName =
+    social && data.social && data.social.contact.name !== SOCIAL_CONTACT_NAMES[social]
+      ? data.social.contact.name
+      : null;
+  const first = customerFirstName(person, chat ? data.chat?.name : socialName);
   const who = whoOf(first, c.channel);
   const name = rowName({ person, counterpartDisplay: c.counterpartDisplay });
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
@@ -278,7 +287,8 @@ export function ConversationView({
   // number). Customers see the business number.
   // A client's portal thread is neither: its client's phone, like an email thread's.
   const portal = c.channel === 'portal';
-  const byNumber = !email && !chat && !portal;
+  // Messenger and Instagram the same: the customer's phone, when they're a customer with one.
+  const byNumber = !email && !chat && !portal && !social;
   const callPhone = byNumber ? c.counterpart : (person?.phoneE164 ?? null);
   const canCall = calls.available && !!callPhone;
   const callTarget = {
@@ -408,11 +418,12 @@ export function ConversationView({
     firstName: first,
     // A website chat replies in the chat; texts and email switch between each other.
     channel: c.channel,
-    phoneDisplay: email
-      ? (person?.phone ?? '')
-      : chat
-        ? (person?.phone ?? data.chat?.phone ?? '')
-        : c.counterpartDisplay,
+    phoneDisplay:
+      email || social
+        ? (person?.phone ?? '')
+        : chat
+          ? (person?.phone ?? data.chat?.phone ?? '')
+          : c.counterpartDisplay,
     email: email ? c.counterpart : (person?.email ?? null),
     canText: data.canText,
     quiet: data.quiet,
@@ -423,7 +434,12 @@ export function ConversationView({
     handoverNote: phone && waiting ? null : handoverNote(view, aiName),
     chatBlocked: data.chat?.blocked ?? false,
     rcs: data.rcs,
+    social: data.social,
   };
+  // "@jane.doe · Instagram · to @brightplumbing": who they are there, and which of the business's accounts.
+  const socialLine = data.social
+    ? { handle: data.social.contact.username, account: data.social.account?.label ?? null }
+    : null;
   /**
    * "All lines" reads and never writes (0089).
    *
@@ -491,9 +507,11 @@ export function ConversationView({
   );
   const bannerClass = 'mx-3 mt-2.5 items-center md:mx-5 md:mt-3';
   const notCustomer = notCustomerBanner(c.counterpartDisplay, c.channel);
-  // Handing a conversation to the teammate: back from a person, or one nobody is handling yet.
+  // Handing a conversation to the teammate: back from a person, or one nobody is handling yet. Not on Messenger or
+  // Instagram, which it doesn't answer yet.
   const canHandToAi =
     !priv &&
+    !social &&
     !!tm &&
     tm.status !== 'off' &&
     view !== 'ai' &&
@@ -578,7 +596,7 @@ export function ConversationView({
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Wide screens: name, assign, snooze, close, more. */}
         <header className="hidden h-16 flex-none items-center gap-2 border-b border-border bg-card pl-5 pr-4 md:flex">
-          <ContactAvatar person={person} chat={chat} />
+          <ContactAvatar person={person} chat={chat} social={social} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold" data-testid="thread-name">
               {name}
@@ -594,8 +612,9 @@ export function ConversationView({
                 listQuery={listQuery}
               />
               {chat ? <WebsiteIcon className="h-3 w-3" /> : null}
+              {social ? <SocialMark channel={social} className="h-3 w-3" /> : null}
               <span className="truncate" data-testid="thread-channel">
-                {threadChannelLine(c, person, { chat: data.chat })}
+                {threadChannelLine(c, person, { chat: data.chat, social: socialLine })}
               </span>
             </div>
           </div>
@@ -828,7 +847,7 @@ export function ConversationView({
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </Link>
-          <ContactAvatar person={person} chat={chat} />
+          <ContactAvatar person={person} chat={chat} social={social} />
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
             {/* A phone has less room, so the line it is on replaces the channel line rather than joining it:
@@ -843,7 +862,7 @@ export function ConversationView({
               />
             ) : (
               <div className="truncate text-xs text-text-3">
-                {threadChannelLine(c, person, { chat: data.chat, short: true })}
+                {threadChannelLine(c, person, { chat: data.chat, social: socialLine, short: true })}
               </div>
             )}
           </div>
@@ -1039,7 +1058,7 @@ export function ConversationView({
       <Sheet open={details} onOpenChange={setDetails}>
         <SheetContent title={CONVERSATION_ACTIONS.details} hideHeader>
           <div className="flex items-center gap-3">
-            <ContactAvatar person={person} size="panel" />
+            <ContactAvatar person={person} size="panel" social={social} />
             <div className="min-w-0">
               <h2 className="truncate text-lg font-semibold tracking-tight">{name}</h2>
               <div className="text-[13px] text-text-3">{customerSinceLine(person, c)}</div>

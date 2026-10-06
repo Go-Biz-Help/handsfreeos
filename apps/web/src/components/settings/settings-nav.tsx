@@ -26,6 +26,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
+import { MessengerIcon } from '@/components/inbox/social-bits';
 import { PageHeader } from '@/components/shell/page-header';
 import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Card } from '@/components/ui/card';
@@ -83,6 +84,13 @@ const GROUPS: readonly { readonly label: string; readonly items: readonly Settin
         path: '/website-chat',
         label: 'Website chat',
         icon: MessagesSquare,
+        needs: 'channels.manage',
+      },
+      // Messenger and Instagram direct messages, through the business's Facebook Page (20261025000200).
+      {
+        path: '/facebook-instagram',
+        label: 'Facebook & Instagram',
+        icon: MessengerIcon,
         needs: 'channels.manage',
       },
       // Beside the channels, because that is what it is for: the wording they send on them.

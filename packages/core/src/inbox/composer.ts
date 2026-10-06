@@ -8,6 +8,7 @@ import { smsSegments } from '../messaging/sms';
 import {
   isSocialChannel,
   SOCIAL_CHANNEL_NAMES,
+  SOCIAL_MAX_ATTACHMENTS,
   SOCIAL_TEXT_LIMITS,
   socialWindowNote,
   type SocialChannel,
@@ -451,6 +452,9 @@ export const COMPOSER_WORDS = {
   /** Under a Messenger or Instagram reply box: where it goes, and that photos and files go first. */
   socialReplies: (name: string) =>
     `Replies go to their ${name} inbox. Photos and files arrive first, then your words.`,
+  /** Attaching past what one Messenger or Instagram reply carries. */
+  socialTooMany: (name: string) =>
+    `A ${name} reply carries up to ${SOCIAL_MAX_ATTACHMENTS} photos or files. Send the rest in another reply.`,
   portalReplies:
     'Replies show in their portal. If they don’t read one within 10 minutes, they get an email with a link.',
   repliesHere: 'Replies come back to this thread.',

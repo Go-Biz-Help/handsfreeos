@@ -1,5 +1,5 @@
 'use client';
-import { ALL_LINES_WORDS } from '@hfos/core';
+import { ALL_LINES_WORDS, isSocialChannel } from '@hfos/core';
 import { ChevronDown, DoorOpen, Layers, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import type { ConversationLane } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { WebsiteIcon } from './ai-bits';
 import { CountBadge } from './bits';
+import { SocialMark } from './social-bits';
 
 /** Every lane reads "All lines" the same way, here and in the composer's reason for not sending. */
 export const ALL_LINES = ALL_LINES_WORDS.label;
@@ -26,6 +27,7 @@ function LaneIcon({ channel }: { channel: ConversationLane['channel'] }) {
   if (channel === 'chat') return <WebsiteIcon className="h-3.5 w-3.5 flex-none" />;
   if (channel === 'portal')
     return <DoorOpen className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden />;
+  if (isSocialChannel(channel)) return <SocialMark channel={channel} label={false} />;
   return <MessageCircle className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden />;
 }
 

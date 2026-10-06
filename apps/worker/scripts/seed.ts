@@ -31,6 +31,7 @@ import { createBookingLinks } from '../src/booking/links';
 import { createSealer } from '../src/crypto';
 import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeReviewServices } from '../src/reviews/index';
+import { fakeMetaServices } from '../src/social/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
 import { fakePaymentServices } from '../src/payments/index';
 import { fakePushServices } from '../src/push/index';
@@ -250,6 +251,9 @@ async function main(): Promise<void> {
     reviews: fakeReviewServices(
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
       60_000,
+    ),
+    social: fakeMetaServices(
+      (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
     ),
     // The stand-in provider, so the seed can connect a payment account and take a payment through it.
     payments: fakePaymentServices(

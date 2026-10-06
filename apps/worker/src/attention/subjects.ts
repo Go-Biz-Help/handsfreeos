@@ -143,6 +143,11 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'review_connection.connected',
   'phone_number.purchase_failed',
   'phone_number.released',
+  // A Facebook Page or Instagram account that stopped answering, works again, or was let go.
+  'meta_account.needs_attention',
+  'meta_account.recovered',
+  'meta_account.disconnected',
+  'meta_account.connected',
   'ai_teammate.status_changed',
   'teammate_lesson.found',
   'teammate_lesson.applied',
@@ -189,6 +194,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'mailbox',
   'review_connection',
   'phone_number',
+  'meta_account',
   'teammate',
   'lesson',
   'scan',
@@ -337,6 +343,7 @@ export async function subjectsOf(
     case 'mailbox':
     case 'review_connection':
     case 'phone_number':
+    case 'meta_account':
       add(event.entityType, id);
       break;
     case 'ai_teammate':
