@@ -5297,6 +5297,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding_setup.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Refuses answers that started from older AI teammate settings (revision_conflict).
+         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.finished.
+         */
+        post: operations["command_onboarding_setup_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.
+         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested.
+         */
+        post: operations["command_onboarding_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/onboarding.as_you_go": {
         parameters: {
             query?: never;
@@ -15017,6 +15057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/onboarding_setup.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else picks for its kind of business), how far it got, and when it was finished.
+         * @description Requires workspace.update.
+         */
+        post: operations["query_onboarding_setup_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/onboarding.clients": {
         parameters: {
             query?: never;
@@ -18586,7 +18646,9 @@ export interface operations {
                         services?: {
                             /** @default  */
                             description?: string;
+                            minutes?: number | null;
                             name: string;
+                            priceCents?: number | null;
                         }[];
                         /**
                          * @default friendly
@@ -18782,7 +18844,9 @@ export interface operations {
                         services?: {
                             /** @default  */
                             description?: string;
+                            minutes?: number | null;
                             name: string;
+                            priceCents?: number | null;
                         }[];
                         /**
                          * @default friendly
@@ -29320,6 +29384,628 @@ export interface operations {
                         /** Format: uuid */
                         offerId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_setup_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        /**
+                         * @default {
+                         *       "jobs": [],
+                         *       "description": "",
+                         *       "services": [],
+                         *       "area": "",
+                         *       "openHours": [
+                         *         {
+                         *           "day": 1,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 2,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 3,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 4,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 5,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         }
+                         *       ],
+                         *       "answerWhen": "always",
+                         *       "customHours": [
+                         *         {
+                         *           "day": 1,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 2,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 3,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 4,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 5,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         }
+                         *       ],
+                         *       "facts": {},
+                         *       "name": "Ava",
+                         *       "disclosure": "first_message",
+                         *       "tone": "friendly",
+                         *       "allowPrices": false,
+                         *       "topQuestions": [],
+                         *       "keepFindings": [],
+                         *       "dropFindings": [],
+                         *       "questions": [],
+                         *       "chat": false
+                         *     }
+                         */
+                        ai?: {
+                            /** @default false */
+                            allowPrices?: boolean;
+                            /**
+                             * @default always
+                             * @enum {string}
+                             */
+                            answerWhen?: "always" | "after_hours" | "custom";
+                            /** @default  */
+                            area?: string;
+                            /** @default false */
+                            chat?: boolean;
+                            /**
+                             * @default [
+                             *       {
+                             *         "day": 1,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 2,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 3,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 4,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 5,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       }
+                             *     ]
+                             */
+                            customHours?: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[];
+                            /** @default  */
+                            description?: string;
+                            /**
+                             * @default first_message
+                             * @enum {string}
+                             */
+                            disclosure?: "first_message" | "when_asked";
+                            /** @default [] */
+                            dropFindings?: string[];
+                            /** @default {} */
+                            facts?: {
+                                [key: string]: "yes" | "no";
+                            };
+                            /** @default [] */
+                            jobs?: ("reply" | "answer" | "book" | "qualify" | "follow_up")[];
+                            /** @default [] */
+                            keepFindings?: string[];
+                            /** @default Ava */
+                            name?: string;
+                            /**
+                             * @default [
+                             *       {
+                             *         "day": 1,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 2,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 3,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 4,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 5,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       }
+                             *     ]
+                             */
+                            openHours?: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[];
+                            /** @default [] */
+                            questions?: {
+                                id: string;
+                                /**
+                                 * @default text
+                                 * @enum {string}
+                                 */
+                                kind?: "text" | "choice" | "yes_no" | "number" | "file";
+                                /** @default {} */
+                                notAFitIf?: {
+                                    /** @default null */
+                                    above?: number | null;
+                                    /** @default [] */
+                                    answers?: string[];
+                                    /** @default null */
+                                    below?: number | null;
+                                };
+                                /** @default null */
+                                notify?: ({
+                                    /** @enum {string} */
+                                    kind: "admins";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "users";
+                                    userIds: (string | {
+                                        $ph: string;
+                                    })[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "lead_assignee";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "person_owner";
+                                }) | null;
+                                /** @default [] */
+                                options?: string[];
+                                question: string;
+                                /** @default true */
+                                required?: boolean;
+                            }[];
+                            /** @default [] */
+                            services?: {
+                                /** @default  */
+                                description?: string;
+                                minutes?: number | null;
+                                name: string;
+                                priceCents?: number | null;
+                            }[];
+                            /**
+                             * @default friendly
+                             * @enum {string}
+                             */
+                            tone?: "friendly" | "professional" | "short" | "keep";
+                            /** @default [] */
+                            topQuestions?: {
+                                answer: string;
+                                question: string;
+                            }[];
+                        };
+                        /** @default false */
+                        booksTime?: boolean;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
+                        /**
+                         * @default leads
+                         * @enum {string}
+                         */
+                        goal?: "leads" | "booked" | "paid" | "organized";
+                        /** @default null */
+                        hasEin?: boolean | null;
+                        /**
+                         * @default later
+                         * @enum {string}
+                         */
+                        payWith?: "stripe" | "square" | "later";
+                        /** @default  */
+                        reviewLink?: string;
+                        /**
+                         * @default solo
+                         * @enum {string}
+                         */
+                        teamSize?: "solo" | "small" | "big";
+                    };
+                    baseRevision: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendarId: string | null;
+                        changes: string[];
+                        chat: {
+                            publicKey: string;
+                            /** Format: uuid */
+                            widgetId: string;
+                        } | null;
+                        notes: string[];
+                        revision: number;
+                        /** Format: uuid */
+                        teammateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        /**
+                         * @default {
+                         *       "jobs": [],
+                         *       "description": "",
+                         *       "services": [],
+                         *       "area": "",
+                         *       "openHours": [
+                         *         {
+                         *           "day": 1,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 2,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 3,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 4,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 5,
+                         *           "start": "08:00",
+                         *           "end": "17:00"
+                         *         }
+                         *       ],
+                         *       "answerWhen": "always",
+                         *       "customHours": [
+                         *         {
+                         *           "day": 1,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 2,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 3,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 4,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         },
+                         *         {
+                         *           "day": 5,
+                         *           "start": "09:00",
+                         *           "end": "17:00"
+                         *         }
+                         *       ],
+                         *       "facts": {},
+                         *       "name": "Ava",
+                         *       "disclosure": "first_message",
+                         *       "tone": "friendly",
+                         *       "allowPrices": false,
+                         *       "topQuestions": [],
+                         *       "keepFindings": [],
+                         *       "dropFindings": [],
+                         *       "questions": [],
+                         *       "chat": false
+                         *     }
+                         */
+                        ai?: {
+                            /** @default false */
+                            allowPrices?: boolean;
+                            /**
+                             * @default always
+                             * @enum {string}
+                             */
+                            answerWhen?: "always" | "after_hours" | "custom";
+                            /** @default  */
+                            area?: string;
+                            /** @default false */
+                            chat?: boolean;
+                            /**
+                             * @default [
+                             *       {
+                             *         "day": 1,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 2,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 3,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 4,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 5,
+                             *         "start": "09:00",
+                             *         "end": "17:00"
+                             *       }
+                             *     ]
+                             */
+                            customHours?: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[];
+                            /** @default  */
+                            description?: string;
+                            /**
+                             * @default first_message
+                             * @enum {string}
+                             */
+                            disclosure?: "first_message" | "when_asked";
+                            /** @default [] */
+                            dropFindings?: string[];
+                            /** @default {} */
+                            facts?: {
+                                [key: string]: "yes" | "no";
+                            };
+                            /** @default [] */
+                            jobs?: ("reply" | "answer" | "book" | "qualify" | "follow_up")[];
+                            /** @default [] */
+                            keepFindings?: string[];
+                            /** @default Ava */
+                            name?: string;
+                            /**
+                             * @default [
+                             *       {
+                             *         "day": 1,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 2,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 3,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 4,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       },
+                             *       {
+                             *         "day": 5,
+                             *         "start": "08:00",
+                             *         "end": "17:00"
+                             *       }
+                             *     ]
+                             */
+                            openHours?: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[];
+                            /** @default [] */
+                            questions?: {
+                                id: string;
+                                /**
+                                 * @default text
+                                 * @enum {string}
+                                 */
+                                kind?: "text" | "choice" | "yes_no" | "number" | "file";
+                                /** @default {} */
+                                notAFitIf?: {
+                                    /** @default null */
+                                    above?: number | null;
+                                    /** @default [] */
+                                    answers?: string[];
+                                    /** @default null */
+                                    below?: number | null;
+                                };
+                                /** @default null */
+                                notify?: ({
+                                    /** @enum {string} */
+                                    kind: "admins";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "users";
+                                    userIds: (string | {
+                                        $ph: string;
+                                    })[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "lead_assignee";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "person_owner";
+                                }) | null;
+                                /** @default [] */
+                                options?: string[];
+                                question: string;
+                                /** @default true */
+                                required?: boolean;
+                            }[];
+                            /** @default [] */
+                            services?: {
+                                /** @default  */
+                                description?: string;
+                                minutes?: number | null;
+                                name: string;
+                                priceCents?: number | null;
+                            }[];
+                            /**
+                             * @default friendly
+                             * @enum {string}
+                             */
+                            tone?: "friendly" | "professional" | "short" | "keep";
+                            /** @default [] */
+                            topQuestions?: {
+                                answer: string;
+                                question: string;
+                            }[];
+                        };
+                        /** @default false */
+                        booksTime?: boolean;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
+                        /**
+                         * @default leads
+                         * @enum {string}
+                         */
+                        goal?: "leads" | "booked" | "paid" | "organized";
+                        /** @default null */
+                        hasEin?: boolean | null;
+                        /**
+                         * @default later
+                         * @enum {string}
+                         */
+                        payWith?: "stripe" | "square" | "later";
+                        /** @default  */
+                        reviewLink?: string;
+                        /**
+                         * @default solo
+                         * @enum {string}
+                         */
+                        teamSize?: "solo" | "small" | "big";
+                    };
+                    business?: {
+                        address?: {
+                            city: string;
+                            /**
+                             * @default US
+                             * @enum {string}
+                             */
+                            country?: "US";
+                            line1: string;
+                            /** @default  */
+                            line2?: string;
+                            postalCode: string;
+                            state: string;
+                        };
+                        /** @enum {string} */
+                        industry?: "home_services" | "hvac" | "plumbing" | "electrical" | "roofing" | "handyman" | "general_contracting" | "remodeling" | "landscaping" | "lawn_care" | "tree_service" | "irrigation" | "pest_control" | "house_cleaning" | "commercial_cleaning" | "carpet_cleaning" | "window_cleaning" | "pressure_washing" | "painting" | "flooring" | "cabinets_countertops" | "windows_doors" | "siding_gutters" | "garage_doors" | "fencing_decks" | "concrete_masonry" | "foundation_waterproofing" | "insulation" | "solar" | "pool_spa" | "appliance_repair" | "locksmith" | "home_security" | "restoration" | "chimney" | "septic" | "water_treatment" | "moving" | "junk_removal" | "snow_removal" | "home_inspection" | "interior_design" | "real_estate" | "property_management" | "vacation_rentals" | "mortgage" | "title_escrow" | "dental" | "medical_practice" | "chiropractic" | "physical_therapy" | "med_spa" | "mental_health" | "eye_care" | "home_care" | "wellness" | "hair_salon" | "barbershop" | "nail_salon" | "spa" | "lashes_brows" | "massage" | "tattoo" | "gym" | "personal_training" | "martial_arts" | "dance_studio" | "pet_grooming" | "veterinary" | "dog_training" | "pet_sitting" | "pet_boarding" | "auto_repair" | "auto_body" | "auto_detailing" | "towing" | "auto_glass" | "car_dealership" | "boat_rv" | "accounting" | "law_firm" | "insurance" | "financial_advising" | "tutoring" | "childcare" | "music_lessons" | "driving_school" | "school_training" | "restaurant" | "catering" | "food_truck" | "bakery" | "event_planning" | "event_venue" | "photography" | "entertainment" | "florist" | "lodging" | "travel" | "equipment_rental" | "party_rentals" | "dumpster_rental" | "self_storage" | "portable_toilets" | "marketing_agency" | "consulting" | "it_services" | "staffing" | "printing_signs" | "courier" | "security_services" | "retail_store" | "online_store" | "nonprofit" | "church" | "other";
+                        name?: string;
+                        timezone?: string;
+                        website?: string | null;
+                    };
+                    /** @default [] */
+                    invite?: string[];
+                    /** @enum {string} */
+                    screen: "business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendarId: string | null;
+                        changes: string[];
+                        invited: string[];
+                        /** @enum {string} */
+                        kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                        kindChanged: boolean;
+                        notes: string[];
+                        /** @enum {string} */
+                        reached: "business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        scanStarted: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -45892,7 +46578,9 @@ export interface operations {
                             services: {
                                 /** @default  */
                                 description: string;
+                                minutes?: number | null;
                                 name: string;
+                                priceCents?: number | null;
                             }[];
                             /**
                              * @default friendly
@@ -46067,7 +46755,9 @@ export interface operations {
                             services: {
                                 /** @default  */
                                 description: string;
+                                minutes?: number | null;
                                 name: string;
+                                priceCents?: number | null;
                             }[];
                             /**
                              * @default friendly
@@ -46166,7 +46856,9 @@ export interface operations {
                                 services: {
                                     /** @default  */
                                     description: string;
+                                    minutes?: number | null;
                                     name: string;
+                                    priceCents?: number | null;
                                 }[];
                                 url: string;
                             } | null;
@@ -54666,6 +55358,794 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_onboarding_setup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /**
+                             * @default {
+                             *       "jobs": [],
+                             *       "description": "",
+                             *       "services": [],
+                             *       "area": "",
+                             *       "openHours": [
+                             *         {
+                             *           "day": 1,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 2,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 3,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 4,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 5,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         }
+                             *       ],
+                             *       "answerWhen": "always",
+                             *       "customHours": [
+                             *         {
+                             *           "day": 1,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 2,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 3,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 4,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 5,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         }
+                             *       ],
+                             *       "facts": {},
+                             *       "name": "Ava",
+                             *       "disclosure": "first_message",
+                             *       "tone": "friendly",
+                             *       "allowPrices": false,
+                             *       "topQuestions": [],
+                             *       "keepFindings": [],
+                             *       "dropFindings": [],
+                             *       "questions": [],
+                             *       "chat": false
+                             *     }
+                             */
+                            ai: {
+                                /** @default false */
+                                allowPrices: boolean;
+                                /**
+                                 * @default always
+                                 * @enum {string}
+                                 */
+                                answerWhen: "always" | "after_hours" | "custom";
+                                /** @default  */
+                                area: string;
+                                /** @default false */
+                                chat: boolean;
+                                /**
+                                 * @default [
+                                 *       {
+                                 *         "day": 1,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 2,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 3,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 4,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 5,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       }
+                                 *     ]
+                                 */
+                                customHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[];
+                                /** @default  */
+                                description: string;
+                                /**
+                                 * @default first_message
+                                 * @enum {string}
+                                 */
+                                disclosure: "first_message" | "when_asked";
+                                /** @default [] */
+                                dropFindings: string[];
+                                /** @default {} */
+                                facts: {
+                                    [key: string]: "yes" | "no";
+                                };
+                                /** @default [] */
+                                jobs: ("reply" | "answer" | "book" | "qualify" | "follow_up")[];
+                                /** @default [] */
+                                keepFindings: string[];
+                                /** @default Ava */
+                                name: string;
+                                /**
+                                 * @default [
+                                 *       {
+                                 *         "day": 1,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 2,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 3,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 4,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 5,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       }
+                                 *     ]
+                                 */
+                                openHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[];
+                                /** @default [] */
+                                questions: {
+                                    id: string;
+                                    /**
+                                     * @default text
+                                     * @enum {string}
+                                     */
+                                    kind: "text" | "choice" | "yes_no" | "number" | "file";
+                                    notAFitIf: {
+                                        /** @default null */
+                                        above: number | null;
+                                        /** @default [] */
+                                        answers: string[];
+                                        /** @default null */
+                                        below: number | null;
+                                    };
+                                    /** @default null */
+                                    notify: ({
+                                        /** @enum {string} */
+                                        kind: "admins";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "users";
+                                        userIds: (string | {
+                                            $ph: string;
+                                        })[];
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "lead_assignee";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "person_owner";
+                                    }) | null;
+                                    /** @default [] */
+                                    options: string[];
+                                    question: string;
+                                    /** @default true */
+                                    required: boolean;
+                                }[];
+                                /** @default [] */
+                                services: {
+                                    /** @default  */
+                                    description: string;
+                                    minutes?: number | null;
+                                    name: string;
+                                    priceCents?: number | null;
+                                }[];
+                                /**
+                                 * @default friendly
+                                 * @enum {string}
+                                 */
+                                tone: "friendly" | "professional" | "short" | "keep";
+                                /** @default [] */
+                                topQuestions: {
+                                    answer: string;
+                                    question: string;
+                                }[];
+                            };
+                            /** @default false */
+                            booksTime: boolean;
+                            /**
+                             * @default none
+                             * @enum {string}
+                             */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /**
+                             * @default leads
+                             * @enum {string}
+                             */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @default null */
+                            hasEin: boolean | null;
+                            /**
+                             * @default later
+                             * @enum {string}
+                             */
+                            payWith: "stripe" | "square" | "later";
+                            /** @default  */
+                            reviewLink: string;
+                            /**
+                             * @default solo
+                             * @enum {string}
+                             */
+                            teamSize: "solo" | "small" | "big";
+                        };
+                        finished: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            by: string;
+                        } | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        started: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            by: string;
+                        } | null;
+                        starting: {
+                            /**
+                             * @default {
+                             *       "jobs": [],
+                             *       "description": "",
+                             *       "services": [],
+                             *       "area": "",
+                             *       "openHours": [
+                             *         {
+                             *           "day": 1,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 2,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 3,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 4,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 5,
+                             *           "start": "08:00",
+                             *           "end": "17:00"
+                             *         }
+                             *       ],
+                             *       "answerWhen": "always",
+                             *       "customHours": [
+                             *         {
+                             *           "day": 1,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 2,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 3,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 4,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         },
+                             *         {
+                             *           "day": 5,
+                             *           "start": "09:00",
+                             *           "end": "17:00"
+                             *         }
+                             *       ],
+                             *       "facts": {},
+                             *       "name": "Ava",
+                             *       "disclosure": "first_message",
+                             *       "tone": "friendly",
+                             *       "allowPrices": false,
+                             *       "topQuestions": [],
+                             *       "keepFindings": [],
+                             *       "dropFindings": [],
+                             *       "questions": [],
+                             *       "chat": false
+                             *     }
+                             */
+                            ai: {
+                                /** @default false */
+                                allowPrices: boolean;
+                                /**
+                                 * @default always
+                                 * @enum {string}
+                                 */
+                                answerWhen: "always" | "after_hours" | "custom";
+                                /** @default  */
+                                area: string;
+                                /** @default false */
+                                chat: boolean;
+                                /**
+                                 * @default [
+                                 *       {
+                                 *         "day": 1,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 2,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 3,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 4,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 5,
+                                 *         "start": "09:00",
+                                 *         "end": "17:00"
+                                 *       }
+                                 *     ]
+                                 */
+                                customHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[];
+                                /** @default  */
+                                description: string;
+                                /**
+                                 * @default first_message
+                                 * @enum {string}
+                                 */
+                                disclosure: "first_message" | "when_asked";
+                                /** @default [] */
+                                dropFindings: string[];
+                                /** @default {} */
+                                facts: {
+                                    [key: string]: "yes" | "no";
+                                };
+                                /** @default [] */
+                                jobs: ("reply" | "answer" | "book" | "qualify" | "follow_up")[];
+                                /** @default [] */
+                                keepFindings: string[];
+                                /** @default Ava */
+                                name: string;
+                                /**
+                                 * @default [
+                                 *       {
+                                 *         "day": 1,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 2,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 3,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 4,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       },
+                                 *       {
+                                 *         "day": 5,
+                                 *         "start": "08:00",
+                                 *         "end": "17:00"
+                                 *       }
+                                 *     ]
+                                 */
+                                openHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[];
+                                /** @default [] */
+                                questions: {
+                                    id: string;
+                                    /**
+                                     * @default text
+                                     * @enum {string}
+                                     */
+                                    kind: "text" | "choice" | "yes_no" | "number" | "file";
+                                    notAFitIf: {
+                                        /** @default null */
+                                        above: number | null;
+                                        /** @default [] */
+                                        answers: string[];
+                                        /** @default null */
+                                        below: number | null;
+                                    };
+                                    /** @default null */
+                                    notify: ({
+                                        /** @enum {string} */
+                                        kind: "admins";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "users";
+                                        userIds: (string | {
+                                            $ph: string;
+                                        })[];
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "lead_assignee";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "person_owner";
+                                    }) | null;
+                                    /** @default [] */
+                                    options: string[];
+                                    question: string;
+                                    /** @default true */
+                                    required: boolean;
+                                }[];
+                                /** @default [] */
+                                services: {
+                                    /** @default  */
+                                    description: string;
+                                    minutes?: number | null;
+                                    name: string;
+                                    priceCents?: number | null;
+                                }[];
+                                /**
+                                 * @default friendly
+                                 * @enum {string}
+                                 */
+                                tone: "friendly" | "professional" | "short" | "keep";
+                                /** @default [] */
+                                topQuestions: {
+                                    answer: string;
+                                    question: string;
+                                }[];
+                            };
+                            /** @default false */
+                            booksTime: boolean;
+                            /**
+                             * @default none
+                             * @enum {string}
+                             */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /**
+                             * @default leads
+                             * @enum {string}
+                             */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @default null */
+                            hasEin: boolean | null;
+                            /**
+                             * @default later
+                             * @enum {string}
+                             */
+                            payWith: "stripe" | "square" | "later";
+                            /** @default  */
+                            reviewLink: string;
+                            /**
+                             * @default solo
+                             * @enum {string}
+                             */
+                            teamSize: "solo" | "small" | "big";
+                        };
+                        state: {
+                            address: {
+                                city: string;
+                                /**
+                                 * @default US
+                                 * @enum {string}
+                                 */
+                                country: "US";
+                                line1: string;
+                                /** @default  */
+                                line2: string;
+                                postalCode: string;
+                                state: string;
+                            } | null;
+                            bookable: {
+                                /** Format: uuid */
+                                id: string;
+                                minutes: number;
+                                name: string;
+                                priceCents: number | null;
+                            }[];
+                            booking: {
+                                on: boolean;
+                                site: {
+                                    enabled: boolean;
+                                    name: string;
+                                    slug: string;
+                                } | null;
+                            };
+                            businessName: string;
+                            calendars: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            chat: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            customers: {
+                                asYouGo: boolean;
+                                count: number;
+                                migrationNeedsYou: boolean;
+                                running: ("import" | "migration") | null;
+                            };
+                            emailAddress: {
+                                address: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            facts: {
+                                body: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "draft" | "published" | "archived";
+                                tags: string[];
+                                title: string;
+                            }[];
+                            found: {
+                                /** @default  */
+                                area: string;
+                                /** Format: date-time */
+                                at: string;
+                                /** @default  */
+                                description: string;
+                                /** @default {} */
+                                facts: {
+                                    [key: string]: "yes" | "no";
+                                };
+                                /** @default null */
+                                openHours: {
+                                    day: number;
+                                    end: string;
+                                    start: string;
+                                }[] | null;
+                                /** @default [] */
+                                questions: {
+                                    id: string;
+                                    /**
+                                     * @default text
+                                     * @enum {string}
+                                     */
+                                    kind: "text" | "choice" | "yes_no" | "number" | "file";
+                                    notAFitIf: {
+                                        /** @default null */
+                                        above: number | null;
+                                        /** @default [] */
+                                        answers: string[];
+                                        /** @default null */
+                                        below: number | null;
+                                    };
+                                    /** @default null */
+                                    notify: ({
+                                        /** @enum {string} */
+                                        kind: "admins";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "users";
+                                        userIds: (string | {
+                                            $ph: string;
+                                        })[];
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "lead_assignee";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "person_owner";
+                                    }) | null;
+                                    /** @default [] */
+                                    options: string[];
+                                    question: string;
+                                    /** @default true */
+                                    required: boolean;
+                                }[];
+                                /** @default [] */
+                                services: {
+                                    /** @default  */
+                                    description: string;
+                                    minutes?: number | null;
+                                    name: string;
+                                    priceCents?: number | null;
+                                }[];
+                                url: string;
+                            } | null;
+                            goal: ("leads" | "booked" | "paid" | "organized") | null;
+                            industry: string | null;
+                            /** @enum {string} */
+                            kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                            myHours: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            number: boolean;
+                            numberSetup: {
+                                display: string | null;
+                                /** @enum {string} */
+                                next: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
+                                rejectionReason: string | null;
+                                since: string | null;
+                            };
+                            openHours: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            payments: {
+                                active: boolean;
+                                broken: boolean;
+                                checking: boolean;
+                                needsInfo: boolean;
+                                provider: ("stripe" | "square") | null;
+                            };
+                            phones: number;
+                            priceList: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                priceCents: number;
+                                serviceId: string | null;
+                            }[];
+                            profile: {
+                                /** @default false */
+                                allowPrices: boolean;
+                                /** @default  */
+                                description: string;
+                                /** @default  */
+                                hours: string;
+                                /** @default  */
+                                policies: string;
+                                /** @default  */
+                                serviceArea: string;
+                                /** @default [] */
+                                services: {
+                                    /** @default  */
+                                    description: string;
+                                    name: string;
+                                    /** @default null */
+                                    price: string | null;
+                                }[];
+                                /** @default  */
+                                signature: string;
+                                /** @default  */
+                                tone: string;
+                                /** @default [] */
+                                wordsToAvoid: string[];
+                                /** @default [] */
+                                wordsToUse: string[];
+                            };
+                            quick: {
+                                /** @enum {string} */
+                                customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                                /** @enum {string} */
+                                goal: "leads" | "booked" | "paid" | "organized";
+                                /** @enum {string} */
+                                teamSize: "solo" | "small" | "big";
+                            } | null;
+                            reading: boolean;
+                            reviewLink: string | null;
+                            scan: {
+                                pending: number;
+                                /** @enum {string} */
+                                state: "none" | "running" | "done" | "failed";
+                            };
+                            services: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            team: {
+                                invited: string[];
+                                members: number;
+                            };
+                            teammate: {
+                                config: {
+                                    [key: string]: unknown;
+                                };
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                revision: number;
+                                /** @enum {string} */
+                                status: "off" | "training" | "automatic";
+                            } | null;
+                            territories: number;
+                            textingReady: boolean;
+                            timeZone: string;
+                            website: string | null;
+                        };
                     };
                 };
             };

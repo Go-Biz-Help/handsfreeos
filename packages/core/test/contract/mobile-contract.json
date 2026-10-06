@@ -148,6 +148,30 @@
                       "default": "",
                       "type": "string",
                       "maxLength": 500
+                    },
+                    "priceCents": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "minutes": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 720
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": ["name"]
@@ -551,6 +575,30 @@
                       "default": "",
                       "type": "string",
                       "maxLength": 500
+                    },
+                    "priceCents": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "minutes": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 720
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": ["name"]

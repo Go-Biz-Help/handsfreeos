@@ -111,7 +111,7 @@ async function saveRecord(ctx: CommandContext, next: AiSetupRecord) {
  * Runs an inner command, and gives null instead when it's refused for one of these reasons, so the rest carries on.
  * Its own writes are already undone (it ran in a savepoint).
  */
-async function unlessRefused<T>(
+export async function unlessRefused<T>(
   run: () => Promise<T>,
   refusals: { readonly codes?: readonly HfosErrorCode[]; readonly rules?: readonly string[] },
 ): Promise<T | null> {
@@ -127,14 +127,23 @@ async function unlessRefused<T>(
   }
 }
 
-/** The first screen: the business's name and kind, and its website, which Ava starts reading. */
-async function saveBusiness(
+/**
+ * The first screen: the business's name and kind, and its website, which Ava starts reading. The onboarding setup's
+ * first screen saves its time zone and other settings (its address) with them.
+ */
+export async function saveBusiness(
   ctx: CommandContext,
   business: NonNullable<AiSetupSaveInput['business']>,
+  also: { readonly timezone?: string; readonly settings?: Record<string, unknown> } = {},
 ): Promise<{ scanStarted: boolean }> {
   const ws = ctx.scope.workspaceId!;
   const [w] = await ctx.tx
-    .select({ name: workspaces.name, industry: workspaces.industry, settings: workspaces.settings })
+    .select({
+      name: workspaces.name,
+      industry: workspaces.industry,
+      timezone: workspaces.timezone,
+      settings: workspaces.settings,
+    })
     .from(workspaces)
     .where(eq(workspaces.id, ws));
   const settings = (w?.settings ?? {}) as Record<string, unknown>;
@@ -150,14 +159,23 @@ async function saveBusiness(
       );
     }
   }
+  const changedSettings = {
+    ...(website !== undefined && website !== (settings['website'] ?? null) ? { website } : {}),
+    ...Object.fromEntries(
+      Object.entries(also.settings ?? {}).filter(
+        ([k, v]) => JSON.stringify(v) !== JSON.stringify(settings[k] ?? null),
+      ),
+    ),
+  };
   const update = {
     ...(business.name !== undefined && business.name !== w?.name ? { name: business.name } : {}),
     ...(business.industry !== undefined && business.industry !== w?.industry
       ? { industry: business.industry }
       : {}),
-    ...(website !== undefined && website !== (settings['website'] ?? null)
-      ? { settings: { website } }
+    ...(also.timezone !== undefined && also.timezone !== w?.timezone
+      ? { timezone: also.timezone }
       : {}),
+    ...(Object.keys(changedSettings).length ? { settings: changedSettings } : {}),
   };
   if (Object.keys(update).length)
     await executeCommandWithin(ctx, workspaceUpdate, { workspaceId: ws, ...update });
@@ -415,6 +433,8 @@ export const aiSetupFinish = defineCommand({
           workspaceId: ws,
           name: s.name,
           description: s.description || null,
+          ...(s.minutes ? { durations: [s.minutes] } : {}),
+          ...(s.priceCents != null ? { priceCents: s.priceCents } : {}),
         });
         serviceIds.push(made.output.serviceId);
       }

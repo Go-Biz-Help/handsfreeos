@@ -294,6 +294,7 @@ import {
   aiTeammateSetStatus,
 } from './ai-team';
 import { aiSetupFinish, aiSetupNoteFound, aiSetupSave } from './ai-setup';
+import { onboardingSetupFinish, onboardingSetupSave } from './onboarding-setup';
 import {
   aiSetupTemplateDelete,
   aiSetupTemplateRename,
@@ -1058,6 +1059,9 @@ export const commands: readonly CommandDef[] = [
   onboardingSendLink,
   onboardingSetEnabled,
   onboardingRemind,
+  // The onboarding setup: the guided questions a new business goes through.
+  onboardingSetupSave,
+  onboardingSetupFinish,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -1094,6 +1098,7 @@ export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './intake-source';
 export * from './onboarding';
+export * from './onboarding-setup';
 export * from './intake';
 export * from './chat';
 export * from './attention';

@@ -9,6 +9,7 @@ import { teammateConfigFromPreset } from '../ai-team/presets';
 import type { WeeklyHours } from '../calendar/config';
 import { formatHours } from '../calendar/format';
 import type { KnowledgeProfile } from '../knowledge/profile';
+import { money } from '../money/format';
 import type { OnboardingGoal } from '../onboarding/steps';
 import { DEFAULT_OPEN_HOURS } from '../schemas/workspace';
 import { AiSetupAnswers, type AiSetupTone } from './answers';
@@ -241,7 +242,9 @@ export function teammateFromAiSetup(
 
 // ---- The plan ----
 
-const nameKey = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+/** A service's name as two lists match it: "Drain  Cleaning" is "drain cleaning". */
+export const serviceNameKey = (s: string): string => s.replace(/\s+/g, ' ').trim().toLowerCase();
+const nameKey = serviceNameKey;
 const hoursKey = (h: WeeklyHours | null) =>
   h
     ? JSON.stringify(
@@ -284,6 +287,23 @@ const PROFILE_FIELD_WORDS: Readonly<Partial<Record<keyof KnowledgeProfile, strin
   tone: 'tone of voice',
 };
 
+/** A service to add to Calendars → Services. */
+export interface AiSetupServiceWrite {
+  readonly name: string;
+  readonly description: string;
+  /** Null: an hour, as a new service starts. */
+  readonly minutes: number | null;
+  readonly priceCents: number | null;
+}
+
+/** A service as Calendars → Services takes it: its length when said (an hour otherwise), and its price. */
+export const serviceWriteOf = (s: AiSetupAnswers['services'][number]): AiSetupServiceWrite => ({
+  name: s.name,
+  description: s.description,
+  minutes: s.minutes ?? null,
+  priceCents: s.priceCents ?? null,
+});
+
 export interface AiSetupFactWrite {
   readonly key: string;
   readonly title: string;
@@ -308,8 +328,8 @@ export interface AiSetupPlan {
   readonly drop: readonly string[];
   /** When Book is ticked and no calendar takes online bookings yet. */
   readonly booking: {
-    /** Services to add to Calendars → Services. */
-    readonly services: readonly { readonly name: string; readonly description: string }[];
+    /** Services to add to Calendars → Services, with their length and price when the business said. */
+    readonly services: readonly AiSetupServiceWrite[];
     /** The calendar to make with every service on it, or null. */
     readonly calendar: string | null;
     /** A service area from a list of ZIP codes (home services only), or null. */
@@ -344,10 +364,11 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
   const nextProfile: KnowledgeProfile = {
     ...state.profile,
     description: answers.description,
+    // A price said in the setup, else the one the profile has for that name.
     services: answers.services.map((s) => ({
       name: s.name,
       description: s.description,
-      price: priceOf.get(nameKey(s.name)) ?? null,
+      price: s.priceCents != null ? money(s.priceCents) : (priceOf.get(nameKey(s.name)) ?? null),
     })),
     serviceArea: answers.area,
     hours:
@@ -419,9 +440,7 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
     book && !state.calendars.length && !state.teammate?.config.book.calendarIds.length;
   const known = new Set(state.services.map((s) => nameKey(s.name)));
   const newServices = needsCalendar
-    ? answers.services
-        .filter((s) => !known.has(nameKey(s.name)))
-        .map((s) => ({ name: s.name, description: s.description }))
+    ? answers.services.filter((s) => !known.has(nameKey(s.name))).map(serviceWriteOf)
     : [];
   const calendar =
     needsCalendar && state.services.length + newServices.length > 0
