@@ -40,16 +40,10 @@ env:
 - tapOn:
     id: 'tab-more'
 - assertVisible: 'Contacts'
-# The last row: on a short screen it is under the tab bar until More scrolls.
-- scrollUntilVisible:
-    element:
-      id: 'more-open-on-web'
-    timeout: 10000
-- assertVisible:
-    id: 'more-open-on-web'
+# Customers is the list and its search now (step 15), not a placeholder. Opened from the top of More: once More has
+# scrolled to its last row, Customers is under the app bar, and a tap on it lands on the bar.
 - tapOn:
     id: 'more-customers'
-# Customers is the list and its search now (step 15), not a placeholder.
 - extendedWaitUntil:
     visible:
       id: 'customers-search'
@@ -57,6 +51,13 @@ env:
 - waitForAnimationToEnd
 - tapOn:
     id: 'back'
+# The last row: on a short screen it is under the tab bar until More scrolls.
+- scrollUntilVisible:
+    element:
+      id: 'more-open-on-web'
+    timeout: 10000
+- assertVisible:
+    id: 'more-open-on-web'
 - tapOn:
     id: 'more-settings'
 - assertVisible:
