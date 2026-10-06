@@ -9,6 +9,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  *   taking a tag out takes it off the answers that added it.
  * - The activity tab counts the steps the browser extension noted, by group and person, over a stretch of days, with
  *   the owner's day against the daily limits.
+ * - The friends tab lists the friends and requests the extension saved and the answers it noted, finds one by name,
+ *   keeps a friend, and puts someone on the Don't pitch list, after which a step to them isn't counted.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -243,4 +245,93 @@ test('the activity tab counts what the extension noted, by group and person, ove
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?period=today&who=everyone$`));
   await expect(page.getByTestId('activity-who-everyone')).toHaveAttribute('aria-selected', 'true');
   await expect(people).toHaveCount(3);
+});
+
+test('the friends tab lists what the extension saved, keeps a friend, and puts someone on the Don’t pitch list', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-friends');
+  const workspaceId = await createBusiness(page, { name: 'Cedar Street Roofing' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // What the extension sends from the owner's friends list and requests, and a request they confirmed: made-up people.
+  const { token } = await signInOwner(email);
+  const fb = 'https://www.facebook.com';
+  const who = (id: string, name: string, mutualFriends: number | null = null) => ({
+    profile: { id, username: null, url: `${fb}/profile.php?id=${id}` },
+    name,
+    mutualFriends,
+  });
+  const save = (list: string, people: unknown[]) =>
+    api(token, 'commands', 'outreach.friends.save', {
+      workspaceId,
+      platform: 'facebook',
+      list,
+      people,
+    });
+  await save('friends', [
+    who('100007000000011', 'Sky Patel', 4),
+    who('100007000000012', 'Parker Reed'),
+  ]);
+  await save('requests', [
+    who('100007000000002', 'Quinn Harper', 1),
+    who('100007000000001', 'Avery Lane', 12),
+  ]);
+  await api(token, 'commands', 'outreach.friend.note', {
+    workspaceId,
+    platform: 'facebook',
+    answer: 'confirm',
+    ...who('100007000000002', 'Quinn Harper'),
+  });
+
+  await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  await page.getByTestId('outreach-tab-friends').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends$`));
+  const people = page.getByTestId('friend');
+  await expect(people).toHaveText([/Parker Reed/, /Quinn Harper/, /Sky Patel/]);
+  await expect(page.getByTestId('friends-show-friends')).toContainText('3');
+  await expect(page.getByTestId('friends-show-requests')).toContainText('1');
+  await expect(page.getByTestId('friends-cap')).toContainText('3 of 5,000');
+
+  // Found by part of a name, in the address; an empty box shows everyone again.
+  await page.getByTestId('friends-search').fill('sky');
+  await page.getByTestId('friends-search').press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&q=sky$`));
+  await expect(people).toHaveText([/Sky Patel/]);
+  await page.getByTestId('friends-search').fill('');
+  await expect(people).toHaveCount(3);
+
+  // Keep: never suggested for unfriending.
+  await people.filter({ hasText: 'Sky Patel' }).getByTestId('friend-keep').click();
+  await expect(page.getByText('You’ll keep Sky Patel.')).toBeVisible();
+  await expect(page.getByTestId('friends-show-keep')).toContainText('1');
+  await expect(people.filter({ hasText: 'Sky Patel' })).toContainText('Keep');
+
+  // The request still waiting, by fit: mutual friends alone until a playbook says what to look for.
+  await page.getByTestId('friends-show-requests').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&show=requests$`));
+  await expect(people).toHaveText([/Avery Lane/]);
+  await expect(people.getByTestId('friend-fit')).toHaveText('Might fit');
+  await expect(people.getByTestId('friend-fit-reasons')).toHaveText('12 mutual friends');
+
+  // Don't pitch: the business's list says who added them, and a step to them isn't counted as outreach.
+  await people.getByTestId('friend-dont-pitch').click();
+  await expect(page.getByText('Avery Lane is on the Don’t pitch list.')).toBeVisible();
+  await page.getByTestId('friends-show-dont_pitch').click();
+  await expect(people).toHaveText([/Avery Lane/]);
+  await expect(people).toContainText('Added to Don’t pitch by');
+  await expect(
+    api(token, 'commands', 'outreach.touch.save', {
+      workspaceId,
+      platform: 'facebook',
+      kind: 'like',
+      profile: who('100007000000001', 'Avery Lane').profile,
+      name: 'Avery Lane',
+      group: null,
+      postUrl: null,
+      threadKey: null,
+      replying: null,
+    }),
+  ).rejects.toThrow(/outreach_dont_pitch/);
 });

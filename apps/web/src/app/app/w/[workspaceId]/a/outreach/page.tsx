@@ -7,10 +7,11 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 export const metadata: Metadata = { title: 'Social Outreach' };
 
 /**
- * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, and the
- * business's playbooks (`?view=playbooks`). It opens through the gate: "not available here" while the add-on is off,
- * and not found for someone without `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see
- * everyone's activity (`?who=everyone`); anyone else asking for that sees their own.
+ * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, the
+ * person's friends and the Don't pitch list (`?view=friends`), and the business's playbooks (`?view=playbooks`). It
+ * opens through the gate: "not available here" while the add-on is off, and not found for someone without
+ * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
+ * (`?who=everyone`); anyone else asking for that sees their own.
  */
 export default async function OutreachPage({
   params,
@@ -32,6 +33,28 @@ export default async function OutreachPage({
           body: { workspaceId, period: shown.period, everyone },
         })
         .then(unwrapPage);
+    if (shown.view === 'friends') {
+      const [got, friends] = await Promise.all([
+        workspace,
+        api
+          .POST('/v1/queries/outreach.friends', {
+            body: {
+              workspaceId,
+              view: shown.show,
+              ...(shown.search ? { search: shown.search } : {}),
+            },
+          })
+          .then(unwrapPage),
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          businessName={got.workspace.name}
+          canManage={got.workspace.permissions.includes('outreach.manage')}
+          shown={{ view: 'friends', friends, show: shown.show, search: shown.search }}
+        />
+      );
+    }
     if (shown.view === 'playbooks') {
       const [got, list] = await Promise.all([
         workspace,

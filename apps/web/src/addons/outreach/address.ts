@@ -1,36 +1,51 @@
 /**
- * What Social Outreach's page shows, from its address: the tab (`?view=playbooks`, else the activity), and for the
- * activity the stretch of days (`?period=today`, `week` or `month`) and whose steps (`?who=everyone`, for owners and
- * admins). A plain module, so the page reads it on the server and the tabs build their links from it.
+ * What Social Outreach's page shows, from its address: the tab (`?view=friends` or `playbooks`, else the activity);
+ * for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps (`?who=everyone`, for
+ * owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or `dont_pitch`) and a name
+ * searched for (`?q=`). A plain module, so the page reads it on the server and the tabs build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
+import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/friends';
 
 /** The stretch the activity opens on. */
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
+export type OutreachView = 'activity' | 'friends' | 'playbooks';
+
 export interface OutreachAddress {
-  readonly view: 'activity' | 'playbooks';
+  readonly view: OutreachView;
   readonly period: ActivityPeriod;
   /** The whole team's steps, asked for; the page shows them only to owners and admins. */
   readonly everyone: boolean;
+  /** Which friends: the person's own, their requests, the ones they sent, Keep, or the business's Don't pitch. */
+  readonly show: FriendView;
+  /** Part of a name, for friends. */
+  readonly search: string;
 }
 
 export function readOutreachAddress(
   sp: Record<string, string | string[] | undefined>,
 ): OutreachAddress {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+  const view = one(sp.view);
   return {
-    view: one(sp.view) === 'playbooks' ? 'playbooks' : 'activity',
+    view: view === 'playbooks' || view === 'friends' ? view : 'activity',
     period: ACTIVITY_PERIOD_KEYS.find((k) => k === one(sp.period)) ?? DEFAULT_PERIOD,
     everyone: one(sp.who) === 'everyone',
+    show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
+    search: one(sp.q).trim().slice(0, 100),
   };
 }
 
-/** The address of a tab, and for the activity its stretch and whose. */
+/** The address of a tab: for the activity its stretch and whose, for friends which and the name searched for. */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
   if (to.view === 'playbooks') params.set('view', 'playbooks');
-  else {
+  else if (to.view === 'friends') {
+    params.set('view', 'friends');
+    if (to.show && to.show !== 'friends') params.set('show', to.show);
+    if (to.search) params.set('q', to.search);
+  } else {
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);
     if (to.everyone) params.set('who', 'everyone');
   }

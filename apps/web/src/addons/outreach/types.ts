@@ -8,3 +8,5 @@ export type PlaybookList = Ok<'/v1/queries/outreach.playbook.list'>;
 export type Playbook = PlaybookList['playbooks'][number];
 export type PersonSocial = Ok<'/v1/queries/outreach.person'>;
 export type Activity = Ok<'/v1/queries/outreach.activity'>;
+export type Friends = Ok<'/v1/queries/outreach.friends'>;
+export type Friend = Friends['people'][number];

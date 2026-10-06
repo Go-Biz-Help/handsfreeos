@@ -173,15 +173,15 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices the four steps     |
-| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved and the Save buttons, `today.ts` the day      |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, and Facebook's times   |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it    |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`               |
-| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves     |
+| Path                    | What it is                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline                     |
+| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete |
+| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day       |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, and Facebook's times                       |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                        |
+| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                   |
+| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                         |
 
 ## Next
 
