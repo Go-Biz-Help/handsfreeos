@@ -1,4 +1,4 @@
-import { holds, IDEAS_WORDS, MORE_WORDS } from '@hfos/core';
+import { AI_SETUP_WORDS, holds, IDEAS_WORDS, MORE_WORDS } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { router } from 'expo-router';
 import { View } from 'react-native';
@@ -145,6 +145,16 @@ export default function More() {
             detail={MORE_WORDS.testTeammateDetail}
             onPress={() => go('ai-test')}
             testID="more-test-console"
+          />
+        ) : null}
+        {canTest ? (
+          // Quick setup again: it starts from what's saved and shows what will change first (the owner's 55A).
+          <ListRow
+            icon={Bot}
+            label={AI_SETUP_WORDS.runAgain}
+            detail={AI_SETUP_WORDS.runAgainDetail}
+            onPress={() => go('ai-setup')}
+            testID="more-run-quick-setup"
           />
         ) : null}
         {canViewAs ? (

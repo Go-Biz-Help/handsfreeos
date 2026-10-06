@@ -46,6 +46,24 @@ export const MODULES = [
 ] as const;
 export type ModuleKey = (typeof MODULES)[number]['key'];
 
+/**
+ * The modules in three groups (the owner's 56B): the basics, what it does, and its rules and safety, where
+ * training wheels (Autonomy) and limits sit with the hand-off. Add-ons, when it's listed, is more of what it does.
+ */
+export const MODULE_GROUPS: readonly {
+  readonly key: string;
+  readonly name: string;
+  readonly modules: readonly ModuleKey[];
+}[] = [
+  { key: 'basics', name: 'Basics', modules: ['identity', 'channels', 'hours'] },
+  {
+    key: 'does',
+    name: 'What it does',
+    modules: ['respond', 'answer', 'qualify', 'book', 'followUp', 'addons'],
+  },
+  { key: 'rules', name: 'Rules and safety', modules: ['handOff', 'autonomy', 'limits'] },
+];
+
 /** Which module a rule's settings path belongs to ('channels.emailAddressId' → channels). Money lives in
  * Limits, as on the canvas. */
 const FIELD_MODULE: Readonly<Record<string, ModuleKey>> = {

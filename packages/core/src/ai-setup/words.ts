@@ -104,7 +104,9 @@ export const AI_SETUP_WORDS = {
   quickInstead: 'Rather answer a few simple questions?',
   quickSetup: 'Quick setup',
   moreSettings: 'More settings',
+  /** On the AI teammate page, and in the phone's More once the business has a teammate. */
   runAgain: 'Run quick setup again',
+  runAgainDetail: 'Answer the questions again and see what changes before saving',
   /** Shown before saving a run when the business already has a teammate. */
   willChange: 'Here’s what will change',
   nothingChanges: 'Nothing changes. Your answers match what’s saved.',
