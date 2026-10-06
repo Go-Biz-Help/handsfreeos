@@ -1,5 +1,5 @@
 'use client';
-import type { AssistantCard } from '@hfos/core';
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES, type AssistantCard } from '@hfos/core';
 import {
   Activity,
   ArrowRight,
@@ -59,7 +59,12 @@ async function labelFor(workspaceId: string, page: PageRecord): Promise<string> 
         }),
       );
       const who = conversation.person?.fullName ?? conversation.counterpartDisplay;
-      return `${conversation.channel === 'email' ? 'Email' : 'Texts'} with ${who}`;
+      const where = isSocialChannel(conversation.channel)
+        ? SOCIAL_CHANNEL_NAMES[conversation.channel]
+        : conversation.channel === 'email'
+          ? 'Email'
+          : 'Texts';
+      return `${where} with ${who}`;
     }
     case 'appointment': {
       const { appointment } = unwrap(

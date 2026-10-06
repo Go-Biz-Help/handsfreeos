@@ -3,12 +3,14 @@ import {
   composerPlaceholder,
   crossChannelLine,
   emailFromLabel,
+  isSocialChannel,
   OWN_ADDRESS_TAG,
   PENDING_REPLY_WORDS,
   PHOTO_CHOICE_WORDS,
   photosSavedLine,
   portalReplyLine,
   sendLabel,
+  SOCIAL_CHANNEL_NAMES,
   textFromLine,
   THREAD_WORDS,
   type ComposerNote,
@@ -47,8 +49,11 @@ import { useColors } from '@/theme';
 
 import { newRichDraft, RichEditor } from './rich-editor';
 
-/** A website chat's and a client portal's replies stay where they were written: no switch, no photos. */
-export type ComposerMode = 'sms' | 'email' | 'chat' | 'portal';
+/**
+ * A website chat's and a client portal's replies stay where they were written: no switch, no photos. So do a
+ * Messenger or Instagram thread's (20261025000200), which carry photos.
+ */
+export type ComposerMode = 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
 
 /** Over the box while a reply waiting on the phone is reopened from Still send? or the quiet-hours question. */
 export const EDITING = 'Editing what you wrote. Send puts it back in line.';
@@ -110,7 +115,7 @@ function NoteBox({ note }: { note: ComposerNote }) {
  * photos on a tray ("Photos you send are saved to Mike’s files too."), the box and Send. With no signal it says texts go
  * on their own within 30 minutes; when sending takes the conversation from the AI teammate, it says so first. In a
  * client's portal thread (board 92) the box says "Reply in Ann’s portal…" and, under it, that the reply goes back to
- * the portal and not by text.
+ * the portal and not by text; on Messenger or Instagram, that it goes to their inbox there.
  */
 export function Composer({
   userId,
@@ -150,6 +155,7 @@ export function Composer({
   canAskVideo = false,
   askingVideo = false,
   onAskVideo,
+  counter = null,
 }: {
   userId: string;
   mode: ComposerMode;
@@ -197,6 +203,8 @@ export function Composer({
   canAskVideo?: boolean;
   askingVideo?: boolean;
   onAskVideo?: () => void;
+  /** A Messenger or Instagram reply's length against what it takes ("912 / 1,000"), once that's worth saying. */
+  counter?: { readonly label: string | null; readonly over: boolean } | null;
 }) {
   const colors = useColors();
   const [choosing, setChoosing] = React.useState(false);
@@ -435,9 +443,25 @@ export function Composer({
           <Icon as={Send} className="size-[18px] text-white" />
         </Pressable>
       </View>
+      {counter?.label ? (
+        <Text
+          className={cn(
+            'px-1 text-right text-xs tabular-nums',
+            counter.over ? 'font-medium text-danger-text' : 'text-text-3',
+          )}
+          testID="composer-social-counter"
+        >
+          {counter.label}
+        </Text>
+      ) : null}
       {mode === 'portal' && !off ? (
         <Text className="px-1 text-xs leading-[17px] text-text-3" testID="composer-portal">
           {portalReplyLine(first)}
+        </Text>
+      ) : null}
+      {isSocialChannel(mode) && !off ? (
+        <Text className="px-1 text-xs leading-[17px] text-text-3" testID="composer-social">
+          {COMPOSER_WORDS.socialReplies(SOCIAL_CHANNEL_NAMES[mode])}
         </Text>
       ) : null}
       <Sheet

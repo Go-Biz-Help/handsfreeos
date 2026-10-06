@@ -36,6 +36,8 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
   email: 'Email',
   chat: 'Chat',
   portal: 'Portal',
+  messenger: 'Messenger',
+  instagram: 'Instagram',
 };
 
 /**
@@ -45,6 +47,13 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
  */
 export const pushChannel = (channel: string): PushRefs['channel'] =>
   channel === 'sms' || channel === 'email' || channel === 'chat' ? channel : undefined;
+
+/** The channel as a push's refs carry it: `channel`, or for Messenger and Instagram `social`, which every build reads. */
+export const channelRefs = (channel: string): Pick<PushRefs, 'channel' | 'social'> => {
+  const known = pushChannel(channel);
+  if (known) return { channel: known };
+  return channel === 'messenger' || channel === 'instagram' ? { social: channel } : {};
+};
 
 /** The kind before the AI teammate is looked at (both share a switch with their `_no_ai` kind). */
 const baseCategory = (kind: UrgentKind): PushCategory =>
@@ -116,7 +125,7 @@ export async function queueUrgentPush(tx: Tx, scope: TenantScope, u: UrgentPush)
     ...(u.item ? { itemId: u.item.id } : {}),
     ...(u.item?.leadId ? { leadId: u.item.leadId } : {}),
     ...(personId ? { personId } : {}),
-    ...(conv ? { conversationId: conv.id, channel: pushChannel(conv.channel) } : {}),
+    ...(conv ? { conversationId: conv.id, ...channelRefs(conv.channel) } : {}),
   };
   const said = u.preview.trim();
 

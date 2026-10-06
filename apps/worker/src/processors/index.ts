@@ -10,6 +10,8 @@ import { workflowProcessors } from '../workflows/index';
 import { onSupportInboundEmail } from '../support/inbound';
 import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
+import { META_DELIVERY_KIND } from '../social/events';
+import { onMetaMessaging } from '../social/receive';
 import {
   onCallStatus,
   onInboundCall,
@@ -29,6 +31,9 @@ export const processors: ProcessorMap = {
   'twilio:voice.leg_status': onLegStatus,
   'twilio:voice.screened': onScreened,
   'twilio:voice.recording': onRecording,
+  // Facebook Messenger and Instagram: a message, a tapped button, a visit from an ad, a receipt or an edit, one
+  // event per delivery (social/).
+  [`meta:${META_DELIVERY_KIND}`]: onMetaMessaging,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
   // Mail to support@handsfreeos.com, filed as a ticket instead of into anybody's business (M13).

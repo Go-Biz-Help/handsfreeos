@@ -66,6 +66,7 @@ const WHAT_STOPS: Readonly<Record<ConnectionSystem, string>> = {
   mailbox: 'your email keeps coming in',
   reviews: 'new reviews keep coming in',
   phone: 'calls and texts keep working',
+  social: 'your Messenger and Instagram messages keep coming in',
 };
 
 /** The events that say a connection broke (one each for sign-in, refused, taken away). */
@@ -79,6 +80,7 @@ export const CONNECTION_BROKE_EVENTS = [
   'mailbox.failed',
   'review_connection.needs_attention',
   'phone_number.purchase_failed',
+  'meta_account.needs_attention',
 ] as const;
 
 /** A connection broke: a push to the owners and admins, and to whoever's calendar or inbox it is. */

@@ -16,9 +16,11 @@ const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
+const isSocialEntry = (e: TimelineEntry) => e.kind === 'messenger' || e.kind === 'instagram';
+
 /**
- * Texts, emails, website chats and portal messages mirror a conversation: what the customer sent, or what the business
- * sent them.
+ * Texts, emails, website chats, portal messages and Messenger and Instagram messages mirror a conversation: what the
+ * customer sent, or what the business sent them.
  */
 export function isChannelEntry(e: TimelineEntry): boolean {
   return (
@@ -26,6 +28,7 @@ export function isChannelEntry(e: TimelineEntry): boolean {
     e.kind === 'email' ||
     e.kind === 'chat' ||
     e.kind === 'portal' ||
+    isSocialEntry(e) ||
     !!e.meta.direction
   );
 }
@@ -72,6 +75,8 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
     return subjectName || 'The customer';
   // The customer in their own portal (Real Estate round two): a file they added, a task they did.
   if (e.actorType === 'customer') return subjectName || 'The client';
+  // Somebody at the business answered in Facebook's or Instagram's own inbox; HandsFreeOS only heard about it.
+  if (isSocialEntry(e) && e.meta.elsewhere === true) return 'Your team';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'workflow') {
@@ -151,6 +156,15 @@ export function describeTimeline(
   }
   if (e.kind === 'chat') return inbound(e) ? 'chatted on your website' : 'replied in chat';
   if (e.kind === 'portal') return inbound(e) ? 'wrote in their portal' : 'replied in their portal';
+  if (isSocialEntry(e)) {
+    const where = e.kind === 'messenger' ? 'Messenger' : 'Instagram';
+    if (inbound(e) && e.meta.unsent === true) return `took back a message on ${where}`;
+    if (inbound(e))
+      return `messaged on ${where}${str(obj(e.meta.referral).adId) ? ' from an ad' : ''}`;
+    if (e.meta.elsewhere === true)
+      return `replied on ${where}, from ${e.kind === 'messenger' ? 'Facebook' : 'Instagram'}`;
+    return undelivered(e) ? `replied on ${where} · not delivered` : `replied on ${where}`;
+  }
   const title = str(e.meta.title);
   const noun =
     recordType === 'person'
@@ -357,7 +371,13 @@ export function timelineTone(e: TimelineEntry): TimelineTone {
       ? (tone as AddonLineTone)
       : 'accent';
   }
-  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || e.kind === 'portal')
+  if (
+    e.kind === 'sms' ||
+    e.kind === 'email' ||
+    e.kind === 'chat' ||
+    e.kind === 'portal' ||
+    isSocialEntry(e)
+  )
     return undelivered(e) ? 'danger' : 'accent';
   if (e.kind === 'note') return 'accent';
   if (e.kind === 'call' && ['missed', 'outbound_missed', 'voicemail'].includes(e.subtype ?? ''))

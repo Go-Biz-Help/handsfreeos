@@ -732,7 +732,7 @@
           },
           "channel": {
             "type": "string",
-            "enum": ["sms", "email", "chat", "portal"]
+            "enum": ["sms", "email", "chat", "portal", "messenger", "instagram"]
           },
           "subject": {
             "type": "string",
@@ -3621,7 +3621,7 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": ["sms", "email", "chat", "portal"]
+            "enum": ["sms", "email", "chat", "portal", "messenger", "instagram"]
           },
           "body": {
             "type": "string",

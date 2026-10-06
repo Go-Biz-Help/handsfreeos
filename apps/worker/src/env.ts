@@ -152,6 +152,19 @@ export interface WorkerEnv {
   /** How often each connected place is asked for new reviews (milliseconds; tests shorten it). */
   readonly reviewPollMs: number;
   /**
+   * Facebook Messenger and Instagram direct messages (20261025000200): the same Meta app as Facebook reviews, or the
+   * stand-in that signs in on the worker and keeps Pages and replies in memory. Production refuses the stand-in.
+   */
+  readonly metaProvider: 'real' | 'fake';
+  /** What Meta's webhook setup checks this server with (META_WEBHOOK_VERIFY_TOKEN). */
+  readonly metaVerifyToken: string | null;
+  /** A Facebook Login for Business configuration (META_LOGIN_CONFIG_ID); without one the sign-in names its permissions. */
+  readonly metaLoginConfigId: string | null;
+  /** Graph's version, `v26.0` (META_GRAPH_VERSION). */
+  readonly metaGraphVersion: string;
+  /** Meta approved the Human Agent permission for the app (META_HUMAN_AGENT=on): people may answer for seven days. */
+  readonly metaHumanAgent: boolean;
+  /**
    * Taking money: Stripe's Connect platform and Square's application, or the stand-in that serves its own
    * payment page on the worker and posts properly signed webhooks back to it. Production refuses the stand-in.
    */
@@ -422,6 +435,28 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!Number.isInteger(reviewPollMs) || reviewPollMs < 1_000)
     throw new Error('REVIEW_POLL_MS must be a whole number of milliseconds, 1000 or more');
 
+  // Facebook Messenger and Instagram: the reviews' Meta app, with a webhook of its own.
+  const metaProvider = (env.META_PROVIDER ??
+    (production || facebookAppId ? 'real' : 'fake')) as string;
+  if (metaProvider !== 'real' && metaProvider !== 'fake')
+    throw new Error('META_PROVIDER must be real or fake');
+  if (production && metaProvider === 'fake')
+    throw new Error('META_PROVIDER=fake is for development and tests only');
+  const metaGraphVersion = (env.META_GRAPH_VERSION || 'v26.0').trim();
+  if (!/^v[0-9]{1,3}\.[0-9]{1,2}$/.test(metaGraphVersion))
+    throw new Error('META_GRAPH_VERSION must look like v26.0');
+  const metaLoginConfigId = env.META_LOGIN_CONFIG_ID?.trim() || null;
+  if (metaLoginConfigId && !/^[0-9]{1,40}$/.test(metaLoginConfigId))
+    throw new Error(
+      'META_LOGIN_CONFIG_ID must be the configuration’s number from Facebook Login for Business',
+    );
+  const metaHumanAgent = (env.META_HUMAN_AGENT ?? 'off').trim().toLowerCase();
+  if (metaHumanAgent !== 'on' && metaHumanAgent !== 'off')
+    throw new Error('META_HUMAN_AGENT must be on or off');
+  const metaVerifyToken = env.META_WEBHOOK_VERIFY_TOKEN?.trim() || null;
+  if (metaVerifyToken && metaVerifyToken.length < 16)
+    throw new Error('META_WEBHOOK_VERIFY_TOKEN must be 16 characters or more');
+
   // Taking money. Local development gets the stand-in unless a real Stripe or Square app is configured.
   const stripeClientId = env.STRIPE_CLIENT_ID || null;
   const stripeSecretKey = env.STRIPE_SECRET_KEY || null;
@@ -640,6 +675,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     facebookAppId,
     facebookAppSecret,
     reviewPollMs,
+    metaProvider: metaProvider as 'real' | 'fake',
+    metaVerifyToken,
+    metaLoginConfigId,
+    metaGraphVersion,
+    metaHumanAgent: metaHumanAgent === 'on',
     paymentsProvider,
     stripeClientId,
     stripeSecretKey,

@@ -2,10 +2,12 @@ import {
   assignedToLabel,
   channelWord,
   conversationChips,
+  isSocialChannel,
   listTime,
   previewLine,
   rowName,
   unreadLabel,
+  type ConversationChannel,
   type ConversationShape,
   type RowChip,
 } from '@hfos/core';
@@ -19,14 +21,19 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
-/** The customer's avatar, or a tile for a number (a phone) or a website visitor (a globe) nobody has linked. */
+import { SOCIAL_ICONS } from './social-icons';
+
+/**
+ * The customer's avatar, or a tile for a number (a phone), a website visitor (a globe) or somebody on Messenger or
+ * Instagram (its mark) nobody has linked.
+ */
 export function ContactAvatar({
   person,
   channel,
   size = 'md',
 }: {
   person: { id: string; fullName: string } | null;
-  channel: 'sms' | 'email' | 'chat' | 'portal';
+  channel: ConversationChannel;
   size?: 'md' | 'lg';
 }) {
   if (person && person.fullName)
@@ -38,7 +45,10 @@ export function ContactAvatar({
         size === 'lg' ? 'size-10' : 'size-8',
       )}
     >
-      <Icon as={channel === 'chat' ? Globe : Phone} className="size-3.5 text-text-2" />
+      <Icon
+        as={isSocialChannel(channel) ? SOCIAL_ICONS[channel] : channel === 'chat' ? Globe : Phone}
+        className="size-3.5 text-text-2"
+      />
     </View>
   );
 }
@@ -129,7 +139,13 @@ export const ConversationRow = React.memo(function ConversationRow({
     now,
     teammateChip: 'handling',
   });
-  const channelIcon = c.channel === 'email' ? Mail : c.channel === 'chat' ? Globe : MessageCircle;
+  const channelIcon = isSocialChannel(c.channel)
+    ? SOCIAL_ICONS[c.channel]
+    : c.channel === 'email'
+      ? Mail
+      : c.channel === 'chat'
+        ? Globe
+        : MessageCircle;
   const portal = c.channel === 'portal';
   return (
     <Pressable

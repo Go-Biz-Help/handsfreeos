@@ -37,6 +37,7 @@ import { changedSince, logLaterChange } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES } from '../messaging/social';
 import { isWorkspaceUser, defaultNumber } from '../messaging/store';
 import {
   AttentionAssignInput,
@@ -590,7 +591,10 @@ export const attentionLetHandle = defineCommand({
         const to =
           conv && conv.channel === channel
             ? { conversationId: conv.id }
-            : row.personId && channel !== 'chat' && channel !== 'portal'
+            : row.personId &&
+                channel !== 'chat' &&
+                channel !== 'portal' &&
+                !isSocialChannel(channel)
               ? { personId: row.personId }
               : null;
         if (!to)
@@ -601,9 +605,11 @@ export const attentionLetHandle = defineCommand({
               ? 'There’s no website chat with them to reply in. Reply by text or email instead.'
               : channel === 'portal'
                 ? 'There’s no portal thread with them to reply in. Reply by text or email instead.'
-                : conv
-                  ? `There’s no customer on this item to reach by ${channel === 'email' ? 'email' : 'text'}. Reply by ${conv.channel === 'email' ? 'email' : conv.channel === 'chat' ? 'website chat' : conv.channel === 'portal' ? 'their portal' : 'text'} instead, where they wrote.`
-                  : 'There’s no customer on this item to send a message to. Open it to see who it’s about.',
+                : isSocialChannel(channel)
+                  ? `There’s no ${SOCIAL_CHANNEL_NAMES[channel]} thread with them to reply in. Reply by text or email instead.`
+                  : conv
+                    ? `There’s no customer on this item to reach by ${channel === 'email' ? 'email' : 'text'}. Reply by ${conv.channel === 'email' ? 'email' : conv.channel === 'chat' ? 'website chat' : conv.channel === 'portal' ? 'their portal' : isSocialChannel(conv.channel) ? SOCIAL_CHANNEL_NAMES[conv.channel] : 'text'} instead, where they wrote.`
+                    : 'There’s no customer on this item to send a message to. Open it to see who it’s about.',
           );
         const sent = await executeCommandWithin(ctx, messageSend, {
           workspaceId: ws,

@@ -3,8 +3,15 @@
  * message and where it is (Delivered, Not delivered and why), an email's subject and problems, a call or a voicemail,
  * a text held until quiet hours end, and a customer texting STOP or START. Browser-safe.
  */
-import type { ButtonReply, RichText } from '@hfos/db/schema';
+import type { ButtonReply, RichText, SocialExtras } from '@hfos/db/schema';
 import { smsKeyword } from '../messaging/sms';
+import {
+  isSocialChannel,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_SENT_ELSEWHERE,
+  SOCIAL_SHARED_WORDS,
+} from '../messaging/social';
+import type { ConversationChannel } from '../schemas/conversation';
 import { firstName } from './list';
 import { teammateLabel, teammateMessageOf, type TeammateMessage } from './teammate';
 import { callClock, heldWhen, weekdayClock } from './time';
@@ -18,7 +25,7 @@ export interface ThreadItemFacts {
   readonly occurredAt: string;
   readonly direction: 'inbound' | 'outbound';
   readonly status: string;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal' | null;
+  readonly channel: ConversationChannel | null;
   readonly body: string | null;
   readonly subject: string | null;
   readonly fromAddress: string | null;
@@ -49,6 +56,14 @@ export interface ThreadItemFacts {
   readonly readAt?: string | null;
   readonly rich?: Pick<RichText, 'kind' | 'title' | 'buttons' | 'cards' | 'smsText'> | null;
   readonly buttonReply?: Pick<ButtonReply, 'type' | 'title' | 'via'> | null;
+  /**
+   * Messenger and Instagram (20261025000200): what it shared besides words and files, what it answers, and whether
+   * the business wrote it in Facebook's or Instagram's own inbox; and when the customer changed or took it back.
+   * The phone's copy doesn't hold these yet.
+   */
+  readonly social?: SocialExtras | null;
+  readonly editedAt?: string | null;
+  readonly unsentAt?: string | null;
 }
 
 /** Statuses of a text or email that didn't arrive. */
@@ -337,5 +352,115 @@ export function callCardWords(item: ThreadItemFacts): CallCardWords {
     live,
     // A plain call carries no note: nothing is promised for it to be missing.
     note: null,
+  };
+}
+
+// ---------------------------------------------------------------------------------------- Messenger and Instagram
+
+/**
+ * Where a Messenger or Instagram reply is. Both say "Seen" once the customer has opened it, as their own apps do;
+ * Instagram never says "Delivered", only "Seen".
+ */
+export function socialDeliveryWords(state: DeliveryState): string | null {
+  return state === 'read' ? 'Seen' : deliveryWords(state);
+}
+
+/**
+ * Why a Messenger or Instagram reply didn't arrive, in words a person can act on. The worker files Meta's refusal
+ * under one of these codes; anything else says what Meta said.
+ */
+export function socialFailureHelp(
+  item: Pick<ThreadItemFacts, 'errorCode' | 'errorMessage' | 'channel'>,
+): string {
+  const name =
+    item.channel && isSocialChannel(item.channel) ? SOCIAL_CHANNEL_NAMES[item.channel] : 'Meta';
+  switch (item.errorCode) {
+    case 'window_closed':
+      return `They last wrote more than a day ago, so ${name} didn’t let it through. You can reply as soon as they write again.`;
+    case 'human_agent':
+      return `${name} only lets a person answer this late. Send it yourself from the conversation, and it goes.`;
+    case 'account':
+      return `The connection to ${name} stopped working. An owner or admin can connect it again in Settings → Facebook & Instagram.`;
+    case 'unavailable':
+      return `This person can’t get messages on ${name} right now. They may have blocked the business or closed their account.`;
+    case 'rate_limit':
+      return `${name} asked HandsFreeOS to slow down. Try again in a minute.`;
+    case 'attachment':
+      return `${name} couldn’t take one of the files. Try a smaller one, or a photo instead.`;
+    case 'too_long':
+      return `${name} took only part of this reply. Shorten it and send it again.`;
+    case 'partial':
+      return `Only part of this reply reached them on ${name}. Send it again and the rest goes, without what already went.`;
+    case 'unreachable':
+      return `HandsFreeOS couldn’t reach ${name} to send this. Send it again in a minute.`;
+    case 'no_answer':
+      return `${name} didn’t answer in time, so this reply may have reached them or not. Check your ${name} inbox before you send it again.`;
+    default:
+      return item.errorMessage || `${name} didn’t deliver this reply.`;
+  }
+}
+
+/**
+ * On the phone, in place of a Messenger or Instagram message with no words or photos: a post, reel or story they
+ * shared, or a message they took back. The phone's copy keeps neither, so it says where to see it.
+ */
+export const SOCIAL_NOT_ON_PHONE =
+  'Something the phone can’t show yet, like a post they shared. Open this conversation on the web to see it.';
+
+/** What a Messenger or Instagram message shows besides its words and files. */
+export interface SocialLines {
+  /** Things they shared that aren't files we keep: "Shared a post", with Meta's link while it works. */
+  readonly shared: readonly {
+    readonly label: string;
+    readonly url: string | null;
+    readonly title: string | null;
+  }[];
+  /** "Replied to your story", "Replied to a message". */
+  readonly replyTo: string | null;
+  /** "Tapped Get Started". */
+  readonly postback: string | null;
+  /** "Sent from Facebook": the business wrote it in Facebook's or Instagram's own inbox. */
+  readonly elsewhere: string | null;
+  /** "Edited", beside the time. */
+  readonly edited: string | null;
+  /** In place of the bubble, when they took it back. */
+  readonly unsent: string | null;
+  /** Files Meta said it carried that haven't reached HandsFreeOS (still copying, or its link stopped working). */
+  readonly missingFiles: string | null;
+}
+
+export function socialLinesOf(
+  item: Pick<
+    ThreadItemFacts,
+    'channel' | 'direction' | 'media' | 'social' | 'editedAt' | 'unsentAt'
+  >,
+  customerFirstName: string | null,
+): SocialLines | null {
+  if (!item.channel || !isSocialChannel(item.channel)) return null;
+  const s = item.social ?? {};
+  const who = customerFirstName ?? 'They';
+  const files = s.files ?? [];
+  const missing = item.unsentAt ? 0 : Math.max(0, files.length - item.media.length);
+  return {
+    shared: (s.shared ?? []).map((x) => ({
+      label: SOCIAL_SHARED_WORDS[x.type] ?? 'Shared something',
+      url: x.url,
+      title: x.title,
+    })),
+    replyTo: s.replyTo?.story
+      ? 'Replied to your story'
+      : s.replyTo?.mid
+        ? 'Replied to a message'
+        : null,
+    postback: s.postback
+      ? `Tapped ${s.postback.title ? `“${s.postback.title}”` : 'a button'}`
+      : null,
+    elsewhere: s.elsewhere ? SOCIAL_SENT_ELSEWHERE[item.channel] : null,
+    edited: item.editedAt && !item.unsentAt ? 'Edited' : null,
+    unsent: item.unsentAt ? `${who} took back this message.` : null,
+    missingFiles:
+      missing > 0
+        ? `${missing === 1 ? (SOCIAL_SHARED_WORDS[files[files.length - 1]!] ?? 'Sent a file') : `Sent ${missing} files`}. It hasn’t reached HandsFreeOS yet; open ${SOCIAL_CHANNEL_NAMES[item.channel]} to see it.`
+        : null,
   };
 }

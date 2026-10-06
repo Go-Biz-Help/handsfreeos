@@ -61,7 +61,7 @@ function commandOf(
         input: {
           workspaceId,
           conversationId: refs.conversationId,
-          channel: refs.channel ?? 'sms',
+          channel: refs.social ?? refs.channel ?? 'sms',
           body,
         },
       };

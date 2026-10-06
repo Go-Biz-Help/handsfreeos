@@ -1,5 +1,5 @@
 /**
- * Texts and emails the worker stopped trying to send without saying so. A send that fails on the outbox's last try
+ * Texts, emails and Messenger and Instagram replies the worker stopped trying to send without saying so. A send that fails on the outbox's last try
  * marks its message "Not delivered" (handlers/telephony.ts, handlers/email.ts, mailbox/send.ts), but one that failed
  * before that was in place, or whose last try stopped half way, stays queued: "Sending…" for good, and message.retry
  * turns it away as still on its way. Hourly, from a minute after the worker starts, each one the outbox gave up on in
@@ -58,7 +58,12 @@ export const sweepUnsent: JobHandler = async (ctx) => {
       ),
     );
     for (const m of unsent) {
-      const what = m.channel === 'email' ? 'email' : 'text';
+      const what =
+        m.channel === 'email'
+          ? 'email'
+          : m.channel === 'messenger' || m.channel === 'instagram'
+            ? 'message'
+            : 'text';
       try {
         await executeCommand(
           ctx.db,

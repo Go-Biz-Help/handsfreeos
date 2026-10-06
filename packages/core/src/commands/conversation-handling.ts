@@ -36,6 +36,8 @@ const CHANNEL_WORDS: Readonly<Record<string, string>> = {
   email: 'email',
   chat: 'website chat',
   portal: 'messages in a client’s portal',
+  messenger: 'Messenger messages yet',
+  instagram: 'Instagram messages yet',
 };
 
 /** Each channel's switch under Channels on the AI teammate page. */

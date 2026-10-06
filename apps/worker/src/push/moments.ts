@@ -55,7 +55,7 @@ import {
   userName,
 } from './moment';
 import { pushAudience, queuePush, type PushMoment } from './queue';
-import { CHANNEL_WORD, conversationCollapseId, pushChannel } from './urgent';
+import { CHANNEL_WORD, channelRefs, conversationCollapseId } from './urgent';
 
 // ---------- approvals ----------
 
@@ -252,7 +252,7 @@ export async function draftPushOf(
     refs: {
       draftId,
       ...(d.conversation_id && conv
-        ? { conversationId: d.conversation_id, channel: pushChannel(conv.channel) }
+        ? { conversationId: d.conversation_id, ...channelRefs(conv.channel) }
         : {}),
       ...(d.person_id ? { personId: d.person_id } : {}),
     },
@@ -430,7 +430,8 @@ export const onAssignedPush = pushMoment('assigned', async (ctx, scope) => {
       );
       if (!assignee || !conv) return;
       const customer =
-        (await personName(ctx.tx, conv.person_id)) ?? (await conversationContact(ctx.tx, conv));
+        (await personName(ctx.tx, conv.person_id)) ??
+        (await conversationContact(ctx.tx, { ...conv, id }));
       // What the customer said last, never the business's own words however recent.
       const said = (await loadCustomerSaid(ctx.tx, [id])).get(id);
       await queuePush(ctx.tx, scope, {
@@ -442,7 +443,7 @@ export const onAssignedPush = pushMoment('assigned', async (ctx, scope) => {
         path: `/app/w/${ws}/inbox/${id}`,
         refs: {
           conversationId: id,
-          channel: pushChannel(conv.channel),
+          ...channelRefs(conv.channel),
           ...(conv.person_id ? { personId: conv.person_id } : {}),
         },
       });
@@ -634,7 +635,7 @@ export const onMissedCallPush = pushMoment('missedCall', async (ctx, scope) => {
     path: `/app/w/${ws}/inbox/${conv.id}`,
     refs: {
       conversationId: conv.id,
-      channel: pushChannel(conv.channel),
+      ...channelRefs(conv.channel),
       ...(call.person_id ? { personId: call.person_id } : {}),
     },
     collapseId: conversationCollapseId(conv.id),

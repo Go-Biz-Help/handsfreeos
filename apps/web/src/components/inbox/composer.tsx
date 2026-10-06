@@ -11,11 +11,17 @@ import {
   emailNote as emailNoteWords,
   emailSubjectOf,
   fillReplyTemplate,
+  isSocialChannel,
   photosSavedLine,
   quietLine as quietLineOf,
   quietQuestion,
   SENT_WORDS,
   sendLabel,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_MAX_ATTACHMENTS,
+  socialAttachmentAccept,
+  socialCounterLabel,
+  socialNote,
   switchRefusal,
   TEMPLATE_PICKER_WORDS,
   TEXTING_STATUS_LINK,
@@ -62,6 +68,7 @@ import { AttachmentChip } from './attachment-chip';
 import { ChannelIcon, QuietStrip, SegmentCounter, Words } from './bits';
 import type { PendingText } from './hooks';
 import { newRichDraft, RichEditor } from './rich-editor';
+import { SocialMark } from './social-bits';
 import { TemplatePicker, type PickedTemplate } from './template-picker';
 
 /** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
@@ -71,17 +78,17 @@ const PHOTO_TYPES = 'image/jpeg,image/png,image/gif';
 const PHOTO = new Set(PHOTO_TYPES.split(','));
 
 /**
- * Texts and email switch between each other; a website chat's replies stay in the chat, and a client portal's in
- * their portal (Real Estate round two).
+ * Texts and email switch between each other; a website chat's replies stay in the chat, a client portal's in
+ * their portal (Real Estate round two), and Messenger's and Instagram's where they wrote (20261025000200).
  */
-type Mode = 'sms' | 'email' | 'chat' | 'portal';
+type Mode = 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
 
 interface Attachment {
   readonly fileId: string;
   readonly name: string;
   /** A local preview, for photos only. */
   readonly preview: string;
-  /** Texts carry photos only; email carries any file. */
+  /** Texts carry photos only; email carries any file, and Messenger and Instagram their own kinds. */
   readonly photo: boolean;
 }
 
@@ -114,6 +121,8 @@ export interface ComposerTarget {
   readonly chatBlocked?: boolean;
   /** Texts go RCS first for this business right now (0103): the buttons editor says what that means. */
   readonly rcs?: boolean;
+  /** A Messenger or Instagram thread's own facts: its Page or account, and Meta's reply window. */
+  readonly social?: ConversationGet['social'];
 }
 
 const NOTE_ICON: Record<ComposerNote['icon'], LucideIcon> = {
@@ -286,6 +295,8 @@ export function Composer({
   // A reply that stays where it was written: a website chat, or a client's portal.
   const chat = mode === 'chat' || mode === 'portal';
   const portal = mode === 'portal';
+  // Messenger or Instagram: it stays where they wrote too, with photos and files of the kinds Meta carries.
+  const social = isSocialChannel(mode) ? mode : null;
   const cross = mode !== channel;
   // Texting from an email thread goes to the customer's text thread; the server has the last word there.
   const canText = crossChannelCanText(
@@ -380,19 +391,36 @@ export function Composer({
     : [];
   const from = choices.find((c) => c.key === fromKey) ?? choices[0] ?? null;
   const subjectValue = subject ?? opts?.replySubject ?? '';
-  const note: Note | null = chat
-    ? target.chatBlocked
-      ? noteOf(CHAT_BLOCKED_NOTE, target.workspaceId, {})
-      : null
-    : email
-      ? emailNote(opts, target, onEditPerson)
-      : textNote(
-          target,
-          reason,
-          setup,
-          variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
-        );
-  const off = chat ? !!target.chatBlocked : email ? !!opts && !opts.canEmail.ok : !canText.ok;
+  const socialWords =
+    social && target.social
+      ? socialNote(social, {
+          account: target.social.account,
+          window: target.social.window,
+          everWrote: target.social.everWrote,
+          firstName: target.firstName,
+        })
+      : null;
+  const note: Note | null = social
+    ? noteOf(socialWords, target.workspaceId, {})
+    : chat
+      ? target.chatBlocked
+        ? noteOf(CHAT_BLOCKED_NOTE, target.workspaceId, {})
+        : null
+      : email
+        ? emailNote(opts, target, onEditPerson)
+        : textNote(
+            target,
+            reason,
+            setup,
+            variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
+          );
+  const off = social
+    ? !target.social || !!socialWords?.off
+    : chat
+      ? !!target.chatBlocked
+      : email
+        ? !!opts && !opts.canEmail.ok
+        : !canText.ok;
   // Only in a text thread: the link goes by text, into this conversation.
   const canAskVideo = !email && !chat && channel === 'sms' && !!target.conversationId;
   // The buttons belong to a text: switching to email keeps them for when the person switches back.
@@ -488,6 +516,10 @@ export function Composer({
 
   async function attach(list: FileList | null) {
     if (!list || !target.personId) return;
+    if (social && files.length + list.length > SOCIAL_MAX_ATTACHMENTS) {
+      toast.error(COMPOSER_WORDS.socialTooMany(SOCIAL_CHANNEL_NAMES[social]));
+      return;
+    }
     setUploading(true);
     try {
       for (const file of Array.from(list)) {
@@ -662,10 +694,55 @@ export function Composer({
     }
   }
 
+  /**
+   * A Messenger or Instagram reply: it goes out from the thread's Page or account, its photos and files first. No
+   * quiet hours: Meta's own window says when a reply may go, and the note above the box says when it can't.
+   */
+  async function sendSocial(body: string) {
+    if (!target.conversationId || !social) return;
+    const clientId = crypto.randomUUID();
+    onPending?.({ clientId, body, at: new Date().toISOString() });
+    setText('');
+    setBusy(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/message.send', {
+          body: {
+            workspaceId: target.workspaceId,
+            conversationId: target.conversationId,
+            channel: social,
+            body,
+            attachmentFileIds: files.map((f) => f.fileId),
+            clientId,
+          },
+        }),
+      );
+      onSettled?.(clientId, { messageId: out.messageId });
+      setFiles([]);
+      onSent?.({
+        messageId: out.messageId,
+        conversationId: out.conversationId,
+        crossChannel: false,
+      });
+    } catch (e) {
+      onDropPending?.(clientId);
+      setText(body);
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function send(when: QuietChoice = 'ask') {
     const body = text.trim();
     if (!body || busy || off) return;
-    void (chat ? sendChat(body) : email ? sendEmail(body) : sendText(body, when));
+    void (social
+      ? sendSocial(body)
+      : chat
+        ? sendChat(body)
+        : email
+          ? sendEmail(body)
+          : sendText(body, when));
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -701,10 +778,10 @@ export function Composer({
     <input
       ref={fileInput}
       type="file"
-      accept={email ? undefined : PHOTO_TYPES}
+      accept={email ? undefined : social ? socialAttachmentAccept(social) : PHOTO_TYPES}
       multiple
       className="sr-only"
-      aria-label={email ? 'Choose files' : 'Choose photos'}
+      aria-label={email || social ? 'Choose files' : 'Choose photos'}
       data-testid="composer-file"
       onChange={(e) => {
         void attach(e.target.files);
@@ -712,10 +789,13 @@ export function Composer({
       }}
     />
   );
+  // Photos show as pictures; email's files, and Messenger's and Instagram's other files, as chips.
+  const photos = email ? [] : files.filter((f) => f.photo);
+  const others = email ? files : social ? files.filter((f) => !f.photo) : [];
   const tray =
-    !email && files.length > 0 ? (
+    photos.length > 0 ? (
       <div className="flex items-center gap-2" data-testid="attachment-tray">
-        {files.map((f) => (
+        {photos.map((f) => (
           <div key={f.fileId} className="relative h-16 w-16 flex-none">
             {/* A local preview of a photo about to be sent. */}
             <img
@@ -737,8 +817,8 @@ export function Composer({
       </div>
     ) : null;
   const chips =
-    email && files.length > 0
-      ? files.map((f) => (
+    others.length > 0
+      ? others.map((f) => (
           <AttachmentChip
             key={f.fileId}
             file={{ name: f.name }}
@@ -780,8 +860,8 @@ export function Composer({
           {chat ? null : (
             <button
               type="button"
-              title={COMPOSER_WORDS.attachPhoto}
-              aria-label={COMPOSER_WORDS.attachPhoto}
+              title={social ? COMPOSER_WORDS.attachPhotoOrFile : COMPOSER_WORDS.attachPhoto}
+              aria-label={social ? COMPOSER_WORDS.attachPhotoOrFile : COMPOSER_WORDS.attachPhoto}
               disabled={off || uploading || !target.personId}
               onClick={() => fileInput.current?.click()}
               className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2 disabled:opacity-45"
@@ -923,7 +1003,23 @@ export function Composer({
           </span>
         </div>
       ) : null}
-      {variant === 'desktop' && !chat ? (
+      {variant === 'desktop' && social ? (
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="inline-flex h-7 items-center gap-1.5 rounded-[6px] bg-card-2 px-2.5 text-[13px] font-medium text-text-2"
+            data-testid={`composer-mode-${social}`}
+          >
+            <SocialMark channel={social} label={false} />
+            {COMPOSER_WORDS[social]}
+          </span>
+          <span className="truncate text-xs text-text-3">
+            {target.social?.account
+              ? `From ${target.social.account.label} · ${COMPOSER_WORDS.socialReplies(SOCIAL_CHANNEL_NAMES[social])}`
+              : COMPOSER_WORDS.socialReplies(SOCIAL_CHANNEL_NAMES[social])}
+          </span>
+        </div>
+      ) : null}
+      {variant === 'desktop' && !chat && !social ? (
         <div className="flex items-center justify-between gap-2">
           <Segmented
             value={mode}
@@ -962,7 +1058,9 @@ export function Composer({
       ) : null}
       {handover}
       {noteBox ??
-        (!email && !chat && target.quiet.quiet ? <QuietStrip>{quietLine}</QuietStrip> : null)}
+        (!email && !chat && !social && target.quiet.quiet ? (
+          <QuietStrip>{quietLine}</QuietStrip>
+        ) : null)}
       {email && !off && variant === 'desktop' ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 text-[13px]">
@@ -1046,13 +1144,19 @@ export function Composer({
                   ? COMPOSER_WORDS.addCustomerForPhotos
                   : carousel
                     ? COMPOSER_WORDS.carouselPictures
-                    : email
+                    : email || social
                       ? variant === 'sheet'
                         ? COMPOSER_WORDS.attach
                         : COMPOSER_WORDS.attachPhotoOrFile
                       : COMPOSER_WORDS.attachPhoto
               }
-              aria-label={email ? COMPOSER_WORDS.attachFile : COMPOSER_WORDS.attachPhoto}
+              aria-label={
+                email
+                  ? COMPOSER_WORDS.attachFile
+                  : social
+                    ? COMPOSER_WORDS.attachPhotoOrFile
+                    : COMPOSER_WORDS.attachPhoto
+              }
               disabled={off || uploading || !target.personId || carousel}
               loading={uploading}
               onClick={() => fileInput.current?.click()}
@@ -1066,7 +1170,7 @@ export function Composer({
             disabled={off}
             onPick={insertTemplate}
           />
-          {chat || email ? null : (
+          {chat || email || social ? null : (
             <Button
               variant="ghost"
               size="icon"
@@ -1101,7 +1205,21 @@ export function Composer({
             </span>
           ) : null}
           <span className="flex-1" />
-          {off || email || chat ? null : (
+          {off || email || chat ? null : social ? (
+            socialCounterLabel(social, text) ? (
+              <span
+                className={cn(
+                  'whitespace-nowrap text-xs tabular-nums',
+                  text.length > (target.social?.textLimit ?? Infinity)
+                    ? 'font-medium text-danger-text'
+                    : 'text-text-3',
+                )}
+                data-testid="composer-social-counter"
+              >
+                {socialCounterLabel(social, text)}
+              </span>
+            ) : null
+          ) : (
             // With buttons, a phone without RCS gets them written out: that is what counts.
             <SegmentCounter
               text={richCheck?.ok && richCheck.plain ? richCheck.plain : text}
@@ -1128,6 +1246,11 @@ export function Composer({
           ) : null}
         </div>
       ) : null}
+      {social && chips ? (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="social-attachments">
+          {chips}
+        </div>
+      ) : null}
       {confirmQuiet ? (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="quiet-confirm">
           <span className="min-w-[160px] flex-1 text-xs text-text-2">{ask.inline}</span>
@@ -1150,7 +1273,7 @@ export function Composer({
       {files.length === 0 && uploading ? (
         <span className="inline-flex items-center gap-1.5 text-xs text-text-3">
           <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {email ? COMPOSER_WORDS.addingFile : COMPOSER_WORDS.addingPhoto}
+          {email || social ? COMPOSER_WORDS.addingFile : COMPOSER_WORDS.addingPhoto}
         </span>
       ) : null}
     </div>

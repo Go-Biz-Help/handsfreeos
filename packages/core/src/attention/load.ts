@@ -20,12 +20,14 @@ import { uuidArray } from '../calendar/load';
 import { callPreview } from '../commands/call';
 import { formatPhone } from '../crm/phone';
 import type { QuietHoursWindow } from '../messaging/quiet-hours';
+import { isSocialChannel, socialContactName } from '../messaging/social';
 import { workspaceMessaging } from '../messaging/store';
 import { money } from '../money/format';
 import { overdueFrom, type EstimateStatus, type InvoiceStatus } from '../money/status';
 import { balanceCents } from '../money/totals';
 import { expiryPhrase } from '../money/words';
 import { openHoursOf } from '../schemas/workspace';
+import type { ConversationChannel } from '../schemas/conversation';
 import type { BusinessFacts, LeadFacts, LinkedLeadFacts } from './facts';
 import { foldCandidates } from './folding';
 import {
@@ -112,6 +114,7 @@ export interface AttentionSubjectRef {
     | 'mailbox'
     | 'review_connection'
     | 'phone_number'
+    | 'meta_account'
     | 'teammate'
     | 'lesson'
     | 'scan'
@@ -321,6 +324,7 @@ const CONNECTION_TYPES: ReadonlySet<string> = new Set([
   'mailbox',
   'review_connection',
   'phone_number',
+  'meta_account',
 ]);
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -603,7 +607,7 @@ async function loadHotExtras(
 interface ConversationInfo {
   readonly id: string;
   readonly personId: string | null;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly status: 'open' | 'snoozed' | 'closed';
   readonly assigneeUserId: string | null;
   readonly awaitingReplySince: string | null;
@@ -615,6 +619,8 @@ interface ConversationInfo {
   readonly lastMessageAt: string | null;
   readonly counterpart: string;
   readonly personName: string | null;
+  /** A Messenger or Instagram thread's customer as Meta names them ("Maria Lopez", "@maria.l"). */
+  readonly socialName: string | null;
   /** What the customer said last in it; null when they haven't written or called. */
   readonly said: CustomerSaid | null;
 }
@@ -725,7 +731,7 @@ async function loadConversations(
   const list = await rows<{
     id: string;
     person_id: string | null;
-    channel: 'sms' | 'email' | 'chat' | 'portal';
+    channel: ConversationChannel;
     status: 'open' | 'snoozed' | 'closed';
     assignee_user_id: string | null;
     awaiting_reply_since: Date | null;
@@ -737,6 +743,8 @@ async function loadConversations(
     counterpart: string;
     first_name: string | null;
     last_name: string | null;
+    social_name: string | null;
+    social_username: string | null;
   }>(
     tx,
     sql`select c.id, c.person_id, c.channel::text as channel, c.status::text as status, c.assignee_user_id,
@@ -745,8 +753,10 @@ async function loadConversations(
             where e.entity_type = 'conversation' and e.entity_id = c.id
               and e.event_type = 'conversation.handoff_escalated'
               and e.created_at >= c.needs_person_since) as escalated,
-          c.last_message_at, c.counterpart, p.first_name, p.last_name
+          c.last_message_at, c.counterpart, p.first_name, p.last_name,
+          mx.name as social_name, mx.username as social_username
         from app.conversations c left join app.people p on p.id = c.person_id
+          left join app.meta_contacts mx on mx.conversation_id = c.id
         where c.workspace_id = ${workspaceId}
           and (c.id = any(${uuidArray(ids)}) or c.person_id = any(${uuidArray(personIds)})
             ${
@@ -777,6 +787,9 @@ async function loadConversations(
         lastMessageAt: iso(r.last_message_at),
         counterpart: r.counterpart,
         personName: nameOf(r.first_name, r.last_name),
+        socialName: isSocialChannel(r.channel)
+          ? socialContactName(r.channel, { name: r.social_name, username: r.social_username })
+          : null,
         said: said.get(r.id) ?? null,
       },
     ]),
@@ -1284,7 +1297,7 @@ const counterpartLabel = (c: ConversationInfo): string =>
       ? 'Website visitor'
       : c.channel === 'portal'
         ? 'A client in their portal'
-        : c.counterpart;
+        : (c.socialName ?? c.counterpart);
 
 const detailOf = (text: string | null | undefined): string | null =>
   text?.trim() ? clipLine(text, DETAIL_MAX) : null;
@@ -1418,6 +1431,7 @@ const CONNECTION_DETAILS: Readonly<Record<ConnectionSystem, string>> = {
   mailbox: 'Brings in and sends your email',
   reviews: 'Brings in your reviews',
   phone: 'Your business phone number',
+  social: 'Brings in and answers your Messenger or Instagram messages',
 };
 
 /** "Thu, Sep 17" for a stored day (`2026-09-17`), read where the business is. */

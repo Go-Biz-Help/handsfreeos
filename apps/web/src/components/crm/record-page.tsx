@@ -76,6 +76,7 @@ import {
 import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
+import { AttributionCard } from './attribution-card';
 import { OwesBadge, RecordMoneyTab, useRecordMoney } from './record-money';
 import { MessageSheet } from '@/components/inbox/message-sheet';
 import {
@@ -876,6 +877,8 @@ export function RecordPage(props: RecordPageProps) {
           {person ? (
             <ConversationsCard workspaceId={workspaceId} person={person} onOpen={openSheet} />
           ) : null}
+          {/* The Facebook and Instagram ads and links that brought them, only when something did. */}
+          {person ? <AttributionCard workspaceId={workspaceId} personId={person.id} /> : null}
           {person ? (
             <ContactWorkflowsCard
               workspaceId={workspaceId}

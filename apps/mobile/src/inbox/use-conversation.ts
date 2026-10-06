@@ -88,9 +88,14 @@ export interface ConversationData {
   readonly quiet: QuietFacts;
   readonly timeZone: string;
   readonly teammate: Teammate | null;
+  /** When the customer last wrote: how long Messenger and Instagram let the business answer runs from it. */
+  readonly lastInboundAt: string | null;
 }
 
-type ListRow = ConversationListRow & { readonly draft_waiting: number | null };
+type ListRow = ConversationListRow & {
+  readonly draft_waiting: number | null;
+  readonly last_inbound_at?: string | null;
+};
 
 export function useConversation(conversationId: string): {
   readonly data: ConversationData | null;
@@ -174,6 +179,7 @@ export function useConversation(conversationId: string): {
       quiet: quietHoursState(telephony.quietHours, timeZone, new Date(now)),
       timeZone,
       teammate,
+      lastInboundAt: row.last_inbound_at ?? null,
     };
   }, [
     row,

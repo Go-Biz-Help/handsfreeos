@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { people } from '@hfos/db/schema';
+import { metaAccounts, people } from '@hfos/db/schema';
 import { uuidArray } from '../calendar/load';
 import { CHAT_ON_SITE_MS, CHAT_VISITOR_NAME } from '../chat/limits';
+import { META_ACCOUNT_COLUMNS } from '../commands/social';
 import { chatWidgetName } from '../chat/origins';
 import { formatPhone } from '../crm/phone';
 import { addressOut, fullName, tagsOf } from '../crm/records';
@@ -13,6 +14,13 @@ import { defineQuery } from '../kernel/define';
 import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
+import {
+  isSocialChannel,
+  metaAccountLabel,
+  SOCIAL_TEXT_LIMITS,
+  socialContactName,
+  socialReplyWindow,
+} from '../messaging/social';
 import {
   isOptedOut,
   conversationNumber,
@@ -31,6 +39,7 @@ import {
   InboxListOutput,
   InboxSummaryInput,
   InboxSummaryOutput,
+  type ConversationChannel,
   type ConversationChat,
   type ConversationLane,
   type ConversationSummary,
@@ -45,6 +54,7 @@ import {
   type MediaRefOut,
   type ThreadItem,
 } from '../schemas/message';
+import type { z } from 'zod';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -59,12 +69,15 @@ type ConversationRow = {
   /** M19: the Inbox, Other mail or Spam, and whether it is the viewer's own mail. */
   folder: 'inbox' | 'other' | 'spam';
   private: boolean;
-  channel: 'sms' | 'email' | 'chat' | 'portal';
+  channel: ConversationChannel;
   /** A portal thread's record, and its name (Real Estate round two). */
   record_id: string | null;
   record_name: string | null;
   /** A website chat's visitor's name, as they typed it. */
   visitor_name: string | null;
+  /** A Messenger or Instagram thread's customer, as Meta named them (20261025000200). */
+  social_name: string | null;
+  social_username: string | null;
   counterpart: string;
   status: 'open' | 'snoozed' | 'closed';
   person_id: string | null;
@@ -113,13 +126,15 @@ type ConversationRow = {
 /** A lane as the database hands it over: raw, because how a line reads is the mapper's business. */
 type LaneRow = {
   id: string;
-  channel: 'sms' | 'email' | 'chat' | 'portal';
+  channel: ConversationChannel;
   /** A portal thread's record's name. */
   record_name: string | null;
   line_id: string | null;
   line_e164: string | null;
   line_label: string | null;
   line_address: string | null;
+  /** A Messenger or Instagram thread's Page or account, as the screens call it. */
+  line_account: string | null;
   unread_count: number | string;
   status: 'open' | 'snoozed' | 'closed';
   archived: boolean;
@@ -139,6 +154,20 @@ type LaneRow = {
  */
 const GROUP_KEY = sql`coalesce(c.person_id::text, c.channel::text || ':' || c.counterpart)`;
 
+/** A lane's line: the number, the address, or the Page or Instagram account it's on. */
+const LINE_ID = (z: string) => {
+  const t = sql.raw(z);
+  return sql`case when ${t}.channel = 'email' then ${t}.email_address_id
+    when ${t}.channel in ('messenger', 'instagram') then ${t}.meta_account_id
+    else ${t}.phone_number_id end`;
+};
+/** A Page by its name, an Instagram account by its @handle (`metaAccountLabel`). */
+const ACCOUNT_LABEL = (a: string) => {
+  const t = sql.raw(a);
+  return sql`case when ${t}.platform = 'instagram' and ${t}.username is not null
+    then '@' || ${t}.username else ${t}.name end`;
+};
+
 /**
  * Every lane of one row's customer, newest first.
  *
@@ -152,10 +181,11 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
   (select coalesce(json_agg(json_build_object(
             'id', z.id,
             'channel', z.channel::text,
-            'line_id', case when z.channel = 'email' then z.email_address_id else z.phone_number_id end,
+            'line_id', ${LINE_ID('z')},
             'line_e164', pn.e164,
             'line_label', pn.label,
             'line_address', ea.address,
+            'line_account', ${ACCOUNT_LABEL('za')},
             'record_name', zr.name,
             'unread_count', z.unread_count,
             'status', z.status::text,
@@ -169,6 +199,7 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
      left join app.email_addresses ea on ea.id = z.email_address_id
      left join app.users zu on zu.id = z.assignee_user_id
      left join app.custom_records zr on zr.id = z.custom_record_id
+     left join app.meta_accounts za on za.id = z.meta_account_id
     where z.workspace_id = ${workspaceId}
       -- The thread being looked at is always in its own switcher, archived or not: a menu that cannot name
       -- where you are standing is a menu that reads as though you are nowhere.
@@ -245,6 +276,7 @@ const conversationSelect = (
     coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
     c.folder::text as folder, c.private_to is not null as private,
     c.custom_record_id as record_id, cr.name as record_name,
+    mx.name as social_name, mx.username as social_username,
     ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
     ${GROUP_KEY} as group_key
   from app.conversations c
@@ -254,6 +286,7 @@ const conversationSelect = (
   left join app.ai_teammates tm on tm.id = c.ai_teammate_id
   left join app.users tu on tu.id = c.taken_over_by
   left join app.custom_records cr on cr.id = c.custom_record_id
+  left join app.meta_contacts mx on mx.conversation_id = c.id
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
@@ -270,7 +303,10 @@ function summary(r: ConversationRow): ConversationSummary {
           : r.channel === 'portal'
             ? // Never the portal's key: the client, as the business has them.
               fullName(r.first_name ?? '', r.last_name ?? '') || 'Client portal'
-            : r.counterpart,
+            : isSocialChannel(r.channel)
+              ? // Never the page-scoped id: who they are on Facebook or Instagram, as Meta named them.
+                socialContactName(r.channel, { name: r.social_name, username: r.social_username })
+              : r.counterpart,
     status: r.status,
     person: r.person_id
       ? { id: r.person_id, fullName: fullName(r.first_name ?? '', r.last_name ?? '') }
@@ -340,6 +376,7 @@ function lane(l: LaneRow): ConversationLane {
       label: l.line_label,
       address: l.line_address,
       record: l.record_name,
+      account: l.line_account,
     }),
     unreadCount: Number(l.unread_count),
     status: l.status,
@@ -461,6 +498,12 @@ export const inboxList = defineQuery({
         t === 'c'
           ? sql`cv.name`
           : sql`(select cv2.name from app.chat_visitors cv2 where cv2.conversation_id = c2.id)`;
+      // A Messenger or Instagram customer's name and @handle, as Meta gave them (20261025000200).
+      const socialName =
+        t === 'c'
+          ? sql`coalesce(mx.name, '') || ' ' || coalesce(mx.username, '')`
+          : sql`(select coalesce(m2.name, '') || ' ' || coalesce(m2.username, '')
+                 from app.meta_contacts m2 where m2.conversation_id = c2.id)`;
       return sql`
             ${
               input.personId
@@ -482,6 +525,7 @@ export const inboxList = defineQuery({
                 ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
                       or lower(${c}.counterpart) like ${q} or lower(coalesce(${c}.last_preview, '')) like ${q}
                       or lower(coalesce(${visitorName}, '')) like ${q}
+                      or lower(coalesce(${socialName}, '')) like ${q}
                       ${digits.length >= 3 ? sql`or ${c}.counterpart like ${`%${digits}%`}` : sql``})`
                 : sql``
             }`;
@@ -713,20 +757,23 @@ export const conversationGet = defineQuery({
           ? { ok: false, reason: 'chat_channel' as const }
           : row.channel === 'portal'
             ? { ok: false, reason: 'portal_channel' as const }
-            : !number || number.status !== 'active'
-              ? { ok: false, reason: 'no_number' as const }
-              : !ready.messagingReady
-                ? { ok: false, reason: 'not_ready' as const }
-                : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
-                    person?.smsConsent === 'opted_out'
-                  ? { ok: false, reason: 'opted_out' as const }
-                  : { ok: true, reason: null };
+            : isSocialChannel(row.channel)
+              ? { ok: false, reason: 'social_channel' as const }
+              : !number || number.status !== 'active'
+                ? { ok: false, reason: 'no_number' as const }
+                : !ready.messagingReady
+                  ? { ok: false, reason: 'not_ready' as const }
+                  : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
+                      person?.smsConsent === 'opted_out'
+                    ? { ok: false, reason: 'opted_out' as const }
+                    : { ok: true, reason: null };
     return {
       conversation: summary(row),
       chat: row.channel === 'chat' ? await chatOf(ctx, input.workspaceId, row.id, person) : null,
       person,
       openTasks,
       canText,
+      social: isSocialChannel(row.channel) ? await socialOf(ctx, row, row.channel) : null,
       fromNumber: number ? formatPhone(number.e164) : null,
       rcs: row.channel === 'sms' && rcsSending(await currentRcsSender(ctx.tx, input.workspaceId)),
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
@@ -734,6 +781,50 @@ export const conversationGet = defineQuery({
     };
   },
 });
+
+/**
+ * A Messenger or Instagram thread's own facts (20261025000200): the Page or account it's on and whether it still
+ * answers here, who the customer is there, and Meta's reply window, which runs from their last message.
+ */
+async function socialOf(
+  ctx: QueryContext,
+  row: ConversationRow,
+  channel: 'messenger' | 'instagram',
+): Promise<ConversationGetOutputShape['social']> {
+  const [c] = await rows<{ last_inbound_at: Date | null; meta_account_id: string | null }>(
+    ctx.tx,
+    sql`select last_inbound_at, meta_account_id from app.conversations where id = ${row.id}`,
+  );
+  const [a] = c?.meta_account_id
+    ? await ctx.tx
+        .select(META_ACCOUNT_COLUMNS)
+        .from(metaAccounts)
+        .where(eq(metaAccounts.id, c.meta_account_id))
+    : [];
+  const window = socialReplyWindow(c?.last_inbound_at ?? null, a?.humanAgent ?? false);
+  return {
+    account: a
+      ? {
+          id: a.id,
+          platform: a.platform,
+          name: a.name,
+          username: a.username,
+          label: metaAccountLabel(a),
+          status: a.status,
+          problem: a.problem,
+        }
+      : null,
+    contact: {
+      name: socialContactName(channel, { name: row.social_name, username: row.social_username }),
+      username: row.social_username,
+    },
+    everWrote: !!c?.last_inbound_at,
+    window,
+    textLimit: SOCIAL_TEXT_LIMITS[channel],
+  };
+}
+
+type ConversationGetOutputShape = z.infer<typeof ConversationGetOutput>;
 
 type ThreadRow = {
   type: 'message' | 'call';
@@ -743,7 +834,7 @@ type ThreadRow = {
   occurred_at: Date;
   direction: 'inbound' | 'outbound';
   status: string;
-  channel: 'sms' | 'email' | 'chat' | 'portal' | null;
+  channel: ConversationChannel | null;
   body: string | null;
   subject: string | null;
   from_address: string | null;
@@ -779,6 +870,10 @@ type ThreadRow = {
   read_at: Date | null;
   rich: RichTextOut | null;
   button_reply: ButtonReplyOut | null;
+  /** Messenger and Instagram (20261025000200): what it shared and answers, and whether it was edited or taken back. */
+  social: ThreadItem['social'];
+  edited_at: Date | null;
+  unsent_at: Date | null;
   sort_key: string;
 };
 
@@ -795,6 +890,7 @@ const messageBranch = (workspaceId: string) => sql`
     coalesce(m.client_id, '') like 'handoff:%' as handoff_line,
     case when m.status = 'queued' and m.error_code = ${SCHEDULED_TEXT} then m.occurred_at end as scheduled_for,
     m.transport::text as transport, m.read_at, m.rich, m.button_reply,
+    case when m.channel in ('messenger', 'instagram') then m.social end as social, m.edited_at, m.unsent_at,
     ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
   left join app.mailbox_connections mc on mc.id = m.mailbox_connection_id
@@ -849,6 +945,9 @@ function threadItem(r: ThreadRow, lines?: ReadonlyMap<string, string>): ThreadIt
     readAt: iso(r.read_at),
     rich: r.rich ?? null,
     buttonReply: r.button_reply ?? null,
+    social: r.social ?? null,
+    editedAt: iso(r.edited_at),
+    unsentAt: iso(r.unsent_at),
   };
 }
 
@@ -873,8 +972,9 @@ async function lanesOf(
   const found = await rows<LaneRow>(
     ctx.tx,
     sql`select z.id, z.channel::text as channel,
-          case when z.channel = 'email' then z.email_address_id else z.phone_number_id end as line_id,
+          ${LINE_ID('z')} as line_id,
           pn.e164 as line_e164, pn.label as line_label, ea.address as line_address,
+          ${ACCOUNT_LABEL('za')} as line_account,
           z.unread_count, z.status::text as status, z.archived_at is not null as archived,
           z.last_message_at, z.assignee_user_id,
           coalesce(nullif(zu.full_name, ''), zu.email::text) as assignee_name
@@ -882,6 +982,7 @@ async function lanesOf(
         left join app.phone_numbers pn on pn.id = z.phone_number_id
         left join app.email_addresses ea on ea.id = z.email_address_id
         left join app.users zu on zu.id = z.assignee_user_id
+        left join app.meta_accounts za on za.id = z.meta_account_id
         where z.workspace_id = ${workspaceId}
           and ${
             c.person_id
@@ -938,6 +1039,7 @@ export const conversationThread = defineQuery({
               null::text, '{}'::text[], '{}'::text[], null::text,
               null::uuid, null::text, null::uuid, null::text, null::uuid, false, null::timestamptz,
               null::text, null::timestamptz, null::jsonb, null::jsonb,
+              null::jsonb, null::timestamptz, null::timestamptz,
               ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by

@@ -222,6 +222,13 @@ export type ChatWidgetList = Ok<'/v1/queries/chat_widget.list'>;
 export type ChatWidget = ChatWidgetList['items'][number];
 export type ChatWidgetUpdateBody = Body<'/v1/commands/chat_widget.update'>;
 
+// Facebook Messenger and Instagram (20261025000200): the Pages and accounts connected, and where customers came from
+export type MetaAccountList = Ok<'/v1/queries/meta_account.list'>;
+export type MetaAccount = MetaAccountList['accounts'][number];
+export type MetaConnection = MetaAccountList['connections'][number];
+export type AttributionList = Ok<'/v1/queries/attribution.list'>;
+export type AttributionTouch = AttributionList['touches'][number];
+
 // Milestone 8: the Action Center outside Home (Settings, the lead and inbox banners) and confirming bookings
 export type AttentionForRecord = Ok<'/v1/queries/attention.for_record'>;
 export type AttentionRecordItem = AttentionForRecord['items'][number];

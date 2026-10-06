@@ -544,6 +544,8 @@ const ENTRIES: readonly PlannedEntry[] = [
     groups: ['Social Media'],
     summary:
       'Combines comments, mentions, and social DMs into one workspace for response and follow-up.',
+    overlap:
+      'HandsFreeOS’s inbox already answers Facebook Messenger and Instagram messages, and shows the ad each came from. This adds comments, mentions and other networks.',
   },
   {
     id: 'sociallistening',

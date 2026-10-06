@@ -3,6 +3,7 @@
  * handles, whom a confirmation request or a nudge can text or email, and the channel a person's reply goes by. The
  * server's Let HandsFreeOS Handle plan (`auto-plan.ts`), the list's per-item hints and the phone all use them.
  */
+import type { ConversationChannel } from '../schemas/conversation';
 import type { AttentionKind } from './kinds';
 
 /** The kinds whose Handle is a person's reply to the customer (a text, an email or a chat). */
@@ -80,12 +81,12 @@ export const reachChannel = (r: Pick<Reach, 'text' | 'email'>): 'sms' | 'email' 
  * email; a text to a number that said STOP goes by email instead when there's an address, and can't go otherwise.
  */
 export function replyChannelRule(c: {
-  readonly conversationChannel: 'sms' | 'email' | 'chat' | 'portal' | null;
+  readonly conversationChannel: ConversationChannel | null;
   readonly phone: string | null;
   readonly email: string | null;
   /** The number the text would go to said STOP (or the customer is marked opted out). */
   readonly textStopped: boolean;
-}): 'sms' | 'email' | 'chat' | 'portal' | null {
+}): ConversationChannel | null {
   const preferred = c.conversationChannel ?? (c.phone ? 'sms' : c.email ? 'email' : null);
   return preferred === 'sms' && c.textStopped ? (c.email ? 'email' : null) : preferred;
 }
