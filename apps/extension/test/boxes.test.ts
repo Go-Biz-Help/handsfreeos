@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readPage } from '../src/facebook/page';
-import { load } from './load';
+import { boxEverything, load } from './load';
 
 const NOW = new Date('2026-10-05T12:00:00Z');
 
@@ -16,6 +16,10 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ['profile.html', 'https://www.facebook.com/jane.doe.5'],
   ['profile-2026.html', 'https://www.facebook.com/dana.reyes.12'],
   ['feed-2026.html', 'https://www.facebook.com/'],
+  [
+    'group-post-2026.html',
+    'https://www.facebook.com/groups/7766554433221100/posts/5555666677778888/',
+  ],
   ['group-feed.html', 'https://www.facebook.com/groups/texascontractors/'],
   ['chat.html', 'https://www.facebook.com/messages/t/1234567890/'],
   ['chat-2026.html', 'https://www.facebook.com/messages/t/100009000000002/'],
@@ -24,19 +28,6 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ['groups-joined.html', 'https://www.facebook.com/groups/joins/'],
   ['warning.html', 'https://www.facebook.com/groups/texascontractors/'],
 ];
-
-/** Pieces of a line of text get a `span` around them, not a `div`, so no line breaks where the page's doesn't. */
-const IN_A_LINE = new Set('A ABBR B EM I IMG LABEL SMALL SPAN STRONG svg'.split(' '));
-
-function boxEverything(doc: Document): Document {
-  for (const element of [...doc.body.querySelectorAll('*')]) {
-    if (element.parentElement?.closest('svg')) continue;
-    const box = doc.createElement(IN_A_LINE.has(element.tagName) ? 'span' : 'div');
-    element.replaceWith(box);
-    box.append(element);
-  }
-  return doc;
-}
 
 describe('pages with more boxes than their outline shows', () => {
   it.each(PAGES)('reads %s the same with a bare box around every element', (fixture, url) => {

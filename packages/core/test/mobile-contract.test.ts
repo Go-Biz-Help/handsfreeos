@@ -100,6 +100,17 @@ const ONLINE_COMMANDS = [
   'realestate.duty.vendor_quote',
 ];
 /**
+ * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
+ * Outreach's steps taken on Facebook, and answers to friend requests). No phone screen sends them, so they're no
+ * part of what an old app build sends.
+ */
+const EXTENSION_COMMANDS = ['outreach.touch.save', 'outreach.friend.note'];
+/** Whether the phone may keep it waiting: it can wait, a person sends it, and it isn't the extension's alone. */
+const phoneCanWait = (c: { name: string; offline: unknown; actors?: readonly string[] }) =>
+  c.offline !== 'online' &&
+  (c.actors ?? ['human']).includes('human') &&
+  !EXTENSION_COMMANDS.includes(c.name);
+/**
  * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
  * all of them for a spreadsheet), and the business's link name and own domain for the form's link and QR code; and
  * Real Estate's buyer pages for a deal the phone keeps only as its summary (round six), loaded with signal.
@@ -167,8 +178,7 @@ function inputSchema(schema: z.ZodType): Schema {
 /** Today's contract: every command a person may send that can wait on a phone, the online ones above, the queries. */
 function currentContract(tables: Contract['tables']): Contract {
   const commands = registry.commands
-    .filter((c) => (c.actors ?? ['human']).includes('human'))
-    .filter((c) => c.offline !== 'online' || ONLINE_COMMANDS.includes(c.name))
+    .filter((c) => phoneCanWait(c) || ONLINE_COMMANDS.includes(c.name))
     .sort((a, b) => a.name.localeCompare(b.name));
   return {
     about:
@@ -216,8 +226,9 @@ describe('the phone’s contract', () => {
   it('covers every command the phone can keep waiting', () => {
     const recorded = JSON.parse(readFileSync(RECORD, 'utf8')) as Contract;
     for (const c of registry.commands)
-      if (c.offline !== 'online' && (c.actors ?? ['human']).includes('human'))
-        expect(recorded.commands, c.name).toHaveProperty([c.name]);
+      if (phoneCanWait(c)) expect(recorded.commands, c.name).toHaveProperty([c.name]);
+    for (const name of EXTENSION_COMMANDS)
+      expect(registry.command(name)?.offline, name).toBe('anytime');
     expect(Object.keys(recorded.commands)).toEqual(
       expect.arrayContaining([
         'person.update',

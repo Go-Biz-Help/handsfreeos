@@ -1,9 +1,9 @@
 'use client';
 /**
- * Social Outreach's first page (docs/outreach.md): how to start with the browser extension, and the business's
- * playbooks: what it's after on social media, who it's for, the steps it takes, the conversation, how it sounds and
- * which of its tags to use. Everyone using the add-on reads them; owners and admins write them in the builder
- * (playbook-builder.tsx), from a template or blank, and archive them rather than delete them.
+ * Social Outreach's playbooks tab (docs/outreach.md): what the business is after on social media, who it's for, the
+ * steps it takes, the conversation, how it sounds and which of its tags to use. Everyone using the add-on reads them;
+ * owners and admins write them in the builder (playbook-builder.tsx), from a template or blank, and archive them
+ * rather than delete them.
  */
 import {
   PLAYBOOK_GOALS,
@@ -15,7 +15,6 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import Link from 'next/link';
 import { useState } from 'react';
-import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,14 +24,12 @@ import { relativeTime } from '@/lib/utils';
 import type { Playbook, PlaybookList } from './types';
 import { useAct } from './use-act';
 
-export function OutreachHome({
+export function PlaybooksView({
   workspaceId,
-  businessName,
   list,
   canManage,
 }: {
   workspaceId: string;
-  businessName: string;
   list: PlaybookList;
   /** Owners and admins write the playbooks. */
   canManage: boolean;
@@ -41,28 +38,15 @@ export function OutreachHome({
   const inUse = list.playbooks.filter((p) => !p.archivedAt);
   const archived = list.playbooks.filter((p) => p.archivedAt);
   return (
-    <div data-testid="outreach-home">
-      <PageHeader
-        title="Social Outreach"
-        description={`${businessName} · finding and following up with people on Facebook`}
-        actions={
-          canManage ? (
-            <Button onClick={() => setChoosing(true)} data-testid="playbook-new">
-              New playbook
-            </Button>
-          ) : null
-        }
-      />
-      <Card className="mb-6 p-5">
-        <h2 className="text-[15px] font-semibold">The browser extension</h2>
-        <p className="mt-1.5 text-[13.5px] text-text-2">
-          HandsFreeOS Social works beside you on Facebook. Sign in to it with your HandsFreeOS
-          email, pick {businessName}, and press <strong>Save to HFOS</strong> on a profile or a
-          chat. The person goes in Contacts with Facebook as their source, and the chat is kept on
-          their page. It’s a test build for now, loaded into Chrome by hand.
-        </p>
-      </Card>
-      <h2 className="mb-3 text-lg font-semibold tracking-tight">Playbooks</h2>
+    <div data-testid="outreach-playbooks">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Playbooks</h2>
+        {canManage ? (
+          <Button onClick={() => setChoosing(true)} data-testid="playbook-new">
+            New playbook
+          </Button>
+        ) : null}
+      </div>
       {inUse.length === 0 ? (
         <Card className="p-6 text-center text-[13.5px] text-text-2">
           No playbooks yet.{' '}
