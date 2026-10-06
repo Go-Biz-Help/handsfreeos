@@ -29038,8 +29038,20 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            pace: {
+                                followUpAfterDays: number;
+                                messageAfterDays: number;
+                            };
                             platforms: "facebook"[];
-                            questions: string[];
+                            questions: {
+                                answers: {
+                                    label: string;
+                                    next: ("continue" | "offer" | "later" | "stop") | string;
+                                    tag: string | null;
+                                }[];
+                                id: string;
+                                text: string;
+                            }[];
                             samples: string[];
                             signs: string[];
                             skip: string[];
@@ -29078,8 +29090,20 @@ export interface operations {
                         groupWords: string[];
                         link: string | null;
                         offer: string | null;
+                        pace: {
+                            followUpAfterDays: number;
+                            messageAfterDays: number;
+                        };
                         platforms: "facebook"[];
-                        questions: string[];
+                        questions: {
+                            answers: {
+                                label: string;
+                                next: ("continue" | "offer" | "later" | "stop") | string;
+                                tag: string | null;
+                            }[];
+                            id: string;
+                            text: string;
+                        }[];
                         samples: string[];
                         signs: string[];
                         skip: string[];
@@ -29117,8 +29141,20 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            pace: {
+                                followUpAfterDays: number;
+                                messageAfterDays: number;
+                            };
                             platforms: "facebook"[];
-                            questions: string[];
+                            questions: {
+                                answers: {
+                                    label: string;
+                                    next: ("continue" | "offer" | "later" | "stop") | string;
+                                    tag: string | null;
+                                }[];
+                                id: string;
+                                text: string;
+                            }[];
                             samples: string[];
                             signs: string[];
                             skip: string[];
@@ -53423,8 +53459,20 @@ export interface operations {
                                 groupWords: string[];
                                 link: string | null;
                                 offer: string | null;
+                                pace: {
+                                    followUpAfterDays: number;
+                                    messageAfterDays: number;
+                                };
                                 platforms: "facebook"[];
-                                questions: string[];
+                                questions: {
+                                    answers: {
+                                        label: string;
+                                        next: ("continue" | "offer" | "later" | "stop") | string;
+                                        tag: string | null;
+                                    }[];
+                                    id: string;
+                                    text: string;
+                                }[];
                                 samples: string[];
                                 signs: string[];
                                 skip: string[];

@@ -9,12 +9,19 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 
 ## What's built
 
-Phase 1, steps 1 and 2:
+Phase 1, steps 1 and 2, and the playbook builder:
 
 - **Playbooks** (`/a/outreach`): what the business is looking for on social media, how it sounds and which of its
   tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where to look, the
-  steps it takes, the tone, sample messages, questions, words to avoid, a disclaimer and the tags. The first template
-  is **CRM demos**; a blank one is always there.
+  steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer and the tags.
+  The first template is **CRM demos**; a blank one is always there.
+- **The playbook builder** (`/a/outreach/playbooks/new`, `/a/outreach/playbooks/<id>`): a playbook asked a step at a
+  time, ten steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
+  step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
+  step; changing one opens on the summary, where each part has its own Change.
+- **The conversation**: the questions to work into a chat, each with the answers people give. An answer can add one of
+  the playbook's tags, and says what's next: the next question, a question further down, the offer, checking back
+  later, or stopping. A question with no answers is answered in the person's own words.
 - **Saving from the extension**: signed in, the extension saves the Facebook profile or chat open beside it when the
   person presses its button, and marks the people and chats on any page that are saved already
   (apps/extension/README.md, "Signing in and saving").
@@ -26,8 +33,9 @@ Phase 1, steps 1 and 2:
 | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | Manifest, operations, tables, shapes                   | `packages/core/src/addons/outreach/`                                             |
 | What a save takes: lengths, counts, id shapes (no zod) | `packages/core/src/addons/outreach/limits.ts`                                    |
-| Worker half (nothing yet)                              | `apps/worker/src/addons/outreach/`                                               |
+| Worker half: data version 2                            | `apps/worker/src/addons/outreach/`                                               |
 | Playbooks page and the Social card                     | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
+| The playbook builder                                   | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`   |
 | Tables and permissions                                 | `supabase/migrations/20261024000100_addon_outreach.sql`, schema `addon_outreach` |
 | The extension                                          | `apps/extension`                                                                 |
 
@@ -67,6 +75,22 @@ The owner answered the plan's questions on 5 Oct 2026. These are settled: ask be
 6. **Only with the add-on.** The extension connects only to businesses where Social Outreach is on and the person
    has `outreach.use`. HandsFreeOS refuses it elsewhere, and it stops and says so when the add-on is turned off.
 
+The owner answered the next round on 6 Oct 2026 (plan.md, "Next: what you asked for on 6 Oct"). These are settled too:
+
+7. **An activity panel in both places:** the full view on the Social Outreach page, today's numbers in the
+   extension's side panel. Requests sent and from which group, likes, comments, chats started, replies.
+8. **The extension notes what the person does on Facebook themselves:** Add friend, Like, Comment and Send, with the
+   group they found the person in. When that arrives it replaces "nothing is saved until the person presses a
+   button" for those four steps.
+9. **Playbooks are asked, not filled in,** and have a conversation where each answer adds a tag and picks what's
+   next. Built.
+10. **Unfriending is a setting:** suggestions confirmed one by one (the default), or on its own within a daily limit
+    in the build loaded by hand.
+11. **Don't pitch stops everything:** friend requests, likes, comments and messages.
+12. **Sent requests nobody answers are cancelled after 3 weeks, with the person's OK.** The wait is a setting.
+13. **The order:** the playbook builder, then tracking and the activity panel, then friends (requests received, the
+    friends list, Keep and Don't pitch).
+
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
@@ -94,12 +118,27 @@ likes and 1 post, half that for new or quiet accounts.
 - **Nobody deletes a saved profile, chat or playbook.** The tables' rules give no one delete; a playbook is archived
   instead, and two in use never share a name (`outreach_playbook_name_taken`). Their rows go when the business deletes
   the add-on's data, like any add-on's.
+- **A playbook is checked by one schema,** `PlaybookDetails` (`playbooks.ts`): the builder checks each step with it
+  as it's written, and the save holds to it. How long each part may be is `PLAYBOOK_LIMITS`, which the builder's boxes
+  use too.
+- **An answer only leads down.** It goes to a question further down or ends the questions, never back up, so a
+  conversation can't go round in circles. It adds only one of the playbook's own tags (whatever the capitals), and the
+  builder takes a tag off the answers when it comes off the playbook.
+- **Questions are named q1, q2… in the order they're asked.** Answers point at those names, and a save renames them
+  in order (`renumberQuestions`), with every answer still leading where it did.
+- **Data version 2:** a playbook's questions became questions with answers, and it got a pace. Reading one saved
+  before then gives it in today's shape (`upgradePlaybookDetails`, in `outreach.playbook.list`), because a business
+  with the add-on on never runs a data step; the worker's step 2 tidies what a reinstall brings back.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 
 ## Not yet
+
+Next, in the owner's order: the extension noting requests, likes, comments and messages with their group, and the
+activity panel; then friends (requests received, the friends list, Keep, Don't pitch, cancelling old requests and
+unfriending). The AI suggesting a conversation from the rest of the playbook comes with AI drafting.
 
 The rest of Phase 1, in order: bringing in Facebook's download file with AI summaries and tags; groups, scored against
 the playbook, with their members saved and admins and moderators skipped; the day's list (friend requests, openers,

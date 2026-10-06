@@ -16,10 +16,11 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.1.0',
+  version: '0.2.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
-  // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`).
-  dataVersion: 1,
+  // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
+  // has a pace.
+  dataVersion: 2,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.

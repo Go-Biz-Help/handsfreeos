@@ -70397,6 +70397,25 @@
                           ]
                         }
                       },
+                      "pace": {
+                        "type": "object",
+                        "properties": {
+                          "messageAfterDays": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 14
+                          },
+                          "followUpAfterDays": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 30
+                          }
+                        },
+                        "required": [
+                          "messageAfterDays",
+                          "followUpAfterDays"
+                        ]
+                      },
                       "tone": {
                         "anyOf": [
                           {
@@ -70419,12 +70438,74 @@
                         }
                       },
                       "questions": {
-                        "maxItems": 10,
+                        "maxItems": 20,
                         "type": "array",
                         "items": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 200
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^q[0-9]{1,3}$"
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "answers": {
+                              "maxItems": 6,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "tag": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 40
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "next": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "continue",
+                                          "offer",
+                                          "later",
+                                          "stop"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^q[0-9]{1,3}$"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "tag",
+                                  "next"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text",
+                            "answers"
+                          ]
                         }
                       },
                       "avoid": {
@@ -70469,6 +70550,7 @@
                       "platforms",
                       "groupWords",
                       "steps",
+                      "pace",
                       "tone",
                       "samples",
                       "questions",
@@ -70625,6 +70707,26 @@
                             ]
                           }
                         },
+                        "pace": {
+                          "type": "object",
+                          "properties": {
+                            "messageAfterDays": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 14
+                            },
+                            "followUpAfterDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30
+                            }
+                          },
+                          "required": [
+                            "messageAfterDays",
+                            "followUpAfterDays"
+                          ],
+                          "additionalProperties": false
+                        },
                         "tone": {
                           "anyOf": [
                             {
@@ -70647,12 +70749,76 @@
                           }
                         },
                         "questions": {
-                          "maxItems": 10,
+                          "maxItems": 20,
                           "type": "array",
                           "items": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 200
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^q[0-9]{1,3}$"
+                              },
+                              "text": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "answers": {
+                                "maxItems": 6,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 80
+                                    },
+                                    "tag": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "next": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "continue",
+                                            "offer",
+                                            "later",
+                                            "stop"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^q[0-9]{1,3}$"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "tag",
+                                    "next"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "answers"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "avoid": {
@@ -70697,6 +70863,7 @@
                         "platforms",
                         "groupWords",
                         "steps",
+                        "pace",
                         "tone",
                         "samples",
                         "questions",
@@ -70922,6 +71089,26 @@
                             ]
                           }
                         },
+                        "pace": {
+                          "type": "object",
+                          "properties": {
+                            "messageAfterDays": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 14
+                            },
+                            "followUpAfterDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30
+                            }
+                          },
+                          "required": [
+                            "messageAfterDays",
+                            "followUpAfterDays"
+                          ],
+                          "additionalProperties": false
+                        },
                         "tone": {
                           "anyOf": [
                             {
@@ -70944,12 +71131,76 @@
                           }
                         },
                         "questions": {
-                          "maxItems": 10,
+                          "maxItems": 20,
                           "type": "array",
                           "items": {
-                            "type": "string",
-                            "minLength": 1,
-                            "maxLength": 200
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^q[0-9]{1,3}$"
+                              },
+                              "text": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "answers": {
+                                "maxItems": 6,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 80
+                                    },
+                                    "tag": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "next": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "continue",
+                                            "offer",
+                                            "later",
+                                            "stop"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^q[0-9]{1,3}$"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "tag",
+                                    "next"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "answers"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "avoid": {
@@ -70994,6 +71245,7 @@
                         "platforms",
                         "groupWords",
                         "steps",
+                        "pace",
                         "tone",
                         "samples",
                         "questions",
@@ -141260,6 +141512,26 @@
                                   ]
                                 }
                               },
+                              "pace": {
+                                "type": "object",
+                                "properties": {
+                                  "messageAfterDays": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 14
+                                  },
+                                  "followUpAfterDays": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 30
+                                  }
+                                },
+                                "required": [
+                                  "messageAfterDays",
+                                  "followUpAfterDays"
+                                ],
+                                "additionalProperties": false
+                              },
                               "tone": {
                                 "anyOf": [
                                   {
@@ -141282,12 +141554,76 @@
                                 }
                               },
                               "questions": {
-                                "maxItems": 10,
+                                "maxItems": 20,
                                 "type": "array",
                                 "items": {
-                                  "type": "string",
-                                  "minLength": 1,
-                                  "maxLength": 200
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^q[0-9]{1,3}$"
+                                    },
+                                    "text": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 200
+                                    },
+                                    "answers": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 80
+                                          },
+                                          "tag": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "next": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "enum": [
+                                                  "continue",
+                                                  "offer",
+                                                  "later",
+                                                  "stop"
+                                                ]
+                                              },
+                                              {
+                                                "type": "string",
+                                                "pattern": "^q[0-9]{1,3}$"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "tag",
+                                          "next"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "text",
+                                    "answers"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "avoid": {
@@ -141332,6 +141668,7 @@
                               "platforms",
                               "groupWords",
                               "steps",
+                              "pace",
                               "tone",
                               "samples",
                               "questions",

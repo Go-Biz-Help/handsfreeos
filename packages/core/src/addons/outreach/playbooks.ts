@@ -44,13 +44,61 @@ export const PLAYBOOK_STEPS = {
 export type PlaybookStep = keyof typeof PLAYBOOK_STEPS;
 export const PLAYBOOK_STEP_KEYS = Object.keys(PLAYBOOK_STEPS) as [PlaybookStep, ...PlaybookStep[]];
 
-const line = (max: number) =>
+/**
+ * What a conversation does after an answer, besides asking a question further down. The day's list and the AI read
+ * it to suggest the next message: a question, the offer, a follow-up later, or nothing more.
+ */
+export const ANSWER_NEXTS = {
+  continue: 'Ask the next question',
+  offer: 'Make the offer',
+  later: 'Check back later',
+  stop: 'Stop here',
+} as const;
+export type AnswerNext = keyof typeof ANSWER_NEXTS;
+export const ANSWER_NEXT_KEYS = Object.keys(ANSWER_NEXTS) as [AnswerNext, ...AnswerNext[]];
+
+/** A question's own name within its playbook, which answers point at: q1, q2… */
+const QUESTION_ID = /^q[0-9]{1,3}$/;
+const questionId = z.string().regex(QUESTION_ID, 'Pick a question from this playbook.');
+
+/** How fast the steps go. */
+export const PACE_LIMITS = {
+  messageAfterDays: { min: 0, max: 14, start: 1 },
+  followUpAfterDays: { min: 1, max: 30, start: 3 },
+} as const;
+const days = (k: keyof typeof PACE_LIMITS) =>
   z
-    .string()
-    .trim()
-    .min(1, 'Leave out empty lines.')
-    .max(max, `Keep each one under ${max} characters.`);
-const lines = (max: number, most: number) =>
+    .int('Use whole days.')
+    .min(PACE_LIMITS[k].min, `Use ${PACE_LIMITS[k].min} days or more.`)
+    .max(PACE_LIMITS[k].max, `Use ${PACE_LIMITS[k].max} days or fewer.`);
+
+/**
+ * How much a playbook holds: the most characters each part takes, and for a list, the most characters a line takes
+ * and how many lines. Saves are held to them, and the builder's boxes stop there.
+ */
+export const PLAYBOOK_LIMITS = {
+  name: 80,
+  offer: 300,
+  link: 500,
+  audience: 500,
+  area: 200,
+  tone: 500,
+  disclaimer: 500,
+  signs: { line: 160, most: 20 },
+  skip: { line: 160, most: 20 },
+  groupWords: { line: 80, most: 20 },
+  samples: { line: 1000, most: 10 },
+  avoid: { line: 80, most: 30 },
+  tags: { line: 40, most: 30 },
+  /** A question's words, and how many questions. */
+  questions: { line: 200, most: 20 },
+  /** An answer's words, and how many answers a question. */
+  answers: { line: 80, most: 6 },
+} as const;
+
+const line = (max: number, empty = 'Leave out empty lines.') =>
+  z.string().trim().min(1, empty).max(max, `Keep each one under ${max} characters.`);
+const lines = ({ line: max, most }: { readonly line: number; readonly most: number }) =>
   z.array(line(max)).max(most, `Up to ${most} of these.`);
 /** Words, or null for none: an empty answer is sent as null. */
 const words = (max: number) =>
@@ -63,44 +111,123 @@ const words = (max: number) =>
 const distinct = <T extends string>(list: readonly T[]) =>
   new Set(list.map((v) => v.toLowerCase())).size === list.length;
 
-/** A playbook's details, as its editor saves them and the extension and the AI read them. */
-export const PlaybookDetails = z.object({
-  goal: z.enum(PLAYBOOK_GOAL_KEYS, { error: 'Pick what the playbook is after.' }),
-  /** What's offered, in the business's words: "A 20-minute demo". */
-  offer: words(300),
-  /** Where people book or buy: a booking link. */
-  link: z
-    .url({ protocol: /^https?$/, error: 'Enter the full address, like https://example.com/book.' })
-    .max(500)
-    .nullable(),
-  /** Who it's for, in plain words. */
-  audience: words(500),
-  /** What says someone fits: "Owner" in their intro, posts about missed calls. */
-  signs: lines(160, 20),
-  /** Who to leave alone: competitors, group admins, current customers. */
-  skip: lines(160, 20),
-  /** Where they are, when it matters: "Austin and Round Rock". */
-  area: words(200),
-  platforms: z
-    .array(z.enum(PLATFORM_KEYS))
-    .min(1, 'Pick at least one place.')
-    .refine(distinct, 'Each place once.'),
-  /** What to search for when looking for groups: "small business owners". */
-  groupWords: lines(80, 20),
-  steps: z.array(z.enum(PLAYBOOK_STEP_KEYS)).refine(distinct, 'Each step once.'),
-  /** How it sounds: "Friendly, one owner to another. No hard sell." */
-  tone: words(500),
-  /** A few of the business's own messages, for the AI to sound like. */
-  samples: lines(1000, 10),
-  /** Questions to work into a chat: "Do you use a CRM?" */
-  questions: lines(200, 10),
-  /** Words never to use. */
-  avoid: lines(80, 30),
-  /** Anything every message must say, when the business has to. */
-  disclaimer: words(500),
-  /** The business's own tags the AI may put on people. Only these, never others. */
-  tags: lines(40, 30).refine(distinct, 'Each tag once.'),
+/** One answer someone might give: "Not really". It may add one of the playbook's tags, and says what's next. */
+export const PlaybookAnswer = z.object({
+  label: line(PLAYBOOK_LIMITS.answers.line, 'Write the answer, or take it out.'),
+  /** One of the playbook's own tags, or null for none. */
+  tag: line(PLAYBOOK_LIMITS.tags.line).nullable(),
+  /** What happens after it: one of ANSWER_NEXTS, or a question further down. */
+  next: z.union([z.enum(ANSWER_NEXT_KEYS), questionId]),
 });
+export type PlaybookAnswer = z.output<typeof PlaybookAnswer>;
+
+/**
+ * A question to work into a chat, with the answers people give to it. One with no answers is answered in the
+ * person's own words, and the conversation carries on to the next question.
+ */
+export const PlaybookQuestion = z.object({
+  id: questionId,
+  text: line(PLAYBOOK_LIMITS.questions.line, 'Write the question, or take it out.'),
+  answers: z
+    .array(PlaybookAnswer)
+    .max(PLAYBOOK_LIMITS.answers.most, `Up to ${PLAYBOOK_LIMITS.answers.most} answers a question.`),
+});
+export type PlaybookQuestion = z.output<typeof PlaybookQuestion>;
+
+/** A playbook's details, as its editor saves them and the extension and the AI read them. */
+export const PlaybookDetails = z
+  .object({
+    goal: z.enum(PLAYBOOK_GOAL_KEYS, { error: 'Pick what the playbook is after.' }),
+    /** What's offered, in the business's words: "A 20-minute demo". */
+    offer: words(PLAYBOOK_LIMITS.offer),
+    /** Where people book or buy: a booking link. */
+    link: z
+      .url({
+        protocol: /^https?$/,
+        error: 'Enter the full address, like https://example.com/book.',
+      })
+      .max(PLAYBOOK_LIMITS.link)
+      .nullable(),
+    /** Who it's for, in plain words. */
+    audience: words(PLAYBOOK_LIMITS.audience),
+    /** What says someone fits: "Owner" in their intro, posts about missed calls. */
+    signs: lines(PLAYBOOK_LIMITS.signs),
+    /** Who to leave alone: competitors, group admins, current customers. */
+    skip: lines(PLAYBOOK_LIMITS.skip),
+    /** Where they are, when it matters: "Austin and Round Rock". */
+    area: words(PLAYBOOK_LIMITS.area),
+    platforms: z
+      .array(z.enum(PLATFORM_KEYS))
+      .min(1, 'Pick at least one place.')
+      .refine(distinct, 'Each place once.'),
+    /** What to search for when looking for groups: "small business owners". */
+    groupWords: lines(PLAYBOOK_LIMITS.groupWords),
+    steps: z.array(z.enum(PLAYBOOK_STEP_KEYS)).refine(distinct, 'Each step once.'),
+    /** How fast: the first message this many days after they accept, a follow-up after this many quiet days. */
+    pace: z.object({
+      messageAfterDays: days('messageAfterDays'),
+      followUpAfterDays: days('followUpAfterDays'),
+    }),
+    /** How it sounds: "Friendly, one owner to another. No hard sell." */
+    tone: words(PLAYBOOK_LIMITS.tone),
+    /** A few of the business's own messages, for the AI to sound like. */
+    samples: lines(PLAYBOOK_LIMITS.samples),
+    /**
+     * The conversation, in the order it's asked: "Do you use a CRM?", with the answers people give and what each
+     * one leads to.
+     */
+    questions: z
+      .array(PlaybookQuestion)
+      .max(PLAYBOOK_LIMITS.questions.most, `Up to ${PLAYBOOK_LIMITS.questions.most} questions.`),
+    /** Words never to use. */
+    avoid: lines(PLAYBOOK_LIMITS.avoid),
+    /** Anything every message must say, when the business has to. */
+    disclaimer: words(PLAYBOOK_LIMITS.disclaimer),
+    /** The business's own tags the AI may put on people. Only these, never others. */
+    tags: lines(PLAYBOOK_LIMITS.tags).refine(distinct, 'Each tag once.'),
+  })
+  .superRefine((d, ctx) => {
+    const tags = new Set(d.tags.map((t) => t.toLowerCase()));
+    // Where each question is asked: the first with its name, so a second one is the one refused.
+    const at = new Map<string, number>();
+    d.questions.forEach((q, i) => at.set(q.id, at.get(q.id) ?? i));
+    d.questions.forEach((q, i) => {
+      if (at.get(q.id) !== i)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questions', i, 'id'],
+          message: 'Each question once.',
+        });
+      if (!distinct(q.answers.map((a) => a.label)))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questions', i, 'answers'],
+          message: 'Each answer once.',
+        });
+      q.answers.forEach((a, j) => {
+        if (a.tag !== null && !tags.has(a.tag.toLowerCase()))
+          ctx.addIssue({
+            code: 'custom',
+            path: ['questions', i, 'answers', j, 'tag'],
+            message: `“${a.tag}” isn’t one of this playbook’s tags. Add it under Tags, or pick another.`,
+          });
+        if (a.next in ANSWER_NEXTS) return;
+        const to = at.get(a.next);
+        if (to === undefined)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['questions', i, 'answers', j, 'next'],
+            message: 'That question isn’t in this playbook anymore. Pick what happens next again.',
+          });
+        else if (to <= i)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['questions', i, 'answers', j, 'next'],
+            message: 'An answer can only lead to a question further down.',
+          });
+      });
+    });
+  });
 export type PlaybookDetails = z.output<typeof PlaybookDetails>;
 
 /** A playbook with nothing filled in but Facebook. */
@@ -115,6 +242,10 @@ export const blankPlaybook = (): PlaybookDetails => ({
   platforms: ['facebook'],
   groupWords: [],
   steps: ['connect', 'engage', 'message', 'follow_up'],
+  pace: {
+    messageAfterDays: PACE_LIMITS.messageAfterDays.start,
+    followUpAfterDays: PACE_LIMITS.followUpAfterDays.start,
+  },
   tone: null,
   samples: [],
   questions: [],
@@ -153,7 +284,37 @@ const TEMPLATES = {
       groupWords: ['small business owners', 'business owners'],
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
-      questions: ['Do you use a CRM?', 'Which one?', 'Is it doing what you need?'],
+      questions: [
+        {
+          id: 'q1',
+          text: 'Do you use a CRM?',
+          answers: [
+            { label: 'Yes', tag: 'Uses a CRM', next: 'continue' },
+            { label: 'No', tag: null, next: 'q4' },
+            { label: 'What’s a CRM?', tag: null, next: 'q4' },
+            { label: 'I don’t run a business', tag: 'Not a fit', next: 'stop' },
+          ],
+        },
+        { id: 'q2', text: 'Which one?', answers: [] },
+        {
+          id: 'q3',
+          text: 'Is it doing what you need?',
+          answers: [
+            { label: 'Yes, it’s fine', tag: 'Happy with CRM', next: 'later' },
+            { label: 'Not really', tag: 'Unhappy with CRM', next: 'offer' },
+            { label: 'It’s too much work', tag: 'Unhappy with CRM', next: 'offer' },
+          ],
+        },
+        {
+          id: 'q4',
+          text: 'How do you keep track of follow-ups now?',
+          answers: [
+            { label: 'A spreadsheet or notes', tag: null, next: 'offer' },
+            { label: 'I don’t, really', tag: null, next: 'offer' },
+            { label: 'Someone on my team does it', tag: null, next: 'later' },
+          ],
+        },
+      ],
       tags: [
         'Business owner',
         'Uses a CRM',
@@ -175,3 +336,96 @@ export const PLAYBOOK_TEMPLATE_KEYS = Object.keys(PLAYBOOK_TEMPLATES) as [
   PlaybookTemplateKey,
   ...PlaybookTemplateKey[],
 ];
+
+/**
+ * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
+ * lines of words with no answers, and it had no pace. Anything else passes through for the schema to judge.
+ */
+export function upgradePlaybookDetails(stored: unknown): unknown {
+  if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
+  const d = stored as Record<string, unknown>;
+  const old = Array.isArray(d['questions']) && d['questions'].some((q) => typeof q === 'string');
+  if (!old && d['pace'] !== undefined) return stored;
+  return {
+    ...d,
+    questions: old
+      ? (d['questions'] as unknown[]).map((q, i) =>
+          typeof q === 'string' ? { id: `q${i + 1}`, text: q, answers: [] } : q,
+        )
+      : d['questions'],
+    pace: d['pace'] ?? blankPlaybook().pace,
+  };
+}
+
+/** A name for a new question: one more than the highest so far. */
+export function nextQuestionId(questions: readonly Pick<PlaybookQuestion, 'id'>[]): string {
+  const most = Math.max(0, ...questions.map((q) => Number(q.id.slice(1)) || 0));
+  return `q${most + 1}`;
+}
+
+/**
+ * The questions named q1, q2… in the order they're asked, with every answer still leading where it did. Saving
+ * does this, so names stay short however often questions come and go.
+ */
+export function renumberQuestions(questions: readonly PlaybookQuestion[]): PlaybookQuestion[] {
+  const name = new Map(questions.map((q, i) => [q.id, `q${i + 1}`]));
+  return questions.map((q, i) => ({
+    ...q,
+    id: `q${i + 1}`,
+    answers: q.answers.map((a) => ({ ...a, next: name.get(a.next) ?? a.next })),
+  }));
+}
+
+/** What an answer leads to, in words: "Make the offer", or "Ask “Which one?”". */
+export function answerNextLabel(
+  next: string,
+  questions: readonly Pick<PlaybookQuestion, 'id' | 'text'>[],
+): string {
+  if (next in ANSWER_NEXTS) return ANSWER_NEXTS[next as AnswerNext];
+  const q = questions.find((x) => x.id === next);
+  return q ? `Ask “${q.text}”` : 'A question that isn’t here anymore';
+}
+
+/** Words the playbook builder offers to tap, so nobody starts from an empty box. */
+export const PLAYBOOK_SUGGESTIONS = {
+  offers: {
+    demo: ['A 20-minute demo', 'A free demo'],
+    consult: ['A free 15-minute consultation', 'A free consultation'],
+    estimate: ['A free estimate', 'A free quote'],
+    appointment: ['An appointment', 'A first visit'],
+    call: ['A quick call', 'A 15-minute call'],
+    sale: ['A special offer', 'A free trial'],
+    recruit: ['A quick chat about the job'],
+    partner: ['A call about working together'],
+    community: ['An invite to join'],
+  } satisfies Record<PlaybookGoal, readonly string[]>,
+  signs: [
+    '“Owner”, “Founder” or “CEO” in their intro',
+    'Runs a business Page',
+    'Posts about their business',
+    'Lives or works in your area',
+    'Asked for a recommendation',
+    'Likes or comments on your posts',
+  ],
+  skip: [
+    'Friends and family',
+    'Current customers',
+    'Competitors',
+    'Group admins and moderators',
+    'People selling the same thing',
+    'Anyone who said no',
+  ],
+  tone: [
+    'Friendly',
+    'Curious',
+    'Warm',
+    'Direct',
+    'Professional',
+    'Casual',
+    'Short messages',
+    'No hard sell',
+  ],
+  avoid: ['Act now', 'Limited time', 'Guaranteed', 'Buy now', 'Click here'],
+  tags: ['Prospect', 'Interested', 'Not interested', 'Not a fit', 'Friend or family', 'Customer'],
+  answers: ['Yes', 'No', 'Not sure', 'Not really', 'Not now'],
+} as const;
