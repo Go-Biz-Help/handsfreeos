@@ -6,14 +6,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   AI_SETUP_FACT_TAG,
+  AI_SETUP_FOUND_KEY,
+  AI_SETUP_FOUND_LIMITS,
   AI_SETUP_NEW_CALENDAR,
+  AI_SETUP_READ_AGAIN_MS,
+  AI_SETUP_READ_ASKED_KEY,
+  AI_SETUP_READING_MS,
   AI_SETUP_STEPS,
   AI_SETUP_TONE_TEXTS,
   AiSetupAnswers,
+  aiSetupFoundFrom,
+  aiSetupFoundOf,
   aiSetupNextStep,
   aiSetupOf,
   aiSetupPreviousStep,
   aiSetupProblems,
+  aiSetupReadDue,
+  aiSetupReading,
   aiSetupSteps,
   aiSetupSummary,
   aiSetupTestQuestions,
@@ -21,12 +30,14 @@ import {
   asksAboutWhoSomeoneIs,
   emptyKnowledgeProfile,
   factAnswersOf,
+  INDUSTRIES,
   laterAiSetupStep,
   planAiSetup,
   quickFactsFor,
   resumeAiSetup,
   SETUP_KIND_INFO,
   SETUP_KINDS,
+  setupFor,
   setupKindOf,
   startingAiSetupAnswers,
   storedAiSetup,
@@ -35,6 +46,8 @@ import {
   toneOfProfile,
   zipCodesOnly,
   type AiSetupAnswersInput,
+  type AiSetupFound,
+  type AiSetupSiteReading,
   type AiSetupState,
   type TeammatePatch,
 } from '../src';
@@ -69,6 +82,8 @@ function business(patch: Partial<AiSetupState> = {}): AiSetupState {
     number: true,
     textingReady: true,
     scan: { state: 'none', pending: 0 },
+    found: null,
+    reading: false,
     ...patch,
   };
 }
@@ -84,27 +99,139 @@ function withTeammate(patch: TeammatePatch = {}, state: Partial<AiSetupState> = 
 
 const answers = (patch: AiSetupAnswersInput = {}): AiSetupAnswers => AiSetupAnswers.parse(patch);
 
+const SITE = 'https://lonestarhvac.com';
+
+/** What the model said about the fixture's pages, repeats, slips and all. */
+const READING: AiSetupSiteReading = {
+  description: '  We repair and replace heating and air conditioning\n for homes across Austin. ',
+  services: [
+    { name: 'AC repair', description: 'Same day when you call before noon.' },
+    { name: ' ac  REPAIR ', description: 'The same service again.' },
+    { name: '   ', description: 'A service without a name.' },
+    { name: 'Furnace installation', description: 'With a ten-year parts warranty. '.repeat(20) },
+    ...Array.from({ length: 15 }, (_, i) => ({ name: `Service ${i + 1}`, description: '' })),
+  ],
+  area: 'Austin, Round Rock and Pflugerville',
+  hours: [
+    ...[1, 2, 3, 4, 5].map((day) => ({ day, start: '7:00', end: '18:00' })),
+    { day: 6, start: '08:00', end: '14:00' },
+  ],
+  facts: [
+    { key: 'emergency', answer: 'yes' },
+    { key: 'warranty', answer: ' YES' },
+    // A second answer for the same question: the first counts.
+    { key: 'emergency', answer: 'no' },
+    { key: 'financing', answer: 'maybe' },
+    // Not a question this business is asked.
+    { key: 'walk_ins', answer: 'yes' },
+  ],
+  questions: [
+    { question: 'What needs fixing?', kind: 'choice', options: ['Cooling', 'Heating', 'Both'] },
+    { question: 'Do you have kids at home?', kind: 'yes_no', options: [] },
+    { question: 'What’s the address?', kind: 'text', options: [] },
+    { question: 'what needs  fixing?', kind: 'text', options: [] },
+    { question: 'Do you own the home?', kind: 'yes_no', options: ['Yes', 'No'] },
+    { question: 'When should we come?', kind: 'whenever', options: [] },
+    { question: 'Which unit?', kind: 'choice', options: ['Upstairs'] },
+  ],
+};
+
+/** The quick facts an HVAC business is asked. */
+const HVAC_FACTS = quickFactsFor('hvac').map((f) => f.key);
+
+const found = (patch: Partial<AiSetupFound> = {}): AiSetupFound => ({
+  ...aiSetupFoundFrom(READING, SITE, HVAC_FACTS),
+  at: '2026-10-06T00:00:00.000Z',
+  ...patch,
+});
+
 describe('kinds of business', () => {
   it('come from the industry, with anything the lists don’t name as other', () => {
     expect(setupKindOf('plumbing')).toBe('home');
     expect(setupKindOf('hair_salon')).toBe('salon');
-    expect(setupKindOf('pet_grooming')).toBe('salon');
-    expect(setupKindOf('dental')).toBe('office');
-    expect(setupKindOf('law_firm')).toBe('office');
+    expect(setupKindOf('med_spa')).toBe('salon');
+    expect(setupKindOf('gym')).toBe('fitness');
+    expect(setupKindOf('dental')).toBe('health');
+    expect(setupKindOf('home_care')).toBe('health');
+    expect(setupKindOf('pet_grooming')).toBe('pets');
+    expect(setupKindOf('boat_rv')).toBe('auto');
+    expect(setupKindOf('childcare')).toBe('lessons');
     expect(setupKindOf('real_estate')).toBe('real_estate');
+    expect(setupKindOf('property_management')).toBe('property');
     expect(setupKindOf('insurance')).toBe('insurance');
-    expect(setupKindOf('food_truck')).toBe('other');
+    expect(setupKindOf('law_firm')).toBe('legal_money');
+    expect(setupKindOf('mortgage')).toBe('legal_money');
+    expect(setupKindOf('courier')).toBe('professional');
+    expect(setupKindOf('florist')).toBe('events');
+    expect(setupKindOf('food_truck')).toBe('food');
+    expect(setupKindOf('vacation_rentals')).toBe('stays');
+    expect(setupKindOf('self_storage')).toBe('rentals');
+    expect(setupKindOf('online_store')).toBe('retail');
+    expect(setupKindOf('church')).toBe('community');
+    expect(setupKindOf('other')).toBe('other');
+    expect(setupKindOf('not_a_kind')).toBe('other');
     expect(setupKindOf(null)).toBe('other');
   });
 
-  it('ask health offices about patients and insurance, and other offices about clients', () => {
+  it('cover every industry in the list', () => {
+    const kinds = new Set(INDUSTRIES.map((i) => setupKindOf(i.id)));
+    for (const i of INDUSTRIES) if (i.id !== 'other') expect(setupKindOf(i.id)).not.toBe('other');
+    expect([...kinds].sort()).toEqual([...SETUP_KINDS].sort());
+  });
+
+  it('ask patient care about patients and insurance, and other practices about clients', () => {
     const keys = (industry: string) => quickFactsFor(industry).map((f) => f.key);
     expect(keys('dental')).toContain('new_patients');
     expect(keys('dental')).toContain('takes_insurance');
     expect(keys('dental')).not.toContain('new_clients');
+    expect(keys('home_care')).toEqual([
+      'new_clients',
+      'takes_insurance',
+      'payment_plans',
+      'assessment',
+      'spanish',
+    ]);
     expect(keys('law_firm')).toContain('new_clients');
     expect(keys('law_firm')).not.toContain('new_patients');
     expect(keys('law_firm')).not.toContain('takes_insurance');
+  });
+
+  it('ask each industry the quick facts that fit it', () => {
+    const keys = (industry: string) => quickFactsFor(industry).map((f) => f.key);
+    expect(keys('hvac')).toEqual([
+      'free_estimates',
+      'financing',
+      'emergency',
+      'warranty',
+      'licensed',
+      'same_day',
+      'spanish',
+    ]);
+    expect(keys('house_cleaning')).toEqual([
+      'free_estimates',
+      'regular_visits',
+      'guarantee',
+      'licensed',
+      'same_day',
+      'spanish',
+    ]);
+    expect(keys('childcare')).toEqual([
+      'openings',
+      'state_licensed',
+      'meals',
+      'part_time',
+      'spanish',
+    ]);
+    expect(keys('tutoring')).toEqual(['free_lesson', 'online', 'groups', 'beginners', 'spanish']);
+    expect(keys('towing')).toEqual(['around_the_clock', 'roadside', 'spanish']);
+    expect(keys('restaurant')).toContain('reservations');
+    expect(keys('catering')).not.toContain('catering');
+    expect(keys('self_storage')).toEqual(['deposit', 'climate', 'access_24', 'spanish']);
+    // Fair housing: no pets still welcomes assistance animals.
+    for (const industry of ['property_management', 'vacation_rentals'])
+      expect(quickFactsFor(industry).find((f) => f.key === 'pets')?.no).toMatch(
+        /Assistance animals are always welcome/,
+      );
   });
 
   it('each ask their quick facts once, ending with Spanish', () => {
@@ -114,15 +241,22 @@ describe('kinds of business', () => {
       expect(new Set(facts.map((f) => f.key)).size).toBe(facts.length);
       expect(new Set(facts.map((f) => f.title)).size).toBe(facts.length);
     }
+    for (const { id } of INDUSTRIES) {
+      const facts = quickFactsFor(id);
+      expect(facts.length, id).toBeGreaterThanOrEqual(3);
+      expect(facts.length, id).toBeLessThanOrEqual(9);
+      expect(facts.at(-1)?.key).toBe('spanish');
+    }
   });
 
   it('start from qualifying questions that never ask who someone is, and send without apostrophes', () => {
-    for (const kind of SETUP_KINDS) {
-      const questions = SETUP_KIND_INFO[kind].questions;
+    for (const { id } of INDUSTRIES) {
+      const { questions } = setupFor(id);
       expect(questions.length).toBeGreaterThan(0);
+      expect(new Set(questions.map((q) => q.id)).size).toBe(questions.length);
       for (const q of questions) {
         const words = [q.question, ...(q.options ?? [])].join(' ');
-        expect(asksAboutWhoSomeoneIs(words)).toBe(false);
+        expect(asksAboutWhoSomeoneIs(words, id), q.question).toBe(false);
         expect(words).not.toMatch(/[’']/);
       }
       // Each reads as a teammate's question.
@@ -133,6 +267,28 @@ describe('kinds of business', () => {
     }
   });
 
+  it('start childcare, mortgage and storage from questions of their own', () => {
+    const ids = (industry: string) => setupFor(industry).questions.map((q) => q.id);
+    expect(ids('tutoring')).toEqual(['learn', 'student', 'times', 'start']);
+    expect(ids('childcare')).toEqual(['age', 'days', 'start']);
+    expect(ids('mortgage')).toEqual(['goal', 'close', 'agent']);
+    expect(ids('self_storage')).toEqual(['size', 'when', 'how_long']);
+    expect(ids('event_planning')).toContain('where');
+    expect(ids('event_venue')).not.toContain('where');
+  });
+
+  it('name the booking calendar for the kind of business', () => {
+    expect(setupFor('hvac').calendar).toBe('Service calls');
+    expect(setupFor('gym').calendar).toBe('Sessions');
+    expect(setupFor('music_lessons').calendar).toBe('Lessons');
+    expect(setupFor('childcare').calendar).toBe('Tours');
+    expect(setupFor('law_firm').calendar).toBe('Consultations');
+    expect(setupFor('property_management').calendar).toBe('Showings');
+    expect(setupFor('restaurant').calendar).toBe('Reservations');
+    expect(setupFor('bakery').calendar).toBe('Appointments');
+    expect(setupFor(null).calendar).toBe('Appointments');
+  });
+
   it('spot a question about who someone is, as whole words only', () => {
     expect(asksAboutWhoSomeoneIs('Do you have kids?')).toBe(true);
     expect(asksAboutWhoSomeoneIs('Which school district do you want?')).toBe(true);
@@ -141,12 +297,30 @@ describe('kinds of business', () => {
     expect(asksAboutWhoSomeoneIs('What ZIP code is the job in?')).toBe(false);
   });
 
-  it('hand insurance claims and coverage to a person', () => {
-    const state = business({ industry: 'insurance' });
-    const config = teammateFromAiSetup(state, startingAiSetupAnswers(state));
-    expect(config.handOff.sensitiveTopics).toEqual(
+  it('let a school ask about the children it teaches, and a church say church', () => {
+    expect(asksAboutWhoSomeoneIs('Which school does your child go to?', 'tutoring')).toBe(false);
+    expect(asksAboutWhoSomeoneIs('Are the lessons for kids or adults?', 'music_lessons')).toBe(
+      false,
+    );
+    expect(asksAboutWhoSomeoneIs('Which school does your child go to?', 'real_estate')).toBe(true);
+    expect(asksAboutWhoSomeoneIs('Is your family religious?', 'childcare')).toBe(true);
+    expect(asksAboutWhoSomeoneIs('Have you visited our church before?', 'church')).toBe(false);
+    expect(asksAboutWhoSomeoneIs('Have you visited our church before?', 'event_venue')).toBe(true);
+  });
+
+  it('hand insurance claims and coverage, medications and test results, and prayer to a person', () => {
+    const topics = (industry: string) => {
+      const state = business({ industry });
+      return teammateFromAiSetup(state, startingAiSetupAnswers(state)).handOff.sensitiveTopics;
+    };
+    expect(topics('insurance')).toEqual(
       expect.arrayContaining(['Insurance claims', 'What a policy covers']),
     );
+    expect(topics('dental')).toEqual(
+      expect.arrayContaining(['Medication questions', 'Test results']),
+    );
+    expect(topics('church')).toEqual(expect.arrayContaining(['Prayer requests']));
+    expect(topics('hvac')).toEqual([]);
   });
 });
 
@@ -344,8 +518,77 @@ describe('where the answers start', () => {
     ).toEqual([{ name: 'Tune-up', description: '' }]);
   });
 
+  it('fills what the business hasn’t said from what Ava read on its website', () => {
+    const a = startingAiSetupAnswers(business({ website: SITE, found: found() }));
+    expect(a.description).toBe(
+      'We repair and replace heating and air conditioning for homes across Austin.',
+    );
+    expect(a.services.slice(0, 2).map((x) => x.name)).toEqual([
+      'AC repair',
+      'Furnace installation',
+    ]);
+    expect(a.area).toBe('Austin, Round Rock and Pflugerville');
+    expect(a.openHours).toContainEqual({ day: 1, start: '07:00', end: '18:00' });
+    expect(a.questions.map((q) => q.question)).toEqual([
+      'What needs fixing?',
+      'Do you own the home?',
+      'When should we come?',
+    ]);
+    // What the business has said, and the questions its teammate asks, come first.
+    const profile = {
+      ...emptyKnowledgeProfile(),
+      description: 'Our own words.',
+      serviceArea: 'Katy',
+    };
+    const said = startingAiSetupAnswers(
+      withTeammate(
+        {
+          qualify: { questions: [{ id: 'roof', question: 'How old is the roof?', kind: 'text' }] },
+        },
+        { website: SITE, found: found(), profile, openHours: WEEKDAYS_8_TO_5 },
+      ),
+    );
+    expect(said).toMatchObject({ description: 'Our own words.', area: 'Katy' });
+    expect(said.openHours).toEqual(WEEKDAYS_8_TO_5);
+    expect(said.questions.map((q) => q.id)).toEqual(['roof']);
+    // Nothing read: the kind's starters, and the usual hours.
+    const none = startingAiSetupAnswers(
+      business({ found: found({ questions: [], openHours: null }) }),
+    );
+    expect(none.questions).toEqual(startingAiSetupAnswers(business()).questions);
+    expect(none.openHours).toEqual(startingAiSetupAnswers(business()).openHours);
+  });
+
+  it('answers the quick facts the website answers, unless the business has its own answer', () => {
+    expect(startingAiSetupAnswers(business({ website: SITE, found: found() })).facts).toEqual({
+      emergency: 'yes',
+      warranty: 'yes',
+    });
+    // What quick setup saved before stands, and a fact a person rewrote is theirs.
+    const facts = [
+      {
+        id: uid(60),
+        title: 'Emergency service',
+        body: 'We don’t take emergency calls.',
+        tags: [AI_SETUP_FACT_TAG],
+        status: 'published' as const,
+      },
+      {
+        id: uid(61),
+        title: 'Warranty',
+        body: 'Two years on parts and labor.',
+        tags: [AI_SETUP_FACT_TAG],
+        status: 'published' as const,
+      },
+    ];
+    expect(
+      startingAiSetupAnswers(business({ website: SITE, found: found(), facts })).facts,
+    ).toEqual({ emergency: 'no' });
+  });
+
   it('keeps a tone of voice a person wrote', () => {
-    expect(toneOfProfile('', 'office')).toBe('professional');
+    expect(toneOfProfile('', 'health')).toBe('professional');
+    expect(toneOfProfile('', 'pets')).toBe('friendly');
     expect(toneOfProfile(AI_SETUP_TONE_TEXTS.short, 'home')).toBe('short');
     expect(toneOfProfile('Like a Texan neighbor', 'home')).toBe('keep');
   });
@@ -398,6 +641,117 @@ describe('where the answers start', () => {
       financing: 'no',
       licensed: 'no',
     });
+  });
+});
+
+describe('what Ava read on the website', () => {
+  it('keeps the services once each, named, trimmed and at most twelve', () => {
+    const { services } = aiSetupFoundFrom(READING, SITE);
+    expect(services).toHaveLength(AI_SETUP_FOUND_LIMITS.services);
+    expect(services[0]).toEqual({
+      name: 'AC repair',
+      description: 'Same day when you call before noon.',
+    });
+    expect(services[1]!.name).toBe('Furnace installation');
+    expect(services[1]!.description.length).toBeLessThanOrEqual(
+      AI_SETUP_FOUND_LIMITS.serviceDescription,
+    );
+    expect(services[1]!.description.endsWith('…')).toBe(true);
+    expect(services.filter((x) => x.name.toLowerCase() === 'ac repair')).toHaveLength(1);
+  });
+
+  it('keeps questions that never ask who someone is, send without apostrophes, and each once', () => {
+    const { questions } = aiSetupFoundFrom(READING, SITE);
+    expect(questions).toEqual([
+      expect.objectContaining({
+        id: 'what_needs_fixing',
+        question: 'What needs fixing?',
+        kind: 'choice',
+        options: ['Cooling', 'Heating', 'Both'],
+      }),
+      expect.objectContaining({ id: 'do_you_own_the_home', kind: 'yes_no', options: [] }),
+      // A kind it doesn't know is a question answered in words.
+      expect.objectContaining({ id: 'when_should_we_come', kind: 'text' }),
+    ]);
+    const many = aiSetupFoundFrom(
+      {
+        ...READING,
+        questions: Array.from({ length: 9 }, (_, i) => ({
+          question: `Question number ${i + 1}?`,
+          kind: 'text',
+          options: [],
+        })),
+      },
+      SITE,
+    );
+    expect(many.questions).toHaveLength(AI_SETUP_FOUND_LIMITS.questions);
+  });
+
+  it('keeps open hours only when they can be the business’s open hours', () => {
+    expect(aiSetupFoundFrom(READING, SITE).openHours).toEqual([
+      ...[1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '18:00' })),
+      { day: 6, start: '08:00', end: '14:00' },
+    ]);
+    const hours = (h: AiSetupSiteReading['hours']) =>
+      aiSetupFoundFrom({ ...READING, hours: h }, SITE).openHours;
+    expect(hours([])).toBeNull();
+    expect(hours([{ day: 1, start: '9 AM', end: '5 PM' }])).toBeNull();
+    expect(hours([{ day: 8, start: '09:00', end: '17:00' }])).toBeNull();
+    expect(
+      hours([
+        { day: 1, start: '08:00', end: '12:00' },
+        { day: 1, start: '11:00', end: '17:00' },
+      ]),
+    ).toBeNull();
+  });
+
+  it('keeps the questions about children for a school, and drops them for anyone else', () => {
+    const kids = (industry: string | null) =>
+      aiSetupFoundFrom(READING, SITE, [], industry).questions.map((q) => q.question);
+    expect(kids('tutoring')).toContain('Do you have kids at home?');
+    expect(kids('hvac')).not.toContain('Do you have kids at home?');
+    expect(kids(null)).not.toContain('Do you have kids at home?');
+  });
+
+  it('keeps the quick facts the website answers: only the ones asked, yes or no, the first answer each', () => {
+    expect(found().facts).toEqual({ emergency: 'yes', warranty: 'yes' });
+    expect(aiSetupFoundFrom(READING, SITE).facts).toEqual({});
+  });
+
+  it('is being read for a little while after it’s asked for, until it’s kept', () => {
+    const now = new Date('2026-10-06T00:30:00.000Z');
+    const asked = (ago: number, url = SITE) => ({
+      url: SITE,
+      settings: {
+        [AI_SETUP_READ_ASKED_KEY]: { url, at: new Date(now.getTime() - ago).toISOString() },
+      },
+    });
+    const read = {
+      url: SITE,
+      settings: { ...asked(1_000).settings, [AI_SETUP_FOUND_KEY]: found() },
+    };
+    expect(aiSetupReading(asked(1_000), now)).toBe(true);
+    expect(aiSetupReading(asked(AI_SETUP_READING_MS), now)).toBe(false);
+    expect(aiSetupReading(asked(1_000, 'https://lonestarhvac.net'), now)).toBe(false);
+    expect(aiSetupReading({ url: SITE, settings: {} }, now)).toBe(false);
+    expect(aiSetupReading(read, now)).toBe(false);
+    // Asked again only when nothing came of it for a while.
+    expect(aiSetupReadDue(asked(AI_SETUP_READING_MS), now)).toBe(false);
+    expect(aiSetupReadDue(asked(AI_SETUP_READ_AGAIN_MS), now)).toBe(true);
+    expect(aiSetupReadDue({ url: SITE, settings: null }, now)).toBe(true);
+    expect(aiSetupReadDue(read, now)).toBe(false);
+  });
+
+  it('counts only while that address is still the website', () => {
+    const kept = found();
+    const settings = { other: true, [AI_SETUP_FOUND_KEY]: kept };
+    expect(aiSetupFoundOf({ url: SITE, settings })).toEqual(kept);
+    expect(aiSetupFoundOf({ url: 'https://lonestarhvac.net', settings })).toBeNull();
+    expect(aiSetupFoundOf({ url: SITE, settings: {} })).toBeNull();
+    expect(aiSetupFoundOf({ url: SITE, settings: null })).toBeNull();
+    expect(
+      aiSetupFoundOf({ url: SITE, settings: { [AI_SETUP_FOUND_KEY]: 'nonsense' } }),
+    ).toBeNull();
   });
 });
 
@@ -626,5 +980,24 @@ describe('what quick setup says back', () => {
       'Are you open on Saturday?',
       'Are you a real person?',
     ]);
+  });
+
+  it('asks the test chat’s questions in the words of the kind of business', () => {
+    const first = (industry: string, patch: AiSetupAnswersInput) =>
+      aiSetupTestQuestions(business({ industry }), answers({ openHours: [], ...patch }));
+    expect(first('insurance', { jobs: ['qualify'], area: 'Texas and Oklahoma' })).toEqual([
+      'Can you insure me in Texas?',
+      'I need a quote. Can you help?',
+      'Are you a real person?',
+    ]);
+    expect(first('online_store', { jobs: ['answer'], area: 'Canada and the US' })[0]).toBe(
+      'Do you ship to Canada?',
+    );
+    expect(first('childcare', { jobs: ['book'], area: '12 Lake Rd, Naperville' })).toEqual([
+      'Where are you located?',
+      'Can we come for a tour next week?',
+      'Are you a real person?',
+    ]);
+    expect(first('restaurant', { jobs: ['book'] })[0]).toBe('Can I book a table for Friday?');
   });
 });

@@ -824,7 +824,7 @@ export function immediateHandOff(rc: RunContext): HandOff | null {
       };
   }
   for (const t of texts) {
-    const topic = sensitiveTopic(t, rc.config.handOff.sensitiveTopics);
+    const topic = sensitiveTopic(t, rc.config.handOff.sensitiveTopics, rc.workspace.industry);
     if (topic)
       return {
         reason: SENSITIVE_REASONS[topic.kind],

@@ -8,6 +8,8 @@
  *   profile, facts and answers, services, a booking calendar, a service area and the website chat. Run again with
  *   nothing changed, it changes nothing.
  * - It's for those who may change the teammate, and refuses answers that started from older teammate settings.
+ * - **What Ava read on the website** is asked for once per address (again only when nothing came of it), kept with
+ *   the website by the worker alone, and is where the screens start for what the business hasn't said.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -17,10 +19,11 @@ import type { z } from 'zod';
 import { AI_SETUP_FACT_TAG, AiSetupAnswers } from '../src/ai-setup/index';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
-import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
+import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import {
   aiSetupFinish,
   aiSetupGet,
+  aiSetupNoteFound,
   aiSetupSave,
   organizationCreate,
   workspaceUpdate,
@@ -28,6 +31,7 @@ import {
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
+const worker = () => testDbs().worker.db;
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -138,6 +142,7 @@ describe('ai_setup.save', () => {
     );
     expect(w).toEqual({ name: 'Setup HVAC', industry: 'hvac' });
     expect((await settingsOf(ws))['website']).toBe('https://setuphvac.com/');
+    expect(await eventCount(ws, 'ai_setup.read_requested')).toBe(1);
 
     const again = await run(
       aiSetupSave,
@@ -155,6 +160,7 @@ describe('ai_setup.save', () => {
       sql`select count(*)::int as n from app.knowledge_scans where workspace_id = ${ws}`,
     );
     expect(scans!.n).toBe(1);
+    expect(await eventCount(ws, 'ai_setup.read_requested')).toBe(1);
   });
 
   it('picks again what the kind of business picks, after the kind changed', async () => {
@@ -371,6 +377,126 @@ describe('ai_setup.finish', () => {
     );
     await expectHfos(
       () => run(aiSetupFinish, { workspaceId: ws, answers: r.answers, baseRevision: 2 }, marco),
+      'forbidden',
+    );
+  });
+});
+
+describe('what Ava read on the website', () => {
+  const WEBSITE = 'https://readsite.example/';
+  const READ = {
+    url: WEBSITE,
+    description: 'We fix heating and cooling across Austin.',
+    services: [{ name: 'AC repair', description: 'Same day when you call before noon.' }],
+    area: 'Austin and Round Rock',
+    openHours: [{ day: 1, start: '07:00', end: '18:00' }],
+    facts: { emergency: 'yes', financing: 'no' },
+    questions: [
+      {
+        id: 'need',
+        question: 'What needs fixing?',
+        kind: 'choice',
+        options: ['Heating', 'Cooling'],
+      },
+    ],
+  };
+  let biz: { ws: string; org: string; sourceId: string };
+  const system = (): SystemActor => ({
+    type: 'system',
+    workspaceId: biz.ws,
+    organizationId: biz.org,
+    onBehalfOf: dale.id,
+  });
+  const note = (found: unknown) =>
+    executeCommand(
+      worker(),
+      aiSetupNoteFound,
+      { workspaceId: biz.ws, sourceId: biz.sourceId, found },
+      system(),
+      { ...meta(), channel: 'worker' },
+    ).then((r) => r.output);
+  const saveFirstScreen = async () => {
+    const { answers } = await get(dale, biz.ws);
+    await run(
+      aiSetupSave,
+      { workspaceId: biz.ws, step: 'business', answers, business: { website: 'readsite.example' } },
+      dale,
+    );
+  };
+  /** As if it was asked longer ago than it waits before asking again. */
+  const askedLongAgo = () =>
+    rows(
+      admin(),
+      sql`update app.knowledge_sources
+          set settings = jsonb_set(settings, '{aiSetupReadAsked,at}', to_jsonb(${new Date(Date.now() - 11 * 60_000).toISOString()}::text))
+          where id = ${biz.sourceId}`,
+    );
+
+  beforeAll(async () => {
+    const out = await run(
+      organizationCreate,
+      { businessName: 'Read Site HVAC', industry: 'hvac' },
+      dale,
+    );
+    biz = { ws: out.workspaceId, org: out.organizationId, sourceId: '' };
+    await saveFirstScreen();
+    const [src] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.knowledge_sources where workspace_id = ${biz.ws}`,
+    );
+    biz.sourceId = src!.id;
+  });
+
+  it('is asked for once per address, and again only when nothing came of it', async () => {
+    // The screens wait for it a little while, then ask instead.
+    expect((await get(dale, biz.ws)).state.reading).toBe(true);
+    const [asked] = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events where workspace_id = ${biz.ws} and event_type = 'ai_setup.read_requested'`,
+    );
+    expect(asked!.payload).toMatchObject({
+      sourceId: biz.sourceId,
+      url: WEBSITE,
+      requestedBy: dale.id,
+    });
+    await saveFirstScreen();
+    expect(await eventCount(biz.ws, 'ai_setup.read_requested')).toBe(1);
+    // The site was down, or no AI was set up: the first screen asks again a while later.
+    await askedLongAgo();
+    expect((await get(dale, biz.ws)).state.reading).toBe(false);
+    await saveFirstScreen();
+    expect(await eventCount(biz.ws, 'ai_setup.read_requested')).toBe(2);
+  });
+
+  it('is kept with the website, and the screens start from it', async () => {
+    expect(await note(READ)).toEqual({ kept: true });
+    expect(await eventCount(biz.ws, 'ai_setup.found')).toBe(1);
+    const r = await get(dale, biz.ws);
+    expect(r.state.found).toMatchObject({ url: WEBSITE, services: [{ name: 'AC repair' }] });
+    expect(r.state.reading).toBe(false);
+    expect(r.starting).toMatchObject({
+      description: 'We fix heating and cooling across Austin.',
+      services: [{ name: 'AC repair', description: 'Same day when you call before noon.' }],
+      area: 'Austin and Round Rock',
+      openHours: READ.openHours,
+      facts: { emergency: 'yes', financing: 'no' },
+    });
+    expect(r.starting.questions.map((q) => q.id)).toEqual(['need']);
+    // Read once is enough: the first screen doesn't ask again, however long it's been.
+    await askedLongAgo();
+    await saveFirstScreen();
+    expect(await eventCount(biz.ws, 'ai_setup.read_requested')).toBe(2);
+  });
+
+  it('keeps nothing for an address that isn’t the website any more', async () => {
+    expect(await note({ ...READ, url: 'https://elsewhere.example/' })).toEqual({ kept: false });
+    expect((await get(dale, biz.ws)).state.found?.url).toBe(WEBSITE);
+  });
+
+  it('is written by the worker alone', async () => {
+    await expectHfos(
+      () =>
+        run(aiSetupNoteFound, { workspaceId: biz.ws, sourceId: biz.sourceId, found: READ }, dale),
       'forbidden',
     );
   });

@@ -359,6 +359,7 @@ describe('registry', () => {
       'ai_teammate.retry',
       'ai_setup.save',
       'ai_setup.finish',
+      'ai_setup.note_found',
       'appointment.book_for_customer',
       'attendee.reschedule_for_customer',
       'attendee.cancel_for_customer',

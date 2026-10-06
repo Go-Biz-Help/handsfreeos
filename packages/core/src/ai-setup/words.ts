@@ -4,7 +4,7 @@
  */
 import type { DisclosureMode, HoursMode } from '../ai-team/config';
 import type { AiSetupStep, AiSetupTone } from './answers';
-import type { SetupJob, SetupKind, SetupTone } from './kinds';
+import type { SetupJob, SetupTone } from './kinds';
 
 /** Each screen's question. `{name}` is the teammate's name. */
 export const AI_SETUP_STEP_TITLES: Readonly<Record<AiSetupStep, string>> = {
@@ -68,10 +68,6 @@ export const AI_SETUP_PRICE_LABELS = {
 } as const;
 
 export const AI_SETUP_CHAT_LABELS = { yes: 'Yes, add the chat', no: 'Not now' } as const;
-
-/** The calendar quick setup makes when Book is ticked and there isn't one customers can book. */
-export const aiSetupCalendarName = (kind: SetupKind): string =>
-  kind === 'home' ? 'Service calls' : 'Appointments';
 
 /** The service area made from a list of ZIP codes. */
 export const AI_SETUP_AREA_NAME = 'Service area';

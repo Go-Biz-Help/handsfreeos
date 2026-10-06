@@ -408,7 +408,8 @@ function enqueue(state: ScanState, links: readonly string[]): void {
   }
 }
 
-function isHtml(res: SafeResponse): boolean {
+/** Whether a response is a web page, by its type or, without one, its first bytes. */
+export function isHtml(res: SafeResponse): boolean {
   const type = (res.headers['content-type'] ?? '').toLowerCase();
   return type
     ? /text\/html|application\/xhtml\+xml/.test(type)

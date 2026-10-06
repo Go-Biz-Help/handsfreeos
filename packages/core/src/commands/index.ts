@@ -293,7 +293,7 @@ import {
   aiTeammateSendDraft,
   aiTeammateSetStatus,
 } from './ai-team';
-import { aiSetupFinish, aiSetupSave } from './ai-setup';
+import { aiSetupFinish, aiSetupNoteFound, aiSetupSave } from './ai-setup';
 import {
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
@@ -886,6 +886,7 @@ export const commands: readonly CommandDef[] = [
   aiTeammateRetry,
   aiSetupSave,
   aiSetupFinish,
+  aiSetupNoteFound,
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,

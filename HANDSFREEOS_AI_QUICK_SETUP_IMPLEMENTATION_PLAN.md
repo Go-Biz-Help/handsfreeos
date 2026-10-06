@@ -7,8 +7,9 @@ apply. At the end the business has a teammate that knows its business, website a
 it, and a button to turn it on with training wheels. Everything else stays on today's full settings page, one link
 away.
 
-> **Status: step 1 of §11 is built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
-> `ai_setup.save` and `ai_setup.finish`). The flow chart the owner approved is the "AI quick setup flow" artifact.
+> **Status: steps 1 and 2 of §11 are built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
+> `ai_setup.save` and `ai_setup.finish`; the worker: reading the website for the screens, and insurance questions
+> that aren't emergencies). The flow chart the owner approved is the "AI quick setup flow" artifact.
 
 ---
 
@@ -49,7 +50,7 @@ away.
 | Running it again               | Allowed: it shows what will change and asks first; businesses that have a teammate run it from More settings                   |
 | **Today's full settings page** | **Tidied in this same project** (56B), e.g. Limits and Autonomy under "Advanced"                                               |
 | **Agencies**                   | **Can save their answers as a starting point for client businesses, now** (58B)                                                |
-| **Who it's designed around**   | **A mix: home services, salons, offices, plus real estate agents and insurance agents** (60)                                   |
+| **Who it's designed around**   | **A mix: home services, salons, offices, plus real estate agents and insurance agents** (60), widened to every kind (see §3)   |
 | The feeling at the end         | "It knows my business"                                                                                                         |
 
 Choices the decisions didn't spell out, made here and open to change:
@@ -61,8 +62,9 @@ Choices the decisions didn't spell out, made here and open to change:
   by hand. The teammate is saved as a revision headed "Quick setup".
 - **A fact a person rewrote is theirs.** Quick setup tags its own facts and never rewrites one whose words changed.
 - **A chat the business already has stays as it is.** Who answers it is decided on its own page.
-- **The booking calendar is named "Service calls"** for home services and "Appointments" for everyone else. A service
-  area is made only when the answer is a list of ZIP codes; towns stay words Ava reads.
+- **The booking calendar is named for the kind of business** (§3): "Service calls" for home services, "Sessions",
+  "Lessons", "Tours", "Consultations", "Showings" or "Reservations" where they fit, and "Appointments" for everyone
+  else. A service area is made only when the answer is a list of ZIP codes; towns stay words Ava reads.
 
 ---
 
@@ -80,20 +82,57 @@ Choices the decisions didn't spell out, made here and open to change:
 
 ## 3. Kinds of business
 
-`ai-setup/kinds.ts`. Six kinds, from the industry: **home** (the Home services group), **salon** (beauty and
-grooming by appointment), **office** (health offices, and firms that see clients), **real estate**, **insurance**
-and **other**. A kind picks:
+`ai-setup/kinds.ts`. The owner asked (2026-10-06, onboarding question 56) for quick setup to fit a large number of
+business types, so nineteen kinds cover every industry in the list (`INDUSTRIES`), each from an explicit list:
 
-- **Jobs ticked on top of the goal's:** salons and offices add Book; real estate and insurance add Qualify.
-- **Quick facts:** 6 to 8 yes/no questions, each a knowledge fact with a fixed title. A No is kept too ("We don't
-  offer financing."), so Ava never guesses, except where a No isn't worth telling customers (Licensed and insured).
-  Health offices are asked about new patients and insurance; other offices about new clients.
+| Kind         | Industries                                                                                 | Adds    | Tone         | Calendar      |
+| ------------ | ------------------------------------------------------------------------------------------ | ------- | ------------ | ------------- |
+| home         | the Home services group (42 trades)                                                        |         | friendly     | Service calls |
+| salon        | hair, barbers, nails, spas, lashes and brows, massage, tattoo, med spas                    | Book    | friendly     | Appointments  |
+| fitness      | gyms and studios, personal training, martial arts, dance                                   | Book    | friendly     | Sessions      |
+| health       | dental, medical, chiropractic, physical therapy, counseling, eye care, home care, wellness | Book    | professional | Appointments  |
+| pets         | grooming, vets, dog training, sitting and walking, boarding                                | Book    | friendly     | Appointments  |
+| auto         | repair, body, detailing, towing, glass, dealers, boat and RV                               |         | friendly     | Appointments  |
+| lessons      | tutoring, childcare, music lessons, driving schools, schools and training                  | Book    | friendly     | Lessons       |
+| real_estate  | real estate agents                                                                         | Qualify | professional | Appointments  |
+| property     | property management                                                                        | Qualify | professional | Showings      |
+| insurance    | insurance agencies                                                                         | Qualify | professional | Appointments  |
+| legal_money  | law firms, accounting, financial advisors, mortgage lenders, title and escrow              | Book    | professional | Consultations |
+| professional | marketing, consulting, IT, staffing, printing and signs, couriers, security                | Book    | professional | Consultations |
+| events       | planners, venues, photo and video, DJs and entertainers, florists                          | Qualify | friendly     | Consultations |
+| food         | restaurants, catering, food trucks, bakeries                                               |         | friendly     | Appointments  |
+| stays        | hotels and inns, vacation rentals, travel agents                                           |         | friendly     | Appointments  |
+| rentals      | equipment, party rentals, dumpsters, self storage, portable restrooms                      | Qualify | friendly     | Appointments  |
+| retail       | shops and online stores                                                                    |         | friendly     | Appointments  |
+| community    | nonprofits, churches and ministries                                                        |         | friendly     | Appointments  |
+| other        | anything the list doesn't name yet                                                         |         | friendly     | Appointments  |
+
+A kind picks:
+
+- **Jobs ticked on top of the goal's** (Adds above).
+- **Quick facts:** 3 to 9 yes/no questions (most businesses get 5 to 7), each a knowledge fact with a fixed title,
+  and each asked only of the industries it fits (`onlyFor`, `notFor`): emergency calls for urgent trades, a
+  guarantee instead of a warranty for cleaning and lawn care, new patients for patient care and new clients for the
+  rest. A No is kept too ("We don't offer financing."), so Ava never guesses, except where a No isn't worth telling
+  customers (Licensed and insured). "No pets" always adds that assistance animals are welcome.
 - **Starter qualifying questions**, used when the website gives none. No question asks who someone is (family,
   children, schools, safety, religion, age, health): `PROTECTED_WORDS` checks the starters and the ones Ava suggests.
-  They have no apostrophes, so a text never drops to the slower encoding.
-- **How "Where do you work?" is asked**, and the tone it starts with (offices, real estate and insurance:
-  professional; the rest: friendly).
-- **Topics that always go to a person:** insurance adds claims and what a policy covers.
+  Lessons may ask about children and school, and community may say church (`mayAsk`); the model reading the website
+  is told so. They have no apostrophes, so a text never drops to the slower encoding.
+- **How "Where do you work?" is asked**, the test chat's first questions ("Do you deliver to Tampa?", "Can I book a
+  class next week?"), the booking calendar's name, and the tone it starts with.
+- **Topics that always go to a person:** insurance adds claims and what a policy covers; health adds medication
+  questions and test results; community adds prayer requests (a prayer meeting is still an event Ava answers about).
+  Each is found by what customers say (`HAND_OFF_TOPIC_WORDS`).
+
+An industry that differs from the rest of its kind says how (`industries`): childcare gets its own facts, starter
+questions, test questions and a "Tours" calendar; home care, mortgage lenders, event venues, self storage,
+restaurants and online stores change a few of theirs. `setupFor(industry)` gives what quick setup picks for one
+industry.
+
+**Law firms:** a lead who wants to sue someone is a lead, so for a law firm only a threat against the firm itself
+("I'm going to sue you", "I'm reporting your firm") is a legal threat. The worker reads the business's industry
+for its hand-off check.
 
 The teammate's own "Suggested questions" use the same starters (`suggestedQuestions`).
 
@@ -159,12 +198,32 @@ calendar that can't be turned on yet; each comes back as a note ("Service calls 
 
 ## 6. Reading the website (worker)
 
-- **Fill the profile from the scan** for the person to check on screen 3: what the business does, services, where
-  it works and hours.
-- **Suggest qualifying questions from the website** (30B), checked against `PROTECTED_WORDS`; the kind's starters
-  when it finds none.
-- **Insurance questions aren't emergencies.** "Does my policy cover flooding?" reads as a flood today
-  (`ai-team/guardrails.ts`); a question about coverage is a question.
+Saving screen 1 with a website asks Ava to read it (`ai_setup.read_requested`), once per address: again only when
+nothing came of it for 10 minutes (the site was down, or no AI was set up). The worker's `ai_setup.read_site` job
+(`apps/worker/src/ai-setup/read-site.ts`) reads the start page, its footer included, and up to two more pages on
+the same site: its services first, then where it works, then about, hours or contact. It honours robots.txt, and
+every request goes through `fetchUrl` like the website scan. The model reads the pages as quoted data and says:
+
+- **What the business does, its services, where it works and its open hours**, which the screens start from where
+  the business hasn't said (§5); the person checks them on screens 3 and 4.
+- **The answers to its kind's quick facts** (`quickFactsFor`, listed for the model by key): yes only when the pages
+  say so, no only when they clearly say not, and nothing for the rest. They fill in screen 5 for the facts the
+  business hasn't answered and has no fact for; one a person wrote stays theirs.
+- **Qualifying questions for its leads** (30B), checked against `PROTECTED_WORDS` (with what its kind may ask) and
+  kept without apostrophes; the kind's starters when it finds none.
+
+`aiSetupFoundFrom` checks and trims what it says (12 services, 6 questions, hours that can be open hours, quick facts
+the business is asked), and `ai_setup.note_found` (the worker only) keeps it in the website's settings in
+Knowledge, for that address only. For two minutes after it's asked, `ai_setup.get` says Ava is reading
+(`state.reading`), so the screens wait for it; what arrives later still fills in the screens not finished yet.
+The tokens count as Knowledge's. Without a model, or when robots.txt or the site keeps it out, nothing is kept and
+the screens ask instead.
+
+**Questions aren't emergencies** (`ai-team/guardrails.ts`): "Does my policy cover flooding?", "What if my pipes
+burst, am I covered?" and a buyer's "Has the house had any flooding?" no longer read as a flood. "My house is
+flooding, am I covered?" still does, and so does anything happening right now. An insurance business's "What a
+policy covers" and "Insurance claims" go to a person by what customers say ("Am I covered…", "deductible",
+"claim"), not only those exact words.
 
 ## 7. Web
 
@@ -194,7 +253,7 @@ Limits and Autonomy move under "Advanced", and the page gets "Run quick setup ag
 Each step is its own pull request.
 
 1. **Core** ✓: kinds, answers, plan, summary, words; `ai_setup.get`, `ai_setup.save`, `ai_setup.finish`; tests.
-2. **Worker**: the profile and qualifying questions from the website; the insurance false alarm.
+2. **Worker** ✓: the profile and qualifying questions from the website; the insurance false alarm.
 3. **Web**: the screens, the summary, the test chat and its report, turning it on.
 4. **Phone**: the same screens.
 5. **Agencies**: saving answers as a starting point (with its migration).
@@ -206,4 +265,12 @@ Each step is its own pull request.
   start, the plan and its words, the summary, what a screen still needs, and the test questions.
 - `packages/core/test/ai-setup-commands.test.ts` (local database): the look-up, keeping the answers, the first
   screen and its scan, Save with everything it makes, a second run that changes nothing, a revision headed "Quick
-  setup", stale answers, and who may run it.
+  setup", stale answers, and who may run it; asking for the website to be read once, keeping what was read for
+  its address only, and only from the worker.
+- `apps/worker/test/ai-setup-read-site.test.ts` (the stand-in website): which pages it reads, robots.txt, the
+  pages reaching the model only as quoted data, what's kept and where the screens start, and nothing kept without
+  a model or for a website that changed.
+- `packages/core/test/ai-team-guardrails.test.ts`: insurance and home-history questions that aren't emergencies,
+  the reports that still are, the topics each kind adds found by what customers say, and a law firm's leads.
+- `apps/worker/test/ai-team-safety.test.ts`: a law firm's lead who wants to sue someone gets an answer, and a
+  threat against the firm goes to a person.

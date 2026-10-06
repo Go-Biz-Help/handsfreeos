@@ -355,6 +355,8 @@ export interface RunContext {
     readonly name: string;
     readonly timeZone: string;
     readonly openHours: WeeklyHours;
+    /** Its kind of business (`INDUSTRIES`): a law firm's leads talk about suing someone. */
+    readonly industry?: string | null;
   };
   readonly grounding: Grounding;
   readonly conversation: {
@@ -436,10 +438,12 @@ export interface LoadInput {
 
 export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunContext> {
   const ws = input.scope.workspaceId;
-  const [w] = await rows<{ name: string; timezone: string | null; settings: unknown }>(
-    tx,
-    sql`select name, timezone, settings from app.workspaces where id = ${ws}`,
-  );
+  const [w] = await rows<{
+    name: string;
+    timezone: string | null;
+    settings: unknown;
+    industry: string | null;
+  }>(tx, sql`select name, timezone, settings, industry from app.workspaces where id = ${ws}`);
   const [conv] = input.conversationId
     ? await tx.select().from(conversations).where(eq(conversations.id, input.conversationId))
     : [];
@@ -516,6 +520,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       name: w.name,
       timeZone,
       openHours: openHoursOf(w.settings as Record<string, unknown> | null),
+      industry: w.industry,
     },
     grounding,
     conversation: {

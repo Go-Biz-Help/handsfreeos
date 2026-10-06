@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { AI_SETUP_STEPS, AiSetupAnswers, AiSetupMark } from '../ai-setup/answers';
 import { SETUP_KINDS } from '../ai-setup/kinds';
-import { AiSetupStateOut } from '../ai-setup/state';
+import { AiSetupFound, AiSetupStateOut } from '../ai-setup/state';
 import { displayName, industry, uuid } from './common';
 
 const step = z.enum(AI_SETUP_STEPS);
@@ -68,4 +68,16 @@ export const AiSetupFinishOutput = z.object({
   calendarId: uuid.nullable(),
   /** What it couldn't finish, and how to: "Service calls couldn’t be turned on yet. …". */
   notes: z.array(z.string()),
+});
+
+export const AiSetupNoteFoundInput = z.object({
+  workspaceId: uuid,
+  /** The website in Knowledge it read. */
+  sourceId: uuid,
+  /** `url` is the address it read; it's kept only while that's still the website's address. */
+  found: AiSetupFound.omit({ at: true }),
+});
+export const AiSetupNoteFoundOutput = z.object({
+  /** False when the website changed while it was being read. */
+  kept: z.boolean(),
 });

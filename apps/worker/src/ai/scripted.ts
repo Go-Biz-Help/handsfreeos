@@ -14,9 +14,10 @@ import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt
 import { FIRST_MESSAGE_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
 
 /**
- * The stand-in model for AI work outside the Assistant: workflow AI steps, the AI builder, the knowledge base
- * and the AI teammate, when ASSISTANT_PROVIDER=scripted (local development and the browser suite; production
- * refuses it, see env.ts). It reads the prompt back and answers in the requested shape, the same way every time.
+ * The stand-in model for AI work outside the Assistant: workflow AI steps, the AI builder, the knowledge base,
+ * quick setup's reading of the website and the AI teammate, when ASSISTANT_PROVIDER=scripted (local development
+ * and the browser suite; production refuses it, see env.ts). It reads the prompt back and answers in the
+ * requested shape, the same way every time.
  *
  * Each feature keeps its rules in a group below, matched on the instruction line its prompt ends with. To add
  * one (step 9's write, sort and summarize steps; step 10's builder), write the group and list it in
@@ -114,6 +115,122 @@ export const KNOWLEDGE_RULES: readonly ScriptRule[] = [
   {
     when: /Answer the customer’s message above\.$/,
     json: (_q, context) => scriptedTryAnswer(context),
+  },
+];
+
+// ---- Quick setup: reading the website ("Say what these pages tell about the business.") ----
+
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const DAY_NAME = '(sunday|monday|tuesday|wednesday|thursday|friday|saturday)';
+const AT = String.raw`(\d{1,2})(?::(\d{2}))?\s*(am|pm)`;
+const HOURS_LINE = new RegExp(
+  String.raw`^${DAY_NAME}(?:\s+(?:to|through)\s+${DAY_NAME})?\s*:\s*${AT}\s+to\s+${AT}$`,
+  'i',
+);
+
+/** "7 AM" as "07:00". */
+const clock24 = (hour: string, minute: string | undefined, half: string) =>
+  `${String((Number(hour) % 12) + (half.toLowerCase() === 'pm' ? 12 : 0)).padStart(2, '0')}:${minute ?? '00'}`;
+
+/** "Monday to Friday: 7 AM to 6 PM" as one stretch a day; none when the line isn't hours. */
+function hoursOfLine(line: string): { day: number; start: string; end: string }[] {
+  const m = HOURS_LINE.exec(line);
+  if (!m) return [];
+  const from = WEEKDAYS.indexOf(m[1]!.toLowerCase());
+  const to = m[2] ? WEEKDAYS.indexOf(m[2].toLowerCase()) : from;
+  const start = clock24(m[3]!, m[4], m[5]!);
+  const end = clock24(m[6]!, m[7], m[8]!);
+  const out: { day: number; start: string; end: string }[] = [];
+  for (let day = from; day <= to; day++) out.push({ day, start, end });
+  return out;
+}
+
+/** The quick facts a page can answer yes to, by the words that say so; the stand-in never answers no. */
+const FACT_WORDS: Readonly<Record<string, (text: string) => boolean>> = {
+  emergency: (t) => /\bemergenc|around the clock|\b24\/7\b/i.test(t),
+  warranty: (t) => /\bwarrant/i.test(t),
+  same_day: (t) => /\bsame[- ]day\b/i.test(t),
+  financing: (t) => /\bfinanc/i.test(t),
+  payment_plans: (t) => /\bpayment plans?\b|\bfinanc/i.test(t),
+  free_estimates: (t) => /\bfree estimates?\b/i.test(t),
+  free_quotes: (t) => /\bfree quotes?\b/i.test(t),
+  licensed: (t) => /\blicensed\b/i.test(t) && /\binsured\b/i.test(t),
+  spanish: (t) => /\bspanish\b|\bespañol\b|\bse habla\b/i.test(t),
+};
+
+/**
+ * What a website's pages say, read the plain way: the first paragraph under a heading is what the business does,
+ * list items under a heading about services are its services, lines like "Monday to Friday: 7 AM to 6 PM" are
+ * its hours, and list items under a heading about areas are where it works. A quick fact asked in the context's
+ * <quick_facts> is a yes when the pages use its words ("around the clock" for emergencies). Its questions for
+ * leads ask what's needed (from the services) and how soon. Anything else on the pages, planted instructions
+ * included, is never used.
+ */
+export function scriptedSiteReading(message: string, context = '') {
+  const pages = [...message.matchAll(/<website_page\b[^>]*>\n?([\s\S]*?)\n?<\/website_page>/g)].map(
+    (m) => unquote(m[1]!).split('\n'),
+  );
+  let description = '';
+  const services: { name: string; description: string }[] = [];
+  const hours: { day: number; start: string; end: string }[] = [];
+  const areas: string[] = [];
+  for (const lines of pages) {
+    let heading = '';
+    for (const raw of lines) {
+      const line = raw.trim();
+      const title = /^#{1,6} (.+)$/.exec(line)?.[1];
+      if (title) {
+        heading = title.toLowerCase();
+        continue;
+      }
+      if (!line) continue;
+      const item = line.startsWith('* ') ? line.slice(2).trim() : null;
+      const open = hoursOfLine(item ?? line);
+      if (open.length) hours.push(...open);
+      else if (item && /service/.test(heading)) {
+        const name = item
+          .split(/,| with /)[0]!
+          .trim()
+          .slice(0, 60);
+        if (name) services.push({ name, description: item.slice(0, 200) });
+      } else if (item && /area|serve|location/.test(heading)) areas.push(item);
+      else if (!item && !description && heading) description = firstSentence(line, 500);
+    }
+  }
+  const needs = services.slice(0, 4).map((x) => x.name);
+  const text = pages.flat().join('\n');
+  const asked = [...context.matchAll(/<fact key="([^"]+)">/g)].map((m) => unquote(m[1]!));
+  return {
+    description,
+    services,
+    area: areas.slice(0, 8).join(', '),
+    hours,
+    facts: asked
+      .filter((key) => FACT_WORDS[key]?.(text))
+      .map((key) => ({ key, answer: 'yes' as const })),
+    questions: [
+      ...(needs.length
+        ? [
+            {
+              question: 'What do you need help with?',
+              kind: 'choice',
+              options: [...needs, 'Something else'],
+            },
+          ]
+        : []),
+      {
+        question: 'How soon do you need it?',
+        kind: 'choice',
+        options: ['Today', 'This week', 'Just planning'],
+      },
+    ],
+  };
+}
+
+export const AI_SETUP_RULES: readonly ScriptRule[] = [
+  {
+    when: /Say what these pages tell about the business\.$/,
+    json: (message, context) => scriptedSiteReading(message, context),
   },
 ];
 
@@ -1503,6 +1620,7 @@ export const LISTING_RULES: readonly ScriptRule[] = [
 
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
+  ...AI_SETUP_RULES,
   ...AUTOMATION_RULES,
   ...WORKFLOW_RULES,
   ...BUILDER_RULES,

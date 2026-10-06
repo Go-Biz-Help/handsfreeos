@@ -10,6 +10,7 @@ import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladde
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
+import { onAiSetupReadRequested } from '../ai-setup/read-site';
 import { onScheduleCancelled, onTextScheduled } from '../messaging/scheduled';
 import { withPush } from '../push/moments';
 import { withWorkflows } from '../workflows/index';
@@ -358,6 +359,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
     'knowledge_scan.requested': onKnowledgeScanRequested,
     'knowledge_document.added': onKnowledgeDocumentAdded,
+    // Quick setup's look at the website, for its screens to start from (ai-setup/read-site.ts).
+    'ai_setup.read_requested': onAiSetupReadRequested,
     // The agency's pushes (organization-level events): one install job per business (workflows/templates.ts).
     'workflow_template.pushed': onTemplatePushed,
     'knowledge_pack.pushed': onPackPushed,

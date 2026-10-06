@@ -90,6 +90,36 @@ describe('immediate hand-offs', () => {
     else expect(sent[0]!.body_text).toMatch(HANDOFF_LINE);
   });
 
+  it('at a law firm, answers a lead who wants to sue someone, and hands over a threat to sue the firm', async () => {
+    const setIndustry = (industry: string | null) =>
+      rows(
+        admin(),
+        sql`update app.workspaces set industry = ${industry} where id = ${w.workspaceId}`,
+      );
+    const [before] = await rows<{ industry: string | null }>(
+      admin(),
+      sql`select industry from app.workspaces where id = ${w.workspaceId}`,
+    );
+    await setIndustry('law_firm');
+    try {
+      const lead = await newCustomer(w, 'Lou');
+      const asked = teammateRequests(w).length;
+      const m = await textIn(w, lead.phone, 'I want to sue my landlord. Can you help?');
+      await replyNow(w, m.conversationId);
+      expect(teammateRequests(w).length).toBeGreaterThan(asked);
+      expect((await conversationOf(m.conversationId)).handoff_reason).not.toBe('legal');
+      const angry = await newCustomer(w, 'Lee');
+      const t = await textIn(w, angry.phone, 'I am going to sue you');
+      await replyNow(w, t.conversationId);
+      expect(await conversationOf(t.conversationId)).toMatchObject({
+        handled_by: 'person',
+        handoff_reason: 'legal',
+      });
+    } finally {
+      await setIndustry(before!.industry);
+    }
+  });
+
   it('with frustration hand-offs off, answers an upset customer itself and leaves a callback task', async () => {
     await saveTeammate(w, { handOff: { onFrustration: false } });
     try {
