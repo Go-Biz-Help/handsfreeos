@@ -56,7 +56,10 @@ function questionId(question: string, taken: ReadonlySet<string>): string {
  * The questions worth offering: none that asks who someone is (`PROTECTED_WORDS`), none with an apostrophe (a
  * text would drop to the slower encoding), no repeats, each one a valid question.
  */
-function questionsOf(read: AiSetupSiteReading['questions']): QualifyingQuestion[] {
+function questionsOf(
+  read: AiSetupSiteReading['questions'],
+  industry: string | null,
+): QualifyingQuestion[] {
   const out: QualifyingQuestion[] = [];
   const ids = new Set<string>();
   const seen = new Set<string>();
@@ -66,7 +69,7 @@ function questionsOf(read: AiSetupSiteReading['questions']): QualifyingQuestion[
       .filter((o) => o && o.length <= AI_SETUP_FOUND_LIMITS.optionLength)
       .slice(0, AI_SETUP_FOUND_LIMITS.options);
     const words = [q.question, ...options].join(' ');
-    if (/['’‘`]/.test(words) || asksAboutWhoSomeoneIs(words)) continue;
+    if (/['’‘`]/.test(words) || asksAboutWhoSomeoneIs(words, industry)) continue;
     if (seen.has(key(q.question))) continue;
     const kind = q.kind === 'choice' || q.kind === 'yes_no' ? q.kind : 'text';
     const parsed = QualifyingQuestion.safeParse({
@@ -106,13 +109,14 @@ function factsOf(
 
 /**
  * What the screens can start from, from the model's reading of `url`: checked, trimmed and without repeats, as
- * `ai_setup.note_found` keeps it. Hours that can't be open hours (overlapping, or not times) count as none, and
- * only the quick facts asked (`factKeys`) are kept.
+ * `ai_setup.note_found` keeps it. Hours that can't be open hours (overlapping, or not times) count as none, only
+ * the quick facts asked (`factKeys`) are kept, and only questions the business's industry may ask.
  */
 export function aiSetupFoundFrom(
   read: AiSetupSiteReading,
   url: string,
   factKeys: readonly string[] = [],
+  industry: string | null = null,
 ): Omit<AiSetupFound, 'at'> {
   const names = new Set<string>();
   const services: AiSetupService[] = [];
@@ -136,7 +140,7 @@ export function aiSetupFoundFrom(
     area: clip(read.area, 500),
     openHours: hours.success && hours.data.length ? hours.data : null,
     facts: factsOf(read.facts, factKeys),
-    questions: questionsOf(read.questions),
+    questions: questionsOf(read.questions, industry),
   });
 }
 

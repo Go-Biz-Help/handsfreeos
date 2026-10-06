@@ -6,6 +6,7 @@ import {
   executeCommand,
   executeQuery,
   organizationCreate,
+  quickFactsFor,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -17,6 +18,7 @@ import {
   pagesWorthReading,
   READ_SITE_ASK,
   READ_SITE_JOB,
+  readSiteContext,
 } from '../src/ai-setup/read-site';
 import { scriptedAi } from '../src/ai/scripted';
 import { handlers } from '../src/handlers/index';
@@ -358,5 +360,19 @@ describe('which pages it reads', () => {
         '<main><p>Main</p></main><footer><nav><a href="/">Home</a></nav><p>Open Monday to Friday, 8 to 5.</p></footer>',
       ),
     ).toBe('Open Monday to Friday, 8 to 5.');
+  });
+});
+
+describe('what the model is told about the business', () => {
+  it('says a school’s questions may ask about the child, and nothing like it for anyone else', () => {
+    const context = (industry: string) =>
+      readSiteContext({ name: 'Bright Minds', industry }, quickFactsFor(industry));
+    expect(context('tutoring')).toMatch(
+      /^<business name="Bright Minds" industry="Tutoring"><\/business>\n<may_ask>It teaches or cares for children/,
+    );
+    expect(context('tutoring')).toContain(
+      '<fact key="free_lesson">Is the first lesson free?</fact>',
+    );
+    expect(context('hvac')).not.toContain('<may_ask>');
   });
 });

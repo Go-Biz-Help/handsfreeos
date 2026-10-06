@@ -2,7 +2,7 @@
  * Answers to "What should your AI teammate do?". A preset only prefills skills: the result is an ordinary
  * settings document that can be changed in any way afterwards, and its labels follow the settings.
  */
-import { SETUP_KIND_INFO, setupKindOf } from '../ai-setup/kinds';
+import { setupFor } from '../ai-setup/kinds';
 import {
   applyTeammatePatch,
   emptyTeammateConfig,
@@ -91,11 +91,11 @@ export interface TeammatePresetContext {
 
 /**
  * Starting questions for the workspace's kind of business (quick setup's kinds: a home-services trade asks about the
- * job and the home, a salon about the visit, an agent about the move or the policy; anything else gets general
- * ones). Nothing rules a lead out.
+ * job and the home, a salon about the visit, an agent about the move or the policy, childcare about the child;
+ * anything else gets general ones). Nothing rules a lead out.
  */
 export function suggestedQuestions(industry?: string | null): QualifyingQuestion[] {
-  const list = SETUP_KIND_INFO[setupKindOf(industry)].questions;
+  const list = setupFor(industry).questions;
   return applyTeammatePatch(emptyTeammateConfig(), { qualify: { questions: [...list] } }).qualify
     .questions;
 }

@@ -5,7 +5,7 @@
 import { followUpStepWords, type TeammateConfig } from '../ai-team/config';
 import { DISCLOSURE_NAMES, HOURS_MODE_NAMES, notifyText } from '../ai-team/diff';
 import { aiSetupSteps, type AiSetupAnswers, type AiSetupStep } from './answers';
-import { quickFactsFor } from './kinds';
+import { quickFactsFor, setupFor } from './kinds';
 import { planAiSetup } from './plan';
 import type { AiSetupState } from './state';
 
@@ -169,35 +169,17 @@ function firstPlace(area: string): string | null {
  */
 export function aiSetupTestQuestions(state: AiSetupState, answers: AiSetupAnswers): string[] {
   const out: string[] = [];
+  const { tests } = setupFor(state.industry);
   const place = firstPlace(answers.area);
-  if (place)
-    out.push(
-      state.kind === 'insurance'
-        ? `Can you insure me in ${place}?`
-        : state.kind === 'salon' || state.kind === 'office'
-          ? 'Where are you located?'
-          : `Do you serve ${place}?`,
-    );
+  if (place) out.push(tests.where.replaceAll('{place}', place));
   const fact = quickFactsFor(state.industry).find(
     (f) => f.key !== 'spanish' && answers.facts[f.key],
   );
   if (fact) out.push(fact.question);
   const service = answers.services[0];
   if (service) out.push(`How much does ${lowerFirst(service.name)} cost?`);
-  if (answers.jobs.includes('book'))
-    out.push(
-      state.kind === 'home'
-        ? 'Can someone come out next week?'
-        : 'Can I book an appointment for next week?',
-    );
-  else if (answers.jobs.includes('qualify'))
-    out.push(
-      state.kind === 'real_estate'
-        ? 'I’m thinking about buying a home. Can you help?'
-        : state.kind === 'insurance'
-          ? 'I need a quote. Can you help?'
-          : 'I need some help. Can you help me?',
-    );
+  if (answers.jobs.includes('book')) out.push(tests.book);
+  else if (answers.jobs.includes('qualify')) out.push(tests.qualify);
   if (answers.openHours.length) out.push('Are you open on Saturday?');
   out.push('Are you a real person?');
   return out.slice(0, 6);

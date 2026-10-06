@@ -50,7 +50,7 @@ away.
 | Running it again               | Allowed: it shows what will change and asks first; businesses that have a teammate run it from More settings                   |
 | **Today's full settings page** | **Tidied in this same project** (56B), e.g. Limits and Autonomy under "Advanced"                                               |
 | **Agencies**                   | **Can save their answers as a starting point for client businesses, now** (58B)                                                |
-| **Who it's designed around**   | **A mix: home services, salons, offices, plus real estate agents and insurance agents** (60)                                   |
+| **Who it's designed around**   | **A mix: home services, salons, offices, plus real estate agents and insurance agents** (60), widened to every kind (see §3)   |
 | The feeling at the end         | "It knows my business"                                                                                                         |
 
 Choices the decisions didn't spell out, made here and open to change:
@@ -62,8 +62,9 @@ Choices the decisions didn't spell out, made here and open to change:
   by hand. The teammate is saved as a revision headed "Quick setup".
 - **A fact a person rewrote is theirs.** Quick setup tags its own facts and never rewrites one whose words changed.
 - **A chat the business already has stays as it is.** Who answers it is decided on its own page.
-- **The booking calendar is named "Service calls"** for home services and "Appointments" for everyone else. A service
-  area is made only when the answer is a list of ZIP codes; towns stay words Ava reads.
+- **The booking calendar is named for the kind of business** (§3): "Service calls" for home services, "Sessions",
+  "Lessons", "Tours", "Consultations", "Showings" or "Reservations" where they fit, and "Appointments" for everyone
+  else. A service area is made only when the answer is a list of ZIP codes; towns stay words Ava reads.
 
 ---
 
@@ -81,20 +82,57 @@ Choices the decisions didn't spell out, made here and open to change:
 
 ## 3. Kinds of business
 
-`ai-setup/kinds.ts`. Six kinds, from the industry: **home** (the Home services group), **salon** (beauty and
-grooming by appointment), **office** (health offices, and firms that see clients), **real estate**, **insurance**
-and **other**. A kind picks:
+`ai-setup/kinds.ts`. The owner asked (2026-10-06, onboarding question 56) for quick setup to fit a large number of
+business types, so nineteen kinds cover every industry in the list (`INDUSTRIES`), each from an explicit list:
 
-- **Jobs ticked on top of the goal's:** salons and offices add Book; real estate and insurance add Qualify.
-- **Quick facts:** 6 to 8 yes/no questions, each a knowledge fact with a fixed title. A No is kept too ("We don't
-  offer financing."), so Ava never guesses, except where a No isn't worth telling customers (Licensed and insured).
-  Health offices are asked about new patients and insurance; other offices about new clients.
+| Kind         | Industries                                                                                 | Adds    | Tone         | Calendar      |
+| ------------ | ------------------------------------------------------------------------------------------ | ------- | ------------ | ------------- |
+| home         | the Home services group (42 trades)                                                        |         | friendly     | Service calls |
+| salon        | hair, barbers, nails, spas, lashes and brows, massage, tattoo, med spas                    | Book    | friendly     | Appointments  |
+| fitness      | gyms and studios, personal training, martial arts, dance                                   | Book    | friendly     | Sessions      |
+| health       | dental, medical, chiropractic, physical therapy, counseling, eye care, home care, wellness | Book    | professional | Appointments  |
+| pets         | grooming, vets, dog training, sitting and walking, boarding                                | Book    | friendly     | Appointments  |
+| auto         | repair, body, detailing, towing, glass, dealers, boat and RV                               |         | friendly     | Appointments  |
+| lessons      | tutoring, childcare, music lessons, driving schools, schools and training                  | Book    | friendly     | Lessons       |
+| real_estate  | real estate agents                                                                         | Qualify | professional | Appointments  |
+| property     | property management                                                                        | Qualify | professional | Showings      |
+| insurance    | insurance agencies                                                                         | Qualify | professional | Appointments  |
+| legal_money  | law firms, accounting, financial advisors, mortgage lenders, title and escrow              | Book    | professional | Consultations |
+| professional | marketing, consulting, IT, staffing, printing and signs, couriers, security                | Book    | professional | Consultations |
+| events       | planners, venues, photo and video, DJs and entertainers, florists                          | Qualify | friendly     | Consultations |
+| food         | restaurants, catering, food trucks, bakeries                                               |         | friendly     | Appointments  |
+| stays        | hotels and inns, vacation rentals, travel agents                                           |         | friendly     | Appointments  |
+| rentals      | equipment, party rentals, dumpsters, self storage, portable restrooms                      | Qualify | friendly     | Appointments  |
+| retail       | shops and online stores                                                                    |         | friendly     | Appointments  |
+| community    | nonprofits, churches and ministries                                                        |         | friendly     | Appointments  |
+| other        | anything the list doesn't name yet                                                         |         | friendly     | Appointments  |
+
+A kind picks:
+
+- **Jobs ticked on top of the goal's** (Adds above).
+- **Quick facts:** 3 to 9 yes/no questions (most businesses get 5 to 7), each a knowledge fact with a fixed title,
+  and each asked only of the industries it fits (`onlyFor`, `notFor`): emergency calls for urgent trades, a
+  guarantee instead of a warranty for cleaning and lawn care, new patients for patient care and new clients for the
+  rest. A No is kept too ("We don't offer financing."), so Ava never guesses, except where a No isn't worth telling
+  customers (Licensed and insured). "No pets" always adds that assistance animals are welcome.
 - **Starter qualifying questions**, used when the website gives none. No question asks who someone is (family,
   children, schools, safety, religion, age, health): `PROTECTED_WORDS` checks the starters and the ones Ava suggests.
-  They have no apostrophes, so a text never drops to the slower encoding.
-- **How "Where do you work?" is asked**, and the tone it starts with (offices, real estate and insurance:
-  professional; the rest: friendly).
-- **Topics that always go to a person:** insurance adds claims and what a policy covers.
+  Lessons may ask about children and school, and community may say church (`mayAsk`); the model reading the website
+  is told so. They have no apostrophes, so a text never drops to the slower encoding.
+- **How "Where do you work?" is asked**, the test chat's first questions ("Do you deliver to Tampa?", "Can I book a
+  class next week?"), the booking calendar's name, and the tone it starts with.
+- **Topics that always go to a person:** insurance adds claims and what a policy covers; health adds medication
+  questions and test results; community adds prayer requests (a prayer meeting is still an event Ava answers about).
+  Each is found by what customers say (`HAND_OFF_TOPIC_WORDS`).
+
+An industry that differs from the rest of its kind says how (`industries`): childcare gets its own facts, starter
+questions, test questions and a "Tours" calendar; home care, mortgage lenders, event venues, self storage,
+restaurants and online stores change a few of theirs. `setupFor(industry)` gives what quick setup picks for one
+industry.
+
+**Law firms:** a lead who wants to sue someone is a lead, so for a law firm only a threat against the firm itself
+("I'm going to sue you", "I'm reporting your firm") is a legal threat. The worker reads the business's industry
+for its hand-off check.
 
 The teammate's own "Suggested questions" use the same starters (`suggestedQuestions`).
 
@@ -171,8 +209,8 @@ every request goes through `fetchUrl` like the website scan. The model reads the
 - **The answers to its kind's quick facts** (`quickFactsFor`, listed for the model by key): yes only when the pages
   say so, no only when they clearly say not, and nothing for the rest. They fill in screen 5 for the facts the
   business hasn't answered and has no fact for; one a person wrote stays theirs.
-- **Qualifying questions for its leads** (30B), checked against `PROTECTED_WORDS` and kept without apostrophes;
-  the kind's starters when it finds none.
+- **Qualifying questions for its leads** (30B), checked against `PROTECTED_WORDS` (with what its kind may ask) and
+  kept without apostrophes; the kind's starters when it finds none.
 
 `aiSetupFoundFrom` checks and trims what it says (12 services, 6 questions, hours that can be open hours, quick facts
 the business is asked), and `ai_setup.note_found` (the worker only) keeps it in the website's settings in
@@ -233,4 +271,6 @@ Each step is its own pull request.
   pages reaching the model only as quoted data, what's kept and where the screens start, and nothing kept without
   a model or for a website that changed.
 - `packages/core/test/ai-team-guardrails.test.ts`: insurance and home-history questions that aren't emergencies,
-  the reports that still are, and an insurance business's topics found by what customers say.
+  the reports that still are, the topics each kind adds found by what customers say, and a law firm's leads.
+- `apps/worker/test/ai-team-safety.test.ts`: a law firm's lead who wants to sue someone gets an answer, and a
+  threat against the firm goes to a person.

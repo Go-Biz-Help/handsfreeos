@@ -17,11 +17,12 @@ import {
   SETUP_JOBS,
   SETUP_KIND_INFO,
   SETUP_TONES,
+  setupFor,
   type SetupJob,
   type SetupKind,
 } from './kinds';
 import type { AiSetupState } from './state';
-import { AI_SETUP_TONE_TEXTS, aiSetupCalendarName } from './words';
+import { AI_SETUP_TONE_TEXTS } from './words';
 
 // ---- Where it starts ----
 
@@ -156,7 +157,7 @@ export function startingAiSetupAnswers(
           ? tpl.questions
           : read?.questions.length
             ? read.questions
-            : SETUP_KIND_INFO[state.kind].questions,
+            : setupFor(state.industry).questions,
     ),
     chat: !!state.website && !state.chat,
   };
@@ -421,7 +422,7 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
     : [];
   const calendar =
     needsCalendar && state.services.length + newServices.length > 0
-      ? aiSetupCalendarName(state.kind)
+      ? setupFor(state.industry).calendar
       : null;
   const zipCodes =
     book && state.kind === 'home' && !state.territories ? zipCodesOnly(answers.area) : null;

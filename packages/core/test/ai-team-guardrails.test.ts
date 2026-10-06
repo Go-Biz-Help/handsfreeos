@@ -448,6 +448,37 @@ describe('sensitiveTopic', () => {
       for (const topic of SETUP_KIND_INFO[kind].sensitiveTopics)
         expect(HAND_OFF_TOPIC_WORDS[topic.toLowerCase()]).toBeInstanceOf(RegExp);
   });
+
+  it('finds medication and test-result questions, and prayer requests, by what customers say', () => {
+    const health = SETUP_KIND_INFO.health.sensitiveTopics;
+    const label = (text: string) => sensitiveTopic(text, health)?.label ?? null;
+    expect(label('Can I get a refill on my prescription?')).toBe('Medication questions');
+    expect(label('What are the side effects of the new meds?')).toBe('Medication questions');
+    expect(label('Are my lab results back?')).toBe('Test results');
+    expect(label('Did you get the results of my blood work?')).toBe('Test results');
+    expect(label('Are my results in yet?')).toBe('Test results');
+    expect(label('Can I book a cleaning for Tuesday?')).toBeNull();
+    expect(label('Do you take Medicare?')).toBeNull();
+    expect(label('How soon will I see results?')).toBeNull();
+    const church = SETUP_KIND_INFO.community.sensitiveTopics;
+    const prayer = (text: string) => sensitiveTopic(text, church)?.label ?? null;
+    expect(prayer('Can you pray for my family?')).toBe('Prayer requests');
+    expect(prayer('Please keep us in your prayers')).toBe('Prayer requests');
+    expect(prayer('What time is the prayer meeting?')).toBeNull();
+  });
+
+  it('lets a law firm’s leads talk about suing someone, and still hands over threats to the firm', () => {
+    const law = (text: string) => sensitiveTopic(text, [], 'law_firm')?.kind ?? null;
+    expect(law('I want to sue my landlord')).toBeNull();
+    expect(law('I need a lawyer for a lawsuit against my employer')).toBeNull();
+    expect(law('I got a cease and desist letter. Can you help?')).toBeNull();
+    expect(law('I’m going to sue you')).toBe('legal_threat');
+    expect(law('I’ll take you to court over this bill')).toBe('legal_threat');
+    expect(law('I’m reporting your firm to the state bar')).toBe('legal_threat');
+    expect(law('Can you report your findings by Friday?')).toBeNull();
+    expect(law('I want a refund')).toBe('refund');
+    expect(sensitiveTopic('I want to sue my landlord')?.kind).toBe('legal_threat');
+  });
 });
 
 describe('plainSmsText', () => {

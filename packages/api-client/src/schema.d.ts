@@ -18515,7 +18515,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        kind: "home" | "salon" | "office" | "real_estate" | "insurance" | "other";
+                        kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
                         kindChanged: boolean;
                         /** @enum {string} */
                         reached: "business" | "jobs" | "about" | "hours" | "facts" | "meet" | "voice" | "learned" | "qualify" | "loop" | "chat" | "try";
@@ -45574,7 +45574,7 @@ export interface operations {
                             goal: ("leads" | "booked" | "paid" | "organized") | null;
                             industry: string | null;
                             /** @enum {string} */
-                            kind: "home" | "salon" | "office" | "real_estate" | "insurance" | "other";
+                            kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
                             number: boolean;
                             openHours: {
                                 day: number;

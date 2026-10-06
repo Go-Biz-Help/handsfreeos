@@ -396,18 +396,34 @@ export const HAND_OFF_TOPIC_WORDS: Readonly<Record<string, RegExp>> = {
   'insurance claims': /\bclaims?\b|\badjusters?\b/,
   'what a policy covers':
     /\bcovered\b|\bcoverages?\b|\b(?:policy|policies|insurance|plan|it|that|this|they)\s+(?:[a-z]+\s+)?covers?\b|\bdeductibles?\b/,
+  'medication questions':
+    /\b(?:medications?|medicines?|meds|prescriptions?|prescrib(?:e|es|ed|ing)|refills?|dosage|doses?|side\s+effects?|pills?)\b/,
+  'test results':
+    /\b(?:tests?|labs?|blood\s*work|blood\s+tests?|x-?rays?|scans?|mri|biopsy)\s+(?:results?|(?:came|come|is|are)\s+back)\b|\bresults?\s+(?:of|from|for)\s+(?:my|the|her|his|our)\s+(?:tests?|labs?|blood\s*work|blood\s+tests?|x-?rays?|scans?|mri|biopsy)\b|\b(?:my|the|our)\s+results?\s+(?:back|in|ready)\b/,
+  // A prayer meeting is an event to answer about; someone asking to be prayed for is for a person.
+  'prayer requests':
+    /\bpray(?:s|ed|ing)?\b|\bprayers?\b(?!\s+(?:meetings?|services?|groups?|nights?|breakfasts?|times?|schedules?|vigils?|walks?))/,
 };
+
+/** A law firm's leads talk about suing someone: only a threat against the firm itself is a legal threat there. */
+const LAW_FIRM_LEGAL_THREAT =
+  /\bsue\s+(?:you|your)\b|\b(?:see|take)\s+you\s+(?:guys\s+)?(?:to|in)\s+court\b|\b(?:report|reporting)\s+(?:you\b|your\s+(?:firm|office)\b)/;
 
 /**
  * A topic the AI never handles: a legal threat, a complaint, a refund, cancelling service, or one of the
- * business's own topics (handOff.sensitiveTopics). The first found, or null.
+ * business's own topics (handOff.sensitiveTopics). The first found, or null. For a law firm (`industry`), only a
+ * threat against the firm is a legal threat.
  */
 export function sensitiveTopic(
   text: string,
   custom: readonly string[] = [],
+  industry: string | null = null,
 ): SensitiveTopic | null {
   const t = norm(text);
-  for (const [kind, label, re] of SENSITIVE) if (re.test(t)) return { kind, label };
+  for (const [kind, label, re] of SENSITIVE) {
+    const rule = kind === 'legal_threat' && industry === 'law_firm' ? LAW_FIRM_LEGAL_THREAT : re;
+    if (rule.test(t)) return { kind, label };
+  }
   for (const topic of custom) {
     const words = norm(topic).trim();
     if (!words) continue;

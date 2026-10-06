@@ -93,7 +93,7 @@ describe('industryFromText', () => {
 });
 
 describe('what a kind of business changes', () => {
-  it('asks a home-services trade about the job and the home, a salon about the visit, and anyone else general questions', () => {
+  it('asks a home-services trade about the job and the home, a salon about the visit, childcare about the child, and anyone else general questions', () => {
     expect(isHomeServices('home_services')).toBe(true);
     expect(isHomeServices('plumbing')).toBe(true);
     expect(isHomeServices('dental')).toBe(false);
@@ -110,6 +110,7 @@ describe('what a kind of business changes', () => {
       'first_visit',
       'who',
     ]);
-    expect(suggestedQuestions('food_truck')).toEqual(suggestedQuestions('other'));
+    expect(suggestedQuestions('childcare').map((q) => q.id)).toEqual(['age', 'days', 'start']);
+    expect(suggestedQuestions('not_a_kind')).toEqual(suggestedQuestions('other'));
   });
 });

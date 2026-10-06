@@ -9,6 +9,7 @@ import {
   quickFactsFor,
   quoteData,
   scheduleJob,
+  setupFor,
   type QuickFact,
 } from '@hfos/core/server';
 import { asWorker } from '@hfos/db/client';
@@ -69,7 +70,7 @@ export const READ_SITE_SYSTEM = [
   '- area: where the business works, or where customers find it, as the pages say it: towns, counties, states, ZIP codes, an address, or "within 30 miles of Austin". Empty when they don’t say.',
   '- hours: when the business is open, one entry for each day and stretch of time, with day 0 for Sunday to 6 for Saturday and times as 24-hour HH:MM ("07:00", "18:30"). None when the pages give no regular hours, or say only "by appointment" or "24/7".',
   '- facts: the answers the pages give to the yes/no questions in <quick_facts>, by key. yes only when the pages say so; no only when they clearly say the business doesn’t. Leave out every question the pages don’t answer.',
-  `- questions: up to ${AI_SETUP_FOUND_LIMITS.questions} short questions this business would ask a new customer before booking or quoting, written for this business: a choice (with 2 to 6 short options), yes_no, or text. Never ask who someone is: nothing about family, children, age, health, religion, ethnicity, gender, disability, marriage, schools or how safe an area is. Write them without apostrophes ("What is", not "What’s").`,
+  `- questions: up to ${AI_SETUP_FOUND_LIMITS.questions} short questions this business would ask a new customer before booking or quoting, written for this business: a choice (with 2 to 6 short options), yes_no, or text. Never ask who someone is: nothing about family, children, age, health, religion, ethnicity, gender, disability, marriage, schools or how safe an area is, except what <may_ask> allows. Write them without apostrophes ("What is", not "What’s").`,
   '',
   'Rules:',
   '- Use only what the pages say. Never guess or add details.',
@@ -255,7 +256,8 @@ async function readSite(ctx: JobContext, scope: TenantScope, job: ReadSiteJob): 
       .from(workspaces)
       .where(eq(workspaces.id, scope.workspaceId)),
   );
-  const facts = quickFactsFor(business?.industry);
+  const industry = business?.industry ?? null;
+  const facts = quickFactsFor(industry);
   const keys = facts.map((f) => f.key);
   let reading: z.output<typeof SiteReading>;
   try {
@@ -276,7 +278,7 @@ async function readSite(ctx: JobContext, scope: TenantScope, job: ReadSiteJob): 
     log.info({ code: e.code }, 'quick setup couldn’t have the website read');
     return;
   }
-  const found = aiSetupFoundFrom(reading, job.website, keys);
+  const found = aiSetupFoundFrom(reading, job.website, keys, industry);
   const { output } = await asWorker(ctx.db, scope, (tx) =>
     executeCommandIn(
       tx,
@@ -299,15 +301,20 @@ async function readSite(ctx: JobContext, scope: TenantScope, job: ReadSiteJob): 
   );
 }
 
-/** What the model is told about the business: its name and kind, and the quick facts it's asked about. */
+/**
+ * What the model is told about the business: its name and kind, what its questions may ask though it's about who
+ * someone is, and the quick facts it's asked about.
+ */
 export function readSiteContext(
   business: { readonly name: string; readonly industry: string | null } | null,
   facts: readonly QuickFact[],
 ): string {
+  const mayAsk = business ? setupFor(business.industry).mayAsk : undefined;
   return [
     business
       ? `<business name="${quoteData(business.name)}" industry="${quoteData(industryLabel(business.industry))}"></business>`
       : '',
+    mayAsk ? `<may_ask>${quoteData(mayAsk.note)}</may_ask>` : '',
     facts.length
       ? [
           '<quick_facts>',
