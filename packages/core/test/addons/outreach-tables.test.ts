@@ -1,7 +1,7 @@
 /**
  * Social Outreach's own tables, on the database: the Drizzle mirror matches the live columns and the manifest names
- * every table; a member reads the playbooks but only owners and admins write them; and none of it shows while the
- * add-on is off.
+ * every table; a member reads the playbooks but only owners and admins write them; nobody deletes a step noted or a
+ * group; and none of it shows while the add-on is off.
  */
 import { getTableColumns, getTableName } from 'drizzle-orm';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -90,6 +90,38 @@ describe('Social Outreach’s tables', () => {
     expect(
       await refusal(as(owner)(sql`delete from addon_outreach.playbooks where id = ${made!.id}`)),
     ).toBe('42501');
+  });
+
+  it('keep every step noted, and the groups they came from: nobody deletes one', async () => {
+    const [profile] = await as(member)<{ id: string }>(
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          values (${ws}, 'facebook', 'morgan.ellis.2', 'https://www.facebook.com/morgan.ellis.2', 'Morgan Ellis')
+          returning id`,
+    );
+    const [group] = await as(member)<{ id: string }>(
+      sql`insert into addon_outreach.groups (workspace_id, platform, slug, url)
+          values (${ws}, 'facebook', 'lakeway.neighbors', 'https://www.facebook.com/groups/lakeway.neighbors/')
+          returning id`,
+    );
+    const [touch] = await as(member)<{ id: string }>(
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, group_id, at)
+          values (${ws}, ${profile!.id}, ${member.id}, 'like', ${group!.id}, now()) returning id`,
+    );
+    expect(
+      await refusal(as(owner)(sql`delete from addon_outreach.touches where id = ${touch!.id}`)),
+    ).toBe('42501');
+    expect(
+      await refusal(as(owner)(sql`delete from addon_outreach.groups where id = ${group!.id}`)),
+    ).toBe('42501');
+    // Only a message has a place in the outreach.
+    expect(
+      await refusal(
+        as(member)(
+          sql`insert into addon_outreach.touches (workspace_id, profile_id, kind, step, at)
+              values (${ws}, ${profile!.id}, 'like', 'first_message', now())`,
+        ),
+      ),
+    ).toBe('23514');
   });
 
   it('show nothing while the add-on is off', async () => {

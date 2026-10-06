@@ -10,7 +10,7 @@
  * database credentials, and Next middleware cannot open a Postgres connection anyway.
  */
 import rateLimit from '@fastify/rate-limit';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import type { HttpDeps } from './common';
 
@@ -28,9 +28,11 @@ export async function registerSiteRoutes(app: FastifyInstance, deps: HttpDeps): 
         const host = req.params.host.toLowerCase().replace(/:\d+$/, '');
         // Not a hostname at all: answered without touching the database.
         if (!HOST.test(host) || host.length > 253) return reply.send({ site: null });
-        const [found] = await rows<{ site_slug: string; workspace_id: string }>(
-          deps.db,
-          sql`select * from private.site_for_domain(${host})`,
+        const [found] = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<{ site_slug: string; workspace_id: string }>(
+            tx,
+            sql`select * from private.site_for_domain(${host})`,
+          ),
         );
         // A minute at the edge, and the proxy keeps its own copy for a minute too. A domain that has just
         // started working is live within about two minutes, which is nothing next to DNS.

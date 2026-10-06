@@ -2,11 +2,14 @@
  * What the extension sends HandsFreeOS: the saves and the look-up built from a read, cut to what the commands take,
  * with Facebook's times made to last; and which businesses it can save to.
  */
-import { KEPT_MESSAGES } from '@hfos/core/addons/outreach/limits';
+import { FRIENDS_SAVE_MOST, KEPT_MESSAGES } from '@hfos/core/addons/outreach/limits';
 import { describe, expect, it } from 'vitest';
-import type { ChatPage, ProfilePage, ReadResult } from '../src/facebook/types';
+import type { ChatPage, Person, ProfilePage, ReadResult } from '../src/facebook/types';
 import {
   chatSave,
+  friendSet,
+  friendsSave,
+  listOnPage,
   MOST_BYTES,
   nameKey,
   onPage,
@@ -293,6 +296,110 @@ describe('onPage', () => {
 
   it('matches names the way HandsFreeOS does', () => {
     expect(nameKey('  Dana   REYES ')).toBe('dana reyes');
+  });
+});
+
+describe('your lists', () => {
+  const person = (name: string, more: Partial<Person> = {}): Person => ({
+    name,
+    profile: {
+      id: null,
+      username: name.toLowerCase().replace(' ', '.'),
+      url: `https://www.facebook.com/${name.toLowerCase().replace(' ', '.')}`,
+    },
+    details: [],
+    badges: [],
+    section: null,
+    ...more,
+  });
+  const read = (more: Partial<ReadResult>): ReadResult => ({
+    kind: 'friends',
+    url: 'https://www.facebook.com/friends',
+    readAt: '2026-10-06T06:00:00.000Z',
+    warnings: [],
+    notes: [],
+    ...more,
+  });
+
+  it('finds your list on the page: the whole of it, or only the requests on /friends', () => {
+    const avery = person('Avery Lane', { details: ['12 mutual friends'] });
+    expect(listOnPage(read({ friendList: 'friends', people: [avery] }))).toEqual({
+      list: 'friends',
+      people: [avery],
+    });
+    const asking = person('Quinn Harper', { section: 'Friend requests' });
+    const suggested = person('Rowan Blake', { section: 'People you may know' });
+    expect(listOnPage(read({ people: [asking, suggested] }))).toEqual({
+      list: 'requests',
+      people: [asking],
+    });
+    // Someone else's friends aren't yours.
+    expect(listOnPage(read({ people: [avery] }))).toBeNull();
+    expect(
+      listOnPage(read({ kind: 'group-members', friendList: undefined, people: [avery] })),
+    ).toBeNull();
+  });
+
+  it('saves each person once with their mutual friends, in parts', () => {
+    const avery = person('Avery Lane', {
+      details: ['Owner at Lane Landscaping', '12 mutual friends'],
+    });
+    const built = friendsSave(
+      [avery, avery, person('Sky Patel'), person('No Link', { profile: null })],
+      'requests',
+      WS,
+    );
+    expect(built).toEqual({
+      ok: true,
+      input: [
+        {
+          workspaceId: WS,
+          platform: 'facebook',
+          list: 'requests',
+          people: [
+            { profile: { ...avery.profile, id: null }, name: 'Avery Lane', mutualFriends: 12 },
+            { profile: person('Sky Patel').profile, name: 'Sky Patel', mutualFriends: null },
+          ],
+        },
+      ],
+    });
+    const many = Array.from({ length: FRIENDS_SAVE_MOST + 1 }, (_, i) =>
+      person(`Friend ${i}`, {
+        profile: {
+          id: String(100_000_000_000_000 + i),
+          username: null,
+          url: `https://www.facebook.com/profile.php?id=${100_000_000_000_000 + i}`,
+        },
+      }),
+    );
+    const parts = friendsSave(many, 'friends', WS);
+    expect(parts.ok && parts.input.map((part) => part.people.length)).toEqual([
+      FRIENDS_SAVE_MOST,
+      1,
+    ]);
+    expect(friendsSave([], 'friends', WS)).toEqual({
+      ok: false,
+      why: 'There are no friends on the page to save. Scroll down so Facebook shows them, then try again.',
+    });
+  });
+
+  it('sets Keep or Don’t pitch by the profile kept, or by the page’s', () => {
+    const to = { name: 'Dana Reyes', profile: dana };
+    expect(friendSet(to, WS, { dontPitch: true }, PERSON)).toEqual({
+      ok: true,
+      input: { workspaceId: WS, platform: 'facebook', dontPitch: true, profileId: PERSON },
+    });
+    expect(friendSet(to, WS, { keep: false })).toEqual({
+      ok: true,
+      input: {
+        workspaceId: WS,
+        platform: 'facebook',
+        keep: false,
+        profile: dana,
+        name: 'Dana Reyes',
+      },
+    });
+    expect(friendSet({ name: ' ', profile: dana }, WS, { keep: true }).ok).toBe(false);
   });
 });
 

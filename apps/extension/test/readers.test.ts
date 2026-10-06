@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { measuredSide, readChat } from '../src/facebook/chat';
+import { friendListOf, mutualFriendsIn, yourProfile } from '../src/facebook/friends';
 import { readPage } from '../src/facebook/page';
 import { runsGroup } from '../src/facebook/people';
 import { classifyUrl } from '../src/facebook/urls';
@@ -535,6 +536,7 @@ describe('notifications', () => {
 describe('your friends list', () => {
   it('reads the list Facebook puts beside the page', () => {
     const result = read('friends-list.html', 'https://www.facebook.com/friends/list');
+    expect(result.friendList).toBe('friends');
     expect(
       result.people?.map(({ name, profile, details }) => ({
         name,
@@ -546,6 +548,51 @@ describe('your friends list', () => {
       { name: 'Rob Hayes', profile: '100006666666666', details: [] },
       { name: 'Kate Nguyen', profile: 'kate.nguyen.9', details: ['3 mutual friends'] },
     ]);
+  });
+});
+
+describe('your friend requests', () => {
+  const url = 'https://www.facebook.com/friends/requests/?profile_id=100007000000001';
+
+  it('reads the requests beside the page, not the friends of whoever’s picked', () => {
+    const result = read('friend-requests.html', url);
+    expect(result.kind).toBe('friends');
+    expect(result.friendList).toBe('requests');
+    expect(
+      result.people?.map(({ name, profile, details }) => ({
+        name,
+        profile: profile?.id ?? profile?.username,
+        details,
+      })),
+    ).toEqual([
+      { name: 'Avery Lane', profile: '100007000000001', details: ['12 mutual friends'] },
+      { name: 'Quinn Harper', profile: '100007000000002', details: ['1 mutual friend'] },
+      { name: 'Rowan Blake', profile: 'rowan.blake.4', details: [] },
+    ]);
+  });
+
+  it('knows your own lists, and that someone else’s friends aren’t yours', () => {
+    const doc = load('friend-requests.html', url);
+    const at = (path: string) => friendListOf(doc, `https://www.facebook.com${path}`);
+    expect(yourProfile(doc, url)).toEqual({
+      id: null,
+      username: 'jordan.owner.1',
+      url: 'https://www.facebook.com/jordan.owner.1',
+    });
+    expect(at('/friends/requests/')).toBe('requests');
+    expect(at('/friends/list')).toBe('friends');
+    expect(at('/jordan.owner.1/friends')).toBe('friends');
+    expect(at('/sky.patel.8/friends')).toBeNull();
+    // /friends itself has parts: the requests among them are found by their part's name.
+    expect(at('/friends')).toBeNull();
+    expect(at('/groups/4455667788/members')).toBeNull();
+  });
+
+  it('finds how many mutual friends a line says', () => {
+    expect(mutualFriendsIn(['Owner at Lane Landscaping', '12 mutual friends'])).toBe(12);
+    expect(mutualFriendsIn(['1.2K friends · 45 mutual'])).toBe(45);
+    expect(mutualFriendsIn(['1 mutual friend'])).toBe(1);
+    expect(mutualFriendsIn(['Lives in Round Rock'])).toBeNull();
   });
 });
 

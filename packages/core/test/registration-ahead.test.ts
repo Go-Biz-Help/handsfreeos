@@ -54,9 +54,12 @@ async function expectRule(fn: () => Promise<unknown>, rule: string) {
   throw new Error(`expected ${rule}, but the call succeeded`);
 }
 
-/** A random local number, so reruns never collide with one still claimed in an old test workspace. */
+/**
+ * A random local number, so reruns never collide with one still claimed in an old test workspace. Its area code never
+ * starts with 8, so it's never toll-free.
+ */
 const randomLocal = () =>
-  `+1${2 + Math.floor(Math.random() * 7)}${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  `+1${2 + Math.floor(Math.random() * 6)}${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
 
 const business = {
   legalName: 'Ahead Test LLC',

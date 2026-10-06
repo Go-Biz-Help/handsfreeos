@@ -140,11 +140,15 @@ const USE_CASES = [
   },
 ] as const;
 
-/** Reads the last submission back into the form, so a turned-down registration is corrected, not retyped. */
+/**
+ * Reads the last submission back into the form, so a turned-down registration is corrected, not retyped. A first
+ * one starts from the website the business already gave (Settings → Workspace, or setup's quick questions).
+ */
 export function wizardFormFrom(
   initial: Record<string, unknown> | null,
   businessName: string,
   me: { fullName: string; email: string },
+  businessWebsite: string | null = null,
 ): WizardForm {
   const b = (initial ?? {}) as {
     legalName?: string;
@@ -169,7 +173,7 @@ export function wizardFormFrom(
     legalName: b.legalName ?? businessName,
     businessType: b.businessType ?? 'llc',
     ein: b.ein ?? '',
-    website: b.website ?? '',
+    website: b.website ?? businessWebsite ?? '',
     line1: b.address?.line1 ?? '',
     city: b.address?.city ?? '',
     state: b.address?.state ?? '',
@@ -527,7 +531,26 @@ async function enableHostedOptIn(
     }
   }
 
-  return { surfaces: { ...have, chatPublicKey, contactFormSlug }, failed };
+  // Publishing the form gave a business without public pages their name (`ensureBookingSite`), and the form's
+  // address and the privacy policy and terms we host are all built from it. Without it here the review found no
+  // policy and wouldn't send until the page was reloaded.
+  let { siteSlug, bookingEnabled } = have;
+  if (!siteSlug && contactFormSlug) {
+    try {
+      const got = unwrap(
+        await apiBrowser().POST('/v1/queries/booking_site.get', { body: { workspaceId } }),
+      );
+      siteSlug = got.site?.slug ?? null;
+      bookingEnabled = got.site?.enabled ?? false;
+    } catch (err) {
+      failed.push(`the contact form’s address (${errorMessage(err)})`);
+    }
+  }
+
+  return {
+    surfaces: { ...have, chatPublicKey, contactFormSlug, siteSlug, bookingEnabled },
+    failed,
+  };
 }
 
 // ---------- the opt-in step, which is the reason the wizard exists ----------
@@ -802,6 +825,7 @@ function OptInStep({
 export function A2pWizard({
   workspaceId,
   businessName,
+  businessWebsite = null,
   number,
   me,
   initial,
@@ -813,6 +837,8 @@ export function A2pWizard({
 }: {
   workspaceId: string;
   businessName: string;
+  /** The website the business already gave, which a first registration starts from. */
+  businessWebsite?: string | null;
   /**
    * The number this registration is for. Null when it goes ahead of the number (a local registration sent
    * while the business's own number is being moved here, or before it has one): that is always 10DLC, and
@@ -834,7 +860,7 @@ export function A2pWizard({
   onSubmitted: (fee: { id: string; amountCents: number } | null) => void;
 }) {
   const [form, setForm] = useState<WizardForm>(() =>
-    withDraft(wizardFormFrom(initial, businessName, me), draft),
+    withDraft(wizardFormFrom(initial, businessName, me, businessWebsite), draft),
   );
   const [surfaces, setSurfaces] = useState<HostedSurfaces>(initialSurfaces);
   const [at, setAt] = useState(() => {

@@ -326,6 +326,46 @@ describe('playbooks', () => {
       [saved.id, true],
     ]);
   });
+
+  it('read one saved before its questions had answers in today’s shape, and save questions as q1, q2…', async () => {
+    const { questions, pace, ...rest } = crm.details;
+    void pace;
+    const [old] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.playbooks (workspace_id, name, details)
+          values (${ws}, 'Before answers',
+                  ${JSON.stringify({ ...rest, questions: questions.map((q) => q.text) })}::jsonb)
+          returning id`,
+    );
+    const listed = await runAs(member, ws, 'outreach.playbook.list', {});
+    const got = listed.playbooks.find((p: { id: string }) => p.id === old!.id);
+    expect(got.details.questions.slice(0, 2)).toEqual([
+      { id: 'q1', text: 'Do you use a CRM?', answers: [] },
+      { id: 'q2', text: 'Which one?', answers: [] },
+    ]);
+    expect(got.details.pace).toEqual({ messageAfterDays: 1, followUpAfterDays: 3 });
+
+    // Saved with the last question moved to the front: names follow the order, and "No" still leads to it.
+    const moved = [questions[3]!, ...questions.slice(0, 3)];
+    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: old!.id,
+      name: 'Before answers',
+      details: {
+        ...crm.details,
+        questions: moved.map((q) =>
+          q.id === 'q1' ? { ...q, answers: q.answers.filter((a) => a.next !== 'q4') } : q,
+        ),
+      },
+    });
+    expect(
+      saved.details.questions.map((q: { id: string; text: string }) => [q.id, q.text]),
+    ).toEqual([
+      ['q1', 'How do you keep track of follow-ups now?'],
+      ['q2', 'Do you use a CRM?'],
+      ['q3', 'Which one?'],
+      ['q4', 'Is it doing what you need?'],
+    ]);
+  });
 });
 
 describe('with the add-on off', () => {
