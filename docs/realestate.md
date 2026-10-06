@@ -132,6 +132,17 @@ The core pieces it needed are core's, usable by any add-on: private records and 
 - **Round six: the web.** Deal settings → **Keeping records** (`?tab=records`: years closed deals are kept, and legal
   holds lifted with a reason); a deal's More → **Place a legal hold…** and its banner, and **Export the whole
   transaction…** with **Exports** on Documents; the deal page's **field notes** and **walkthrough**, read-only.
+- **Round seven: lockboxes.** A listing's **Showings** page has a **Lockboxes** card: each one's kind, where it is,
+  its serial and Kept locked; Add a lockbox, Change, Remove, and Show code (the worker's, for someone on the
+  listing, kept in the deal's history). **Who opened them** lists the openings read from SentriLock's and Supra's
+  emails, each marked Fits a showing or No showing booked. Deal settings → Connections → **Lockbox emails** turns
+  reading them on or off. On the phone, Showings lists the lockboxes and who opened them while there's signal, and
+  never the code.
+- **Round seven: the teammate.** The AI teammate's settings have an **Add-ons** module, one switch per add-on it can
+  use (Use Real Estate Agent). In the Inbox, a thread's draft card shows what the teammate **asks** for ("Ava asks:
+  Add 412 Oak St to Dana's homes", Approve or Reject, and who may decide it when you can't), and a reply the fair
+  housing checks **held** (what they found, Send as it is, Edit or Reject); Workflows → Approvals and the phone's
+  thread, Approvals and Home show both too.
 - **Showing safety** (core): Check in from an appointment, a showing, a tour stop or an open house, with a planned
   end and who's told; the banner on every phone screen while checked in (Check out, +15 min, Help); Help with no
   signal uses the phone's own calling and texting; More → Settings → **My safety** for each person's contacts.
@@ -274,6 +285,21 @@ Round five (Chris, 2026-10-02):
   feedback link an hour after. ShowingTime's emails are read into the same showings and feedback, each marked to be
   checked. Feedback reaches the seller only when the agent shares it; the AI groups buyers' words into themes with
   their own quotes only, and the counts join the price review.
+- **Lockboxes: read their emails, guard codes** (round seven, Chris 2026-10-05). A listing's lockboxes have a kind,
+  where they are, a serial and a code. The code is sealed by the worker before the command sees it (core's sealed
+  values), kept in `code_enc`, which no person's role can read, and goes only into the access email to the confirmed
+  agent, as a sealed part the worker puts in as it sends: the stored email, the Inbox, phones and exports keep
+  "[Lockbox code, kept locked]". Show code is the worker's, for someone on the listing, and goes in the deal's
+  history. SentriLock's and Supra's "opened" emails (`lockbox-emails.ts`, by their labels or their one-line sentence;
+  check one real email from each before relying on them) are read into the listing by serial, then address, behind
+  Deal settings → Connections; one that fits a booked showing joins it, and one that doesn't alerts the listing's
+  agents. Notices the Inbox files under Other are read too, ShowingTime's included.
+- **The AI teammate: answer from their deal, ask before acting** (round seven, Chris 2026-10-05). Once an owner turns
+  Real Estate on in the teammate's settings, it looks up a client's deals, a deal, a seller's listing and showings as
+  that client (the portal's own queries, so it sees what their portal shows them and nothing else), and asks their
+  agent before adding a home they want to see (`realestate_ask_add_home`: an approval only someone on the deal
+  decides, run as them). Every reply it writes goes through the fair housing checks (the words, then the model's
+  read); one they flag waits for a person, even when the teammate answers on its own.
 - **Vendors: the business's own directory.** Each vendor is a company in Contacts with its services, areas and any
   disclosure (an affiliation, a referral fee). Anyone working deals adds one; only someone who runs the deal settings
   approves or archives it. On a duty every approved vendor that does it is offered, those where the home is, first;
@@ -286,8 +312,9 @@ Round five (Chris, 2026-10-02):
 - **Phones keep what the agent may see, and nothing more** (round six). The manifest's `offline` and the migration's
   `private.addon_phone_table(...)` calls say which columns of which tables reach a phone, and a test holds the two
   equal. People on a deal get it in full; someone who sees every deal gets the summary, duties and dates. Open deals
-  and those ended in the last 90 days stay on phones. Documents' names and states go, never their files: opening a
-  PDF needs signal.
+  and those ended in the last 90 days stay on phones. Each document's current version goes too (round seven,
+  `offline.files`): downloaded on Wi‑Fi into the phone's encrypted kept files, a signed one checked against its
+  fingerprint, so it opens with no signal. A replaced or void one is kept only if the agent pins it.
 - **Closed deals are kept, never deleted on their own** (Chris, 2026-10-03). An open deal is held with no end; an
   ended one until its end date plus the years in Deal settings → Keeping records (7 by default), redone each night
   and whenever the setting changes. While any deal is held, deleting the add-on's data is refused. A legal hold
@@ -346,11 +373,12 @@ pnpm openapi                                                        # after chan
 - Putting the listing on the MLS, posting to social sites, and reading offers from their PDFs.
 - Reading inspection reports and the Closing Disclosure; lender, title and insurance connectors; booking a vendor's
   appointment from the duty (it's booked on the calendar, and linked there); reports on competing listings.
-- A showing's access by smart lockbox; ShowingTime's own API (its emails are read instead).
+- A lockbox maker's own API (their emails are read instead); ShowingTime's own API (its emails are read instead).
 - On the phone: a listing's "Today" showings and offers on its deal page, Coordinate's "Nudge the buyers" and the
   proof it waived, reassigning a duty from Workload, a walkthrough's summary sent to the other side, a vendor's
   quote photo, and moving a deal's stage with no signal (it needs signal: a late move could undo a termination
   recorded meanwhile).
-- The AI teammate using the add-on, and workflow steps and triggers from it.
+- The AI teammate using the add-on on a phone call, asking for more than adding a home, and running a client's own
+  portal actions as them; workflow steps and triggers from the add-on.
 - State rules, and a brokerage rule engine beyond the duty editor.
 - Prices.

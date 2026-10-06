@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import { CampaignAudience } from '../../schemas/campaign';
+import { sealedValue } from '../sealed';
 import { isoDateTime, uuid } from '../../schemas/common';
 import {
   DEAL_FACTS,
@@ -4317,3 +4318,72 @@ export const ExportsOutput = z.object({
     }),
   ),
 });
+
+// ---------- lockboxes (round seven) ----------
+
+export const LOCKBOX_KINDS = ['sentrilock', 'supra', 'combination', 'keypad', 'other'] as const;
+export const LOCKBOX_VENDORS = ['sentrilock', 'supra'] as const;
+
+export const LockboxSaveInput = z.object({
+  ...inDeal,
+  /** The lockbox's own id: made by the app for a new one, so a repeat makes it once. */
+  id: uuid,
+  kind: z.enum(LOCKBOX_KINDS),
+  /** Where it is: "On the side gate". */
+  place: z.string().trim().min(1).max(120).nullable().optional(),
+  serial: z.string().trim().min(1).max(60).nullable().optional(),
+  /** Its code, sealed by the worker on the way (never the code itself); null clears it, left out keeps it. */
+  code: sealedValue('Lockbox code').nullable().optional(),
+});
+export const LockboxRemoveInput = z.object({ ...inDeal, id: uuid });
+
+export const LockboxOut = z.object({
+  id: uuid,
+  kind: z.enum(LOCKBOX_KINDS),
+  kindLabel: z.string(),
+  place: z.string().nullable(),
+  serial: z.string().nullable(),
+  /** Whether a code is kept (it's never sent back: Show code asks the worker). */
+  hasCode: z.boolean(),
+  codeSetAt: isoDateTime.nullable(),
+});
+export const LockboxOutput = z.object({ dealId: uuid, lockbox: LockboxOut });
+
+export const LockboxOpeningOut = z.object({
+  id: uuid,
+  vendor: z.enum(LOCKBOX_VENDORS),
+  openedAt: isoDateTime,
+  openedBy: z.string().nullable(),
+  company: z.string().nullable(),
+  lockboxId: uuid.nullable(),
+  showingId: uuid.nullable(),
+  booked: z.boolean(),
+});
+
+export const LockboxListInput = z.object(inDeal);
+export const LockboxListOutput = z.object({
+  lockboxes: z.array(LockboxOut),
+  /** The latest openings, newest first. */
+  openings: z.array(LockboxOpeningOut),
+});
+
+export const LockboxOpenedInput = z.object({
+  ...inDeal,
+  /** The email it was read from: read twice, it's kept once. */
+  messageId: uuid,
+  vendor: z.enum(LOCKBOX_VENDORS),
+  openedAt: isoDateTime,
+  serial: z.string().trim().min(1).max(60).nullable().optional(),
+  openedBy: z.string().trim().min(1).max(120).nullable().optional(),
+  company: z.string().trim().min(1).max(120).nullable().optional(),
+  phone: z.string().trim().min(1).max(40).nullable().optional(),
+});
+export const LockboxOpenedOutput = z.object({
+  openingId: uuid.nullable(),
+  booked: z.boolean(),
+  duplicate: z.boolean(),
+});
+
+/** Worker: a lockbox's code was shown to someone (core's addon_sealed.viewed), kept in the deal's history. */
+export const LockboxCodeViewedInput = z.object({ ...inDeal, lockboxId: uuid, viewedBy: uuid });
+export const LockboxCodeViewedOutput = z.object({ kept: z.boolean() });

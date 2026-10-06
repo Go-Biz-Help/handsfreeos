@@ -28,6 +28,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
 | The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
 | The browser extension                        | `apps/extension/README.md`                                                                                        |
+| Messenger and Instagram, and ad attribution  | `docs/meta-messaging.md`; Meta's setup is "Facebook and Instagram messages: Meta" in `docs/operations.md`         |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
 | Screen designs                               | `design/m1` to `design/m10`, and `design/realestate`; the brand mark is in `design/brand`                         |

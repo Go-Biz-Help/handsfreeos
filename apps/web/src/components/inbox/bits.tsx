@@ -1,5 +1,11 @@
 'use client';
-import { segmentCounterLabel, unreadLabel, waitingFor, type WordPart } from '@hfos/core';
+import {
+  segmentCounterLabel,
+  unreadLabel,
+  waitingFor,
+  type SocialChannel,
+  type WordPart,
+} from '@hfos/core';
 import { Clock, Globe, Image as ImageIcon, Moon, Phone, Play } from 'lucide-react';
 import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
@@ -7,6 +13,7 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { MediaViewer } from './media-viewer';
+import { SOCIAL_ICONS } from './social-bits';
 
 export type IconType = ComponentType<{ className?: string; strokeWidth?: number }>;
 
@@ -102,12 +109,15 @@ export function ChannelIcon({
 export function PhoneAvatar({
   size = 'md',
   chat = false,
+  social = null,
 }: {
   size?: 'sm' | 'md' | 'panel';
   /** A website chat's visitor: a globe, like the chat's channel mark, instead of a phone. */
   chat?: boolean;
+  /** Somebody on Messenger or Instagram: its mark. */
+  social?: SocialChannel | null;
 }) {
-  const Icon = chat ? Globe : Phone;
+  const Icon = social ? SOCIAL_ICONS[social] : chat ? Globe : Phone;
   return (
     <span
       aria-hidden
@@ -131,13 +141,16 @@ export function ContactAvatar({
   person,
   size = 'md',
   chat = false,
+  social = null,
 }: {
   person: { id: string; fullName: string } | null;
   size?: 'sm' | 'md' | 'panel';
   /** A website chat: its visitor shows a globe until they're a customer. */
   chat?: boolean;
+  /** Messenger or Instagram: its mark until they're a customer. */
+  social?: SocialChannel | null;
 }) {
-  if (!person) return <PhoneAvatar size={size} chat={chat} />;
+  if (!person) return <PhoneAvatar size={size} chat={chat} social={social} />;
   return (
     <Avatar
       name={person.fullName}

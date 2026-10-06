@@ -3,6 +3,7 @@ import {
   BALANCE_WORDS,
   formatPhone,
   keptBusinessesLine,
+  keptDocumentsLine,
   MY_CELL_WORDS,
   PHONE_SETTINGS_WORDS,
   SAFETY_PHONE_WORDS,
@@ -14,6 +15,7 @@ import { View } from 'react-native';
 import {
   Bell,
   CloudCheck,
+  FileText,
   Fingerprint,
   Layers,
   LogOut,
@@ -46,6 +48,13 @@ import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
 import { openWeb } from '@/lib/open-web';
 import { expireSavedSignIn } from '@/lib/test-tools';
 import { useMoneyRole } from '@/money/use-money';
+import {
+  DOCUMENT_LIMIT_BYTES,
+  setMobileDataAllowed,
+  useKeepsDocuments,
+  useKeptDocumentBytes,
+  useMobileDataAllowed,
+} from '@/sync/document-keeper';
 import { useWorksOffline } from '@/sync/hooks';
 
 /**
@@ -59,6 +68,9 @@ export default function Settings() {
   const appearance = useAppearance();
   const choices = useKeepChoices(userId);
   const worksOffline = useWorksOffline(userId);
+  const keepsDocuments = useKeepsDocuments(business.id);
+  const documentBytes = useKeptDocumentBytes();
+  const mobileData = useMobileDataAllowed();
   const { cell } = useMyCell();
   // The business's balance is for whoever manages its money here (0106).
   const { whole } = useMoneyRole();
@@ -138,6 +150,21 @@ export default function Settings() {
           onPress={() => router.push(businessHref(business.id, 'settings/businesses'))}
           testID="setting-businesses"
         />
+        {keepsDocuments ? (
+          <ListRow
+            icon={FileText}
+            label={PHONE_SETTINGS_WORDS.documentsMobileData}
+            detail={keptDocumentsLine(documentBytes, DOCUMENT_LIMIT_BYTES)}
+            end={
+              <Switch
+                label={PHONE_SETTINGS_WORDS.documentsMobileData}
+                testID="setting-documents-mobile-data"
+                checked={mobileData}
+                onCheckedChange={setMobileDataAllowed}
+              />
+            }
+          />
+        ) : null}
         <ListRow
           icon={CloudCheck}
           label={PHONE_SETTINGS_WORDS.changes}

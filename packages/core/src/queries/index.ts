@@ -51,6 +51,7 @@ import {
   crmFindMatches,
   crmMetrics,
   crmSummary,
+  fileFingerprints,
   fileList,
   importGet,
   importList,
@@ -78,6 +79,7 @@ import { brandedDomainGet } from './branded-domain';
 import { numberPortList } from './port';
 import { registrationGetDraft } from './registration';
 import { numberImportList, twilioConnectionList } from './number-import';
+import { attributionList, metaAccountList } from './social';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { personGet, personList } from './person';
@@ -157,6 +159,7 @@ export {
   crmMetrics,
   crmSummary,
   fileList,
+  fileFingerprints,
   importGet,
   importList,
   invitationPreview,
@@ -253,6 +256,7 @@ export const queries: readonly QueryDef[] = [
   taskList,
   timelineList,
   fileList,
+  fileFingerprints,
   importGet,
   importList,
   crmFindMatches,
@@ -271,6 +275,9 @@ export const queries: readonly QueryDef[] = [
   conversationGet,
   conversationThread,
   messageGet,
+  // Facebook Messenger and Instagram: the Pages and accounts, and where customers came from (20261025000200).
+  metaAccountList,
+  attributionList,
   emailSetupStatus,
   emailSuppressionList,
   emailUnmatchedList,
@@ -417,6 +424,7 @@ export * from './template';
 export * from './review';
 export * from './migration';
 export * from './number-import';
+export * from './social';
 export * from './support';
 export * from './platform';
 export * from './teammate-view';

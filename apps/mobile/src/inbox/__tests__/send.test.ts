@@ -114,3 +114,25 @@ it('answers a client in their portal, as the web does, with nothing but the word
     { dependsOn: [] },
   );
 });
+
+it('answers on Messenger with its photos, which go to the customer’s files first', async () => {
+  await sendReply({
+    ...base,
+    channel: 'messenger',
+    body: 'Here’s the part we’d swap in.',
+    photos: [photo('f-1')],
+  });
+  expect(changes.addPhoto).toHaveBeenCalledTimes(1);
+  expect(change).toHaveBeenCalledWith(
+    'message.send',
+    {
+      workspaceId: WS,
+      conversationId: CONV,
+      channel: 'messenger',
+      body: 'Here’s the part we’d swap in.',
+      attachmentFileIds: ['f-1'],
+      clientId: 'client-1',
+    },
+    { dependsOn: ['photo-change-1'] },
+  );
+});

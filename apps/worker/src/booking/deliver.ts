@@ -166,8 +166,19 @@ export async function sendEmail(
   meta: RequestMeta,
   /** Who it goes out as: the system, or the system tagged as the Action Center (M8's automatic messages). */
   actor: SystemActor = systemActor(scope),
-  /** Email campaigns: the campaign email this is (the unsubscribe headers, the broadcast stream). */
-  opts: { readonly campaignRecipientId?: string } = {},
+  /**
+   * Email campaigns: the campaign email this is (the unsubscribe headers, the broadcast stream). Sealed parts: values
+   * the worker sealed, put in place of their markers only as the email is sent (round seven: a lockbox's code).
+   */
+  opts: {
+    readonly campaignRecipientId?: string;
+    readonly sealedParts?: readonly {
+      readonly marker: string;
+      readonly sealed: string;
+      readonly addonId: string;
+      readonly key: string;
+    }[];
+  } = {},
 ): Promise<Sent> {
   try {
     const { output } = await executeCommand(
@@ -182,6 +193,7 @@ export async function sendEmail(
         clientId,
         keepConversationStatus: true,
         ...(opts.campaignRecipientId ? { campaignRecipientId: opts.campaignRecipientId } : {}),
+        ...(opts.sealedParts?.length ? { sealedParts: [...opts.sealedParts] } : {}),
       },
       actor,
       meta,

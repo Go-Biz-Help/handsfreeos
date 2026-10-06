@@ -10,6 +10,7 @@ import type { SessionState } from '@/lib/auth/session';
 
 import { CopyConnector, type ConnectorSession } from './connector';
 import { peopleWithCopies, removeCopy, type CopyFiles } from './files';
+import type { OpenKeptFiles } from './kept-store';
 import type { CopyKeys } from './keys';
 import { beforeOpening, onSignOut, wantedBusinesses } from './rules';
 import {
@@ -49,6 +50,8 @@ export class CopyUnreadable extends Error {}
 
 export interface OpenedDatabase {
   readonly db: AbstractPowerSyncDatabase;
+  /** The files the phone keeps for this person (`kept-files.ts`), opened with the copy. */
+  readonly kept?: OpenKeptFiles;
   /** SQLCipher's `PRAGMA cipher_version`. */
   readonly cipherVersion: string;
   /** From starting to open the file to PowerSync being ready: the startup check and PowerSync's six connections. */
@@ -131,6 +134,11 @@ export interface PhoneCopyDeps {
   readonly keptBusinesses: (userId: string) => string[];
   /** Changes made on the phone, kept in the copy until they reach HandsFreeOS. */
   readonly changes: CopyChanges;
+  /** Where the open person's kept files are found (`kept-store.ts`). */
+  readonly kept?: {
+    opened(userId: string, store: OpenKeptFiles): void;
+    closing(signedOut: boolean): void;
+  };
   readonly syncUrl: string;
   readonly appVersion: string;
   readonly logger?: PowerSyncLogger;
@@ -291,6 +299,7 @@ export class PhoneCopy {
       }
       return;
     }
+    if (opened.kept) this.deps.kept?.opened(userId, opened.kept);
     if (this.target !== userId) {
       // Signed out while it opened: the next step closes it.
       this.update({ state: this.openState(userId, opened, newKey, plan.deleteCopiesOf.length) });
@@ -360,6 +369,11 @@ export class PhoneCopy {
     this.stopListening = null;
     this.connectAsked = false;
     if (state.status === 'open') {
+      try {
+        this.deps.kept?.closing(signedOut);
+      } catch (error) {
+        this.log('Closing the kept files', error);
+      }
       await state.db.disconnect().catch((error: unknown) => this.log('Disconnecting', error));
       await state.db.close().catch((error: unknown) => this.log('Closing the copy', error));
     }

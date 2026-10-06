@@ -196,7 +196,7 @@ export interface PendingReply {
   readonly row: OutboxRow;
   readonly stage: ReplyStage;
   readonly body: string;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
   readonly subject: string | null;
   /** The photos it carries, by file id. */
   readonly fileIds: readonly string[];
@@ -265,7 +265,11 @@ export function pendingReplies(
     // A text sent to wait for quiet hours shows as the server's held text once it arrives.
     if (row.state === 'sent' && input.sendAfterQuietHours === true) continue;
     const channel =
-      input.channel === 'email' || input.channel === 'chat' || input.channel === 'portal'
+      input.channel === 'email' ||
+      input.channel === 'chat' ||
+      input.channel === 'portal' ||
+      input.channel === 'messenger' ||
+      input.channel === 'instagram'
         ? input.channel
         : 'sms';
     out.push({

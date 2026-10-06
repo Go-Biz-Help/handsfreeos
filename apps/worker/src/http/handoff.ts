@@ -95,14 +95,41 @@ export interface FinishPage {
   readonly link?: { readonly href: string; readonly label: string };
 }
 
+/** One thing a sign-in can connect, as a line of the app's checklist (a Facebook Page, an Instagram account). */
+export interface FinishPickOption {
+  readonly id: string;
+  readonly name: string;
+  /** "Facebook Page · Messenger", "Instagram, linked to Bright Plumbing". */
+  readonly detail: string | null;
+  /** The line this one sits under, and is ticked along with: an Instagram account under its Page. */
+  readonly parent: string | null;
+  readonly checked: boolean;
+  /** Not this checklist's to change: connected here already, or not this sign-in's to connect. */
+  readonly disabled: boolean;
+  /** Why, when it's disabled. */
+  readonly note: string | null;
+}
+
+/** Which of several things to connect: a checklist, answered with the ids ticked (20261025000200). */
+export interface FinishPick {
+  readonly title: string;
+  readonly body: string;
+  readonly options: readonly FinishPickOption[];
+  /** The button's words. */
+  readonly submit: string;
+  /** Where the app posts `{ handoff, ids }`. */
+  readonly answer: string;
+}
+
 /**
- * What finishing answers: somewhere to go next, a page to show, or (a review sign-in that speaks for several
- * places) the question of which one.
+ * What finishing answers: somewhere to go next, a page to show, (a review sign-in that speaks for several places)
+ * the question of which one, or (a Facebook sign-in that manages several Pages) a checklist of which ones.
  */
 export type FinishOutcome =
   | { readonly next: string }
   | { readonly page: FinishPage }
-  | { readonly choose: { readonly places: readonly { id: string; name: string }[] } };
+  | { readonly choose: { readonly places: readonly { id: string; name: string }[] } }
+  | { readonly pick: FinishPick };
 
 /** A sign-in finished by somebody other than the person who started it. */
 export const NOT_YOURS: FinishPage = {

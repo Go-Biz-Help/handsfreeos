@@ -163,7 +163,7 @@ export async function conversationFor(
 
 export interface DraftOut {
   readonly id: string;
-  readonly kind: 'reply' | 'approval';
+  readonly kind: 'reply' | 'approval' | 'call' | 'ask';
   readonly status: string;
   readonly conversationId: string | null;
   readonly preview: {

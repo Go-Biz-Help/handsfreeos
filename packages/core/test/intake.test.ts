@@ -246,7 +246,13 @@ describe('what the business can change', () => {
 
   it('reads back on the settings screen', async () => {
     const view = await ask(intakeList, { workspaceId: wsId }, owner);
-    expect(view.sources.map((s) => s.kind)).toEqual(['text', 'call', 'email']);
+    expect(view.sources.map((s) => s.kind)).toEqual([
+      'text',
+      'call',
+      'email',
+      'messenger',
+      'instagram',
+    ]);
     const texting = view.sources.find((s) => s.kind === 'text')!;
     expect(texting).toMatchObject({ active: true, createLead: true, dailyCap: 50 });
     expect(texting.todayCount).toBeGreaterThan(0);

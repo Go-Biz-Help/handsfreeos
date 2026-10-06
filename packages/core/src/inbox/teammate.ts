@@ -198,7 +198,7 @@ const isMoneyAction = (kind: string): kind is MoneyDraftActionKind =>
 
 /** What a draft holds, for its words. */
 export interface DraftFacts {
-  readonly kind: 'reply' | 'approval' | 'call';
+  readonly kind: 'reply' | 'approval' | 'call' | 'ask';
   readonly channel: string | null;
   readonly teammate: TeammateRef;
   readonly person: { readonly fullName: string } | null;
@@ -208,7 +208,17 @@ export interface DraftFacts {
     readonly discount: { readonly percent: number; readonly reason: string } | null;
     /** A call draft: the call the AI means to place. */
     readonly call?: { readonly toDisplay: string; readonly goal: string } | null;
+    /** An ask (round seven): the add-on's action it asks a person on the customer's record to OK. */
+    readonly ask?: { readonly addonName: string; readonly summary: string } | null;
+    /** What an add-on's check found in the reply (round seven), so it waits for a person. */
+    readonly flags?: readonly DraftFlag[];
   };
+}
+
+/** One thing an add-on's check found in a reply: Real Estate's fair housing. */
+export interface DraftFlag {
+  readonly addonName: string;
+  readonly message: string;
 }
 
 /** "Will book Thu, Sep 24 at 9:00 AM on AC tune-up", from what the teammate wrote down when it held it. */
@@ -248,6 +258,8 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
   email: 'email',
   chat: 'website chat',
   portal: 'portal message',
+  messenger: 'Messenger message',
+  instagram: 'Instagram message',
 };
 
 /** "asks to send … a bill": what each money request asks an owner for, before the customer's name. */
@@ -263,6 +275,7 @@ const MONEY_ASKS: Readonly<Record<MoneyDraftActionKind, string>> = {
 export function draftTitle(d: DraftFacts): string {
   const who = d.person?.fullName ?? 'a customer';
   if (d.kind === 'call') return `${d.teammate.name} asks to call ${who}`;
+  if (d.kind === 'ask' && d.preview.ask) return `${d.teammate.name} asks: ${d.preview.ask.summary}`;
   if (d.kind === 'approval') {
     if (d.preview.discount)
       return `${d.teammate.name} asks to offer ${who} ${d.preview.discount.percent}% off`;
@@ -291,6 +304,8 @@ export function draftTitle(d: DraftFacts): string {
 /** One line on a draft for Home: "Ava’s reply and a booking for Thu, Sep 24 at 9:00 AM". */
 export function draftShort(d: DraftFacts): string {
   const name = d.teammate.name;
+  if (d.kind === 'ask' && d.preview.ask) return `${name} asks: ${d.preview.ask.summary}`;
+  if (d.preview.flags?.length) return `${name}’s reply, held for you`;
   if (d.kind === 'call')
     return d.preview.call ? `${name} asks to call: ${d.preview.call.goal}` : `${name} asks to call`;
   if (d.kind === 'approval' && d.preview.discount)
@@ -336,6 +351,8 @@ export function decideRefusal(rule: string | null, who: string, name: string): s
       return 'Someone already decided this draft.';
     case 'not_an_approver':
       return 'Only owners and admins decide what the AI teammate asks approval for.';
+    case 'not_on_record':
+      return 'Only someone who works the record this is about can decide it. Ask one of its people.';
     default:
       return null;
   }
@@ -363,6 +380,10 @@ export function approvedToast(
   const name = d.teammate.name;
   if (d.kind === 'call')
     return `Approved. ${name} calls ${who} at the next good time: in open hours, never in quiet hours.`;
+  if (d.kind === 'ask')
+    return d.preview.message
+      ? `Done, as you. ${name} lets ${who} know now.`
+      : 'Done, as you. Nothing was sent.';
   if (progress.becameAutomatic)
     return `Approved. That’s ${progress.approvedCount}: ${name} replies on its own from now on.`;
   const sent = d.preview.message
@@ -382,6 +403,7 @@ export function approvedToast(
 /** What rejecting did, for the toast. */
 export function rejectedToast(d: DraftFacts, who: string): string {
   if (d.kind === 'call') return `Rejected. ${d.teammate.name} won’t call ${who}.`;
+  if (d.kind === 'ask') return `Rejected. Nothing changed, and nothing went to ${who}.`;
   return `Rejected. Nothing went to ${who}${d.preview.actions.length ? ', and nothing changed on the calendar' : ''}.`;
 }
 
@@ -419,6 +441,22 @@ export const DRAFT_WORDS = {
   /** Under a draft approved on the phone while it waits for signal. */
   waitingForSignal: 'Waiting for signal',
   sending: 'Sending…',
+  // Round seven: what the teammate asks for with an add-on, and a reply an add-on's check held.
+  /** "Ava asks · Real Estate Agent". */
+  askFrom: (name: string, addonName: string) => `${name} asks · ${addonName}`,
+  /** What approving an ask does. */
+  askThen: (who: string, message: string | null) =>
+    message
+      ? `Approving does it as you, then ${who} gets: “${message}”`
+      : 'Approving does it as you. Nothing is sent.',
+  /** Who may decide an ask: the people on its record. */
+  askWho: (record: string | null) =>
+    record
+      ? `Only people on ${record} can decide it.`
+      : 'Only someone who works the record it’s about can decide it.',
+  heldTitle: 'Held for you',
+  heldWhy: (name: string) => `${name} answers on its own, but this reply waits for you`,
+  sendAsItIs: 'Send as it is',
 } as const;
 
 /** "Why? It helps Ava next time (optional)". */

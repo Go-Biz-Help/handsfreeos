@@ -19,7 +19,7 @@ export interface SystemActivityInput {
 }
 
 export interface ChannelActivityInput {
-  readonly kind: 'sms' | 'email' | 'call' | 'chat' | 'portal';
+  readonly kind: 'sms' | 'email' | 'call' | 'chat' | 'portal' | 'messenger' | 'instagram';
   /** The record it's about (a portal message's deal), so a private record's line is sealed with it. */
   readonly customRecordId?: string | null;
   /** inbound / outbound for texts and email; answered / missed / voicemail / outbound for calls. */

@@ -18,6 +18,7 @@ export * from './crm/not-applied';
 export * from './crm/format';
 export * from './crm/record-words';
 export * from './crm/timeline-words';
+export * from './crm/attribution-words';
 export * from './crm/pipeline-words';
 export * from './crm/task-words';
 export * from './crm/file-words';
@@ -34,6 +35,8 @@ export * from './messaging/policies';
 export * from './messaging/preflight';
 export * from './messaging/sms';
 export * from './messaging/rcs';
+// Facebook Messenger and Instagram direct messages (20261025000200).
+export * from './messaging/social';
 export * from './messaging/video-link';
 export * from './messaging/file-link';
 export * from './messaging/quiet-hours';

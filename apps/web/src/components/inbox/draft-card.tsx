@@ -35,6 +35,7 @@ import {
   Repeat,
   RotateCw,
   Send,
+  ShieldAlert,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -289,6 +290,15 @@ export function DraftButtons({
       </div>
     );
   const sends = !!draft.preview.message;
+  // Round seven: an ask is approved, not sent; a reply an add-on's check held is sent as it is, or edited first.
+  const approveLabel =
+    draft.kind === 'ask'
+      ? DRAFT_WORDS.approve
+      : draft.preview.flags.length
+        ? DRAFT_WORDS.sendAsItIs
+        : sends
+          ? DRAFT_WORDS.approveAndSend
+          : DRAFT_WORDS.approve;
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', phone && 'flex-col items-stretch')}>
       <Button
@@ -300,7 +310,7 @@ export function DraftButtons({
         data-testid="draft-approve"
       >
         {d.busy === 'approve' ? null : <Check className="h-3.5 w-3.5" strokeWidth={1.75} />}
-        {sends ? DRAFT_WORDS.approveAndSend : DRAFT_WORDS.approve}
+        {approveLabel}
       </Button>
       <div className={cn('flex gap-1.5', phone && 'w-full')}>
         {sends ? (
@@ -363,6 +373,13 @@ export function DraftCard({
   const sms = draft.channel === 'sms' || draft.channel === null;
   const readOnly = !draft.canDecide;
   const used = knowledgeOf(draft.knowledge);
+  const ask = draft.kind === 'ask' ? draft.preview.ask : null;
+  const flags = draft.preview.flags;
+  const title = ask
+    ? DRAFT_WORDS.askFrom(name, ask.addonName)
+    : flags.length
+      ? `${DRAFT_WORDS.heldTitle} · ${name}’s reply`
+      : `${name}’s draft${phone ? '' : DRAFT_WORDS.waiting}`;
   return (
     <div
       role="group"
@@ -378,10 +395,12 @@ export function DraftCard({
           AI_TEXT,
         )}
       >
-        <Sparkles className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
-        <span className="truncate">
-          {name}’s draft{phone ? '' : DRAFT_WORDS.waiting}
-        </span>
+        {flags.length ? (
+          <ShieldAlert className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
+        ) : (
+          <Sparkles className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
+        )}
+        <span className="truncate">{title}</span>
         {expires ? (
           <span
             className="ml-auto inline-flex items-center gap-1 font-medium text-text-3"
@@ -392,7 +411,20 @@ export function DraftCard({
           </span>
         ) : null}
       </div>
-      {message ? (
+      {ask ? (
+        <div className="flex flex-col gap-1" data-testid="draft-ask">
+          <div className="text-[14.5px] font-semibold">{ask.summary}</div>
+          {d.mode === 'editing' ? null : (
+            <div className="text-[13px] text-text-2">
+              {DRAFT_WORDS.askThen(
+                draft.person?.fullName.split(' ')[0] ?? 'the customer',
+                message?.body ?? null,
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
+      {message && (!ask || d.mode === 'editing') ? (
         d.mode === 'editing' ? (
           <div className="flex flex-col gap-1.5">
             {email ? (
@@ -437,11 +469,24 @@ export function DraftCard({
         )
       ) : null}
       <DraftActions draft={draft} />
+      {flags.length ? (
+        <div
+          className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_oklab,var(--warning)_35%,transparent)] bg-warning-soft px-3 py-2 text-[13px] text-warning-text"
+          data-testid="draft-flags"
+        >
+          <span className="font-medium">{DRAFT_WORDS.heldWhy(name)}</span>
+          {flags.map((f, i) => (
+            <span key={i}>{f.message}</span>
+          ))}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-success-soft px-[7px] text-[11.5px] font-medium text-success-text">
-          <Check className="h-3 w-3" strokeWidth={2.2} />
-          {DRAFT_WORDS.safetyPassed}
-        </span>
+        {ask ? null : (
+          <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-success-soft px-[7px] text-[11.5px] font-medium text-success-text">
+            <Check className="h-3 w-3" strokeWidth={2.2} />
+            {DRAFT_WORDS.safetyPassed}
+          </span>
+        )}
         {used.length ? (
           <span
             className="inline-flex h-5 max-w-full items-center truncate whitespace-nowrap rounded-[6px] bg-card-2 px-[7px] text-[11.5px] font-medium text-text-2"
@@ -452,9 +497,12 @@ export function DraftCard({
           </span>
         ) : null}
         {readOnly ? (
-          <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-card-2 px-[7px] text-[11.5px] font-medium text-text-2">
+          <span
+            className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-card-2 px-[7px] text-[11.5px] font-medium text-text-2"
+            data-testid="draft-who-decides"
+          >
             <Minus className="h-3 w-3" strokeWidth={2.2} />
-            {DRAFT_WORDS.ownersDecide}
+            {ask ? DRAFT_WORDS.askWho(draft.record?.name ?? null) : DRAFT_WORDS.ownersDecide}
           </span>
         ) : null}
         {message && sms && d.mode !== 'editing' ? (

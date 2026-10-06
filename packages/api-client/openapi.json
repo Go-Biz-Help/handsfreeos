@@ -9334,7 +9334,7 @@
     "/v1/commands/message.send": {
       "post": {
         "operationId": "command_message_send",
-        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.",
+        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.",
         "tags": [
           "commands"
         ],
@@ -9377,7 +9377,9 @@
                       "sms",
                       "email",
                       "chat",
-                      "portal"
+                      "portal",
+                      "messenger",
+                      "instagram"
                     ]
                   },
                   "body": {
@@ -9783,6 +9785,40 @@
                         "additionalProperties": false
                       }
                     ]
+                  },
+                  "sealedParts": {
+                    "default": [],
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "marker": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 120
+                        },
+                        "sealed": {
+                          "type": "string",
+                          "maxLength": 8200,
+                          "pattern": "^sealed:v1\\.[0-9a-f]{8}\\.[A-Za-z0-9_-]{16}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{1,8000}$"
+                        },
+                        "addonId": {
+                          "type": "string",
+                          "pattern": "^[a-z]{2,16}$"
+                        },
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                        }
+                      },
+                      "required": [
+                        "marker",
+                        "sealed",
+                        "addonId",
+                        "key"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -9840,7 +9876,7 @@
     "/v1/commands/message.retry": {
       "post": {
         "operationId": "command_message_retry",
-        "summary": "Send a text or email that did not go out one more time.",
+        "summary": "Send a text, email, or Messenger or Instagram reply that did not go out one more time.",
         "tags": [
           "commands"
         ],
@@ -26897,7 +26933,9 @@
                     "enum": [
                       "text",
                       "call",
-                      "email"
+                      "email",
+                      "messenger",
+                      "instagram"
                     ]
                   },
                   "sourceId": {
@@ -26988,7 +27026,9 @@
                           "enum": [
                             "text",
                             "call",
-                            "email"
+                            "email",
+                            "messenger",
+                            "instagram"
                           ]
                         },
                         {
@@ -28396,7 +28436,9 @@
                       "sms",
                       "email",
                       "chat",
-                      "portal"
+                      "portal",
+                      "messenger",
+                      "instagram"
                     ]
                   },
                   "subject": {
@@ -46682,7 +46724,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires workspace.read. Emits safety.checked_in, safety.checked_out. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -46724,6 +46766,9 @@
                     "type": "number",
                     "minimum": -180,
                     "maximum": 180
+                  },
+                  "follow": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -46808,6 +46853,85 @@
                   },
                   "required": [
                     "checkIn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/safety.where": {
+      "post": {
+        "operationId": "command_safety_where",
+        "summary": "Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits . Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "checkInId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "checkInId",
+                  "latitude",
+                  "longitude"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkInId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kept": {
+                      "type": "boolean"
+                    },
+                    "open": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "checkInId",
+                    "kept",
+                    "open"
                   ],
                   "additionalProperties": false
                 }
@@ -50122,6 +50246,214 @@
                   "required": [
                     "textingFeeId",
                     "checkoutUrl"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/meta_connection.connect": {
+      "post": {
+        "operationId": "command_meta_connection_connect",
+        "summary": "Start connecting the business’s Facebook Pages and Instagram accounts, so their direct messages arrive in the inbox and can be answered from it. Returns a one-time state; the browser signs in to Facebook through the worker.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits meta_connection.connect_started.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connectionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "connectionId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/meta_connection.disconnect": {
+      "post": {
+        "operationId": "command_meta_connection_disconnect",
+        "summary": "Disconnect Facebook: HandsFreeOS forgets the sign-in and stops answering every Page and Instagram account it connected. Conversations and their messages stay; nothing changes on Facebook or Instagram.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits meta_connection.disconnected, meta_account.disconnected, meta_account.needs_attention.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "revoked",
+                      "failed"
+                    ]
+                  },
+                  "forget": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "connectionId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connectionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "accountIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "required": [
+                    "connectionId",
+                    "accountIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/meta_account.disconnect": {
+      "post": {
+        "operationId": "command_meta_account_disconnect",
+        "summary": "Stop answering one Facebook Page or Instagram account here. Its conversations and messages stay, and connecting it again picks them up where they were.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits meta_account.disconnected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "accountId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "revoked",
+                      "failed",
+                      "moved"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "accountId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "accountId",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -70849,6 +71181,305 @@
         }
       }
     },
+    "/v1/commands/realestate.lockbox.save": {
+      "post": {
+        "operationId": "command_realestate_lockbox_save",
+        "summary": "A listing’s lockbox: its kind, where it is, its serial, and its code (sealed on the way, never shown back here).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "sentrilock",
+                      "supra",
+                      "combination",
+                      "keypad",
+                      "other"
+                    ]
+                  },
+                  "place": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "serial": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "code": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 8200,
+                        "pattern": "^sealed:v1\\.[0-9a-f]{8}\\.[A-Za-z0-9_-]{16}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{1,8000}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
+                  "id",
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "lockbox": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "sentrilock",
+                            "supra",
+                            "combination",
+                            "keypad",
+                            "other"
+                          ]
+                        },
+                        "kindLabel": {
+                          "type": "string"
+                        },
+                        "place": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "serial": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasCode": {
+                          "type": "boolean"
+                        },
+                        "codeSetAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "kindLabel",
+                        "place",
+                        "serial",
+                        "hasCode",
+                        "codeSetAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "lockbox"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.lockbox.remove": {
+      "post": {
+        "operationId": "command_realestate_lockbox_remove",
+        "summary": "Takes a lockbox off a listing, and its code with it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "lockbox": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "sentrilock",
+                            "supra",
+                            "combination",
+                            "keypad",
+                            "other"
+                          ]
+                        },
+                        "kindLabel": {
+                          "type": "string"
+                        },
+                        "place": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "serial": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasCode": {
+                          "type": "boolean"
+                        },
+                        "codeSetAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "kindLabel",
+                        "place",
+                        "serial",
+                        "hasCode",
+                        "codeSetAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "lockbox"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.playbook.save": {
       "post": {
         "operationId": "command_outreach_playbook_save",
@@ -83366,6 +83997,93 @@
         }
       }
     },
+    "/v1/queries/file.fingerprints": {
+      "post": {
+        "operationId": "query_file_fingerprints",
+        "summary": "What files held when they arrived, so a phone can check the copies it keeps.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "fileIds": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "fileIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "sha256": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "locked": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "sha256",
+                          "locked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "files"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/import.get": {
       "post": {
         "operationId": "query_import_get",
@@ -84241,7 +84959,9 @@
                                 "enum": [
                                   "text",
                                   "call",
-                                  "email"
+                                  "email",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -86593,7 +87313,9 @@
                       "sms",
                       "email",
                       "chat",
-                      "portal"
+                      "portal",
+                      "messenger",
+                      "instagram"
                     ]
                   },
                   "q": {
@@ -86640,7 +87362,9 @@
                               "sms",
                               "email",
                               "chat",
-                              "portal"
+                              "portal",
+                              "messenger",
+                              "instagram"
                             ]
                           },
                           "counterpart": {
@@ -86989,7 +87713,9 @@
                                     "sms",
                                     "email",
                                     "chat",
-                                    "portal"
+                                    "portal",
+                                    "messenger",
+                                    "instagram"
                                   ]
                                 },
                                 "lineId": {
@@ -87409,7 +88135,9 @@
                             "sms",
                             "email",
                             "chat",
-                            "portal"
+                            "portal",
+                            "messenger",
+                            "instagram"
                           ]
                         },
                         "counterpart": {
@@ -87758,7 +88486,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               "lineId": {
@@ -88267,7 +88997,8 @@
                                 "no_phone",
                                 "email_channel",
                                 "chat_channel",
-                                "portal_channel"
+                                "portal_channel",
+                                "social_channel"
                               ]
                             },
                             {
@@ -88281,6 +89012,151 @@
                         "reason"
                       ],
                       "additionalProperties": false
+                    },
+                    "social": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "account": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "platform": {
+                                      "type": "string",
+                                      "enum": [
+                                        "facebook",
+                                        "instagram"
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "username": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": [
+                                        "active",
+                                        "needs_attention",
+                                        "disconnected"
+                                      ]
+                                    },
+                                    "problem": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "reauth",
+                                            "revoked",
+                                            "failed"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "platform",
+                                    "name",
+                                    "username",
+                                    "label",
+                                    "status",
+                                    "problem"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "contact": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "username": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "username"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "everWrote": {
+                              "type": "boolean"
+                            },
+                            "window": {
+                              "type": "object",
+                              "properties": {
+                                "open": {
+                                  "type": "boolean"
+                                },
+                                "peopleOnly": {
+                                  "type": "boolean"
+                                },
+                                "closesAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "open",
+                                "peopleOnly",
+                                "closesAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "textLimit": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "account",
+                            "contact",
+                            "everWrote",
+                            "window",
+                            "textLimit"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "fromNumber": {
                       "type": [
@@ -88324,6 +89200,7 @@
                     "person",
                     "openTasks",
                     "canText",
+                    "social",
                     "fromNumber",
                     "rcs",
                     "quiet",
@@ -88437,7 +89314,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -89047,6 +89926,127 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "social": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "shared": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string"
+                                        },
+                                        "url": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "title": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "url",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "elsewhere": {
+                                    "type": "boolean"
+                                  },
+                                  "replyTo": {
+                                    "type": "object",
+                                    "properties": {
+                                      "mid": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "story": {
+                                        "type": "boolean"
+                                      },
+                                      "storyUrl": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "mid",
+                                      "story",
+                                      "storyUrl"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "postback": {
+                                    "type": "object",
+                                    "properties": {
+                                      "title": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "title"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "files": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "touchId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "editedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "unsentAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -89087,7 +90087,10 @@
                           "transport",
                           "readAt",
                           "rich",
-                          "buttonReply"
+                          "buttonReply",
+                          "social",
+                          "editedAt",
+                          "unsentAt"
                         ],
                         "additionalProperties": false
                       }
@@ -89191,7 +90194,9 @@
                                 "sms",
                                 "email",
                                 "chat",
-                                "portal"
+                                "portal",
+                                "messenger",
+                                "instagram"
                               ]
                             },
                             {
@@ -89801,6 +90806,127 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "social": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "shared": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": {
+                                        "type": "string"
+                                      },
+                                      "url": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "title": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "type",
+                                      "url",
+                                      "title"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "elsewhere": {
+                                  "type": "boolean"
+                                },
+                                "replyTo": {
+                                  "type": "object",
+                                  "properties": {
+                                    "mid": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "story": {
+                                      "type": "boolean"
+                                    },
+                                    "storyUrl": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "mid",
+                                    "story",
+                                    "storyUrl"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "postback": {
+                                  "type": "object",
+                                  "properties": {
+                                    "title": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "files": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "touchId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "editedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "unsentAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -89841,7 +90967,10 @@
                         "transport",
                         "readAt",
                         "rich",
-                        "buttonReply"
+                        "buttonReply",
+                        "social",
+                        "editedAt",
+                        "unsentAt"
                       ],
                       "additionalProperties": false
                     },
@@ -89858,6 +90987,621 @@
                     "message",
                     "conversationId",
                     "triedAgain"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/meta_account.list": {
+      "post": {
+        "operationId": "query_meta_account_list",
+        "summary": "The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, and the Facebook sign-ins they came through.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "instagram"
+                            ]
+                          },
+                          "externalId": {
+                            "type": "string"
+                          },
+                          "pageId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "needs_attention",
+                              "disconnected"
+                            ]
+                          },
+                          "problem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "reauth",
+                                  "revoked",
+                                  "failed"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "subscribed": {
+                            "type": "boolean"
+                          },
+                          "humanAgent": {
+                            "type": "boolean"
+                          },
+                          "connectedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "connectionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "conversations": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "platform",
+                          "externalId",
+                          "pageId",
+                          "name",
+                          "username",
+                          "status",
+                          "problem",
+                          "subscribed",
+                          "humanAgent",
+                          "connectedAt",
+                          "connectionId",
+                          "conversations"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "connected",
+                              "needs_attention",
+                              "disconnected"
+                            ]
+                          },
+                          "facebookUserName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "connectedBy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "connectedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "tokenExpiresAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "readsAds": {
+                            "type": "boolean"
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "facebookUserName",
+                          "connectedBy",
+                          "connectedAt",
+                          "tokenExpiresAt",
+                          "readsAds",
+                          "lastError"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "accounts",
+                    "connections"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/attribution.list": {
+      "post": {
+        "operationId": "query_attribution_list",
+        "summary": "Where a customer or a conversation came from: every Facebook or Instagram ad or link that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "limit": {
+                    "default": 25,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "touches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "touchedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "started",
+                              "returned"
+                            ]
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "instagram"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "messenger",
+                              "instagram"
+                            ]
+                          },
+                          "source": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "referralType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ref": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "adId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "adTitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "adPhotoUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "refererUri": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "conversationId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "personId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "leadId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "accountName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ad": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "externalId": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pending",
+                                      "resolved",
+                                      "no_access",
+                                      "not_found",
+                                      "failed"
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "adsetId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "adsetName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "campaignId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "campaignName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "campaignObjective": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "creativeId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "creativeName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "creativeTitle": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "creativeBody": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "creativeThumbnailUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "callToAction": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "platforms": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "externalId",
+                                  "status",
+                                  "name",
+                                  "adsetId",
+                                  "adsetName",
+                                  "campaignId",
+                                  "campaignName",
+                                  "campaignObjective",
+                                  "creativeId",
+                                  "creativeName",
+                                  "creativeTitle",
+                                  "creativeBody",
+                                  "creativeThumbnailUrl",
+                                  "callToAction",
+                                  "platforms"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "touchedAt",
+                          "kind",
+                          "platform",
+                          "channel",
+                          "source",
+                          "referralType",
+                          "ref",
+                          "adId",
+                          "adTitle",
+                          "adPhotoUrl",
+                          "postId",
+                          "refererUri",
+                          "conversationId",
+                          "personId",
+                          "leadId",
+                          "accountName",
+                          "ad"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "first": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "latest": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "touches",
+                    "first",
+                    "latest",
+                    "total"
                   ],
                   "additionalProperties": false
                 }
@@ -103342,7 +105086,8 @@
                     "enum": [
                       "reply",
                       "approval",
-                      "call"
+                      "call",
+                      "ask"
                     ]
                   },
                   "conversationId": {
@@ -103381,7 +105126,8 @@
                             "enum": [
                               "reply",
                               "approval",
-                              "call"
+                              "call",
+                              "ask"
                             ]
                           },
                           "status": {
@@ -104355,13 +106101,99 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "ask": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "addonId": {
+                                        "type": "string",
+                                        "pattern": "^[a-z]{2,16}$"
+                                      },
+                                      "addonName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      },
+                                      "operation": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 120
+                                      },
+                                      "tool": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      },
+                                      "input": {
+                                        "type": "object",
+                                        "propertyNames": {
+                                          "type": "string"
+                                        },
+                                        "additionalProperties": {}
+                                      },
+                                      "recordId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "summary": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "addonId",
+                                      "addonName",
+                                      "operation",
+                                      "tool",
+                                      "input",
+                                      "recordId",
+                                      "summary"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "flags": {
+                                "default": [],
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "addonName": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 60
+                                    },
+                                    "message": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "required": [
+                                    "addonName",
+                                    "message"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               }
                             },
                             "required": [
                               "message",
                               "actions",
                               "discount",
-                              "call"
+                              "call",
+                              "ask",
+                              "flags"
                             ],
                             "additionalProperties": false
                           },
@@ -104456,6 +106288,35 @@
                           "canDecide": {
                             "type": "boolean"
                           },
+                          "record": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "knowledge": {
                             "type": "array",
                             "items": {}
@@ -104480,6 +106341,7 @@
                           "expiresAt",
                           "createdAt",
                           "canDecide",
+                          "record",
                           "knowledge"
                         ],
                         "additionalProperties": false
@@ -107204,7 +109066,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -107829,7 +109693,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -108756,7 +110622,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -109515,7 +111383,9 @@
                                   "sms",
                                   "email",
                                   "chat",
-                                  "portal"
+                                  "portal",
+                                  "messenger",
+                                  "instagram"
                                 ]
                               },
                               {
@@ -141770,6 +143640,199 @@
                   },
                   "required": [
                     "exports"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/realestate.lockbox.list": {
+      "post": {
+        "operationId": "query_realestate_lockbox_list",
+        "summary": "A listing’s lockboxes (never their codes) and the latest times they were opened.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires realestate.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lockboxes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "sentrilock",
+                              "supra",
+                              "combination",
+                              "keypad",
+                              "other"
+                            ]
+                          },
+                          "kindLabel": {
+                            "type": "string"
+                          },
+                          "place": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "serial": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hasCode": {
+                            "type": "boolean"
+                          },
+                          "codeSetAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "kindLabel",
+                          "place",
+                          "serial",
+                          "hasCode",
+                          "codeSetAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "openings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "vendor": {
+                            "type": "string",
+                            "enum": [
+                              "sentrilock",
+                              "supra"
+                            ]
+                          },
+                          "openedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "openedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "company": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lockboxId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "showingId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "booked": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "vendor",
+                          "openedAt",
+                          "openedBy",
+                          "company",
+                          "lockboxId",
+                          "showingId",
+                          "booked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "lockboxes",
+                    "openings"
                   ],
                   "additionalProperties": false
                 }

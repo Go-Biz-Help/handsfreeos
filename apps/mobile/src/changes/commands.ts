@@ -134,6 +134,8 @@ import {
   SafetyCheckInInput,
   SafetyCheckInOutput,
   SafetyCheckInRef,
+  SafetyWhereInput,
+  SafetyWhereOutput,
   SafetyContactOutput,
   SafetyContactRemoveInput,
   SafetyContactRemoveOutput,
@@ -536,6 +538,8 @@ export const PHONE_COMMANDS = {
   'safety.check_in': command(ANYTIME, SafetyCheckInInput, SafetyCheckInOutput),
   'safety.check_out': command(ANYTIME, SafetyCheckInRef, SafetyCheckInOutput),
   'safety.extend': command(ANYTIME, SafetyExtendInput, SafetyCheckInOutput),
+  // Where the phone is, while a check-in shares it (round seven): only the latest waits, sent by the follower.
+  'safety.where': command(ANYTIME, SafetyWhereInput, SafetyWhereOutput),
   // Asking for help, and the person's own safety contacts: online only. Help that waited would tell their contacts
   // too late, so with no signal the screen offers the phone's own call and texting apps instead.
   'safety.help': command(ONLINE, SafetyHelpInput, SafetyCheckInOutput),

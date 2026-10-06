@@ -14,6 +14,7 @@ import { session } from '@/lib/auth';
 import { lock } from '@/lib/lock';
 import { changesWord, useWaitingCount } from '@/lib/sync-status';
 import { pushBeforeSignOut } from '@/push/device';
+import { stopFollowing } from '@/safety/follow';
 
 /** The changes shown by name in the sheet; the rest are counted. */
 const LISTED = 3;
@@ -50,6 +51,8 @@ export function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => 
     setBusy(true);
     // Off the list of phones that get this person's notifications, while HandsFreeOS still knows who they are.
     await pushBeforeSignOut().catch(() => undefined);
+    // A check-in stops sharing where the phone is: nobody here to send it for.
+    await stopFollowing().catch(() => undefined);
     await session.signOut();
     lock.unlock();
     setBusy(false);

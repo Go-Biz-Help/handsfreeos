@@ -29,6 +29,7 @@ import {
   Receipt,
   Repeat,
   Send,
+  ShieldAlert,
   Sparkles,
 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -153,6 +154,15 @@ export function DraftButtons({ d }: { d: DraftDecision }) {
       </View>
     );
   const sends = !!draft.preview.message;
+  // Round seven: an ask is approved, not sent; a reply an add-on's check held is sent as it is, or edited first.
+  const approveLabel =
+    draft.kind === 'ask'
+      ? DRAFT_WORDS.approve
+      : draft.preview.flags?.length
+        ? DRAFT_WORDS.sendAsItIs
+        : sends
+          ? DRAFT_WORDS.approveAndSend
+          : DRAFT_WORDS.approve;
   return (
     <View className="gap-2">
       <Button
@@ -162,7 +172,7 @@ export function DraftButtons({ d }: { d: DraftDecision }) {
         onPress={d.approve}
         testID="draft-approve"
       >
-        {sends ? DRAFT_WORDS.approveAndSend : DRAFT_WORDS.approve}
+        {approveLabel}
       </Button>
       <View className="flex-row gap-2">
         {sends ? (
@@ -221,6 +231,13 @@ export function DraftCard({
   const email = draft.channel === 'email';
   const sms = draft.channel === 'sms' || draft.channel === null;
   const readOnly = !draft.canDecide;
+  const ask = draft.kind === 'ask' ? (draft.preview.ask ?? null) : null;
+  const flags = draft.preview.flags ?? [];
+  const title = ask
+    ? DRAFT_WORDS.askFrom(name, ask.addonName)
+    : flags.length
+      ? `${DRAFT_WORDS.heldTitle} · ${name}’s reply`
+      : `${name}’s draft`;
   return (
     <View
       role="group"
@@ -231,13 +248,17 @@ export function DraftCard({
     >
       {header}
       <View className="flex-row items-center gap-[7px]">
-        <Sparkles size={13} color={ai.text} strokeWidth={1.75} />
+        {flags.length ? (
+          <ShieldAlert size={13} color={ai.text} strokeWidth={1.75} />
+        ) : (
+          <Sparkles size={13} color={ai.text} strokeWidth={1.75} />
+        )}
         <Text
           numberOfLines={1}
           className="min-w-0 flex-1 text-[13px] font-semibold"
           style={{ color: ai.text }}
         >
-          {`${name}’s draft`}
+          {title}
         </Text>
         {expires ? (
           <View className="flex-row items-center gap-1" testID="draft-expires">
@@ -246,7 +267,20 @@ export function DraftCard({
           </View>
         ) : null}
       </View>
-      {message ? (
+      {ask ? (
+        <View className="gap-1" testID="draft-ask">
+          <Text className="text-[15px] font-semibold">{ask.summary}</Text>
+          {d.mode === 'editing' ? null : (
+            <Text className="text-[13.5px] text-text-2">
+              {DRAFT_WORDS.askThen(
+                draft.person?.fullName.split(' ')[0] ?? 'the customer',
+                message?.body ?? null,
+              )}
+            </Text>
+          )}
+        </View>
+      ) : null}
+      {message && (!ask || d.mode === 'editing') ? (
         d.mode === 'editing' ? (
           <View className="gap-1.5">
             {email ? (
@@ -309,13 +343,27 @@ export function DraftCard({
           line={`Offers ${draft.preview.discount.percent}% off${draft.preview.discount.reason ? `: ${draft.preview.discount.reason}` : ''}`}
         />
       ) : null}
+      {flags.length ? (
+        <View className="gap-1.5 rounded-menu bg-warning-soft px-3 py-2" testID="draft-flags">
+          <Text className="text-[13px] font-medium text-warning-text">
+            {DRAFT_WORDS.heldWhy(name)}
+          </Text>
+          {flags.map((f, i) => (
+            <Text key={i} className="text-[13px] text-warning-text">
+              {f.message}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       <View className="flex-row flex-wrap items-center gap-1.5">
-        <Chip icon={Check} tone="success">
-          {DRAFT_WORDS.safetyPassed}
-        </Chip>
+        {ask ? null : (
+          <Chip icon={Check} tone="success">
+            {DRAFT_WORDS.safetyPassed}
+          </Chip>
+        )}
         {readOnly ? (
           <Chip icon={Minus} tone="gray" testID="draft-read-only">
-            {DRAFT_WORDS.ownersDecide}
+            {ask ? DRAFT_WORDS.askWho(draft.recordName) : DRAFT_WORDS.ownersDecide}
           </Chip>
         ) : null}
         {message && sms && d.mode !== 'editing' ? (

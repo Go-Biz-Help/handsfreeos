@@ -131,6 +131,7 @@ export {
   safetyExtend,
   safetyHelp,
   safetyResolveByLink,
+  safetyWhere,
 } from './safety';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
@@ -358,6 +359,7 @@ import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
 import { aiCallCommands } from './ai-call';
+import { socialCommands } from './social';
 import { paymentConnectionCommands } from './payment-connection';
 import { campaignCommands } from './campaign';
 import { contactAiCommands } from './contact-ai';
@@ -446,6 +448,12 @@ export {
   connectorOf,
   CONNECTION_FAILURES_BEFORE_ERROR,
 } from './addon-connection';
+
+import { addonSealedCommands } from './addon-sealed';
+
+/** Values an add-on keeps sealed (round seven): each time one is shown again, kept in the history. */
+export const { viewed: addonSealedViewed } = addonSealedCommands(ADDON_CATALOG);
+export { addonSealedCommands } from './addon-sealed';
 
 export {
   conversationAssign,
@@ -1002,6 +1010,8 @@ export const commands: readonly CommandDef[] = [
   ...rcsCommands,
   ...rcsRequestCommands,
   ...textingFeeCommands,
+  // Facebook Messenger and Instagram: the Pages and accounts, their messages, and the ads that start them (20261025000100).
+  ...socialCommands,
   // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
   addonInstall,
   addonEnable,
@@ -1028,6 +1038,8 @@ export const commands: readonly CommandDef[] = [
   addonConnectionEndSignIn,
   addonConnectionTokens,
   addonConnectionPlatform,
+  // A sealed value shown again (round seven).
+  addonSealedViewed,
   // Getting started.
   onboardingSaveAnswers,
   onboardingSkip,
@@ -1046,6 +1058,7 @@ export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-onlin
 export * from './calendar-connection';
 export * from './number-import';
 export * from './twilio-connection';
+export * from './social';
 export * from './telephony-account';
 export * from './reminder';
 export * from './waitlist-offer';

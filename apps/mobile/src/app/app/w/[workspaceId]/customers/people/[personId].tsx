@@ -17,6 +17,7 @@ import {
   type RecordAction,
   type RecordTab,
 } from '@/components/customers/bits';
+import { AttributionCard } from '@/components/customers/attribution';
 import { RecordBody, nextVisitLine } from '@/components/customers/record-screen';
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
 import { useBusiness, businessHref } from '@/components/shell/business-context';
@@ -30,7 +31,8 @@ import { useLens } from '@/view-as/use-lens';
 /**
  * A customer's own screen — the canvas's 360 view. Everything on it is read from the phone's copy, so it opens with no
  * signal: the head with what they owe and their next visit, the timeline, their leads, tasks, files and details, and
- * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead).
+ * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead). The ads
+ * that brought them show while there's signal.
  *
  * Editing follows the field-merge rules: only what changed is sent, with what the screen showed, so a teammate's
  * change to another detail stays.
@@ -205,6 +207,8 @@ export default function PersonScreen() {
           }
         />
       ) : null}
+
+      <AttributionCard workspaceId={business.id} personId={personId} />
 
       <RecordBody
         data={data}

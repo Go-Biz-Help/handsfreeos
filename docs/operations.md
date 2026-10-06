@@ -25,6 +25,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The phone carrier: Twilio](#the-phone-carrier-twilio)
 - [Email: Postmark](#email-postmark)
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
+- [Facebook and Instagram messages: Meta](#facebook-and-instagram-messages-meta)
 - [The Assistant: Anthropic](#the-assistant-anthropic)
 - [The backup AI: OpenAI](#the-backup-ai-openai)
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
@@ -1505,6 +1506,11 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `MICROSOFT_OAUTH_CLIENT_SECRET`       | Only for Outlook mailboxes and calendars                                                                                                     | Same as above.                                                                                                                                                                                                                                                                                                                                                                                  | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                                                                                                       | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                                                                                                                                                     | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                                                                                                       | Same as above.                                                                                                                                                                                                                                                                                                                                                                                  | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `FACEBOOK_APP_ID`                     | Only for Facebook Messenger, Instagram messages and Facebook reviews                                                                         | **Connect Facebook**, in **Settings** → **Facebook & Instagram** and in **Reviews**, shows a page titled “Facebook isn’t set up yet”.                                                                                                                                                                                                                                                           | The Meta app, **App settings** → **Basic**: the **App ID**. See “Facebook and Instagram messages: Meta”.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `FACEBOOK_APP_SECRET`                 | With `FACEBOOK_APP_ID`                                                                                                                       | Same as above. A wrong one refuses every webhook from Meta (`rejected an unsigned or mis-signed Meta webhook`).                                                                                                                                                                                                                                                                                 | The same page: **App secret** → **Show**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `META_WEBHOOK_VERIFY_TOKEN`           | Once, when Meta's webhook is saved                                                                                                           | Meta can’t verify `https://hooks.handsfreeos.com/webhooks/meta`, so no message arrives.                                                                                                                                                                                                                                                                                                         | You make it up with `openssl rand -hex 24`; the same value goes into Meta’s webhook setup (Meta Part 3 and 4). It must be 16 characters or more. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `META_LOGIN_CONFIG_ID`                | No                                                                                                                                           | Facebook’s sign-in is asked for its permissions by name instead.                                                                                                                                                                                                                                                                                                                                | The Meta app, **Facebook Login for Business** → **Configurations**: the configuration’s ID (Meta Part 2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `META_HUMAN_AGENT`                    | Only once Meta approves the Human Agent feature                                                                                              | People may answer a Messenger or Instagram customer within a day of their last message, as for everybody.                                                                                                                                                                                                                                                                                       | `on`. People may then answer for seven days (Meta Part 6).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `ANTHROPIC_API_KEY`                   | Only for the Assistant                                                                                                                       | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                                                                                                                                               | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `OPENAI_API_KEY`                      | Only for a backup while Claude is down                                                                                                       | The worker starts, and its `worker started` line shows `"aiBackup":"none"`. Every AI feature uses Claude alone, as before, and fails while Claude is down.                                                                                                                                                                                                                                      | OpenAI's dashboard, the `HandsFreeOS` project's **API keys** (starts with `sk-proj-`). See "The backup AI: OpenAI". Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                                                                                           | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -1558,6 +1564,8 @@ The defaults are right in production. Setting some of these changes real behavio
 | `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                               | How far back a new mailbox's first sync looks.                                                                                                                                                                                                                 |
 | `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2                            | A test override. It changes how often every mailbox is checked.                                                                                                                                                                                                |
 | `CALENDAR_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests.                                                                                                                                                                                       |
+| `META_PROVIDER`                            | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests.                                                                                                                                                                                       |
+| `META_GRAPH_VERSION`                       | `v26.0`                                                                    | The version of Meta’s Graph API the worker asks. Change it only after reading Meta’s changes for the new one.                                                                                                                                                  |
 | `CALENDAR_REFRESH_MS`                      | `600000` (every connected calendar's busy times are read every 10 minutes) | Must be a whole number of milliseconds, 1000 or more. A smaller number reads every calendar more often.                                                                                                                                                        |
 | `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes                          | A demo override. It changes every workspace's alert timing.                                                                                                                                                                                                    |
 | `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                                                                                                 |
@@ -1580,7 +1588,7 @@ The defaults are right in production. Setting some of these changes real behavio
 - **The API:** when the worker has `ASSISTANT_DAILY_TOKENS`, `handsfreeos-api` needs the same number ("Change the daily limit" in "The Assistant: Anthropic").
 - **Turnstile:** the site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) and the worker's `TURNSTILE_SECRET_KEY` come from the same Cloudflare widget.
 - **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls, mailbox and calendar sign-in and the booking pages try `http://127.0.0.1:4100`.
-- **Providers:** Twilio, Postmark, Microsoft, Google, Stripe and Square must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`. Stripe’s Connect endpoint is `https://hooks.handsfreeos.com/webhooks/stripe` and Square’s is `https://hooks.handsfreeos.com/webhooks/square`; the OAuth returns are `https://hooks.handsfreeos.com/oauth/stripe/callback` and `https://hooks.handsfreeos.com/oauth/square/callback`.
+- **Providers:** Twilio, Postmark, Microsoft, Google, Meta, Stripe and Square must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`. Stripe’s Connect endpoint is `https://hooks.handsfreeos.com/webhooks/stripe` and Square’s is `https://hooks.handsfreeos.com/webhooks/square`; the OAuth returns are `https://hooks.handsfreeos.com/oauth/stripe/callback` and `https://hooks.handsfreeos.com/oauth/square/callback`. Meta’s webhook is `https://hooks.handsfreeos.com/webhooks/meta`, and its sign-in returns to `https://hooks.handsfreeos.com/oauth/facebook/callback` (“Facebook and Instagram messages: Meta”).
 - **Never change `hooks.handsfreeos.com`.** The worker writes that address into every Twilio number it buys, and into each business's Messaging Service and browser-call (TwiML) app. Nothing re-points any of them afterwards (see "If the public address ever changes" in "The phone carrier: Twilio").
 
 ### Fly Part 6: Prepare the secret values and give them to Fly
@@ -6245,6 +6253,287 @@ Google, whenever you rotate (a client can hold two secrets at once):
   ```
 
   You should see `mailbox.test.ts` and `mailbox-providers.test.ts` pass.
+
+## Facebook and Instagram messages: Meta
+
+A business connects its Facebook Page, and the Instagram professional account linked to it, in **Settings** → **Facebook & Instagram**. Messenger and Instagram direct messages to the business then arrive in the inbox beside texts and email, and the team answers them there, on the web and on the phone. When somebody writes from an ad or a link, the conversation and the customer's page say which, with the ad's campaign, ad set and creative. `docs/meta-messaging.md` explains how it works inside.
+
+It all runs through one Meta app that HandsFreeOS owns. Each business only signs in with Facebook; it never makes an app of its own. Facebook reviews (**Reviews**) sign in with the same app.
+
+Words used below:
+
+- Meta app: HandsFreeOS's app in Meta's developer dashboard, `https://developers.facebook.com/apps`.
+- App ID and app secret: the app's public number and its password. Only the worker holds the secret.
+- Page: a business's Facebook Page. Messenger messages are written to a Page.
+- Instagram professional account: a business or creator account linked to a Page. Its direct messages reach HandsFreeOS through that Page.
+- Webhook: the address Meta posts every new message to.
+- Verify token: a password you make up. Meta sends it back once, when you save the webhook, to check that the address is yours.
+- Permission: one thing the app asks to do, such as answer a Page's messages.
+- App Review: Meta's check before the app may ask anybody outside your own team for a permission.
+- Development and Live: the app's two modes. In Development only people with a role on the app can use it.
+- Seal: encrypt with `WORKER_ENCRYPTION_KEY` before saving to the database.
+
+How a sign-in travels, so the steps below make sense: **Connect Facebook** sends the browser to the worker at `https://hooks.handsfreeos.com/oauth/facebook/start`. The worker sends it on to Facebook. After the person approves, Facebook sends the browser back to `https://hooks.handsfreeos.com/oauth/facebook/callback`. The worker reads the Pages the person manages and the Instagram accounts linked to them, seals each one's sign-in, asks Meta to send that Page's messages to `https://hooks.handsfreeos.com/webhooks/meta`, and returns the browser to **Settings** → **Facebook & Instagram**.
+
+### Before you start
+
+- The worker is deployed and answers on its public address.
+
+  ```bash
+  curl -s https://hooks.handsfreeos.com/healthz
+  ```
+
+  You should see `{"ok":true}`.
+
+- The hosted database has `supabase/migrations/20261025000200_facebook_and_instagram_messaging.sql`, applied with "Apply new migrations" in "The database: Supabase (hosted)" before the change that adds it reaches `main`.
+- Vercel's Production environment has `NEXT_PUBLIC_WORKER_URL` set to `https://hooks.handsfreeos.com`, as for the mailboxes. Without it, **Connect Facebook** sends the browser to `http://127.0.0.1:4100`.
+- The privacy policy is live and has its "Facebook and Instagram data" section, which Meta's App Review reads. It is the `#meta` part of `apps/site/src/app/privacy/page.tsx`. Do not delete or water it down.
+
+  ```bash
+  curl -s https://handsfreeos.com/privacy | grep -c 'id="meta"'
+  ```
+
+  You should see `1`.
+
+- Your own Facebook account is an admin of the Go Biz Help business portfolio in Meta Business Suite (`https://business.facebook.com`). Meta's business verification is done on the portfolio.
+- For testing: a Facebook Page you manage, and an Instagram professional account linked to it (in the Page's settings, under **Linked accounts**). In the Instagram app's settings for that account, under **Messages and story replies**, **Allow access to messages** is turned on (it is under **Connected tools**). Without it, Instagram sends its messages to no app. Every business that connects Instagram needs it too, and **Settings** → **Facebook & Instagram** tells them.
+- A second Facebook account, and a second Instagram account, to write to the Page as a customer would.
+
+All the values go on the worker only (`handsfreeos-worker`) and in your password manager, in one entry named "Meta app". The API refuses to start if it sees `FACEBOOK_APP_SECRET` or any name that starts with `META_WEBHOOK_` (it stops with "The API process must never hold privileged keys. Remove: ..."). Never commit them, never put them in a `.env` file in this repository, and never add them to `handsfreeos-api`, GitHub or Vercel.
+
+| Name                        | Copy it from                                                                                          | Put it in                                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `FACEBOOK_APP_ID`           | The Meta app → **App settings** → **Basic** → **App ID**                                              | `handsfreeos-worker` and "Meta app"              |
+| `FACEBOOK_APP_SECRET`       | The same page → **App secret** → **Show**                                                             | `handsfreeos-worker` and "Meta app"              |
+| `META_WEBHOOK_VERIFY_TOKEN` | You make it up with `openssl rand -hex 24` (Meta Part 3). It must be 16 characters or more.           | `handsfreeos-worker`, "Meta app" and Meta Part 4 |
+| `META_LOGIN_CONFIG_ID`      | Optional: **Facebook Login for Business** → **Configurations** → the configuration's ID (Meta Part 2) | `handsfreeos-worker` and "Meta app"              |
+| `META_HUMAN_AGENT`          | Not a secret. `on` only after Meta approves the Human Agent feature (Meta Part 6)                     | `handsfreeos-worker`                             |
+
+Leave `META_PROVIDER` and `META_GRAPH_VERSION` unset. In production the worker always uses the real Meta and refuses `META_PROVIDER=fake`, and it speaks Graph API `v26.0`.
+
+### Meta Part 1: The app
+
+1. Open `https://developers.facebook.com/apps` and sign in with your own Facebook account, the one that is an admin of the Go Biz Help portfolio. If Meta asks you to register as a developer first, follow its steps.
+2. Click **Create app**.
+3. Enter `HandsFreeOS` as the app name and your own address as the contact email. Click **Next**.
+4. On the use cases page, add these four:
+   - **Engage with customers on Messenger from Meta**, for Messenger.
+   - **Manage messaging & content on Instagram**, for Instagram direct messages. If Meta asks how people will sign in, choose the setup with **Facebook Login**: HandsFreeOS reaches an Instagram account through the Page it's linked to.
+   - **Create & manage ads with Marketing API**, so HandsFreeOS may read an ad's campaign, ad set and creative.
+   - **Manage everything on your Page**, for Facebook reviews.
+
+   If the list looks different, choose **Other**, then the **Business** type. You add what's missing in step 8.
+
+5. When Meta asks for a business, choose the Go Biz Help portfolio. Click **Next**, then **Create app**, and enter your Facebook password if asked.
+6. Make a 1024 × 1024 copy of the app icon. `design/brand/handsfreeos-icon.png` is 1254 pixels square.
+
+   ```bash
+   sips -z 1024 1024 design/brand/handsfreeos-icon.png --out ~/Desktop/handsfreeos-icon-1024.png
+   ```
+
+7. Open **App settings** → **Basic** and fill in:
+   - **App domains**: `handsfreeos.com`
+   - **Privacy Policy URL**: `https://handsfreeos.com/privacy`
+   - **Terms of Service URL**: `https://handsfreeos.com/terms`
+   - **App icon**: `handsfreeos-icon-1024.png` from your Desktop
+   - **Category**: **Business and pages**
+   - **User data deletion**: choose **Data deletion callback URL**, and enter `https://hooks.handsfreeos.com/meta/data-deletion`
+
+   Click **Save changes**. When somebody asks Facebook to delete what HandsFreeOS knows about them, the worker forgets their sign-ins and their name, and Facebook shows them a confirmation code.
+
+8. Look down the left menu. You should see **Messenger**, **Instagram**, **Webhooks** and **Facebook Login for Business**, either on their own or under the use cases. If one is missing, add it with **Add product** (or **Add use case**).
+9. On **App settings** → **Basic**, copy the **App ID**, then click **Show** next to **App secret** and copy it. Save both in a new password manager entry named "Meta app".
+
+### Meta Part 2: Facebook Login for Business
+
+1. In the left menu, open **Facebook Login for Business** → **Settings**.
+2. Under **Client OAuth settings**, turn on **Client OAuth login**, **Web OAuth login**, **Enforce HTTPS** and **Use Strict Mode for redirect URIs**. Turn off **Login with the JavaScript SDK**.
+3. In **Valid OAuth Redirect URIs**, enter `https://hooks.handsfreeos.com/oauth/facebook/callback`. Facebook reviews come back to the same address.
+4. In **Deauthorize callback URL**, enter `https://hooks.handsfreeos.com/meta/deauthorize`. If it isn't on this page, search the dashboard for "Deauthorize". When somebody removes HandsFreeOS from their Facebook account, the worker stops every sign-in of theirs, in every business, and their Pages show **Needs attention**.
+5. Click **Save changes**.
+6. Optional, and Meta's preferred way for business apps: a configuration, which tells Facebook's sign-in what to ask for. Without one, the worker names the same permissions itself.
+   1. Open **Facebook Login for Business** → **Configurations** and click **Create configuration**.
+   2. Name it `HandsFreeOS inbox`.
+   3. Choose the **General** login variation and a **User access token**.
+   4. Under assets, tick **Pages**, **Instagram accounts** and **Ad accounts**.
+   5. Under permissions, tick these eight: `pages_show_list`, `pages_manage_metadata`, `pages_messaging`, `pages_read_engagement`, `instagram_basic`, `instagram_manage_messages`, `business_management` and `ads_read`.
+   6. Click **Create**, and copy the configuration's ID (a long number) into the "Meta app" entry.
+
+### Meta Part 3: Give the worker the values
+
+1. Make the verify token.
+
+   ```bash
+   openssl rand -hex 24
+   ```
+
+   Copy the 48 characters it prints into the "Meta app" entry as "Webhook verify token".
+
+2. Start an import on the worker. It keeps the values out of your shell history.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Paste these lines, with the values from the "Meta app" entry in place of the placeholders, then press Return and Control-D. Leave out the last line if you made no configuration in Meta Part 2. Fly restarts the worker with them.
+
+   ```text
+   FACEBOOK_APP_ID=<App ID>
+   FACEBOOK_APP_SECRET=<App secret>
+   META_WEBHOOK_VERIFY_TOKEN=<webhook verify token>
+   META_LOGIN_CONFIG_ID=<configuration ID>
+   ```
+
+   You should see the command finish without an error.
+
+4. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+5. Watch the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line with `"meta":"real"`. Press Control-C to stop watching. `"meta":"none"` means the app ID or secret is missing. If the worker doesn't start, its last line says which value is wrong, such as "META_WEBHOOK_VERIFY_TOKEN must be 16 characters or more".
+
+6. Check that the webhook address answers, with a token that is meant to fail.
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' 'https://hooks.handsfreeos.com/webhooks/meta?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=ok'
+   ```
+
+   You should see `403`. A `404` means the worker running is older than this feature.
+
+### Meta Part 4: The webhook
+
+1. In the left menu, open **Webhooks**.
+2. In the list of objects, choose **Page**, then click **Subscribe to this object**.
+3. Enter:
+   - **Callback URL**: `https://hooks.handsfreeos.com/webhooks/meta`
+   - **Verify token**: the webhook verify token from the "Meta app" entry
+
+   Click **Verify and save**. You should see the box close and a list of fields. If Meta says it couldn't check the address, see "When something goes wrong" below.
+
+4. Click **Subscribe** next to each of these fields: `messages`, `messaging_postbacks`, `messaging_referrals`, `message_deliveries`, `message_reads`, `message_echoes`, `message_edits` and `message_reactions`. Leave none out: `messaging_referrals` is one of the ways Meta says which ad or link somebody came from.
+5. In the list of objects, choose **Instagram**, click **Subscribe to this object**, and enter the same callback URL and verify token. Click **Verify and save**.
+6. Click **Subscribe** next to every Instagram field whose name starts with `message` or `messaging`, such as `messages`, `messaging_postbacks`, `messaging_seen`, `messaging_referral`, `message_reactions` and `message_edit`.
+
+Nothing else is set per business. When a business connects a Page, the worker asks Meta to send that Page's messages here, and once a day it asks again for any Page whose messages stopped.
+
+### Meta Part 5: Try it in Development
+
+Until the app is Live (Meta Part 6), only people with a role on the app can connect, and Meta passes on only the messages written by people with a role. So test with accounts that have one.
+
+1. In the left menu, open **App roles** → **Roles**. Click **Add people**, choose **Testers**, and add your second Facebook account. Sign in to that account and accept the invitation at `https://developers.facebook.com/requests`.
+2. Sign in at `https://app.handsfreeos.com`, open a test workspace, and open **Settings** → **Facebook & Instagram**.
+
+   You should see "Nothing is connected yet." and a **Connect Facebook** button.
+
+3. Click **Connect Facebook**.
+
+   You should see Facebook's sign-in, naming HandsFreeOS. If you see a HandsFreeOS page titled "Facebook isn’t set up yet", the app ID or secret is missing on the worker; click **Back to Settings**.
+
+4. Continue as yourself. Choose the test Page and its Instagram account, and leave every permission ticked, including the ones for ads.
+
+   You should see **Settings** → **Facebook & Instagram** again with "Connected 1 Facebook Page and 1 Instagram account. Their messages arrive in the inbox from now on." and a row for each with the badge **Connected**. If you manage several Pages, a page first asks "Which Pages should answer here?"; tick the test Page and continue.
+
+5. From the second Facebook account, send the Page a message in Messenger.
+
+   You should see it in the **Inbox** within a few seconds, with the Messenger mark. A stranger becomes a new customer and a lead, unless **Settings** → **Lead intake** says otherwise.
+
+6. Reply from the inbox.
+
+   You should see the reply arrive in Messenger, and under it in HandsFreeOS **Delivered**, then **Seen** once the second account reads it.
+
+7. Repeat steps 5 and 6 from the second Instagram account, writing to the test Instagram account.
+8. From the second Facebook account, open `https://m.me/<the Page's username>?ref=ops-test` and send another message.
+
+   You should see **Came from** in the panel beside the conversation, with "Facebook link" and **Link code** `ops-test`. The customer's page says "Came from a Facebook link." under **Where they came from**. A conversation from an ad shows the ad's name, and its campaign, ad set and creative once Meta has answered, usually within a minute.
+
+9. Check the worker's log for problems.
+
+   ```bash
+   fly logs --app handsfreeos-worker --no-tail
+   ```
+
+   You should see no `rejected an unsigned or mis-signed Meta webhook`, `a Facebook sign-in did not finish` or `Facebook Pages did not connect` lines.
+
+### Meta Part 6: App Review and going Live
+
+Clients can connect only once Meta approves each permission for everybody ("Advanced access") and the app is Live.
+
+1. Verify the business. In Meta Business Suite, open **Settings** → **Security center** (or the app's **App settings** → **Basic** → **Verification**) and click **Start verification**. Meta asks for the legal name, address, phone number and website of Go Biz Help, and a document that shows them. It takes a few days.
+2. If the dashboard asks for **Access verification**, complete it too: HandsFreeOS is a tech provider, an app that serves other businesses.
+3. Open **App Review** → **Permissions and features**. Ask for **Advanced access** to the eight permissions from Meta Part 2: `pages_show_list`, `pages_manage_metadata`, `pages_messaging`, `pages_read_engagement`, `instagram_basic`, `instagram_manage_messages`, `business_management` and `ads_read`. For Facebook reviews, add `pages_read_user_content`.
+4. Optional: ask for the **Human Agent** feature too. It lets a person answer for seven days after a customer's last message, instead of one.
+5. For each one, Meta asks how HandsFreeOS uses it and for a screen recording. One recording can show them all:
+   1. **Settings** → **Facebook & Instagram** → **Connect Facebook**, Facebook's sign-in, and the Page and Instagram account back in Settings as **Connected**.
+   2. A Messenger message arriving in the **Inbox**, and a reply going out and showing in Messenger.
+   3. The same on Instagram.
+   4. A conversation that came from an ad, with its campaign and ad set showing.
+   5. **Disconnect**.
+
+   Describe it plainly, for example: "HandsFreeOS is an inbox for small businesses. A business connects its Facebook Page and its linked Instagram account so its team can read and answer Messenger and Instagram messages beside its texts and email. When a customer writes from one of the business's ads, HandsFreeOS reads the ad's campaign and ad set (ads_read) so the business sees which ad brought them." Give Meta's reviewers a sign-in to a test workspace, never a client's.
+
+6. When everything is approved, switch **App mode** at the top of the dashboard to **Live**.
+7. If Meta approved Human Agent, turn it on.
+
+   ```bash
+   fly secrets set META_HUMAN_AGENT=on --app handsfreeos-worker
+   ```
+
+   Pages connected from then on get seven days at once. Pages already connected switch at the worker's next daily check. **Settings** → **Facebook & Instagram** then says "You can reply within 7 days of a customer’s last message; workflows, within a day."
+
+### When something goes wrong
+
+| What you see                                                                                                                           | Why                                                                                                                             | What to do                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A HandsFreeOS page "Facebook isn’t set up yet"                                                                                         | The worker is missing `FACEBOOK_APP_ID` or `FACEBOOK_APP_SECRET`                                                                | Meta Part 3                                                                                                                                   |
+| Facebook says the URL is blocked, or that the redirect URI isn't allowed                                                               | **Valid OAuth Redirect URIs** doesn't have the callback                                                                         | Meta Part 2, step 3                                                                                                                           |
+| Facebook says the app isn't available, or isn't active                                                                                 | The app is in Development and the person has no role on it                                                                      | Add them under **App roles** to test, or finish Meta Part 6                                                                                   |
+| Meta can't verify the webhook when you click **Verify and save**                                                                       | The verify token doesn't match the worker's, or the worker isn't answering                                                      | Look for `refused a Meta webhook check with the wrong verify token` in the worker's log, then paste the token again from the "Meta app" entry |
+| `rejected an unsigned or mis-signed Meta webhook` in the worker's log                                                                  | The worker's `FACEBOOK_APP_SECRET` isn't this app's                                                                             | Set the right secret (Meta Part 3) quickly: Meta retries a failed webhook only for a while                                                    |
+| "Some permissions were left unticked"                                                                                                  | A permission for Pages or messages was unticked on Facebook's screen                                                            | Connect again and leave every permission ticked                                                                                               |
+| "No Facebook Page to connect"                                                                                                          | That Facebook account manages no Page                                                                                           | Sign in with an account that manages the business's Page                                                                                      |
+| "Those Pages answer in another business"                                                                                               | Each Page answers in one business on HandsFreeOS at a time                                                                      | Disconnect it in the other business first                                                                                                     |
+| "Sign-in cancelled. Nothing was connected."                                                                                            | The person cancelled on Facebook                                                                                                | Connect again if they want to                                                                                                                 |
+| "Facebook didn’t connect. Choose Connect Facebook again in a minute."                                                                  | The worker couldn't finish the sign-in                                                                                          | Look for `a Facebook sign-in did not finish` or `Facebook Pages did not connect` in the worker's log, and the reason after it                 |
+| Customers' messages don't arrive, and your own test ones do                                                                            | The app is still in Development                                                                                                 | Meta Part 6                                                                                                                                   |
+| Instagram messages don't arrive, and Messenger's do                                                                                    | **Allow access to messages** is off in the Instagram app, or the Instagram fields aren't subscribed                             | Turn it on in the Instagram app (see "Before you start"), and check Meta Part 4, steps 5 and 6                                                |
+| A Page shows **Needs attention**                                                                                                       | Its sign-in stopped working: a password change, a role removed on the Page, or HandsFreeOS removed on Facebook                  | Someone who manages the Page clicks **Connect Facebook** again. Its conversations keep their place                                            |
+| A conversation from an ad says "The campaign and ad set show once Facebook is connected by somebody who can see this ad’s ad account." | Nobody connected in that business may read that ad account                                                                      | Someone with access to the ad account connects Facebook again and allows reading ads                                                          |
+| A reply is refused because the customer last wrote more than a day ago                                                                 | Meta's rule: a business may answer only within a day of the customer's last message (seven days for a person, with Human Agent) | Wait for the customer to write again, or ask for Human Agent (Meta Part 6)                                                                    |
+
+### Rotating the app secret
+
+The worker proves every request to Meta with the app secret, and Meta signs every webhook with it. Both stop working the moment the secret changes at Meta, so set the new one on the worker straight away.
+
+1. In the Meta app, open **App settings** → **Basic**, click **Reset** next to **App secret**, and confirm with your password.
+2. Click **Show**, and copy the new secret into the "Meta app" entry.
+3. Start an import on the worker.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+4. Paste `FACEBOOK_APP_SECRET=<new app secret>`, then press Return and Control-D.
+5. Watch the worker's log for a few minutes.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see no `rejected an unsigned or mis-signed Meta webhook` line after the worker restarts. Press Control-C to stop watching. Meta retries a failed webhook for a while, so messages from the minutes in between should still arrive.
+
+6. Open **Settings** → **Facebook & Instagram** in a workspace with a Page connected.
+
+   You should see the Page still **Connected**. If it shows **Needs attention**, someone who manages the Page clicks **Connect Facebook** again.
+
+Facebook reviews use the same secret, and pick up the new one with the restart.
 
 ## The Assistant: Anthropic
 

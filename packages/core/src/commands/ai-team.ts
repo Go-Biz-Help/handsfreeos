@@ -9,7 +9,7 @@
  * share the person's transaction.
  */
 import { and, asc, eq, gt, isNull, ne, sql as dsql } from 'drizzle-orm';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import {
   aiTeammateDrafts,
@@ -43,7 +43,8 @@ import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { decidedVia } from '../kernel/app-request';
 import { defineCommand } from '../kernel/define';
-import { executeCommandIn } from '../kernel/execute';
+import { executeCommandIn, executeCommandWithin } from '../kernel/execute';
+import { boundRegistry } from '../kernel/registry';
 import { changeMoment } from '../kernel/moment';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
@@ -440,6 +441,28 @@ type Decision = {
   became_automatic: boolean;
 };
 
+/**
+ * Round seven: an approved ask's add-on action, as the person who approved it. Found by the name it was stored with,
+ * so an add-on taken out of HandsFreeOS since (or a different one under the name) leaves nothing to run.
+ */
+async function runAsk(ctx: CommandContext, raw: unknown): Promise<void> {
+  const ask = TeammateDraftPreview.parse(raw).ask;
+  const cmd = ask ? boundRegistry()?.command(ask.operation) : undefined;
+  if (!ask || !cmd || cmd.addon?.id !== ask.addonId)
+    throw HfosError.rule(
+      'ask_unavailable',
+      409,
+      `This can’t be done from here anymore${ask ? ` (${ask.addonName})` : ''}. Reject it, and do it yourself if it’s still needed.`,
+    );
+  // The business's ids go on last, so nothing the model wrote can point it at another business.
+  const takesOrganization = cmd.input instanceof z.ZodObject && 'organizationId' in cmd.input.shape;
+  await executeCommandWithin(ctx, cmd, {
+    ...ask.input,
+    workspaceId: ctx.scope.workspaceId,
+    ...(takesOrganization ? { organizationId: ctx.scope.organizationId } : {}),
+  });
+}
+
 export const aiTeammateDecideDraft = defineCommand({
   name: 'ai_teammate.decide_draft',
   description:
@@ -459,6 +482,19 @@ export const aiTeammateDecideDraft = defineCommand({
       .from(aiTeammateDrafts)
       .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
     if (!d) throw draftGone();
+    // Round seven: an ask is decided by someone who works the record it's about (a deal kept to its people, by one
+    // of them).
+    if (d.kind === 'ask') {
+      const [seen] = await rows<{ ok: boolean }>(
+        ctx.tx,
+        sql`select private.custom_record_visible(${d.customRecordId}::uuid) as ok`,
+      );
+      if (!seen?.ok)
+        throw HfosError.forbidden(
+          'Only someone who works the record this is about can decide what the AI teammate asked for. Ask one of its people to decide it.',
+          'not_on_record',
+        );
+    }
     // Reply drafts are the inbox's; what the teammate asks approval for (a discount) is a manager's.
     if (d.kind === 'approval' && !scopeCan(ctx.scope, 'ai_team.manage'))
       throw HfosError.forbidden(
@@ -523,6 +559,9 @@ export const aiTeammateDecideDraft = defineCommand({
       .where(and(eq(aiTeammateDrafts.id, d.id), eq(aiTeammateDrafts.status, 'pending')))
       .returning({ id: aiTeammateDrafts.id });
     if (!claimed) throw decided();
+    // An approved ask runs now, as the person approving it, in this transaction: their permission is checked as it
+    // runs, and a refusal leaves the draft waiting, with the reason on their screen.
+    if (d.kind === 'ask' && status === 'approved') await runAsk(ctx, d.preview);
     // Reply drafts are training: each decision counts, and the count can turn the teammate automatic.
     let becameAutomatic = false;
     if (d.kind === 'reply') {

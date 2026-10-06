@@ -13,6 +13,10 @@ import { change, changes } from '@/changes';
 import { describeRealestate } from '@/changes/describe-realestate';
 import { openWebPath } from '@/home/open';
 import { deviceStore } from '@/lib/device-store';
+import { documentName } from '@/sync/kept-files';
+import { keptStore } from '@/sync/kept-store';
+import { openMemoryKeptFiles } from '@/sync/__tests__/memory-kept-files';
+import HfosPhone from '../../../../modules/hfos-phone';
 
 import { agoWords, ClientUpdateViewScreen } from '../client-update';
 import { ContingenciesListView } from '../contingencies';
@@ -794,7 +798,7 @@ describe('documents (board 81)', () => {
     madeAt: '2026-10-03T15:00:00.000Z',
   };
 
-  it('groups signed, out for signing and not signed, with what this phone knows and opening it with signal', async () => {
+  it('groups signed, out for signing and not signed, with what this phone knows and when it’ll open with no signal', async () => {
     mockOnline = false;
     await render(
       <DocumentsView
@@ -821,11 +825,97 @@ describe('documents (board 81)', () => {
     expect(screen.getByText('Not signed  2')).toBeTruthy();
     expect(screen.getByText('Waiting to send · from this phone')).toBeTruthy();
     await fireEvent.press(screen.getByTestId(`re-document-${id(72)}`));
-    expect(screen.getByTestId('re-document-needs-signal')).toHaveTextContent(
-      'Opening it needs signal. It stays at HandsFreeOS, not on this phone.',
+    // The one that counts comes onto the phone (round seven); until then it needs signal.
+    expect(screen.getByTestId('re-document-coming')).toHaveTextContent(
+      'It comes onto this phone on Wi‑Fi. Until then, opening it needs signal.',
     );
+    expect(screen.queryByTestId('re-document-keep')).toBeNull();
     expect(screen.getByText('2 of 2 · the one that counts')).toBeTruthy();
     expect(screen.getByText('Can’t be deleted or renamed')).toBeTruthy();
+  });
+
+  describe('kept on the phone (round seven)', () => {
+    const files = (jest.requireMock('expo-file-system') as { __files: Map<string, unknown> })
+      .__files;
+    afterEach(() => keptStore.closing(false));
+    const view = () =>
+      render(
+        <DocumentsView
+          dealName="Smith purchase"
+          dealId={SMITH}
+          held
+          whole
+          documents={[
+            doc({ fileId: id(81) }),
+            doc({
+              documentId: id(72),
+              fileId: id(82),
+              version: 2,
+              status: 'signed',
+              controlling: true,
+              signedAt: '2026-09-24T15:00:00.000Z',
+            }),
+            doc({
+              documentId: id(73),
+              lineageId: id(73),
+              fileId: id(83),
+              title: 'Old addendum',
+              kind: 'amendment',
+              kindLabel: 'Amendment',
+              status: 'void',
+              voidedAt: '2026-09-25T15:00:00.000Z',
+              locked: false,
+            }),
+          ]}
+          summaryState={null}
+          signings={[]}
+          pending={[]}
+          workspaceId={WS}
+          userId={DANA}
+          timeZone={TZ}
+          now={NOW}
+          esignId={null}
+        />,
+      );
+
+    it('opens a kept document with no signal, decrypted only while the viewer has it', async () => {
+      mockOnline = false;
+      const kept = openMemoryKeptFiles(DANA);
+      kept.put(documentName(id(82)), 'document', new Uint8Array([37, 80, 68, 70]), {
+        fileId: id(82),
+        fileName: 'purchase-contract.pdf',
+        mimeType: 'application/pdf',
+      });
+      let shownWhileOpen = false;
+      (HfosPhone.viewFile as jest.Mock).mockImplementationOnce(async (uri: string) => {
+        shownWhileOpen = files.has(uri);
+        return 'closed';
+      });
+      await view();
+      await fireEvent.press(screen.getByTestId(`re-document-${id(72)}`));
+      expect(screen.getByTestId('re-document-kept')).toHaveTextContent(
+        'On this phone. It opens with no signal.',
+      );
+      await fireEvent.press(screen.getByTestId('re-document-open'));
+      await waitFor(() => expect(HfosPhone.viewFile).toHaveBeenCalled());
+      const [uri, type] = (HfosPhone.viewFile as jest.Mock).mock.calls.at(-1)!;
+      expect(uri).toMatch(/^file:\/\/\/cache\/hfos-open\/[0-9a-f-]+\/purchase-contract\.pdf$/);
+      expect(type).toBe('application/pdf');
+      expect(shownWhileOpen).toBe(true);
+      // Gone once the viewer closed.
+      expect(files.has(uri)).toBe(false);
+      expect(kept.info(documentName(id(82)))!.openedAt).not.toBeNull();
+    });
+
+    it('keeps a void document on the phone only when asked', async () => {
+      mockOnline = true;
+      const kept = openMemoryKeptFiles(DANA);
+      await view();
+      await fireEvent.press(screen.getByTestId(`re-document-${id(73)}`));
+      expect(screen.queryByTestId('re-document-coming')).toBeNull();
+      await fireEvent.press(screen.getByTestId('re-document-keep'));
+      expect(kept.info(documentName(id(83)))).toMatchObject({ pinned: true, complete: false });
+    });
   });
 
   it('opens the document a signing came back for (the web’s ?esign=)', async () => {

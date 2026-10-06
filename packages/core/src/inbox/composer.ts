@@ -5,6 +5,16 @@
  */
 import { formatClock } from '../messaging/quiet-hours';
 import { smsSegments } from '../messaging/sms';
+import {
+  isSocialChannel,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_MAX_ATTACHMENTS,
+  SOCIAL_TEXT_LIMITS,
+  socialWindowNote,
+  type SocialChannel,
+  type SocialReplyWindow,
+} from '../messaging/social';
+import type { ConversationChannel } from '../schemas/conversation';
 import { render } from '../workflows/templates';
 import { heldWhen } from './time';
 
@@ -19,7 +29,9 @@ export type CanTextReason =
   | 'no_phone'
   | 'email_channel'
   | 'chat_channel'
-  | 'portal_channel';
+  | 'portal_channel'
+  /** A Messenger or Instagram thread: its own rules say whether a reply can go (`socialNote`). */
+  | 'social_channel';
 
 export interface CanText {
   readonly ok: boolean;
@@ -33,7 +45,7 @@ export interface CanText {
  * where it was sent.
  */
 export function canTextOf(facts: {
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly hasActiveNumber: boolean;
   readonly optedOut: boolean;
   readonly personSmsConsent: string | null;
@@ -42,6 +54,7 @@ export function canTextOf(facts: {
   if (facts.channel === 'email') return { ok: false, reason: 'email_channel' };
   if (facts.channel === 'chat') return { ok: false, reason: 'chat_channel' };
   if (facts.channel === 'portal') return { ok: false, reason: 'portal_channel' };
+  if (isSocialChannel(facts.channel)) return { ok: false, reason: 'social_channel' };
   if (!facts.hasActiveNumber) return { ok: false, reason: 'no_number' };
   if (facts.messagingReady === false) return { ok: false, reason: 'not_ready' };
   if (facts.optedOut || facts.personSmsConsent === 'opted_out')
@@ -54,7 +67,7 @@ export function canTextOf(facts: {
  * their mobile number and the business's number, and the server has the last word there.
  */
 export function crossChannelCanText(
-  threadChannel: 'sms' | 'email' | 'chat' | 'portal',
+  threadChannel: ConversationChannel,
   inThread: CanText,
   phoneDisplay: string,
   fromNumber: string | null,
@@ -186,6 +199,80 @@ export function emailNote(
   };
 }
 
+/**
+ * Why a Messenger or Instagram reply can't go, or who may still send one (conversation.get's `social`): the Page or
+ * account isn't answering here, or Meta's window is closed, or only a person may answer now. Null when it's open.
+ */
+export function socialNote(
+  channel: SocialChannel,
+  facts: {
+    /** The Page or account: whether it still answers here, and why not. */
+    readonly account: {
+      readonly status: 'active' | 'needs_attention' | 'disconnected';
+      readonly problem: 'reauth' | 'revoked' | 'failed' | null;
+      readonly label: string;
+    } | null;
+    readonly window: SocialReplyWindow;
+    /** Whether the customer has ever written: Meta lets a business answer only somebody who wrote first. */
+    readonly everWrote: boolean;
+    readonly firstName: string | null;
+  },
+): (ComposerNote & { readonly off: boolean }) | null {
+  const name = SOCIAL_CHANNEL_NAMES[channel];
+  const who = facts.firstName ?? 'They';
+  if (!facts.account || facts.account.status !== 'active')
+    return {
+      off: true,
+      tone: 'danger',
+      icon: 'alert',
+      parts: [
+        !facts.account || facts.account.status === 'disconnected'
+          ? `${facts.account?.label ?? `This ${name} account`} isn’t connected anymore, so replies can’t go out from here. `
+          : facts.account.problem === 'revoked'
+            ? `HandsFreeOS was removed from ${facts.account.label} on Facebook, so replies can’t go out. `
+            : `${facts.account.label} needs to be connected again before replies can go out. `,
+        'An owner or admin can fix it in ',
+        { strong: 'Settings → Facebook & Instagram' },
+        '.',
+      ],
+      placeholder: 'Replies can’t go out from here right now',
+    };
+  if (!facts.everWrote)
+    return {
+      off: true,
+      tone: 'info',
+      icon: 'clock',
+      parts: [
+        `${name} only lets a business answer somebody who wrote first. You can reply as soon as they write.`,
+      ],
+      placeholder: `Waiting for them to write on ${name}`,
+    };
+  if (facts.window.open) return null;
+  const words = socialWindowNote(channel, facts.window, who)!;
+  return facts.window.peopleOnly
+    ? {
+        off: false,
+        tone: 'warning',
+        icon: 'clock',
+        parts: [words],
+        placeholder: `Reply on ${name}…`,
+      }
+    : {
+        off: true,
+        tone: 'info',
+        icon: 'clock',
+        parts: [words],
+        placeholder: `${name} replies are closed until they write again`,
+      };
+}
+
+/** "312 / 1,000": a Messenger or Instagram reply's length against what Meta takes, once it's worth saying. */
+export function socialCounterLabel(channel: SocialChannel, text: string): string | null {
+  const limit = SOCIAL_TEXT_LIMITS[channel];
+  if (text.length < limit * 0.8) return null;
+  return `${text.length.toLocaleString('en-US')} / ${limit.toLocaleString('en-US')}`;
+}
+
 /** A website chat whose visitor was blocked: replies can't reach them. */
 export const CHAT_BLOCKED_NOTE: ComposerNote = {
   tone: 'warning',
@@ -196,7 +283,7 @@ export const CHAT_BLOCKED_NOTE: ComposerNote = {
 
 /** What the box says: why it's off, or who it writes to. */
 export function composerPlaceholder(facts: {
-  readonly mode: 'sms' | 'email' | 'chat' | 'portal';
+  readonly mode: ConversationChannel;
   readonly off: boolean;
   readonly note: ComposerNote | null;
   readonly firstName: string | null;
@@ -210,6 +297,8 @@ export function composerPlaceholder(facts: {
       (facts.mode === 'email' ? 'Email isn’t available' : 'Texting isn’t available')
     );
   if (facts.mode === 'chat') return `Reply to ${facts.firstName ?? 'them'} in the chat…`;
+  if (isSocialChannel(facts.mode))
+    return `Reply to ${facts.firstName ?? 'them'} on ${SOCIAL_CHANNEL_NAMES[facts.mode]}…`;
   if (facts.mode === 'portal')
     return facts.compact
       ? `Reply in ${facts.firstName ? `${facts.firstName}’s` : 'their'} portal…`
@@ -336,13 +425,9 @@ export function quietQuestion(
 }
 
 /** The Send button: "Send text", "Send…" in quiet hours, "Send email", or "Send" in a website chat or a portal. */
-export function sendLabel(
-  mode: 'sms' | 'email' | 'chat' | 'portal',
-  quiet: boolean,
-  off: boolean,
-): string {
+export function sendLabel(mode: ConversationChannel, quiet: boolean, off: boolean): string {
   if (mode === 'email') return 'Send email';
-  if (mode === 'chat' || mode === 'portal') return 'Send';
+  if (mode === 'chat' || mode === 'portal' || isSocialChannel(mode)) return 'Send';
   return quiet && !off ? 'Send…' : 'Send text';
 }
 
@@ -362,6 +447,14 @@ export const COMPOSER_WORDS = {
   websiteChat: 'Website chat',
   chatReplies: 'Replies show in their chat window',
   clientPortal: 'Client portal',
+  messenger: 'Messenger',
+  instagram: 'Instagram',
+  /** Under a Messenger or Instagram reply box: where it goes, and that photos and files go first. */
+  socialReplies: (name: string) =>
+    `Replies go to their ${name} inbox. Photos and files arrive first, then your words.`,
+  /** Attaching past what one Messenger or Instagram reply carries. */
+  socialTooMany: (name: string) =>
+    `A ${name} reply carries up to ${SOCIAL_MAX_ATTACHMENTS} photos or files. Send the rest in another reply.`,
   portalReplies:
     'Replies show in their portal. If they don’t read one within 10 minutes, they get an email with a link.',
   repliesHere: 'Replies come back to this thread.',
@@ -405,8 +498,8 @@ export const PENDING_REPLY_WORDS = {
   askedFirst: 'HandsFreeOS asks something first.',
   doItAnyway: 'Send it anyway',
   /** Above the composer while the phone has no signal. */
-  offline: (mode: 'sms' | 'email' | 'chat' | 'portal') =>
-    `${mode === 'email' ? 'Emails' : mode === 'chat' || mode === 'portal' ? 'Replies' : 'Texts'} written with no signal go out on their own within 30 minutes. After that, the phone asks first.`,
+  offline: (mode: ConversationChannel) =>
+    `${mode === 'email' ? 'Emails' : mode === 'chat' || mode === 'portal' || isSocialChannel(mode) ? 'Replies' : 'Texts'} written with no signal go out on their own within 30 minutes. After that, the phone asks first.`,
 } as const;
 
 /** The composer's photo choices on the phone. */

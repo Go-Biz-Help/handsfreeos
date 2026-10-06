@@ -117,7 +117,12 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   them, and the links between them (a deal's client and home, 20261022000700), reach the same people through the
   same stream (`apps/sync/README.md`, `records_v1`). Settings a page rests on (Real Estate's closed days) go too when
   `offline.settings` names them and the migration calls `private.addon_phone_settings(...)`: just those keys, as one
-  `_settings` row per business (20261022000800). Turning the add-on off
+  `_settings` row per business (20261022000800). Files its rows name are kept on the phone too when
+  `offline.files` says so (round seven): the table, the column holding a file's id, and which values of which column
+  mean it's no longer current. The phone downloads them on Wi‑Fi into the person's kept files, a second SQLCipher
+  database beside their copy (`apps/mobile/src/sync/kept-files.ts`, where photos waiting to upload are kept too),
+  checks a signed one against `file.fingerprints`, keeps them to 1 GB with the person's pins first, and lets each
+  go when its row leaves the phone or stops asking for it; signing out removes them. Turning the add-on off
   takes its permissions, so its keys, and every row leaves phones with nothing deleted. A record leaves phones
   earlier when the add-on says so (`private.record_phone_window`). An operation a phone may queue says
   `offline: 'anytime'` (or `freshMinutes`) and takes the phone's id for anything it makes.
@@ -166,6 +171,41 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     on the server, and the registry's `public` entry draws it (`pages`, one component handed the answer, and the
     tab's `title`). Its forms post from the visitor's browser (`publicAddonCommand`), with core's words for agreeing
     to texts (`smsConsentWords`).
+- **Sealed values** (round seven): a value an add-on keeps that nobody should read back in the clear (Real Estate's
+  lockbox codes) is declared in the manifest's `sealed` (its key, label, the permission that sets it and the one
+  that shows it again). The app posts what the person typed to the worker (`POST /v1/addons/sealed`,
+  apps/worker/src/http/addon-sealed.ts), which seals it for that business, add-on and value and hands it back; the
+  add-on's command takes it only in that form (`sealedValue(label)` refuses anything else), so the database, the
+  API, phones, history and exports only ever hold it sealed (keep it in a column ending `_enc`, which syncing and
+  exports leave out, with no `select` grant to people). Showing it again is the worker's too (`/reveal`): the add-on
+  must be on, the person must hold `reveal` and see the record, the add-on's worker half reads it back (`sealed`
+  readers), and `addon_sealed.viewed` keeps the moment in the record's history. An email may carry one
+  (`message.send`'s `sealedParts`, HandsFreeOS's own messages only): its stored body keeps a marker, and the worker
+  puts the value in place only as it hands the email to the provider (`app.message_sealed_parts`, the worker's
+  alone).
+- **The AI teammate** (round seven; the owner's decision, 2026-10-05: answer from their deal, ask before acting): an
+  add-on's manifest says what the teammate may do in a customer's conversation (`teammate`), separately from `ai`,
+  which is the Assistant's. `addons/teammate.ts` turns it into tools, and `addonTeammateIssues` holds it to the rules.
+  - **Look-ups** (`lookups`) are the add-on's own portal queries (`<id>.portal.*`, `actors: ['customer']`). The worker
+    runs them as the customer in the conversation: a customer actor with the teammate's run in place of a device
+    (`teammateRunId`), read as `portal_actor` with the run in `app.portal.teammate_run`. `portal.session()` finds the
+    customer from the run, and only while it's answering (running, under 30 minutes old), so every portal rule
+    applies unchanged: the teammate sees exactly what that client's portal shows them. The kernel refuses that actor
+    every command (`customer_teammate_reads_only`), and a look-up after the run stopped (`customer_teammate_done`).
+    What a look-up finds goes with the knowledge the reply's safety check reads.
+  - **Asks** (`asks`) are the add-on's commands a person runs (risk 2 or less, with a permission), each naming the
+    input key of the record it's about (`record`: the client's deal). The teammate never runs one: the worker checks
+    the record is one of the customer's and the input one the command takes, and the finish makes an `ask` draft
+    (`ai_teammate_drafts.custom_record_id`), in any mode, waiting a day. Only someone who works the inbox, may see the
+    thread and may see that record decides it (`not_on_record`); approving runs the command as them, in the same
+    transaction, their permission checked then (`ai_teammate.decide_draft`, found by name in the composed registry).
+    The model writes the card's line and, if it likes, what the customer is told once it's done.
+  - **Reply checks** (`checksReplies`, with the worker half's `checkTeammateReply`): after core's safety check passes
+    a reply, each add-on the teammate uses checks it; anything found holds the reply as a draft for a person with what
+    was found (`preview.flags`), even when the teammate answers on its own.
+  - The teammate's settings have one switch per add-on (`config.addons.<id>.on`), off until an owner turns it on and
+    offered only while the add-on runs. Never in a first message, a nudge, a website chat whose visitor hasn't proved
+    who they are, or a phone call.
 - **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
   (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
   connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —
@@ -193,6 +233,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     stand-in, and nothing leaves the worker; HandsFreeOS's own account works there without a key.
 - **Its own browser-test routes**: a worker module's `testRoutes(app, deps)` adds `/test/<id>/…` routes beside the
   worker's other test routes, only with the fake providers. Core never imports an add-on's folder for them.
+- **Its lines for the scripted model** (round seven): a worker module's `scriptedTeammate` lists how a customer's
+  words reach its teammate tools when the worker runs the scripted stand-in (`ASSISTANT_PROVIDER=scripted`: local
+  development and the browser suite, never production). `main.ts` hands them to the stand-in, before core's; a line
+  with `tool` is tried only when the run offers that tool, which must be one of the add-on's teammate tools.
 - **Connecting by sign-in** (Real Estate round five, step 7): a service with `oauth` in its provider's `auth` is
   connected by signing in to it. The add-on's worker half says how (`oauth[key][service]`: `authorizeUrl`,
   `exchange`, `refresh`; apps/worker/src/addons/sign-ins.ts), and HandsFreeOS's app at the service (its client ID and
@@ -400,8 +444,10 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   the event (WF-3).
 - **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
   can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
-- **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
-  actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
+- **The AI teammate on calls, and asks as the customer.** It uses add-on tools in written conversations (above), not
+  yet on a phone call. An ask runs as the person who approves it; running a customer's own portal action as them
+  needs a way to prove it's theirs without a device, which isn't built. A multi-step plan isn't confirmed as a whole
+  either.
 - **Real Estate Agent's later rounds.** Its first four rounds (deals, duties, dates, proof, documents, alerts, the
   duty editor, client updates; the buyer's side and the client's portal; the listing's side, its public pages and
   the seller's portal; reading contracts, contingencies, duty order, linked deals, escalation and Coordinate) are

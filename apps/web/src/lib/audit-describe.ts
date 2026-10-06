@@ -11,6 +11,9 @@ import { clock } from '@/lib/calls/format';
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 const s = (v: unknown): string => (typeof v === 'string' ? v : '');
+/** "Messenger", "Instagram": a message's channel when it's one of Meta's (20261025000200), else null. */
+const metaWord = (channel: unknown): string | null =>
+  channel === 'messenger' ? 'Messenger' : channel === 'instagram' ? 'Instagram' : null;
 const who = (e: AuditEntry) =>
   e.entityName || s(e.after?.email) || s(e.before?.email) || 'a person';
 /** "admins", "members": a role's column on the Permissions page, as the log names it. */
@@ -472,23 +475,72 @@ function describeAction(e: AuditEntry): string {
     case 'message.send':
       return e.entityType === 'conversation'
         ? `started a conversation with ${withWho(e)}`
-        : s(e.after?.sendAt)
-          ? `held a text to ${s(e.after?.to)} until quiet hours end, ${when(e.after?.sendAt)}`
-          : s(e.after?.to) === 'Website chat'
-            ? 'replied in a website chat'
-            : s(e.after?.subject)
-              ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
-              : `sent a text to ${s(e.after?.to)}`;
+        : metaWord(e.after?.channel)
+          ? `sent a ${metaWord(e.after?.channel)} message to ${s(e.after?.to)}`
+          : s(e.after?.sendAt)
+            ? `held a text to ${s(e.after?.to)} until quiet hours end, ${when(e.after?.sendAt)}`
+            : s(e.after?.to) === 'Website chat'
+              ? 'replied in a website chat'
+              : s(e.after?.subject)
+                ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
+                : `sent a text to ${s(e.after?.to)}`;
     case 'message.retry':
+      if (metaWord(e.after?.channel))
+        return `tried the ${metaWord(e.after?.channel)} message to ${s(e.after?.to)} again`;
       return s(e.after?.sendAt)
         ? `tried the text to ${s(e.after?.to)} again, held until quiet hours end, ${when(e.after?.sendAt)}`
         : `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
     case 'message.receive':
       return receiveSentence(e);
+    // Facebook Messenger and Instagram (20261025000200)
+    case 'meta_connection.connect':
+      return 'started connecting Facebook';
+    case 'meta_connection.activate':
+      return 'connected Facebook';
+    case 'meta_connection.disconnect':
+      if (e.entityType === 'meta_account') return metaAccountGone(e);
+      return s(e.after?.reason) === 'revoked'
+        ? 'recorded that HandsFreeOS was removed on Facebook'
+        : s(e.after?.reason) === 'failed'
+          ? 'recorded that the Facebook sign-in stopped working'
+          : `disconnected Facebook${s(e.after?.facebookUserName) ? ` (signed in as ${s(e.after?.facebookUserName)})` : ''}`;
+    case 'meta_account.connect':
+      return `connected ${s(e.after?.account)} ${s(e.after?.platform) === 'instagram' ? 'on Instagram' : 'on Messenger'}`;
+    case 'meta_account.disconnect':
+      return metaAccountGone(e);
+    case 'meta_account.fail':
+      return s(e.after?.problem) === 'revoked'
+        ? `recorded that ${s(e.after?.account)} was removed from HandsFreeOS on Facebook`
+        : s(e.after?.problem) === 'failed'
+          ? `recorded that Meta stopped sending ${s(e.after?.account)}’s messages`
+          : `recorded that ${s(e.after?.account)} needs to be connected again`;
+    case 'meta_account.recover':
+      return `recorded that ${s(e.after?.account)} is answering again`;
+    case 'meta_message.receive':
+      if (e.entityType === 'attribution_touch')
+        return `recorded that a conversation came from ${s(e.after?.from) || 'a link'}${s(e.after?.account) ? ` on ${s(e.after?.account)}` : ''}`;
+      if (s(e.after?.person)) return `matched ${s(e.after?.with)} to ${s(e.after?.person)}`;
+      if (s(e.after?.to))
+        return `recorded a reply sent from ${metaWord(e.after?.channel) === 'Instagram' ? 'Instagram' : 'Facebook'} to ${s(e.after?.to)}`;
+      return `received a ${metaWord(e.after?.channel) ?? 'Messenger'} message${s(e.after?.from) ? ` from ${s(e.after?.from)}` : ''}`;
+    case 'meta_message.receipt':
+      return `confirmed a ${metaWord(e.after?.channel) ?? 'Messenger'} message was ${s(e.after?.status) === 'read' ? 'seen' : 'delivered'}`;
+    case 'meta_message.edit':
+      return 'recorded that a customer changed or took back a message';
+    case 'ad.resolve':
+      return s(e.after?.ad) || s(e.after?.campaign)
+        ? `looked up the ad${s(e.after?.ad) ? ` “${s(e.after?.ad)}”` : ''}${s(e.after?.campaign) ? ` in the campaign “${s(e.after?.campaign)}”` : ''}`
+        : s(e.after?.status) === 'no_access'
+          ? 'couldn’t look up an ad: no Facebook sign-in here may read it'
+          : s(e.after?.status) === 'not_found'
+            ? 'couldn’t look up an ad: Meta no longer has it'
+            : 'couldn’t look up an ad at Meta yet';
     case 'message.update_status':
       return statusSentence(e);
     case 'message.attach_media': {
       const n = Number(e.after?.photos ?? 0);
+      if (metaWord(e.after?.channel))
+        return `saved ${n === 1 ? 'a file' : `${n} files`} from a ${metaWord(e.after?.channel)} message`;
       return `saved ${n === 1 ? 'a photo' : `${n} photos`} from a text`;
     }
     case 'call.start':
@@ -1631,6 +1683,21 @@ function registrationSentence(e: AuditEntry): string {
   }
 }
 
+/** A Page or Instagram account that stopped answering here, and why. */
+function metaAccountGone(e: AuditEntry): string {
+  const account = s(e.after?.account);
+  switch (s(e.after?.reason)) {
+    case 'moved':
+      return `stopped answering ${account}: another business connected it`;
+    case 'revoked':
+      return `recorded that ${account} was removed from HandsFreeOS on Facebook`;
+    case 'failed':
+      return `stopped answering ${account}: its sign-in stopped working`;
+    default:
+      return `disconnected ${account}`;
+  }
+}
+
 function receiveSentence(e: AuditEntry): string {
   if (e.entityType === 'message') return `received a text from ${s(e.after?.from)}`;
   // A reply of C (or YES while asked) confirmed a booking (M8).
@@ -1655,11 +1722,15 @@ function statusSentence(e: AuditEntry): string {
         ? 'a chat message'
         : s(e.after?.channel) === 'portal'
           ? 'a portal message'
-          : 'a text';
+          : metaWord(e.after?.channel)
+            ? `a ${metaWord(e.after?.channel)} message`
+            : 'a text';
   if (status === 'delivered') return `confirmed ${what} was delivered`;
   if (status === 'bounced')
     return `recorded that an email bounced${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;
   if (status === 'complained') return 'recorded that a customer marked an email as spam';
+  if ((status === 'failed' || status === 'undelivered') && metaWord(e.after?.channel))
+    return `recorded that ${what} didn’t reach them${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;
   if (status === 'failed' || status === 'undelivered')
     return s(e.after?.channel) === 'email'
       ? `recorded that an email was not sent${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`
@@ -1828,6 +1899,11 @@ export function auditCategory(action: string): AuditCategory {
       'chat.',
       'chat_widget.',
       'chat_visitor.',
+      // Facebook Messenger and Instagram (20261025000200), and the ads that bring people to them.
+      'meta_connection.',
+      'meta_account.',
+      'meta_message.',
+      'ad.',
     ].some((p) => action.startsWith(p))
   )
     return 'inbox';

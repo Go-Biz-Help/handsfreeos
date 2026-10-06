@@ -40,14 +40,16 @@ export * from './attention/hints';
 export * from './addons/server';
 export * from './addons/modules';
 export * from './addons/ai';
+export * from './addons/teammate';
 export * from './addons/roadmap-load';
-export { loadOverrides } from './addons/load';
+export { loadActiveAddons, loadOverrides } from './addons/load';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';
-import { createRegistry } from './kernel/registry';
+import { bindRegistry, createRegistry } from './kernel/registry';
 import { queries } from './queries/index';
 
 /** Core's operations, then every add-on's, in the catalogue's order: what the API mounts and everything looks up. */
 const operations = composeOperations({ commands, queries }, ADDON_SERVER_MODULES);
 export const registry = createRegistry(operations.commands, operations.queries);
+bindRegistry(registry);

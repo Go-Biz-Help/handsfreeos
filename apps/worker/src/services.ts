@@ -19,6 +19,7 @@ import type { WalletDeps } from './money/wallet';
 import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
+import type { MetaServices } from './social/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
 import type { Opinly } from './opinly';
@@ -97,6 +98,11 @@ export interface WorkerServices {
   readonly calendars: CalendarServices;
   /** The Google Business Profile and Facebook Page reviews are read from (a stand-in locally and in tests). */
   readonly reviews: ReviewServices;
+  /**
+   * Facebook Messenger and Instagram direct messages: the Meta app the Pages connect through, their webhooks and
+   * replies (a stand-in locally and in tests).
+   */
+  readonly social: MetaServices;
   /** The accounts businesses are paid into: Stripe and Square (the stand-in locally and in tests). */
   readonly payments: PaymentServices;
   /** Signs and checks customers' change-or-cancel and waitlist-offer links (booking/links.ts). */

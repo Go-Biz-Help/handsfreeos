@@ -4,6 +4,7 @@ import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { createAuthAdmin } from './account/auth-admin';
+import { ADDON_WORKER_MODULES } from './addons/modules';
 import { claudeWithBackup, createAi, createAiSwitch } from './ai/provider';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
@@ -16,6 +17,7 @@ import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
 import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createReviews } from './reviews/index';
+import { createMeta } from './social/index';
 import { createMailboxes } from './mailbox/index';
 import { createUnsubscribeLinks } from './email/unsubscribe';
 import { createMoneyLinks } from './money/links';
@@ -60,7 +62,11 @@ const mailer = createSmtpMailer(env.smtpUrl, env.mailFrom);
 // Which AI answers: Claude, or OpenAI while Claude is in trouble (ai/switch.ts). Null without OPENAI_API_KEY.
 const aiSwitch = createAiSwitch(env, { db: handle.db, log, mailer });
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
-const ai = createAi(env, aiSwitch);
+const ai = createAi(
+  env,
+  aiSwitch,
+  ADDON_WORKER_MODULES.flatMap((m) => m.scriptedTeammate ?? []),
+);
 const telephony = createTelephony(env, log);
 // The usage wallet (M16). `off` until somebody turns it on: a repo that starts charging the day it deploys
 // would be a nasty surprise, and every step of the rollout is a decision.
@@ -102,6 +108,7 @@ const services: EngineServices = {
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
   reviews: createReviews(env),
+  social: createMeta(env),
   payments: createPayments(env),
   bookingLinks: createBookingLinks({
     webUrl: env.webUrl,
@@ -239,6 +246,8 @@ log.info(
     mailboxes: env.mailboxProvider,
     calendars: env.calendarProvider,
     payments: env.paymentsProvider,
+    // Facebook Messenger and Instagram: `none` until the Meta app's id and secret are here.
+    meta: services.social.graph.configured ? env.metaProvider : 'none',
     migrations: env.migrationSource,
     addonConnectors: env.addonConnectors,
     addonPlatformKeys: Object.keys(env.addonPlatformKeys),

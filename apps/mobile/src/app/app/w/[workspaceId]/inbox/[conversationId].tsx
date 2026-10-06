@@ -11,6 +11,7 @@ import {
   emailSubjectOf,
   handlingView,
   handoverNote,
+  isSocialChannel,
   joinName,
   mailMoves,
   nameProblem,
@@ -18,6 +19,12 @@ import {
   replySubject,
   rowName,
   SENT_WORDS,
+  SOCIAL_CHANNEL_NAMES,
+  SOCIAL_MAX_ATTACHMENTS,
+  socialCounterLabel,
+  socialNote,
+  socialReplyWindow,
+  SOCIAL_TEXT_LIMITS,
   splitName,
   switchRefusal,
   textNote,
@@ -77,6 +84,7 @@ import { toast } from '@/components/ui/toast';
 import { change, changes, newId } from '@/changes';
 import { describe, loadNames } from '@/changes/describe';
 import type { OutboxRow } from '@/changes/outbox';
+import { AttributionStrip } from '@/components/customers/attribution';
 import { EditSheet, RECORD_SHEET_WORDS, TagSheet } from '@/components/customers/sheets';
 import { MoveSheet } from '@/components/pipeline/bits';
 import { savePerson, saveTags, type PersonEdit } from '@/customers/actions';
@@ -138,7 +146,7 @@ function Thread() {
     all ? lanes.map((l) => l.id) : undefined,
   );
   const lineOf = React.useMemo(() => new Map(lanes.map((l) => [l.id, l.lineDisplay])), [lanes]);
-  const drafts = useWaitingDrafts({ conversationId, kind: 'reply' });
+  const drafts = useWaitingDrafts({ conversationId, kinds: ['reply', 'ask'] });
   const members = useMembers();
   const names = useNames();
   const now = useNow();
@@ -195,9 +203,10 @@ function Thread() {
   } | null>(null);
 
   // A client's portal thread (round six, for the people on its deal) answers in their portal, as on the web: like a
-  // website chat, its replies stay where they were written.
+  // website chat, its replies stay where they were written. So do Messenger's and Instagram's (20261025000200).
   const channel = c?.channel ?? 'sms';
-  const stays = channel === 'chat' || channel === 'portal';
+  const social = isSocialChannel(channel) ? channel : null;
+  const stays = channel === 'chat' || channel === 'portal' || !!social;
   const current: ComposerMode = mode ?? channel;
   // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
   const canRich = current === 'sms' && !editing;
@@ -246,7 +255,9 @@ function Thread() {
       input.channel === 'email' ||
       input.channel === 'sms' ||
       input.channel === 'chat' ||
-      input.channel === 'portal'
+      input.channel === 'portal' ||
+      input.channel === 'messenger' ||
+      input.channel === 'instagram'
     )
       setMode(input.channel);
   }
@@ -313,7 +324,20 @@ function Thread() {
 
   // What the box says when this channel can't be used.
   let note: ComposerNote | null = null;
-  if (current === 'sms') {
+  let off = false;
+  if (social) {
+    const said = socialNote(social, {
+      // Whether the Page or account still answers here isn't on the phone: it's taken as answering, and HandsFreeOS
+      // says why not when a reply can't go (the bubble's Edit, as for any refused reply).
+      account: { status: 'active', problem: null, label: SOCIAL_CHANNEL_NAMES[social] },
+      // Nor whether Meta lets a person answer after the first day: the phone lets them try, and HandsFreeOS says.
+      window: socialReplyWindow(data.lastInboundAt, true, now),
+      everWrote: !!data.lastInboundAt,
+      firstName: first,
+    });
+    note = said;
+    off = !!said?.off;
+  } else if (current === 'sms') {
     const can = sameChannel
       ? data.canText
       : crossChannelCanText(channel, data.canText, person?.phone ?? '', data.fromNumber);
@@ -330,7 +354,7 @@ function Thread() {
         { to: emailTo, suppressedReason: email.suppressedReason, firstName: first },
       );
   }
-  const off = note !== null;
+  if (!social) off = note !== null;
   const canCall = channel === 'sms' || !!person?.phoneE164;
   const callTarget = channel === 'sms' ? { conversationId } : { personId: person?.id ?? '' };
 
@@ -375,6 +399,10 @@ function Thread() {
   const addPhoto = async (source: 'camera' | 'library') => {
     if (!person) {
       toast.error(COMPOSER_WORDS.addCustomerForPhotos);
+      return;
+    }
+    if (social && photos.length >= SOCIAL_MAX_ATTACHMENTS) {
+      toast.error(COMPOSER_WORDS.socialTooMany(SOCIAL_CHANNEL_NAMES[social]));
       return;
     }
     try {
@@ -806,6 +834,9 @@ function Thread() {
           timeZone={data.timeZone}
           onReopen={() => void actions.reopen()}
         />
+        {social && !all ? (
+          <AttributionStrip workspaceId={business.id} conversationId={conversationId} />
+        ) : null}
         <FlatList
           data={entries}
           inverted
@@ -857,7 +888,8 @@ function Thread() {
                 dropReplyPhoto(userId, photo);
                 setPhotos((p) => p.filter((x) => x.fileId !== photo.fileId));
               }}
-              canPhoto={!stays && !!person && !editing}
+              // A Messenger or Instagram reply carries photos too; a chat or portal reply carries none.
+              canPhoto={(!stays || !!social) && !!person && !editing}
               note={note}
               off={off}
               first={first}
@@ -887,6 +919,14 @@ function Thread() {
               canAskVideo={canAskVideo}
               askingVideo={askingVideo}
               onAskVideo={() => void askForVideo()}
+              counter={
+                social && !off
+                  ? {
+                      label: socialCounterLabel(social, body),
+                      over: body.length > SOCIAL_TEXT_LIMITS[social],
+                    }
+                  : null
+              }
             />
           </View>
         )}
@@ -897,13 +937,14 @@ function Thread() {
         onClose={() => setSheet(null)}
         c={c}
         canCall={canCall}
-        // The AI teammate never answers a client's portal (message.send refuses it there).
+        // The AI teammate never answers a client's portal, Messenger or Instagram (message.send refuses it there).
         canHandToAi={
           !priv &&
           !!data.teammate &&
           c.handledBy !== 'ai' &&
           channel !== 'email' &&
-          channel !== 'portal'
+          channel !== 'portal' &&
+          !social
         }
         teammateName={teammateName}
         assigneeShort={assigneeShort(c.assignee, myUserId)}

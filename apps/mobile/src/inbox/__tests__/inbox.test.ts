@@ -242,6 +242,15 @@ describe('replies written on this phone', () => {
     });
     expect(shown[0]!.goesBy).toBe(Date.parse(waiting.made_at) + 30 * 60_000);
     expect(shown[1]!.fileIds).toEqual(['f1', 'f2']);
+    // A Messenger or Instagram reply waits as itself, never as a text.
+    const [instagram] = pendingReplies(
+      [reply({}, { clientId: 'client-5', channel: 'instagram' })],
+      CONV,
+      new Set(),
+      false,
+      T0,
+    );
+    expect(instagram).toMatchObject({ channel: 'instagram', extras: null });
   });
 
   it('says in a few words what goes with a text: its buttons, card or carousel (RCS)', () => {

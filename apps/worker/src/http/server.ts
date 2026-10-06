@@ -45,6 +45,7 @@ import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
+import { registerAddonSealedRoutes } from './addon-sealed';
 import { registerAddonPublicRoutes } from './addon-public';
 import { registerAddonSignInRoutes } from './addon-sign-ins';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
@@ -59,6 +60,7 @@ import { registerMoneyRoutes } from './money';
 import { registerMigrationRoutes } from './migrations';
 import { registerNumberImportRoutes } from './number-import';
 import { registerOAuthRoutes } from './oauth';
+import { registerMetaRoutes } from '../social/routes';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
 import { registerVoiceAgentRoute } from './voice-agent';
@@ -261,6 +263,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVoiceAgentRoute(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
+  // Facebook Messenger and Instagram: Meta's webhook, and its deauthorize and data deletion callbacks.
+  await registerMetaRoutes(app, deps);
   // Signing in to the CRM a business is leaving (M11).
   if (deps.migrationAdapters) registerMigrationRoutes(app, deps, deps.migrationAdapters);
   // The stand-in provider's own payment page; it registers nothing when the real providers are configured.
@@ -292,6 +296,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerAddonWebhookRoutes(app, deps, deps.addonConnections);
   registerAddonSignInRoutes(app, deps, deps.addonConnections);
   registerAddonActionRoutes(app, deps, deps.addonConnections);
+  // Values an add-on keeps sealed: sealed as they're typed, and shown again to who may (round seven).
+  registerAddonSealedRoutes(app, deps, deps.addonConnections);
   // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);

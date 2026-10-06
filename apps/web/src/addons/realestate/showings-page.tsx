@@ -33,7 +33,8 @@ import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { CardHead, dealHref, HeadLink } from './bits';
 import { DealCrumb } from './buyer-bits';
-import type { ShowingList } from './types';
+import { LockboxesCard } from './lockboxes';
+import type { LockboxList, ShowingList } from './types';
 import { useAct } from './use-act';
 
 type Showing = ShowingList['showings'][number];
@@ -64,6 +65,7 @@ export function ShowingsPage({
   dealName,
   timeZone,
   list,
+  lockboxes,
   live,
   brandedOrigin,
 }: {
@@ -72,6 +74,8 @@ export function ShowingsPage({
   dealName: string;
   timeZone: string;
   list: ShowingList;
+  /** Round seven: its lockboxes and who opened them. */
+  lockboxes: LockboxList;
   live: boolean;
   brandedOrigin: string | null;
 }) {
@@ -146,146 +150,155 @@ export function ShowingsPage({
         </Callout>
       ) : null}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5">
-        <Card className="overflow-x-auto p-0" data-testid="showings-table">
-          {list.showings.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13.5px] text-text-2">
-              No showings yet. They come from the listing’s page and ShowingTime’s emails, or add
-              one by hand.
-            </p>
-          ) : (
-            <table className="w-full min-w-[600px] text-left text-[13.5px]">
-              <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-text-3">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">When</th>
-                  <th className="px-3 py-3 font-semibold">Agent</th>
-                  <th className="px-3 py-3 font-semibold">Where it stands</th>
-                  <th className="px-5 py-3 font-semibold">Feedback</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.showings.map((sh) => (
-                  <tr
-                    key={sh.id}
-                    className="border-b border-border align-top last:border-b-0"
-                    data-testid={`showing-${sh.id}`}
-                  >
-                    <td className="px-5 py-3">
-                      <div className="whitespace-nowrap font-medium">{sh.when}</div>
-                      <div className="text-[12px] text-text-3">
-                        {sh.sourceLabel}
-                        {sh.source === 'showingtime' ? (
-                          sh.checked ? (
-                            ' · checked'
-                          ) : live && sh.can.check ? (
-                            <>
-                              {' · '}
-                              <button
-                                type="button"
-                                className="text-accent-text hover:underline"
-                                onClick={() => setChecking(sh)}
-                                data-testid="showing-check"
-                              >
-                                check it
-                              </button>
-                            </>
-                          ) : null
-                        ) : null}
-                        {sh.accessSentAt ? ' · access sent' : ''}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div>{sh.agentName}</div>
-                      {sh.brokerage ? <div className="text-text-2">{sh.brokerage}</div> : null}
-                      {sh.agentPhone || sh.agentEmail ? (
-                        <div className="text-[12px] text-text-3">
-                          {[sh.agentPhone, sh.agentEmail].filter(Boolean).join(' · ')}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge variant={STATE_BADGE[sh.state]}>{sh.stateWords}</Badge>
-                      {sh.decisionNote ? (
-                        <div className="mt-1 text-[12px] text-text-3">{sh.decisionNote}</div>
-                      ) : null}
-                      {live && (sh.can.confirm || sh.can.decline || sh.can.cancel) ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {sh.can.confirm ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              loading={busy === `confirm:${sh.id}`}
-                              onClick={() => void decide(sh, 'confirm')}
-                              data-testid="showing-confirm"
-                            >
-                              Confirm
-                            </Button>
-                          ) : null}
-                          {sh.can.decline ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              loading={busy === `decline:${sh.id}`}
-                              onClick={() => void decide(sh, 'decline')}
-                            >
-                              Decline
-                            </Button>
-                          ) : null}
-                          {sh.can.cancel ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              loading={busy === `cancel:${sh.id}`}
-                              onClick={() =>
-                                confirm(
-                                  `Cancel the showing ${sh.when}? ${sh.agentName} hears now.`,
-                                ) && void decide(sh, 'cancel')
-                              }
-                            >
-                              Cancel it
-                            </Button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="max-w-[240px] px-5 py-3">
-                      {feedbackLine(sh) ? (
-                        <div>{feedbackLine(sh)}</div>
-                      ) : sh.feedbackAskedAt ? (
-                        <span className="text-text-2">Link sent</span>
-                      ) : (
-                        <span className="text-text-3">—</span>
-                      )}
-                      <div className="mt-1 flex flex-wrap gap-x-3 text-[12.5px]">
-                        {live && sh.can.feedback ? (
-                          <button
-                            type="button"
-                            className="text-accent-text hover:underline"
-                            onClick={() => setFeedback(sh)}
-                          >
-                            {sh.feedback ? 'Change it' : 'Type it in'}
-                          </button>
-                        ) : null}
-                        {live && sh.can.share ? (
-                          <button
-                            type="button"
-                            className="text-accent-text hover:underline"
-                            disabled={busy === `share:${sh.id}`}
-                            onClick={() => void share(sh)}
-                            data-testid="showing-share"
-                          >
-                            Share with {seller}
-                          </button>
-                        ) : sh.feedbackSharedAt ? (
-                          <span className="text-text-3">Shared with {seller}</span>
-                        ) : null}
-                      </div>
-                    </td>
+        <div className="min-w-0 space-y-4">
+          <Card className="overflow-x-auto p-0" data-testid="showings-table">
+            {list.showings.length === 0 ? (
+              <p className="px-5 py-8 text-center text-[13.5px] text-text-2">
+                No showings yet. They come from the listing’s page and ShowingTime’s emails, or add
+                one by hand.
+              </p>
+            ) : (
+              <table className="w-full min-w-[600px] text-left text-[13.5px]">
+                <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-text-3">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">When</th>
+                    <th className="px-3 py-3 font-semibold">Agent</th>
+                    <th className="px-3 py-3 font-semibold">Where it stands</th>
+                    <th className="px-5 py-3 font-semibold">Feedback</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
+                </thead>
+                <tbody>
+                  {list.showings.map((sh) => (
+                    <tr
+                      key={sh.id}
+                      className="border-b border-border align-top last:border-b-0"
+                      data-testid={`showing-${sh.id}`}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="whitespace-nowrap font-medium">{sh.when}</div>
+                        <div className="text-[12px] text-text-3">
+                          {sh.sourceLabel}
+                          {sh.source === 'showingtime' ? (
+                            sh.checked ? (
+                              ' · checked'
+                            ) : live && sh.can.check ? (
+                              <>
+                                {' · '}
+                                <button
+                                  type="button"
+                                  className="text-accent-text hover:underline"
+                                  onClick={() => setChecking(sh)}
+                                  data-testid="showing-check"
+                                >
+                                  check it
+                                </button>
+                              </>
+                            ) : null
+                          ) : null}
+                          {sh.accessSentAt ? ' · access sent' : ''}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div>{sh.agentName}</div>
+                        {sh.brokerage ? <div className="text-text-2">{sh.brokerage}</div> : null}
+                        {sh.agentPhone || sh.agentEmail ? (
+                          <div className="text-[12px] text-text-3">
+                            {[sh.agentPhone, sh.agentEmail].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Badge variant={STATE_BADGE[sh.state]}>{sh.stateWords}</Badge>
+                        {sh.decisionNote ? (
+                          <div className="mt-1 text-[12px] text-text-3">{sh.decisionNote}</div>
+                        ) : null}
+                        {live && (sh.can.confirm || sh.can.decline || sh.can.cancel) ? (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {sh.can.confirm ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                loading={busy === `confirm:${sh.id}`}
+                                onClick={() => void decide(sh, 'confirm')}
+                                data-testid="showing-confirm"
+                              >
+                                Confirm
+                              </Button>
+                            ) : null}
+                            {sh.can.decline ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                loading={busy === `decline:${sh.id}`}
+                                onClick={() => void decide(sh, 'decline')}
+                              >
+                                Decline
+                              </Button>
+                            ) : null}
+                            {sh.can.cancel ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                loading={busy === `cancel:${sh.id}`}
+                                onClick={() =>
+                                  confirm(
+                                    `Cancel the showing ${sh.when}? ${sh.agentName} hears now.`,
+                                  ) && void decide(sh, 'cancel')
+                                }
+                              >
+                                Cancel it
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="max-w-[240px] px-5 py-3">
+                        {feedbackLine(sh) ? (
+                          <div>{feedbackLine(sh)}</div>
+                        ) : sh.feedbackAskedAt ? (
+                          <span className="text-text-2">Link sent</span>
+                        ) : (
+                          <span className="text-text-3">—</span>
+                        )}
+                        <div className="mt-1 flex flex-wrap gap-x-3 text-[12.5px]">
+                          {live && sh.can.feedback ? (
+                            <button
+                              type="button"
+                              className="text-accent-text hover:underline"
+                              onClick={() => setFeedback(sh)}
+                            >
+                              {sh.feedback ? 'Change it' : 'Type it in'}
+                            </button>
+                          ) : null}
+                          {live && sh.can.share ? (
+                            <button
+                              type="button"
+                              className="text-accent-text hover:underline"
+                              disabled={busy === `share:${sh.id}`}
+                              onClick={() => void share(sh)}
+                              data-testid="showing-share"
+                            >
+                              Share with {seller}
+                            </button>
+                          ) : sh.feedbackSharedAt ? (
+                            <span className="text-text-3">Shared with {seller}</span>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+          <LockboxesCard
+            workspaceId={workspaceId}
+            dealId={dealId}
+            timeZone={timeZone}
+            list={lockboxes}
+            live={live}
+          />
+        </div>
         <div className="space-y-4">
           <Card className="p-4 md:p-5" data-testid="showings-said">
             <CardHead title="What buyers said" />
@@ -362,10 +375,16 @@ export function ShowingsPage({
                   : SHOWING_CONFIRMS.auto}
               </Line>
               <Line label="Access">
-                {s.access
-                  ? `Sent ${s.accessHours} ${s.accessHours === 1 ? 'hour' : 'hours'} before`
+                {s.access || lockboxes.lockboxes.some((l) => l.hasCode)
+                  ? `Sent to the confirmed agent ${s.accessHours} ${s.accessHours === 1 ? 'hour' : 'hours'} before`
                   : 'No access instructions yet'}
               </Line>
+              {lockboxes.lockboxes.some((l) => l.hasCode) ? (
+                <Line label="Lockbox codes">
+                  Only in that email, put in as it’s sent. Never on phones, in exports or in the
+                  Inbox.
+                </Line>
+              ) : null}
               <Line label="Feedback">
                 Asked for {s.feedbackHours} {s.feedbackHours === 1 ? 'hour' : 'hours'} after
               </Line>

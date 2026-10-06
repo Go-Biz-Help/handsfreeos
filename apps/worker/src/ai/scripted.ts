@@ -470,6 +470,8 @@ export interface TeammateTurn {
 export interface TeammateRule {
   /** Matched against the customer's new messages. */
   readonly when: RegExp;
+  /** Only when this call offers the tool (an add-on's, while the teammate uses it). */
+  readonly tool?: string;
   readonly step: (turn: TeammateTurn) => TeammateStep;
 }
 
@@ -478,10 +480,10 @@ const PHONE_IN = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
 const LINK_IN =
   /\bhttps?:\/\/[^\s"'<>]+|\b[a-z0-9-]+\.(?:com|net|org|biz|info|io)\b(?:\/[^\s"'<>]*)?/i;
 
-const toolCall = (name: string, args: Record<string, unknown> = {}): TeammateStep => ({
+export const toolCall = (name: string, args: Record<string, unknown> = {}): TeammateStep => ({
   calls: [{ name, arguments: args }],
 });
-const say = (message: string): TeammateStep => toolCall('reply', { message });
+export const say = (message: string): TeammateStep => toolCall('reply', { message });
 const lastResult = (t: TeammateTurn, tool: string) => t.results[tool]?.at(-1);
 /** It has searched, or can't. */
 const looked = (t: TeammateTurn) =>
@@ -492,7 +494,7 @@ const teammateName = (context: string) =>
 const businessName = (context: string) =>
   unquote(/^Business: (.+)\.$/m.exec(context)?.[1] ?? 'the business');
 /** "Hi, I'm Ava, Lone Star HVAC's AI assistant." when the context says this is its first message. */
-const hello = (t: TeammateTurn) =>
+export const hello = (t: TeammateTurn) =>
   t.context.includes(DISCLOSE_NOW)
     ? `Hi, I’m ${teammateName(t.context)}, ${businessName(t.context)}’s AI assistant. `
     : '';
@@ -793,7 +795,13 @@ export function scriptedTeammateTurn(
         ? nudgeStep()
         : asked.includes(TASK_ASK)
           ? thankYouStep(turn)
-          : thanked(asked, (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn));
+          : thanked(
+              asked,
+              (
+                rules.find((r) => r.when.test(words) && (!r.tool || turn.tools.has(r.tool))) ??
+                TEAMMATE_FALLBACK
+              ).step(turn),
+            );
   const usage = {
     inputTokens: Math.ceil(
       (request.system.length + turn.context.length + messagesLength(request.messages)) / 4,

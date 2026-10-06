@@ -22,6 +22,7 @@ import { handoffAlertDue } from './ai-team/escalation';
 import { AI_PROVIDER_CHECK_JOB, AI_PROVIDER_CHECK_KEY, aiProviderCheck } from './ai/switch';
 import { teammateJobs } from './ai-team/index';
 import { ladderJob, SAFETY_JOBS, tellJob } from './safety/ladder';
+import { CLEAR_SPOTS_KEY, nextSpotClearing, SPOT_JOBS, spotJobs } from './safety/spots';
 import { alertUrgent, waitOf } from './attention/alerts';
 import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
 import { automationJobs } from './automations/index';
@@ -60,6 +61,7 @@ import { portJobs } from './telephony/ports';
 import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
+import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
@@ -528,6 +530,8 @@ export const jobs: JobMap = {
   // Check-ins (round six): a missed check-out's ladder, and each text or email to someone outside (safety/).
   [SAFETY_JOBS.ladder]: ladderJob,
   [SAFETY_JOBS.tell]: tellJob,
+  // Where a phone was during a check-in, cleared 30 days after it ended, nightly (round seven, safety/spots.ts).
+  ...spotJobs,
   // The Action Center: the hourly plan and each business's sweep, exact-time rechecks, snoozes running out.
   ...attentionJobs,
   // Settings → Automations' own: re-engaging dead leads once a day (armed by the Action Center's hourly plan).
@@ -586,6 +590,8 @@ export const jobs: JobMap = {
   ...addonJobs,
   // Voting on what's next: each week's vote closing, and picks that shipped (addons/roadmap.ts).
   ...roadmapJobs,
+  // Facebook Messenger and Instagram: an ad looked up at Meta, and each business's Pages checked daily (social/).
+  ...metaJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -765,6 +771,23 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECEIPT_JOBS.cleanUp,
       dedupeKey: RECEIPTS_CLEAN_UP_KEY,
       runAt: nextReceiptCleanUp(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    await scheduleJob(tx, {
+      kind: SPOT_JOBS.clear,
+      dedupeKey: CLEAR_SPOTS_KEY,
+      runAt: nextSpotClearing(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Facebook and Instagram, daily: each business's Pages looked at with Meta (social/jobs.ts).
+    await scheduleJob(tx, {
+      kind: META_JOBS.plan,
+      dedupeKey: META_PLAN_KEY,
+      runAt,
       payload: {},
       workspaceId: null,
       organizationId: null,

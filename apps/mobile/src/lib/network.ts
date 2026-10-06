@@ -10,6 +10,11 @@ import { deviceStore } from './device-store';
  */
 export interface NetworkSnapshot {
   readonly online: boolean;
+  /**
+   * On Wi-Fi (or a cable) rather than mobile data: documents the phone keeps download only then, unless the person
+   * allows mobile data (round seven).
+   */
+  readonly wifi: boolean;
   /** The last moment the phone had signal (now, while it has). */
   readonly lastOnlineAt: number;
 }
@@ -17,35 +22,40 @@ export interface NetworkSnapshot {
 const TEST_OFFLINE_KEY = 'test.offline';
 const listeners = new Set<() => void>();
 let reported = true;
-let snapshot: NetworkSnapshot = { online: true, lastOnlineAt: Date.now() };
+let reportedWifi = false;
+let snapshot: NetworkSnapshot = { online: true, wifi: false, lastOnlineAt: Date.now() };
 let started = false;
 
 function publish() {
   const online = reported && !isTestOffline();
-  if (online === snapshot.online) return;
+  const wifi = online && reportedWifi;
+  if (online === snapshot.online && wifi === snapshot.wifi) return;
   // Going offline keeps the moment signal was last seen; coming back moves it to now.
   snapshot = {
     online,
+    wifi,
     lastOnlineAt: online || snapshot.online ? Date.now() : snapshot.lastOnlineAt,
   };
   for (const listener of listeners) listener();
 }
 
-function fromState(state: Network.NetworkState): boolean {
+function fromState(state: Network.NetworkState): void {
   // Unknown counts as online: the requests themselves say otherwise soon enough.
-  return state.isConnected !== false && state.isInternetReachable !== false;
+  reported = state.isConnected !== false && state.isInternetReachable !== false;
+  // Unknown isn't Wi-Fi: nothing big downloads on what might be someone's data plan.
+  reportedWifi = state.type === 'WIFI' || state.type === 'ETHERNET';
 }
 
 export function startNetworkWatch(): void {
   if (started) return;
   started = true;
   Network.addNetworkStateListener((state) => {
-    reported = fromState(state);
+    fromState(state);
     publish();
   });
   void Network.getNetworkStateAsync()
     .then((state) => {
-      reported = fromState(state);
+      fromState(state);
       publish();
     })
     .catch(() => undefined);

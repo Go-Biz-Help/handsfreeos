@@ -24,6 +24,7 @@ import {
   formatDuration,
   HfosError,
   isLocalDate,
+  isTeammateAddonTool,
   answerProblem,
   findQuestion,
   formResponseSave,
@@ -61,6 +62,7 @@ import {
   attendeeConfirmByCall,
   personSetCallConsent,
   type RequestMeta,
+  type TeammateAddonTool,
   type TeammateTool,
   type TeammateToolName,
 } from '@hfos/core/server';
@@ -82,6 +84,7 @@ import {
   upcomingAppointments,
   type RunContext,
 } from './context';
+import { runAddonTool, type AddonAsk } from './addon-tools';
 import { emergencyIn, handOffInConversation } from './handoff';
 import { rememberLanguage } from './translations';
 
@@ -149,6 +152,8 @@ export interface RunState {
   searched: boolean;
   discount: Discount | null;
   moneyAsk: MoneyAsk | null;
+  /** What it asked a person on the customer's team to do with an add-on (round seven): an approval each. */
+  readonly asks: AddonAsk[];
   /** A lead open_deal opened in this run (the context loaded before it had one). */
   openedLeadId: string | null;
   /** The chat visitor typed back the right code in this run (M18): the run starts over as theirs. */
@@ -171,6 +176,7 @@ export function newRunState(): RunState {
     searched: false,
     discount: null,
     moneyAsk: null,
+    asks: [],
     openedLeadId: null,
     verified: false,
     photos: 0,
@@ -189,6 +195,7 @@ interface Effect {
   readonly held?: DraftAction;
   readonly discount?: Discount;
   readonly moneyAsk?: MoneyAsk;
+  readonly ask?: AddonAsk;
   readonly openedLeadId?: string;
   readonly verified?: boolean;
   readonly videoLink?: boolean;
@@ -215,6 +222,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.held) state.held.push(effect.held);
   if (effect.discount) state.discount = effect.discount;
   if (effect.moneyAsk) state.moneyAsk = effect.moneyAsk;
+  if (effect.ask) state.asks.push(effect.ask);
   if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
   if (effect.verified) state.verified = true;
   if (effect.videoLink) state.videoLink = true;
@@ -312,11 +320,17 @@ export function createExecutor(d: ExecutorDeps): (call: AiToolCall) => Promise<T
     }
     let outcome: Outcome;
     try {
-      outcome = await asWorker(d.db, d.scope, async (tx) => {
-        const o = await runCall(d, tx, tool, call);
-        await finishCall(tx, d.runId, callId, o);
-        return o;
-      });
+      if (tool && isTeammateAddonTool(tool)) {
+        // An add-on's look-up reads in its own transaction, as the customer; only its record goes in this one.
+        const o = await runAddonCall(d, tool, call);
+        await asWorker(d.db, d.scope, (tx) => finishCall(tx, d.runId, callId, o));
+        outcome = o;
+      } else
+        outcome = await asWorker(d.db, d.scope, async (tx) => {
+          const o = await runCall(d, tx, tool, call);
+          await finishCall(tx, d.runId, callId, o);
+          return o;
+        });
     } catch (e) {
       d.log.warn({ err: e, tool: call.name, runId: d.runId }, 'an AI teammate tool failed');
       const failed: Outcome = {
@@ -413,6 +427,32 @@ async function runCall(
     if (e instanceof HfosError) return refusalOf(e);
     throw e;
   }
+}
+
+/** One of an add-on's tools (round seven): a look-up as the customer, or an ask held for a person. */
+async function runAddonCall(
+  d: ExecutorDeps,
+  tool: TeammateAddonTool,
+  call: AiToolCall,
+): Promise<Outcome> {
+  const parsed = tool.input.safeParse(call.arguments);
+  if (!parsed.success)
+    return refused({
+      error: 'Invalid input',
+      issues: parsed.error.issues.map(
+        (i) => `${i.path.map(String).join('.') || 'input'}: ${i.message}`,
+      ),
+    });
+  const o = await runAddonTool(d, tool, parsed.data, d.state.asks.length);
+  return {
+    status: o.status,
+    content: o.content,
+    command: o.command ?? null,
+    error: o.error ?? null,
+    ...(o.found || o.ask
+      ? { effect: { ...(o.found ? { found: [o.found] } : {}), ...(o.ask ? { ask: o.ask } : {}) } }
+      : {}),
+  };
 }
 
 const CHAT_REFUSAL =

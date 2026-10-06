@@ -4,10 +4,13 @@
  * results. Computed from the draft, so they change as it is edited.
  */
 import {
+  ADDON_CATALOG,
   followUpLadderWords,
   followUpScheduleMinutes,
   formatHours,
   TEAMMATE_LABEL_NAMES,
+  teammateUsesAddon,
+  type AddonManifest,
   type DisclosureMode,
   type NotifyWho,
   type ReplyRule,
@@ -39,6 +42,8 @@ export const MODULES = [
   { key: 'autonomy', name: 'Autonomy' },
   { key: 'limits', name: 'Limits' },
   { key: 'handOff', name: 'Hand-off' },
+  // Round seven: shown only while an add-on that offers the teammate something runs (teammateAddonsHere).
+  { key: 'addons', name: 'Add-ons' },
 ] as const;
 export type ModuleKey = (typeof MODULES)[number]['key'];
 
@@ -58,7 +63,12 @@ const FIELD_MODULE: Readonly<Record<string, ModuleKey>> = {
   money: 'limits',
   handOff: 'handOff',
   phone: 'channels',
+  addons: 'addons',
 };
+
+/** The add-ons running here that offer the teammate something (round seven), in the catalogue's order. */
+export const teammateAddonsHere = (running: readonly string[]): AddonManifest[] =>
+  ADDON_CATALOG.filter((m) => !!m.teammate && running.includes(m.id));
 
 export function moduleOfField(field: string): ModuleKey | null {
   return FIELD_MODULE[field.split('.')[0] ?? ''] ?? null;
@@ -198,6 +208,10 @@ export function moduleSummary(
       return `${config.limits.repliesPerConversationPerDay} a day · ${config.limits.dailySharePercent}% of AI`;
     case 'handOff':
       return `${plural(BUILT_IN_TOPICS.length + config.handOff.sensitiveTopics.length, 'topic', 'topics')} · ${capital(notifyWords(config.handOff.notify, catalogs.members))}`;
+    case 'addons': {
+      const on = ADDON_CATALOG.filter((m) => !!m.teammate && teammateUsesAddon(config, m.id));
+      return on.length ? `Uses ${joinWords(on.map((m) => m.name))}` : 'None on';
+    }
   }
 }
 

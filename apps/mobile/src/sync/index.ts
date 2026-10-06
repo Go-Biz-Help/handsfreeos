@@ -11,6 +11,8 @@ import { networkSnapshot, subscribeNetwork } from '@/lib/network';
 import { changes } from '@/changes';
 
 import { deviceFiles } from './device-files';
+import { documentKeeper } from './document-keeper';
+import { keptStore } from './kept-store';
 import { CopyKeys } from './keys';
 import { copyLogger } from './logger';
 import { openCopyDatabase } from './open-database';
@@ -54,7 +56,19 @@ export const phoneCopy = new PhoneCopy({
   choices: deviceStore,
   keptBusinesses: (userId) => keptBusinessIds(userId, cachedMe(userId)?.businesses ?? []),
   changes,
+  kept: keptStore,
   syncUrl: config.syncUrl,
   appVersion: config.appVersion,
   logger: copyLogger,
+});
+
+/** Documents kept on the phone follow the open copy's rows and files (`document-keeper.ts`). */
+let watched: unknown = null;
+phoneCopy.subscribe(() => {
+  const state = phoneCopy.getSnapshot().state;
+  const db = state.status === 'open' ? state.db : null;
+  if (db === watched) return;
+  watched = db;
+  if (db) documentKeeper.opened(db);
+  else documentKeeper.closed();
 });

@@ -1,10 +1,13 @@
 import { z } from 'zod';
+import { sealedValue } from '../addons/sealed';
+import { addonId } from './addon';
 import { isoDateTime, uuid } from './common';
 import { ListInput, UserRef } from './crm';
 import { conversationChannel, messageDirection, smsConsent } from './conversation';
 import { MediaRefSchema } from './media';
 import { ButtonReplyOut, RichInput, RichTextOut, textTransport } from './rcs';
 import { e164Phone, phoneRequired } from './telephony';
+import { SOCIAL_TEXT_LIMITS } from '../messaging/social';
 
 // Lives in its own module so the RCS schemas (rich texts carry pictures) can use it without importing this one.
 export { MediaRefSchema, type MediaRefOut } from './media';
@@ -17,8 +20,11 @@ export const requiredEmail = z
   .max(254)
   .pipe(z.email({ error: 'Enter a valid email address.' }));
 
-/** What message.send can send on: a text, an email, or a reply in a website chat or a customer's portal. */
-export const sendChannel = z.enum(['sms', 'email', 'chat', 'portal']);
+/**
+ * What message.send can send on: a text, an email, a reply in a website chat or a customer's portal, or a reply on
+ * Messenger or Instagram (20261025000200).
+ */
+export const sendChannel = z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']);
 
 export const MessageSendInput = z
   .object({
@@ -72,6 +78,22 @@ export const MessageSendInput = z
      * phone can show it and as a text with the choices written out where it can't; nobody picks which.
      */
     rich: RichInput.optional(),
+    /**
+     * Email: values the worker sealed that go in place of a marker in the body only as it's sent (round seven: a
+     * lockbox's code). The stored body keeps the marker, so the Inbox, phones and exports never hold the value.
+     * HandsFreeOS itself only.
+     */
+    sealedParts: z
+      .array(
+        z.object({
+          marker: z.string().min(3).max(120),
+          sealed: sealedValue('Value'),
+          addonId,
+          key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+        }),
+      )
+      .max(5)
+      .default([]),
   })
   .refine(
     (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,
@@ -87,6 +109,10 @@ export const MessageSendInput = z
   .refine((v) => v.channel !== 'portal' || !!v.conversationId, {
     path: ['conversationId'],
     error: 'A portal reply goes in the client’s portal thread.',
+  })
+  .refine((v) => (v.channel !== 'messenger' && v.channel !== 'instagram') || !!v.conversationId, {
+    path: ['conversationId'],
+    error: 'A Messenger or Instagram reply goes in the customer’s thread there.',
   })
   .refine(
     (v) =>
@@ -113,6 +139,14 @@ export const MessageSendInput = z
   .refine((v) => v.channel === 'sms' || !v.rich, {
     path: ['rich'],
     error: 'Buttons, cards and carousels go in texts.',
+  })
+  .refine((v) => v.channel !== 'messenger' || v.body.length <= SOCIAL_TEXT_LIMITS.messenger, {
+    path: ['body'],
+    error: 'Keep Messenger replies under 2,000 characters.',
+  })
+  .refine((v) => v.channel !== 'instagram' || v.body.length <= SOCIAL_TEXT_LIMITS.instagram, {
+    path: ['body'],
+    error: 'Keep Instagram replies under 1,000 characters.',
   });
 export const MessageSendOutput = z.object({
   messageId: uuid,
@@ -222,6 +256,11 @@ export const MessageUpdateStatusInput = z
      * place, and that attempt's times, template and way it went are forgotten with it.
      */
     replacesProviderMessageId: z.string().trim().min(2).max(200).optional(),
+    /**
+     * Messenger and Instagram: every part the reply went out as (its photos, then its words), by Meta's ids. The
+     * first is `providerMessageId`.
+     */
+    providerPartIds: z.array(z.string().trim().min(2).max(300)).max(20).optional(),
   })
   .refine((v) => !!v.messageId || !!v.providerMessageId, {
     path: ['messageId'],
@@ -252,6 +291,20 @@ export const MessageReleaseScheduledOutput = z.object({
 });
 
 // ---------- the thread: messages and calls, newest first ----------
+/** What Messenger and Instagram add to a message (`messages.social`), as a thread shows it. */
+export const SocialExtrasOut = z.object({
+  shared: z
+    .array(z.object({ type: z.string(), url: z.string().nullable(), title: z.string().nullable() }))
+    .optional(),
+  elsewhere: z.boolean().optional(),
+  replyTo: z
+    .object({ mid: z.string().nullable(), story: z.boolean(), storyUrl: z.string().nullable() })
+    .optional(),
+  postback: z.object({ title: z.string().nullable() }).optional(),
+  files: z.array(z.string()).optional(),
+  touchId: uuid.optional(),
+});
+
 export const ThreadItem = z.object({
   type: z.enum(['message', 'call']),
   id: uuid,
@@ -307,6 +360,15 @@ export const ThreadItem = z.object({
   rich: RichTextOut.nullable(),
   /** A customer's reply that came from one of those buttons. */
   buttonReply: ButtonReplyOut.nullable(),
+  /**
+   * Messenger and Instagram (20261025000200): what it shared that isn't a file we keep, what it answers, the button
+   * tapped, and whether the business wrote it in Facebook's or Instagram's own inbox. Null on other channels.
+   */
+  social: SocialExtrasOut.nullable(),
+  /** The customer changed it (Messenger, Instagram): the body is the newest words. */
+  editedAt: isoDateTime.nullable(),
+  /** The customer took it back: nothing of what it said is kept. */
+  unsentAt: isoDateTime.nullable(),
 });
 export type ThreadItem = z.infer<typeof ThreadItem>;
 export const ConversationThreadInput = ListInput.extend({

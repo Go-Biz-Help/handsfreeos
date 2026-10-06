@@ -22,13 +22,15 @@ import {
   toldOf,
   type ContactRow,
 } from './check-in';
+import { startFollowing, stopFollowing } from './follow';
 
 /**
  * Checking in, adding time and checking out, from this phone (round six, core). Each is a change that waits on the
  * phone with no signal (`anytime` in the phone's contract) and writes the check-in here at once, and each sets or
  * clears the reminder for the planned end, so the person is asked even with no signal at all. The reminder's own
  * buttons (I'm OK, +15 min) do the same through `changeFromPress`, so pressing one with no signal checks out or moves
- * the reminder on this phone too.
+ * the reminder on this phone too. A check-in sharing where the person is follows the phone until it ends (round seven,
+ * `follow.ts`): checking in starts that, and checking out, here or from the reminder, stops it.
  */
 
 /** SQL the changes write to the phone's own copy before anything is sent. */
@@ -143,10 +145,14 @@ export async function checkIn(input: {
   readonly appointmentId?: string;
   readonly latitude?: number;
   readonly longitude?: number;
+  /** Keep sharing where the phone is until checking out: only with a first reading. */
+  readonly follow?: boolean;
 }): Promise<string> {
   const id = newId();
   const now = new Date().toISOString();
   const made: { reminder: Reminder | null } = { reminder: null };
+  const located = input.latitude !== undefined && input.longitude !== undefined;
+  const follow = located && input.follow === true;
   await change(
     'safety.check_in',
     {
@@ -155,9 +161,8 @@ export async function checkIn(input: {
       place: input.place,
       plannedEndAt: input.plannedEndAt,
       ...(input.appointmentId ? { appointmentId: input.appointmentId } : {}),
-      ...(input.latitude !== undefined && input.longitude !== undefined
-        ? { latitude: input.latitude, longitude: input.longitude }
-        : {}),
+      ...(located ? { latitude: input.latitude, longitude: input.longitude } : {}),
+      ...(follow ? { follow: true } : {}),
     },
     {
       optimistic: async (tx) => {
@@ -179,6 +184,8 @@ export async function checkIn(input: {
     },
   );
   if (made.reminder) await setReminder(made.reminder);
+  if (follow)
+    await startFollowing({ workspaceId: input.workspaceId, checkInId: id, place: input.place });
   return id;
 }
 
@@ -231,6 +238,7 @@ export async function changeFromPress<N extends CommandName>(
       optimistic: (tx) => tx.execute(CHECK_IN_OUT, [when, when, checkInId]),
     });
     await clearReminder(checkInId);
+    await stopFollowing(checkInId);
     return result;
   }
   return make(name, input, options);

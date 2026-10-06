@@ -5,14 +5,14 @@ import {
   useAudioRecorder,
   type RecordingOptions,
 } from 'expo-audio';
-import { Directory, File } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as React from 'react';
 
-import { photosFolderUri } from '@/sync/device-files';
+import { keptStore } from '@/sync/kept-store';
 
 /**
- * A voice note at a tour stop (board 83): recorded on the phone with or without signal, kept in the person's photos
- * folder beside the photos waiting to upload, and sent on the same track. Its words come from HandsFreeOS once it
+ * A voice note at a tour stop (board 83): recorded on the phone with or without signal, kept encrypted beside the
+ * photos waiting to upload (`sync/kept-files.ts`), and sent on the same track. Its words come from HandsFreeOS once it
  * arrives (the worker's transcriber, billed like any speech).
  */
 
@@ -144,17 +144,22 @@ function removeFile(uri: string) {
   }
 }
 
-/** Moves a finished recording into the person's photos folder, named for its file id, to wait for upload. */
+/**
+ * Keeps a finished recording in the person's kept files (encrypted, named for its file id) to wait for upload, and
+ * deletes the plain one the recorder wrote.
+ */
 export function keepRecording(input: {
   readonly userId: string;
   readonly fileId: string;
   readonly uri: string;
 }): { readonly localName: string; readonly sizeBytes: number } {
-  const folder = new Directory(photosFolderUri(input.userId));
-  folder.create({ intermediates: true, idempotent: true });
   const localName = `${input.fileId}.m4a`;
-  const target = new File(`${photosFolderUri(input.userId)}/${encodeURIComponent(localName)}`);
-  if (target.exists) target.delete();
-  new File(input.uri).moveSync(target);
-  return { localName, sizeBytes: target.size };
+  const plain = new File(input.uri);
+  try {
+    const bytes = plain.bytesSync();
+    keptStore.of(input.userId).put(localName, 'waiting', bytes, { mimeType: 'audio/mp4' });
+    return { localName, sizeBytes: bytes.length };
+  } finally {
+    if (plain.exists) plain.delete();
+  }
 }

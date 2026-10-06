@@ -4547,7 +4547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send a text or email that did not go out one more time.
+         * Send a text, email, or Messenger or Instagram reply that did not go out one more time.
          * @description Risk level 2. Requires inbox.use. Emits message.queued, message.scheduled.
          */
         post: operations["command_message_retry"];
@@ -4567,10 +4567,70 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
+         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
          * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meta_account.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop answering one Facebook Page or Instagram account here. Its conversations and messages stay, and connecting it again picks them up where they were.
+         * @description Risk level 2. Requires channels.manage. Emits meta_account.disconnected.
+         */
+        post: operations["command_meta_account_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meta_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting the business’s Facebook Pages and Instagram accounts, so their direct messages arrive in the inbox and can be answered from it. Returns a one-time state; the browser signs in to Facebook through the worker.
+         * @description Risk level 2. Requires channels.manage. Emits meta_connection.connect_started.
+         */
+        post: operations["command_meta_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/meta_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect Facebook: HandsFreeOS forgets the sign-in and stops answering every Page and Instagram account it connected. Conversations and their messages stay; nothing changes on Facebook or Instagram.
+         * @description Risk level 2. Requires channels.manage. Emits meta_connection.disconnected, meta_account.disconnected, meta_account.needs_attention.
+         */
+        post: operations["command_meta_connection_disconnect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8557,6 +8617,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.lockbox.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Takes a lockbox off a listing, and its code with it.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.lockbox.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockbox: its kind, where it is, its serial, and its code (sealed on the way, never shown back here).
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.match.dismiss": {
         parameters: {
             query?: never;
@@ -10288,7 +10388,7 @@ export interface paths {
         put?: never;
         /**
          * Check in somewhere you’re alone, with when you plan to leave. If you don’t check out, HandsFreeOS asks you, then tells your safety contacts where you were.
-         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in, safety.checked_out. Can wait on a phone with no signal.
          */
         post: operations["command_safety_check_in"];
         delete?: never;
@@ -10391,6 +10491,26 @@ export interface paths {
          * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
          */
         post: operations["command_safety_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.where": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.
+         * @description Risk level 0. Requires workspace.read. Emits . Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_where"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12977,6 +13097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/attribution.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where a customer or a conversation came from: every Facebook or Instagram ad or link that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.
+         * @description Requires records.read.
+         */
+        post: operations["query_attribution_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/audit.list": {
         parameters: {
             query?: never;
@@ -13651,6 +13791,26 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_estimate_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/file.fingerprints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What files held when they arrived, so a phone can check the copies it keeps.
+         * @description Requires records.read.
+         */
+        post: operations["query_file_fingerprints"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14451,6 +14611,26 @@ export interface paths {
          * @description Requires inbox.use.
          */
         post: operations["query_message_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/meta_account.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, and the Facebook sign-ins they came through.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_meta_account_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15751,6 +15931,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.lockbox.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockboxes (never their codes) and the latest times they were opened.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_lockbox_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19244,7 +19444,7 @@ export interface operations {
                     action?: "hand_to_ai" | "reply" | "set_next_action";
                     body?: string;
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat" | "portal";
+                    channel?: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                     dueAt?: string | null;
                     /** Format: uuid */
                     itemId: string;
@@ -25427,7 +25627,7 @@ export interface operations {
                     createLead?: boolean;
                     dailyCap?: number;
                     /** @enum {string} */
-                    kind?: "text" | "call" | "email";
+                    kind?: "text" | "call" | "email" | "messenger" | "instagram";
                     name?: string;
                     pipelineId?: string | null;
                     redirectUrl?: string | null;
@@ -25448,7 +25648,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         allowedOrigins: string[];
-                        kind: ("text" | "call" | "email") | ("website_form" | "api");
+                        kind: ("text" | "call" | "email" | "messenger" | "instagram") | ("website_form" | "api");
                         sourceId: string | null;
                         updated: string[];
                     };
@@ -27317,7 +27517,7 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email" | "chat" | "portal";
+                    channel?: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                     clientId?: string;
                     /** Format: uuid */
                     conversationId?: string;
@@ -27395,6 +27595,13 @@ export interface operations {
                         /** @enum {string} */
                         kind: "carousel";
                     };
+                    /** @default [] */
+                    sealedParts?: {
+                        addonId: string;
+                        key: string;
+                        marker: string;
+                        sealed: string;
+                    }[];
                     /** @default false */
                     sendAfterQuietHours?: boolean;
                     subject?: string;
@@ -27421,6 +27628,108 @@ export interface operations {
                         /** Format: date-time */
                         scheduledFor?: string;
                         status: string;
+                    };
+                };
+            };
+        };
+    };
+    command_meta_account_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    accountId: string;
+                    /** @enum {string} */
+                    reason?: "person" | "revoked" | "failed" | "moved";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_meta_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_meta_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    forget?: boolean;
+                    /** @enum {string} */
+                    reason?: "person" | "revoked" | "failed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountIds: string[];
+                        /** Format: uuid */
+                        connectionId: string;
                     };
                 };
             };
@@ -35600,6 +35909,101 @@ export interface operations {
             };
         };
     };
+    command_realestate_lockbox_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_lockbox_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code?: string | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                    place?: string | null;
+                    serial?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_realestate_match_dismiss: {
         parameters: {
             query?: never;
@@ -39357,6 +39761,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     appointmentId?: string;
+                    follow?: boolean;
                     /** Format: uuid */
                     id: string;
                     latitude?: number;
@@ -39590,6 +39995,42 @@ export interface operations {
                         alertAfterMinutes: number;
                         askAfterMinutes: number;
                         safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_where: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    latitude: number;
+                    longitude: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkInId: string;
+                        kept: boolean;
+                        open: boolean;
                     };
                 };
             };
@@ -45238,7 +45679,7 @@ export interface operations {
                     conversationId?: string;
                     cursor?: string;
                     /** @enum {string} */
-                    kind?: "reply" | "approval" | "call";
+                    kind?: "reply" | "approval" | "call" | "ask";
                     /** @default 50 */
                     limit?: number;
                     /**
@@ -45279,7 +45720,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "reply" | "approval" | "call";
+                            kind: "reply" | "approval" | "call" | "ask";
                             knowledge: unknown[];
                             lead: {
                                 /** Format: uuid */
@@ -45443,6 +45884,19 @@ export interface operations {
                                     summary: string;
                                 })[];
                                 /** @default null */
+                                ask: {
+                                    addonId: string;
+                                    addonName: string;
+                                    input: {
+                                        [key: string]: unknown;
+                                    };
+                                    operation: string;
+                                    /** Format: uuid */
+                                    recordId: string;
+                                    summary: string;
+                                    tool: string;
+                                } | null;
+                                /** @default null */
                                 call: {
                                     /** Format: uuid */
                                     aiCallId: string;
@@ -45457,6 +45911,11 @@ export interface operations {
                                     percent: number;
                                     reason: string;
                                 } | null;
+                                /** @default [] */
+                                flags: {
+                                    addonName: string;
+                                    message: string;
+                                }[];
                                 /** @default null */
                                 message: {
                                     body: string;
@@ -45469,6 +45928,12 @@ export interface operations {
                                 } | null;
                             };
                             reason: string | null;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string | null;
+                            } | null;
                             runId: string | null;
                             /** @enum {string} */
                             status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
@@ -46392,7 +46857,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat" | "portal") | null;
+                            reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -46524,7 +46989,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat" | "portal") | null;
+                            reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -46616,7 +47081,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
-                            reach: ("sms" | "email" | "chat" | "portal") | null;
+                            reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
@@ -46720,7 +47185,7 @@ export interface operations {
                             /** @enum {string} */
                             action: "hand_to_ai" | "reply" | "set_next_action";
                             available: boolean;
-                            channel: ("sms" | "email" | "chat" | "portal") | null;
+                            channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             conversationId: string | null;
                             /** @default null */
                             draft: {
@@ -46952,6 +47417,85 @@ export interface operations {
                         scope: "mine" | "everyone";
                         total: number;
                         urgent: number;
+                    };
+                };
+            };
+        };
+    };
+    query_attribution_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        first: string | null;
+                        latest: string | null;
+                        total: number;
+                        touches: {
+                            accountName: string | null;
+                            ad: {
+                                adsetId: string | null;
+                                adsetName: string | null;
+                                callToAction: string | null;
+                                campaignId: string | null;
+                                campaignName: string | null;
+                                campaignObjective: string | null;
+                                creativeBody: string | null;
+                                creativeId: string | null;
+                                creativeName: string | null;
+                                creativeThumbnailUrl: string | null;
+                                creativeTitle: string | null;
+                                externalId: string;
+                                name: string | null;
+                                platforms: string[];
+                                /** @enum {string} */
+                                status: "pending" | "resolved" | "no_access" | "not_found" | "failed";
+                            } | null;
+                            adId: string | null;
+                            adPhotoUrl: string | null;
+                            adTitle: string | null;
+                            /** @enum {string} */
+                            channel: "messenger" | "instagram";
+                            conversationId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "started" | "returned";
+                            leadId: string | null;
+                            personId: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "instagram";
+                            postId: string | null;
+                            ref: string | null;
+                            refererUri: string | null;
+                            referralType: string | null;
+                            source: string | null;
+                            /** Format: date-time */
+                            touchedAt: string;
+                        }[];
                     };
                 };
             };
@@ -48501,7 +49045,7 @@ export interface operations {
                     "application/json": {
                         canText: {
                             ok: boolean;
-                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel" | "portal_channel") | null;
+                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel" | "portal_channel" | "social_channel") | null;
                         };
                         chat: {
                             blocked: boolean;
@@ -48529,7 +49073,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat" | "portal";
+                            channel: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -48550,7 +49094,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat" | "portal";
+                                channel: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -48660,6 +49204,31 @@ export interface operations {
                             quiet: boolean;
                         };
                         rcs: boolean;
+                        social: {
+                            account: {
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
+                                name: string;
+                                /** @enum {string} */
+                                platform: "facebook" | "instagram";
+                                problem: ("reauth" | "revoked" | "failed") | null;
+                                /** @enum {string} */
+                                status: "active" | "needs_attention" | "disconnected";
+                                username: string | null;
+                            } | null;
+                            contact: {
+                                name: string;
+                                username: string | null;
+                            };
+                            everWrote: boolean;
+                            textLimit: number;
+                            window: {
+                                closesAt: string | null;
+                                open: boolean;
+                                peopleOnly: boolean;
+                            };
+                        } | null;
                         timezone: string;
                     };
                 };
@@ -48722,12 +49291,13 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat" | "portal") | null;
+                            channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";
                             durationSeconds: number | null;
+                            editedAt: string | null;
                             errorCode: string | null;
                             errorMessage: string | null;
                             fromAddress: string | null;
@@ -48796,6 +49366,25 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            social: {
+                                elsewhere?: boolean;
+                                files?: string[];
+                                postback?: {
+                                    title: string | null;
+                                };
+                                replyTo?: {
+                                    mid: string | null;
+                                    story: boolean;
+                                    storyUrl: string | null;
+                                };
+                                shared?: {
+                                    title: string | null;
+                                    type: string;
+                                    url: string | null;
+                                }[];
+                                /** Format: uuid */
+                                touchId?: string;
+                            } | null;
                             status: string;
                             subject: string | null;
                             teammate: {
@@ -48809,6 +49398,7 @@ export interface operations {
                             transport: ("sms" | "mms" | "rcs") | null;
                             /** @enum {string} */
                             type: "message" | "call";
+                            unsentAt: string | null;
                             via: ("microsoft" | "google") | null;
                         }[];
                         nextCursor: string | null;
@@ -49663,6 +50253,41 @@ export interface operations {
                             voidedAt: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_file_fingerprints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fileIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: {
+                            /** Format: uuid */
+                            id: string;
+                            locked: boolean;
+                            sha256: string | null;
+                        }[];
                     };
                 };
             };
@@ -50908,7 +51533,7 @@ export interface operations {
                      */
                     box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived" | "other" | "spam";
                     /** @enum {string} */
-                    channel?: "sms" | "email" | "chat" | "portal";
+                    channel?: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -50948,7 +51573,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email" | "chat" | "portal";
+                            channel: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -50969,7 +51594,7 @@ export interface operations {
                                     id: string;
                                 } | null;
                                 /** @enum {string} */
-                                channel: "sms" | "email" | "chat" | "portal";
+                                channel: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
                                 /** Format: uuid */
                                 id: string;
                                 lastMessageAt: string | null;
@@ -51128,7 +51753,7 @@ export interface operations {
                             allowedOrigins: string[];
                             createLead: boolean;
                             dailyCap: number;
-                            kind: ("text" | "call" | "email") | ("website_form" | "api");
+                            kind: ("text" | "call" | "email" | "messenger" | "instagram") | ("website_form" | "api");
                             lastIntakeAt: string | null;
                             lastUsedAt: string | null;
                             name: string;
@@ -52321,12 +52946,13 @@ export interface operations {
                                 via: "tap" | "text";
                             } | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email" | "chat" | "portal") | null;
+                            channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";
                             durationSeconds: number | null;
+                            editedAt: string | null;
                             errorCode: string | null;
                             errorMessage: string | null;
                             fromAddress: string | null;
@@ -52395,6 +53021,25 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            social: {
+                                elsewhere?: boolean;
+                                files?: string[];
+                                postback?: {
+                                    title: string | null;
+                                };
+                                replyTo?: {
+                                    mid: string | null;
+                                    story: boolean;
+                                    storyUrl: string | null;
+                                };
+                                shared?: {
+                                    title: string | null;
+                                    type: string;
+                                    url: string | null;
+                                }[];
+                                /** Format: uuid */
+                                touchId?: string;
+                            } | null;
                             status: string;
                             subject: string | null;
                             teammate: {
@@ -52408,9 +53053,73 @@ export interface operations {
                             transport: ("sms" | "mms" | "rcs") | null;
                             /** @enum {string} */
                             type: "message" | "call";
+                            unsentAt: string | null;
                             via: ("microsoft" | "google") | null;
                         };
                         triedAgain: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_meta_account_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** Format: date-time */
+                            connectedAt: string;
+                            connectionId: string | null;
+                            conversations: number;
+                            externalId: string;
+                            humanAgent: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            pageId: string;
+                            /** @enum {string} */
+                            platform: "facebook" | "instagram";
+                            problem: ("reauth" | "revoked" | "failed") | null;
+                            /** @enum {string} */
+                            status: "active" | "needs_attention" | "disconnected";
+                            subscribed: boolean;
+                            username: string | null;
+                        }[];
+                        connections: {
+                            connectedAt: string | null;
+                            connectedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            facebookUserName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            readsAds: boolean;
+                            /** @enum {string} */
+                            status: "pending" | "connected" | "needs_attention" | "disconnected";
+                            tokenExpiresAt: string | null;
+                        }[];
                     };
                 };
             };
@@ -57435,6 +58144,60 @@ export interface operations {
                             withdrawnReason: string | null;
                             words: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_lockbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lockboxes: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        }[];
+                        openings: {
+                            booked: boolean;
+                            company: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lockboxId: string | null;
+                            /** Format: date-time */
+                            openedAt: string;
+                            openedBy: string | null;
+                            showingId: string | null;
+                            /** @enum {string} */
+                            vendor: "sentrilock" | "supra";
+                        }[];
                     };
                 };
             };

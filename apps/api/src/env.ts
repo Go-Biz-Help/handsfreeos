@@ -50,8 +50,11 @@ export interface ApiEnv {
 //
 // ADDON_PLATFORM_KEYS (round five) holds HandsFreeOS's own accounts at the services add-ons connect to (Repliers):
 // the worker's alone, like every other provider key.
+//
+// Meta (20261025000200): FACEBOOK_APP_SECRET is caught by SECRET, and META_WEBHOOK_VERIFY_TOKEN is what Meta's
+// webhook setup checks the worker with, so it's the worker's alone too.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^ADDON_PLATFORM_KEYS$|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^ADDON_PLATFORM_KEYS$|^TWILIO_|^POSTMARK_|^META_WEBHOOK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

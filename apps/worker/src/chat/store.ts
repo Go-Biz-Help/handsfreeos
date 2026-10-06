@@ -10,10 +10,12 @@ import {
   CHAT_TOKEN_ROTATE_MS,
   CHAT_VISITOR_NAME,
   formatPhone,
+  isSocialChannel,
   loadTeammate,
   localDateOf,
   localMinutes,
   parseClock,
+  socialContactName,
   teammateConfigOf,
   userNames,
   weekdayOf,
@@ -410,10 +412,18 @@ export async function typingNow(tx: Tx, conversationId: string): Promise<boolean
  */
 export async function conversationContact(
   tx: Tx,
-  conversation: { readonly channel: string; readonly counterpart: string },
+  conversation: { readonly id: string; readonly channel: string; readonly counterpart: string },
 ): Promise<string> {
   if (conversation.channel === 'sms') return formatPhone(conversation.counterpart);
   if (conversation.channel === 'portal') return 'A client in their portal';
+  // Messenger and Instagram (20261025000200): what Meta calls them, never the thread's key.
+  if (isSocialChannel(conversation.channel)) {
+    const [c] = await rows<{ name: string | null; username: string | null }>(
+      tx,
+      sql`select name, username from app.meta_contacts where conversation_id = ${conversation.id}`,
+    );
+    return socialContactName(conversation.channel, c);
+  }
   if (conversation.channel !== 'chat') return conversation.counterpart;
   const id = conversation.counterpart.startsWith('chat:') ? conversation.counterpart.slice(5) : '';
   if (!UUID_RE.test(id)) return CHAT_VISITOR_NAME;

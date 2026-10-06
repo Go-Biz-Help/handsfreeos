@@ -71,6 +71,15 @@ export function uuidArray(ids: readonly string[]) {
       )}]::uuid[]`
     : sql`array[]::uuid[]`;
 }
+/** A text[] parameter, the same way. */
+export function textArray(values: readonly string[]) {
+  return values.length
+    ? sql`array[${sql.join(
+        values.map((v) => sql`${v}`),
+        sql`, `,
+      )}]::text[]`
+    : sql`array[]::text[]`;
+}
 export const tsParam = (ms: number) => sql`${iso(ms)}::timestamptz`;
 const tsRange = (r: Interval) => sql`tstzrange(${tsParam(r.start)}, ${tsParam(r.end)}, '[)')`;
 const epoch = (column: ReturnType<typeof sql>) =>

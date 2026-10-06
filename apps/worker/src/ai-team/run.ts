@@ -25,6 +25,7 @@
 import { eq } from 'drizzle-orm';
 import type { AiContent, AiMessage, AiUsage } from '@hfos/ai';
 import {
+  ADDON_SERVER_MODULES,
   AI_TEAMMATE_GOALS,
   asksForPerson,
   asksIfHuman,
@@ -44,7 +45,10 @@ import {
   REPLY_RULES,
   sensitiveTopic,
   TeammateDraftPreview,
+  teammateAddonDirectory,
+  teammateAddonTools,
   teammateTools,
+  teammateUsesAddon,
   TEAMMATE_TURN_ENDERS,
   uuidArray,
   videoLinkCreate,
@@ -60,6 +64,7 @@ import {
   type SensitiveKind,
   type TeammateChannel,
   type TeammateConfig,
+  type TeammateAddonTool,
   type TeammateRow,
   type TeammateTool,
   type TeammateToolName,
@@ -87,6 +92,7 @@ import {
   type BatchMessage,
   type RunContext,
 } from './context';
+import { addonReplyFlags, type ReplyFlag } from './addon-checks';
 import { scheduleExpirySweep } from './expiry';
 import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
@@ -538,7 +544,32 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
     texting: rc.conversation.channel === 'sms',
   });
   const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
-  return only ? all.filter((t) => only.has(t.name as TeammateToolName)) : all;
+  return only
+    ? all.filter((t) => only.has(t.name as TeammateToolName))
+    : [...all, ...addonToolsFor(rc)];
+}
+
+/**
+ * Round seven: the add-ons' tools for the customer in this conversation, from the add-ons running here that an owner
+ * turned on for the teammate. None without a customer on file, or in a chat whose visitor hasn't proved who they are.
+ */
+export function addonToolsFor(rc: RunContext): TeammateAddonTool[] {
+  if (!rc.conversation.id || !rc.conversation.personId || rc.unverifiedChat) return [];
+  return teammateAddonTools(ADDON_SERVER_MODULES, {
+    active: rc.addons ?? [],
+    on: (id) => teammateUsesAddon(rc.config, id),
+  });
+}
+
+/** What the model reads about the add-on tools it has in this run: one line each, and how they work. */
+function addonLines(tools: readonly TeammateTool[]): string[] {
+  const offered = tools.filter((t): t is TeammateAddonTool => t.skill === 'addons');
+  if (offered.length === 0) return [];
+  return [
+    'Add-ons you can use for this customer:',
+    ...teammateAddonDirectory(ADDON_SERVER_MODULES, offered),
+    'Their add-on look-ups show only what their own portal shows them: answer from those, not from guesses. An add-on’s ask tools never do anything themselves: a person on their team OKs each first, so say you’ve asked, never that it’s done.',
+  ];
 }
 
 /** The message the model answers: the conversation and their new messages, a first message, or a nudge. */
@@ -643,7 +674,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
     provider,
     system: TEAMMATE_SYSTEM,
     // What stays the same all run is cached after the fixed instructions; the time and knowledge come after.
-    lasting: textLasting(rc),
+    lasting: [textLasting(rc), ...addonLines(tools)].join('\n'),
     context: [
       textTurnContext(rc),
       ...(run.handover ? handoverLines(run.handover) : []),
@@ -771,7 +802,9 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
         { checks, toolSteps: steps, replyText: text },
       );
   } else checks.push(...checkRows(1, verdict, true));
-  return finish(ctx, run, rc, ai, meta, state, text, checks, steps);
+  // Round seven: the add-ons' own checks (Real Estate's fair housing). A flagged reply waits for a person.
+  const flags = await addonReplyFlags(ctx, scope, rc, text);
+  return finish(ctx, run, rc, ai, meta, state, text, checks, steps, flags);
 }
 
 // ---- Immediate hand-offs ----
@@ -958,6 +991,10 @@ function repliedSummary(run: StartedRun, rc: RunContext): string {
   if (run.kind === 'task') return `Thanked ${whom(rc)} after the job`;
   return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
 }
+/** Why a reply waits for a person though the teammate answers on its own (round seven). */
+const heldFor = (flags: readonly ReplyFlag[]): string =>
+  `. Held for a person: ${flags[0]!.addonName}’s check found ${flags.length === 1 ? 'something' : `${flags.length} things`} to look at`;
+
 function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): string {
   const what =
     run.kind === 'nudge'
@@ -1129,6 +1166,8 @@ export async function makeDraft(
   state: RunState,
   message: { readonly body: string; readonly subject: string | null } | null,
   latest: BatchMessage | null,
+  /** What an add-on's check found in it (round seven), for the person who decides. */
+  flags: readonly ReplyFlag[] = [],
 ): Promise<void> {
   if (rc.conversation.id)
     await tx.execute(
@@ -1148,6 +1187,7 @@ export async function makeDraft(
           },
     actions: state.held,
     discount: null,
+    flags,
   });
   await insertDraft(
     tx,
@@ -1197,6 +1237,35 @@ export async function makeApprovals(
       body,
     );
   }
+  // Round seven: each thing it asked a person on the customer's team to do with an add-on, for one of them to OK.
+  for (const [i, ask] of state.asks.entries()) {
+    const body = ask.message ? bodyOf(ask.message) : null;
+    const preview = TeammateDraftPreview.parse({
+      message: body ? { channel, body, subject: null, inReplyToMessageId: null } : null,
+      actions: [],
+      discount: null,
+      ask: {
+        addonId: ask.addonId,
+        addonName: ask.addonName,
+        operation: ask.operation,
+        tool: ask.tool,
+        input: ask.input,
+        recordId: ask.recordId,
+        summary: ask.summary.slice(0, 300),
+      },
+    });
+    await insertDraft(
+      tx,
+      causationId,
+      run,
+      rc,
+      'ask',
+      preview,
+      `ai:${run.id}:a${i}${suffix}`,
+      body ?? ask.summary,
+      ask.recordId,
+    );
+  }
   if (state.moneyAsk) {
     const body = bodyOf(state.moneyAsk.message);
     const preview = TeammateDraftPreview.parse({
@@ -1217,24 +1286,32 @@ export async function makeApprovals(
   }
 }
 
+/** How long an ask waits for someone on the customer's team (round seven). */
+const ASK_EXPIRES_MINUTES = 24 * 60;
+
 async function insertDraft(
   tx: Tx,
   causationId: string,
   run: DraftRun,
   rc: RunContext,
-  kind: 'reply' | 'approval',
+  kind: 'reply' | 'approval' | 'ask',
   preview: TeammateDraftPreview,
   clientId: string,
   body: string | null,
+  /** An ask's record (round seven). */
+  customRecordId: string | null = null,
 ): Promise<void> {
-  const expiresAt = new Date(Date.now() + rc.config.autonomy.draftExpiresMinutes * 60_000);
+  // An ask waits a day for someone on the customer's team: they may be out showing homes.
+  const minutes = kind === 'ask' ? ASK_EXPIRES_MINUTES : rc.config.autonomy.draftExpiresMinutes;
+  const expiresAt = new Date(Date.now() + minutes * 60_000);
   const [d] = await rows<{ id: string }>(
     tx,
     sql`insert into app.ai_teammate_drafts
-          (workspace_id, teammate_id, run_id, conversation_id, person_id, lead_id, kind, preview, expires_at, client_id)
+          (workspace_id, teammate_id, run_id, conversation_id, person_id, lead_id, kind, preview, expires_at, client_id,
+            custom_record_id)
         values (${rc.workspace.id}, ${run.teammate.id}, ${run.id}, ${rc.conversation.id}, ${rc.conversation.personId},
           ${rc.lead?.id ?? run.target?.leadId ?? null}, ${kind}, ${JSON.stringify(preview)}::jsonb,
-          ${expiresAt.toISOString()}::timestamptz, ${clientId})
+          ${expiresAt.toISOString()}::timestamptz, ${clientId}, ${customRecordId}::uuid)
         returning id`,
   );
   // Nobody deciding it in time hands the conversation to a person: the business's sweep comes round then.
@@ -1254,6 +1331,7 @@ async function insertDraft(
       conversationId: rc.conversation.id,
       personId: rc.conversation.personId,
       actions: preview.actions.map((a) => a.kind),
+      ...(preview.ask ? { ask: preview.ask.operation } : {}),
     },
     after: {
       teammate: run.teammate.name,
@@ -1375,8 +1453,11 @@ async function finish(
   text: string | null,
   checks: readonly unknown[],
   steps: number,
+  /** What an add-on's check found in the reply (round seven): it waits for a person, in any mode. */
+  flags: readonly ReplyFlag[] = [],
 ): Promise<JobResult> {
-  if (!run.conversationId) return finishFirst(ctx, run, rc, ai, meta, state, text, checks, steps);
+  if (!run.conversationId)
+    return finishFirst(ctx, run, rc, ai, meta, state, text, checks, steps, flags);
   const conversationId = run.conversationId;
   const channel = rc.conversation.channel;
   const body = text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim();
@@ -1402,7 +1483,8 @@ async function finish(
       await closeRun(tx, run.id, { ...common, status: 'superseded', summary: why });
       return none;
     }
-    if (teammate!.status === 'training') {
+    const held = flags.length > 0 && body !== null;
+    if (teammate!.status === 'training' || held) {
       const drafted = body !== null || state.held.length > 0;
       if (drafted)
         await makeDraft(
@@ -1418,6 +1500,7 @@ async function finish(
                 subject: null,
               },
           latest,
+          flags,
         );
       await makeApprovals(tx, ctx.job.id, run, rc, state);
       await markAnswered(tx, conversationId, through, false);
@@ -1427,7 +1510,9 @@ async function finish(
         ...common,
         status: 'done',
         outcome,
-        summary: drafted ? draftedSummary(run, rc, state) : noReplySummary(state),
+        summary: drafted
+          ? `${draftedSummary(run, rc, state)}${held ? heldFor(flags) : ''}`
+          : noReplySummary(state),
       });
       return { outcome, waitUntil: null };
     }
@@ -1542,6 +1627,7 @@ async function finishFirst(
   text: string | null,
   checks: readonly unknown[],
   steps: number,
+  flags: readonly ReplyFlag[] = [],
 ): Promise<JobResult> {
   const t = run.target!;
   const channel = t.channel;
@@ -1581,13 +1667,13 @@ async function finishFirst(
       });
       return { outcome: 'no_reply', waitUntil: null };
     }
-    if (teammate.status === 'training') {
-      await makeDraft(tx, ctx.job.id, run, rc, state, { body, subject }, null);
+    if (teammate.status === 'training' || flags.length > 0) {
+      await makeDraft(tx, ctx.job.id, run, rc, state, { body, subject }, null, flags);
       await closeRun(tx, run.id, {
         ...common,
         status: 'done',
         outcome: 'drafted',
-        summary: draftedSummary(run, rc, state),
+        summary: `${draftedSummary(run, rc, state)}${flags.length ? heldFor(flags) : ''}`,
       });
       return { outcome: 'drafted', waitUntil: null };
     }

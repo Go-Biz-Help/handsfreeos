@@ -16,6 +16,7 @@ import { lock } from '@/lib/lock';
 import { useNetwork } from '@/lib/network';
 import { openWeb } from '@/lib/open-web';
 import { pushBeforeSignOut } from '@/push/device';
+import { stopFollowing } from '@/safety/follow';
 
 /**
  * Delete my account, as the canvas draws it on a phone (design/m10/More.dc.html): what goes, what the business
@@ -66,6 +67,7 @@ export default function DeleteAccount() {
       );
       // HandsFreeOS ends every session in a moment; this phone lets go of its own now.
       await pushBeforeSignOut().catch(() => undefined);
+      await stopFollowing().catch(() => undefined);
       await session.signOut();
       lock.unlock();
     } catch (e) {

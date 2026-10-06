@@ -7,9 +7,10 @@
 import { CHAT_VISITOR_NAME } from '../chat/limits';
 import { formatPhone } from '../crm/phone';
 import { CANCELLED_TEXT, scheduledForOf } from '../messaging/quiet-hours';
+import { isSocialChannel, SOCIAL_CHANNEL_NAMES, socialContactName } from '../messaging/social';
 import type { ButtonReply, RichText } from '@hfos/db/schema';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
-import type { ConversationFolderValue } from '../schemas/conversation';
+import type { ConversationChannel, ConversationFolderValue } from '../schemas/conversation';
 import {
   DEFAULT_TELEPHONY_SETTINGS,
   TelephonySettings,
@@ -99,12 +100,19 @@ export interface ConversationListRow {
    */
   readonly record_id?: Text;
   readonly record_name?: Text;
+  /**
+   * Messenger and Instagram (20261025000200): the Page or account the thread is on, and who wrote, as Meta named
+   * them. The phone's copy doesn't hold them yet; without them a thread reads as "Messenger" and its customer.
+   */
+  readonly line_account?: Text;
+  readonly social_name?: Text;
+  readonly social_username?: Text;
 }
 
 /** One of a customer's conversations, as the list's row and the thread's line switcher take it (0089). */
 export interface InboxLane {
   readonly id: string;
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   /** "Front desk · (713) 555-0100", "info@lonestarhvac.com", "Website chat". */
   readonly lineDisplay: string;
   readonly unreadCount: number;
@@ -115,13 +123,19 @@ export interface InboxLane {
  * as well as its digits; a lane with no line still says something, because a blank item is not choosable.
  */
 export function lineDisplayOf(l: {
-  readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+  readonly channel: ConversationChannel;
   readonly e164: Text | undefined;
   readonly label: Text | undefined;
   readonly address: Text | undefined;
   /** A portal thread's record ("12 Main St purchase"). */
   readonly record?: Text | undefined;
+  /** A Messenger or Instagram thread's Page or account ("Bright Plumbing", "@brightplumbing"). */
+  readonly account?: Text | undefined;
 }): string {
+  if (isSocialChannel(l.channel))
+    return l.account
+      ? `${SOCIAL_CHANNEL_NAMES[l.channel]} · ${l.account}`
+      : SOCIAL_CHANNEL_NAMES[l.channel];
   if (l.channel === 'chat') return 'Website chat';
   if (l.channel === 'portal') return l.record ? `Client portal · ${l.record}` : 'Client portal';
   if (l.channel === 'email') return l.address || 'Email';
@@ -173,12 +187,11 @@ const FOLDERS = new Set<string>(['inbox', 'other', 'spam']);
  * A client's portal thread (Real Estate round two) reaches phones with round six, to the people on its deal
  * (records_v1); a channel this build doesn't know reads as a text, as it always did.
  */
-const CHANNELS = new Set(['sms', 'email', 'chat', 'portal']);
+const CHANNELS = new Set(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']);
 const STATUSES = new Set(['open', 'snoozed', 'closed']);
 
 export function conversationOf(r: ConversationListRow): ConversationShape {
-  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as
-    'sms' | 'email' | 'chat' | 'portal';
+  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as ConversationChannel;
   const lastDirection =
     r.last_direction === 'inbound' || r.last_direction === 'outbound' ? r.last_direction : null;
   const record =
@@ -198,7 +211,9 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
           ? CHAT_VISITOR_NAME
           : channel === 'portal'
             ? nameOf(r.first_name, r.last_name) || 'Client portal'
-            : r.counterpart,
+            : isSocialChannel(channel)
+              ? socialContactName(channel, { name: r.social_name, username: r.social_username })
+              : r.counterpart,
     status: (STATUSES.has(r.status) ? r.status : 'open') as ConversationStatus,
     person: r.person_id ? { id: r.person_id, fullName: nameOf(r.first_name, r.last_name) } : null,
     assignee: userRef(r.assignee_user_id, r.assignee_name),
@@ -238,6 +253,7 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
       label: r.line_label,
       address: r.line_address,
       record: record?.name,
+      account: r.line_account,
     }),
     folder: r.folder && FOLDERS.has(r.folder) ? (r.folder as ConversationFolderValue) : 'inbox',
     privateTo: r.private_to ?? null,
@@ -643,10 +659,7 @@ function replyOf(value: Text | undefined): ThreadItemFacts['buttonReply'] {
 }
 
 export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
-  const channel =
-    r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' || r.channel === 'portal'
-      ? r.channel
-      : null;
+  const channel = r.channel && CHANNELS.has(r.channel) ? (r.channel as ConversationChannel) : null;
   const media = json<MediaShape[]>(r.media, []);
   return {
     type: 'message',
@@ -783,6 +796,11 @@ export interface TeammateDraftRow {
   readonly edits: Text;
   readonly expires_at: Text;
   readonly created_at: Text;
+  /**
+   * An ask's record (round seven), joined from the phone's own copy: its name when the phone keeps it, which it does
+   * only for someone who may see it. Null when the phone doesn't keep it.
+   */
+  readonly record_name?: Text;
 }
 
 /** A draft as its card and words take it. */
@@ -795,8 +813,13 @@ export interface TeammateDraftShape extends DraftFacts {
   readonly expiresAt: string | null;
   readonly createdAt: string;
   readonly edits: { readonly body?: string; readonly subject?: string } | null;
-  /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
+  /**
+   * Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. Asks: whoever may see their record
+   * (on the phone: its record is on the phone).
+   */
   readonly canDecide: boolean;
+  /** An ask's record, by name when this phone keeps it (round seven). */
+  readonly recordName: string | null;
   readonly preview: DraftFacts['preview'] & {
     readonly message: { readonly body: string; readonly subject: string | null } | null;
   };
@@ -807,6 +830,8 @@ interface PreviewJson {
   actions?: unknown[];
   discount?: { percent?: unknown; reason?: unknown } | null;
   call?: { toDisplay?: unknown; goal?: unknown } | null;
+  ask?: { addonName?: unknown; summary?: unknown } | null;
+  flags?: unknown[];
 }
 
 export function teammateDraftOf(
@@ -854,7 +879,23 @@ export function teammateDraftOf(
     typeof preview.call.goal === 'string'
       ? { toDisplay: preview.call.toDisplay, goal: preview.call.goal }
       : null;
-  const kind = r.kind === 'approval' ? 'approval' : r.kind === 'call' ? 'call' : 'reply';
+  const kind =
+    r.kind === 'approval' || r.kind === 'call' || r.kind === 'ask'
+      ? (r.kind as 'approval' | 'call' | 'ask')
+      : 'reply';
+  const ask =
+    preview.ask &&
+    typeof preview.ask.addonName === 'string' &&
+    typeof preview.ask.summary === 'string'
+      ? { addonName: preview.ask.addonName, summary: preview.ask.summary }
+      : null;
+  const flags = (Array.isArray(preview.flags) ? preview.flags : []).flatMap((f) => {
+    const flag = f as { addonName?: unknown; message?: unknown };
+    return typeof flag.addonName === 'string' && typeof flag.message === 'string'
+      ? [{ addonName: flag.addonName, message: flag.message }]
+      : [];
+  });
+  const recordName = typeof r.record_name === 'string' && r.record_name ? r.record_name : null;
   return {
     id: r.id,
     kind,
@@ -862,13 +903,16 @@ export function teammateDraftOf(
     channel: r.channel ?? messageChannel,
     teammate: { id: r.teammate_id, name: r.teammate_name || 'The AI teammate' },
     person: r.person_id ? { fullName: nameOf(r.first_name, r.last_name) || 'Customer' } : null,
-    preview: { message, actions, discount, call },
+    preview: { message, actions, discount, call, ask, flags },
     conversationId: r.conversation_id,
     personId: r.person_id,
     leadId: r.lead_id,
     expiresAt: iso(r.expires_at),
     createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
     edits,
-    canDecide: r.status === 'pending' && (kind !== 'approval' || opts.canManage),
+    canDecide:
+      r.status === 'pending' &&
+      (kind === 'ask' ? recordName !== null : kind !== 'approval' || opts.canManage),
+    recordName,
   };
 }

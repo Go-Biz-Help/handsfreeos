@@ -37,9 +37,20 @@ import { formatPhone, normalizePhone } from './phone';
 import { fullName } from './records';
 
 export type IntakeKind = (typeof INTAKE_KINDS)[number];
-export const INTAKE_KINDS = ['text', 'call', 'email', 'website_form', 'api'] as const;
-/** The three ways a stranger reaches a business by themselves (slice A). */
-export const INTAKE_CHANNELS = ['text', 'call', 'email'] as const;
+export const INTAKE_KINDS = [
+  'text',
+  'call',
+  'email',
+  'website_form',
+  'api',
+  'messenger',
+  'instagram',
+] as const;
+/**
+ * The ways a stranger reaches a business by themselves: the three of slice A, and a message to its Facebook Page or
+ * Instagram account (20261025000200).
+ */
+export const INTAKE_CHANNELS = ['text', 'call', 'email', 'messenger', 'instagram'] as const;
 export type IntakeChannel = (typeof INTAKE_CHANNELS)[number];
 
 /** What a channel is called before a business renames it. It is what its customers and leads are filed under. */
@@ -49,6 +60,8 @@ export const INTAKE_NAMES: Record<IntakeKind, string> = {
   email: 'Email',
   website_form: 'Website form',
   api: 'Connected app',
+  messenger: 'Facebook Messenger',
+  instagram: 'Instagram',
 };
 
 /** A channel nobody has set up: on, opening a lead in the default pipeline, 50 a day. */
@@ -363,7 +376,7 @@ export interface ChannelIntake {
   /** E.164, for a text or a call. */
   readonly phone?: string | null;
   readonly email?: string | null;
-  /** What they call themselves when the channel knows (an email's display name). */
+  /** What they call themselves when the channel knows (an email's display name, a Facebook name). */
   readonly name?: string | null;
   /** How the lead reads on the board: "(texted in)", "(missed call)". */
   readonly how: string;

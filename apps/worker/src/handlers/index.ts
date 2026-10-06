@@ -103,6 +103,7 @@ import {
   onBrandedDomainRemoved,
 } from '../hosting/domains';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
+import { onMessageEdited, onMetaAccountDisconnected } from '../social/handlers';
 import {
   onConversationLinked,
   onConversationSnoozed,
@@ -243,6 +244,11 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment_connection.revoked': onConnectionBroke,
     'review_connection.needs_attention': onConnectionBroke,
     'phone_number.purchase_failed': onConnectionBroke,
+    // Facebook Messenger and Instagram (social/): a Page that stopped answering tells its owners; one let go stops
+    // Meta sending its messages; a message taken back takes its files with it.
+    'meta_account.needs_attention': onConnectionBroke,
+    'meta_account.disconnected': onMetaAccountDisconnected,
+    'message.edited': onMessageEdited,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
     // Somebody pressed Pay on a founding seat (0093): Stripe's page is made by a job, which retries on its own.
