@@ -227,7 +227,7 @@ export function ConversationView({
   // The AI teammate here: who handles the conversation, its draft, and what became of the last one.
   const handling = handlingOf(c);
   const drafts = useConversationDrafts(workspaceId, c.id);
-  const waiting = drafts.pending ?? drafts.approval;
+  const waiting = drafts.pending ?? drafts.approval ?? drafts.ask;
   const view = handlingView(handling);
   const tm = teammate ?? null;
   const tmName = handling.teammate?.name ?? tm?.name ?? null;

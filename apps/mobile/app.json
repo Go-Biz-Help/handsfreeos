@@ -201,10 +201,11 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "HandsFreeOS uses your location only when you tap On my way, to tell the customer when you’ll get there, or when you check in somewhere or ask for help, so the people you chose know where you are.",
-          "isIosBackgroundLocationEnabled": false,
+          "locationWhenInUsePermission": "HandsFreeOS uses your location only when you tap On my way, to tell the customer when you’ll get there, or when you check in somewhere or ask for help, so the people you chose know where you are. While you’re checked in with Share where I am on, it keeps sharing until you check out, and the blue location sign shows it.",
+          "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": false,
-          "isAndroidForegroundServiceEnabled": false
+          "isAndroidForegroundServiceEnabled": true,
+          "androidForegroundServiceIcon": "./assets/images/android-icon-monochrome.png"
         }
       ],
       [

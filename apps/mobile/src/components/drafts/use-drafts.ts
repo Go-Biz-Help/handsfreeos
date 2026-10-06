@@ -37,11 +37,13 @@ export const decisionStands = (d: DraftDecisionRow | null): boolean =>
 
 const DRAFTS_SQL = `
   SELECT d.id, d.teammate_id, t.name AS teammate_name, d.conversation_id, c.channel, d.person_id,
-    p.first_name, p.last_name, d.lead_id, d.kind, d.status, d.preview, d.edits, d.expires_at, d.created_at
+    p.first_name, p.last_name, d.lead_id, d.kind, d.status, d.preview, d.edits, d.expires_at, d.created_at,
+    r.name AS record_name
   FROM ai_teammate_drafts d
   LEFT JOIN ai_teammates t ON t.id = d.teammate_id
   LEFT JOIN conversations c ON c.id = d.conversation_id
   LEFT JOIN people p ON p.id = d.person_id
+  LEFT JOIN custom_records r ON d.kind = 'ask' AND r.id = json_extract(d.preview, '$.ask.recordId')
   WHERE d.workspace_id = ? AND d.status = 'pending'
     AND (? IS NULL OR d.conversation_id = ?)
     AND (? IS NULL OR d.kind = ?)
@@ -88,7 +90,12 @@ export function useDraftDecisions(workspaceId: string): ReadonlyMap<string, Draf
  * with this phone's decision about it; `visible` leaves out the ones a decision on this phone stands in for.
  */
 export function useWaitingDrafts(
-  filter: { readonly conversationId?: string | null; readonly kind?: 'reply' | 'approval' } = {},
+  filter: {
+    readonly conversationId?: string | null;
+    readonly kind?: 'reply' | 'approval' | 'ask';
+    /** Round seven: more than one kind (a thread shows its reply and what the teammate asked for). */
+    readonly kinds?: readonly ('reply' | 'approval' | 'ask')[];
+  } = {},
 ): {
   readonly items: readonly WaitingDraft[];
   readonly visible: readonly WaitingDraft[];
@@ -108,9 +115,12 @@ export function useWaitingDrafts(
   const canManage = holds(useGrants(), 'ai_team.manage');
   // Viewing as a teammate (20261018000100): only the drafts on threads they see.
   const lens = useLens();
+  const kindsKey = filter.kinds?.join(',') ?? null;
   return React.useMemo(() => {
+    const kinds = kindsKey === null ? null : kindsKey.split(',');
     const items = data
       .filter((row) => !row.conversation_id || sees(lens?.conversations, row.conversation_id))
+      .filter((row) => !kinds || kinds.includes(row.kind))
       .map((row) => ({
         draft: teammateDraftOf(row, { canManage }),
         decision: decisions.get(row.id) ?? null,
@@ -120,5 +130,5 @@ export function useWaitingDrafts(
       visible: items.filter((item) => !decisionStands(item.decision)),
       loading: isLoading,
     };
-  }, [data, decisions, canManage, isLoading, lens]);
+  }, [data, decisions, canManage, isLoading, lens, kindsKey]);
 }

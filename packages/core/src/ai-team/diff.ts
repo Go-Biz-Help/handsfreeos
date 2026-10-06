@@ -2,6 +2,7 @@
  * What changed between two teammate settings documents, as short lines for revision history and the save
  * dialog: "Name: Ava → Max", "Books appointments: off → on", "Added the question “Do you own the home?”".
  */
+import { ADDON_CATALOG } from '../addons/catalog';
 import { formatDuration, formatHours } from '../calendar/format';
 import type { NotifyWho } from '../workflows/actions';
 import type { TeammateCatalogs } from './catalogs';
@@ -45,7 +46,10 @@ const UNSURE_NAMES: Readonly<Record<UnsureAction, string>> = {
 
 export type TeammateNames = Partial<
   Pick<TeammateCatalogs, 'emailAddresses' | 'chatWidgets' | 'calendars' | 'members' | 'pipelines'>
->;
+> & {
+  /** Add-ons' names by id (round seven), for "Uses Real Estate: off → on". */
+  readonly addons?: Readonly<Record<string, string>>;
+};
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const onOff = (v: boolean) => (v ? 'on' : 'off');
@@ -258,5 +262,14 @@ export function diffTeammateConfigs(
   change('Hand-off texts', a.handOff.alerts.text, b.handOff.alerts.text, onOff);
   change('Hand-off emails', a.handOff.alerts.email, b.handOff.alerts.email, onOff);
   if (a.handOff.tellCustomer !== b.handOff.tellCustomer) lines.push('Hand-off message changed');
+
+  // Add-ons (round seven)
+  for (const id of [...new Set([...Object.keys(a.addons), ...Object.keys(b.addons)])].sort())
+    change(
+      `Uses ${names.addons?.[id] ?? ADDON_CATALOG.find((m) => m.id === id)?.name ?? id}`,
+      a.addons[id]?.on ?? false,
+      b.addons[id]?.on ?? false,
+      onOff,
+    );
   return lines;
 }

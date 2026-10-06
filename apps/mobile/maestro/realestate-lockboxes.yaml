@@ -1,0 +1,64 @@
+appId: com.gobizhelp.handsfreeos
+name: Real Estate - a listing's lockboxes and who opened them, never the code
+tags:
+  - ci
+# Dana Whitfield (Hill Country Realty, with Real Estate Agent on) opens her listing, "Alvarez listing", from More →
+# Deals, then its Showings. With signal, its lockboxes come from HandsFreeOS: the SentriLock on the front door, its
+# serial and "code kept locked", and the line that the code never comes onto phones. Who opened them has SentriLock's
+# email about Jo Kim of Keller Williams, with no showing booked. Nothing on the screen offers the code.
+#
+# The listing, its lockbox and the opening are the seed's (apps/worker/scripts/seed-realestate.ts). It changes
+# nothing, so it passes as often as it runs. The password is the seed's, for local stacks only.
+env:
+  EMAIL: dana@hillcountryrealty.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-re-deals.yaml
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-.*'
+      text: 'Alvarez listing'
+    timeout: 90000
+- tapOn:
+    id: 're-deal-.*'
+    text: 'Alvarez listing'
+- extendedWaitUntil:
+    visible:
+      id: 're-deal-name'
+      text: 'Alvarez listing'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 're-deal-page-showings'
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: 're-deal-page-showings'
+- extendedWaitUntil:
+    visible:
+      id: 're-showings'
+    timeout: 20000
+# Its lockboxes, asked from HandsFreeOS while there's signal.
+- scrollUntilVisible:
+    element:
+      id: 're-lockbox-list'
+    timeout: 30000
+    centerElement: true
+- assertVisible: 'Lockboxes  1'
+- assertVisible: 'SentriLock · front door'
+- assertVisible: 'Serial 31118204 · code kept locked'
+- assertVisible:
+    id: 're-lockbox-never'
+- assertNotVisible: 'Show code'
+- assertNotVisible: '4417'
+- scrollUntilVisible:
+    element:
+      id: 're-lockbox-openings'
+    timeout: 20000
+    centerElement: true
+- assertVisible: 'Who opened them'
+- assertVisible: '.*· Jo Kim'
+- assertVisible: 'Keller Williams · no showing booked'
+- takeScreenshot: realestate-lockboxes

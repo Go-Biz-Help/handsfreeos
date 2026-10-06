@@ -2037,6 +2037,67 @@ export const showings = addonRealestate.table(
   ],
 );
 
+export type LockboxKind = 'sentrilock' | 'supra' | 'combination' | 'keypad' | 'other';
+
+/**
+ * A listing's lockbox (round seven): what kind, where, its serial, and its code sealed by the worker. People write
+ * a sealed code but their role can't read `code_enc` back; only the worker opens it.
+ */
+export const lockboxes = addonRealestate.table(
+  'lockboxes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    kind: text('kind').notNull().$type<LockboxKind>(),
+    place: text('place'),
+    serial: text('serial'),
+    codeEnc: text('code_enc'),
+    codeSetAt: ts('code_set_at'),
+    codeSetBy: userRef('code_set_by'),
+    removedAt: ts('removed_at'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A lockbox opened, read from SentriLock's or Supra's email, with the showing it fits if one was booked. */
+export const lockboxOpenings = addonRealestate.table(
+  'lockbox_openings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    dealRecordId: uuid('deal_record_id').notNull(),
+    lockboxId: uuid('lockbox_id').references(() => lockboxes.id, { onDelete: 'set null' }),
+    vendor: text('vendor').notNull().$type<'sentrilock' | 'supra'>(),
+    openedAt: ts('opened_at').notNull(),
+    serial: text('serial'),
+    openedBy: text('opened_by'),
+    company: text('company'),
+    phone: text('phone'),
+    showingId: uuid('showing_id').references(() => showings.id, { onDelete: 'set null' }),
+    booked: boolean('booked').notNull(),
+    messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.messageId),
+    foreignKey({
+      columns: [t.workspaceId, t.dealRecordId],
+      foreignColumns: [deals.workspaceId, deals.recordId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** A vendor in the business's directory: a core company, with its services, areas, approval and any disclosure. */
 export const vendors = addonRealestate.table(
   'vendors',
@@ -2240,4 +2301,6 @@ export const REALESTATE_TABLES_ALL = {
   walkthroughs,
   walkthroughItems,
   exports,
+  lockboxes,
+  lockboxOpenings,
 } as const;

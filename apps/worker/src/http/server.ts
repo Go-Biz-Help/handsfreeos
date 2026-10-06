@@ -45,6 +45,7 @@ import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
+import { registerAddonSealedRoutes } from './addon-sealed';
 import { registerAddonPublicRoutes } from './addon-public';
 import { registerAddonSignInRoutes } from './addon-sign-ins';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
@@ -295,6 +296,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerAddonWebhookRoutes(app, deps, deps.addonConnections);
   registerAddonSignInRoutes(app, deps, deps.addonConnections);
   registerAddonActionRoutes(app, deps, deps.addonConnections);
+  // Values an add-on keeps sealed: sealed as they're typed, and shown again to who may (round seven).
+  registerAddonSealedRoutes(app, deps, deps.addonConnections);
   // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
   await registerSiteRoutes(app, deps);

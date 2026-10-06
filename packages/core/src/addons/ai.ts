@@ -53,7 +53,7 @@ export function addonToolAutonomy(op: CommandDef | QueryDef): AddonToolAutonomy 
 
 /** The business's ids: never the model's to choose, always put on by the executor. */
 const SCOPE_KEYS = ['workspaceId', 'organizationId'] as const;
-type ScopeKey = (typeof SCOPE_KEYS)[number];
+export type ScopeKey = (typeof SCOPE_KEYS)[number];
 const isScopeKey = (key: string): key is ScopeKey =>
   (SCOPE_KEYS as readonly string[]).includes(key);
 
@@ -62,7 +62,7 @@ const isScopeKey = (key: string): key is ScopeKey =>
  * a tool's input is one object (Claude takes nothing else), and it names the business (the kernel checks an add-on
  * in a business, so an operation outside one can't run for an add-on at all).
  */
-function modelInput(input: z.ZodType): { input: z.ZodObject; scope: ScopeKey[] } | null {
+export function modelInput(input: z.ZodType): { input: z.ZodObject; scope: ScopeKey[] } | null {
   if (!(input instanceof z.ZodObject)) return null;
   const shape = input.shape as Record<string, z.ZodType>;
   if (!('workspaceId' in shape)) return null;

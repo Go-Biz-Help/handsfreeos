@@ -1,12 +1,15 @@
 package expo.modules.hfosphone
 
 import android.app.KeyguardManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
+import androidx.core.content.FileProvider
 import expo.modules.kotlin.modules.Module
+import java.io.File
 import expo.modules.kotlin.modules.ModuleDefinition
 
 /**
@@ -14,7 +17,8 @@ import expo.modules.kotlin.modules.ModuleDefinition
  * - whether it's locked, before a notification button that reaches a customer or approves something runs (Expo's
  *   Android code ignores a button's "authentication required", so the app checks the keyguard itself);
  * - to open a page on the web in the browser. The app claims app.handsfreeos.com/app/… links, so opening one of those
- *   with a plain VIEW intent would come straight back to the app; this names the browser.
+ *   with a plain VIEW intent would come straight back to the app; this names the browser;
+ * - to show a document the phone keeps, decrypted into the app's cache for the moment, in the phone's viewer.
  */
 class HfosPhoneModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -40,6 +44,31 @@ class HfosPhoneModule : Module() {
         true
       } catch (e: Exception) {
         false
+      }
+    }
+
+    /**
+     * Shows a file the app decrypted into its cache (a document kept on the phone) in the phone's viewer for its type,
+     * read-only, through expo-sharing's file provider. "opened", or "unavailable" with no app for it. Android doesn't
+     * say when the viewer closes: the app deletes the copy when it's back in front.
+     */
+    AsyncFunction("viewFile") { path: String, mimeType: String ->
+      val activity = appContext.currentActivity ?: return@AsyncFunction "unavailable"
+      val file = File(Uri.parse(path).path ?: path)
+      if (!file.exists()) return@AsyncFunction "unavailable"
+      val uri = FileProvider.getUriForFile(
+        activity,
+        activity.applicationInfo.packageName + ".SharingFileProvider",
+        file,
+      )
+      val intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(uri, mimeType)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      try {
+        activity.startActivity(intent)
+        "opened"
+      } catch (e: ActivityNotFoundException) {
+        "unavailable"
       }
     }
 

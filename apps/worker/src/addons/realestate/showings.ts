@@ -41,6 +41,7 @@ import { portalUrl } from '../../portal/links';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
+import { lockboxesForAccess, lockboxLines } from './lockboxes';
 import { isShowingTimeEmail, readShowingTimeEmail } from './showingtime';
 
 export const SHOWING_ACCESS = 'realestate.showing_access';
@@ -240,10 +241,18 @@ export async function showingDecided(ctx: AddonEventContext): Promise<void> {
   const when = showingWhen(s.starts_at, s.timezone);
   const street = streetOf(s);
   const note = str(p['note']);
+  // How to get in: the listing's instructions, or a lockbox's code (round seven), or both.
+  const getsIn =
+    !!s.access ||
+    (
+      await asWorker(ctx.db, ctx.scope, (tx) =>
+        lockboxesForAccess(tx, ctx.scope.workspaceId, s.deal_record_id),
+      )
+    ).some((b) => b.codeEnc);
   if (s.state === 'confirmed') {
     const accessAt = new Date(s.starts_at.getTime() - (s.access_hours ?? 1) * HOUR);
     const feedbackAt = new Date(s.ends_at.getTime() + (s.feedback_hours ?? 1) * HOUR);
-    if (s.access) await arm(ctx, SHOWING_ACCESS, s.id, accessAt);
+    if (getsIn) await arm(ctx, SHOWING_ACCESS, s.id, accessAt);
     await arm(ctx, SHOWING_FEEDBACK, s.id, feedbackAt);
   }
   if (!s.agent_email || !['confirmed', 'declined', 'cancelled'].includes(s.state)) return;
@@ -260,7 +269,7 @@ export async function showingDecided(ctx: AddonEventContext): Promise<void> {
             `Hi ${s.agent_name},`,
             '',
             `Your showing of ${street} ${when} is confirmed.`,
-            s.access
+            getsIn
               ? `How to get in comes by email ${s.access_hours ? `${s.access_hours} hour${s.access_hours === 1 ? '' : 's'} before` : 'just before'}.`
               : 'The listing agent will tell you how to get in.',
             'Afterwards we’ll ask how it went. It takes two minutes.',
@@ -293,11 +302,18 @@ export async function showingAccessJob(ctx: AddonJobContext): Promise<JobResult>
   const id = str(ctx.job.payload['showingId']);
   const s = id ? await showingOf(ctx, id) : null;
   // Cancelled, already sent, or nobody to send it to: nothing to do.
-  if (!s || s.state !== 'confirmed' || s.access_sent_at || !s.access || !s.agent_email) return;
+  if (!s || s.state !== 'confirmed' || s.access_sent_at || !s.agent_email) return;
   if (s.ends_at.getTime() < ctx.now) return;
+  // Round seven: each lockbox with a code, its code kept locked in the stored email and put in only as it's sent.
+  const boxes = await asWorker(ctx.db, ctx.scope, (tx) =>
+    lockboxesForAccess(tx, ctx.scope.workspaceId, s.deal_record_id),
+  );
+  const { lines, parts } = lockboxLines(boxes);
+  if (!s.access && !lines.length) return;
   const when = showingWhen(s.starts_at, s.timezone);
-  const sent = await email(
+  const sent = await sendEmail(
     ctx,
+    ctx.scope,
     s.agent_email,
     {
       subject: `How to get into ${streetOf(s)} for your showing, ${when}`,
@@ -306,7 +322,9 @@ export async function showingAccessJob(ctx: AddonJobContext): Promise<JobResult>
         '',
         `For your showing of ${streetOf(s)} ${when}:`,
         '',
-        s.access,
+        ...(s.access ? [s.access] : []),
+        ...(s.access && lines.length ? [''] : []),
+        ...lines,
         '',
         'Please keep this to yourself and your buyers, and leave the home as you found it.',
         '',
@@ -314,6 +332,15 @@ export async function showingAccessJob(ctx: AddonJobContext): Promise<JobResult>
       ].join('\n'),
     },
     `showing-access:${s.id}`,
+    ctx.meta,
+    ctx.actor,
+    {
+      sealedParts: parts.map((p) => ({
+        ...p,
+        addonId: ctx.manifest.id,
+        key: 'lockbox_code',
+      })),
+    },
   );
   if ('refused' in sent) {
     ctx.log.warn({ showingId: s.id, why: sent.refused }, 'showing access email not sent');

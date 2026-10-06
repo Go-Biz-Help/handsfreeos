@@ -32,7 +32,8 @@ jest.mock('expo-secure-store', () => {
 });
 
 jest.mock('expo-file-system', () => {
-  const files = new Map<string, string>();
+  // Text, or bytes for a file a test puts there (a photo the manipulator saved, a recording).
+  const files = new Map<string, string | Uint8Array>();
   class File {
     readonly uri: string;
     constructor(...parts: (string | { uri: string })[]) {
@@ -42,13 +43,18 @@ jest.mock('expo-file-system', () => {
       return files.has(this.uri);
     }
     textSync() {
-      return files.get(this.uri) ?? '';
+      const value = files.get(this.uri) ?? '';
+      return typeof value === 'string' ? value : new TextDecoder().decode(value);
+    }
+    bytesSync() {
+      const value = files.get(this.uri) ?? '';
+      return typeof value === 'string' ? new TextEncoder().encode(value) : value;
     }
     create() {
       files.set(this.uri, '');
     }
-    write(text: string) {
-      files.set(this.uri, text);
+    write(content: string | Uint8Array) {
+      files.set(this.uri, content);
     }
     delete() {
       files.delete(this.uri);
@@ -66,7 +72,10 @@ jest.mock('expo-file-system', () => {
     list() {
       return [];
     }
-    delete() {}
+    /** Deletes the files in it. */
+    delete() {
+      for (const uri of [...files.keys()]) if (uri.startsWith(`${this.uri}/`)) files.delete(uri);
+    }
   }
   return {
     File,
@@ -232,6 +241,7 @@ jest.mock('./modules/hfos-phone', () => ({
     isDeviceLocked: jest.fn(() => false),
     openInBrowser: jest.fn(async () => true),
     addContact: jest.fn(async () => 'added'),
+    viewFile: jest.fn(async () => 'closed'),
   },
 }));
 
@@ -283,6 +293,21 @@ jest.mock('expo-notifications', () => {
 jest.mock('expo-task-manager', () => ({
   defineTask: jest.fn(),
   isTaskDefined: jest.fn(() => false),
+  isTaskRegisteredAsync: jest.fn(async () => false),
+}));
+
+// Location updates while a check-in follows the phone (safety/follow.ts): started and stopped, never delivered here.
+jest.mock('expo-location', () => ({
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
+  ActivityType: { Other: 1 },
+  startLocationUpdatesAsync: jest.fn(async () => undefined),
+  stopLocationUpdatesAsync: jest.fn(async () => undefined),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => false),
+  getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined', granted: false })),
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied', granted: false })),
+  getCurrentPositionAsync: jest.fn(async () => {
+    throw new Error('No location in tests.');
+  }),
 }));
 
 jest.mock('expo-network', () => ({

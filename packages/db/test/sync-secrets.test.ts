@@ -106,6 +106,8 @@ const SECRET_TABLES = [
   'intake_sources',
   'invitations',
   'mailbox_connections',
+  // A sealed part of an email (round seven): the worker's alone.
+  'message_sealed_parts',
   // 20261025000200: a Facebook Page's token, and the Facebook sign-in that reads its ads, sealed. No phone needs them.
   'meta_accounts',
   'meta_connections',

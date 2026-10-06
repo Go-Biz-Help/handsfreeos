@@ -221,6 +221,22 @@ const Photos = z.object({
   priceRanges: z.boolean().default(false),
 });
 
+/**
+ * Round seven: the add-ons it uses in a customer's conversation, each off until an owner turns it on (and offered
+ * only while the add-on runs and says what its teammate may do). It looks things up as the customer on its own and
+ * asks a person on their team before anything is done.
+ */
+const Addons = z
+  .record(
+    z.string().regex(/^[a-z]{2,16}$/, 'An add-on’s id.'),
+    z.object({ on: z.boolean().default(false) }),
+  )
+  .refine((r) => Object.keys(r).length <= 50, { error: 'Up to 50 add-ons.' });
+
+/** Whether it uses this add-on's tools: an owner turned it on. */
+export const teammateUsesAddon = (config: TeammateConfig, addonId: string): boolean =>
+  config.addons[addonId]?.on === true;
+
 /** The units a follow-up's time is set in. A month is 30 days and a year 365. */
 export const FOLLOW_UP_UNITS = ['minutes', 'hours', 'days', 'weeks', 'months', 'years'] as const;
 export type FollowUpUnit = (typeof FOLLOW_UP_UNITS)[number];
@@ -443,6 +459,7 @@ export const TeammateConfig = z.object({
   money: Money.prefault({}),
   handOff: HandOff.prefault({}),
   phone: Phone.prefault({}),
+  addons: Addons.default({}),
 });
 export type TeammateConfig = z.infer<typeof TeammateConfig>;
 export type TeammateConfigInput = z.input<typeof TeammateConfig>;

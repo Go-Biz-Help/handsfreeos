@@ -18,6 +18,7 @@ import {
   workspaces,
   type messages,
 } from '@hfos/db/schema';
+import { SealedMismatch, withSealedParts } from '../addons/sealed';
 import { renderEmailHtml } from '../email/render';
 import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
 import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
@@ -45,8 +46,9 @@ type Message = typeof messages.$inferSelect;
  * sent it: the Reply-To's +token names the conversation. An address on a domain whose mail arrives here (M19) has
  * no Reply-To: the reply comes straight back to it, and its In-Reply-To finds the conversation.
  */
-export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<void> {
+export async function sendQueuedEmail(ctx: HandlerContext, queued: Message): Promise<void> {
   const scope = tenantOf(ctx.scope);
+  let m = queued;
   const update = (input: Record<string, unknown>) =>
     executeCommand(
       ctx.db,
@@ -63,6 +65,26 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
       systemActor(scope),
       metaOf(ctx),
     );
+  // A sealed part (a lockbox code) goes in only now, for the provider; the stored body keeps its marker.
+  try {
+    const filled = await withSealedParts(
+      ctx.tx,
+      ctx.sealer,
+      scope.workspaceId,
+      m.id,
+      m.bodyText ?? '',
+    );
+    if (filled.labels.length) m = { ...m, bodyText: filled.body };
+  } catch (e) {
+    if (!(e instanceof SealedMismatch)) throw e;
+    await update({
+      status: 'failed',
+      errorCode: 'sealed_unopened',
+      errorMessage:
+        'A locked part of this email couldn’t be opened, so it wasn’t sent. Type it again where it’s kept, then send it again.',
+    });
+    return;
+  }
   if (m.mailboxConnectionId) return sendThroughMailbox(ctx, m, update);
   const [conv] = await ctx.tx
     .select({ token: conversations.emailReplyToken })

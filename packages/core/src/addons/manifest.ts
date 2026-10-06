@@ -259,6 +259,68 @@ export interface AddonSettingsDeclaration {
  * business connects it with a key it pastes, a sign-in, or HandsFreeOS's own account; the worker tries and seals what
  * it's given, and the add-on's worker half uses it (`connectionFor`).
  */
+/**
+ * A value an add-on keeps sealed (round seven): a lockbox's code, say. The app hands it to the worker, which seals it
+ * with its own key before any command sees it (`POST /v1/addons/sealed`); the database, the API, phones, history and
+ * exports only ever hold it sealed. Showing it again goes through the worker too (`/reveal`), for someone with
+ * `reveal` who can see the record, and is kept in the history as viewed.
+ */
+export interface AddonSealedValue {
+  /** Its name in the add-on (`lockbox_code`). */
+  readonly key: string;
+  /** What it is, in the words people use ("Lockbox code"). */
+  readonly label: string;
+  /** Who may set it: one of the add-on's own permissions. */
+  readonly permission: string;
+  /** Who may see it again: one of the add-on's own permissions. */
+  readonly reveal: string;
+}
+
+/**
+ * What the AI teammate may do with an add-on, for the customer in the conversation it's answering (round seven;
+ * Chris 2026-10-05: answer from their deal, ask before acting). Separate from `ai`, which is the Assistant's: the
+ * teammate never acts as someone who works in the business.
+ */
+export interface AddonTeammate {
+  /** One line the teammate reads about what these tools are for ("their home search, deal and showings"). */
+  readonly directory: string;
+  /**
+   * Look-ups it runs as the customer, on its own: the add-on's own portal queries (`<id>.portal.*`), so it sees
+   * exactly what that client's portal shows them and nothing about anyone else.
+   */
+  readonly lookups: readonly AddonTeammateTool[];
+  /**
+   * What it may ask for: each waits, as an approval, for someone who may see the record named by `record` (the
+   * client's deal), and runs as them once they OK it, with their permission checked then.
+   */
+  readonly asks?: readonly AddonTeammateAsk[];
+  /** Its replies go through the add-on's own checks first (the worker half's `checkTeammateReply`). */
+  readonly checksReplies?: boolean;
+}
+
+export interface AddonTeammateTool {
+  /** The operation it runs (`realestate.portal.deal`). */
+  readonly operation: string;
+  /** The tool's name, as the model sees it: the add-on's id, then words (`realestate_my_deal`). */
+  readonly tool: string;
+  /** What the model reads to decide when to call it. */
+  readonly description: string;
+}
+
+export interface AddonTeammateAsk extends AddonTeammateTool {
+  /** The input key holding the record it's about, which must be one of the customer's (`dealId`). */
+  readonly record: string;
+}
+
+export interface AddonOfflineFiles {
+  /** One of `offline.tables`. */
+  readonly table: string;
+  /** Its column holding a file's id. */
+  readonly column: string;
+  /** Rows whose `column` holds one of `values` keep no file. */
+  readonly skip?: { readonly column: string; readonly values: readonly string[] };
+}
+
 export interface AddonConnector {
   /** Its name in the add-on (`listing_data`). */
   readonly key: string;
@@ -352,6 +414,8 @@ export interface AddonManifest {
   readonly resources?: readonly string[];
   /** The services it connects to, and what for (round five). */
   readonly connectors?: readonly AddonConnector[];
+  /** Values it keeps sealed by the worker, never in the clear (round seven). */
+  readonly sealed?: readonly AddonSealedValue[];
   /**
    * What phones keep with no signal (round six): the permission a person needs before their phone keeps any of it,
    * and its tables. Its kinds of records come too, private ones to the people on them; anything not here loads live.
@@ -361,6 +425,12 @@ export interface AddonManifest {
     readonly tables: readonly AddonOfflineTable[];
     /** Keys of the business's settings the phone keeps too (20261022000800), for pages that rest on them. */
     readonly settings?: readonly string[];
+    /**
+     * Files its phone rows bring (round seven): each row of `table` keeps the file named in `column` on the phone,
+     * encrypted, downloaded on Wi-Fi, up to the phone's limit, unless `skip` says it's no longer current (a replaced
+     * or void document). The person can pin any other. It goes when its row leaves the phone or stops asking for it.
+     */
+    readonly files?: readonly AddonOfflineFiles[];
   };
   readonly settings?: AddonSettingsDeclaration;
   readonly ui?: {
@@ -375,6 +445,8 @@ export interface AddonManifest {
   };
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
+  /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
+  readonly teammate?: AddonTeammate;
   readonly billing: AddonBilling;
 }
 
@@ -537,6 +609,53 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     (m.connectors ?? []).map((c) => c.key),
   );
 
+  for (const v of m.sealed ?? []) {
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(v.key)) say(`sealed value "${v.key}" isn't a valid key`);
+    if (!v.label.trim()) say(`sealed value "${v.key}" needs a label`);
+    if (!permissionKeys.has(v.permission))
+      say(
+        `sealed value "${v.key}" is set with "${v.permission}", which isn't one of its permissions`,
+      );
+    if (!permissionKeys.has(v.reveal))
+      say(
+        `sealed value "${v.key}" is shown with "${v.reveal}", which isn't one of its permissions`,
+      );
+  }
+  unique(
+    'sealed value',
+    (m.sealed ?? []).map((v) => v.key),
+  );
+
+  if (m.teammate) {
+    const t = m.teammate;
+    if (!t.directory.trim() || t.directory.length > 200)
+      say('teammate.directory must be 1–200 characters');
+    if (t.lookups.length === 0) say('teammate needs at least one look-up');
+    const toolName = new RegExp(`^${m.id}_[a-z][a-z0-9_]{1,40}$`);
+    for (const x of [...t.lookups, ...(t.asks ?? [])]) {
+      if (!toolName.test(x.tool))
+        say(`teammate tool "${x.tool}" must start with "${m.id}_", in lowercase words`);
+      if (!x.operation.startsWith(`${m.id}.`))
+        say(`teammate tool "${x.tool}" runs "${x.operation}", which isn't one of this add-on's`);
+      if (!x.description.trim() || x.description.length > 600)
+        say(`teammate tool "${x.tool}" needs a description of 1–600 characters`);
+    }
+    for (const x of t.lookups)
+      if (!x.operation.startsWith(`${m.id}.portal.`))
+        say(
+          `teammate look-up "${x.tool}" runs "${x.operation}": look-ups are its portal's ("${m.id}.portal.*")`,
+        );
+    for (const a of t.asks ?? [])
+      if (!/^[a-z][A-Za-z0-9]{0,39}$/.test(a.record))
+        say(`teammate ask "${a.tool}" names its record by "${a.record}", which isn't an input key`);
+    unique(
+      'teammate tool',
+      [...t.lookups, ...(t.asks ?? [])].map((x) => x.tool),
+    );
+    if (!(m.relationshipTypes ?? []).some((r) => r.portal))
+      say('teammate tools need a relationship type with "portal", so a customer has records');
+  }
+
   if (m.settings) {
     if (!Number.isInteger(m.settings.version) || m.settings.version < 1)
       say('settings.version must be 1 or more');
@@ -631,6 +750,23 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       if (!shape || !(k in shape)) say(`offline setting "${k}" isn't one of its settings`);
     }
     unique('offline setting', m.offline.settings ?? []);
+    for (const f of m.offline.files ?? []) {
+      const table = m.offline.tables.find((t) => t.table === f.table);
+      if (!table)
+        say(`offline files come from "${f.table}", which isn't one of its offline tables`);
+      else {
+        if (!table.columns.includes(f.column))
+          say(`offline files of "${f.table}" name "${f.column}", which it doesn't keep`);
+        if (f.skip && !table.columns.includes(f.skip.column))
+          say(`offline files of "${f.table}" skip by "${f.skip.column}", which it doesn't keep`);
+      }
+      if (f.skip && !f.skip.values.length)
+        say(`offline files of "${f.table}" skip by "${f.skip.column}" but name no values`);
+    }
+    unique(
+      'offline files of',
+      (m.offline.files ?? []).map((f) => `${f.table}.${f.column}`),
+    );
   }
   const phoneShapes = new Set<string>();
   for (const page of m.ui?.phone ?? []) {

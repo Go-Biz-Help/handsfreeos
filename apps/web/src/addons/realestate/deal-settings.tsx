@@ -6,6 +6,7 @@
  * `addon.save_settings`, checked against the add-on's own schema (packages/core/src/addons/realestate/settings.ts).
  * Its Safety tab is core's Settings → Safety, for whoever may change the business's settings.
  */
+import { LOCKBOX_WORDS } from '@hfos/core/addons/realestate/lockbox-words';
 import { KEEPING_WORDS } from '@hfos/core/addons/realestate/keeping-words';
 import type { RealestateSettings } from '@hfos/core/addons/realestate/settings';
 import { fmtAt, fmtMonthDay, zoneLabel } from '@hfos/core';
@@ -217,6 +218,7 @@ export function DealSettings({
             settings={settings}
             words={connections.uses.showingTime.words}
           />
+          <LockboxEmailsCard workspaceId={workspaceId} settings={settings} />
         </AddonConnections>
       ) : null}
       {tab === 'records' && settings && holds ? (
@@ -304,6 +306,68 @@ function ShowingTimeCard({
             )
           }
           data-testid="showingtime-switch"
+        >
+          {on ? 'Turn off' : 'Turn on'}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** SentriLock's and Supra's "opened" emails (round seven, board 95): read into the listing they're about, on or off. */
+function LockboxEmailsCard({
+  workspaceId,
+  settings,
+}: {
+  workspaceId: string;
+  settings: RealestateSettings;
+}) {
+  const router = useRouter();
+  const { busy, act } = useAct();
+  const on = settings.lockboxEmails;
+  return (
+    <Card className="p-5" data-testid="connector-lockboxes">
+      <h2 className="text-[15px] font-semibold">SentriLock and Supra</h2>
+      <p className="text-[13px] text-text-2">Who opened your listings’ lockboxes</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-border p-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card-2 text-[12px] font-semibold text-text-2">
+          LB
+        </span>
+        <div className="min-w-[11rem] flex-1 basis-[12rem]">
+          <p className="font-medium">
+            {LOCKBOX_WORDS.emailsTitle}{' '}
+            <Badge variant={on ? 'ok' : 'gray'}>{on ? 'On' : 'Off'}</Badge>
+          </p>
+          <p className="text-[13px] text-text-2">
+            {on ? LOCKBOX_WORDS.emailsOn : LOCKBOX_WORDS.emailsOff}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant={on ? 'ghost' : 'secondary'}
+          loading={busy === 'lockboxes'}
+          onClick={() =>
+            void act(
+              'lockboxes',
+              async () => {
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/addon.save_settings', {
+                    body: {
+                      workspaceId,
+                      addonId: 'realestate',
+                      settings: { ...settings, lockboxEmails: !on } as unknown as Record<
+                        string,
+                        unknown
+                      >,
+                    },
+                  }),
+                );
+                router.refresh();
+              },
+              on ? LOCKBOX_WORDS.emailsTurnedOff : LOCKBOX_WORDS.emailsTurnedOn,
+            )
+          }
+          data-testid="lockbox-emails-switch"
         >
           {on ? 'Turn off' : 'Turn on'}
         </Button>

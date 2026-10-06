@@ -251,6 +251,9 @@ export const realestateAddon = defineAddon({
     'walkthroughs',
     'walkthrough_items',
     'exports',
+    // Round seven: a listing's lockboxes, and their openings read from SentriLock's and Supra's emails.
+    'lockboxes',
+    'lockbox_openings',
   ],
   // Round six: what phones keep with no signal (Chris, 2026-10-03): an agent's own deals in full; for whoever sees
   // every deal, every other deal's summary, duties, dates and people (`all`). The migration
@@ -259,6 +262,15 @@ export const realestateAddon = defineAddon({
     permission: 'realestate.use',
     // Business days around the days the business is closed: Coordinate's, on the phone.
     settings: ['closedDays'],
+    // Round seven (Chris, 2026-10-05): each document's current version on the deals the agent works, kept on the
+    // phone encrypted; a replaced or void one only if they pin it.
+    files: [
+      {
+        table: 'documents',
+        column: 'file_id',
+        skip: { column: 'status', values: ['superseded', 'void'] },
+      },
+    ],
     tables: [
       {
         table: 'deals',
@@ -1249,6 +1261,8 @@ export const realestateAddon = defineAddon({
       // The whole transaction, exported.
       'realestate.deal.export_requested',
       'realestate.deal.exported',
+      // Round seven: a lockbox opened, read from its maker's email.
+      'realestate.lockbox.opened',
     ],
     // Its own: a changed wire raises a critical alert at once, and the check that settles it clears it.
     consumes: [
@@ -1304,6 +1318,8 @@ export const realestateAddon = defineAddon({
       'realestate.listing.facts_confirmed',
       // Buyer memory: a client's message or call starts a read ten minutes on; asked for, at once.
       'message.received',
+      // Round seven: ShowingTime's and the lockbox makers' notices, which the Inbox files under Other.
+      'email.filed',
       'call.transcribed',
       'realestate.memory.requested',
       'realestate.memory.suggested',
@@ -1341,6 +1357,10 @@ export const realestateAddon = defineAddon({
       'realestate.showing.requested',
       'realestate.showing.decided',
       'realestate.showing.feedback_received',
+      // A lockbox opened with no showing booked: the listing's agents told; a code shown again, kept in the deal's
+      // history (round seven).
+      'realestate.lockbox.opened',
+      'addon_sealed.viewed',
     ],
   },
   // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
@@ -1448,6 +1468,16 @@ export const realestateAddon = defineAddon({
     },
   ],
   // Its alert person, the business's closed days and its milestone drafts; owners and admins change them.
+  // Round seven: a lockbox's code, sealed by the worker, sent only to the confirmed agent before a showing, and shown
+  // again only to someone on the listing (Chris, 2026-10-05).
+  sealed: [
+    {
+      key: 'lockbox_code',
+      label: 'Lockbox code',
+      permission: 'realestate.use',
+      reveal: 'realestate.use',
+    },
+  ],
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
@@ -1573,5 +1603,47 @@ export const realestateAddon = defineAddon({
   ai: {
     directory:
       'buyer and listing deals: their people, property, key dates, duties, deadlines, documents and alerts',
+  },
+  // Round seven (Chris 2026-10-05: answer from their deal, ask before acting): the AI teammate sees what the client's
+  // portal shows them, asks their agent before adding a home, and its replies go through the fair housing checks.
+  teammate: {
+    directory:
+      'their deal with you, as their portal shows it: where it stands, key dates, their to-do, homes and tours, a seller’s listing and showings',
+    lookups: [
+      {
+        operation: 'realestate.portal.deals',
+        tool: 'realestate_my_deals',
+        description:
+          'Their deals with you, buying or selling, as their portal lists them: where each stands, the next date and how many things they have to do. Start here to find a deal’s id.',
+      },
+      {
+        operation: 'realestate.portal.deal',
+        tool: 'realestate_my_deal',
+        description:
+          'One of their deals as their portal shows it: where it stands, its key dates, their to-do, the homes and tours, and the CMAs and offer summaries shared with them.',
+      },
+      {
+        operation: 'realestate.portal.listing',
+        tool: 'realestate_my_listing',
+        description:
+          'A seller’s listing as their portal shows it: its price, the MLS once live, open houses, their questionnaire, and the offers as shared with them.',
+      },
+      {
+        operation: 'realestate.portal.showings',
+        tool: 'realestate_my_showings',
+        description:
+          'A seller’s showings as their portal shows them: requests waiting for their answer, those coming up, and the feedback their agent shared.',
+      },
+    ],
+    asks: [
+      {
+        operation: 'realestate.home.add',
+        tool: 'realestate_ask_add_home',
+        record: 'dealId',
+        description:
+          'Ask their agent to add a home they want to see to their buyer deal: its address, and the listing’s link if they sent one.',
+      },
+    ],
+    checksReplies: true,
   },
 });

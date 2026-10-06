@@ -14,3 +14,4 @@ export * from './words';
 export * from './catalog';
 export * from './planned';
 export * from './roadmap';
+export * from './sealed';

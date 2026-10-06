@@ -107,3 +107,19 @@ export const FileListInput = z.object({
   recordId: uuid,
 });
 export const FileListOutput = z.object({ files: z.array(FileOut) });
+
+/** The fingerprints of files a phone keeps (round seven): a signed one is checked against it once it's downloaded. */
+export const FileFingerprintsInput = z.object({
+  workspaceId: uuid,
+  fileIds: z.array(uuid).min(1).max(100),
+});
+export const FileFingerprintsOutput = z.object({
+  files: z.array(
+    z.object({
+      id: uuid,
+      /** SHA-256 of what was stored, hex; null until the worker has read it. */
+      sha256: z.string().nullable(),
+      locked: z.boolean(),
+    }),
+  ),
+});

@@ -59,26 +59,27 @@ exactly that:
 `NSMicrophoneUsageDescription` key, and set to `false` it deletes the key on iOS and blocks `RECORD_AUDIO` on Android
 whatever `expo-audio` asks for. Both saying the same words means the order the plugins run in doesn't matter.
 
-What stays off matters as much: no background recording and no background playback, so no `FOREGROUND_SERVICE`, no
-`FOREGROUND_SERVICE_MEDIA_PLAYBACK` or `…_MICROPHONE`, and no iOS `audio` background mode. The microphone records only
+What stays off matters as much: no background recording and no background playback, so no
+`FOREGROUND_SERVICE_MEDIA_PLAYBACK` or `…_MICROPHONE`, and no iOS `audio` background mode (the one foreground service
+is a check-in's location, below). The microphone records only
 while the screen is open and listening; each recording to the Assistant or a test call is deleted once it has been
 heard, and each clip once it has played. A voice note is the one recording kept: it's the note, filed on its deal.
 
-Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the words above, `UIBackgroundModes` still
-`["fetch"]` alone, and `RECORD_AUDIO` in the merged manifest without `tools:node="remove"`.
+Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the words above, no `audio` in
+`UIBackgroundModes`, and `RECORD_AUDIO` in the merged manifest without `tools:node="remove"`.
 
 ### iOS keys that are there but aren't permissions
 
 | Key                                                    | Why                                                                                                                                                                                                                                                                                                               |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ITSAppUsesNonExemptEncryption: false`                 | Answers Apple's export-compliance question once instead of every build. See the note in [`listing-app-store.md`](listing-app-store.md)                                                                                                                                                                            |
-| `UIBackgroundModes: ["fetch"]`                         | `expo-task-manager` / background sync, so the phone's copy catches up without the app being open                                                                                                                                                                                                                  |
+| `UIBackgroundModes: ["fetch", "location"]`             | `fetch`: `expo-task-manager` / background sync, so the phone's copy catches up without the app being open. `location`: `expo-location`, so a check-in sharing where the person is keeps sharing with the app in the background, until they check out (below)                                                      |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices`  | `expo-dev-launcher` adds these for finding a development server. It also adds a build phase ("[Expo Dev Launcher] Strip Local Network Keys for Release") that deletes both from any non-Debug build, so a store build asks for no local network access. Verified: the phase is in the generated `project.pbxproj` |
 | `com.apple.developer.usernotifications.time-sensitive` | The entitlement for time-sensitive notifications (urgent Action Center items)                                                                                                                                                                                                                                     |
 
 ### What iOS is never asked for
 
-No contacts, no background location, no calendar, no reminders, no health, no Bluetooth, no tracking
+No contacts, no "Always" location, no calendar, no reminders, no health, no Bluetooth, no tracking
 prompt. Each is absent because nothing in the app calls it — `expo-contacts` is not a dependency, and adding the business
 number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
 
@@ -89,8 +90,21 @@ so, and the privacy manifest lists precise and coarse location for app functiona
 arrival time.
 
 **Check-ins** (Real Estate round six, a core feature) take one reading too, only when the person checks in somewhere
-or taps Help, so the contacts they chose can be told where they were. Still never in the background: nothing follows
-the person, and a check-in without a reading still works, with the place they typed.
+or taps Help, so the contacts they chose can be told where they were. A check-in without a reading still works, with
+the place they typed.
+
+**A check-in that shares where the person is** (round seven; Chris decided 2026-10-05) is the one time the app follows
+the phone with the app in the background: from checking in with **Share where I am until I check out** on, until they
+check out, answer the reminder, or the check-in ends anywhere else (`src/safety/follow.ts`). It needs no more than the
+"while using the app" permission above: iOS keeps the updates going under the `location` background mode and shows its
+blue location sign the whole time (`showsBackgroundLocationIndicator`), so the person always sees it; the app never
+asks for "Always". At most one reading every 2 minutes, and only after moving 100 m. Only the latest spot is kept,
+never a trail, and it is cleared 30 days after the check-in ends. With the switch off, nothing follows.
+
+For App Review, the `location` background mode needs a line in the review notes: "Background location is used only
+while the person is checked in for their safety (Settings → My safety; Check in on an appointment) with Share where I
+am on, and stops when they check out. The blue location indicator shows throughout. The app never requests Always
+authorization."
 
 **Voice notes** (Real Estate round six) record only while the person holds the record button on a deal's note; the
 recording is put into words on the server and kept on the deal like any file.
@@ -99,31 +113,42 @@ recording is put into words on the server and kept on the deal like any file.
 
 ### Kept, and why
 
-| Permission                                                           | Asked for by                       | Why the app needs it                                                                                |
-| -------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `android.permission.INTERNET`                                        | `app.json`                         | Talking to the API, the sync stream and Supabase                                                    |
-| `android.permission.ACCESS_NETWORK_STATE`                            | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                              |
-| `android.permission.ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`  | `expo-location`                    | One reading when a tech taps On my way, or someone checks in or taps Help (never in the background) |
-| `android.permission.CAMERA`                                          | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                   |
-| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`               | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                          |
-| `android.permission.POST_NOTIFICATIONS`                              | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                               |
-| `android.permission.VIBRATE`                                         | `app.json` / `expo-notifications`  | A notification's buzz                                                                               |
-| `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                            |
-| `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                           |
-| `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone       |
-| `android.permission.RECORD_AUDIO`                                    | `expo-audio` plugin                | Talking out loud (the Assistant's mic, a test call) and voice notes. Asked on the first tap         |
-| `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                      |
-| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps    |
+| Permission                                                              | Asked for by                       | Why the app needs it                                                                             |
+| ----------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `android.permission.INTERNET`                                           | `app.json`                         | Talking to the API, the sync stream and Supabase                                                 |
+| `android.permission.ACCESS_NETWORK_STATE`                               | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                           |
+| `android.permission.ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`     | `expo-location`                    | One reading when a tech taps On my way, or someone checks in or taps Help                        |
+| `android.permission.FOREGROUND_SERVICE`, `…FOREGROUND_SERVICE_LOCATION` | `expo-location` plugin             | A check-in sharing where the person is, until they check out, with its notification showing      |
+| `android.permission.CAMERA`                                             | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                |
+| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`                  | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                       |
+| `android.permission.POST_NOTIFICATIONS`                                 | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                            |
+| `android.permission.VIBRATE`                                            | `app.json` / `expo-notifications`  | A notification's buzz                                                                            |
+| `android.permission.WAKE_LOCK`                                          | `firebase-messaging`               | Waking to receive a push                                                                         |
+| `android.permission.RECEIVE_BOOT_COMPLETED`                             | `expo-notifications`               | Scheduled notifications survive a restart                                                        |
+| `android.permission.MODIFY_AUDIO_SETTINGS`                              | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone    |
+| `android.permission.RECORD_AUDIO`                                       | `expo-audio` plugin                | Talking out loud (the Assistant's mic, a test call) and voice notes. Asked on the first tap      |
+| `com.google.android.c2dm.permission.RECEIVE`                            | `firebase-messaging`               | Receiving a push from Firebase                                                                   |
+| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`    | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps |
+
+**A check-in that shares where the person is** (round seven) runs as a location foreground service, started from the
+Check in tap with the app open, so it needs only the location permission the person already gave: no
+`ACCESS_BACKGROUND_LOCATION`, which stays blocked in `app.json`. Its notification ("Sharing where you are · Until you
+check out of …") shows the whole time, with the app's monochrome icon (`androidForegroundServiceIcon`). Play asks
+about `FOREGROUND_SERVICE_LOCATION` once: in Play Console → App content → Foreground service permissions, choose
+Location, say "Shares the person's location with the safety contacts they chose, only while they are checked in at an
+appointment, until they check out", and attach a short video of checking in with the switch on, the notification
+showing, and checking out.
 
 ### Gone, and why
 
 Each is turned off with `tools:node="remove"`, which the merger honours whatever a library asks for. The two storage
-ones are in `app.json`'s `android.blockedPermissions` (from the step that built photos); the rest are in
+ones (from the step that built photos) and background location are in `app.json`'s `android.blockedPermissions`; the rest are in
 `app.config.ts`'s `BLOCKED_PERMISSIONS`, each with its reason beside it in the code.
 
 | Permission                                                                                                                      | Asked for by                                               | Why it's gone                                                                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `android.permission.READ_EXTERNAL_STORAGE`, `…WRITE_EXTERNAL_STORAGE`                                                           | `expo-file-system`, `expo-image-picker` (up to Android 12) | The app keeps everything in its own folder                                                                                                                                               |
+| `android.permission.ACCESS_BACKGROUND_LOCATION`                                                                                 | Nothing yet; blocked in case a library ever does           | A check-in follows the phone through a foreground service, which needs only the "while using the app" permission. Play reviews background location far more strictly                     |
 | `android.permission.SYSTEM_ALERT_WINDOW`                                                                                        | Expo's Android template                                    | It is there so a debug build can draw React Native's dev menu over other apps. A store build has no dev menu, and Play makes you justify "display over other apps"                       |
 | `android.permission.ACCESS_WIFI_STATE`                                                                                          | `expo-network`                                             | Only needed for `getIpAddressAsync`. `src/lib/network.ts` only ever asks whether there is signal                                                                                         |
 | `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`                                                        | `expo-application`, under `expo-notifications`             | Play's install-referrer library, for which ad installed the app. Nothing asks                                                                                                            |

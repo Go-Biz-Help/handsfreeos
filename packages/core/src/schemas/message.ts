@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { sealedValue } from '../addons/sealed';
+import { addonId } from './addon';
 import { isoDateTime, uuid } from './common';
 import { ListInput, UserRef } from './crm';
 import { conversationChannel, messageDirection, smsConsent } from './conversation';
@@ -76,6 +78,22 @@ export const MessageSendInput = z
      * phone can show it and as a text with the choices written out where it can't; nobody picks which.
      */
     rich: RichInput.optional(),
+    /**
+     * Email: values the worker sealed that go in place of a marker in the body only as it's sent (round seven: a
+     * lockbox's code). The stored body keeps the marker, so the Inbox, phones and exports never hold the value.
+     * HandsFreeOS itself only.
+     */
+    sealedParts: z
+      .array(
+        z.object({
+          marker: z.string().min(3).max(120),
+          sealed: sealedValue('Value'),
+          addonId,
+          key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+        }),
+      )
+      .max(5)
+      .default([]),
   })
   .refine(
     (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,

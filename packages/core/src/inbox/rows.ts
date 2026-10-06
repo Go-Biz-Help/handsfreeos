@@ -796,6 +796,11 @@ export interface TeammateDraftRow {
   readonly edits: Text;
   readonly expires_at: Text;
   readonly created_at: Text;
+  /**
+   * An ask's record (round seven), joined from the phone's own copy: its name when the phone keeps it, which it does
+   * only for someone who may see it. Null when the phone doesn't keep it.
+   */
+  readonly record_name?: Text;
 }
 
 /** A draft as its card and words take it. */
@@ -808,8 +813,13 @@ export interface TeammateDraftShape extends DraftFacts {
   readonly expiresAt: string | null;
   readonly createdAt: string;
   readonly edits: { readonly body?: string; readonly subject?: string } | null;
-  /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
+  /**
+   * Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. Asks: whoever may see their record
+   * (on the phone: its record is on the phone).
+   */
   readonly canDecide: boolean;
+  /** An ask's record, by name when this phone keeps it (round seven). */
+  readonly recordName: string | null;
   readonly preview: DraftFacts['preview'] & {
     readonly message: { readonly body: string; readonly subject: string | null } | null;
   };
@@ -820,6 +830,8 @@ interface PreviewJson {
   actions?: unknown[];
   discount?: { percent?: unknown; reason?: unknown } | null;
   call?: { toDisplay?: unknown; goal?: unknown } | null;
+  ask?: { addonName?: unknown; summary?: unknown } | null;
+  flags?: unknown[];
 }
 
 export function teammateDraftOf(
@@ -867,7 +879,23 @@ export function teammateDraftOf(
     typeof preview.call.goal === 'string'
       ? { toDisplay: preview.call.toDisplay, goal: preview.call.goal }
       : null;
-  const kind = r.kind === 'approval' ? 'approval' : r.kind === 'call' ? 'call' : 'reply';
+  const kind =
+    r.kind === 'approval' || r.kind === 'call' || r.kind === 'ask'
+      ? (r.kind as 'approval' | 'call' | 'ask')
+      : 'reply';
+  const ask =
+    preview.ask &&
+    typeof preview.ask.addonName === 'string' &&
+    typeof preview.ask.summary === 'string'
+      ? { addonName: preview.ask.addonName, summary: preview.ask.summary }
+      : null;
+  const flags = (Array.isArray(preview.flags) ? preview.flags : []).flatMap((f) => {
+    const flag = f as { addonName?: unknown; message?: unknown };
+    return typeof flag.addonName === 'string' && typeof flag.message === 'string'
+      ? [{ addonName: flag.addonName, message: flag.message }]
+      : [];
+  });
+  const recordName = typeof r.record_name === 'string' && r.record_name ? r.record_name : null;
   return {
     id: r.id,
     kind,
@@ -875,13 +903,16 @@ export function teammateDraftOf(
     channel: r.channel ?? messageChannel,
     teammate: { id: r.teammate_id, name: r.teammate_name || 'The AI teammate' },
     person: r.person_id ? { fullName: nameOf(r.first_name, r.last_name) || 'Customer' } : null,
-    preview: { message, actions, discount, call },
+    preview: { message, actions, discount, call, ask, flags },
     conversationId: r.conversation_id,
     personId: r.person_id,
     leadId: r.lead_id,
     expiresAt: iso(r.expires_at),
     createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
     edits,
-    canDecide: r.status === 'pending' && (kind !== 'approval' || opts.canManage),
+    canDecide:
+      r.status === 'pending' &&
+      (kind === 'ask' ? recordName !== null : kind !== 'approval' || opts.canManage),
+    recordName,
   };
 }

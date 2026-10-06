@@ -161,8 +161,13 @@ export interface CustomerActor {
   readonly workspaceId: string;
   readonly organizationId: string;
   readonly personId: string;
-  /** The signed-in device (app.portal_sessions). */
-  readonly sessionId: string;
+  /** The signed-in device (app.portal_sessions); null when the AI teammate looks up what their portal shows. */
+  readonly sessionId: string | null;
+  /**
+   * Round seven: the AI teammate's run answering them, in place of a device. It reads what their portal shows them
+   * while the run is answering, and the kernel refuses it every command.
+   */
+  readonly teammateRunId?: string | null;
 }
 /**
  * Someone on one of an add-on's public pages, signed in to nothing (Real Estate round three, core): a listing's page,

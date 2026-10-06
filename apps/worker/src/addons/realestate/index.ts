@@ -17,6 +17,8 @@
  * - **A changed wire:** reported on a deal, it raises a critical alert at once, for everyone who sees the deal, at
  *   any hour, asking to be acknowledged; the phone check finishing (done, waived or cancelled) clears it.
  */
+import { REALESTATE_SCRIPTED_TEAMMATE } from './scripted';
+import { checkTeammateReply } from './teammate';
 import { ladderAlert, rungSince, SEVERITY_RANK } from '@hfos/core/addons/realestate/ladder';
 import { sweep } from '@hfos/core/addons/realestate/ops/health';
 import { WIRE_CHECK_KEY } from '@hfos/core/addons/realestate/own-duties';
@@ -54,6 +56,7 @@ import {
   matchDecided,
   searchChanged,
 } from './feed/searches';
+import { lockboxCodeShown, lockboxEmail, lockboxOpenedAlert, readLockboxCode } from './lockboxes';
 import {
   SHOWING_ACCESS,
   SHOWING_FEEDBACK,
@@ -299,7 +302,19 @@ export const realestateAddonWorker: AddonWorkerModule = {
     'message.received': async (ctx) => {
       await clientSpoke(ctx);
       await showingTimeEmail(ctx);
+      // Round seven: SentriLock's and Supra's "opened" emails (./lockboxes.ts).
+      await lockboxEmail(ctx);
     },
+    // Notices the Inbox files under Other (round seven): ShowingTime's and the lockbox makers', read the same way.
+    // A person's own mail and Spam are never read.
+    'email.filed': async (ctx) => {
+      const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+      if (p['private'] || p['folder'] !== 'other' || p['direction'] !== 'inbound') return;
+      await showingTimeEmail(ctx);
+      await lockboxEmail(ctx);
+    },
+    'realestate.lockbox.opened': lockboxOpenedAlert,
+    'addon_sealed.viewed': lockboxCodeShown,
     'call.transcribed': clientSpoke,
     'realestate.memory.requested': memoryRequested,
     'realestate.memory.suggested': memoryWaitingChanged,
@@ -386,6 +401,11 @@ export const realestateAddonWorker: AddonWorkerModule = {
   oauth: { [ESIGN]: ESIGN_OAUTH },
   webhooks: { [ESIGN]: { docusign: DOCUSIGN_UPDATES } },
   actions: { ...ESIGN_ACTIONS, ...FEED_ACTIONS },
+  // Round seven: a lockbox's code, read back only for core's sealed routes (./lockboxes.ts).
+  sealed: { lockbox_code: readLockboxCode },
+  // Round seven: fair housing on the AI teammate's replies while it uses Real Estate (./teammate.ts).
+  checkTeammateReply,
   // Playwright's: an at-risk duty aged, and the stand-in e-signature page (./test-routes.ts).
   testRoutes: registerRealestateTestRoutes,
+  scriptedTeammate: REALESTATE_SCRIPTED_TEAMMATE,
 };

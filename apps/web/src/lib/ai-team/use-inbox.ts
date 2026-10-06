@@ -71,6 +71,8 @@ export function useConversationDrafts(workspaceId: string, conversationId: strin
     pending: items.find((d) => d.status === 'pending' && d.kind === 'reply') ?? null,
     /** A discount waiting for a manager. */
     approval: items.find((d) => d.status === 'pending' && d.kind === 'approval') ?? null,
+    /** Round seven: what the teammate asked someone on the customer's record to do with an add-on. */
+    ask: items.find((d) => d.status === 'pending' && d.kind === 'ask') ?? null,
     latest: items[0] ?? null,
     refresh: useCallback(() => setNonce((n) => n + 1), []),
     /** Local change before the server confirms (a decision this tab made). */

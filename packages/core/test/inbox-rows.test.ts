@@ -667,36 +667,38 @@ describe('a thread from the copy', () => {
 });
 
 describe('drafts from the copy', () => {
+  const draftRow = {
+    id: 'd1',
+    teammate_id: 't1',
+    teammate_name: 'Ava',
+    conversation_id: 'c1',
+    channel: 'sms',
+    person_id: 'p1',
+    first_name: 'Angela',
+    last_name: 'Brooks',
+    lead_id: null,
+    kind: 'reply',
+    status: 'pending',
+    preview: JSON.stringify({
+      message: { channel: 'sms', body: 'Thursday works.', subject: null },
+      actions: [
+        {
+          kind: 'reschedule',
+          appointmentId: 'a1',
+          startsAt: '2026-09-24T19:00:00Z',
+          summary: 'Move Thu tune-up to 2:00 PM',
+        },
+        { kind: 'mystery' },
+      ],
+      discount: null,
+    }),
+    edits: null,
+    expires_at: '2026-09-17T13:00:00Z',
+    created_at: '2026-09-17T12:48:00Z',
+  };
+
   it('reads a waiting draft’s preview, and who may decide it', () => {
-    const row = {
-      id: 'd1',
-      teammate_id: 't1',
-      teammate_name: 'Ava',
-      conversation_id: 'c1',
-      channel: 'sms',
-      person_id: 'p1',
-      first_name: 'Angela',
-      last_name: 'Brooks',
-      lead_id: null,
-      kind: 'reply',
-      status: 'pending',
-      preview: JSON.stringify({
-        message: { channel: 'sms', body: 'Thursday works.', subject: null },
-        actions: [
-          {
-            kind: 'reschedule',
-            appointmentId: 'a1',
-            startsAt: '2026-09-24T19:00:00Z',
-            summary: 'Move Thu tune-up to 2:00 PM',
-          },
-          { kind: 'mystery' },
-        ],
-        discount: null,
-      }),
-      edits: null,
-      expires_at: '2026-09-17T13:00:00Z',
-      created_at: '2026-09-17T12:48:00Z',
-    };
+    const row = draftRow;
     expect(teammateDraftOf(row, { canManage: false })).toMatchObject({
       kind: 'reply',
       teammate: { name: 'Ava' },
@@ -711,6 +713,61 @@ describe('drafts from the copy', () => {
       false,
     );
     expect(teammateDraftOf({ ...row, kind: 'approval' }, { canManage: true }).canDecide).toBe(true);
+  });
+
+  it('reads an ask and what an add-on’s check found, and lets only someone on its record decide it (round seven)', () => {
+    const ask = {
+      ...draftRow,
+      kind: 'ask',
+      preview: JSON.stringify({
+        message: { channel: 'sms', body: '412 Oak St is on your list now.', subject: null },
+        actions: [],
+        discount: null,
+        ask: {
+          addonId: 'realestate',
+          addonName: 'Real Estate Agent',
+          operation: 'realestate.home.add',
+          tool: 'realestate_ask_add_home',
+          input: { address: '412 Oak St' },
+          recordId: 'r1',
+          summary: 'Add 412 Oak St to Dana’s homes',
+        },
+      }),
+      record_name: 'Dana’s home search',
+    };
+    expect(teammateDraftOf(ask, { canManage: false })).toMatchObject({
+      kind: 'ask',
+      preview: {
+        ask: { addonName: 'Real Estate Agent', summary: 'Add 412 Oak St to Dana’s homes' },
+        flags: [],
+      },
+      recordName: 'Dana’s home search',
+      canDecide: true,
+    });
+    // The phone doesn't keep the record: it isn't theirs to decide, owner or not.
+    const away = teammateDraftOf({ ...ask, record_name: null }, { canManage: true });
+    expect(away).toMatchObject({ recordName: null, canDecide: false });
+    const held = teammateDraftOf(
+      {
+        ...draftRow,
+        preview: JSON.stringify({
+          message: { channel: 'sms', body: 'Good schools there.', subject: null },
+          flags: [
+            {
+              addonId: 'realestate',
+              addonName: 'Real Estate Agent',
+              message: 'Fair housing: “good schools”.',
+            },
+            { message: 'no add-on' },
+          ],
+        }),
+      },
+      { canManage: false },
+    );
+    expect(held.preview.flags).toEqual([
+      { addonName: 'Real Estate Agent', message: 'Fair housing: “good schools”.' },
+    ]);
+    expect(held).toMatchObject({ kind: 'reply', canDecide: true, recordName: null });
   });
 });
 

@@ -26,3 +26,17 @@ export function createRegistry(
   const q = byName(queries, 'query');
   return { commands, queries, command: (n) => c.get(n), query: (n) => q.get(n) };
 }
+
+let composed: Registry | null = null;
+
+/**
+ * The registry `@hfos/core/server` composed (core's operations and every add-on's), handed over once as it loads. A
+ * command that runs another by a name it stored, such as an approved AI teammate ask (round seven), finds it here:
+ * core's commands can't import the composed list, which is built from them.
+ */
+export function bindRegistry(registry: Registry): void {
+  composed = registry;
+}
+
+/** The composed registry, or null before `@hfos/core/server` has loaded. */
+export const boundRegistry = (): Registry | null => composed;

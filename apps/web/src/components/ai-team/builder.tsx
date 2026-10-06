@@ -12,6 +12,7 @@ import {
   History as HistoryIcon,
   IdCard,
   MessagesSquare,
+  Puzzle,
   Repeat,
   Reply,
   ShieldCheck,
@@ -32,6 +33,7 @@ import {
   moduleOfField,
   MODULES,
   moduleSummary,
+  teammateAddonsHere,
   plural,
   progressView,
   savedLine,
@@ -48,6 +50,7 @@ import { errorMessage } from '@/lib/api/client';
 import { dateOf, fmtMonthDay } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
 import { useWide } from '@/lib/workflows/use-wide';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { FullScreen } from './full-screen';
 import { SaveIndicator, TeammateHeader, TeammateSubnav } from './header';
 import { TeammateHistory } from './history';
@@ -76,6 +79,7 @@ const ICONS: Readonly<Record<ModuleKey, LucideIcon>> = {
   autonomy: ShieldCheck,
   limits: Gauge,
   handOff: Hand,
+  addons: Puzzle,
 };
 
 function statusToast(from: TeammateStatus, to: TeammateStatus, name: string): string {
@@ -139,6 +143,12 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
   const view = progressView(progress, config.autonomy.approvalsNeeded);
   const savedView = progressView(progress, draft.base.autonomy.approvalsNeeded);
 
+  // Round seven: Add-ons is listed only while an add-on that offers the teammate something runs here.
+  const running = useWorkspaceShell().addons;
+  const modules = useMemo(
+    () => MODULES.filter((m) => m.key !== 'addons' || teammateAddonsHere(running).length > 0),
+    [running],
+  );
   const [module, setModule] = useState<ModuleKey>('identity');
   const [phoneModule, setPhoneModule] = useState<ModuleKey | null>(null);
   const [checksOpen, setChecksOpen] = useState(false);
@@ -325,7 +335,7 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
 
       {/* Phones: the modules are a list, each opening full screen. */}
       <div className="-mx-4 lg:hidden" data-testid="teammate-phone-modules">
-        {MODULES.map((m) => {
+        {modules.map((m) => {
           const Icon = ICONS[m.key];
           const flag = flagged.get(m.key);
           return (
@@ -387,7 +397,7 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
               <div className="px-2.5 pb-1.5 pt-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
                 {name}’s settings
               </div>
-              {MODULES.map((m) => {
+              {modules.map((m) => {
                 const Icon = ICONS[m.key];
                 const active = module === m.key;
                 const flag = flagged.get(m.key);

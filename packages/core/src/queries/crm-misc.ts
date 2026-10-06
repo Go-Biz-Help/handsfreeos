@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { files, importErrors, imports, recordTags, tags, users } from '@hfos/db/schema';
 import { findMatches } from '../crm/matching';
@@ -13,7 +13,12 @@ import {
   FindMatchesInput,
   FindMatchesOutput,
 } from '../schemas/crm-queries';
-import { FileListInput, FileListOutput } from '../schemas/file';
+import {
+  FileFingerprintsInput,
+  FileFingerprintsOutput,
+  FileListInput,
+  FileListOutput,
+} from '../schemas/file';
 import {
   ImportGetInput,
   ImportGetOutput,
@@ -82,6 +87,35 @@ export const fileList = defineQuery({
           : null,
         createdAt: f.createdAt.toISOString(),
       })),
+    };
+  },
+});
+
+/**
+ * What each of these files held when it arrived (its SHA-256), for a phone keeping them (round seven): it checks a
+ * signed one it downloaded against this before keeping it. Only files the person can see answer.
+ */
+export const fileFingerprints = defineQuery({
+  name: 'file.fingerprints',
+  description: 'What files held when they arrived, so a phone can check the copies it keeps.',
+  input: FileFingerprintsInput,
+  output: FileFingerprintsOutput,
+  permission: 'records.read',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx, input) {
+    const list = await ctx.tx
+      .select({ id: files.id, sha256: files.sha256, lockedAt: files.lockedAt })
+      .from(files)
+      .where(
+        and(
+          eq(files.workspaceId, input.workspaceId),
+          inArray(files.id, [...new Set(input.fileIds)]),
+          eq(files.status, 'ready'),
+          isNull(files.deletedAt),
+        ),
+      );
+    return {
+      files: list.map((f) => ({ id: f.id, sha256: f.sha256, locked: f.lockedAt !== null })),
     };
   },
 });

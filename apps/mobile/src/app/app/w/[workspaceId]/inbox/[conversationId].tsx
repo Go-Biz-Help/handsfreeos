@@ -146,7 +146,7 @@ function Thread() {
     all ? lanes.map((l) => l.id) : undefined,
   );
   const lineOf = React.useMemo(() => new Map(lanes.map((l) => [l.id, l.lineDisplay])), [lanes]);
-  const drafts = useWaitingDrafts({ conversationId, kind: 'reply' });
+  const drafts = useWaitingDrafts({ conversationId, kinds: ['reply', 'ask'] });
   const members = useMembers();
   const names = useNames();
   const now = useNow();

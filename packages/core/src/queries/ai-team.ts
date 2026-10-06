@@ -129,7 +129,10 @@ export const aiTeammateGet = defineQuery({
 
 type DraftRow = {
   id: string;
-  kind: 'reply' | 'approval' | 'call';
+  kind: TeammateDraftOut['kind'];
+  custom_record_id: string | null;
+  record_name: string | null;
+  sees_record: boolean;
   status: TeammateDraftOut['status'];
   teammate_id: string;
   teammate_name: string;
@@ -176,7 +179,9 @@ function draftOut(r: DraftRow, manages: boolean): TeammateDraftOut {
     via: r.via,
     expiresAt: iso(r.expires_at),
     createdAt: iso(r.created_at)!,
-    canDecide: r.status === 'pending' && (r.kind === 'reply' || manages),
+    canDecide:
+      r.status === 'pending' && (r.kind === 'ask' ? r.sees_record : r.kind === 'reply' || manages),
+    record: r.custom_record_id ? { id: r.custom_record_id, name: r.record_name } : null,
     knowledge: Array.isArray(r.run_knowledge) ? r.run_knowledge : [],
   };
 }
@@ -200,7 +205,9 @@ export const aiTeammateDraftList = defineQuery({
               coalesce(nullif(btrim(p.first_name || ' ' || p.last_name), ''), 'Customer') as person_name,
               d.lead_id, l.title as lead_title, d.preview, d.edits, d.reason, d.decided_by,
               coalesce(nullif(u.full_name, ''), u.email::text) as decided_name, d.decided_at, d.via, d.expires_at,
-              d.created_at, rn.knowledge as run_knowledge, ${SORT_KEY(sql`d.created_at`)} as sort_key
+              d.created_at, rn.knowledge as run_knowledge, ${SORT_KEY(sql`d.created_at`)} as sort_key,
+              d.custom_record_id, cr.name as record_name,
+              (d.custom_record_id is not null and private.custom_record_visible(d.custom_record_id)) as sees_record
             from app.ai_teammate_drafts d
             join app.ai_teammates t on t.id = d.teammate_id
             left join app.ai_teammate_runs rn on rn.id = d.run_id
@@ -208,6 +215,7 @@ export const aiTeammateDraftList = defineQuery({
             left join app.people p on p.id = d.person_id
             left join app.leads l on l.id = d.lead_id
             left join app.users u on u.id = d.decided_by
+            left join app.custom_records cr on cr.id = d.custom_record_id
             where d.workspace_id = ${input.workspaceId}
               ${input.status === 'pending' ? sql`and d.status = 'pending'` : input.status === 'decided' ? sql`and d.status <> 'pending'` : sql``}
               ${input.kind ? sql`and d.kind = ${input.kind}` : sql``}

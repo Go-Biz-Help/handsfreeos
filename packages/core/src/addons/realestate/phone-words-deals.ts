@@ -492,6 +492,13 @@ export const RE_DOCUMENTS_WORDS = {
   added: (title: string) => `${title} added. It uploads when there’s signal.`,
   openNeedsSignal: (size: string | null) =>
     `Opening it needs signal.${size ? ` It’s ${size} and` : ' It'} stays at HandsFreeOS, not on this phone.`,
+  // Round seven: current documents are kept on the phone, encrypted, to open with no signal.
+  keptHere: (size: string | null) =>
+    `On this phone${size ? ` · ${size}` : ''}. It opens with no signal.`,
+  comingHere: 'It comes onto this phone on Wi‑Fi. Until then, opening it needs signal.',
+  keepHere: 'Keep on this phone',
+  keepHereDetail: 'A replaced or void version is kept here only if you ask.',
+  noViewer: 'Nothing on this phone can open this kind of file.',
   open: 'Open it',
   opening: 'Opening…',
   cantOpen: 'It couldn’t be opened. Try again in a minute.',

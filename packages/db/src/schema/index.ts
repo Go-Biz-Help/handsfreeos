@@ -1527,6 +1527,27 @@ export const messages = app.table('messages', {
   social: jsonb('social').$type<SocialExtras>().notNull().default({}),
 });
 
+/**
+ * A sealed value an email carries (round seven): its body has `marker`, and the worker puts the value in place only
+ * as it sends. The worker's alone: no person's role can read it.
+ */
+export const messageSealedParts = app.table(
+  'message_sealed_parts',
+  {
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    workspaceId: workspaceRef(),
+    marker: text('marker').notNull(),
+    valueEnc: text('value_enc').notNull(),
+    addonId: text('addon_id').notNull(),
+    key: text('key').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.messageId, t.position] })],
+);
+
 export const calls = app.table('calls', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -3177,7 +3198,7 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   }),
   personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
-  /** reply, approval, call. */
+  /** reply, approval, call, ask (round seven). */
   kind: text('kind').notNull(),
   status: workflowApprovalStatus('status').notNull().default('pending'),
   preview: jsonb('preview').$type<Json>().notNull().default({}),
@@ -3194,6 +3215,10 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   sentAt: ts('sent_at'),
   /** Its thread's member_viewer_ids (20261012020100), kept by trigger. */
   memberViewerIds: memberViewerIds(),
+  /** An ask's add-on record (round seven): whoever decides it must be able to see it. */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'cascade',
+  }),
   ...timestamps(),
 });
 
@@ -6212,6 +6237,8 @@ export const safetyCheckins = app.table('safety_checkins', {
   latitude: numeric('latitude', { precision: 9, scale: 6 }),
   longitude: numeric('longitude', { precision: 9, scale: 6 }),
   locatedAt: ts('located_at'),
+  /** The phone shares where it is until the check-in ends (round seven); safety.where keeps only the latest. */
+  follows: boolean('follows').notNull().default(false),
   startedAt: ts('started_at').notNull(),
   plannedEndAt: ts('planned_end_at').notNull(),
   extendedCount: integer('extended_count').notNull().default(0),

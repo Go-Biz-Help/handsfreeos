@@ -7,6 +7,7 @@
 import type { AddonManifest, RequestMeta, SystemActor } from '@hfos/core/server';
 import type { FastifyInstance } from 'fastify';
 import type { z } from 'zod';
+import type { TeammateRule } from '../ai/scripted';
 import type { HttpDeps } from '../http/common';
 import type { ConnectionTester } from './connections';
 import type { AddonOAuthProvider } from './sign-ins';
@@ -107,11 +108,44 @@ export interface AddonWorkerModule {
    */
   readonly actions?: Readonly<Record<string, AddonWorkerAction>>;
   /**
+   * Sealed value (its manifest's `sealed`) → where one is kept: the sealed value of one of its rows (`itemId`) on a
+   * record, read as the worker, or null when there's none (round seven, http/addon-sealed.ts).
+   */
+  readonly sealed?: Readonly<Record<string, AddonSealedReader>>;
+  /**
+   * Round seven: what's wrong with the AI teammate's reply before it goes (its manifest's `teammate.checksReplies`),
+   * while the teammate uses the add-on. Each problem in words for the person who'll look; none when it's fine. A
+   * flagged reply waits for a person, even when the teammate answers on its own.
+   */
+  readonly checkTeammateReply?: (
+    ctx: AddonScopeContext,
+    reply: TeammateReplyToCheck,
+  ) => Promise<readonly string[]>;
+  /**
    * Its own Playwright routes (`/test/<id>/…`), registered with the worker's other test routes: only with the fake
    * providers, never in production.
    */
   readonly testRoutes?: (app: FastifyInstance, deps: HttpDeps) => void;
+  /**
+   * Its lines for the scripted stand-in model's teammate (ASSISTANT_PROVIDER=scripted: local development and the
+   * browser suite, never production), tried before core's: how a customer's words reach its teammate tools.
+   */
+  readonly scriptedTeammate?: readonly TeammateRule[];
 }
+
+/** The AI teammate's reply an add-on checks (round seven). */
+export interface TeammateReplyToCheck {
+  readonly text: string;
+  readonly channel: 'sms' | 'email' | 'chat';
+  /** The customer it answers. */
+  readonly personId: string | null;
+}
+
+/** Reads one sealed value of an add-on's: the row's, if it's on that record in that business. */
+export type AddonSealedReader = (
+  tx: Tx,
+  at: { readonly workspaceId: string; readonly recordId: string; readonly itemId: string },
+) => Promise<string | null>;
 
 /** One of an add-on's worker actions: who may ask, what they give, and what it does (as the add-on, for them). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each action's own input; the route parses it first.

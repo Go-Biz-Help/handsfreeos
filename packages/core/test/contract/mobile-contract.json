@@ -3950,6 +3950,35 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "sealedParts": {
+            "default": [],
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "marker": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 120
+                },
+                "sealed": {
+                  "type": "string",
+                  "maxLength": 8200,
+                  "pattern": "^sealed:v1\\.[0-9a-f]{8}\\.[A-Za-z0-9_-]{16}\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{1,8000}$"
+                },
+                "addonId": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2,16}$"
+                },
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                }
+              },
+              "required": ["marker", "sealed", "addonId", "key"]
+            }
           }
         },
         "required": ["workspaceId", "body"]
@@ -8122,6 +8151,9 @@
             "type": "number",
             "minimum": -180,
             "maximum": 180
+          },
+          "follow": {
+            "type": "boolean"
           }
         },
         "required": ["workspaceId", "id", "place", "plannedEndAt"]
@@ -8196,6 +8228,33 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "safety.where": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": ["workspaceId", "checkInId", "latitude", "longitude"]
       }
     },
     "subscription.request_card": {
@@ -8941,6 +9000,27 @@
         "required": ["workspaceId"]
       }
     },
+    "file.fingerprints": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileIds": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "fileIds"]
+      }
+    },
     "form.response_export": {
       "input": {
         "type": "object",
@@ -9238,6 +9318,22 @@
       }
     },
     "realestate.listing.prices": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dealId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "dealId"]
+      }
+    },
+    "realestate.lockbox.list": {
       "input": {
         "type": "object",
         "properties": {

@@ -98,7 +98,21 @@ export const PHONE_SETTINGS_WORDS = {
   deleteAccount: 'Delete my account',
   footnote: 'Business settings, texting, payments and members are on the web.',
   myCellDetail: 'Where Call rings you first',
+  /** Documents an add-on keeps on the phone (round seven): Wi-Fi only unless this is on. */
+  documentsMobileData: 'Documents on mobile data',
 } as const;
+
+/** Under Documents on mobile data: how much the phone keeps, and what the switch does. */
+export function keptDocumentsLine(usedBytes: number, limitBytes: number): string {
+  const off = 'Off, they download on Wi‑Fi only.';
+  if (usedBytes <= 0) return `Documents on your deals are kept here to open with no signal. ${off}`;
+  const gb = limitBytes / (1024 * 1024 * 1024);
+  const used =
+    usedBytes >= 1024 * 1024 * 1024
+      ? `${(usedBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+      : `${Math.max(1, Math.round(usedBytes / (1024 * 1024)))} MB`;
+  return `${used} of ${gb} GB kept here, encrypted. ${off}`;
+}
 
 /**
  * What the Businesses row says under its label: none kept, some still coming down, or the ones that work with no

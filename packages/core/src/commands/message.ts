@@ -9,6 +9,7 @@ import {
   conversations,
   files,
   messages,
+  messageSealedParts,
   metaAccounts,
   metaContacts,
   optOuts,
@@ -915,6 +916,18 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     activityId,
     campaignRecipientId: input.campaignRecipientId ?? null,
   });
+  if (input.sealedParts.length)
+    await ctx.tx.insert(messageSealedParts).values(
+      input.sealedParts.map((part, i) => ({
+        messageId,
+        position: i + 1,
+        workspaceId,
+        marker: part.marker,
+        valueEnc: part.sealed,
+        addonId: part.addonId,
+        key: part.key,
+      })),
+    );
   await ctx.tx
     .update(conversations)
     .set({
@@ -1361,6 +1374,21 @@ export const messageSend = defineCommand({
           message: 'Only HandsFreeOS itself sends a campaign email.',
         },
       ]);
+    // Sealed parts are HandsFreeOS's own (a lockbox code in a showing's access email), and each has its place.
+    if (input.sealedParts.length) {
+      if (ctx.actor.type !== 'system' || input.channel !== 'email')
+        throw HfosError.validation([
+          {
+            path: 'sealedParts',
+            message: 'Only HandsFreeOS itself sends an email with a sealed part.',
+          },
+        ]);
+      for (const part of input.sealedParts)
+        if (!input.body.includes(part.marker))
+          throw HfosError.validation([
+            { path: 'sealedParts', message: `The body has no place for ${part.marker}.` },
+          ]);
+    }
     // Only a person chooses to send when quiet hours end; HandsFreeOS's own texts wait for them on their own.
     if (input.sendAfterQuietHours && ctx.actor.type !== 'human')
       throw HfosError.validation([

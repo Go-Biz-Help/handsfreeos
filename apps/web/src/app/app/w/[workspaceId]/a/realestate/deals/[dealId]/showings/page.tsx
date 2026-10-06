@@ -7,7 +7,10 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Showings' };
 
-/** A listing's showings (round five): from its page and ShowingTime's emails, what buyers said, and how they work. */
+/**
+ * A listing's showings (round five): from its page and ShowingTime's emails, what buyers said, and how they work; its
+ * lockboxes and who opened them (round seven).
+ */
 export default async function RealestateShowingsPage({
   params,
 }: {
@@ -23,8 +26,9 @@ export default async function RealestateShowingsPage({
     ]);
     // Showings are a listing's; a buyer's tours are their own page.
     if (deal.deal.side !== 'listing') notFound();
-    const [list, brandedOrigin] = await Promise.all([
+    const [list, lockboxes, brandedOrigin] = await Promise.all([
       api.POST('/v1/queries/realestate.showing.list', inDeal).then(unwrapPage),
+      api.POST('/v1/queries/realestate.lockbox.list', inDeal).then(unwrapPage),
       brandedOriginFor(api, workspaceId),
     ]);
     return (
@@ -34,6 +38,7 @@ export default async function RealestateShowingsPage({
         dealName={deal.deal.name}
         timeZone={got.workspace.timezone}
         list={list}
+        lockboxes={lockboxes}
         live={!deal.deal.outcome && !deal.deal.archived}
         brandedOrigin={brandedOrigin}
       />

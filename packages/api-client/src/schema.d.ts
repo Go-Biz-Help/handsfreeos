@@ -8577,6 +8577,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.lockbox.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Takes a lockbox off a listing, and its code with it.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.lockbox.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockbox: its kind, where it is, its serial, and its code (sealed on the way, never shown back here).
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.match.dismiss": {
         parameters: {
             query?: never;
@@ -10308,7 +10348,7 @@ export interface paths {
         put?: never;
         /**
          * Check in somewhere you’re alone, with when you plan to leave. If you don’t check out, HandsFreeOS asks you, then tells your safety contacts where you were.
-         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires workspace.read. Emits safety.checked_in, safety.checked_out. Can wait on a phone with no signal.
          */
         post: operations["command_safety_check_in"];
         delete?: never;
@@ -10411,6 +10451,26 @@ export interface paths {
          * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
          */
         post: operations["command_safety_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/safety.where": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where your phone is now, while you’re checked in and sharing it. Only the latest spot is kept, for your contacts if they’re told.
+         * @description Risk level 0. Requires workspace.read. Emits . Can wait on a phone with no signal.
+         */
+        post: operations["command_safety_where"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13677,6 +13737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/file.fingerprints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What files held when they arrived, so a phone can check the copies it keeps.
+         * @description Requires records.read.
+         */
+        post: operations["query_file_fingerprints"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/file.list": {
         parameters: {
             query?: never;
@@ -15791,6 +15871,26 @@ export interface paths {
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_listing_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/realestate.lockbox.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A listing’s lockboxes (never their codes) and the latest times they were opened.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_lockbox_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27039,6 +27139,13 @@ export interface operations {
                         /** @enum {string} */
                         kind: "carousel";
                     };
+                    /** @default [] */
+                    sealedParts?: {
+                        addonId: string;
+                        key: string;
+                        marker: string;
+                        sealed: string;
+                    }[];
                     /** @default false */
                     sendAfterQuietHours?: boolean;
                     subject?: string;
@@ -35346,6 +35453,101 @@ export interface operations {
             };
         };
     };
+    command_realestate_lockbox_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_lockbox_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code?: string | null;
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                    place?: string | null;
+                    serial?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_realestate_match_dismiss: {
         parameters: {
             query?: never;
@@ -39103,6 +39305,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     appointmentId?: string;
+                    follow?: boolean;
                     /** Format: uuid */
                     id: string;
                     latitude?: number;
@@ -39336,6 +39539,42 @@ export interface operations {
                         alertAfterMinutes: number;
                         askAfterMinutes: number;
                         safetyUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_safety_where: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkInId: string;
+                    latitude: number;
+                    longitude: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkInId: string;
+                        kept: boolean;
+                        open: boolean;
                     };
                 };
             };
@@ -44542,7 +44781,7 @@ export interface operations {
                     conversationId?: string;
                     cursor?: string;
                     /** @enum {string} */
-                    kind?: "reply" | "approval" | "call";
+                    kind?: "reply" | "approval" | "call" | "ask";
                     /** @default 50 */
                     limit?: number;
                     /**
@@ -44583,7 +44822,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "reply" | "approval" | "call";
+                            kind: "reply" | "approval" | "call" | "ask";
                             knowledge: unknown[];
                             lead: {
                                 /** Format: uuid */
@@ -44747,6 +44986,19 @@ export interface operations {
                                     summary: string;
                                 })[];
                                 /** @default null */
+                                ask: {
+                                    addonId: string;
+                                    addonName: string;
+                                    input: {
+                                        [key: string]: unknown;
+                                    };
+                                    operation: string;
+                                    /** Format: uuid */
+                                    recordId: string;
+                                    summary: string;
+                                    tool: string;
+                                } | null;
+                                /** @default null */
                                 call: {
                                     /** Format: uuid */
                                     aiCallId: string;
@@ -44761,6 +45013,11 @@ export interface operations {
                                     percent: number;
                                     reason: string;
                                 } | null;
+                                /** @default [] */
+                                flags: {
+                                    addonName: string;
+                                    message: string;
+                                }[];
                                 /** @default null */
                                 message: {
                                     body: string;
@@ -44773,6 +45030,12 @@ export interface operations {
                                 } | null;
                             };
                             reason: string | null;
+                            /** @default null */
+                            record: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string | null;
+                            } | null;
                             runId: string | null;
                             /** @enum {string} */
                             status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
@@ -49092,6 +49355,41 @@ export interface operations {
                             voidedAt: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_file_fingerprints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fileIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: {
+                            /** Format: uuid */
+                            id: string;
+                            locked: boolean;
+                            sha256: string | null;
+                        }[];
                     };
                 };
             };
@@ -56948,6 +57246,60 @@ export interface operations {
                             withdrawnReason: string | null;
                             words: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_lockbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lockboxes: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        }[];
+                        openings: {
+                            booked: boolean;
+                            company: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lockboxId: string | null;
+                            /** Format: date-time */
+                            openedAt: string;
+                            openedBy: string | null;
+                            showingId: string | null;
+                            /** @enum {string} */
+                            vendor: "sentrilock" | "supra";
+                        }[];
                     };
                 };
             };

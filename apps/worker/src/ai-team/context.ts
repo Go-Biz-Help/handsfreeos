@@ -16,6 +16,7 @@ import {
   chatVerified,
   LeadQualification,
   parseStoredForm,
+  loadActiveAddons,
   loadCalendar,
   localDateOf,
   openHoursOf,
@@ -402,6 +403,11 @@ export interface RunContext {
    * (Automations' "Referral mentioned"): the reply thanks them.
    */
   readonly referral?: RunReferral | null;
+  /**
+   * Round seven: the add-ons running in the business, whose teammate tools it may use for this customer. None for a
+   * first message, an unverified chat, or a conversation with nobody on file.
+   */
+  readonly addons?: readonly string[];
   /** For the safety check: the business's own links, numbers and addresses, and this customer's. */
   readonly allowed: {
     readonly domains: readonly string[];
@@ -537,6 +543,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     history,
     matches,
     referral,
+    addons: conv && customer && !unverifiedChat ? await loadActiveAddons(tx, ws) : [],
     allowed: await allowedFor(tx, ws, grounding.business.website, input.webUrl, contacts),
   };
 }
