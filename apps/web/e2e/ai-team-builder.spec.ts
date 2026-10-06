@@ -36,15 +36,20 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
     status: 'published',
   });
 
-  // In the drawer after Knowledge. With no teammate yet: "How should your AI teammate work?"
+  // In the drawer after Knowledge. With no teammate yet, quick setup; "Set it up myself" shows the presets:
+  // "How should your AI teammate work?"
   const nav = page.getByRole('navigation', { name: 'Workspace' });
   const links = await nav.getByRole('link').allTextContents();
   expect(links.indexOf('AI teammate')).toBe(links.indexOf('Knowledge') + 1);
   await nav.getByRole('link', { name: 'AI teammate' }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team$`));
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team/setup$`));
+  await expect(page.getByTestId('ai-setup')).toHaveAttribute('data-step', 'business');
+  await page.getByTestId('ai-setup-myself').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team\\?myself=1$`));
   await expect(
     page.getByRole('heading', { name: 'How should your AI teammate work?' }),
   ).toBeVisible();
+  await expect(page.getByTestId('ai-setup-quick-instead')).toBeVisible();
 
   // Blank means blank: nothing turned on, so no labels yet.
   const blank = page.getByTestId('teammate-preset-blank');

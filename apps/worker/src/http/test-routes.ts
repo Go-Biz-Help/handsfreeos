@@ -11,6 +11,10 @@
  * table's check refuse anything else), so this starts a scan of the saved website the way
  * knowledge_scan.requested does, except that its job reads `url`. The worker's loop (or run-due) then reads it.
  *
+ * POST /test/ai-setup/read-at { workspaceId, url } has quick setup read a local fixture site (one of
+ * FETCH_TEST_ORIGINS) in place of the business's website, the way `ai_setup.read_requested` has the saved website
+ * read: what it reads is kept for the saved address. The worker's loop then reads it.
+ *
  * POST /test/outbox/skip-stale { before } marks the outbox's pending rows written before `before` as done, with a
  * note saying why. The core, DB and worker suites leave thousands of events behind in the shared local database,
  * and a browser run's worker would otherwise spend minutes on them before reaching the specs' own. Playwright's
@@ -37,6 +41,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
+import { READ_SITE_JOB } from '../ai-setup/read-site';
 import { registerTeammateTestRoutes } from '../ai-team/test-routes';
 import { registerAttentionTestRoutes } from '../attention/test-routes';
 import { registerMoneyTestRoutes } from '../money/test-routes';
@@ -66,6 +71,37 @@ const SkipStale = z.object({ before: z.iso.datetime({ offset: true }) });
 
 const MakeStaff = z.object({ email: z.email().max(320) });
 const TransferIn = z.object({ workspaceId: z.uuid(), e164: phoneRequired.optional() });
+
+/** `url` on one of the local test sites, without its query; refused otherwise. */
+function testSiteUrl(url: string, origins: readonly string[] | undefined): string {
+  let target: URL | null = null;
+  try {
+    target = new URL(url);
+  } catch {
+    // Refused below.
+  }
+  if (!target || !(origins ?? []).includes(target.origin))
+    throw new HfosError(
+      'validation',
+      400,
+      'Read only a local test site listed in FETCH_TEST_ORIGINS.',
+      [{ path: 'url', message: 'Not one of FETCH_TEST_ORIGINS.' }],
+      'not_a_test_origin',
+    );
+  return `${target.origin}${target.pathname}`;
+}
+
+/** The business's organization, for the worker's scope. */
+async function scopeOf(deps: HttpDeps, workspaceId: string) {
+  const [ws] = await asWorker(deps.db, { workspaceId }, (tx) =>
+    rows<{ organization_id: string }>(
+      tx,
+      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+    ),
+  );
+  if (!ws) throw HfosError.notFound('Workspace not found.');
+  return { workspaceId, organizationId: ws.organization_id };
+}
 
 /** What an outbox row skipped by /test/outbox/skip-stale says. */
 export const STALE_SKIP_NOTE = 'skipped: left by another suite before this browser run';
@@ -229,29 +265,8 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
 
   app.post('/test/knowledge/scan-at', async (req) => {
     const body = parseBody(ScanAt, req.body ?? {});
-    let target: URL | null = null;
-    try {
-      target = new URL(body.url);
-    } catch {
-      // Refused below.
-    }
-    if (!target || !(test.fetchTestOrigins ?? []).includes(target.origin))
-      throw new HfosError(
-        'validation',
-        400,
-        'Scan only a local test site listed in FETCH_TEST_ORIGINS.',
-        [{ path: 'url', message: 'Not one of FETCH_TEST_ORIGINS.' }],
-        'not_a_test_origin',
-      );
-    const url = `${target.origin}${target.pathname}`;
-    const [ws] = await asWorker(deps.db, { workspaceId: body.workspaceId }, (tx) =>
-      rows<{ organization_id: string }>(
-        tx,
-        sql`select organization_id from app.workspaces where id = ${body.workspaceId}`,
-      ),
-    );
-    if (!ws) throw HfosError.notFound('Workspace not found.');
-    const scope = { workspaceId: body.workspaceId, organizationId: ws.organization_id };
+    const url = testSiteUrl(body.url, test.fetchTestOrigins);
+    const scope = await scopeOf(deps, body.workspaceId);
     return asWorker(deps.db, scope, async (tx) => {
       const [source] = await rows<{ id: string }>(
         tx,
@@ -285,6 +300,36 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
         organizationId: scope.organizationId,
       });
       return { scanId: scan!.id, url };
+    });
+  });
+
+  app.post('/test/ai-setup/read-at', async (req) => {
+    const body = parseBody(ScanAt, req.body ?? {});
+    const url = testSiteUrl(body.url, test.fetchTestOrigins);
+    const scope = await scopeOf(deps, body.workspaceId);
+    return asWorker(deps.db, scope, async (tx) => {
+      const [source] = await rows<{ id: string; url: string }>(
+        tx,
+        sql`select id, url from app.knowledge_sources where workspace_id = ${scope.workspaceId}`,
+      );
+      if (!source) throw HfosError.conflict('Add the website address first.', 'no_website');
+      // Its own job beside the one the first screen queued, which can't reach the saved address in tests.
+      await scheduleJob(tx, {
+        kind: READ_SITE_JOB,
+        dedupeKey: `${READ_SITE_JOB}:${source.id}:test:${randomUUID()}`,
+        runAt: new Date(),
+        payload: {
+          sourceId: source.id,
+          website: source.url,
+          url,
+          requestedBy: null,
+          correlationId: randomUUID(),
+          causationId: null,
+        },
+        workspaceId: scope.workspaceId,
+        organizationId: scope.organizationId,
+      });
+      return { url };
     });
   });
 }

@@ -7,9 +7,10 @@ apply. At the end the business has a teammate that knows its business, website a
 it, and a button to turn it on with training wheels. Everything else stays on today's full settings page, one link
 away.
 
-> **Status: steps 1 and 2 of §11 are built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
-> `ai_setup.save` and `ai_setup.finish`; the worker: reading the website for the screens, and insurance questions
-> that aren't emergencies). The flow chart the owner approved is the "AI quick setup flow" artifact.
+> **Status: steps 1 to 3 of §11 are built** (core: the kinds, the answers, the plan and its words, `ai_setup.get`,
+> `ai_setup.save` and `ai_setup.finish`; the worker: reading the website for the screens, quick facts included, and
+> insurance questions that aren't emergencies; the web: the screens, the summary, the test chat and turning it on).
+> The flow chart the owner approved is the "AI quick setup flow" artifact.
 
 ---
 
@@ -230,6 +231,23 @@ policy covers" and "Insurance claims" go to a person by what customers say ("Am 
 The screens of §4 on the AI teammate page and in Getting started's AI step, with "Set it up myself" leading to
 today's screens. Turning it on is `ai_teammate.set_status`. Read `apps/web/AGENTS.md` first.
 
+- **Where:** `/app/w/<id>/ai-team/setup`, for owners and admins (`ai_team.manage`). The AI teammate page sends them
+  there until the business has a teammate; "Set it up myself" shows the presets at `/ai-team?myself=1`, with a link
+  back. Getting started's AI step shows the same screens until there's a teammate (`?myself=1` for the presets).
+  After Save the address gets `?at=try`, so the test chat stays on screen when the page is loaded again.
+- **The parts:** `components/ai-setup/quick-setup.tsx` is the frame (one screen at a time, Back and Next, the
+  summary beside them, carry on or start over, and what will change before saving a run again); `screens.tsx` has
+  screens 1 to 11 and `fields.tsx` their controls; `try-ava.tsx` is screen 12. `lib/ai-setup/` loads and saves
+  through the API.
+- **As Ava reads:** what it reads fills in the screens not finished yet, unless the person changed that answer:
+  live, and by asking again every 4 seconds while `state.reading` is true or the scan runs. A quick fact the website
+  answered says "From your website. Check it’s right." until it's changed.
+- **The test chat** is the builder's test console (the worker's `POST /v1/ai-team/test`) with the saved settings:
+  nothing is sent. A question that went to a person gets "Add the answer", a published answer in Knowledge, and
+  is asked again. "Turn on with training wheels" sets the status; "Not yet" leaves it off.
+- **The activity log** says "started quick setup", "asked the AI teammate to read …", "read … for quick setup and
+  found …" and "saved quick setup for Ava: …".
+
 ## 8. Phone
 
 The same screens in the phone app (8B, 59), from the same core functions and words, so an owner can start on the
@@ -254,7 +272,7 @@ Each step is its own pull request.
 
 1. **Core** ✓: kinds, answers, plan, summary, words; `ai_setup.get`, `ai_setup.save`, `ai_setup.finish`; tests.
 2. **Worker** ✓: the profile and qualifying questions from the website; the insurance false alarm.
-3. **Web**: the screens, the summary, the test chat and its report, turning it on.
+3. **Web** ✓: the screens, the summary, the test chat and its report, turning it on.
 4. **Phone**: the same screens.
 5. **Agencies**: saving answers as a starting point (with its migration).
 6. **Tidy**: today's full settings page.
@@ -274,3 +292,8 @@ Each step is its own pull request.
   the reports that still are, the topics each kind adds found by what customers say, and a law firm's leads.
 - `apps/worker/test/ai-team-safety.test.ts`: a law firm's lead who wants to sue someone gets an answer, and a
   threat against the firm goes to a person.
+- `apps/web/e2e/ai-quick-setup.spec.ts` (browser): the AI teammate page opening quick setup, the first screen, the
+  screens filling in from the stand-in site (read through the worker's `/test/ai-setup/read-at`), quick facts marked
+  as the website's, the summary following the name, findings, Save, the test chat with "Add the answer", turning
+  it on, and a second run where nothing changes. The preset specs (`ai-team-builder`, `ai-team-mobile`,
+  `getting-started`) reach the presets through "Set it up myself".

@@ -1,3 +1,5 @@
+import { AI_SETUP_WORDS } from '@hfos/core';
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { TeammateGet } from '@/lib/ai-team/types';
@@ -19,26 +21,54 @@ export function AiTeamIntro() {
   );
 }
 
-/** The Teammate tab: the preset picker until the business has a teammate, then its builder. */
+/** Back to quick setup, above the presets "Set it up myself" shows. */
+export function QuickSetupInstead({ href }: { href: string }) {
+  return (
+    <p className="text-[13.5px] text-text-2">
+      {AI_SETUP_WORDS.quickInstead}{' '}
+      <Link
+        href={href}
+        className="font-medium text-accent-text hover:underline"
+        data-testid="ai-setup-quick-instead"
+      >
+        {AI_SETUP_WORDS.quickSetup}
+      </Link>
+    </p>
+  );
+}
+
+/**
+ * The Teammate tab: the preset picker until the business has a teammate, then its builder. `quickSetupHref` is the
+ * way back to quick setup for someone who chose "Set it up myself".
+ */
 export function TeammateTab({
   workspaceId,
   workspaceName,
   data,
+  quickSetupHref = null,
 }: {
   workspaceId: string;
   workspaceName: string;
   data: TeammateGet;
+  quickSetupHref?: string | null;
 }) {
   if (!data.teammate)
     return (
       <>
         <AiTeamIntro />
         {data.canManage ? (
-          <TeammatePresetPicker
-            workspaceId={workspaceId}
-            workspaceName={workspaceName}
-            catalogs={data.catalogs}
-          />
+          <>
+            {quickSetupHref ? (
+              <div className="-mt-2 mb-4">
+                <QuickSetupInstead href={quickSetupHref} />
+              </div>
+            ) : null}
+            <TeammatePresetPicker
+              workspaceId={workspaceId}
+              workspaceName={workspaceName}
+              catalogs={data.catalogs}
+            />
+          </>
         ) : (
           <Card>
             <EmptyState title="No AI teammate yet">
