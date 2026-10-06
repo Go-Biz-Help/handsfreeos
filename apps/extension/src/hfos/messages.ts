@@ -24,6 +24,10 @@ export type ProfileSaved = Ok<'/v1/commands/outreach.profile.save'>;
 export type ChatInput = Body<'/v1/commands/outreach.chat.save'>;
 export type ChatSaved = Ok<'/v1/commands/outreach.chat.save'>;
 export type Me = Ok<'/v1/queries/account.me'>;
+/** A step noted on Facebook, and the day's numbers (packages/core/src/addons/outreach/activity.ts). */
+export type TouchInput = Body<'/v1/commands/outreach.touch.save'>;
+export type TouchSaved = Ok<'/v1/commands/outreach.touch.save'>;
+export type Activity = Ok<'/v1/queries/outreach.activity'>;
 
 /** A business the extension can save to: Social Outreach is on there, and the person may use it. */
 export interface Business {
@@ -48,6 +52,39 @@ export type Account =
       readonly webUrl: string;
     };
 
+/** One of the last steps noted, as the panel lists them. */
+export interface Noted {
+  readonly kind: TouchInput['kind'];
+  readonly name: string;
+  readonly at: string;
+  /** Kept in HandsFreeOS, waiting to be sent while it can't be reached, or not kept (`why` says). */
+  readonly state: 'saved' | 'waiting' | 'not_saved';
+  /** For a message: a chat started, or a follow-up. */
+  readonly step: TouchSaved['step'];
+  /** Noted already: the same post liked again, a second request within a day. */
+  readonly repeated: boolean;
+  readonly why: string | null;
+}
+
+/** The person's day on Facebook so far, for the panel (src/hfos/noting.ts). */
+export interface Today {
+  /**
+   * The day's numbers in the business it saves to: null when nobody's signed in, or there's nowhere to save, or
+   * HandsFreeOS couldn't say.
+   */
+  readonly activity: Activity | null;
+  /** Why the numbers couldn't be had, in words for the person: null when they could, or weren't asked for. */
+  readonly trouble: string | null;
+  readonly businessId: string | null;
+  readonly webUrl: string;
+  /** Whether the extension notes the steps the person takes: the switch in the panel. */
+  readonly noting: boolean;
+  /** Steps noted while HandsFreeOS couldn't be reached, sent when it can be. */
+  readonly waiting: number;
+  /** The last steps noted, the latest first. */
+  readonly recent: readonly Noted[];
+}
+
 export type HfosAsk =
   | { readonly type: 'hfos-account'; readonly fresh?: boolean }
   | { readonly type: 'hfos-send-code'; readonly email: string }
@@ -57,7 +94,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-pick'; readonly businessId: string }
   | { readonly type: 'hfos-lookup'; readonly input: LookupInput }
   | { readonly type: 'hfos-save-profile'; readonly input: ProfileInput }
-  | { readonly type: 'hfos-save-chat'; readonly input: ChatInput };
+  | { readonly type: 'hfos-save-chat'; readonly input: ChatInput }
+  | { readonly type: 'hfos-today' }
+  | { readonly type: 'hfos-noting'; readonly on: boolean };
 
 /** What each ask answers with. */
 export interface HfosValues {
@@ -70,6 +109,8 @@ export interface HfosValues {
   readonly 'hfos-lookup': Lookup;
   readonly 'hfos-save-profile': ProfileSaved;
   readonly 'hfos-save-chat': ChatSaved;
+  readonly 'hfos-today': Today;
+  readonly 'hfos-noting': Today;
 }
 
 export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
@@ -82,7 +123,12 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-lookup',
   'hfos-save-profile',
   'hfos-save-chat',
+  'hfos-today',
+  'hfos-noting',
 ]);
+
+/** What the background tells the extension's pages when it has noted a step: the day's numbers have changed. */
+export type Touched = { readonly type: 'hfos-touched' };
 
 /** Why something didn't work, in words for the person, and HandsFreeOS's rule when one refused it. */
 export interface Problem {

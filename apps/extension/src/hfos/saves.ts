@@ -1,9 +1,12 @@
 /**
- * What the panel sends HandsFreeOS when the person presses Save, and what it asks to learn which people and chats on
- * a page are saved already: the Social Outreach add-on's commands and look-up (packages/core/src/addons/outreach),
- * built from what the page showed and cut to what they take. Plain functions, so the tests check them.
+ * What the panel sends HandsFreeOS when the person presses Save, what it asks to learn which people and chats on a
+ * page are saved already, and what the background sends for each step the person takes on Facebook: the Social
+ * Outreach add-on's commands and look-up (packages/core/src/addons/outreach), built from what the page showed and
+ * cut to what they take. Plain functions, so the tests check them.
  */
 import {
+  GROUP_ID,
+  GROUP_SLUG,
   INTRO_LINE_MOST,
   INTRO_LINES,
   KEPT_MESSAGES,
@@ -14,9 +17,10 @@ import {
   USERNAME,
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
+import type { Step, StepGroup } from '../facebook/actions';
 import type { ChatPage, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
 import { profileKey } from '../facebook/urls';
-import type { Business, ChatInput, Me, ProfileInput } from './messages';
+import type { Business, ChatInput, Me, ProfileInput, TouchInput } from './messages';
 import { resolveWhen } from './when';
 
 type ChatMessage = ChatInput['messages'][number];
@@ -134,6 +138,54 @@ export function chatSave(
     kept.unshift(message);
   }
   return { ok: true, input: { ...input, messages: kept }, left: messages.length - kept.length };
+}
+
+/** A Facebook address as HandsFreeOS takes one: on www.facebook.com, over https, and not too long. */
+const facebookAddress = (url: string | null) =>
+  url && url.length <= 500 && url.startsWith('https://www.facebook.com/') ? url : null;
+
+/** A group as HandsFreeOS takes it: by its number, or by the name in its link when that's all the link showed. */
+function groupRef(group: StepGroup): TouchInput['group'] {
+  const id = GROUP_ID.test(group.id) ? group.id : null;
+  const slug = !id && GROUP_SLUG.test(group.id) ? group.id : null;
+  const url = facebookAddress(group.url);
+  if ((!id && !slug) || !url) return null;
+  const name = group.name ? clip(group.name, NAME_MOST) : '';
+  return { id, slug, url, name: name || null };
+}
+
+/**
+ * A step the person took on Facebook, to note: who it was to, the group they were found in (the page's, or the one
+ * the background remembers them by), and the post or chat, cut to what HandsFreeOS takes. Never what was written.
+ */
+export function touchSave(
+  step: Step,
+  workspaceId: string,
+  remembered: StepGroup | null = null,
+): Built<TouchInput> {
+  const profile = ref(step.to.profile);
+  const name = clip(step.to.name, NAME_MOST);
+  if ((!profile.id && !profile.username) || !facebookAddress(profile.url) || !name)
+    return { ok: false, why: 'Couldn’t tell whose profile it was.' };
+  const group = step.group ?? remembered;
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: 'facebook',
+      kind: step.kind,
+      profile,
+      name,
+      group: group ? groupRef(group) : null,
+      postUrl:
+        step.kind === 'like' || step.kind === 'comment' ? facebookAddress(step.postUrl) : null,
+      threadKey:
+        step.kind === 'message' && step.thread && THREAD_KEY.test(step.thread.id)
+          ? step.thread.id
+          : null,
+      replying: step.kind === 'message' ? step.replying : null,
+    },
+  };
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */

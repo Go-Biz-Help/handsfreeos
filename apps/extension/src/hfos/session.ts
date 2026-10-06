@@ -2,7 +2,8 @@
  * The extension's sign-in to HandsFreeOS and every call it makes there, in the background worker (./messages.ts).
  * Signing in works as on the phone: an emailed code or a password, for an account that already exists. The sign-in
  * is kept in the extension's own storage and refreshed when a call needs it. Every request says it's the extension
- * and which build; every save also says which save it is and when it was done, as the phone's do.
+ * and which build; every save also says which save it is and when it was done, as the phone's do. The steps the
+ * person takes on Facebook go through here too (./noting.ts).
  *
  * It saves only to businesses where Social Outreach is on and the person may use it: HandsFreeOS refuses the rest
  * (`addon_inactive`), and the panel then asks for the account again, which leaves that business out.
@@ -14,14 +15,19 @@ import { canSignIn, config } from './config';
 import type { Account, Business, HfosAnswer, HfosAsk, HfosValues, Problem } from './messages';
 import { outreachBusinesses } from './saves';
 
+/** The asks answered here; the day on Facebook and its switch are ./noting.ts's. */
+export type SessionAsk = Exclude<HfosAsk, { readonly type: 'hfos-today' | 'hfos-noting' }>;
+
 const SESSION_KEY = 'hfos.session';
 const BUSINESS_KEY = 'hfos.business';
+/** Where the person's steps on Facebook are noted, kept until they sign out (./noting.ts). */
+const PLACE_KEY = 'hfos.place';
 /** How long the person's businesses are taken as they were, before HandsFreeOS is asked again. */
 const ME_FOR_MS = 60_000;
 
 const NO_CONNECTION = 'Couldn’t reach HandsFreeOS. Check your internet connection, then try again.';
 
-class Refused extends Error {
+export class Refused extends Error {
   constructor(readonly problem: Problem) {
     super(problem.message);
   }
@@ -78,18 +84,21 @@ async function token(): Promise<string | null> {
 
 let hfos: ApiClient | null = null;
 
-function api(): ApiClient {
+export function api(): ApiClient {
   if (hfos) return hfos;
   hfos = createApiClient({ baseUrl: config.apiUrl, getToken: token });
   hfos.use({
     onRequest({ request }) {
       request.headers.set(APP_HEADERS.client, EXTENSION_CLIENT);
       request.headers.set(APP_HEADERS.appVersion, chrome.runtime.getManifest().version);
-      // A save is done the moment it's sent: a fresh id each time, since a second press is a second asking.
+      // A save is done the moment it's sent: a fresh id each time, since a second press is a second asking. A step
+      // noted on Facebook brings its own id and moment, kept while it waits to be sent (./noting.ts).
       if (request.url.includes('/v1/commands/')) {
         const now = new Date().toISOString();
-        request.headers.set(APP_HEADERS.commandId, crypto.randomUUID());
-        request.headers.set(APP_HEADERS.occurredAt, now);
+        if (!request.headers.has(APP_HEADERS.commandId))
+          request.headers.set(APP_HEADERS.commandId, crypto.randomUUID());
+        if (!request.headers.has(APP_HEADERS.occurredAt))
+          request.headers.set(APP_HEADERS.occurredAt, now);
         request.headers.set(APP_HEADERS.sentAt, now);
       }
       return request;
@@ -110,8 +119,30 @@ let me: {
 const businessName = (id: string) =>
   me?.businesses.find((b) => b.id === id)?.name ?? 'this business';
 
+/** Who's signed in and the business they save to. */
+export interface Place {
+  readonly userId: string;
+  readonly businessId: string;
+}
+
+const isPlace = (value: unknown): value is Place =>
+  typeof (value as Place | null)?.userId === 'string' &&
+  typeof (value as Place | null)?.businessId === 'string';
+
+/** The place last kept, so it's written only when it changes. */
+let placeKept: string | undefined;
+
+/** Keeps where the person saves, for when HandsFreeOS can't be reached to say; forgets it when they sign out. */
+async function keepPlace(place: Place | null): Promise<void> {
+  const json = JSON.stringify(place);
+  if (json === placeKept) return;
+  if (place) await chrome.storage.local.set({ [PLACE_KEY]: place });
+  else await chrome.storage.local.remove(PLACE_KEY);
+  placeKept = json;
+}
+
 /** An answer from HandsFreeOS, or what went wrong in words for the person. */
-async function call<T>(
+export async function call<T>(
   request: Promise<{ data?: T; error?: unknown; response: Response }>,
   workspaceId?: string,
 ): Promise<T> {
@@ -143,17 +174,21 @@ async function call<T>(
 
 async function signOutHere(): Promise<void> {
   me = null;
+  await keepPlace(null).catch(() => undefined);
   await auth()
     .signOut({ scope: 'local' })
     .catch(() => undefined);
 }
 
-async function account(fresh = false): Promise<Account> {
+export async function account(fresh = false): Promise<Account> {
   if (!canSignIn()) return { signedIn: false, canSignIn: false, webUrl: config.webUrl };
-  const { data } = await auth().getSession();
+  const { data, error } = await auth().getSession();
+  // A sign-in that needed refreshing and couldn't be is still a sign-in: HandsFreeOS is only out of reach.
+  if (error && isAuthRetryableFetchError(error)) throw refuse(NO_CONNECTION);
   const session = data.session;
   if (!session) {
     me = null;
+    await keepPlace(null);
     return { signedIn: false, canSignIn: true, webUrl: config.webUrl };
   }
   const stale = !me || me.userId !== session.user.id || Date.now() - me.at > ME_FOR_MS;
@@ -171,6 +206,7 @@ async function account(fresh = false): Promise<Account> {
   if (!me) return { signedIn: false, canSignIn: true, webUrl: config.webUrl };
   const picked: unknown = (await chrome.storage.local.get(BUSINESS_KEY))[BUSINESS_KEY];
   const business = me.businesses.find((b) => b.id === picked) ?? me.businesses[0] ?? null;
+  await keepPlace(business && { userId: me.userId, businessId: business.id });
   return {
     signedIn: true,
     email: me.email,
@@ -179,6 +215,23 @@ async function account(fresh = false): Promise<Account> {
     businessId: business?.id ?? null,
     webUrl: config.webUrl,
   };
+}
+
+/**
+ * Who's signed in and the business they save to, for the steps noted in the background: null when either is none.
+ * While HandsFreeOS can't be reached to say, it's where their steps last went, until they sign out.
+ */
+export async function savingTo(): Promise<Place | null> {
+  if (!canSignIn()) return null;
+  try {
+    const now = await account();
+    return now.signedIn && now.businessId && me
+      ? { userId: me.userId, businessId: now.businessId }
+      : null;
+  } catch {
+    const kept: unknown = (await chrome.storage.local.get(PLACE_KEY))[PLACE_KEY];
+    return isPlace(kept) ? kept : null;
+  }
 }
 
 // ----------------------------------------------------------------------------------- Supabase Auth's refusals
@@ -242,7 +295,7 @@ function passwordWords(error: unknown): string {
 
 // ------------------------------------------------------------------------------------------------- answering
 
-async function value(ask: HfosAsk): Promise<HfosValues[HfosAsk['type']]> {
+async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
   if (ask.type !== 'hfos-account' && !canSignIn())
     throw refuse('This build of the extension can’t sign in to HandsFreeOS.');
   switch (ask.type) {
@@ -298,12 +351,20 @@ async function value(ask: HfosAsk): Promise<HfosValues[HfosAsk['type']]> {
 }
 
 /** The answer to one of the panel's asks. Never throws: what went wrong comes back as a problem. */
-export async function answer(ask: HfosAsk): Promise<HfosAnswer<unknown>> {
+export function answer(ask: SessionAsk): Promise<HfosAnswer<unknown>> {
+  return answerWith(ask.type, () => value(ask));
+}
+
+/** What `work` came to, as an answer for the panel: what went wrong comes back as a problem. */
+export async function answerWith(
+  what: HfosAsk['type'],
+  work: () => Promise<unknown>,
+): Promise<HfosAnswer<unknown>> {
   try {
-    return { ok: true, value: await value(ask) };
+    return { ok: true, value: await work() };
   } catch (error) {
     if (error instanceof Refused) return { ok: false, problem: error.problem };
-    console.error('HandsFreeOS Social couldn’t answer', ask.type, error);
+    console.error('HandsFreeOS Social couldn’t answer', what, error);
     return {
       ok: false,
       problem: {

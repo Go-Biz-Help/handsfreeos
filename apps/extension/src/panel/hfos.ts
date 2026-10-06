@@ -6,17 +6,10 @@
 import type { ChatPage, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
 import { LOOKUP_NAMES, LOOKUP_PROFILES, LOOKUP_THREADS } from '@hfos/core/addons/outreach/limits';
 import { profileKey } from '../facebook/urls';
-import type {
-  Account,
-  Business,
-  HfosAnswer,
-  HfosAsk,
-  HfosValues,
-  Lookup,
-  Problem,
-} from '../hfos/messages';
+import type { Account, Business, HfosAnswer, Lookup, Problem } from '../hfos/messages';
 import { chatSave, nameKey, onPage, profileSave } from '../hfos/saves';
-import { button, chip, h, hfosLink, type Child } from './dom';
+import { ask } from './ask';
+import { ago, button, chip, counted, h, hfosLink, type Child } from './dom';
 
 type SameName = Lookup['sameName'][number]['people'][number];
 
@@ -51,6 +44,7 @@ const CODE = /^\d{6,10}$/;
 let box: HTMLElement;
 let say: (text: string) => void = () => undefined;
 let redraw: () => void = () => undefined;
+let accountChanged: () => void = () => undefined;
 
 /** Null until the background has said; a problem when it couldn't. */
 let account: Account | null = null;
@@ -62,25 +56,6 @@ let formError: string | null = null;
 let working = false;
 /** The people and chats being saved right now. */
 const saving = new Set<string>();
-
-/** Asks the background worker. */
-async function ask<T extends HfosAsk>(message: T): Promise<HfosAnswer<HfosValues[T['type']]>> {
-  try {
-    const answer: unknown = await chrome.runtime.sendMessage(message);
-    if (answer) return answer as HfosAnswer<HfosValues[T['type']]>;
-  } catch {
-    // The extension was reloaded under the panel.
-  }
-  return {
-    ok: false,
-    problem: {
-      message: 'The extension was updated or restarted. Close this panel and open it again.',
-      rule: null,
-      status: null,
-      recheck: false,
-    },
-  };
-}
 
 const personUrl = (personId: string) =>
   account?.signedIn && known
@@ -101,7 +76,10 @@ function take(next: Account): void {
   if (!business) known = null;
   else if (known?.business.id !== business.id || known.business.name !== business.name)
     known = new Known(business);
-  if (changed) drawAccount();
+  if (changed) {
+    drawAccount();
+    accountChanged();
+  }
   if (known !== before) {
     redraw();
     void lookUpAgain();
@@ -360,7 +338,7 @@ function signedInView(a: Extract<Account, { signedIn: true }>): HTMLElement {
             'span',
             { class: 'muted' },
             ' · ',
-            hfosLink('Playbooks', `${a.webUrl}/app/w/${a.businessId}/a/outreach`),
+            hfosLink('Playbooks', `${a.webUrl}/app/w/${a.businessId}/a/outreach?view=playbooks`),
           )
         : null,
     ),
@@ -505,18 +483,6 @@ async function saveChat(chat: ChatPage, personId?: string): Promise<void> {
 }
 
 // ------------------------------------------------------------------------------------------------- drawing
-
-function counted(count: number, thing: string): string {
-  return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
-}
-
-function ago(iso: string): string {
-  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${counted(minutes, 'minute')} ago`;
-  if (minutes < 24 * 60) return `${counted(Math.round(minutes / 60), 'hour')} ago`;
-  return `on ${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-}
 
 function block(...children: Child[]): HTMLElement {
   return h('div', { class: 'hfos' }, ...children);
@@ -677,10 +643,13 @@ export async function startHfos(options: {
   readonly into: HTMLElement;
   readonly say: (text: string) => void;
   readonly redraw: () => void;
+  /** The person signed in or out, or picked another business. */
+  readonly accountChanged: () => void;
 }): Promise<void> {
   box = options.into;
   say = options.say;
   redraw = options.redraw;
+  accountChanged = options.accountChanged;
   drawAccount();
   await loadAccount();
 }

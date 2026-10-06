@@ -1,8 +1,8 @@
 /**
  * What Social Outreach's saves take (docs/outreach.md): how long, how many, and the shape of a network's ids; and the
- * daily limits the activity panel counts against. The commands hold what's sent to these (./saves.ts,
- * ./activity.ts), and the browser extension cuts what it read to fit them before it sends. Plain values with no zod,
- * so the extension takes them without carrying zod along.
+ * steps the extension notes, with the daily limits the activity panel counts them against. The commands hold what's
+ * sent to these (./saves.ts, ./activity.ts), and the browser extension cuts what it read to fit them before it sends.
+ * Plain values with no zod, so the extension takes them without carrying zod along.
  */
 
 /** A chat keeps this many of its most recent messages, and a save sends at most this many. */
@@ -28,6 +28,23 @@ export const THREAD_KEY = /^[A-Za-z0-9._-]{1,64}$/;
 /** A group's number, and the name in its link instead (/groups/<this>/), as its links show them. */
 export const GROUP_ID = /^\d{1,30}$/;
 export const GROUP_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
+
+/** The steps the extension notes as the person takes them on Facebook (./activity.ts), as the panel names them. */
+export const TOUCH_KINDS = {
+  friend_request: 'Friend request',
+  like: 'Like',
+  comment: 'Comment',
+  message: 'Message',
+} as const;
+export type TouchKind = keyof typeof TOUCH_KINDS;
+export const TOUCH_KIND_KEYS = Object.keys(TOUCH_KINDS) as [TouchKind, ...TouchKind[]];
+
+/**
+ * A message's place in the outreach, which the daily limits count: the first to them (a chat started), or the first
+ * on a later day that isn't answering them (a follow-up). The rest of a day's messages, and answers, are neither.
+ */
+export const TOUCH_STEPS = ['first_message', 'follow_up'] as const;
+export type TouchStep = (typeof TOUCH_STEPS)[number];
 
 /**
  * The starting daily limits per Facebook account (docs/outreach.md): how many of each step a person takes in a day.

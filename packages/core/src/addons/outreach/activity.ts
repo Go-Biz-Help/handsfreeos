@@ -5,26 +5,24 @@
  * month. Browser-safe: the extension builds the notes, and the web and the extension draw the panel from these.
  */
 import { z } from 'zod';
-import { GROUP_ID, GROUP_SLUG, NAME_MOST, THREAD_KEY } from './limits';
+import {
+  GROUP_ID,
+  GROUP_SLUG,
+  NAME_MOST,
+  THREAD_KEY,
+  TOUCH_KIND_KEYS,
+  TOUCH_STEPS,
+} from './limits';
 import { PLATFORM_KEYS } from './playbooks';
 import { FacebookUrl, PersonName, ProfileRef } from './saves';
 
-/** The steps the extension notes, as the panel names them. */
-export const TOUCH_KINDS = {
-  friend_request: 'Friend request',
-  like: 'Like',
-  comment: 'Comment',
-  message: 'Message',
-} as const;
-export type TouchKind = keyof typeof TOUCH_KINDS;
-export const TOUCH_KIND_KEYS = Object.keys(TOUCH_KINDS) as [TouchKind, ...TouchKind[]];
-
-/**
- * A message's place in the outreach, which the daily limits count: the first to them (a chat started), or the first
- * on a later day that isn't answering them (a follow-up). The rest of a day's messages, and answers, are neither.
- */
-export const TOUCH_STEPS = ['first_message', 'follow_up'] as const;
-export type TouchStep = (typeof TOUCH_STEPS)[number];
+export {
+  TOUCH_KIND_KEYS,
+  TOUCH_KINDS,
+  TOUCH_STEPS,
+  type TouchKind,
+  type TouchStep,
+} from './limits';
 
 /** A group by its number, the name in its link, or both: whichever its links showed. */
 export const GroupRef = z

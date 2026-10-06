@@ -3,10 +3,11 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the second test build (Phase 1).** It reads the Facebook page you have open and shows what it found in
-Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, and saves the
-profile or chat you have open when you press its button. It never sends anything on Facebook, and never clicks,
-scrolls or changes the page.
+**This is the third test build (0.3.0).** It reads the Facebook page you have open and shows what it found in
+Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
+chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
+yourself, with the group you found each person in. It never sends anything on Facebook, and never clicks, scrolls or
+changes the page.
 
 ## What it reads
 
@@ -49,6 +50,31 @@ the panel still reads pages and says there's nowhere to save.
 Saved people link to their page in HandsFreeOS, where a **Social** card shows their profile and chats. Each save says
 what it did in the line under **Read this page**. If Social Outreach is turned off while the panel is open, the next
 save or look-up says so and the business leaves the list.
+
+## What it notes
+
+Signed in, the extension notes four steps as you take them on Facebook yourself, in any Facebook tab, with the panel
+open or not (decision 8 in docs/outreach.md). It notes who each step was to, never what you wrote.
+
+| Step           | Noted when you…                                                        | To                                                                  |
+| -------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Friend request | press **Add friend**                                                   | the profile it's at the top of, or the one person its card links to |
+| Like           | press **Like** on a post or a comment (not when you take a like back)  | whoever wrote the post or the comment                               |
+| Comment        | press Enter or the send button in a comment box with something in it   | whoever wrote the post, or the comment you're replying to           |
+| Message        | press Enter or the send button in a chat, or a chat window over a page | who the chat is with                                                |
+
+Each step is kept with the group you found the person in: the group whose page or post it was on, or the group you
+opened their profile from earlier (remembered until Chrome closes). HandsFreeOS works out whether a message started a
+chat, followed one up on a later day, or answered them. Noting adds nobody to Contacts: a person reached is kept with
+their profile until you save them.
+
+Left out: other reactions than Like, steps to yourself, and a step it can't tie to one person, such as a button on a
+card with several people. Popups and Facebook's other layouts may slip past; tell us what it missed, with an outline.
+
+**Today on Facebook**, in the panel, shows today's steps against the daily limits, the people reached and who wrote
+back, and the last few steps noted, with **See all** opening the activity on the Social Outreach page. **Note what I
+do on Facebook** turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
+up to 200, and go in order when it's back.
 
 ## Load it in Chrome
 
@@ -98,15 +124,23 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   so a reader never counts on what sits directly inside or beside an element: it goes by what comes before or after
   it on the page (`isBefore`, `elementsAfter`). `test/boxes.test.ts` reads every test page again with a bare box around
   each element and expects the same.
-- **Reading only, and only when asked.** The content script answers the panel and nothing else: it reads when the
-  panel asks, and while the panel watches its tab it says when the page has changed, so the panel can ask again. It
-  never writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions: you press
-  send by default, daily limits, and a stop for the day on any Facebook warning.
-- **Saving only when pressed.** Reading a page asks HandsFreeOS which people and chats on it are saved (the
-  add-on's `outreach.lookup`), and nothing is saved until the person presses a button. It saves through the add-on's
-  commands like any other client: `x-hfos-client: extension`, its version in `x-hfos-app-version`, and a command id
-  and moment on every save, so the API can hold old builds to `MIN_EXTENSION_VERSION` and the audit log says
-  "via browser extension".
+- **Reading only when asked, and noticing only the person.** The content script reads when the panel asks, and while
+  the panel watches its tab it says when the page has changed, so the panel can ask again. Besides that it only
+  listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
+  around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
+  what was written, writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions:
+  you press send by default, daily limits, and a stop for the day on any Facebook warning.
+- **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on
+  it are saved (the add-on's `outreach.lookup`), and nothing is saved until the person presses a button. The four
+  steps are the exception, noted with `outreach.touch.save` as they're taken, and adding nobody to Contacts. Both go
+  through the add-on's commands like any other client: `x-hfos-client: extension`, its version in
+  `x-hfos-app-version`, and a command id and moment on every save, so the API can hold old builds to
+  `MIN_EXTENSION_VERSION` and the audit log says "via browser extension".
+- **A step is counted once.** It gets its command id and moment when it's noted and keeps both while it waits, so
+  sending it again gets the first answer (`src/hfos/noting.ts`). Waiting steps live in the extension's storage and
+  go oldest first; one HandsFreeOS refuses is let go and shown as **Not saved**, with why.
+- **Steps are found like pages are read:** by the button's label, the links around it and page order, never class
+  names. `test/actions.test.ts` takes each step on the hand-written pages, and again with bare boxes around everything.
 - **The background worker holds the sign-in.** It keeps the Supabase session in the extension's own storage and
   makes every call to HandsFreeOS (`src/hfos/session.ts`); the panel asks it (`src/hfos/messages.ts`), and it
   answers only the extension's own pages. One holder means panels in two windows never refresh the sign-in at once.
@@ -122,18 +156,20 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                         |
-| ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the address rules, Facebook's words and the outline        |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks                                |
-| `src/panel/`, `public/` | The side panel; `src/panel/hfos.ts` is signing in, what's saved, and the Save buttons              |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves built from a read, and Facebook's times |
-| `src/background.ts`     | Opens the side panel from the toolbar button, and answers the panel's HandsFreeOS asks             |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`              |
-| `test/`                 | The readers against the hand-written pages, the addresses, the outline's hiding, and the saves     |
+| Path                    | What it is                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline |
+| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices the four steps     |
+| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved and the Save buttons, `today.ts` the day      |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, and Facebook's times   |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it    |
+| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`               |
+| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves     |
 
 ## Next
 
-The rest of Phase 1: bringing in Facebook's download file (friends, followers, chats, groups) with AI summaries and
-tags, scoring groups and their members, and the day's list of friend requests, openers and follow-ups, which you send
-and HandsFreeOS logs and counts against the daily limits. Safari on Mac follows in Phase 2.
+Friends, in the owner's order (decision 13): requests received, the friends list, Keep and Don't pitch, cancelling
+requests nobody answered, and unfriending. Then the rest of Phase 1: bringing in Facebook's download file (friends,
+followers, chats, groups) with AI summaries and tags, scoring groups and their members, and the day's list of friend
+requests, openers and follow-ups, which you send and HandsFreeOS notes and counts against the daily limits. Safari on
+Mac follows in Phase 2.

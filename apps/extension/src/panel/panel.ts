@@ -2,9 +2,9 @@
  * The side panel. It asks the Facebook tab beside it to read the page and shows what came back, and with "Read when
  * the page changes" on it reads again when the tab goes somewhere new, reloads, or says its page changed (more posts
  * as you scroll, a new message). Signed in to HandsFreeOS (./hfos.ts), it marks the people and chats saved there and
- * saves the ones the person picks; nothing is sent until they press Save. "Copy page outline" and "Save page outline"
- * give the page's shape with names and words hidden, to send to whoever is tuning the readers when the panel gets a
- * page wrong.
+ * saves the ones the person picks; nothing is saved until they press Save. Above, it shows the day's steps on
+ * Facebook against the daily limits (./today.ts). "Copy page outline" and "Save page outline" give the page's shape
+ * with names and words hidden, to send to whoever is tuning the readers when the panel gets a page wrong.
  */
 import { runsGroup } from '../facebook/people';
 import type {
@@ -21,7 +21,7 @@ import type {
 } from '../facebook/types';
 import { facebookUrl } from '../facebook/urls';
 import { WATCH, type Answer, type Ask, type Note } from '../messages';
-import { chip, clip, h, link, type Child } from './dom';
+import { chip, clip, counted, h, link, type Child } from './dom';
 import {
   chatBlock,
   forget,
@@ -32,6 +32,7 @@ import {
   savedChip,
   startHfos,
 } from './hfos';
+import { refreshToday, startToday } from './today';
 
 const KIND: Record<PageKind, string> = {
   profile: 'A profile',
@@ -308,11 +309,6 @@ function noticesView(notices: readonly Notice[]): HTMLElement {
   );
 }
 
-/** "1 comment", "6 comments". */
-function counted(count: number, thing: string): string {
-  return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
-}
-
 function resultView(result: ReadResult): HTMLElement[] {
   const parts: (HTMLElement | null)[] = [
     result.warnings.length
@@ -350,6 +346,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 // --------------------------------------------------------------------------------------------------- state
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
+const todayBox = document.querySelector<HTMLElement>('#today')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -494,6 +491,7 @@ function later(): void {
 
 readButton.addEventListener('click', () => {
   void refreshAccount();
+  void refreshToday();
   void read();
 });
 
@@ -541,7 +539,8 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 async function start(): Promise<void> {
-  void startHfos({ into: accountBox, say, redraw });
+  void startHfos({ into: accountBox, say, redraw, accountChanged: () => void refreshToday() });
+  startToday(todayBox);
   windowId = (await chrome.windows.getCurrent()).id;
   try {
     const stored = await chrome.storage.local.get(AUTO_READ);
