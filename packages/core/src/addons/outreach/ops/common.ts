@@ -8,8 +8,10 @@ import { fullName, requirePerson } from '../../../crm/records';
 import { personCreate } from '../../../commands/person.create';
 import { splitName } from '../../../inbox/contact';
 import { userIdOf } from '../../../kernel/actor';
+import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
+import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { addonTimelineLine } from '../../server';
 import { outreachAddon } from '../manifest';
@@ -24,6 +26,24 @@ export const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
   workspaceId: i.workspaceId,
 });
+
+/**
+ * Two saves of a new profile, group or chat at the same moment: the second is asked to go again, and then finds the
+ * first.
+ */
+export async function once<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (e) {
+    if (isUniqueViolation(e))
+      throw HfosError.rule(
+        'outreach_saved_at_once',
+        409,
+        'This was being saved twice at the same moment. Save it again.',
+      );
+    throw e;
+  }
+}
 
 /** Where a customer saved from a social network says they came from. */
 export const sourceFor = (platform: Platform): string => PLATFORMS[platform];

@@ -10,7 +10,6 @@ import { fullName, requirePerson, userRef } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
@@ -25,22 +24,7 @@ import {
   type SavedMessage,
 } from '../saves';
 import { profiles, threads } from '../tables';
-import { inWorkspace, saveProfile } from './common';
-
-/** Two saves of a new profile or chat at the same moment: the second is asked to go again, and then finds the first. */
-async function once<T>(write: () => Promise<T>): Promise<T> {
-  try {
-    return await write();
-  } catch (e) {
-    if (isUniqueViolation(e))
-      throw HfosError.rule(
-        'outreach_saved_at_once',
-        409,
-        'This was being saved twice at the same moment. Save it again.',
-      );
-    throw e;
-  }
-}
+import { inWorkspace, once, saveProfile } from './common';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -236,7 +220,8 @@ export const lookup = defineAddonQuery(outreachAddon, {
               profileId: profiles.id,
               id: profiles.platformId,
               username: profiles.username,
-              personId: profiles.personId,
+              // The customer it's saved to: a profile noted from a step alone has none, and the join leaves it out.
+              personId: people.id,
               name,
             })
             .from(profiles)

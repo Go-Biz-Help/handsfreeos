@@ -34,7 +34,7 @@ export const FRIENDSHIPS = [
 export type Friendship = (typeof FRIENDSHIPS)[number];
 
 /** A Facebook address, as the extension writes them: on www.facebook.com, over https. */
-const facebookUrl = z
+export const FacebookUrl = z
   .string()
   .trim()
   .max(500)
@@ -45,14 +45,15 @@ export const ProfileRef = z
   .object({
     id: z.string().regex(PROFILE_ID).nullable(),
     username: z.string().regex(USERNAME).nullable(),
-    url: facebookUrl,
+    url: FacebookUrl,
   })
   .refine((p) => p.id !== null || p.username !== null, {
     error: 'Send the profile’s number or its username.',
   });
 export type ProfileRef = z.output<typeof ProfileRef>;
 
-const name = z
+/** Someone's name, as the page showed it. */
+export const PersonName = z
   .string()
   .trim()
   .min(1, 'Send their name as the page shows it.')
@@ -62,7 +63,7 @@ export const ProfileSaveInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
   profile: ProfileRef,
-  name,
+  name: PersonName,
   /** The lines under their name: work, business, town. */
   intro: z.array(z.string().trim().min(1).max(INTRO_LINE_MOST)).max(INTRO_LINES).default([]),
   friendship: z.enum(FRIENDSHIPS).default('unknown'),
@@ -102,10 +103,10 @@ export const ChatSaveInput = z.object({
   thread: z.object({
     id: z.string().regex(THREAD_KEY, 'Send the chat’s number from its link.'),
     encrypted: z.boolean().default(false),
-    url: facebookUrl,
+    url: FacebookUrl,
   }),
   /** The name the chat shows. */
-  name,
+  name: PersonName,
   /** The profile the chat links to: who it's with. */
   profile: ProfileRef.nullable(),
   /** What the page shows, oldest first. Older ones join what was saved before. */
@@ -145,7 +146,7 @@ export const OutreachLookupInput = z.object({
   /** Chats on the page: which of the person's own are saved, and how much of each. */
   threads: z.array(z.string().regex(THREAD_KEY)).max(LOOKUP_THREADS).default([]),
   /** Names to look for in Contacts: who someone not saved yet may already be. */
-  names: z.array(name).max(LOOKUP_NAMES).default([]),
+  names: z.array(PersonName).max(LOOKUP_NAMES).default([]),
 });
 
 const Person = z.object({ personId: z.uuid(), name: z.string() });

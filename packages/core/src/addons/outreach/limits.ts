@@ -1,7 +1,8 @@
 /**
- * What Social Outreach's saves take (docs/outreach.md): how long, how many, and the shape of a network's ids. The
- * commands hold what's sent to these (./saves.ts), and the browser extension cuts what it read to fit them before it
- * sends. Plain values with no zod, so the extension takes them without carrying zod along.
+ * What Social Outreach's saves take (docs/outreach.md): how long, how many, and the shape of a network's ids; and the
+ * daily limits the activity panel counts against. The commands hold what's sent to these (./saves.ts,
+ * ./activity.ts), and the browser extension cuts what it read to fit them before it sends. Plain values with no zod,
+ * so the extension takes them without carrying zod along.
  */
 
 /** A chat keeps this many of its most recent messages, and a save sends at most this many. */
@@ -24,3 +25,32 @@ export const LOOKUP_NAMES = 10;
 export const PROFILE_ID = /^\d{1,30}$/;
 export const USERNAME = /^[A-Za-z0-9.]{1,100}$/;
 export const THREAD_KEY = /^[A-Za-z0-9._-]{1,64}$/;
+/** A group's number, and the name in its link instead (/groups/<this>/), as its links show them. */
+export const GROUP_ID = /^\d{1,30}$/;
+export const GROUP_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
+
+/**
+ * The starting daily limits per Facebook account (docs/outreach.md): how many of each step a person takes in a day.
+ * The activity panel and the extension show the day's against them. Nothing stops at them, since the person takes
+ * these steps on Facebook themselves.
+ */
+export const DAILY_LIMITS = {
+  friend_request: 20,
+  first_message: 15,
+  follow_up: 20,
+  comment: 15,
+  like: 40,
+} as const;
+export type DailyStep = keyof typeof DAILY_LIMITS;
+export const DAILY_STEPS = Object.keys(DAILY_LIMITS) as DailyStep[];
+
+/** What the day's steps are called: on the activity panel, and in the extension. */
+export const DAILY_WORDS: Readonly<
+  Record<DailyStep, { readonly label: string; readonly many: string }>
+> = {
+  friend_request: { label: 'Friend requests', many: 'friend requests' },
+  first_message: { label: 'First messages', many: 'first messages' },
+  follow_up: { label: 'Follow-ups', many: 'follow-ups' },
+  comment: { label: 'Comments', many: 'comments' },
+  like: { label: 'Likes', many: 'likes' },
+};

@@ -16,7 +16,7 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.2.0',
+  version: '0.3.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace.
@@ -73,10 +73,11 @@ export const outreachAddon = defineAddon({
       'outreach.playbook.archived',
       'outreach.profile.saved',
       'outreach.chat.saved',
+      'outreach.touch.saved',
     ],
   },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
-  tables: ['playbooks', 'profiles', 'threads'],
+  tables: ['groups', 'playbooks', 'profiles', 'threads', 'touches'],
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
