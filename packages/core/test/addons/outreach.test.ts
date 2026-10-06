@@ -12,9 +12,14 @@ import {
 } from '../../src/server';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import {
+  answerNextLabel,
   blankPlaybook,
+  nextQuestionId,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
+  renumberQuestions,
+  upgradePlaybookDetails,
+  type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
 import { joinMessages, type ChatMessage, type SavedMessage } from '../../src/addons/outreach/saves';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
@@ -54,7 +59,19 @@ describe('playbooks', () => {
   it('starts with the owner’s CRM-demo playbook, with their questions and tags', () => {
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     expect(crm.details.goal).toBe('demo');
-    expect(crm.details.questions).toContain('Do you use a CRM?');
+    expect(crm.details.questions.map((q) => q.text)).toEqual([
+      'Do you use a CRM?',
+      'Which one?',
+      'Is it doing what you need?',
+      'How do you keep track of follow-ups now?',
+    ]);
+    // "No" skips the questions about the CRM they don't have; "Not really" makes the offer.
+    expect(crm.details.questions[0]!.answers.find((a) => a.label === 'No')!.next).toBe('q4');
+    expect(crm.details.questions[2]!.answers.find((a) => a.label === 'Not really')).toEqual({
+      label: 'Not really',
+      tag: 'Unhappy with CRM',
+      next: 'offer',
+    });
     expect(crm.details.skip).toContain('Group admins and moderators');
     expect(crm.details.tags).toEqual([
       'Business owner',
@@ -76,6 +93,110 @@ describe('playbooks', () => {
     expect(issues({ signs: ['Owner', '  '] })).toEqual(['signs.1']);
     expect(issues({ link: 'book with me' })).toEqual(['link']);
     expect(issues({ link: 'https://example.com/book' })).toBeUndefined();
+  });
+});
+
+describe('a playbook’s conversation', () => {
+  const ask = (id: string, text: string, answers: PlaybookQuestion['answers'] = []) => ({
+    id,
+    text,
+    answers,
+  });
+  const issues = (questions: PlaybookQuestion[], tags = ['Uses a CRM']) =>
+    PlaybookDetails.safeParse({ ...blankPlaybook(), tags, questions }).error?.issues.map(
+      (i) => `${i.path.join('.')}: ${i.message}`,
+    );
+
+  it('lets an answer add one of the playbook’s tags and lead to a question further down', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: 'uses a crm', next: 'q2' },
+          { label: 'No', tag: null, next: 'offer' },
+        ]),
+        ask('q2', 'Which one?'),
+      ]),
+    ).toBeUndefined();
+  });
+
+  it('refuses a tag the playbook doesn’t have, a step back up, and a question that isn’t there', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: 'Loves spreadsheets', next: 'continue' },
+          { label: 'No', tag: null, next: 'q9' },
+        ]),
+        ask('q2', 'Which one?', [{ label: 'HubSpot', tag: null, next: 'q1' }]),
+      ]),
+    ).toEqual([
+      'questions.0.answers.0.tag: “Loves spreadsheets” isn’t one of this playbook’s tags. Add it under Tags, or pick another.',
+      'questions.0.answers.1.next: That question isn’t in this playbook anymore. Pick what happens next again.',
+      'questions.1.answers.0.next: An answer can only lead to a question further down.',
+    ]);
+  });
+
+  it('refuses the same question name twice, the same answer twice, and a question leading to itself', () => {
+    expect(
+      issues([
+        ask('q1', 'Do you use a CRM?', [
+          { label: 'Yes', tag: null, next: 'q1' },
+          { label: 'yes', tag: null, next: 'stop' },
+        ]),
+        ask('q1', 'Which one?'),
+      ]),
+    ).toEqual([
+      'questions.0.answers: Each answer once.',
+      'questions.0.answers.0.next: An answer can only lead to a question further down.',
+      'questions.1.id: Each question once.',
+    ]);
+  });
+
+  it('reads one saved before questions had answers, and before it had a pace', () => {
+    const { questions, pace, ...rest } = blankPlaybook();
+    void questions;
+    void pace;
+    const old = { ...rest, questions: ['Do you use a CRM?', 'Which one?'] };
+    const now = PlaybookDetails.parse(upgradePlaybookDetails(old));
+    expect(now.questions).toEqual([ask('q1', 'Do you use a CRM?'), ask('q2', 'Which one?')]);
+    expect(now.pace).toEqual({ messageAfterDays: 1, followUpAfterDays: 3 });
+    // One in today's shape comes back as it was.
+    const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
+    expect(upgradePlaybookDetails(crm)).toBe(crm);
+  });
+
+  it('renames questions q1, q2… in order on saving, with every answer leading where it did', () => {
+    const out = renumberQuestions([
+      ask('q4', 'Do you use a CRM?', [{ label: 'No', tag: null, next: 'q7' }]),
+      ask('q2', 'Which one?'),
+      ask('q7', 'How do you keep track now?', [{ label: 'Notes', tag: null, next: 'offer' }]),
+    ]);
+    expect(out.map((q) => q.id)).toEqual(['q1', 'q2', 'q3']);
+    expect(out[0]!.answers[0]!.next).toBe('q3');
+    expect(out[2]!.answers[0]!.next).toBe('offer');
+    expect(nextQuestionId(out)).toBe('q4');
+    expect(nextQuestionId([])).toBe('q1');
+  });
+
+  it('says what an answer leads to in words', () => {
+    const qs = [ask('q2', 'Which one?')];
+    expect(answerNextLabel('offer', qs)).toBe('Make the offer');
+    expect(answerNextLabel('q2', qs)).toBe('Ask “Which one?”');
+    expect(answerNextLabel('q5', qs)).toBe('A question that isn’t here anymore');
+  });
+
+  it('keeps the pace to whole days within its limits', () => {
+    const pace = (p: object) =>
+      PlaybookDetails.safeParse({ ...blankPlaybook(), pace: p }).error?.issues.map((i) =>
+        i.path.join('.'),
+      );
+    expect(pace({ messageAfterDays: 0, followUpAfterDays: 30 })).toBeUndefined();
+    expect(pace({ messageAfterDays: 15, followUpAfterDays: 0 })).toEqual([
+      'pace.messageAfterDays',
+      'pace.followUpAfterDays',
+    ]);
+    expect(pace({ messageAfterDays: 1.5, followUpAfterDays: 3 })).toEqual([
+      'pace.messageAfterDays',
+    ]);
   });
 });
 
