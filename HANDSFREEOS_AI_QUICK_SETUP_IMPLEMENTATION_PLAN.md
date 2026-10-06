@@ -303,7 +303,14 @@ business. Saved answers apply only to a business without a teammate.
 
 ## 10. Tidying today's full settings page
 
-Limits and Autonomy move under "Advanced", and the page gets "Run quick setup again" (56B).
+The AI teammate page's eleven parts sit in three groups (56B, as the flow chart shows them): **Basics** (Identity,
+Channels, Hours), **What it does** (Respond, Answer, Qualify, Book, Follow up) and **Rules and safety** (Hand-off,
+Autonomy, which is the training wheels, and Limits, which holds money). The groups are `MODULE_GROUPS` in the web's
+`lib/ai-team/describe.ts`; on a phone-sized screen they head the list.
+
+**Run quick setup again** (55A) sits under the parts for owners and admins (`ai_team.manage`), at the end of the
+list on a phone-sized screen, and in the phone app's More once the business has a teammate. It opens quick setup,
+which starts from what's saved and shows what will change before saving.
 
 ---
 
@@ -317,7 +324,7 @@ Each step is its own pull request.
 4. **Phone** ✓: the same screens.
 5. **Agencies** ✓: saving answers as a starting point (with its migration), Start from on the web and the phone, and
    the agency area's AI setups page.
-6. **Tidy**: today's full settings page.
+6. **Tidy** ✓: today's full settings page in three groups, and Run quick setup again.
 
 ## 12. Tests
 
@@ -343,13 +350,15 @@ Each step is its own pull request.
 - `apps/web/e2e/ai-quick-setup.spec.ts` (browser): the AI teammate page opening quick setup, the first screen, the
   screens filling in from the stand-in site (read through the worker's `/test/ai-setup/read-at`), quick facts marked
   as the website's, the summary following the name, findings, Save, the test chat with "Add the answer", turning
-  it on, and a second run where nothing changes. The preset specs (`ai-team-builder`, `ai-team-mobile`,
-  `getting-started`) reach the presets through "Set it up myself".
+  it on, and a second run, from the AI teammate page's "Run quick setup again", where nothing changes. The preset
+  specs (`ai-team-builder`, `ai-team-mobile`, `getting-started`) reach the presets through "Set it up myself";
+  `ai-team-builder` and `ai-team-mobile` check the three groups and "Run quick setup again".
 - `apps/web/e2e/ai-setup-templates.spec.ts` (browser): one business saving its answers from the test chat, another
   starting from them and picking our picks instead, and the agency area's AI setups page with its refusals,
   renaming and removing.
 - `apps/mobile/src/components/ai-setup/__tests__/quick-setup.test.tsx`: the first screen with the kind of business
   picked on its sheet, the hours editor, qualifying questions, carrying on, Save, the test chat with "Add the
   answer", turning it on, what will change for a business with a teammate, starting from answers the agency saved,
-  a test chat that isn't there yet, no signal, a refusal, and who may run it. `entry.test.tsx` beside it covers More and the test console;
+  a test chat that isn't there yet, no signal, a refusal, and who may run it. `entry.test.tsx` beside it covers
+  More (with "Run quick setup again" once there's a teammate) and the test console;
   `src/onboarding/__tests__/getting-started.test.tsx` covers Getting started's AI step.

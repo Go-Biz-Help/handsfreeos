@@ -4,11 +4,11 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * The AI teammate area: "AI teammate" in the drawer after Knowledge, a preset (labels follow the pick), the
- * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, saving on its own,
- * turning it on, "Switch to automatic now" and "Back to training" (each confirmed), History with Restore
- * (training progress stays), the test console (a price question answered from the knowledge base, held as
- * a draft while in training wheels, and nothing sent; then a test call that picks up and hangs up on a goodbye)
- * and the Activity tab.
+ * builder's modules in their groups with their one-line summaries and "Run quick setup again", a red item fixed
+ * with Fix (and undone), Undo, saving on its own, turning it on, "Switch to automatic now" and "Back to
+ * training" (each confirmed), History with Restore (training progress stays), the test console (a price
+ * question answered from the knowledge base, held as a draft while in training wheels, and nothing sent; then a
+ * test call that picks up and hangs up on a goodbye) and the Activity tab.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so the Hours module's note never depends on the default.
  */
@@ -79,6 +79,16 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   const labels = page.getByTestId('teammate-labels').locator('span');
   await expect(labels).toHaveText(['Lead Qualifier', 'Follows up']);
   await expect(page.getByTestId('module-summary-qualify')).toContainText('questions');
+  // Its settings in three groups, with training wheels and limits under Rules and safety; quick setup again below.
+  await expect(page.getByTestId('module-group-basics')).toContainText('Basics');
+  await expect(page.getByTestId('module-group-does')).toContainText('What it does');
+  const rules = page.getByTestId('module-group-rules');
+  await expect(rules).toContainText('Rules and safety');
+  await expect(rules.locator('button')).toHaveText([/^Hand-off/, /^Autonomy/, /^Limits/]);
+  await expect(page.getByTestId('ai-team-run-quick-setup')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/ai-team/setup`,
+  );
 
   // Identity: the name follows as it's typed and saves on its own; Undo takes it back, and saves that too.
   const saveState = page.getByTestId('teammate-save-state');

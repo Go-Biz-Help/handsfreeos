@@ -197,8 +197,9 @@ test('AI teammate quick setup: the questions, what Ava read, Save, the test chat
   await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
   await expect(page.getByTestId('teammate-name')).toHaveText('Max');
 
-  // Run again with nothing changed: it shows what will change first, and nothing does.
-  await page.goto(`/app/w/${workspaceId}/ai-team/setup`);
+  // Run again from the AI teammate page, with nothing changed: it shows what will change first, and nothing does.
+  await page.getByTestId('ai-team-run-quick-setup').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team/setup$`));
   await at('business');
   await expect(page.getByTestId('ai-setup-myself')).toHaveText('More settings');
   for (let i = 0; i < 12 && (await setup.getAttribute('data-step')) !== 'confirm'; i++) {

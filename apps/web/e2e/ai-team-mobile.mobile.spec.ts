@@ -7,9 +7,9 @@ test.use({ colorScheme: 'dark' });
 /**
  * The AI teammate on a 390 px phone, in the dark theme: it's in the drawer (the bar stays at five), the
  * picker fits, the builder's rail folds into a card at the top, each module opens full screen and saves
- * from there (its fields 16 px, so an iPhone doesn't zoom), History is the list's last row, the status and
- * checks open in a sheet, the test console fills the screen and answers a price question from the knowledge
- * base without sending anything, and a lead's Qualification card fits.
+ * from there (its fields 16 px, so an iPhone doesn't zoom), History and "Run quick setup again" end the
+ * list, the status and checks open in a sheet, the test console fills the screen and answers a price
+ * question from the knowledge base without sending anything, and a lead's Qualification card fits.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so nothing depends on the default.
  */
@@ -100,7 +100,11 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await screen.getByRole('button', { name: 'Back' }).click();
   await expect(screen).toBeHidden();
 
-  // History is the list's last row: the revisions in a sheet that fits the phone.
+  // History and "Run quick setup again" end the list; History's revisions open in a sheet that fits the phone.
+  await expect(page.getByTestId('phone-run-quick-setup')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/ai-team/setup`,
+  );
   await page.getByTestId('phone-history').click();
   const history = page.getByRole('dialog', { name: 'History' });
   await expect(history).toContainText('Riley · 2 revisions');

@@ -1,4 +1,4 @@
-import { MORE_WORDS } from '@hfos/core';
+import { AI_SETUP_WORDS, MORE_WORDS } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
@@ -11,9 +11,10 @@ import { TEAMMATE_SQL } from '@/home/queries';
 import type { Business, Me } from '@/lib/businesses';
 
 /**
- * Where quick setup opens from on the phone (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): More, for whoever
- * manages the teammate while there isn't one, with the test console in its place once there is; and the test console
- * itself, before there's a teammate to test. Getting started's AI step is in onboarding's tests.
+ * Where quick setup opens from on the phone (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8, §10): More, for
+ * whoever manages the teammate while there isn't one, with the test console and "Run quick setup again" in its place
+ * once there is; and the test console itself, before there's a teammate to test. Getting started's AI step is in
+ * onboarding's tests.
  */
 
 jest.mock('expo-router', () => ({
@@ -68,19 +69,26 @@ beforeEach(() => {
   teammates([]);
 });
 
-it('offers an owner quick setup in More while there’s no teammate, and the test console once there is', async () => {
+it('offers an owner quick setup in More while there’s no teammate, then the test console and running it again', async () => {
   await show(<More />, 'owner');
   const row = await screen.findByTestId('more-set-up-teammate');
   expect(row).toHaveTextContent(MORE_WORDS.setUpTeammate, { exact: false });
   expect(screen.queryByTestId('more-test-console')).toBeNull();
+  expect(screen.queryByTestId('more-run-quick-setup')).toBeNull();
   await fireEvent.press(row);
   expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/ai-setup`);
   await screen.unmount();
 
+  jest.mocked(router.push).mockClear();
   teammates([AVA]);
   await show(<More />, 'owner');
   expect(await screen.findByTestId('more-test-console')).toBeTruthy();
   expect(screen.queryByTestId('more-set-up-teammate')).toBeNull();
+  // Quick setup again starts from what's saved, and shows what will change before saving.
+  const again = screen.getByTestId('more-run-quick-setup');
+  expect(again).toHaveTextContent(AI_SETUP_WORDS.runAgain, { exact: false });
+  await fireEvent.press(again);
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/ai-setup`);
 });
 
 it('offers it neither before the phone has read the teammate nor to someone who doesn’t manage it', async () => {
@@ -95,6 +103,12 @@ it('offers it neither before the phone has read the teammate nor to someone who 
   await show(<More />, 'member', ['inbox.view']);
   expect(await screen.findByTestId('more-settings')).toBeTruthy();
   expect(screen.queryByTestId('more-set-up-teammate')).toBeNull();
+  await screen.unmount();
+
+  teammates([AVA]);
+  await show(<More />, 'member', ['inbox.view']);
+  expect(await screen.findByTestId('more-settings')).toBeTruthy();
+  expect(screen.queryByTestId('more-run-quick-setup')).toBeNull();
 });
 
 it('sends the test console to quick setup while there’s no teammate to test', async () => {
