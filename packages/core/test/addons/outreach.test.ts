@@ -1,7 +1,7 @@
 /**
  * Social Outreach's manifest and operations, held to the add-on rules (docs/addon-architecture.md), its playbook
- * templates, how a chat read again joins what was saved before, and the warning past the daily limits. Pure: no
- * database.
+ * templates, how a chat read again joins what was saved before, the warning past the daily limits, and how someone
+ * who asked to be friends fits a playbook. Pure: no database.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -22,6 +22,14 @@ import {
   upgradePlaybookDetails,
   type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
+import {
+  bestFit,
+  byFit,
+  fitFor,
+  placesIn,
+  quoted,
+  type FitPlaybook,
+} from '../../src/addons/outreach/fit';
 import { DAILY_LIMITS, pastLimitWords } from '../../src/addons/outreach/limits';
 import { joinMessages, type ChatMessage, type SavedMessage } from '../../src/addons/outreach/saves';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
@@ -282,5 +290,77 @@ describe('the daily limits', () => {
         like: 41,
       }),
     ).toMatch(/^Past today’s limit for friend requests, comments and likes\./);
+  });
+});
+
+describe('how someone fits a playbook', () => {
+  const crm: FitPlaybook = {
+    id: 'crm',
+    name: 'CRM demos',
+    details: {
+      ...PLAYBOOK_TEMPLATES.crm_demos.details,
+      skip: ['“Realtor”', 'Competitors'],
+      area: 'within 30 miles of Austin, TX',
+    },
+  };
+  const facts = (lines: string[], mutualFriends: number | null = null, groupName = null) => ({
+    lines,
+    mutualFriends,
+    groupName,
+  });
+
+  it('reads the words in quotes, and the places an area names', () => {
+    expect(quoted('“Owner”, “Founder” or "CEO" in their intro')).toEqual([
+      'Owner',
+      'Founder',
+      'CEO',
+    ]);
+    expect(placesIn('Austin and Round Rock')).toEqual(['Austin', 'Round Rock']);
+    expect(placesIn('within 30 miles of Denver, CO')).toEqual(['Denver']);
+    expect(placesIn('the Phoenix metro area')).toEqual(['Phoenix']);
+    expect(placesIn('Texas')).toEqual(['Texas']);
+    expect(placesIn(null)).toEqual([]);
+  });
+
+  it('counts the signs in quotes, the area, mutual friends and the group, and says why', () => {
+    expect(fitFor(crm, facts(['Owner at Cole Landscaping', 'Lives in Austin, Texas'], 12))).toEqual(
+      {
+        level: 'good',
+        score: 6,
+        playbookId: 'crm',
+        playbookName: 'CRM demos',
+        reasons: ['“Owner” on their profile', 'In Austin', '12 mutual friends'],
+      },
+    );
+    // Whole words only: "Ownership" isn't "Owner".
+    expect(fitFor(crm, facts(['Ownership coach'], 1)).reasons).toEqual(['1 mutual friend']);
+    expect(fitFor(crm, facts([])).level).toBe('unknown');
+    expect(
+      fitFor(null, { lines: [], mutualFriends: null, groupName: 'Westfield Makers Market' }),
+    ).toMatchObject({ level: 'maybe', reasons: ['Found in Westfield Makers Market'] });
+  });
+
+  it('skips who the playbook says to, whatever else fits', () => {
+    expect(fitFor(crm, facts(['Owner and Realtor in Austin'], 50))).toMatchObject({
+      level: 'skip',
+      reasons: ['“Realtor” on their profile'],
+    });
+  });
+
+  it('takes the playbook they fit best, and orders requests best first', () => {
+    const roofing: FitPlaybook = {
+      id: 'roof',
+      name: 'Roofing estimates',
+      details: { signs: ['“Homeowner”'], skip: [], area: 'Round Rock' },
+    };
+    const fit = bestFit([crm, roofing], facts(['Homeowner in Round Rock']));
+    expect(fit).toMatchObject({ playbookName: 'Roofing estimates', score: 4 });
+    const list = [
+      { name: 'A', fit: { score: 0 }, mutualFriends: 3 },
+      { name: 'B', fit: { score: 4 }, mutualFriends: 0 },
+      { name: 'C', fit: { score: 0 }, mutualFriends: 9 },
+      { name: 'D', fit: null, mutualFriends: null },
+    ];
+    expect(byFit(list).map((x) => x.name)).toEqual(['B', 'C', 'A', 'D']);
   });
 });

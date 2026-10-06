@@ -5,12 +5,14 @@
  */
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { rows } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
 import { fullName, requirePerson, userRef } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
+import { DONT_PITCH_TAG, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
@@ -24,7 +26,7 @@ import {
   type SavedMessage,
 } from '../saves';
 import { profiles, threads } from '../tables';
-import { inWorkspace, once, saveProfile } from './common';
+import { inWorkspace, keepFriendStates, once, saveProfile } from './common';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -40,8 +42,9 @@ export const profileSave = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   emits: ['outreach.profile.saved'],
   async handler(ctx, input) {
-    const saved = await once(() =>
-      saveProfile(ctx, {
+    const me = requireHuman(ctx).userId;
+    const saved = await once(async () => {
+      const done = await saveProfile(ctx, {
         platform: input.platform,
         profile: input.profile,
         name: input.name,
@@ -51,8 +54,17 @@ export const profileSave = defineAddonCommand(outreachAddon, {
           mutualFriends: input.mutualFriends,
         },
         ...(input.personId ? { personId: input.personId } : {}),
-      }),
-    );
+      });
+      // The profile shows where the person's own Facebook stands with them.
+      if (input.friendship !== 'unknown')
+        await keepFriendStates(
+          ctx,
+          me,
+          [{ profileId: done.profileId, state: input.friendship }],
+          changeMoment(ctx.meta),
+        );
+      return done;
+    });
     await ctx.emit({
       type: 'outreach.profile.saved',
       entityType: 'person',
@@ -239,6 +251,41 @@ export const lookup = defineAddonQuery(outreachAddon, {
             )
         : [];
 
+    // Every profile on the page kept here, with a customer or not, and what the Friends tab and fit need of each.
+    const marked =
+      ids.length || usernames.length
+        ? await rows<{
+            profile_id: string;
+            id: string | null;
+            username: string | null;
+            person_id: string | null;
+            state: FriendState | null;
+            keep: boolean | null;
+            dont_pitch: boolean;
+            dont_pitch_by: string | null;
+            dont_pitch_at: Date | string | null;
+            tagged: boolean;
+            intro: string[];
+            mutual_friends: number | null;
+            group_name: string | null;
+          }>(
+            ctx.tx,
+            sql`select p.id as profile_id, p.platform_id as id, p.username, p.person_id, f.state, f.keep,
+                  p.dont_pitch, coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
+                  exists (select 1 from app.record_tags rt join app.tags t on t.id = rt.tag_id
+                          where rt.workspace_id = p.workspace_id and rt.record_type = 'person'
+                            and rt.record_id = p.person_id and lower(t.name::text) = lower(${DONT_PITCH_TAG})) as tagged,
+                  p.intro, p.mutual_friends, g.name as group_name
+                from addon_outreach.profiles p
+                left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
+                left join app.users u on u.id = p.dont_pitch_by
+                left join addon_outreach.groups g on g.id = p.group_id
+                where p.workspace_id = ${ws} and p.platform = ${input.platform}
+                  and (${ids.length ? sql`p.platform_id in ${ids}` : sql`false`}
+                    or ${usernames.length ? sql`lower(p.username) in ${usernames}` : sql`false`})`,
+          )
+        : [];
+
     const chats = input.threads.length
       ? await ctx.tx
           .select({
@@ -293,6 +340,25 @@ export const lookup = defineAddonQuery(outreachAddon, {
 
     return {
       profiles: saved,
+      marks: marked.map((m) => ({
+        profileId: m.profile_id,
+        id: m.id,
+        username: m.username,
+        state: m.state,
+        keep: m.keep ?? false,
+        dontPitch:
+          m.dont_pitch || m.tagged
+            ? {
+                by: m.dont_pitch ? m.dont_pitch_by : null,
+                at:
+                  m.dont_pitch && m.dont_pitch_at ? new Date(m.dont_pitch_at).toISOString() : null,
+                tagged: m.tagged,
+              }
+            : null,
+        intro: m.intro,
+        mutualFriends: m.mutual_friends,
+        groupName: m.group_name,
+      })),
       threads: chats.map((t) => ({ ...t, lastSavedAt: t.lastSavedAt.toISOString() })),
       sameName,
     };

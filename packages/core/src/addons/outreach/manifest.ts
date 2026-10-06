@@ -74,10 +74,13 @@ export const outreachAddon = defineAddon({
       'outreach.profile.saved',
       'outreach.chat.saved',
       'outreach.touch.saved',
+      'outreach.friend.answered',
+      'outreach.friends.saved',
+      'outreach.friend.marked',
     ],
   },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
-  tables: ['groups', 'playbooks', 'profiles', 'threads', 'touches'],
+  tables: ['friends', 'groups', 'playbooks', 'profiles', 'threads', 'touches'],
   ui: {
     // Its place in the side menu, shown only while it runs and to people who may open it.
     nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],

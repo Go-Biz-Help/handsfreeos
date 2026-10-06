@@ -27,10 +27,19 @@ import {
   type TouchKind,
   type TouchStep,
 } from '../activity';
+import { DONT_PITCH_TAG } from '../limits';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
-import { groups, profiles, threads, touches } from '../tables';
-import { inWorkspace, once, profilesFor, type Profile, type ProfileKey } from './common';
+import { groups, threads, touches } from '../tables';
+import {
+  dontPitchOf,
+  inWorkspace,
+  keepFriendStates,
+  keptProfile,
+  once,
+  type Profile,
+  type ProfileKey,
+} from './common';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -81,11 +90,10 @@ async function keepGroup(
 }
 
 /**
- * The profile a step was to: the one kept already, or a new one with no customer. A later look fills in its number
- * or username (unless another kept profile has it) and the group it was first found in; a friend request says so
- * where the profile said they weren't friends or didn't know. Its name and the rest stay as the last save wrote them.
+ * The profile a step was to: the one kept already, or a new one with no customer. A later look fills in the group
+ * it was first found in, and a friend request says so where the profile said they weren't friends or didn't know.
  */
-async function reachedProfile(
+function reachedProfile(
   ctx: CommandContext,
   input: {
     readonly platform: Platform;
@@ -97,47 +105,20 @@ async function reachedProfile(
   me: string,
   at: Date,
 ): Promise<Profile> {
-  const found = await profilesFor(ctx, input.platform, input.profile);
-  const had = found[0];
   const requested = input.kind === 'friend_request';
-  if (!had) {
-    const [row] = await ctx.tx
-      .insert(profiles)
-      .values({
-        workspaceId: ctx.scope.workspaceId!,
-        personId: null,
-        platform: input.platform,
-        platformId: input.profile.id,
-        username: input.profile.username,
-        url: input.profile.url,
-        name: input.name,
-        friendship: requested ? 'request_sent' : 'unknown',
-        groupId: input.groupId,
-        savedBy: me,
-        lastSeenBy: me,
-        lastSeenAt: at,
-      })
-      .returning();
-    return row!;
-  }
-  const only = found.length === 1;
-  const change = {
-    ...(!had.platformId && input.profile.id && only ? { platformId: input.profile.id } : {}),
-    ...(!had.username && input.profile.username && only
-      ? { username: input.profile.username }
-      : {}),
-    ...(!had.groupId && input.groupId ? { groupId: input.groupId } : {}),
-    ...(requested && (had.friendship === 'not_friends' || had.friendship === 'unknown')
-      ? { friendship: 'request_sent' as const, lastSeenBy: me, lastSeenAt: at }
-      : {}),
-  };
-  if (!Object.keys(change).length) return had;
-  const [row] = await ctx.tx
-    .update(profiles)
-    .set(change)
-    .where(eq(profiles.id, had.id))
-    .returning();
-  return row!;
+  return keptProfile(
+    ctx,
+    input,
+    me,
+    at,
+    { friendship: requested ? 'request_sent' : 'unknown', groupId: input.groupId },
+    (had) => ({
+      ...(!had.groupId && input.groupId ? { groupId: input.groupId } : {}),
+      ...(requested && (had.friendship === 'not_friends' || had.friendship === 'unknown')
+        ? { friendship: 'request_sent' as const, lastSeenBy: me, lastSeenAt: at }
+        : {}),
+    }),
+  );
 }
 
 /**
@@ -259,6 +240,17 @@ export const touchSave = defineAddonCommand(outreachAddon, {
         me,
         at,
       );
+      const never = await dontPitchOf(ctx, profile);
+      if (never)
+        throw HfosError.rule(
+          'outreach_dont_pitch',
+          422,
+          never.tagged && !profile.dontPitch
+            ? `${input.name} is tagged ${DONT_PITCH_TAG} in Contacts, so steps to them aren’t counted as outreach. To count them, take the tag off them in Contacts.`
+            : `${input.name} is on the Don’t pitch list, so steps to them aren’t counted as outreach. To count them, take them off it in Social Outreach → Friends.`,
+        );
+      if (input.kind === 'friend_request')
+        await keepFriendStates(ctx, me, [{ profileId: profile.id, state: 'request_sent' }], at);
       const noted = await notedAlready(ctx, me, profile.id, input, at);
       if (noted)
         return {

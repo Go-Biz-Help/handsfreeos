@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import {
+  FRIEND_STATE_KEYS,
   INTRO_LINE_MOST,
   INTRO_LINES,
   KEPT_MESSAGES,
@@ -151,12 +152,42 @@ export const OutreachLookupInput = z.object({
 
 const Person = z.object({ personId: z.uuid(), name: z.string() });
 
+/**
+ * Why someone's never pitched (docs/outreach.md, decision 11): put on the business's Don't pitch list, by whom and
+ * when, or a customer tagged Friend or family in Contacts.
+ */
+export const DontPitch = z.object({
+  /** Who put them on the list: null once they've left the business, and for a tag alone. */
+  by: z.string().nullable(),
+  at: z.iso.datetime().nullable(),
+  /** A customer tagged Friend or family (DONT_PITCH_TAG). */
+  tagged: z.boolean(),
+});
+export type DontPitch = z.output<typeof DontPitch>;
+
 export const OutreachLookupOutput = z.object({
   profiles: z.array(
     Person.extend({
       profileId: z.uuid(),
       id: z.string().nullable(),
       username: z.string().nullable(),
+    }),
+  ),
+  /**
+   * Every profile on the page kept here, with a customer or not: where the person's own Facebook stands with them,
+   * whether they keep them, whether they're never pitched, and what's known for fit (./fit.ts).
+   */
+  marks: z.array(
+    z.object({
+      profileId: z.uuid(),
+      id: z.string().nullable(),
+      username: z.string().nullable(),
+      state: z.enum(FRIEND_STATE_KEYS).nullable(),
+      keep: z.boolean(),
+      dontPitch: DontPitch.nullable(),
+      intro: z.array(z.string()),
+      mutualFriends: z.number().int().nullable(),
+      groupName: z.string().nullable(),
     }),
   ),
   threads: z.array(

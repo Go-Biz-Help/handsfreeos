@@ -81,3 +81,24 @@ export function pastLimitWords(done: Readonly<Record<DailyStep, number>>): strin
     steps.length > 1 ? `${steps.slice(0, -1).join(', ')} and ${steps[steps.length - 1]}` : steps[0];
   return `Past today’s limit for ${listed}. Slow down, so Facebook doesn’t block you.`;
 }
+
+/**
+ * Where a person's own Facebook stands with someone (./friends.ts), as the Friends tab and the extension name it:
+ * friends, a friend request either way, a request they turned down, or not friends.
+ */
+export const FRIEND_STATES = {
+  friends: 'Friends',
+  request_sent: 'Request sent',
+  request_received: 'Asked to be friends',
+  declined: 'Request deleted',
+  not_friends: 'Not friends',
+} as const;
+export type FriendState = keyof typeof FRIEND_STATES;
+export const FRIEND_STATE_KEYS = Object.keys(FRIEND_STATES) as [FriendState, ...FriendState[]];
+
+/** Facebook's cap on friends: the Friends tab counts toward it. */
+export const FRIENDS_CAP = 5000;
+/** The most people one save of a list sends: the extension sends a longer list in parts. */
+export const FRIENDS_SAVE_MOST = 500;
+/** Customers with this tag in Contacts are never pitched, like those on the Don't pitch list. */
+export const DONT_PITCH_TAG = 'Friend or family';
