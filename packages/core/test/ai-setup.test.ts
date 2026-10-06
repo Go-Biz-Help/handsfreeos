@@ -12,26 +12,41 @@ import {
   AI_SETUP_READ_AGAIN_MS,
   AI_SETUP_READ_ASKED_KEY,
   AI_SETUP_READING_MS,
+  AI_SETUP_READ_FIELDS,
   AI_SETUP_STEPS,
   AI_SETUP_TONE_TEXTS,
   AiSetupAnswers,
+  aiSetupBusinessDraftOf,
+  aiSetupBusinessOf,
+  aiSetupChatSnippet,
+  aiSetupChoicesOf,
+  aiSetupFindingsOf,
+  aiSetupFirstStep,
   aiSetupFoundFrom,
   aiSetupFoundOf,
   aiSetupNextStep,
   aiSetupOf,
   aiSetupPreviousStep,
+  aiSetupProblemAt,
   aiSetupProblems,
+  aiSetupProblemsOf,
   aiSetupReadDue,
   aiSetupReading,
+  aiSetupScreenProblems,
   aiSetupSteps,
   aiSetupSummary,
   aiSetupTestQuestions,
+  aiSetupWentToPerson,
   applyTeammatePatch,
   asksAboutWhoSomeoneIs,
+  cleanAiSetupAnswers,
   emptyKnowledgeProfile,
   factAnswersOf,
+  firstTextPreview,
   INDUSTRIES,
   laterAiSetupStep,
+  mergeAiSetupAnswers,
+  newAiSetupQuestion,
   planAiSetup,
   quickFactsFor,
   resumeAiSetup,
@@ -44,11 +59,13 @@ import {
   teammateConfigFromPreset,
   teammateFromAiSetup,
   toneOfProfile,
+  withAiSetupQuestionKind,
   zipCodesOnly,
   type AiSetupAnswersInput,
   type AiSetupFound,
   type AiSetupSiteReading,
   type AiSetupState,
+  type AiSetupStep,
   type TeammatePatch,
 } from '../src';
 
@@ -383,6 +400,189 @@ describe('the screens', () => {
     expect(laterAiSetupStep(null, 'jobs')).toBe('jobs');
     expect(laterAiSetupStep('hours', 'jobs')).toBe('hours');
     expect(laterAiSetupStep('jobs', 'hours')).toBe('hours');
+  });
+});
+
+describe('how the screens behave, on the web and the phone', () => {
+  const state = business();
+  const got = (reached: AiSetupStep | null, teammate: unknown = null) => ({
+    state: { website: null, chat: null, teammate },
+    answers: answers({ jobs: ['reply'] }),
+    reached,
+  });
+
+  it('open where someone left off, or on the test chat after Save', () => {
+    expect(aiSetupFirstStep(got(null), null)).toBe('business');
+    expect(aiSetupFirstStep(got('hours'), null)).toBe('facts');
+    // The last question was finished: it waits there for Save.
+    expect(aiSetupFirstStep(got('loop'), null)).toBe('loop');
+    expect(aiSetupFirstStep(got('loop'), 'try')).toBe('loop');
+    expect(aiSetupFirstStep(got(null, { id: TEAMMATE }), 'try')).toBe('try');
+  });
+
+  it('let what Ava read fill in only what nobody changed, on screens still to come', () => {
+    const local = answers({ description: 'Typed here', area: 'Katy' });
+    const fresh = answers({
+      description: 'From the website',
+      area: 'Austin',
+      services: [{ name: 'AC repair' }],
+      name: 'Max',
+    });
+    const read = mergeAiSetupAnswers(
+      local,
+      fresh,
+      new Set(['description'] as const),
+      'jobs',
+      AI_SETUP_READ_FIELDS,
+    );
+    expect(read.description).toBe('Typed here');
+    expect(read.area).toBe('Austin');
+    expect(read.services).toEqual([{ name: 'AC repair', description: '' }]);
+    // Not something Ava reads.
+    expect(read.name).toBe('Ava');
+    // A screen already finished keeps its answers.
+    expect(mergeAiSetupAnswers(local, fresh, new Set(), 'about', AI_SETUP_READ_FIELDS).area).toBe(
+      'Katy',
+    );
+    // After the first screen, everything not changed on screen.
+    const all = mergeAiSetupAnswers(local, fresh, new Set(['area'] as const), 'business');
+    expect(all.name).toBe('Max');
+    expect(all.area).toBe('Katy');
+  });
+
+  it('say what a screen still needs, by the path of the answer', () => {
+    expect(
+      aiSetupScreenProblems('business', answers(), state, { name: ' ', industry: '' }),
+    ).toEqual({
+      'business.name': 'Name your business.',
+      'business.industry': 'Pick the kind of business from the list, or Other.',
+    });
+    // Only this screen's answers: the empty name is the next screen's to ask about.
+    const raw = {
+      ...answers({ jobs: ['book'] }),
+      services: [{ name: ' ', description: '' }],
+      name: '',
+    };
+    expect(aiSetupScreenProblems('about', raw, state, { name: 'x', industry: 'hvac' })).toEqual({
+      'services.0.name': 'Name the service.',
+      description: 'Say what your business does in a sentence or two, so Ava can tell customers.',
+    });
+    expect(
+      aiSetupScreenProblems('jobs', answers({ jobs: [], name: 'Max' }), state, {
+        name: 'x',
+        industry: 'hvac',
+      }),
+    ).toEqual({ jobs: 'Tick at least one thing for Max to do.' });
+  });
+
+  it('read a refusal’s details as the screens name their answers', () => {
+    expect(
+      aiSetupProblemsOf([
+        { path: 'answers.services.0.name', message: 'Name the service.' },
+        { path: '/answers/area', message: 'Keep it under 500 characters.' },
+        { path: ['answers', 'questions', 1, 'question'], message: 'Ask what they need.' },
+        { path: 'answers.services.0.name', message: 'A second message.' },
+        { path: 'business.website', message: 'That isn’t a website.' },
+        { message: 'No path.' },
+        null,
+      ]),
+    ).toEqual({
+      'services.0.name': 'Name the service.',
+      area: 'Keep it under 500 characters.',
+      'questions.1.question': 'Ask what they need.',
+      'business.website': 'That isn’t a website.',
+    });
+    expect(aiSetupProblemsOf(undefined)).toEqual({});
+    expect(aiSetupProblemAt({ 'services.2.name': 'Name the service.' }, 'services')).toBe(
+      'Name the service.',
+    );
+    expect(aiSetupProblemAt({}, 'services')).toBeUndefined();
+  });
+
+  it('keep what’s ticked on “What Ava learned” and turn down the rest', () => {
+    const findings = [{ id: uid(41) }, { id: uid(42) }, { id: uid(43) }];
+    const kept = cleanAiSetupAnswers('learned', answers({ dropFindings: [uid(42)] }), findings);
+    expect(kept.keepFindings).toEqual([uid(41), uid(43)]);
+    expect(kept.dropFindings).toEqual([uid(42)]);
+    // Any other screen only checks them.
+    expect(
+      cleanAiSetupAnswers('voice', answers({ dropFindings: [uid(42)] }), findings).keepFindings,
+    ).toEqual([]);
+  });
+
+  it('list what the scan found that’s still waiting, in the order it found them', () => {
+    const item = (n: number, patch: { status?: string; reason?: string } = {}) => ({
+      id: uid(n),
+      kind: 'faq',
+      status: 'pending',
+      reason: 'scan',
+      proposed: { title: `Title ${n}`, body: `Body ${n}` },
+      ...patch,
+    });
+    expect(
+      aiSetupFindingsOf([
+        item(3),
+        item(2, { status: 'accepted' }),
+        item(1),
+        item(4, { reason: 'gap' }),
+      ]),
+    ).toEqual([
+      { id: uid(1), kind: 'faq', title: 'Title 1', body: 'Body 1' },
+      { id: uid(3), kind: 'faq', title: 'Title 3', body: 'Body 3' },
+    ]);
+  });
+
+  it('save the first screen’s website as typed, or none', () => {
+    const draft = aiSetupBusinessDraftOf({
+      businessName: 'Lone Star HVAC',
+      industry: null,
+      website: 'https://lonestarhvac.com/',
+    });
+    expect(draft).toEqual({
+      name: 'Lone Star HVAC',
+      industry: '',
+      site: 'lonestarhvac.com',
+      noSite: false,
+    });
+    expect(aiSetupBusinessOf({ ...draft, name: ' Lone Star ', industry: 'hvac' })).toEqual({
+      name: 'Lone Star',
+      industry: 'hvac',
+      website: 'lonestarhvac.com',
+    });
+    expect(aiSetupBusinessOf({ ...draft, noSite: true }).website).toBeNull();
+    expect(aiSetupBusinessOf({ ...draft, site: '  ' }).website).toBeNull();
+  });
+
+  it('add qualifying questions and change how they’re answered', () => {
+    expect(newAiSetupQuestion([]).id).toBe('q1');
+    const added = newAiSetupQuestion([{ id: 'q1' }, { id: 'q3' }]);
+    expect(added).toMatchObject({ id: 'q4', question: '', kind: 'text', options: [] });
+    const choice = {
+      ...added,
+      kind: 'choice' as const,
+      options: ['Cooling', 'Heating'],
+      notAFitIf: { answers: ['Heating'], below: null, above: null },
+    };
+    expect(withAiSetupQuestionKind(choice, 'yes_no')).toMatchObject({
+      kind: 'yes_no',
+      options: [],
+      notAFitIf: { answers: [] },
+    });
+    expect(withAiSetupQuestionKind(choice, 'choice').options).toEqual(['Cooling', 'Heating']);
+    expect(aiSetupChoicesOf(' Cooling, ,Heating ,')).toEqual(['Cooling', 'Heating']);
+  });
+
+  it('mark the test chat’s questions that went to a person, and give the chat’s code', () => {
+    expect(aiSetupWentToPerson('handed_off')).toBe(true);
+    expect(aiSetupWentToPerson('no_reply')).toBe(true);
+    expect(aiSetupWentToPerson('replied')).toBe(false);
+    expect(aiSetupWentToPerson(null)).toBe(false);
+    expect(aiSetupChatSnippet('https://app.handsfreeos.com', 'wk_1')).toBe(
+      '<script async src="https://app.handsfreeos.com/embed/v1/wk_1.js"></script>',
+    );
+    expect(firstTextPreview('Max', 'first_message', 'Lone Star HVAC')).toBe(
+      'Hi Mike, this is Max, the AI assistant at Lone Star HVAC. How can I help?',
+    );
   });
 });
 

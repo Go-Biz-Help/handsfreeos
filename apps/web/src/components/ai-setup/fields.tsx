@@ -6,8 +6,16 @@
  */
 import {
   AI_SETUP_FIELD_WORDS as W,
+  AI_SETUP_MAX,
+  AI_SETUP_QUESTION_KINDS,
   AI_SETUP_WORDS,
+  aiSetupChoicesOf,
+  aiSetupProblemAt,
   asksAboutWhoSomeoneIs,
+  isAiSetupQuestionKind,
+  newAiSetupQuestion,
+  withAiSetupQuestionKind,
+  type AiSetupProblems,
   type AiSetupService,
   type AiSetupTopQuestion,
   type QualifyingQuestion,
@@ -19,16 +27,6 @@ import { FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-/** Errors by path into the answers ("services.0.name"), as the answers' own checks and the API give them. */
-export type Problems = Readonly<Record<string, string>>;
-
-/** The first problem at this path or under it. */
-export function problemAt(problems: Problems, path: string): string | undefined {
-  if (problems[path]) return problems[path];
-  const under = Object.keys(problems).find((k) => k.startsWith(`${path}.`));
-  return under ? problems[under] : undefined;
-}
 
 /** A pick-one row of big answers, as the onboarding questions draw them. */
 export function Pills<T extends string>({
@@ -237,10 +235,6 @@ export function YesNo({
   );
 }
 
-/** The website as people type it, without the https:// the box already shows. */
-export const bareSite = (url: string | null) =>
-  (url ?? '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
-
 export function WebsiteField({
   value,
   noSite,
@@ -305,8 +299,6 @@ export function WebsiteField({
   );
 }
 
-const MAX_SERVICES = 50;
-
 export function ServicesField({
   services,
   onChange,
@@ -314,7 +306,7 @@ export function ServicesField({
 }: {
   services: readonly AiSetupService[];
   onChange: (next: AiSetupService[]) => void;
-  problems: Problems;
+  problems: AiSetupProblems;
 }) {
   const set = (i: number, patch: Partial<AiSetupService>) =>
     onChange(services.map((s, j) => (j === i ? { ...s, ...patch } : s)));
@@ -356,7 +348,7 @@ export function ServicesField({
           </li>
         ))}
       </ul>
-      {services.length < MAX_SERVICES ? (
+      {services.length < AI_SETUP_MAX.services ? (
         <Button
           variant="ghost"
           size="sm"
@@ -373,8 +365,6 @@ export function ServicesField({
   );
 }
 
-const MAX_TOP_QUESTIONS = 3;
-
 export function TopQuestionsField({
   value,
   onChange,
@@ -382,7 +372,7 @@ export function TopQuestionsField({
 }: {
   value: readonly AiSetupTopQuestion[];
   onChange: (next: AiSetupTopQuestion[]) => void;
-  problems: Problems;
+  problems: AiSetupProblems;
 }) {
   const set = (i: number, patch: Partial<AiSetupTopQuestion>) =>
     onChange(value.map((q, j) => (j === i ? { ...q, ...patch } : q)));
@@ -427,7 +417,7 @@ export function TopQuestionsField({
           </li>
         ))}
       </ul>
-      {value.length < MAX_TOP_QUESTIONS ? (
+      {value.length < AI_SETUP_MAX.topQuestions ? (
         <Button
           variant="ghost"
           size="sm"
@@ -443,34 +433,6 @@ export function TopQuestionsField({
   );
 }
 
-const MAX_QUALIFY = 10;
-/** The kinds quick setup offers; a number or file question from the full settings keeps its kind. */
-const SIMPLE_KINDS = ['text', 'choice', 'yes_no'] as const;
-type SimpleKind = (typeof SIMPLE_KINDS)[number];
-const isSimple = (k: string): k is SimpleKind => (SIMPLE_KINDS as readonly string[]).includes(k);
-
-function newQuestionId(taken: readonly string[]): string {
-  let n = taken.length + 1;
-  while (taken.includes(`q${n}`)) n++;
-  return `q${n}`;
-}
-
-/** A question with another kind of answer: choices only for a choice, and a rule-out only where it fits. */
-function withKind(q: QualifyingQuestion, kind: SimpleKind): QualifyingQuestion {
-  return {
-    ...q,
-    kind,
-    options: kind === 'choice' ? q.options : [],
-    notAFitIf: { ...q.notAFitIf, answers: [], below: null, above: null },
-  };
-}
-
-const choicesOf = (text: string) =>
-  text
-    .split(',')
-    .map((c) => c.trim())
-    .filter(Boolean);
-
 export function QualifyField({
   questions,
   industry,
@@ -481,7 +443,7 @@ export function QualifyField({
   /** The business's industry: a school may ask about the child it teaches. */
   industry: string | null;
   onChange: (next: QualifyingQuestion[]) => void;
-  problems: Problems;
+  problems: AiSetupProblems;
 }) {
   const set = (i: number, next: QualifyingQuestion) =>
     onChange(questions.map((q, j) => (j === i ? next : q)));
@@ -489,7 +451,7 @@ export function QualifyField({
     <div data-testid="ai-setup-qualify">
       <ol className="flex flex-col gap-3">
         {questions.map((q, i) => {
-          const problem = problemAt(problems, `questions.${i}`);
+          const problem = aiSetupProblemAt(problems, `questions.${i}`);
           return (
             <li
               key={q.id}
@@ -513,7 +475,7 @@ export function QualifyField({
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[13px] text-text-2">{W.qualifyAnswer}</span>
-                  {isSimple(q.kind) ? (
+                  {isAiSetupQuestionKind(q.kind) ? (
                     <Select
                       selectSize="sm"
                       className="w-auto"
@@ -521,10 +483,10 @@ export function QualifyField({
                       value={q.kind}
                       onChange={(e) => {
                         const kind = e.target.value;
-                        if (isSimple(kind)) set(i, withKind(q, kind));
+                        if (isAiSetupQuestionKind(kind)) set(i, withAiSetupQuestionKind(q, kind));
                       }}
                     >
-                      {SIMPLE_KINDS.map((k) => (
+                      {AI_SETUP_QUESTION_KINDS.map((k) => (
                         <option key={k} value={k}>
                           {W.qualifyKinds[k]}
                         </option>
@@ -539,7 +501,7 @@ export function QualifyField({
                     aria-label={W.qualifyChoices}
                     placeholder={W.qualifyChoices}
                     defaultValue={q.options.join(', ')}
-                    onBlur={(e) => set(i, { ...q, options: choicesOf(e.target.value) })}
+                    onBlur={(e) => set(i, { ...q, options: aiSetupChoicesOf(e.target.value) })}
                     data-testid={`ai-setup-qualify-${i}-choices`}
                   />
                 ) : null}
@@ -558,25 +520,12 @@ export function QualifyField({
           );
         })}
       </ol>
-      {questions.length < MAX_QUALIFY ? (
+      {questions.length < AI_SETUP_MAX.questions ? (
         <Button
           variant="ghost"
           size="sm"
           className="mt-2"
-          onClick={() =>
-            onChange([
-              ...questions,
-              {
-                id: newQuestionId(questions.map((q) => q.id)),
-                question: '',
-                kind: 'text',
-                options: [],
-                required: true,
-                notAFitIf: { answers: [], below: null, above: null },
-                notify: null,
-              },
-            ])
-          }
+          onClick={() => onChange([...questions, newAiSetupQuestion(questions)])}
           data-testid="ai-setup-add-qualify"
         >
           <Plus className="h-4 w-4" strokeWidth={1.75} />

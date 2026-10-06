@@ -3,6 +3,7 @@
  * Browser-safe.
  */
 import type { DisclosureMode, HoursMode } from '../ai-team/config';
+import type { TestOutcome } from '../ai-team/test-console';
 import type { AiSetupStep, AiSetupTone } from './answers';
 import type { SetupJob, SetupTone } from './kinds';
 
@@ -128,13 +129,17 @@ export const AI_SETUP_WORDS = {
   /** Save on a business that has a teammate: what will change comes first. */
   saveChanges: 'Save these changes',
   summary: 'What {name} will do',
+  done: 'Done',
+  cancel: 'Cancel',
 } as const;
 
 /** The labels on the screens, shared by the web and the phone. `{name}` is the teammate's name (`withAiName`). */
 export const AI_SETUP_FIELD_WORDS = {
   businessName: 'Business name',
+  businessNameMissing: 'Name your business.',
   kind: 'Kind of business',
   kindHint: 'It picks the questions and facts that fit.',
+  kindMissing: 'Pick the kind of business from the list, or Other.',
   website: 'Your website',
   websiteHint:
     '{name} reads it while you answer the rest: your services, where you work and your hours.',
@@ -157,6 +162,7 @@ export const AI_SETUP_FIELD_WORDS = {
   name: 'Name',
   disclosure: 'How does {name} tell people it’s AI?',
   disclosureRecommended: 'Recommended',
+  disclosureWhenAsked: 'It answers truthfully whenever someone asks if they’re talking to a bot.',
   disclosureCalifornia:
     'A bot that helps sell to or book California customers has to say it’s a bot up front. If you have customers there, pick “In its first message”, or check with a lawyer first.',
   tone: 'How {name} sounds',
@@ -215,3 +221,11 @@ export const AI_SETUP_FIELD_WORDS = {
   reportGaps: (n: number) =>
     n === 1 ? '1 question went to a person.' : `${n} questions went to a person.`,
 } as const;
+
+/** How a question on the test chat went, as its badge says. */
+export const AI_SETUP_OUTCOME_WORDS: Readonly<Record<TestOutcome, string>> = {
+  replied: AI_SETUP_FIELD_WORDS.knew,
+  drafted: AI_SETUP_FIELD_WORDS.knew,
+  handed_off: AI_SETUP_FIELD_WORDS.handedOff,
+  no_reply: AI_SETUP_FIELD_WORDS.noReply,
+};

@@ -352,6 +352,8 @@ export const PHONE_GUIDE_WORDS = {
   openSettings: 'Open Settings',
   needsSignal: 'That needs signal. Try again when you’re back online.',
   tour: 'Take the 1-minute tour',
+  /** The AI step while the business has no teammate: quick setup runs on the phone too. */
+  aiSetUp: 'Set up',
 } as const;
 
 /** "Email me a link": a step that's easier on a computer, sent to the person's email from the phone. */

@@ -3,32 +3,19 @@
  * the server and in the browser: `ai_setup.get` through core's own schema, so every default is filled in and core's
  * functions take it as it is.
  */
-import { AiSetupGetOutput, type AiSetupFinishOutput, type AiSetupSaveOutput } from '@hfos/core';
-import type { CellPhone, KnowledgeSuggestion } from '@/lib/api/types';
+import {
+  AiSetupGetOutput,
+  type AiSetupFinding,
+  type AiSetupFinishOutput,
+  type AiSetupSaveOutput,
+} from '@hfos/core';
+import type { CellPhone } from '@/lib/api/types';
 
 export type AiSetupGot = ReturnType<typeof AiSetupGetOutput.parse>;
 export type AiSetupSaved = ReturnType<typeof AiSetupSaveOutput.parse>;
 export type AiSetupFinished = ReturnType<typeof AiSetupFinishOutput.parse>;
 
 export const aiSetupGotOf = (raw: unknown): AiSetupGot => AiSetupGetOutput.parse(raw);
-
-/** One thing the website scan found, as "What Ava learned" lists it. */
-export interface AiSetupFinding {
-  readonly id: string;
-  readonly kind: KnowledgeSuggestion['kind'];
-  readonly title: string;
-  readonly body: string;
-}
-
-/**
- * The scan's findings nobody has kept or turned down yet, in the order it found them. The list comes newest first;
- * turned around, what arrives while the scan runs joins at the end, so nothing moves while the person ticks.
- */
-export const findingsOf = (items: readonly KnowledgeSuggestion[]): AiSetupFinding[] =>
-  items
-    .filter((s) => s.status === 'pending' && s.reason === 'scan')
-    .map((s) => ({ id: s.id, kind: s.kind, title: s.proposed.title, body: s.proposed.body }))
-    .reverse();
 
 /** Everything the screens start from. */
 export interface AiSetupData {

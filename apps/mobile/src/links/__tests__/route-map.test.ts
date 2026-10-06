@@ -53,6 +53,8 @@ describe('the route map', () => {
       'ideas/roadmap': { href: 'ideas/roadmap', later: false },
       'ideas/whats-new': { href: 'ideas/whats-new', later: false },
       'ideas/:ideaId': { href: `ideas/${ID}`, later: false },
+      // The AI teammate's quick setup: the same screens on the phone (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8).
+      'ai-team/setup': { href: 'ai-setup', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
     expect(screens.map((r) => r.web).sort()).toEqual(Object.keys(expected).sort());
@@ -114,6 +116,11 @@ describe('the route map', () => {
     expect(routeFor(`/app/w/${WS}/add-ons?addon=fxprop`)).toMatchObject({
       href: `/app/w/${WS}/add-ons?addon=fxprop`,
       params: { addon: 'fxprop' },
+    });
+    // Quick setup after Save (`?at=try`) opens on its test chat.
+    expect(routeFor(`/app/w/${WS}/ai-team/setup?at=try`)).toMatchObject({
+      href: `/app/w/${WS}/ai-setup?at=try`,
+      params: { at: 'try' },
     });
     expect(routeFor(`/app/w/${WS}/settings/add-ons?addon=fxprop`)).toMatchObject({
       href: `/app/w/${WS}/add-ons?addon=fxprop`,

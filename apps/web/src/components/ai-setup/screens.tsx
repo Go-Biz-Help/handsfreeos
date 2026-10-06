@@ -6,11 +6,14 @@
 import {
   AI_SETUP_ANSWER_WHEN_LABELS,
   AI_SETUP_CHAT_LABELS,
+  AI_SETUP_DISCLOSURE_LABELS,
   AI_SETUP_FIELD_WORDS as W,
   AI_SETUP_JOB_LABELS,
   AI_SETUP_PRICE_LABELS,
   AI_SETUP_TONE_LABELS,
   AI_SETUP_TONE_TEXTS,
+  aiSetupProblemAt,
+  firstTextPreview,
   HOURS_MODES,
   quickFactsFor,
   SETUP_JOBS,
@@ -19,6 +22,9 @@ import {
   toneOfProfile,
   withAiName,
   type AiSetupAnswers,
+  type AiSetupBusinessDraft,
+  type AiSetupFinding,
+  type AiSetupProblems,
   type AiSetupState,
   type AiSetupStep,
   type AiSetupTone,
@@ -35,40 +41,28 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { AiSetupData, AiSetupFinding } from '@/lib/ai-setup/data';
-import { firstTextPreview } from '@/lib/ai-team/describe';
+import type { AiSetupData } from '@/lib/ai-setup/data';
 import { errorMessage } from '@/lib/api/client';
 import { DOCUMENT_ACCEPT, uploadKnowledgeDocument } from '@/lib/knowledge/upload';
 import {
   Option,
   Pills,
-  problemAt,
   QualifyField,
   ServicesField,
   Tick,
   TopQuestionsField,
   WebsiteField,
   YesNo,
-  type Problems,
 } from './fields';
-
-/** The first screen's answers, saved to the business straight away. */
-export interface BusinessDraft {
-  readonly name: string;
-  readonly industry: string;
-  /** As typed, without https://. */
-  readonly site: string;
-  readonly noSite: boolean;
-}
 
 export interface ScreenProps {
   readonly step: Exclude<AiSetupStep, 'try'>;
   readonly state: AiSetupState;
   readonly answers: AiSetupAnswers;
   readonly set: <K extends keyof AiSetupAnswers>(key: K, value: AiSetupAnswers[K]) => void;
-  readonly problems: Problems;
-  readonly business: BusinessDraft;
-  readonly setBusiness: (patch: Partial<BusinessDraft>) => void;
+  readonly problems: AiSetupProblems;
+  readonly business: AiSetupBusinessDraft;
+  readonly setBusiness: (patch: Partial<AiSetupBusinessDraft>) => void;
   readonly findings: readonly AiSetupFinding[];
   readonly data: AiSetupData;
 }
@@ -184,7 +178,7 @@ function JobsScreen({ answers, set, problems }: ScreenProps) {
           testId={`ai-setup-job-${job}`}
         />
       ))}
-      <FieldError>{problemAt(problems, 'jobs')}</FieldError>
+      <FieldError>{aiSetupProblemAt(problems, 'jobs')}</FieldError>
     </div>
   );
 }
@@ -251,7 +245,7 @@ function HoursScreen({ state, answers, set, problems }: ScreenProps) {
           onChange={(next) => set('openHours', next)}
           idPrefix="ai-setup-open"
         />
-        <FieldError>{problemAt(problems, 'openHours')}</FieldError>
+        <FieldError>{aiSetupProblemAt(problems, 'openHours')}</FieldError>
       </div>
       <div>
         <Label>{withAiName(W.answerWhen, name)}</Label>
@@ -275,7 +269,7 @@ function HoursScreen({ state, answers, set, problems }: ScreenProps) {
             onChange={(next) => set('customHours', next)}
             idPrefix="ai-setup-custom"
           />
-          <FieldError>{problemAt(problems, 'customHours')}</FieldError>
+          <FieldError>{aiSetupProblemAt(problems, 'customHours')}</FieldError>
         </div>
       ) : null}
     </>
@@ -329,7 +323,7 @@ function MeetScreen({ state, answers, set, problems }: ScreenProps) {
           <Option
             on={answers.disclosure === 'first_message'}
             onSelect={() => set('disclosure', 'first_message')}
-            title="In its first message"
+            title={AI_SETUP_DISCLOSURE_LABELS.first_message}
             badge={
               <Badge variant="ok" className="h-5 text-[11.5px]">
                 {W.disclosureRecommended}
@@ -341,8 +335,8 @@ function MeetScreen({ state, answers, set, problems }: ScreenProps) {
           <Option
             on={answers.disclosure === 'when_asked'}
             onSelect={() => set('disclosure', 'when_asked')}
-            title="Only when asked"
-            description="It answers truthfully whenever someone asks if they’re talking to a bot."
+            title={AI_SETUP_DISCLOSURE_LABELS.when_asked}
+            description={W.disclosureWhenAsked}
             testId="ai-setup-disclosure-when_asked"
           />
         </Group>

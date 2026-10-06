@@ -5,20 +5,15 @@
  */
 import {
   AiSetupFinishOutput,
+  aiSetupFindingsOf,
   AiSetupSaveOutput,
   type AiSetupAnswers,
+  type AiSetupFinding,
   type AiSetupStep,
 } from '@hfos/core';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { AiSetupFinishBody, AiSetupSaveBody } from '@/lib/api/types';
-import {
-  aiSetupGotOf,
-  findingsOf,
-  type AiSetupFinding,
-  type AiSetupFinished,
-  type AiSetupGot,
-  type AiSetupSaved,
-} from './data';
+import { aiSetupGotOf, type AiSetupFinished, type AiSetupGot, type AiSetupSaved } from './data';
 
 /** The first screen's answers, saved to the business straight away. */
 export interface AiSetupBusiness {
@@ -79,7 +74,7 @@ export function aiSetupActions(workspaceId: string) {
           body: { workspaceId, scanId: scan.id, status: 'pending', limit: 100 },
         }),
       );
-      return findingsOf(items);
+      return aiSetupFindingsOf(items);
     },
     /** "Add the answer" on the test report: a published answer Ava can use straight away. */
     addAnswer: async (question: string, answer: string): Promise<void> => {

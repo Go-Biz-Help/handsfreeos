@@ -10,6 +10,7 @@ import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { useStaff } from '@/admin/staff';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import {
+  Bot,
   CircleDollarSign,
   ClipboardList,
   ClipboardPen,
@@ -43,7 +44,8 @@ import { openWeb } from '@/lib/open-web';
 import { VIEW_AS_PHONE_WORDS } from '@/view-as/words';
 
 /**
- * More: the places of add-ons running here (Real Estate's Deals, My duties, Coordinate, Vendors), then Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
+ * More: the places of add-ons running here (Real Estate's Deals, My duties, Coordinate, Vendors), then Contacts,
+ * Tasks, Money, Approvals, the AI teammate's quick setup or its test console (for those who manage it) and Settings,
  * then Add-ons (for owners and admins), Ideas and Get help, which are about HandsFreeOS itself, and Open on the web
  * for the desk work. Somebody who answers HandsFreeOS support also has the Support desk, which belongs to no business.
  */
@@ -52,8 +54,13 @@ export default function More() {
   const name = me.user.fullName || me.user.email;
   const unseen = useWhatsNewUnseen(userId);
   const grants = useGrants();
-  const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
-  const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
+  const { data: teammates, isLoading: teammatesLoading } = useQuery<{ id: string }>(TEAMMATE_SQL, [
+    business.id,
+  ]);
+  const managesTeammate = holds(grants, 'ai_team.manage');
+  const canTest = managesTeammate && teammates.length > 0;
+  // No teammate yet: quick setup, the same screens as the web's.
+  const canSetUp = managesTeammate && !teammatesLoading && teammates.length === 0;
   const { manage: managesAddons } = useAddonGrants();
   // Owners and admins, as themselves: viewing as a teammate shows what someone below them sees (20261018000100).
   const canViewAs = !viewing && holds(grants, 'members.view_as');
@@ -122,6 +129,15 @@ export default function More() {
           onPress={() => go('approvals')}
           testID="more-approvals"
         />
+        {canSetUp ? (
+          <ListRow
+            icon={Bot}
+            label={MORE_WORDS.setUpTeammate}
+            detail={MORE_WORDS.setUpTeammateDetail}
+            onPress={() => go('ai-setup')}
+            testID="more-set-up-teammate"
+          />
+        ) : null}
         {canTest ? (
           <ListRow
             icon={FlaskConical}

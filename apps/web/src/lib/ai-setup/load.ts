@@ -1,7 +1,8 @@
 import type { ApiClient } from '@hfos/api-client';
+import { aiSetupFindingsOf } from '@hfos/core';
 import { unwrap, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
-import { aiSetupGotOf, findingsOf, type AiSetupData } from './data';
+import { aiSetupGotOf, type AiSetupData } from './data';
 
 /**
  * What quick setup's screens start from, for the AI teammate page and Getting started's AI step: where it stands
@@ -27,7 +28,7 @@ export async function loadAiSetup(api: ApiClient, workspaceId: string): Promise<
     brandedOriginFor(api, workspaceId),
   ]);
   const findings = scan.scan
-    ? findingsOf(
+    ? aiSetupFindingsOf(
         unwrapPage(
           await api.POST('/v1/queries/knowledge_suggestion.list', {
             body: { workspaceId, scanId: scan.scan.id, status: 'pending', limit: 100 },

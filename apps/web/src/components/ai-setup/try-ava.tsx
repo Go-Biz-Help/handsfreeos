@@ -10,7 +10,10 @@
  */
 import {
   AI_SETUP_FIELD_WORDS as W,
+  AI_SETUP_OUTCOME_WORDS,
   AI_SETUP_WORDS,
+  aiSetupChatSnippet,
+  aiSetupWentToPerson,
   withAiName,
   type TestOutcome,
 } from '@hfos/core';
@@ -49,8 +52,7 @@ const asked = (id: number, question: string): Asked => ({
 });
 
 /** It didn't answer itself: the question is worth an answer in Knowledge. */
-const unanswered = (a: Asked) =>
-  a.state === 'done' && (a.outcome === 'handed_off' || a.outcome === 'no_reply');
+const unanswered = (a: Asked) => a.state === 'done' && aiSetupWentToPerson(a.outcome);
 
 export function TryAva({
   workspaceId,
@@ -254,7 +256,7 @@ export function TryAva({
               {withAiName(W.isOn, name)}
             </span>
             <Button onClick={() => onDone(false)} data-testid="ai-setup-done">
-              Done
+              {AI_SETUP_WORDS.done}
             </Button>
           </>
         ) : (
@@ -285,13 +287,6 @@ export function TryAva({
   );
 }
 
-const OUTCOME_WORDS: Readonly<Record<TestOutcome, string>> = {
-  replied: W.knew,
-  drafted: W.knew,
-  handed_off: W.handedOff,
-  no_reply: W.noReply,
-};
-
 function TestRow({
   a,
   name,
@@ -320,7 +315,7 @@ function TestRow({
         <span className="min-w-0 flex-1 font-medium">{a.question}</span>
         {a.state === 'done' && a.outcome ? (
           <Badge variant={gap ? 'pending' : 'ok'} className="h-5 flex-none text-[11.5px]">
-            {OUTCOME_WORDS[a.outcome]}
+            {AI_SETUP_OUTCOME_WORDS[a.outcome]}
           </Badge>
         ) : null}
       </div>
@@ -385,7 +380,7 @@ function TestRow({
               {W.addAnswer}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
+              {AI_SETUP_WORDS.cancel}
             </Button>
           </div>
         </form>
@@ -406,7 +401,7 @@ function ChatCode({
   moreHref: string;
 }) {
   const origin = usePublicOrigin(brandedOrigin);
-  const snippet = `<script async src="${origin}/embed/v1/${publicKey}.js"></script>`;
+  const snippet = aiSetupChatSnippet(origin ?? '', publicKey);
   return (
     <section
       className="flex flex-col gap-2 rounded-menu border border-border p-4"

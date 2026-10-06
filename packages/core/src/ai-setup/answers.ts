@@ -35,6 +35,9 @@ export const AI_SETUP_STEPS = [
 ] as const;
 export type AiSetupStep = (typeof AI_SETUP_STEPS)[number];
 
+/** How many of each list the answers take: the screens stop offering more at these. */
+export const AI_SETUP_MAX = { services: 50, topQuestions: 3, questions: 10 } as const;
+
 /** `keep`: what's written in Knowledge → Business profile isn't one of the three, and stays. */
 export const AI_SETUP_TONES = [...SETUP_TONES, 'keep'] as const;
 export type AiSetupTone = (typeof AI_SETUP_TONES)[number];
@@ -85,7 +88,7 @@ export const AiSetupAnswers = z.object({
   description: z.string().trim().max(2000, 'Keep it under 2,000 characters.').default(''),
   services: z
     .array(AiSetupService)
-    .max(50, 'At most 50 services.')
+    .max(AI_SETUP_MAX.services, `At most ${AI_SETUP_MAX.services} services.`)
     .default(() => []),
   /** Where the business works, in its own words (cities, ZIP codes, an address, states). */
   area: z.string().trim().max(500, 'Keep it under 500 characters.').default(''),
@@ -109,7 +112,7 @@ export const AiSetupAnswers = z.object({
   /** "What do customers ask you most?", with the answers. */
   topQuestions: z
     .array(AiSetupTopQuestion)
-    .max(3, 'At most 3.')
+    .max(AI_SETUP_MAX.topQuestions, `At most ${AI_SETUP_MAX.topQuestions}.`)
     .default(() => []),
   /** What the website scan found, left ticked on "What Ava learned": it goes into Knowledge, ready to use. */
   keepFindings: findings,
@@ -118,7 +121,7 @@ export const AiSetupAnswers = z.object({
   /** The qualifying questions, when Ava asks them. */
   questions: z
     .array(QualifyingQuestion)
-    .max(10, 'At most 10 questions.')
+    .max(AI_SETUP_MAX.questions, `At most ${AI_SETUP_MAX.questions} questions.`)
     .refine((list) => unique(list.map((q) => q.id)), { error: 'Each question needs its own id.' })
     .default(() => []),
   /** "Add Ava to your website?" */

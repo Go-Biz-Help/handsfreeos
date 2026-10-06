@@ -98,6 +98,12 @@ const ONLINE_COMMANDS = [
   'realestate.open_house.plan',
   'realestate.duty.pick_vendor',
   'realestate.duty.vendor_quote',
+  // Quick setup for the AI teammate (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): each screen's answers
+  // kept as it's finished, Save, an answer added from its test chat, and turning the teammate on.
+  'ai_setup.save',
+  'ai_setup.finish',
+  'knowledge_item.create',
+  'ai_teammate.set_status',
 ];
 /**
  * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
@@ -143,6 +149,10 @@ const QUERIES = [
   'realestate.duty.vendors',
   // A signed document's fingerprint, checked once the phone has downloaded it to keep (round seven).
   'file.fingerprints',
+  // Quick setup for the AI teammate: where it stands, and what Ava found on the website that's still waiting.
+  'ai_setup.get',
+  'knowledge_scan.get',
+  'knowledge_suggestion.list',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

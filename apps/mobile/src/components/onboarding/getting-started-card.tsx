@@ -1,25 +1,30 @@
 import {
   GUIDE_WORDS,
+  holds,
   LINK_WORDS,
   PHONE_GUIDE_WORDS,
   progressWords,
   stepTitle,
   stepWords,
 } from '@hfos/core';
+import { useQuery } from '@powersync/react-native';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Check, CircleAlert, Clock } from '@/components/icons';
 import { PhoneTour } from '@/components/onboarding/phone-tour';
-import { useBusiness } from '@/components/shell/business-context';
+import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { TEAMMATE_SQL } from '@/home/queries';
 import { api, errorMessage, unwrap } from '@/lib/api';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 import { cn } from '@/lib/utils';
 import {
@@ -37,9 +42,10 @@ const FOLDED = 4;
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10).
  *
  * An owner or admin sees the business's guide, shorter than the web's: the count, the next step with its button,
- * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does two steps itself (the
- * app, which it is, and its notifications); everything else is easier on a computer, so its button emails the
- * person a link (`onboarding.send_link`). Hidden or finished on the web, it's gone here too.
+ * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does three steps itself (the
+ * app, which it is, its notifications, and the AI teammate's quick setup while the business has no teammate);
+ * everything else is easier on a computer, so its button emails the person a link (`onboarding.send_link`). Hidden or
+ * finished on the web, it's gone here too.
  */
 export function GettingStartedCard({ className }: { className?: string }) {
   const { business, userId } = useBusiness();
@@ -68,6 +74,21 @@ function Steps({
   const [all, setAll] = React.useState(false);
   const [touring, setTouring] = React.useState(false);
   const owner = status.audience === 'business';
+  const grants = useGrants();
+  const { data: teammates, isLoading } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
+  const hasTeammate = teammates.length > 0;
+  // Quick setup runs here as on the web, for whoever manages the teammate, until there is one.
+  const setsUpAi = !isLoading && !hasTeammate && holds(grants, 'ai_team.manage');
+  // The teammate quick setup saves reaches the phone's copy: the guide asks again.
+  const hadTeammate = React.useRef<boolean | null>(null);
+  React.useEffect(() => {
+    if (isLoading) return;
+    if (hasTeammate && hadTeammate.current === false) reload();
+    hadTeammate.current = hasTeammate;
+  }, [isLoading, hasTeammate, reload]);
+  /** The step this phone does itself. */
+  const onPhone = (step: OnboardingStep) =>
+    step.key === 'app' || step.key === 'notifications' || (step.key === 'ai' && setsUpAi);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -120,6 +141,17 @@ function Steps({
   /** A step's one button: what the phone does itself, else "Email me a link". */
   const action = (step: OnboardingStep, primary: boolean) => {
     if (step.key === 'app') return null;
+    if (step.key === 'ai' && setsUpAi)
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'ai-setup'))}
+          testID="getting-started-ai-setup"
+        >
+          {PHONE_GUIDE_WORDS.aiSetUp}
+        </Button>
+      );
     if (step.key === 'notifications')
       return (
         <Button
@@ -188,7 +220,7 @@ function Steps({
           <View className="gap-0.5">
             <Text className="text-[15px] font-semibold">{stepTitle(next.key, next.note.name)}</Text>
             <Text className="text-[13.5px] leading-[19px] text-text-2">
-              {next.key === 'app' || next.key === 'notifications' || next.state !== 'todo'
+              {onPhone(next) || next.state !== 'todo'
                 ? stepWords(next, status.answers).detail
                 : LINK_WORDS.easierDetail}
             </Text>

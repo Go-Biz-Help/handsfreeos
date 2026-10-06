@@ -14,21 +14,29 @@
  * - What a screen shows and what it still needs come from core (summary.ts, words.ts), as on the phone.
  */
 import {
-  AI_SETUP_STEP_FIELDS,
-  AI_SETUP_STEPS,
+  AI_SETUP_READ_FIELDS,
   AI_SETUP_WORDS,
+  aiSetupBusinessDraftOf,
+  aiSetupBusinessOf,
+  aiSetupFirstStep,
+  aiSetupFlowFactsOf,
   aiSetupNextStep,
   aiSetupPreviousStep,
-  AiSetupAnswers,
+  aiSetupProblemsOf,
+  aiSetupScreenProblems,
   aiSetupStateOf,
   aiSetupStepHint,
-  aiSetupStepProblems,
   aiSetupSteps,
   aiSetupStepTitle,
   aiSetupSummary,
   aiSetupTestQuestions,
+  cleanAiSetupAnswers,
+  mergeAiSetupAnswers,
   planAiSetup,
   withAiName,
+  type AiSetupAnswers,
+  type AiSetupBusinessDraft,
+  type AiSetupProblems,
   type AiSetupStep,
 } from '@hfos/core';
 import { ArrowLeft, ArrowRight, RotateCcw, Sparkles } from 'lucide-react';
@@ -44,77 +52,20 @@ import type { AiSetupData, AiSetupFinished, AiSetupGot } from '@/lib/ai-setup/da
 import { ApiError, errorMessage } from '@/lib/api/client';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
-import { bareSite, type Problems } from './fields';
-import { AiSetupScreen, type BusinessDraft } from './screens';
+import { AiSetupScreen } from './screens';
 import { TryAva } from './try-ava';
 
 type Answers = AiSetupAnswers;
 type Field = keyof Answers;
-
-/** What Ava reads on the website fills these in, on screens not finished yet. */
-const READ_FIELDS: readonly Field[] = [
-  'description',
-  'services',
-  'area',
-  'openHours',
-  'facts',
-  'questions',
-];
-
-/** The screen each answer is on. */
-const STEP_OF = new Map<Field, AiSetupStep>(
-  AI_SETUP_STEPS.flatMap((s) => AI_SETUP_STEP_FIELDS[s].map((f) => [f, s] as const)),
-);
-const at = (s: AiSetupStep | null | undefined) => (s ? AI_SETUP_STEPS.indexOf(s) : -1);
 
 /** What changes the screens: the website's reading, the scan and what it found. */
 const LIVE = ['knowledge_source', 'knowledge_scan', 'knowledge_suggestion'];
 /** While Ava reads or the scan runs, the screens also ask again this often, in case live updates are down. */
 const POLL_MS = 4_000;
 
-/**
- * Fresh answers over the ones on screen: every answer not changed here since the last save, or with `only`, just
- * those, on screens not finished yet.
- */
-function merged(
-  local: Answers,
-  fresh: Answers,
-  touched: ReadonlySet<Field>,
-  reached: AiSetupStep | null,
-  only?: readonly Field[],
-): Answers {
-  const out: Record<string, unknown> = { ...local };
-  for (const key of Object.keys(fresh) as Field[]) {
-    if (touched.has(key)) continue;
-    if (only && (!only.includes(key) || at(STEP_OF.get(key)) <= at(reached))) continue;
-    out[key] = fresh[key];
-  }
-  return out as Answers;
-}
-
-/** Where to open: the test chat after Save, else the screen after the furthest one finished. */
-function firstStep(got: AiSetupGot, startAt: 'try' | null): AiSetupStep {
-  if (startAt === 'try' && got.state.teammate) return 'try';
-  if (!got.reached) return 'business';
-  const facts = { website: !!got.state.website, chat: !!got.state.chat };
-  const next = aiSetupNextStep(got.reached, got.answers, facts);
-  return next && next !== 'try' ? next : got.reached;
-}
-
-/** A refusal's messages by path into the answers ("answers.services.0.name" → "services.0.name"). */
-function apiProblems(e: unknown): Problems {
-  if (!(e instanceof ApiError) || !Array.isArray(e.details)) return {};
-  const out: Record<string, string> = {};
-  for (const d of e.details as { path?: unknown; message?: unknown }[]) {
-    const raw = Array.isArray(d.path) ? d.path.join('.') : String(d.path ?? '');
-    const path = raw
-      .replace(/^\//, '')
-      .replaceAll('/', '.')
-      .replace(/^answers\./, '');
-    if (typeof d.message === 'string' && path && !out[path]) out[path] = d.message;
-  }
-  return out;
-}
+/** A refusal's messages by path into the answers. */
+const apiProblems = (e: unknown): AiSetupProblems =>
+  e instanceof ApiError ? aiSetupProblemsOf(e.details) : {};
 
 export function AiQuickSetup({
   data,
@@ -140,15 +91,12 @@ export function AiQuickSetup({
   const [findings, setFindings] = useState(data.findings);
   const state = useMemo(() => aiSetupStateOf(got.state), [got.state]);
   const [answers, setAnswers] = useState<Answers>(data.got.answers);
-  const [step, setStep] = useState<AiSetupStep>(() => firstStep(data.got, startAt));
+  const [step, setStep] = useState<AiSetupStep>(() => aiSetupFirstStep(data.got, startAt));
   const [confirming, setConfirming] = useState(false);
-  const [business, setBusinessDraft] = useState<BusinessDraft>(() => ({
-    name: data.got.state.businessName,
-    industry: data.got.state.industry ?? '',
-    site: bareSite(data.got.state.website),
-    noSite: false,
-  }));
-  const [problems, setProblems] = useState<Problems>({});
+  const [business, setBusinessDraft] = useState<AiSetupBusinessDraft>(() =>
+    aiSetupBusinessDraftOf(data.got.state),
+  );
+  const [problems, setProblems] = useState<AiSetupProblems>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<AiSetupFinished | null>(null);
@@ -159,7 +107,7 @@ export function AiQuickSetup({
   const reached = useRef<AiSetupStep | null>(data.got.reached);
   const top = useRef<HTMLDivElement | null>(null);
 
-  const facts = { website: !!state.website, chat: !!state.chat };
+  const facts = aiSetupFlowFactsOf(state);
   const steps = aiSetupSteps(answers, facts);
   const name = answers.name.trim() || 'Ava';
 
@@ -167,7 +115,13 @@ export function AiQuickSetup({
   const adopt = useCallback((fresh: AiSetupGot, all: boolean) => {
     setGot(fresh);
     setAnswers((local) =>
-      merged(local, fresh.answers, touched.current, reached.current, all ? undefined : READ_FIELDS),
+      mergeAiSetupAnswers(
+        local,
+        fresh.answers,
+        touched.current,
+        reached.current,
+        all ? undefined : AI_SETUP_READ_FIELDS,
+      ),
     );
   }, []);
 
@@ -223,7 +177,7 @@ export function AiQuickSetup({
     });
   }
 
-  function setBusiness(patch: Partial<BusinessDraft>) {
+  function setBusiness(patch: Partial<AiSetupBusinessDraft>) {
     setBusinessDraft((b) => ({ ...b, ...patch }));
     setProblems((p) => (Object.keys(p).some((k) => k.startsWith('business.')) ? {} : p));
   }
@@ -237,38 +191,10 @@ export function AiQuickSetup({
   }
 
   /** What the screen still needs before Next, by path. */
-  function check(s: AiSetupStep): Problems {
-    const out: Record<string, string> = {};
-    if (s === 'business') {
-      if (!business.name.trim()) out['business.name'] = 'Name your business.';
-      if (!business.industry)
-        out['business.industry'] = 'Pick the kind of business from the list, or Other.';
-      return out;
-    }
-    const fields = AI_SETUP_STEP_FIELDS[s];
-    const parsed = AiSetupAnswers.safeParse(answers);
-    if (!parsed.success)
-      for (const issue of parsed.error.issues) {
-        const path = issue.path.map(String).join('.');
-        if (fields.includes(String(issue.path[0]) as Field) && !out[path])
-          out[path] = issue.message;
-      }
-    for (const p of aiSetupStepProblems(s, parsed.success ? parsed.data : answers, state))
-      if (!out[p.path]) out[p.path] = p.message;
-    return out;
-  }
+  const check = (s: AiSetupStep) => aiSetupScreenProblems(s, answers, state, business);
 
-  /** The answers as they're kept: checked, and on "What Ava learned", what's ticked kept and the rest turned down. */
-  function cleaned(s: AiSetupStep): Answers {
-    const clean = AiSetupAnswers.parse(answers);
-    if (s !== 'learned') return clean;
-    const dropped = new Set(clean.dropFindings);
-    return {
-      ...clean,
-      keepFindings: findings.filter((f) => !dropped.has(f.id)).map((f) => f.id),
-      dropFindings: findings.filter((f) => dropped.has(f.id)).map((f) => f.id),
-    };
-  }
+  /** The answers as they're kept: on "What Ava learned", what's ticked kept and the rest turned down. */
+  const cleaned = (s: AiSetupStep) => cleanAiSetupAnswers(s, answers, findings);
 
   async function next() {
     const found = check(step);
@@ -282,15 +208,10 @@ export function AiQuickSetup({
       const clean = cleaned(step);
       const after = aiSetupNextStep(step, clean, facts);
       if (step === 'business') {
-        const site = business.site.trim();
         const saved = await actions.save({
           step,
           answers: clean,
-          business: {
-            name: business.name.trim(),
-            industry: business.industry,
-            website: business.noSite || !site ? null : site,
-          },
+          business: aiSetupBusinessOf(business),
         });
         reached.current = saved.reached;
         const [fresh, found] = await Promise.all([actions.get(), actions.findings()]);

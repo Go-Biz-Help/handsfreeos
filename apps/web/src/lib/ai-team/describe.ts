@@ -11,7 +11,6 @@ import {
   TEAMMATE_LABEL_NAMES,
   teammateUsesAddon,
   type AddonManifest,
-  type DisclosureMode,
   type NotifyWho,
   type ReplyRule,
   type TeammateCatalogs,
@@ -584,18 +583,8 @@ export const triggerWords = (t: string): string => TRIGGERS[t] ?? capital(t.repl
 
 // ---- Previews ----
 
-/** The start of its first text to a customer, as the Identity module shows it. */
-export function firstTextPreview(
-  name: string,
-  disclosure: DisclosureMode,
-  business: string,
-): string {
-  const who =
-    disclosure === 'first_message'
-      ? `${name}, the AI assistant at ${business}`
-      : `${name} at ${business}`;
-  return `Hi Mike, this is ${who}. How can I help?`;
-}
+/** The start of its first text to a customer, as the Identity module shows it: core's, shared with the phone. */
+export { firstTextPreview } from '@hfos/core';
 
 /** Examples of what the worker puts in the hand-off line's {expectation}. */
 export const EXPECTATION_EXAMPLES = {

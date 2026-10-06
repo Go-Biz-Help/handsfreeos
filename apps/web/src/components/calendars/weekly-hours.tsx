@@ -1,5 +1,5 @@
 'use client';
-import { minutesToClock, parseClock, type WeeklyHours } from '@hfos/core';
+import { minutesToClock, parseClock, weeklyHoursDayProblem, type WeeklyHours } from '@hfos/core';
 import { Plus, X } from 'lucide-react';
 import { Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -20,20 +20,9 @@ const ENDS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15);
 
 type Window = WeeklyHours[number];
 
-/** What's wrong with a day's hours, or null: an end before its start, or two stretches that overlap. */
-export function dayProblem(windows: readonly Window[]): string | null {
-  const sorted = [...windows].sort((a, b) => a.start.localeCompare(b.start));
-  for (const w of sorted)
-    if (parseClock(w.end) <= parseClock(w.start)) return 'Ends before it starts.';
-  for (let i = 1; i < sorted.length; i++)
-    if (parseClock(sorted[i]!.start) < parseClock(sorted[i - 1]!.end))
-      return 'These hours overlap.';
-  return null;
-}
-
 export function hoursProblem(value: WeeklyHours): string | null {
   for (const [day] of DAYS) {
-    const problem = dayProblem(value.filter((h) => h.day === day));
+    const problem = weeklyHoursDayProblem(value.filter((h) => h.day === day));
     if (problem) return problem;
   }
   return null;
@@ -68,7 +57,7 @@ export function WeeklyHoursEditor({
           .filter((h) => h.day === day)
           .sort((a, b) => a.start.localeCompare(b.start));
         const on = windows.length > 0;
-        const problem = dayProblem(windows);
+        const problem = weeklyHoursDayProblem(windows);
         const update = (i: number, patch: Partial<Window>) =>
           setDay(
             day,

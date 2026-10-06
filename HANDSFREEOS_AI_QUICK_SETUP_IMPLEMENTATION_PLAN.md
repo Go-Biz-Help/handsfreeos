@@ -253,6 +253,23 @@ today's screens. Turning it on is `ai_teammate.set_status`. Read `apps/web/AGENT
 The same screens in the phone app (8B, 59), from the same core functions and words, so an owner can start on the
 computer and finish on the phone.
 
+- **Where:** `app/w/[workspaceId]/ai-setup.tsx`, full screen, for whoever manages the teammate (`ai_team.manage`).
+  It opens from More ("Set up your AI teammate" until there's a teammate, then the test console in its place), from
+  Getting started's AI step (done on the phone itself until there's a teammate, not a link by email), from the test
+  console while there's nothing to test, and from links to the web's `/ai-team/setup`, `?at=try` included.
+- **Shared with the web:** what each screen still needs, what's kept, what Ava read and the questions to try come
+  from core (`ai-setup/flow.ts`, moved there out of the web's screens), and so do the words. So does one day's hours
+  check (`weeklyHoursDayProblem`). Words only the phone uses are in `apps/mobile/src/ai-setup/words.ts`.
+- **The parts:** `components/ai-setup/quick-setup.tsx` is the frame; `screens.tsx`, `fields.tsx` and `hours.tsx`
+  are the screens and their controls; `try-ava.tsx` is the test chat; `ai-setup/calls.ts` makes the calls.
+- **The phone's own ways:** the kind of business is picked on a sheet with a search; hours are a switch and times
+  for each day; "Stay in the loop" turns on the phone's notifications and verifies the person's cell right there;
+  the website chat's code is shared from the phone, with the install guide on the web; a PDF is added on the
+  computer.
+- **Signal:** each answer depends on what HandsFreeOS says next, so nothing goes into the phone's queue of changes.
+  Without signal it says so, and carries on once the phone is back online. Its commands are online ones in the
+  phone's contract (`packages/core/test/mobile-contract.test.ts`).
+
 ## 9. Agencies
 
 An agency saves its answers as a starting point for client businesses (58B): only the answers that aren't about one
@@ -273,7 +290,7 @@ Each step is its own pull request.
 1. **Core** ✓: kinds, answers, plan, summary, words; `ai_setup.get`, `ai_setup.save`, `ai_setup.finish`; tests.
 2. **Worker** ✓: the profile and qualifying questions from the website; the insurance false alarm.
 3. **Web** ✓: the screens, the summary, the test chat and its report, turning it on.
-4. **Phone**: the same screens.
+4. **Phone** ✓: the same screens.
 5. **Agencies**: saving answers as a starting point (with its migration).
 6. **Tidy**: today's full settings page.
 
@@ -297,3 +314,8 @@ Each step is its own pull request.
   as the website's, the summary following the name, findings, Save, the test chat with "Add the answer", turning
   it on, and a second run where nothing changes. The preset specs (`ai-team-builder`, `ai-team-mobile`,
   `getting-started`) reach the presets through "Set it up myself".
+- `apps/mobile/src/components/ai-setup/__tests__/quick-setup.test.tsx`: the first screen with the kind of business
+  picked on its sheet, the hours editor, qualifying questions, carrying on, Save, the test chat with "Add the
+  answer", turning it on, what will change for a business with a teammate, a test chat that isn't there yet, no
+  signal, a refusal, and who may run it. `entry.test.tsx` beside it covers More and the test console;
+  `src/onboarding/__tests__/getting-started.test.tsx` covers Getting started's AI step.
