@@ -69,8 +69,9 @@ const manifest = {
   name: 'HandsFreeOS Social (test)',
   short_name: 'HFOS Social',
   version,
+  // The stores take 132 characters at most.
   description:
-    'Works beside you on Facebook: reads the page you have open and saves the people and chats you pick to HandsFreeOS. A test build.',
+    'Works beside you on Facebook: saves the people, chats and friends you pick to HandsFreeOS, and counts your outreach. A test build.',
   minimum_chrome_version: '116',
   icons: ICONS,
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },

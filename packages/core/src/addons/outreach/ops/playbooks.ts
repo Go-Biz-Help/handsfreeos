@@ -10,7 +10,13 @@ import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
-import { PLAYBOOK_TEMPLATE_KEYS, PlaybookDetails } from '../playbooks';
+import {
+  PLAYBOOK_LIMITS,
+  PLAYBOOK_TEMPLATE_KEYS,
+  PlaybookDetails,
+  renumberQuestions,
+  upgradePlaybookDetails,
+} from '../playbooks';
 import { playbooks } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
@@ -28,7 +34,8 @@ const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookO
   id: p.id,
   name: p.name,
   template: p.template,
-  details: p.details,
+  // One saved before its questions had answers reads in today's shape (data version 2).
+  details: upgradePlaybookDetails(p.details) as z.input<typeof PlaybookDetails>,
   archivedAt: p.archivedAt?.toISOString() ?? null,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
@@ -38,7 +45,7 @@ const name = z
   .string()
   .trim()
   .min(1, 'Give the playbook a name.')
-  .max(80, 'Keep the name under 80 characters.');
+  .max(PLAYBOOK_LIMITS.name, `Keep the name under ${PLAYBOOK_LIMITS.name} characters.`);
 
 async function loadPlaybook(ctx: Ctx, playbookId: string) {
   const [p] = await ctx.tx
@@ -110,12 +117,14 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
+    // Its questions keep short names however often they come and go.
+    const details = { ...input.details, questions: renumberQuestions(input.details.questions) };
     const saved = await namedOnce(input.name, async () => {
       if (input.playbookId) {
         const was = await loadPlaybook(ctx, input.playbookId);
         const [p] = await ctx.tx
           .update(playbooks)
-          .set({ name: input.name, details: input.details, updatedBy: me, updatedAt: at })
+          .set({ name: input.name, details, updatedBy: me, updatedAt: at })
           .where(eq(playbooks.id, was.id))
           .returning();
         return p!;
@@ -126,7 +135,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
           workspaceId: ctx.scope.workspaceId!,
           name: input.name,
           template: input.template ?? null,
-          details: input.details,
+          details,
           createdBy: me,
           updatedBy: me,
         })

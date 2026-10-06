@@ -63,22 +63,23 @@ const op = (name: string) =>
     (x) => x.name === name,
   )!;
 
-/** Runs one of the add-on's operations as `u` in `ws`, from the extension unless it says otherwise. */
+/**
+ * Runs one of the add-on's operations as `u` in `ws`, from the extension. A command is done now, or at `at`: one that
+ * waited to send.
+ */
 export function runAs(
   u: TestUser,
   ws: string,
   name: string,
   input: Record<string, unknown>,
+  at?: Date,
 ): Promise<Any> {
   const found = op(name);
   return found.kind === 'command'
-    ? executeCommand(
-        api(),
-        found as CommandDef,
-        { workspaceId: ws, ...input },
-        human(u),
-        fromExtension(),
-      ).then((r) => r.output)
+    ? executeCommand(api(), found as CommandDef, { workspaceId: ws, ...input }, human(u), {
+        ...fromExtension(),
+        ...(at ? { occurredAt: at } : {}),
+      }).then((r) => r.output)
     : executeQuery(api(), found as QueryDef, { workspaceId: ws, ...input }, human(u), {
         correlationId: randomUUID(),
         channel: 'extension',

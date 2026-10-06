@@ -50,9 +50,12 @@ export async function loadTexting(
   // so neither counts as a live surface however recently it was made.
   const liveWidget = widgets.items.find((w) => !w.paused) ?? null;
   const liveForm = forms.items.find((f) => f.status === 'live') ?? null;
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
   return {
     workspaceId,
     businessName: got.workspace.name,
+    // Settings → Workspace's website, which setup's quick questions fill in too.
+    businessWebsite: typeof settings['website'] === 'string' ? settings['website'] || null : null,
     status,
     me: { fullName: me.user.fullName, email: me.user.email },
     team,

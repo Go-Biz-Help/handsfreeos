@@ -17,7 +17,15 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
@@ -59,6 +67,7 @@ import type {
 import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { keepSetupReturn, setupReturnFor } from '@/lib/setup-return';
 import { cn } from '@/lib/utils';
 import { RcsCard, type RcsPrefill } from './rcs-card';
 import { ReleaseNumberDialog } from './release-number-dialog';
@@ -93,6 +102,7 @@ const label = (list: readonly (readonly [string, string])[], value: unknown) =>
 export function TextingPage({
   workspaceId,
   businessName,
+  businessWebsite = null,
   status,
   me,
   team,
@@ -109,6 +119,8 @@ export function TextingPage({
 }: {
   workspaceId: string;
   businessName: string;
+  /** The website the business already gave (Settings → Workspace), which a first registration starts from. */
+  businessWebsite?: string | null;
   status: Status;
   me: { fullName: string; email: string };
   /** First names of the people whose browsers ring for calls. */
@@ -154,6 +166,14 @@ export function TextingPage({
     'rcs_sender',
   ]);
   const router = useRouter();
+  // Back from paying a texting fee: Stripe's page returns everyone here, so whoever paid from setup's number step
+  // goes back there, with the same word on how it went (lib/setup-return.ts).
+  useEffect(() => {
+    if (setup || !new URLSearchParams(window.location.search).has('fees')) return;
+    const here = `${window.location.pathname}${window.location.search}`;
+    const back = setupReturnFor(here);
+    if (back !== here) router.replace(back);
+  }, [setup, router]);
   // Buying and releasing take seconds: check again every few, in case the live channel is down.
   const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
   useEffect(() => {
@@ -165,6 +185,12 @@ export function TextingPage({
   const [showSent, setShowSent] = useState(false);
   // Just sent a registration with fees to pay: off to the payment page as soon as it is made.
   const [goPay, setGoPay] = useState(false);
+  // Sent: the page shows what went, and any fees, at once. The live channel leaves this tab's own changes to it
+  // (lib/api/own-requests.ts), and while fees are owed nothing else changes until they're paid.
+  const sent = (fee: { id: string } | null) => {
+    if (fee) setGoPay(true);
+    router.refresh();
+  };
   // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
   // about getting a first number working — so it is local state that drops back into the same buy screen.
   const [adding, setAdding] = useState(false);
@@ -331,7 +357,12 @@ export function TextingPage({
         ) : null}
         <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
         {status.textingFees?.due && !fixing && !ahead ? (
-          <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+          <TextingFeeDue
+            workspaceId={workspaceId}
+            fee={status.textingFees.due}
+            goPay={goPay}
+            fromSetup={!!setup}
+          />
         ) : null}
         {step === 'buy_number' ? (
           <NumberStep
@@ -363,6 +394,7 @@ export function TextingPage({
           <A2pWizard
             workspaceId={workspaceId}
             businessName={businessName}
+            businessWebsite={businessWebsite}
             number={status.number!}
             me={me}
             initial={fixing ? submission : null}
@@ -372,7 +404,7 @@ export function TextingPage({
             feesPaidFor={status.textingFees?.paidFor ?? null}
             onSubmitted={(fee) => {
               setFixing(false);
-              if (fee) setGoPay(true);
+              sent(fee);
             }}
           />
         ) : step === 'rejected' ? (
@@ -396,6 +428,7 @@ export function TextingPage({
         <RegisterAhead
           workspaceId={workspaceId}
           businessName={businessName}
+          businessWebsite={businessWebsite}
           status={status}
           me={me}
           surfaces={surfaces}
@@ -404,7 +437,8 @@ export function TextingPage({
           arriving={ahead.arriving}
           onViewSent={() => setShowSent(true)}
           goPay={goPay}
-          onFee={() => setGoPay(true)}
+          fromSetup={!!setup}
+          onSent={sent}
         />
       ) : null}
     </div>
@@ -1065,11 +1099,14 @@ function TextingFeeDue({
   workspaceId,
   fee,
   goPay,
+  fromSetup = false,
 }: {
   workspaceId: string;
   fee: Fee;
   /** Just sent: go to the page as soon as it is made. */
   goPay: boolean;
+  /** In setup's number step: Stripe's page comes back to Settings, which sends them on to the step. */
+  fromSetup?: boolean;
 }) {
   const router = useRouter();
   const [paying, setPaying] = useState(false);
@@ -1077,10 +1114,17 @@ function TextingFeeDue({
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('fees') === 'paid') setBack(true);
   }, []);
+  const toPage = useCallback(
+    (url: string) => {
+      if (fromSetup) keepSetupReturn(workspaceId, 'number');
+      window.location.assign(url);
+    },
+    [fromSetup, workspaceId],
+  );
   const go = goPay || paying;
   useEffect(() => {
-    if (go && fee.status === 'open' && fee.checkoutUrl) window.location.assign(fee.checkoutUrl);
-  }, [go, fee.status, fee.checkoutUrl]);
+    if (go && fee.status === 'open' && fee.checkoutUrl) toPage(fee.checkoutUrl);
+  }, [go, fee.status, fee.checkoutUrl, toPage]);
   const waiting =
     fee.status === 'pending' ||
     (back && fee.status === 'open') ||
@@ -1105,7 +1149,7 @@ function TextingFeeDue({
           body: { workspaceId, textingFeeId: fee.id },
         }),
       );
-      if (out.checkoutUrl) window.location.assign(out.checkoutUrl);
+      if (out.checkoutUrl) toPage(out.checkoutUrl);
       else router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -1127,11 +1171,7 @@ function TextingFeeDue({
       data-status={fee.status}
       action={
         waiting ? null : fee.status === 'open' && fee.checkoutUrl ? (
-          <Button
-            size="sm"
-            onClick={() => window.location.assign(fee.checkoutUrl!)}
-            data-testid="texting-fee-pay"
-          >
+          <Button size="sm" onClick={() => toPage(fee.checkoutUrl!)} data-testid="texting-fee-pay">
             Pay {amount}
           </Button>
         ) : (
@@ -1172,6 +1212,7 @@ function TextingFeeDue({
 function RegisterAhead({
   workspaceId,
   businessName,
+  businessWebsite,
   status,
   me,
   surfaces,
@@ -1180,10 +1221,12 @@ function RegisterAhead({
   arriving,
   onViewSent,
   goPay,
-  onFee,
+  fromSetup,
+  onSent,
 }: {
   workspaceId: string;
   businessName: string;
+  businessWebsite: string | null;
   status: Status;
   me: { fullName: string; email: string };
   surfaces: HostedSurfaces;
@@ -1193,8 +1236,10 @@ function RegisterAhead({
   arriving: string | null;
   onViewSent: () => void;
   goPay: boolean;
-  /** Sent with fees to pay. */
-  onFee: () => void;
+  /** In setup's number step. */
+  fromSetup: boolean;
+  /** Sent, with the fees to pay when there are any. */
+  onSent: (fee: { id: string } | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [fixing, setFixing] = useState(false);
@@ -1210,6 +1255,7 @@ function RegisterAhead({
       <A2pWizard
         workspaceId={workspaceId}
         businessName={businessName}
+        businessWebsite={businessWebsite}
         number={arriving ? { numberType: 'local', display: arriving } : null}
         me={me}
         initial={fixing ? submission : null}
@@ -1219,7 +1265,7 @@ function RegisterAhead({
         onBack={close}
         onSubmitted={(fee) => {
           close();
-          if (fee) onFee();
+          onSent(fee);
         }}
       />
     );
@@ -1280,7 +1326,12 @@ function RegisterAhead({
   return (
     <Card className="max-w-[820px] p-5 md:p-7" data-testid="register-ahead" data-step={step}>
       {status.textingFees?.due && !open && !fixing ? (
-        <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.due} goPay={goPay} />
+        <TextingFeeDue
+          workspaceId={workspaceId}
+          fee={status.textingFees.due}
+          goPay={goPay}
+          fromSetup={fromSetup}
+        />
       ) : null}
       {body}
     </Card>

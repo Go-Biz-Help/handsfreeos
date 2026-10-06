@@ -6,6 +6,7 @@
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
 import { inTopBar, tabsIn } from './dom';
+import { friendListOf, listBeside, readListBeside } from './friends';
 import { readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
@@ -75,7 +76,16 @@ export function readPage(
       if (!profile.name) notes.push('Couldn’t find the name on this profile.');
       break;
     }
-    case 'friends':
+    case 'friends': {
+      // Your requests and friends are the list beside the page, which shows whoever's picked.
+      const list = friendListOf(doc, href);
+      const beside = listBeside(href) ? readListBeside(doc, base) : [];
+      found = {
+        people: beside.length ? beside : readPeopleAnywhere(doc, main, base),
+        ...(list ? { friendList: list } : {}),
+      };
+      break;
+    }
     case 'followers':
     case 'following':
       found = { people: readPeopleAnywhere(doc, main, base) };

@@ -551,6 +551,9 @@ export const WIZARD_WORDS = {
   calendarDraft: (name: string) =>
     `${name} isn’t taking bookings yet. Finish it in Settings → Calendars.`,
   calendarOpen: 'Open it',
+  /** The booking page is there but off: publishing the texting opt-in form names it without turning it on. */
+  bookingOff: 'Your booking page is off, so customers can’t book online yet.',
+  bookingTurnOn: 'Turn it on',
   busyTimes: 'Your busy times',
   busyTimesDetail:
     'Connect Google or Outlook so nobody books you while you’re already out on a job.',
