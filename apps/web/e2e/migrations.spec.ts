@@ -64,13 +64,20 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
   );
   const orgId = me.workspaces.find((w) => w.id === lonestar)!.organizationId;
 
-  // Connect the old system. The stand-in's sign-in page is the worker's own, so this is the real round trip
-  // through /migrations/start and back to /migrations/callback.
+  // Connect the old system across the whole agency. Since GoHighLevel's app was retired (2026-10-06) the
+  // screens offer its private token only, and a token reaches one sub-account. The sign-in door is still the
+  // worker's, and it is what puts two sub-accounts in one migration, so this opens it the way the dialog used
+  // to: the stand-in's sign-in page is the worker's own, so this is the real round trip through
+  // /migrations/start and back to /migrations/callback.
   await page.goto(`/app/org/${orgId}/migrations`);
   await expect(page.getByRole('heading', { name: 'Migrations' })).toBeVisible();
-  await page.getByTestId('migration-connect').click();
-  await expect(page.getByTestId('migration-connect-dialog')).toBeVisible();
-  await page.getByTestId('migration-connect-go').click();
+  const signIn = await api<{ startPath: string }>('commands/migration.connect', {
+    organizationId: orgId,
+    source: 'gohighlevel',
+    installKind: 'agency',
+    authKind: 'oauth',
+  });
+  await page.goto(`${WORKER_URL}${signIn.startPath}`);
   await expect(page).toHaveURL(new RegExp(`/app/org/${orgId}/migrations\\?connected=1`), {
     timeout: 30_000,
   });
@@ -86,9 +93,7 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
 
   // The promise that matters most on this screen: a category nobody let us read is not "0" — and it reads
   // differently from one we can read but have nowhere to put.
-  await expect(page.getByTestId('migration-count-companies')).toHaveText(
-    'not visible to this sign-in',
-  );
+  await expect(page.getByTestId('migration-count-companies')).toHaveText('not shared with us');
   await expect(page.getByTestId('migration-count-contacts')).toHaveText('11');
   // Custom fields have a home since M15, so they come across as fields rather than as a note apologising
   // for them. The row is a countable, bringable category like any other.
@@ -160,8 +165,8 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
 });
 
 /**
- * The second door (0069), through the same dialog: a private integration token and the sub-account's id,
- * typed and posted straight to the worker.
+ * The door the screens offer (0069): a private integration token and the sub-account's id, typed and posted
+ * straight to the worker. GoHighLevel's sign-in is no longer offered, now its app is being retired.
  *
  * What this is really checking is that the token leaves the browser for the worker and nowhere else, and that
  * the screen afterwards says which door it came in through — the paste is not a sign-in and should not claim
@@ -183,7 +188,13 @@ test('migrations: connect with a private token and its Location ID', async ({ pa
 
   await page.goto(`/app/org/${orgId}/migrations`);
   await page.getByTestId('migration-connect').click();
-  await page.getByTestId('migration-how-token').click();
+  // The token is the only way in: no sign-in to choose, and no "whole agency" a token couldn't reach. An
+  // agency is told how to move several.
+  const dialog = page.getByTestId('migration-connect-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByTestId('migration-how-oauth')).toHaveCount(0);
+  await expect(dialog.getByTestId('migration-reach-agency')).toHaveCount(0);
+  await expect(dialog).toContainText('Connect each one with its own token');
   await page.getByTestId('migration-token').fill('pit-not-a-real-token');
   await page.getByTestId('migration-location').fill('loc_austin');
   await page.getByTestId('migration-connect-go').click();

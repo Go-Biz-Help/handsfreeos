@@ -102,7 +102,7 @@ describe('choosing what to bring', () => {
 
 describe('what a count means', () => {
   it('never shows a permission problem as a number of records', () => {
-    expect(countWords(0, 'permission_limited')).toBe('not visible to this sign-in');
+    expect(countWords(0, 'permission_limited')).toBe('not shared with us');
     expect(countWords(120, 'permission_limited')).toBe('at least 120');
     expect(countWords(0, 'complete')).toBe('0');
     expect(countWords(1500, 'estimated')).toBe('about 1,500');

@@ -28120,7 +28120,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
-                     * @default oauth
+                     * @default private_token
                      * @enum {string}
                      */
                     authKind?: "oauth" | "private_token";

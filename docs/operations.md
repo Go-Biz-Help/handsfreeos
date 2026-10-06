@@ -9688,7 +9688,7 @@ Without any of this, everything else in HandsFreeOS works. **Migrations** in the
 
 ### What it does, in order
 
-1. **Connect.** Two ways in, and the screen offers both. Either the agency **signs into GoHighLevel** and approves the sub-accounts we may reach — read access only — or the business makes a **private integration token** in one sub-account and pastes it here with that sub-account's Location ID ("Connecting with a private token", below).
+1. **Connect.** One way in: the business makes a **private integration token** in its GoHighLevel sub-account and pastes it here with that sub-account's Location ID ("Connecting with a private token", below). An agency moving several clients connects each sub-account with its own token. GoHighLevel's sign-in is no longer offered, because its marketplace app is being retired ("The GoHighLevel app, retired", below).
 2. **Look.** Read-only, and safe to run again. It counts what is there, says how sure it is of each count, and writes down every place the old system holds something HandsFreeOS cannot hold the same way.
 3. **Say where each one lands.** Every sub-account becomes a business here, or joins one you already have. Several may share one business; the page says what that mixes before anything moves.
 4. **Choose and check.** Everything we can bring is ticked already. Untick what you do not want, read the plan, press the button.
@@ -9702,29 +9702,15 @@ Without any of this, everything else in HandsFreeOS works. **Migrations** in the
 - **It never brings websites or funnels.** Those are counted so the boundary is visible, and they keep working where they are.
 - **It never copies a credential.** No payment keys, no OAuth tokens, no API keys. Anything that has to be live again is reconnected through the normal HandsFreeOS screens.
 
-### Setting up the GoHighLevel app
+### The GoHighLevel app, retired
 
-1. Sign in at `https://marketplace.gohighlevel.com` as Go Biz Help and create a **marketplace app**.
-2. Give it the read scopes the adapter asks for. The list is in `apps/worker/src/migrations/adapters/gohighlevel.ts` (`GHL_SCOPES`); it is read-only throughout.
-3. Set the redirect URL to `https://hooks.handsfreeos.com/migrations/callback`. It names no source on purpose:
-   GoHighLevel's marketplace form refuses a redirect URL containing "HighLevel", and the worker already knows
-   which source a sign-in belongs to from its one-time state. The older `/migrations/gohighlevel/callback`
-   still answers, so an app registered with it keeps working.
-4. Copy the client id and client secret into your password manager.
-5. On `handsfreeos-worker`, set `GOHIGHLEVEL_CLIENT_ID` and `GOHIGHLEVEL_CLIENT_SECRET`. Both, or neither — the worker refuses to start with one of them. Neither value goes in Vercel or GitHub.
-6. `MIGRATION_SOURCE` picks itself: `real` in production or whenever a client id is set, `fake` otherwise. Production refuses `fake`. A server that will only ever take pasted private tokens has no client id to set, so set `MIGRATION_SOURCE=real` on it by hand.
+HandsFreeOS no longer uses a GoHighLevel marketplace app (the owner's call, 2026-10-06). There is nothing to set up in GoHighLevel's marketplace: every business connects with a private integration token ("Connecting with a private token", below), and the screens offer nothing else. The worker reads GoHighLevel for real in production whether or not it has a client id. Anywhere else, a worker without one reads the stand-in (below) unless `MIGRATION_SOURCE=real` is set on it.
 
-### While the app is still waiting to be approved
+What is left of the sign-in, and when it can go:
 
-GoHighLevel approves a marketplace app before anyone else can install it, but it lets **you** install your own unapproved app on your own sub-accounts first. That is what an app's version link is for — the address of the form
-`https://app.gohighlevel.com/v2/location/<location id>/integration/<app id>/versions/<version id>`, which the marketplace gives you for the version you are testing. Open it while signed into that sub-account and install it there.
-
-Two things have to be right before that install will come back to us:
-
-- The app's redirect URL is already the worker's (`https://hooks.handsfreeos.com/migrations/callback`), and the worker has to be reachable at it. Until the domain is live, use whatever address the worker actually answers on and change it back afterwards — the redirect URL has to match exactly, character for character.
-- The sub-account you install into is the one you will migrate from. An unapproved app reaches nothing else.
-
-Until it is approved, that is the only way to sign in. The private token below is the way in that needs no app at all, and is worth using while approval is outstanding and for any client whose plan or agency will not add an app.
+- The worker still answers `/migrations/start` and `/migrations/callback`, so a connection made through the app before it was retired keeps working until the app is deleted. Nothing on the screens opens that door now; `SIGN_IN_SOURCES` in `packages/core/src/schemas/migration.ts` is what decides, and it is empty.
+- A connection made through the sign-in that stops working asks for a private token, never for a sign-in.
+- Once the app is deleted in GoHighLevel's marketplace, remove `GOHIGHLEVEL_CLIENT_ID` and `GOHIGHLEVEL_CLIENT_SECRET` from `handsfreeos-worker`, both together (the worker refuses to start with only one of them).
 
 ### Connecting with a private token
 
@@ -9737,11 +9723,11 @@ What the business does, in their own GoHighLevel:
 3. Copy the token. It starts with `pit-` and is shown once.
 4. Find the **Location ID**: **Settings** → **Business Profile**, or the long code in the address bar after `/location/`.
 
-Then, in HandsFreeOS: **Migrations** → **Connect a CRM** → **Paste a private token**, and paste both. The token goes straight from that page to the worker — never through the API, and never into a link — and is sealed there before it touches the database, exactly like a sign-in's.
+Then, in HandsFreeOS: **Migrations** → **Connect a CRM**, and paste both. A business does this from **Settings** → **Migrations** or from Getting started's customers step; an agency from **Migrations** in the agency area. The token goes straight from that page to the worker — never through the API, and never into a link — and is sealed there before it touches the database.
 
 What is different about this door, and what to tell a business:
 
-- **It reaches one sub-account.** GoHighLevel will not list an agency's locations for a private token, and will not hand out a per-sub-account token from one. An agency with twelve clients to move either signs in once, or pastes twelve tokens.
+- **It reaches one sub-account.** GoHighLevel will not list an agency's locations for a private token, and will not hand out a per-sub-account token from one. An agency with twelve clients to move pastes twelve tokens, one connection each, and chooses where each one lands: its own business, or one it shares with another sub-account. A customer who is in both is matched on number and email against the customers already there, the same rule a single move uses, and never on a name.
 - **It never says what it was given.** A sign-in reports its scopes, so we can say "this sign-in cannot read calls" before reading anything. A private token reports nothing, so the scan finds out by asking, and a category that comes back refused is listed as refused with what to tick — never as an empty account.
 - **It does not expire, and it cannot be refreshed.** If one stops working — usually because somebody deleted the private integration — the connection asks for a new one rather than trying to renew.
 - **Deleting it ends our access completely.** After the move, the business deletes the private integration in GoHighLevel. That is the whole of it; there is nothing to revoke on our side.
@@ -9762,7 +9748,7 @@ Locally and in tests, migrations read a stand-in agency instead of GoHighLevel: 
 
 ### When something goes wrong
 
-- **"The old system needs signing in to again."** The token expired or was revoked. Connect it again from **Migrations**; the migration picks up where it stopped. For a private token there is nothing to renew: make a new private integration in GoHighLevel and paste it again.
+- **"GoHighLevel stopped accepting the private integration token."** Somebody deleted the private integration, or changed its access. There is nothing to renew: make a new private integration in GoHighLevel and connect it again from **Migrations**. A connection that came in through the old sign-in says the same, because a token is the only way back in. A move that was already running stays tied to the connection it started on: nothing moves a migration onto a new connection yet.
 - **"GoHighLevel would not let that token read this sub-account."** Either the Location ID is not that token's sub-account, or the private integration was made with no read access ticked. Both are fixed in GoHighLevel, and the same dialog takes another go without starting again.
 - **A batch keeps failing.** `app.migration_errors` holds a sanitized reason per record, and **Try N again** requeues them. Records that already came across are not brought twice — the source identity sees to that.
 - **A customer is waiting on a decision.** The engine never guesses between two people. Those sit in the review queue and the rest of the import carries on around them.

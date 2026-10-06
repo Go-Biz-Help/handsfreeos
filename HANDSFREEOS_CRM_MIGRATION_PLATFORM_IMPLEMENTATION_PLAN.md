@@ -206,6 +206,11 @@ The top-level migration list should show source, target workspace(s), started da
 
 ### 6.2 Step 1 — Connect GoHighLevel
 
+> **Owner's decision, 2026-10-06:** HandsFreeOS is doing away with the GoHighLevel marketplace app. GoHighLevel
+> connects with a private integration token (PIT) only, one sub-account per token, and the screens no longer offer
+> the sign-in. An agency moving several sub-accounts connects each with its own token. What is left of the sign-in
+> is described in `docs/operations.md`, "The GoHighLevel app, retired".
+
 Use GHL OAuth with least-privilege read scopes plus webhook/install scopes required for Transition Mode. Never ask users to paste passwords.
 
 Display:

@@ -246,9 +246,11 @@ describe('a business moves house', () => {
     const fields = got.inventory.find((i) => i.category === 'custom_fields');
     expect(fields?.capability).toBe('not_available');
     // The whole point: not "0".
-    expect(fields?.countLabel).toBe('not visible to this sign-in');
+    expect(fields?.countLabel).toBe('not shared with us');
     const finding = got.findings.find((f) => f.code === 'access.scope_missing');
-    expect(finding?.recommendedAction).toContain('Sign in again');
+    // A sign-in made before the app was retired still gets a fix the screens offer: a token.
+    expect(finding?.recommendedAction).toContain('private integration token');
+    expect(finding?.recommendedAction).not.toMatch(/sign in again/i);
   });
 
   it('says plainly what putting two sub-accounts in one business mixes', async () => {
