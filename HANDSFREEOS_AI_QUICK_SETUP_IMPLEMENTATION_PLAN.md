@@ -186,11 +186,11 @@ in words: open hours; the profile (prices kept by service name, the hours writte
 change or archive; answers; findings to keep or turn down; services, a booking calendar and a service area; the chat;
 and the teammate, as `diffTeammateConfigs` words it, or "Sets up Ava, your AI teammate".
 
-| Operation         | What it does                                                                                                                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ai_setup.get`    | The state, the answers to start from, today's picks alone (Start over), how far it got. Needs `ai_team.manage`                                                                                           |
-| `ai_setup.save`   | Keeps the answers and the furthest screen. On screen 1, saves the name, kind and website and starts the scan unless the site was read already. Risk 1, `ai_team.manage`; `ai_setup.started` once per run |
-| `ai_setup.finish` | Save: runs the plan with each area's own command in one transaction, then sets up or saves the teammate, which stays off. Refuses stale answers (`revision_conflict`). Risk 2; `ai_setup.finished`       |
+| Operation         | What it does                                                                                                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai_setup.get`    | The state, the answers to start from, today's picks alone (Start over), how far it got, and the agency's saved answers to start from (§9). Needs `ai_team.manage`                                                                                  |
+| `ai_setup.save`   | Keeps the answers and the furthest screen. On screen 1, saves the name, kind and website, starts the scan unless the site was read already, and keeps where the answers start from (§9). Risk 1, `ai_team.manage`; `ai_setup.started` once per run |
+| `ai_setup.finish` | Save: runs the plan with each area's own command in one transaction, then sets up or saves the teammate, which stays off. Refuses stale answers (`revision_conflict`). Risk 2; `ai_setup.finished`                                                 |
 
 Save carries on past what someone else decided meanwhile (a finding already kept or turned down) and past a
 calendar that can't be turned on yet; each comes back as a note ("Service calls can't be turned on yet. …").
@@ -272,10 +272,34 @@ computer and finish on the phone.
 
 ## 9. Agencies
 
-An agency saves its answers as a starting point for client businesses (58B): only the answers that aren't about one
-business (`AI_SETUP_TEMPLATE_FIELDS`: jobs, when Ava answers, name, how it says it's AI, tone, prices, qualifying
-questions). They apply only to a business without a teammate. They're kept on the organization; that's a database
-change, applied to the hosted database before it merges.
+An agency saves its answers as a starting point for its client businesses (58B): only the answers that aren't about
+one business (`AI_SETUP_TEMPLATE_FIELDS`: jobs, when Ava answers, name, how it says it's AI, tone, prices, qualifying
+questions). A tone the business wrote in its own words, and questions its teammate doesn't ask, stay with that
+business. Saved answers apply only to a business without a teammate.
+
+- **Where they're kept:** `app.ai_setup_templates`, on the organization (`20261026000100_saved_ai_setups.sql`): a
+  name unique in the agency whatever its case or spaces, the kind of business they suit, the answers, and the
+  business they were saved from. The agency's owners and admins (`org.templates.manage`) save, rename and remove
+  them; whoever sets up the teammate in one of its businesses (`ai_team.manage`) reads them, through
+  `private.sets_up_ai_in_organization`. It's a database change, applied to the hosted database before it merges.
+- **Saving:** on the test chat after Save ("Save these answers for your other businesses", for the agency's owners
+  and admins once it has more than one business; not on the phone), or from the agency area's AI setups page ("Save
+  from a business"). A business without a teammate, or a name already used, is refused in words that say what to do.
+- **Starting from them:** a business without a teammate starts from the newest saved for its kind, and the first
+  screen's "Start from" picks others, or our picks, on the web and the phone. The pick is kept with the draft
+  (`aiSetup.template`); while nobody picks, it follows the kind picked on screen 1. When where the answers start
+  from changes, `ai_setup.save` picks those fields again (`withAiSetupTemplate`). Answers removed since they were
+  picked are refused on screen 1 (`template_gone`) and otherwise leave our picks.
+- **The agency area's AI setups page** (`/app/org/<id>/ai-setups`) lists them with what each sets ("Max,
+  Professional, replies to new leads, …"), the kind and the business they came from, and renames and removes them.
+  Removing them changes no business.
+
+| Operation                  | What it does                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ai_setup_template.list`   | The agency's saved answers by name, with the business each came from. Needs `org.templates.manage`     |
+| `ai_setup_template.save`   | Saves the answers a business with a teammate was set up with. Risk 1, `org.templates.manage`; `.saved` |
+| `ai_setup_template.rename` | Renames them; a name already used is refused (`name_taken`). Risk 1; `.renamed`                        |
+| `ai_setup_template.delete` | Removes them; businesses set up from them keep their answers. Risk 2; `.deleted`                       |
 
 ## 10. Tidying today's full settings page
 
@@ -291,7 +315,8 @@ Each step is its own pull request.
 2. **Worker** ✓: the profile and qualifying questions from the website; the insurance false alarm.
 3. **Web** ✓: the screens, the summary, the test chat and its report, turning it on.
 4. **Phone** ✓: the same screens.
-5. **Agencies**: saving answers as a starting point (with its migration).
+5. **Agencies** ✓: saving answers as a starting point (with its migration), Start from on the web and the phone, and
+   the agency area's AI setups page.
 6. **Tidy**: today's full settings page.
 
 ## 12. Tests
@@ -302,6 +327,12 @@ Each step is its own pull request.
   screen and its scan, Save with everything it makes, a second run that changes nothing, a revision headed "Quick
   setup", stale answers, and who may run it; asking for the website to be read once, keeping what was read for
   its address only, and only from the worker.
+- `packages/core/test/ai-setup-templates.test.ts` (local database): saving a business's answers, a name already
+  used, a business without a teammate, someone outside the agency; the list; starting from the newest for the kind,
+  picking others or our picks, the answers picked again when the pick changes, answers removed since they were
+  picked, a pick only on screen 1, and none for a business already set up; renaming and removing.
+- `packages/db/test/ai-setup-templates-rls.test.ts`: only the agency's owners and admins save, rename and remove
+  saved answers; who reads them; a name used twice; the organization can't be changed.
 - `apps/worker/test/ai-setup-read-site.test.ts` (the stand-in website): which pages it reads, robots.txt, the
   pages reaching the model only as quoted data, what's kept and where the screens start, and nothing kept without
   a model or for a website that changed.
@@ -314,8 +345,11 @@ Each step is its own pull request.
   as the website's, the summary following the name, findings, Save, the test chat with "Add the answer", turning
   it on, and a second run where nothing changes. The preset specs (`ai-team-builder`, `ai-team-mobile`,
   `getting-started`) reach the presets through "Set it up myself".
+- `apps/web/e2e/ai-setup-templates.spec.ts` (browser): one business saving its answers from the test chat, another
+  starting from them and picking our picks instead, and the agency area's AI setups page with its refusals,
+  renaming and removing.
 - `apps/mobile/src/components/ai-setup/__tests__/quick-setup.test.tsx`: the first screen with the kind of business
   picked on its sheet, the hours editor, qualifying questions, carrying on, Save, the test chat with "Add the
-  answer", turning it on, what will change for a business with a teammate, a test chat that isn't there yet, no
-  signal, a refusal, and who may run it. `entry.test.tsx` beside it covers More and the test console;
+  answer", turning it on, what will change for a business with a teammate, starting from answers the agency saved,
+  a test chat that isn't there yet, no signal, a refusal, and who may run it. `entry.test.tsx` beside it covers More and the test console;
   `src/onboarding/__tests__/getting-started.test.tsx` covers Getting started's AI step.

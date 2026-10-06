@@ -49,6 +49,8 @@ export function aiSetupCalls(workspaceId: string) {
       step: AiSetupStep;
       answers: AiSetupAnswers;
       business?: AiSetupBusiness;
+      /** The first screen's "Start from": saved answers, or null for our picks. Left out: as it was. */
+      templateId?: string | null;
     }): Promise<AiSetupSaved> =>
       AiSetupSaveOutput.parse(
         unwrap(
@@ -62,6 +64,7 @@ export function aiSetupCalls(workspaceId: string) {
                     business: input.business as In<'/v1/commands/ai_setup.save'>['business'],
                   }
                 : {}),
+              ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
             },
           }),
         ),

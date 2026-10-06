@@ -8,6 +8,7 @@ import {
   LayoutTemplate,
   Menu,
   Package,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -34,6 +35,7 @@ const SECTIONS: readonly { key: AgencySection; label: string; icon: LucideIcon }
   { key: 'businesses', label: 'Client businesses', icon: Building2 },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
   { key: 'packs', label: 'Knowledge packs', icon: Package },
+  { key: 'ai-setups', label: 'AI setups', icon: Sparkles },
   { key: 'migrations', label: 'Migrations', icon: Import },
 ];
 

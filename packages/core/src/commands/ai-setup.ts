@@ -20,14 +20,16 @@ import {
   laterAiSetupStep,
   storedAiSetup,
   AI_SETUP_SETTINGS_KEY,
+  type AiSetupAnswers,
   type AiSetupRecord,
 } from '../ai-setup/answers';
 import { AI_SETUP_READ_ASKED_KEY, aiSetupReadDue } from '../ai-setup/found';
 import { setupKindOf, type SetupKind } from '../ai-setup/kinds';
-import { loadAiSetupState } from '../ai-setup/load';
+import { loadAiSetupState, loadAiSetupTemplates } from '../ai-setup/load';
 import { planAiSetup, teammateFromAiSetup } from '../ai-setup/plan';
 import { AI_SETUP_FACT_TAG, AI_SETUP_FOUND_KEY, AiSetupFound } from '../ai-setup/state';
 import { aiSetupProblems } from '../ai-setup/summary';
+import { chosenAiSetupTemplate, withAiSetupTemplate } from '../ai-setup/templates';
 import { AI_SETUP_AREA_NAME } from '../ai-setup/words';
 import { HfosError, type HfosErrorCode } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -200,10 +202,48 @@ async function saveBusiness(
   return { scanStarted: started !== null };
 }
 
+/**
+ * The first screen's "Start from" (§9): the agency's saved answers picked, kept with the draft, and the answers with
+ * what saved answers set picked again when where they start from changed, by picking others or, while nobody
+ * picked, by the kind of business changing. A business with a teammate starts from its own settings instead.
+ */
+async function startFrom(
+  ctx: CommandContext,
+  input: AiSetupSaveInput,
+  record: AiSetupRecord,
+  kinds: { readonly before: SetupKind; readonly now: SetupKind },
+): Promise<{ template: string | null | undefined; answers: AiSetupAnswers }> {
+  const ws = ctx.scope.workspaceId!;
+  const kept = { template: record.template, answers: input.answers };
+  const [w] = await rows<{ organizationId: string; teammate: boolean }>(
+    ctx.tx,
+    sql`select w.organization_id as "organizationId",
+          exists (select 1 from app.ai_teammates t where t.workspace_id = w.id) as teammate
+        from app.workspaces w where w.id = ${ws}`,
+  );
+  if (!w || w.teammate) return kept;
+  const templates = await loadAiSetupTemplates(ctx.tx, w.organizationId);
+  if (input.templateId && !templates.some((t) => t.id === input.templateId))
+    throw HfosError.rule(
+      'template_gone',
+      409,
+      'Those saved answers aren’t there anymore. Pick others, or start from our picks.',
+    );
+  const picked = input.templateId !== undefined ? input.templateId : record.template;
+  const was = chosenAiSetupTemplate(templates, record.template, kinds.before);
+  const now = chosenAiSetupTemplate(templates, picked, kinds.now);
+  if (was?.id === now?.id) return { ...kept, template: picked };
+  const state = await loadAiSetupState(ctx.tx, ws);
+  return {
+    template: picked,
+    answers: withAiSetupTemplate(input.answers, state, now?.answers ?? null),
+  };
+}
+
 export const aiSetupSave = defineCommand({
   name: 'ai_setup.save',
   description:
-    'Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website.',
+    'Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website. The first screen also picks where the answers start from: answers the business’s agency saved, or our picks.',
   risk: 1,
   input: AiSetupSaveInput,
   output: AiSetupSaveOutput,
@@ -217,6 +257,13 @@ export const aiSetupSave = defineCommand({
       throw HfosError.validation([
         { path: 'business', message: 'The business’s details are saved from the first screen.' },
       ]);
+    if (input.templateId !== undefined && input.step !== 'business')
+      throw HfosError.validation([
+        {
+          path: 'templateId',
+          message: 'Where the answers start from is picked on the first screen.',
+        },
+      ]);
     const before = await lockSetup(ctx);
     const { scanStarted } = input.business
       ? await saveBusiness(ctx, input.business)
@@ -226,13 +273,18 @@ export const aiSetupSave = defineCommand({
     // These answers were given for the kind before, so what's picked by kind is picked again (`resumeAiSetup`).
     const answeredFor: SetupKind = kindChanged ? (record.kind ?? before.kind) : kind;
     const reached = laterAiSetupStep(record.reached, input.step);
+    const { template, answers } =
+      input.step === 'business'
+        ? await startFrom(ctx, input, record, { before: before.kind, now: kind })
+        : { template: record.template, answers: input.answers };
     // A new run: the first one, or the first save since the last finish.
     const newRun = !record.draft;
     await saveRecord(ctx, {
       ...record,
-      draft: input.answers,
+      draft: answers,
       reached,
       kind: answeredFor,
+      ...(template !== undefined ? { template } : {}),
       started:
         newRun || !record.started ? { at: new Date().toISOString(), by: me } : record.started,
     });

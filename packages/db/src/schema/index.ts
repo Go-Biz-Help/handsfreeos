@@ -3126,6 +3126,26 @@ export const aiTeammateRevisions = app.table('ai_teammate_revisions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/**
+ * Quick setup's answers an agency saved as a starting point for its client businesses (20261026000100): only
+ * those that aren't about one business (core's AiSetupTemplate). Its owners and admins manage them; whoever sets up
+ * the AI teammate in one of its businesses starts from one.
+ */
+export const aiSetupTemplates = app.table('ai_setup_templates', {
+  id: id(),
+  organizationId: organizationRef(),
+  name: text('name').notNull(),
+  /** The kind of business they were saved from (core's SetupKind). */
+  kind: text('kind').notNull(),
+  answers: jsonb('answers').$type<Json>().notNull(),
+  fromWorkspaceId: uuid('from_workspace_id').references(() => workspaces.id, {
+    onDelete: 'set null',
+  }),
+  createdBy: userRef('created_by'),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
 /** One answer (or one try) in one conversation: the blueprint's "AI Run". One running per conversation. */
 export const aiTeammateRuns = app.table('ai_teammate_runs', {
   id: id(),

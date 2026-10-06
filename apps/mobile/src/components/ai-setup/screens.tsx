@@ -5,6 +5,7 @@ import {
   AI_SETUP_FIELD_WORDS as W,
   AI_SETUP_JOB_LABELS,
   AI_SETUP_PRICE_LABELS,
+  AI_SETUP_TEMPLATE_WORDS,
   AI_SETUP_TONE_LABELS,
   AI_SETUP_TONE_TEXTS,
   aiSetupProblemAt,
@@ -12,6 +13,7 @@ import {
   HOURS_MODES,
   quickFactsFor,
   SETUP_JOBS,
+  SETUP_KIND_LABELS,
   SETUP_TONES,
   setupFor,
   toneOfProfile,
@@ -22,6 +24,7 @@ import {
   type AiSetupProblems,
   type AiSetupState,
   type AiSetupStep,
+  type AiSetupTemplateOption,
   type AiSetupTone,
 } from '@hfos/core';
 import * as Linking from 'expo-linking';
@@ -79,6 +82,15 @@ export interface ScreenProps {
   readonly business: AiSetupBusinessDraft;
   readonly setBusiness: (patch: Partial<AiSetupBusinessDraft>) => void;
   readonly findings: readonly AiSetupFinding[];
+  /**
+   * The first screen's "Start from", while the business's agency saved answers and it has no teammate yet (§9): the
+   * saved answers picked (null: our picks).
+   */
+  readonly startFrom?: {
+    readonly templates: readonly AiSetupTemplateOption[];
+    readonly value: string | null;
+    readonly onChange: (templateId: string | null) => void;
+  } | null;
 }
 
 export function AiSetupScreen(props: ScreenProps) {
@@ -171,7 +183,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function BusinessScreen({ answers, business, setBusiness, problems }: ScreenProps) {
+function BusinessScreen({ answers, business, setBusiness, problems, startFrom }: ScreenProps) {
   const name = nameOf(answers);
   return (
     <>
@@ -199,7 +211,40 @@ function BusinessScreen({ answers, business, setBusiness, problems }: ScreenProp
         hint={withAiName(business.noSite ? W.noWebsiteHint : W.websiteHint, name)}
         error={problems['business.website']}
       />
+      {startFrom ? <StartFrom {...startFrom} /> : null}
     </>
+  );
+}
+
+/** Where the answers start: answers the agency saved, or our picks (§9). */
+function StartFrom({ templates, value, onChange }: NonNullable<ScreenProps['startFrom']>) {
+  const T = AI_SETUP_TEMPLATE_WORDS;
+  return (
+    <View className="gap-2">
+      <View className="gap-1">
+        <Label>{T.startFrom}</Label>
+        <Text className="text-[13px] leading-[18px] text-text-3">{T.startFromHint}</Text>
+      </View>
+      <View className="gap-2" role="radiogroup" accessibilityLabel={T.startFrom}>
+        {templates.map((t) => (
+          <Option
+            key={t.id}
+            on={value === t.id}
+            onSelect={() => onChange(t.id)}
+            title={t.name}
+            badge={<Badge>{SETUP_KIND_LABELS[t.kind]}</Badge>}
+            description={t.about}
+            testID={`ai-setup-start-${t.id}`}
+          />
+        ))}
+        <Option
+          on={value === null}
+          onSelect={() => onChange(null)}
+          title={T.ourPicks}
+          testID="ai-setup-start-picks"
+        />
+      </View>
+    </View>
   );
 }
 

@@ -15,9 +15,11 @@ import {
   aiSetupStepTitle,
   aiSetupSummary,
   aiSetupTestQuestions,
+  chosenAiSetupTemplate,
   cleanAiSetupAnswers,
   mergeAiSetupAnswers,
   planAiSetup,
+  setupKindOf,
   withAiName,
   type AiSetupAnswers,
   type AiSetupBusinessDraft,
@@ -103,6 +105,8 @@ export function AiQuickSetup({
   const [busy, setBusy] = React.useState(false);
   const [finished, setFinished] = React.useState<AiSetupFinished | null>(null);
   const [carrying, setCarrying] = React.useState(!!first.reached && startAt !== 'try');
+  /** "Start from" changed on the first screen since it was last saved: the saved answers' id, or null for our picks. */
+  const [startPick, setStartPick] = React.useState<string | null | undefined>(undefined);
   /** Answers changed on screen since the last save: what arrives from the server never overwrites them. */
   const touched = React.useRef(new Set<Field>());
   /** The furthest screen finished, as the server keeps it. */
@@ -112,6 +116,20 @@ export function AiQuickSetup({
   const facts = aiSetupFlowFactsOf(state);
   const steps = aiSetupSteps(answers, facts);
   const name = answers.name.trim() || 'Ava';
+  // While nobody picked, it follows the kind of business on the first screen.
+  const startFrom =
+    got.templates.length && !got.state.teammate
+      ? {
+          templates: got.templates,
+          value:
+            chosenAiSetupTemplate(
+              got.templates,
+              startPick !== undefined ? startPick : got.templatePicked ? got.templateId : undefined,
+              setupKindOf(business.industry),
+            )?.id ?? null,
+          onChange: (templateId: string | null) => setStartPick(templateId),
+        }
+      : null;
 
   /** Takes in what the server says now; `all` after the first screen, else only what Ava read. */
   const adopt = React.useCallback((fresh: AiSetupGot, all: boolean) => {
@@ -219,11 +237,15 @@ export function AiQuickSetup({
           step,
           answers: clean,
           business: aiSetupBusinessOf(business),
+          ...(startPick !== undefined ? { templateId: startPick } : {}),
         });
         reached.current = saved.reached;
+        // Picking where they start from picks those answers again (`ai_setup.save`), so they're taken as they are.
+        if (startPick !== undefined) touched.current.clear();
         const [fresh, fresher] = await Promise.all([calls.get(), calls.findings()]);
         adopt(fresh, true);
         touched.current.clear();
+        setStartPick(undefined);
         setFindings(fresher);
         setCarrying(false);
         go('jobs');
@@ -286,6 +308,7 @@ export function AiQuickSetup({
     touched.current.clear();
     reached.current = null;
     setAnswers(got.starting);
+    setStartPick(undefined);
     setCarrying(false);
     go('business');
   }
@@ -398,6 +421,7 @@ export function AiQuickSetup({
               business={business}
               setBusiness={setBusiness}
               findings={findings}
+              startFrom={startFrom}
             />
           )}
 

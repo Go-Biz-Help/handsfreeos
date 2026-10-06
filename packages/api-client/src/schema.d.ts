@@ -477,6 +477,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_setup_template.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove answers your agency saved for quick setup. Businesses already set up from them keep their answers.
+         * @description Risk level 2. Requires org.templates.manage. Emits ai_setup_template.deleted.
+         */
+        post: operations["command_ai_setup_template_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_setup_template.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename answers your agency saved for quick setup.
+         * @description Risk level 1. Requires org.templates.manage. Emits ai_setup_template.renamed.
+         */
+        post: operations["command_ai_setup_template_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_setup_template.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the AI teammate answers one of your client businesses was set up with (what it helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing about the business itself) so your other businesses can start quick setup from them.
+         * @description Risk level 1. Requires org.templates.manage. Emits ai_setup_template.saved.
+         */
+        post: operations["command_ai_setup_template_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_setup.finish": {
         parameters: {
             query?: never;
@@ -507,7 +567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website.
+         * Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website. The first screen also picks where the answers start from: answers the business’s agency saved, or our picks.
          * @description Risk level 1. Requires ai_team.manage. Emits ai_setup.started, ai_setup.read_requested.
          */
         post: operations["command_ai_setup_save"];
@@ -12837,6 +12897,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/ai_setup_template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The answers your agency saved for quick setup, by name: what each sets, the kind of business it suits and the business it was saved from.
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_ai_setup_template_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_setup.get": {
         parameters: {
             query?: never;
@@ -12847,7 +12927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Quick setup for the AI teammate: what the business has today (its kind, website, open hours, profile, services, calendars, chat and teammate), the answers to start from (what someone answered so far, else picks for its kind of business), and how far it got.
+         * Quick setup for the AI teammate: what the business has today (its kind, website, open hours, profile, services, calendars, chat and teammate), the answers to start from (what someone answered so far, else picks for its kind of business or answers its agency saved), and how far it got.
          * @description Requires ai_team.manage.
          */
         post: operations["query_ai_setup_get"];
@@ -18131,6 +18211,108 @@ export interface operations {
             };
         };
     };
+    command_ai_setup_template_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_setup_template_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_setup_template_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                        name: string;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
     command_ai_setup_finish: {
         parameters: {
             query?: never;
@@ -18501,6 +18683,7 @@ export interface operations {
                     };
                     /** @enum {string} */
                     step: "business" | "jobs" | "about" | "hours" | "facts" | "meet" | "voice" | "learned" | "qualify" | "loop" | "chat" | "try";
+                    templateId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -45134,6 +45317,51 @@ export interface operations {
             };
         };
     };
+    query_ai_setup_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            about: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            from: {
+                                name: string;
+                                /** Format: uuid */
+                                workspaceId: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                            name: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_ai_setup_get: {
         parameters: {
             query?: never;
@@ -45320,6 +45548,12 @@ export interface operations {
                         } | null;
                         reached: ("business" | "jobs" | "about" | "hours" | "facts" | "meet" | "voice" | "learned" | "qualify" | "loop" | "chat" | "try") | null;
                         runs: number;
+                        /** @default null */
+                        saveTo: {
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                        } | null;
                         started: {
                             /** Format: date-time */
                             at: string;
@@ -45636,6 +45870,21 @@ export interface operations {
                             timeZone: string;
                             website: string | null;
                         };
+                        /** @default null */
+                        templateId: string | null;
+                        /** @default false */
+                        templatePicked: boolean;
+                        /** @default [] */
+                        templates: {
+                            about: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                            name: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
                     };
                 };
             };

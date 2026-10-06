@@ -21,7 +21,7 @@ import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
-import { aiSetupGet } from './ai-setup';
+import { aiSetupGet, aiSetupTemplateList } from './ai-setup';
 import {
   attentionForRecord,
   attentionList,
@@ -320,6 +320,7 @@ export const queries: readonly QueryDef[] = [
   aiTeammateDraftList,
   aiTeammateActivity,
   aiSetupGet,
+  aiSetupTemplateList,
   chatWidgetList,
   chatWidgetGet,
   attentionList,
@@ -413,6 +414,7 @@ export {
   aiTeammateDraftList,
   aiTeammateActivity,
   aiSetupGet,
+  aiSetupTemplateList,
 };
 
 export * from './form';

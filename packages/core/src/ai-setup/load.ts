@@ -5,7 +5,7 @@
  */
 import { eq } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { knowledgeProfiles, knowledgeSources, workspaces } from '@hfos/db/schema';
+import { aiSetupTemplates, knowledgeProfiles, knowledgeSources, workspaces } from '@hfos/db/schema';
 import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { WeeklyHours } from '../calendar/config';
 import { chatWidgetName } from '../chat/origins';
@@ -14,9 +14,11 @@ import { emptyKnowledgeProfile, KnowledgeProfile } from '../knowledge/profile';
 import { workspaceAddresses } from '../messaging/email';
 import { defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import { businessOnboardingOf } from '../onboarding/settings';
-import { setupKindOf } from './kinds';
+import { SETUP_KINDS, setupKindOf, type SetupKind } from './kinds';
 import { aiSetupFoundOf, aiSetupReading } from './found';
+import type { AiSetupTemplate } from './plan';
 import { AI_SETUP_FACT_TAG, type AiSetupScanState, type AiSetupState } from './state';
+import { aiSetupTemplateAbout, aiSetupTemplateOf } from './templates';
 
 const SCAN_STATES: Readonly<Record<string, AiSetupScanState>> = {
   queued: 'running',
@@ -149,4 +151,54 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
     found: source ? aiSetupFoundOf(source) : null,
     reading: source ? aiSetupReading(source, new Date()) : false,
   };
+}
+
+/** One of an agency's saved answers (§9), as kept. */
+export interface AiSetupTemplateRow {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: SetupKind;
+  readonly answers: Partial<AiSetupTemplate>;
+  /** What they set, in a line. */
+  readonly about: string;
+  readonly fromWorkspaceId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * An agency's saved answers, by name: those the person may read, as row-level security decides (the agency's
+ * owners and admins, and whoever sets up the AI teammate in one of its businesses).
+ */
+export async function loadAiSetupTemplates(
+  tx: Tx,
+  organizationId: string,
+): Promise<AiSetupTemplateRow[]> {
+  const list = await tx
+    .select({
+      id: aiSetupTemplates.id,
+      name: aiSetupTemplates.name,
+      kind: aiSetupTemplates.kind,
+      answers: aiSetupTemplates.answers,
+      fromWorkspaceId: aiSetupTemplates.fromWorkspaceId,
+      createdAt: aiSetupTemplates.createdAt,
+      updatedAt: aiSetupTemplates.updatedAt,
+    })
+    .from(aiSetupTemplates)
+    .where(eq(aiSetupTemplates.organizationId, organizationId))
+    .orderBy(sql`lower(${aiSetupTemplates.name})`, aiSetupTemplates.createdAt);
+  return list.map((t) => {
+    const answers = aiSetupTemplateOf(t.answers);
+    return {
+      id: t.id,
+      name: t.name,
+      // A kind no longer on the list counts as Other businesses.
+      kind: (SETUP_KINDS as readonly string[]).includes(t.kind) ? (t.kind as SetupKind) : 'other',
+      answers,
+      about: aiSetupTemplateAbout(answers),
+      fromWorkspaceId: t.fromWorkspaceId,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+    };
+  });
 }

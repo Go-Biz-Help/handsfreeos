@@ -1,11 +1,23 @@
 /** Quick setup for the AI teammate (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §5): the query and the commands. */
 import { z } from 'zod';
-import { AI_SETUP_STEPS, AiSetupAnswers, AiSetupMark } from '../ai-setup/answers';
+import { AI_SETUP_MAX, AI_SETUP_STEPS, AiSetupAnswers, AiSetupMark } from '../ai-setup/answers';
 import { SETUP_KINDS } from '../ai-setup/kinds';
 import { AiSetupFound, AiSetupStateOut } from '../ai-setup/state';
-import { displayName, industry, uuid } from './common';
+import { displayName, industry, isoDateTime, uuid } from './common';
 
 const step = z.enum(AI_SETUP_STEPS);
+
+/** One of an agency's saved answers (§9), as quick setup's first screen offers it. */
+export const AiSetupTemplateOption = z.object({
+  id: uuid,
+  name: z.string(),
+  /** The kind of business they were saved from: one of that kind starts from the newest. */
+  kind: z.enum(SETUP_KINDS),
+  /** What they set, in a line (`aiSetupTemplateAbout`). */
+  about: z.string(),
+  updatedAt: isoDateTime,
+});
+export type AiSetupTemplateOption = z.infer<typeof AiSetupTemplateOption>;
 
 export const AiSetupGetInput = z.object({ workspaceId: uuid });
 export const AiSetupGetOutput = z.object({
@@ -20,6 +32,17 @@ export const AiSetupGetOutput = z.object({
   /** The last time someone finished it. */
   finished: AiSetupMark.nullable(),
   runs: z.int(),
+  /** The agency's saved answers this business may start from, by name; none once it has a teammate. */
+  templates: z.array(AiSetupTemplateOption).default([]),
+  /** The saved answers the screens start from: the ones picked on the first screen, else the newest for its kind. */
+  templateId: uuid.nullable().default(null),
+  /** Someone picked where to start from on the first screen; until then it follows the kind of business. */
+  templatePicked: z.boolean().default(false),
+  /**
+   * Where this person may save these answers for the agency's other businesses: its owners and admins, when it has
+   * more than one business.
+   */
+  saveTo: z.object({ organizationId: uuid, name: z.string() }).nullable().default(null),
 });
 
 export const AiSetupSaveInput = z.object({
@@ -36,6 +59,11 @@ export const AiSetupSaveInput = z.object({
       website: z.string().trim().max(500).nullable().optional(),
     })
     .optional(),
+  /**
+   * The agency's saved answers to start from, picked on the first screen, or null for our picks. Left out: as
+   * before. Only with step `business`, and only while the business has no teammate.
+   */
+  templateId: uuid.nullable().optional(),
 });
 export type AiSetupSaveInput = z.infer<typeof AiSetupSaveInput>;
 export const AiSetupSaveOutput = z.object({
@@ -80,4 +108,42 @@ export const AiSetupNoteFoundInput = z.object({
 export const AiSetupNoteFoundOutput = z.object({
   /** False when the website changed while it was being read. */
   kept: z.boolean(),
+});
+
+// ---- An agency's saved answers (§9) ----
+
+const templateName = z
+  .string()
+  .trim()
+  .min(1, 'Name these answers.')
+  .max(AI_SETUP_MAX.templateName, `Keep it under ${AI_SETUP_MAX.templateName} characters.`);
+
+export const AiSetupTemplateSaveInput = z.object({
+  organizationId: uuid,
+  /** The business whose answers are saved: one of the agency's, with an AI teammate. */
+  workspaceId: uuid,
+  name: templateName,
+});
+export const AiSetupTemplateSaveOutput = z.object({
+  templateId: uuid,
+  name: z.string(),
+  kind: z.enum(SETUP_KINDS),
+});
+export const AiSetupTemplateRenameInput = z.object({
+  organizationId: uuid,
+  templateId: uuid,
+  name: templateName,
+});
+export const AiSetupTemplateRenameOutput = z.object({ templateId: uuid, name: z.string() });
+export const AiSetupTemplateDeleteInput = z.object({ organizationId: uuid, templateId: uuid });
+export const AiSetupTemplateDeleteOutput = z.object({ templateId: uuid });
+export const AiSetupTemplateListInput = z.object({ organizationId: uuid });
+export const AiSetupTemplateListOutput = z.object({
+  items: z.array(
+    AiSetupTemplateOption.extend({
+      /** The business they were saved from, while it's still one of the agency's. */
+      from: z.object({ workspaceId: uuid, name: z.string() }).nullable(),
+      createdAt: isoDateTime,
+    }),
+  ),
 });
