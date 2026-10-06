@@ -30,6 +30,19 @@ export type TeammateSkill = (typeof TEAMMATE_SKILLS)[number];
 export const DISCLOSURE_MODES = ['first_message', 'when_asked'] as const;
 export type DisclosureMode = (typeof DISCLOSURE_MODES)[number];
 
+/** The start of its first text to a customer, as its settings and quick setup show it. */
+export function firstTextPreview(
+  name: string,
+  disclosure: DisclosureMode,
+  business: string,
+): string {
+  const who =
+    disclosure === 'first_message'
+      ? `${name}, the AI assistant at ${business}`
+      : `${name} at ${business}`;
+  return `Hi Mike, this is ${who}. How can I help?`;
+}
+
 const Identity = z.object({
   name: z
     .string()

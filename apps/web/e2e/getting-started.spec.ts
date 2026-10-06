@@ -163,8 +163,11 @@ test('the quick questions put the steps in order, and the wizard walks them', as
   await expect(page.getByTestId('booking-site')).toBeVisible();
   await page.getByTestId('setup-skip').click();
 
-  // The AI teammate, last: made from a preset. Skipping the last step goes Home.
+  // The AI teammate, last: quick setup, with the presets a click away. Skipping the last step goes Home.
   await expect(page).toHaveURL(new RegExp(`/setup/ai$`));
+  await expect(page.getByTestId('ai-setup')).toHaveAttribute('data-step', 'business');
+  await page.getByTestId('ai-setup-myself').click();
+  await expect(page).toHaveURL(new RegExp(`/setup/ai\\?myself=1$`));
   await expect(page.getByTestId('teammate-preset-picker')).toBeVisible();
   await page.getByTestId('setup-skip').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));

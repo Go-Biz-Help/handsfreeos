@@ -37,6 +37,20 @@ export const WeeklyHours = z
   .max(50);
 export type WeeklyHours = z.infer<typeof WeeklyHours>;
 
+/**
+ * What's wrong with one day's stretches of hours, or null: one that ends before it starts, or two that overlap. The
+ * hours editors on the web and the phone say it under the day.
+ */
+export function weeklyHoursDayProblem(windows: readonly WeeklyHours[number][]): string | null {
+  const sorted = [...windows].sort((a, b) => a.start.localeCompare(b.start));
+  for (const w of sorted)
+    if (parseClock(w.end) <= parseClock(w.start)) return 'Ends before it starts.';
+  for (let i = 1; i < sorted.length; i++)
+    if (parseClock(sorted[i]!.start) < parseClock(sorted[i - 1]!.end))
+      return 'These hours overlap.';
+  return null;
+}
+
 export const AssignmentMode = z.enum([
   'fixed',
   'customer_choice',

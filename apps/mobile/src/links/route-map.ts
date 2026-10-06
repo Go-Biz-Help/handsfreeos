@@ -10,8 +10,9 @@
  * - **A screen the phone has opens there.** One a later step builds opens its tab or list until then, and `later`
  *   names it, so steps 13–16 can fill them in without changing a link.
  * - **The desk work the phone leaves to the web** (the plan's web-only areas: workflow editors, the AI teammate's
- *   setup, knowledge, imports, the audit log, business settings, calendar setup, texting, email and payment setup,
- *   members and invitations, and agency pages) opens the web.
+ *   settings, knowledge, imports, the audit log, business settings, calendar setup, texting, email and payment setup,
+ *   members and invitations, and agency pages) opens the web. The AI teammate's quick setup (/ai-team/setup) is the
+ *   phone's too, so a link to it opens the same screens here.
  * - **An add-on's pages** (`/a/<id>/…`, which its alerts open) go by what the add-on declares the phone draws
  *   (`ui.phone`): its screen once this build has it (./addon-screens.ts), the web until then and for the rest.
  * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
@@ -113,6 +114,8 @@ export const ROUTES: readonly Rule[] = [
   { web: 'ideas/roadmap', phone: 'ideas/roadmap' },
   { web: 'ideas/whats-new', phone: 'ideas/whats-new' },
   { web: 'ideas/:ideaId', phone: 'ideas/:ideaId' },
+  // The AI teammate's quick setup: the same screens on the phone, and `?at=try` opens its test chat after Save.
+  { web: 'ai-team/setup', phone: 'ai-setup', query: ['at'] },
   // The desk work the phone leaves to the web.
   { web: 'settings', phone: 'web', deeper: true },
   { web: 'workflows', phone: 'web', deeper: true },

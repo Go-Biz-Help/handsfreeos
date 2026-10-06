@@ -53,6 +53,9 @@ export const MORE_WORDS = {
   /** The AI teammate's test console, for people who manage it. */
   testTeammate: 'Test your AI teammate',
   testTeammateDetail: 'Text, chat, email or call your AI teammate as a customer',
+  /** Quick setup, for people who manage the AI teammate, while the business has none. */
+  setUpTeammate: 'Set up your AI teammate',
+  setUpTeammateDetail: 'A few simple questions, then try it before it answers anyone',
   settings: 'Settings',
   openOnWeb: 'Open on the web',
   openOnWebDetail: 'Workflows, the AI teammate, business settings, members and more',

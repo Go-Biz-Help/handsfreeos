@@ -902,6 +902,24 @@ function describeAction(e: AuditEntry): string {
       return 'let an AI teammate draft expire, so the conversation went to a person';
     case 'ai_teammate.budget_notice':
       return `told ${list(e.after?.emailed) || 'the owners'} that ${teammateOf(e)} used its share of today’s AI limit`;
+    // Quick setup for the AI teammate: starting it, asking for the website to be read, and Save.
+    case 'ai_setup.save':
+      return s(e.after?.url)
+        ? `asked the AI teammate to read ${kbSite(e.after?.url)} for quick setup`
+        : `started quick setup for the AI teammate${Number(e.after?.run ?? 1) > 1 ? ' again' : ''}`;
+    case 'ai_setup.finish':
+      return aiSetupFinishSentence(e);
+    case 'ai_setup.note_found': {
+      const found = [
+        count(e.after?.services, 'service', 'services'),
+        ...(Number(e.after?.facts ?? 0)
+          ? [count(e.after?.facts, 'answer to the quick facts', 'answers to the quick facts')]
+          : []),
+        count(e.after?.questions, 'question for leads', 'questions for leads'),
+        ...(e.after?.hours ? ['the open hours'] : []),
+      ];
+      return `read ${kbSite(e.after?.url)} for quick setup and found ${andJoin(found)}`;
+    }
     case 'conversation.hand_off':
       return `handed the conversation with ${withWho(e)} to a person${handoffReasonWords(e)}`;
     case 'conversation.pick_up':
@@ -1256,6 +1274,14 @@ function teammateSaveSentence(e: AuditEntry): string {
   if (!changes.length) return `saved ${who}’s settings`;
   const more = changes.length > 1 ? ` and ${changes.length - 1} more` : '';
   return `changed ${who}’s settings: ${changes[0]}${more}`;
+}
+
+function aiSetupFinishSentence(e: AuditEntry): string {
+  const changes = strings(e.after?.changes);
+  const who = s(e.after?.name) || 'the AI teammate';
+  if (!changes.length) return `saved quick setup for ${who}, which changed nothing`;
+  const more = changes.length > 1 ? ` and ${changes.length - 1} more` : '';
+  return `saved quick setup for ${who}: ${changes[0]}${more}`;
 }
 
 function teammateStatusSentence(e: AuditEntry): string {

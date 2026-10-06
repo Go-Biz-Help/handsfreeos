@@ -216,6 +216,9 @@ export type AiTeammateGet = Ok<'/v1/queries/ai_teammate.get'>;
 export type AiTeammateActivity = Ok<'/v1/queries/ai_teammate.activity'>;
 export type AiTeammateSaveOut = Ok<'/v1/commands/ai_teammate.save_config'>;
 export type AiTeammateSaveBody = Body<'/v1/commands/ai_teammate.save_config'>;
+// Quick setup for the AI teammate (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md)
+export type AiSetupSaveBody = Body<'/v1/commands/ai_setup.save'>;
+export type AiSetupFinishBody = Body<'/v1/commands/ai_setup.finish'>;
 
 // Milestone 7: website chat
 export type ChatWidgetList = Ok<'/v1/queries/chat_widget.list'>;

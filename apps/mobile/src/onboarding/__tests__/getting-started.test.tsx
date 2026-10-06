@@ -1,5 +1,7 @@
 import { LINK_WORDS, PHONE_GUIDE_WORDS } from '@hfos/core';
+import { useQuery } from '@powersync/react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import * as React from 'react';
 
 import { GettingStartedCard } from '@/components/onboarding/getting-started-card';
@@ -17,10 +19,16 @@ import {
 
 /**
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10): an owner's
- * card, shorter than the web's, where a step that's easier on a computer emails a link; a teammate's four rows, with
- * notifications turned on from the phone itself; the tour of the bottom bar; and "You're set up" once.
+ * card, shorter than the web's, where a step that's easier on a computer emails a link and the AI teammate is set up
+ * on the phone itself; a teammate's four rows, with notifications turned on from the phone itself; the tour of the
+ * bottom bar; and "You're set up" once.
  */
 
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
+  useLocalSearchParams: () => ({}),
+  usePathname: () => '/',
+}));
 jest.mock('@/lib/api', () => ({
   ...jest.requireActual<object>('@/lib/api'),
   api: { POST: jest.fn() },
@@ -122,16 +130,27 @@ async function show(status: OnboardingStatus) {
     organizations: [],
     fetchedAt: 0,
   };
-  await render(
+  const tree = () => (
     <BusinessProvider value={{ userId: DALE, me, business, openSwitcher: () => undefined }}>
       <GettingStartedCard />
-    </BusinessProvider>,
+    </BusinessProvider>
   );
+  const view = await render(tree());
+  return { rerender: () => view.rerender(tree()) };
 }
+
+/** The phone's copy of the business's teammates. */
+const teammates = (rows: { id: string }[]) =>
+  jest.mocked(useQuery).mockImplementation((() => ({
+    data: rows,
+    isLoading: false,
+    isFetching: false,
+  })) as unknown as typeof useQuery);
 
 beforeEach(() => {
   jest.clearAllMocks();
   forgetGettingStarted();
+  teammates([]);
   mockOnline = true;
   mockPermission = 'granted';
   answers = {
@@ -165,6 +184,32 @@ it('shows an owner the next step, and emails a link to a step that’s easier on
   await waitFor(() =>
     expect(toast.show).toHaveBeenCalledWith(LINK_WORDS.sent('dale@lonestarhvac.test')),
   );
+});
+
+it('sets up the AI teammate on the phone itself, and asks again once there is one', async () => {
+  const view = await show({
+    ...OWNER,
+    steps: OWNER.steps.map((s) => (s.key === 'ai' ? step('ai', 'basics') : s)),
+    done: 2,
+    next: 'ai',
+  });
+  const next = await screen.findByTestId('getting-started-next');
+  // Quick setup runs here as on the web: not one to email a link for.
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.queryByTestId('getting-started-ai-link')).toBeNull();
+  expect(screen.getByTestId('getting-started-ai-setup')).toHaveTextContent(
+    PHONE_GUIDE_WORDS.aiSetUp,
+  );
+  await fireEvent.press(screen.getByTestId('getting-started-ai-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/ai-setup`);
+
+  // The teammate quick setup saved reaches the phone's copy: the guide asks where things stand again, and what's
+  // left of the step is easier on a computer.
+  teammates([{ id: 'ava' }]);
+  await view.rerender();
+  await waitFor(() => expect(sent('/v1/queries/onboarding.status')).toHaveLength(2));
+  expect(await screen.findByTestId('getting-started-ai-link')).toBeTruthy();
+  expect(screen.queryByTestId('getting-started-ai-setup')).toBeNull();
 });
 
 it('folds an owner’s list to a few rows, with the rest a press away', async () => {

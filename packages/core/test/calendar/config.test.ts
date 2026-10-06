@@ -12,6 +12,7 @@ import {
   PRESET_KEYS,
   resolveTerms,
   upgradeConfig,
+  weeklyHoursDayProblem,
   type ConfigPatch,
 } from '../../src/calendar/index';
 import { catalogs, DALE, MARCO, presetContext, PRIYA, TRUCK, TUNE_UP, WORKFLOW } from './fixtures';
@@ -238,5 +239,20 @@ describe('labels never gate a setting', () => {
       expect(CalendarConfig.safeParse(next).success, `${key} ${module}`).toBe(true);
       expect(() => inferLabels(next)).not.toThrow();
     }
+  });
+});
+
+describe('one day’s hours', () => {
+  it('says what’s wrong with a day the hours editors show, on the web and the phone', () => {
+    const day = (...stretches: [string, string][]) =>
+      stretches.map(([start, end]) => ({ day: 1, start, end }));
+    expect(weeklyHoursDayProblem([])).toBeNull();
+    expect(weeklyHoursDayProblem(day(['09:00', '12:00'], ['13:00', '24:00']))).toBeNull();
+    expect(weeklyHoursDayProblem(day(['17:00', '09:00']))).toBe('Ends before it starts.');
+    expect(weeklyHoursDayProblem(day(['09:00', '09:00']))).toBe('Ends before it starts.');
+    // In any order: the later stretch listed first still overlaps.
+    expect(weeklyHoursDayProblem(day(['11:00', '15:00'], ['09:00', '12:00']))).toBe(
+      'These hours overlap.',
+    );
   });
 });

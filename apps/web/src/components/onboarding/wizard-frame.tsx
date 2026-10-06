@@ -39,6 +39,27 @@ const LATER_ICONS: Partial<Record<OnboardingStepKey, LucideIcon>> = {
   my_calendar: CalendarDays,
 };
 
+/** The must-dos the wizard walks through, in their order. */
+const wizardBasics = (status: OnboardingStatus) =>
+  status.steps.filter((s) => s.group === 'basics' && isWizardStep(s.key));
+
+/**
+ * Where the wizard goes after `step`: the next must-do, or Home after the last one, where the tour of the menu shows
+ * the first time (components/onboarding/tour.tsx). A step's own screen uses it once its work is done.
+ */
+export function wizardNextHref(
+  workspaceId: string,
+  status: OnboardingStatus,
+  step: WizardStepKey,
+): string {
+  const basics = wizardBasics(status);
+  const at = basics.findIndex((s) => s.key === step);
+  const nextStep = at >= 0 ? basics[at + 1] : undefined;
+  return nextStep
+    ? setupHref(workspaceId, nextStep.key as WizardStepKey)
+    : `/app/w/${workspaceId}?tour=1`;
+}
+
 /**
  * The setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 2 to 5b in design/onboarding): the
  * must-dos in their order down the side, with what comes later listed under them, and one step at a time beside
@@ -59,7 +80,7 @@ export function WizardFrame({
   children: ReactNode;
 }) {
   const home = `/app/w/${workspaceId}`;
-  const basics = status.steps.filter((s) => s.group === 'basics' && isWizardStep(s.key));
+  const basics = wizardBasics(status);
   const later = status.steps.filter((s) => s.group !== 'basics');
   const at = basics.findIndex((s) => s.key === step);
   const current = status.steps.find((s) => s.key === step);
@@ -73,7 +94,7 @@ export function WizardFrame({
       : home;
   // Out of the wizard, Home shows the tour of the menu the first time (components/onboarding/tour.tsx).
   const out = `${home}?tour=1`;
-  const next = nextStep ? setupHref(workspaceId, nextStep.key as WizardStepKey) : out;
+  const next = wizardNextHref(workspaceId, status, step);
   const state = current?.state ?? 'todo';
 
   return (

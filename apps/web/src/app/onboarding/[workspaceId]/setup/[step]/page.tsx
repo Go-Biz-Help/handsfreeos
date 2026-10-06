@@ -4,14 +4,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { AiQuickSetup } from '@/components/ai-setup/quick-setup';
 import { TeammatePresetPicker } from '@/components/ai-team/preset-picker';
+import { QuickSetupInstead } from '@/components/ai-team/teammate-tab';
 import { WebsiteScan } from '@/components/knowledge/website-scan';
 import { CalendarSetup } from '@/components/onboarding/calendar-setup';
 import { CustomersSetup } from '@/components/onboarding/customers-setup';
 import { NumberSetup } from '@/components/onboarding/number-setup';
 import { PaymentsSetup } from '@/components/onboarding/payments-setup';
 import { StepLive } from '@/components/onboarding/step-live';
-import { WizardFrame } from '@/components/onboarding/wizard-frame';
+import { WizardFrame, wizardNextHref } from '@/components/onboarding/wizard-frame';
+import { loadAiSetup } from '@/lib/ai-setup/load';
 import { teammateGetOf } from '@/lib/ai-team/types';
 import { STATUS_WORDS, loadMigrations } from '@/lib/agency/migrations';
 import { assigneeOptions } from '@/lib/api/people';
@@ -19,6 +22,7 @@ import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 import type { OnboardingStatus } from '@/lib/api/types';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { loadWebsiteScan } from '@/lib/knowledge';
+import { setupHref } from '@/lib/setup';
 import { loadTexting } from '@/lib/texting';
 
 export async function generateMetadata({
@@ -84,6 +88,8 @@ export default async function SetupStepPage({
       permissions: ws.permissions,
       status,
       payments: typeof query['payments'] === 'string' ? query['payments'] : null,
+      myself: query['myself'] === '1',
+      at: query['at'] === 'try' ? 'try' : null,
     })
   ) : (
     <p className="text-text-2">{WIZARD_WORDS.cantDo}</p>
@@ -106,6 +112,10 @@ interface StepContext {
   readonly status: OnboardingStatus;
   /** `?payments=` from Stripe's or Square's sign-in. */
   readonly payments: string | null;
+  /** `?myself=1`: "Set it up myself" on quick setup, for the AI teammate's presets. */
+  readonly myself: boolean;
+  /** `?at=try`: quick setup's test chat, after Save. */
+  readonly at: 'try' | null;
 }
 
 async function stepBody(step: WizardStepKey, c: StepContext): Promise<ReactNode> {
@@ -120,12 +130,26 @@ async function stepBody(step: WizardStepKey, c: StepContext): Promise<ReactNode>
       const got = teammateGetOf(
         unwrapPage(await api.POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })),
       );
-      if (!got.teammate)
+      // Quick setup until there's a teammate, and its test chat after Save; "Set it up myself" shows the presets.
+      if (!got.teammate && c.myself)
         return (
-          <TeammatePresetPicker
-            workspaceId={workspaceId}
-            workspaceName={c.businessName}
-            catalogs={got.catalogs}
+          <>
+            <QuickSetupInstead href={setupHref(workspaceId, 'ai')} />
+            <TeammatePresetPicker
+              workspaceId={workspaceId}
+              workspaceName={c.businessName}
+              catalogs={got.catalogs}
+            />
+          </>
+        );
+      if (!got.teammate || c.at === 'try')
+        return (
+          <AiQuickSetup
+            data={await loadAiSetup(api, workspaceId)}
+            myselfHref={`${setupHref(workspaceId, 'ai')}?myself=1`}
+            settingsHref={`/app/w/${workspaceId}/ai-team`}
+            doneHref={wizardNextHref(workspaceId, c.status, 'ai')}
+            startAt={c.at}
           />
         );
       const scan = await loadWebsiteScan(api, workspaceId);

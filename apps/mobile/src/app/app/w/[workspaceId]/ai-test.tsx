@@ -1,5 +1,6 @@
-import { holds } from '@hfos/core';
+import { holds, MORE_WORDS } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +9,7 @@ import { useCustomers } from '@/calendar/use-calendar';
 import { TestConsoleView } from '@/components/ai-team/test-console';
 import { RotateCcw } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
-import { useBusiness } from '@/components/shell/business-context';
+import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -17,7 +18,6 @@ import { Text } from '@/components/ui/text';
 import { useTestConsole } from '@/ai-team/use-test-console';
 import { TEAMMATE_SQL } from '@/home/queries';
 import { useGrants } from '@/lib/grants';
-import { openWeb } from '@/lib/open-web';
 import { cn } from '@/lib/utils';
 
 /**
@@ -76,15 +76,16 @@ export default function AiTest() {
           <Text className="text-[13px] leading-[18px] text-text-2">
             {!allowed
               ? 'Ask an owner or admin of this business.'
-              : 'Pick how it works on the web, under AI teammate. Then you can test it here.'}
+              : 'Answer a few simple questions about your business. Then you can test it here.'}
           </Text>
           {allowed ? (
             <Button
               variant="secondary"
               className="self-start"
-              onPress={() => void openWeb(`/app/w/${business.id}/ai-team`)}
+              onPress={() => router.replace(businessHref(business.id, 'ai-setup'))}
+              testID="ai-test-set-up"
             >
-              Open on the web
+              {MORE_WORDS.setUpTeammate}
             </Button>
           ) : null}
         </View>

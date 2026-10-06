@@ -52,7 +52,14 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
     .getByRole('navigation', { name: 'Workspace' })
     .getByRole('link', { name: 'AI teammate' })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team$`));
+  // Quick setup first, a phone's width too; "Set it up myself" shows the presets.
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team/setup$`));
+  const quick = page.getByTestId('ai-setup');
+  await expect(quick).toBeVisible();
+  expect((await quick.boundingBox())!.width).toBeLessThanOrEqual(390);
+  expect(await width()).toBeLessThanOrEqual(390);
+  await page.getByTestId('ai-setup-myself').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team\\?myself=1$`));
   const picker = page.getByTestId('teammate-preset-picker');
   await expect(picker).toBeVisible();
   expect((await picker.boundingBox())!.width).toBeLessThanOrEqual(390);
