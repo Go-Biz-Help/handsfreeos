@@ -178,15 +178,18 @@ export function WebsiteChatPage({
   widget,
   teammate,
   brandedOrigin,
+  website = null,
 }: {
   workspaceId: string;
   widget: ChatWidget | null;
   teammate: ChatTeammate | null;
   /** Their own domain when one is serving (M17): the snippet they paste loads from it. */
   brandedOrigin: string | null;
+  /** The business's website as it gave it, which setting the chat up starts from. */
+  website?: string | null;
 }) {
   useLiveRefresh(['chat_widget', 'ai_teammate']);
-  if (!widget) return <SetUp workspaceId={workspaceId} teammate={teammate} />;
+  if (!widget) return <SetUp workspaceId={workspaceId} teammate={teammate} website={website} />;
   return (
     <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2" data-testid="chat-settings">
       <div className="flex min-w-0 flex-col gap-5">
@@ -349,10 +352,20 @@ function SitesList({
   );
 }
 
-/** Before there's a widget: the sites, then "Turn on website chat". */
-function SetUp({ workspaceId, teammate }: { workspaceId: string; teammate: ChatTeammate | null }) {
+/** Before there's a widget: the sites, starting from the business's own website, then "Turn on website chat". */
+function SetUp({
+  workspaceId,
+  teammate,
+  website,
+}: {
+  workspaceId: string;
+  teammate: ChatTeammate | null;
+  website: string | null;
+}) {
   const router = useRouter();
-  const [typed, setTyped] = useState<string[]>([]);
+  const [typed, setTyped] = useState<string[]>(() =>
+    website && normalizeChatOrigin(website).ok ? [website] : [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rows: SiteRow[] = typed.flatMap((t) => {

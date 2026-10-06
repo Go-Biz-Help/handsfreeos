@@ -386,3 +386,92 @@ section > p {
 section > :last-child {
   margin-bottom: 0;
 }
+
+/* Today on Facebook: the day's steps against the daily limits. */
+.today h2 .see-all {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.today h3 {
+  margin: 10px 0 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.today > p {
+  margin: 0 0 8px;
+}
+
+.limits {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.limits li {
+  display: grid;
+  grid-template-columns: 104px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.limits .bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--card-2);
+}
+
+.limits .fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.limits .of {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.limits li.full .fill {
+  background: var(--warning-text);
+}
+
+.limits li.full .of {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.warn-line {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: 12px;
+}
+
+.recent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.recent li {
+  padding: 3px 0;
+}
+
+.recent .chip {
+  margin-left: 6px;
+}
+
+.today .auto {
+  margin-top: 10px;
+}

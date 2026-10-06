@@ -30,6 +30,8 @@ export default async function WebsiteChatSettingsPage({
   const t = unwrapPage(team).teammate;
   const channels = (t?.config as { channels?: { chat?: unknown; widgetId?: unknown } } | undefined)
     ?.channels;
+  // Settings → Workspace's website, which setup's quick questions fill in too: the first site the chat may show on.
+  const website = (got.workspace.settings as Record<string, unknown> | null)?.['website'];
   return (
     <>
       <WebsiteChatPage
@@ -46,6 +48,7 @@ export default async function WebsiteChatSettingsPage({
             : null
         }
         brandedOrigin={brandedOrigin}
+        website={typeof website === 'string' && website ? website : null}
       />
     </>
   );
