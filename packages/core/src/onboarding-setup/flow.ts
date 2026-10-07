@@ -27,7 +27,7 @@ import { ONBOARDING_SETUP_WORDS as W } from './words';
  * setup opens on its last screen.
  */
 export function onboardingSetupFirstScreen(got: {
-  readonly state: Pick<OnboardingSetupState, 'website' | 'chat'>;
+  readonly state: Pick<OnboardingSetupState, 'website' | 'page' | 'chat'>;
   readonly answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'>;
   readonly reached: OnboardingSetupScreen | null;
   readonly finished: unknown;

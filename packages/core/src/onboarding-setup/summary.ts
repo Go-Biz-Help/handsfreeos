@@ -127,6 +127,7 @@ export function onboardingSetupSummary(
   const hours = answers.ai.openHours;
   lines.push(hours.length ? `Open ${formatHours(hours)}.` : 'No open hours yet.');
   if (state.look.logo || state.look.color) lines.push(LOOK_WORDS.summary(!!state.look.logo));
+  if (state.page) lines.push('Your page is live, made from your answers.');
 
   const services = answers.ai.services.length;
   if (services)

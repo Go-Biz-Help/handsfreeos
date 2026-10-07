@@ -1,21 +1,46 @@
 import { ChevronRight, Globe } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BusinessPage } from '@/components/booking/business-page';
 import { BookingOff, PublicState } from '@/components/booking/public-shell';
 import { getSite, pageData } from '@/lib/api/public-booking';
+import { requestOrigin } from '@/lib/hosting/request-origin';
 
 type Props = { params: Promise<{ site: string }> };
 
+/** The site, with its simple page's chat for the address it's shown at. */
+const siteData = async (site: string) => pageData(getSite(site, await requestOrigin()));
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { site } = await params;
-  const data = await pageData(getSite(site));
+  const data = await siteData(site);
+  if (data.page)
+    return {
+      title: { absolute: data.business.name },
+      ...(data.page.description
+        ? { description: data.page.description.replace(/\s+/g, ' ').slice(0, 160) }
+        : {}),
+    };
   return { title: { absolute: `Book online · ${data.business.name}` } };
 }
 
-/** The business's public calendars. */
+/** The business's public calendars, or its simple page when it has one on. */
 export default async function BookingSitePage({ params }: Props) {
   const { site } = await params;
-  const data = await pageData(getSite(site));
+  const data = await siteData(site);
+  if (data.page)
+    return (
+      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-4 py-6 md:py-10">
+        <BusinessPage
+          business={data.business}
+          page={data.page}
+          site={data.site}
+          calendars={data.calendars}
+        />
+        {/* The business's website chat, set up for this address: its loader, served here as on any site. */}
+        {data.page.chat ? <script async src={`/embed/v1/${data.page.chat}.js`} /> : null}
+      </main>
+    );
   if (!data.site.enabled) return <BookingOff business={data.business} />;
   return (
     <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col gap-4 px-4 py-6 md:py-10">

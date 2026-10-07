@@ -39,17 +39,27 @@ export const AI_SETUP_STEP_HINTS: Readonly<Record<AiSetupStep, string>> = {
   try: 'Saved. Try a few questions before you turn it on.',
 };
 
+/** The chat screen for a business with no website, whose chat goes on its simple page. */
+export const AI_SETUP_PAGE_CHAT = {
+  title: 'Add {name} to your page?',
+  hint: 'Texting can take weeks to be approved. With a chat on your page, {name} can start today.',
+} as const;
+
 /** Words with the teammate's name in them. */
 export const withAiName = (words: string, name: string): string =>
   words.replaceAll('{name}', name.trim() || 'Ava');
 
+/** Where the chat goes: a business without a website (`website` false) has its simple page. */
+type ChatPlace = { readonly website: boolean } | undefined;
+const onPage = (step: AiSetupStep, place: ChatPlace) => step === 'chat' && place?.website === false;
+
 /** A screen's title with the teammate's name in it. */
-export const aiSetupStepTitle = (step: AiSetupStep, name: string): string =>
-  withAiName(AI_SETUP_STEP_TITLES[step], name);
+export const aiSetupStepTitle = (step: AiSetupStep, name: string, place?: ChatPlace): string =>
+  withAiName(onPage(step, place) ? AI_SETUP_PAGE_CHAT.title : AI_SETUP_STEP_TITLES[step], name);
 
 /** What a screen says under its question, with the teammate's name in it. */
-export const aiSetupStepHint = (step: AiSetupStep, name: string): string =>
-  withAiName(AI_SETUP_STEP_HINTS[step], name);
+export const aiSetupStepHint = (step: AiSetupStep, name: string, place?: ChatPlace): string =>
+  withAiName(onPage(step, place) ? AI_SETUP_PAGE_CHAT.hint : AI_SETUP_STEP_HINTS[step], name);
 
 export const AI_SETUP_JOB_LABELS: Readonly<Record<SetupJob, string>> = {
   reply: 'Reply to new leads fast',
@@ -201,6 +211,10 @@ export const AI_SETUP_FIELD_WORDS = {
   chatCode: 'Add the chat to your website',
   chatCodeHint: 'Paste this once, just before </body> on every page.',
   chatMoreWays: 'More ways to add it',
+  /** When the chat went on the business's simple page instead, there's nothing to paste. */
+  chatOnPage: '{name} answers the chat on your page',
+  chatOnPageHint: 'There’s nothing to paste. Customers press Chat on your page to start one.',
+  chatOnPageOpen: 'Open your page',
   copy: 'Copy',
   copied: 'Copied',
   askThese: 'Ask {name} these questions',

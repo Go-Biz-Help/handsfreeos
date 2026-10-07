@@ -40,6 +40,9 @@ describe('brandedRoute', () => {
       // An add-on's public pages: a listing's page, an open house's sign-in.
       '/a/lonestar/realestate/2207-juniper-trail',
       '/a/lonestar/realestate/2207-juniper-trail/open-house/0b7a3f0e-0000-4000-8000-000000000001',
+      // The privacy policy and terms the simple page and the agreement boxes link to.
+      '/legal/lonestar/privacy',
+      '/legal/lonestar/terms',
     ])
       expect(brandedRoute(SITE, path), path).toEqual({ kind: 'serve' });
   });

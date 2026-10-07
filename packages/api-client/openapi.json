@@ -15025,6 +15025,75 @@
         }
       }
     },
+    "/v1/commands/booking_site.set_page": {
+      "post": {
+        "operationId": "command_booking_site_set_page",
+        "summary": "Turn the business’s simple page on or off: its booking page (/book/<name>) showing what it does, its services, hours and area, with ways to book, call, text and chat. Makes the booking site, not taking bookings, when there isn’t one.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires calendars.manage. Emits booking_site.page_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "on"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "siteId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "page": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "siteId",
+                    "slug",
+                    "page",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/schedule.set": {
       "post": {
         "operationId": "command_schedule_set",
@@ -26342,6 +26411,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "pageOrigin": {
+                    "type": "string",
+                    "maxLength": 300
                   }
                 },
                 "required": [
@@ -52888,7 +52961,7 @@
     "/v1/commands/onboarding_setup.save": {
       "post": {
         "operationId": "command_onboarding_setup_save",
-        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.",
+        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.",
         "tags": [
           "commands"
         ],
@@ -52913,6 +52986,7 @@
                       "about",
                       "hours",
                       "look",
+                      "page",
                       "customers",
                       "booking",
                       "number",
@@ -52953,6 +53027,10 @@
                       },
                       "booksTime": {
                         "default": false,
+                        "type": "boolean"
+                      },
+                      "usePage": {
+                        "default": true,
                         "type": "boolean"
                       },
                       "customersIn": {
@@ -53742,6 +53820,7 @@
                         "about",
                         "hours",
                         "look",
+                        "page",
                         "customers",
                         "booking",
                         "number",
@@ -53882,6 +53961,10 @@
                       },
                       "booksTime": {
                         "default": false,
+                        "type": "boolean"
+                      },
+                      "usePage": {
+                        "default": true,
                         "type": "boolean"
                       },
                       "customersIn": {
@@ -54456,6 +54539,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "pageOrigin": {
+                    "type": "string",
+                    "maxLength": 300
                   }
                 },
                 "required": [
@@ -102490,6 +102577,9 @@
                             "enabled": {
                               "type": "boolean"
                             },
+                            "page": {
+                              "type": "boolean"
+                            },
                             "path": {
                               "type": "string"
                             }
@@ -102500,6 +102590,7 @@
                             "name",
                             "intro",
                             "enabled",
+                            "page",
                             "path"
                           ],
                           "additionalProperties": false
@@ -110678,6 +110769,25 @@
                             "null"
                           ]
                         },
+                        "page": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "slug"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "timeZone": {
                           "type": "string"
                         },
@@ -111380,6 +111490,7 @@
                         "kind",
                         "goal",
                         "website",
+                        "page",
                         "timeZone",
                         "openHours",
                         "teammate",
@@ -132244,6 +132355,25 @@
                             "null"
                           ]
                         },
+                        "page": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "slug"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "timeZone": {
                           "type": "string"
                         },
@@ -133569,6 +133699,7 @@
                         "kind",
                         "goal",
                         "website",
+                        "page",
                         "timeZone",
                         "openHours",
                         "teammate",
@@ -133626,642 +133757,8 @@
                           "default": false,
                           "type": "boolean"
                         },
-                        "customersIn": {
-                          "default": "none",
-                          "type": "string",
-                          "enum": [
-                            "sheet",
-                            "ghl",
-                            "crm",
-                            "phone",
-                            "none"
-                          ]
-                        },
-                        "hasEin": {
-                          "default": null,
-                          "type": [
-                            "boolean",
-                            "null"
-                          ]
-                        },
-                        "payWith": {
-                          "default": "later",
-                          "type": "string",
-                          "enum": [
-                            "stripe",
-                            "square",
-                            "later"
-                          ]
-                        },
-                        "reviewLink": {
-                          "default": "",
-                          "type": "string",
-                          "maxLength": 500
-                        },
-                        "ai": {
-                          "default": {
-                            "jobs": [],
-                            "description": "",
-                            "services": [],
-                            "area": "",
-                            "openHours": [
-                              {
-                                "day": 1,
-                                "start": "08:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 2,
-                                "start": "08:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 3,
-                                "start": "08:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 4,
-                                "start": "08:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 5,
-                                "start": "08:00",
-                                "end": "17:00"
-                              }
-                            ],
-                            "answerWhen": "always",
-                            "customHours": [
-                              {
-                                "day": 1,
-                                "start": "09:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 2,
-                                "start": "09:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 3,
-                                "start": "09:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 4,
-                                "start": "09:00",
-                                "end": "17:00"
-                              },
-                              {
-                                "day": 5,
-                                "start": "09:00",
-                                "end": "17:00"
-                              }
-                            ],
-                            "facts": {},
-                            "name": "Ava",
-                            "disclosure": "first_message",
-                            "tone": "friendly",
-                            "allowPrices": false,
-                            "topQuestions": [],
-                            "keepFindings": [],
-                            "dropFindings": [],
-                            "questions": [],
-                            "chat": false
-                          },
-                          "type": "object",
-                          "properties": {
-                            "jobs": {
-                              "default": [],
-                              "maxItems": 5,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": [
-                                  "reply",
-                                  "answer",
-                                  "book",
-                                  "qualify",
-                                  "follow_up"
-                                ]
-                              }
-                            },
-                            "description": {
-                              "default": "",
-                              "type": "string",
-                              "maxLength": 2000
-                            },
-                            "services": {
-                              "default": [],
-                              "maxItems": 50,
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "name": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 120
-                                  },
-                                  "description": {
-                                    "default": "",
-                                    "type": "string",
-                                    "maxLength": 500
-                                  },
-                                  "priceCents": {
-                                    "anyOf": [
-                                      {
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 100000000
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "minutes": {
-                                    "anyOf": [
-                                      {
-                                        "type": "integer",
-                                        "minimum": 5,
-                                        "maximum": 720
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "name",
-                                  "description"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "area": {
-                              "default": "",
-                              "type": "string",
-                              "maxLength": 500
-                            },
-                            "openHours": {
-                              "default": [
-                                {
-                                  "day": 1,
-                                  "start": "08:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 2,
-                                  "start": "08:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 3,
-                                  "start": "08:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 4,
-                                  "start": "08:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 5,
-                                  "start": "08:00",
-                                  "end": "17:00"
-                                }
-                              ],
-                              "maxItems": 50,
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "day": {
-                                    "type": "integer",
-                                    "minimum": 0,
-                                    "maximum": 6
-                                  },
-                                  "start": {
-                                    "type": "string"
-                                  },
-                                  "end": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "day",
-                                  "start",
-                                  "end"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "answerWhen": {
-                              "default": "always",
-                              "type": "string",
-                              "enum": [
-                                "always",
-                                "after_hours",
-                                "custom"
-                              ]
-                            },
-                            "customHours": {
-                              "default": [
-                                {
-                                  "day": 1,
-                                  "start": "09:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 2,
-                                  "start": "09:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 3,
-                                  "start": "09:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 4,
-                                  "start": "09:00",
-                                  "end": "17:00"
-                                },
-                                {
-                                  "day": 5,
-                                  "start": "09:00",
-                                  "end": "17:00"
-                                }
-                              ],
-                              "maxItems": 50,
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "day": {
-                                    "type": "integer",
-                                    "minimum": 0,
-                                    "maximum": 6
-                                  },
-                                  "start": {
-                                    "type": "string"
-                                  },
-                                  "end": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "day",
-                                  "start",
-                                  "end"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "facts": {
-                              "default": {},
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string",
-                                "maxLength": 40
-                              },
-                              "additionalProperties": {
-                                "type": "string",
-                                "enum": [
-                                  "yes",
-                                  "no"
-                                ]
-                              }
-                            },
-                            "name": {
-                              "default": "Ava",
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 40
-                            },
-                            "disclosure": {
-                              "default": "first_message",
-                              "type": "string",
-                              "enum": [
-                                "first_message",
-                                "when_asked"
-                              ]
-                            },
-                            "tone": {
-                              "default": "friendly",
-                              "type": "string",
-                              "enum": [
-                                "friendly",
-                                "professional",
-                                "short",
-                                "keep"
-                              ]
-                            },
-                            "allowPrices": {
-                              "default": false,
-                              "type": "boolean"
-                            },
-                            "topQuestions": {
-                              "default": [],
-                              "maxItems": 3,
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "question": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 300
-                                  },
-                                  "answer": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 5000
-                                  }
-                                },
-                                "required": [
-                                  "question",
-                                  "answer"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "keepFindings": {
-                              "default": [],
-                              "maxItems": 200,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              }
-                            },
-                            "dropFindings": {
-                              "default": [],
-                              "maxItems": 200,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              }
-                            },
-                            "questions": {
-                              "default": [],
-                              "maxItems": 10,
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 40
-                                  },
-                                  "question": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 200
-                                  },
-                                  "kind": {
-                                    "default": "text",
-                                    "type": "string",
-                                    "enum": [
-                                      "text",
-                                      "choice",
-                                      "yes_no",
-                                      "number",
-                                      "file"
-                                    ]
-                                  },
-                                  "options": {
-                                    "default": [],
-                                    "maxItems": 20,
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 100
-                                    }
-                                  },
-                                  "required": {
-                                    "default": true,
-                                    "type": "boolean"
-                                  },
-                                  "notAFitIf": {
-                                    "type": "object",
-                                    "properties": {
-                                      "answers": {
-                                        "default": [],
-                                        "maxItems": 20,
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string",
-                                          "minLength": 1,
-                                          "maxLength": 100
-                                        }
-                                      },
-                                      "below": {
-                                        "default": null,
-                                        "type": [
-                                          "number",
-                                          "null"
-                                        ]
-                                      },
-                                      "above": {
-                                        "default": null,
-                                        "type": [
-                                          "number",
-                                          "null"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "answers",
-                                      "below",
-                                      "above"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "notify": {
-                                    "default": null,
-                                    "anyOf": [
-                                      {
-                                        "oneOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "type": "string",
-                                                "enum": [
-                                                  "admins"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "type": "string",
-                                                "enum": [
-                                                  "users"
-                                                ]
-                                              },
-                                              "userIds": {
-                                                "minItems": 1,
-                                                "maxItems": 20,
-                                                "type": "array",
-                                                "items": {
-                                                  "anyOf": [
-                                                    {
-                                                      "type": "string",
-                                                      "format": "uuid",
-                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                                    },
-                                                    {
-                                                      "type": "object",
-                                                      "properties": {
-                                                        "$ph": {
-                                                          "type": "string",
-                                                          "pattern": "^[a-z][a-z0-9_]{0,59}$"
-                                                        }
-                                                      },
-                                                      "required": [
-                                                        "$ph"
-                                                      ],
-                                                      "additionalProperties": false
-                                                    }
-                                                  ]
-                                                }
-                                              }
-                                            },
-                                            "required": [
-                                              "kind",
-                                              "userIds"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "type": "string",
-                                                "enum": [
-                                                  "lead_assignee"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": {
-                                                "type": "string",
-                                                "enum": [
-                                                  "person_owner"
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "kind"
-                                            ],
-                                            "additionalProperties": false
-                                          }
-                                        ]
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "question",
-                                  "kind",
-                                  "options",
-                                  "required",
-                                  "notAFitIf",
-                                  "notify"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "chat": {
-                              "default": false,
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "jobs",
-                            "description",
-                            "services",
-                            "area",
-                            "openHours",
-                            "answerWhen",
-                            "customHours",
-                            "facts",
-                            "name",
-                            "disclosure",
-                            "tone",
-                            "allowPrices",
-                            "topQuestions",
-                            "keepFindings",
-                            "dropFindings",
-                            "questions",
-                            "chat"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "goal",
-                        "teamSize",
-                        "booksTime",
-                        "customersIn",
-                        "hasEin",
-                        "payWith",
-                        "reviewLink",
-                        "ai"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "starting": {
-                      "type": "object",
-                      "properties": {
-                        "goal": {
-                          "default": "leads",
-                          "type": "string",
-                          "enum": [
-                            "leads",
-                            "booked",
-                            "paid",
-                            "organized"
-                          ]
-                        },
-                        "teamSize": {
-                          "default": "solo",
-                          "type": "string",
-                          "enum": [
-                            "solo",
-                            "small",
-                            "big"
-                          ]
-                        },
-                        "booksTime": {
-                          "default": false,
+                        "usePage": {
+                          "default": true,
                           "type": "boolean"
                         },
                         "customersIn": {
@@ -134868,6 +134365,650 @@
                         "goal",
                         "teamSize",
                         "booksTime",
+                        "usePage",
+                        "customersIn",
+                        "hasEin",
+                        "payWith",
+                        "reviewLink",
+                        "ai"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "starting": {
+                      "type": "object",
+                      "properties": {
+                        "goal": {
+                          "default": "leads",
+                          "type": "string",
+                          "enum": [
+                            "leads",
+                            "booked",
+                            "paid",
+                            "organized"
+                          ]
+                        },
+                        "teamSize": {
+                          "default": "solo",
+                          "type": "string",
+                          "enum": [
+                            "solo",
+                            "small",
+                            "big"
+                          ]
+                        },
+                        "booksTime": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "usePage": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "customersIn": {
+                          "default": "none",
+                          "type": "string",
+                          "enum": [
+                            "sheet",
+                            "ghl",
+                            "crm",
+                            "phone",
+                            "none"
+                          ]
+                        },
+                        "hasEin": {
+                          "default": null,
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "payWith": {
+                          "default": "later",
+                          "type": "string",
+                          "enum": [
+                            "stripe",
+                            "square",
+                            "later"
+                          ]
+                        },
+                        "reviewLink": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "ai": {
+                          "default": {
+                            "jobs": [],
+                            "description": "",
+                            "services": [],
+                            "area": "",
+                            "openHours": [
+                              {
+                                "day": 1,
+                                "start": "08:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 2,
+                                "start": "08:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 3,
+                                "start": "08:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 4,
+                                "start": "08:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 5,
+                                "start": "08:00",
+                                "end": "17:00"
+                              }
+                            ],
+                            "answerWhen": "always",
+                            "customHours": [
+                              {
+                                "day": 1,
+                                "start": "09:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 2,
+                                "start": "09:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 3,
+                                "start": "09:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 4,
+                                "start": "09:00",
+                                "end": "17:00"
+                              },
+                              {
+                                "day": 5,
+                                "start": "09:00",
+                                "end": "17:00"
+                              }
+                            ],
+                            "facts": {},
+                            "name": "Ava",
+                            "disclosure": "first_message",
+                            "tone": "friendly",
+                            "allowPrices": false,
+                            "topQuestions": [],
+                            "keepFindings": [],
+                            "dropFindings": [],
+                            "questions": [],
+                            "chat": false
+                          },
+                          "type": "object",
+                          "properties": {
+                            "jobs": {
+                              "default": [],
+                              "maxItems": 5,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "reply",
+                                  "answer",
+                                  "book",
+                                  "qualify",
+                                  "follow_up"
+                                ]
+                              }
+                            },
+                            "description": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 2000
+                            },
+                            "services": {
+                              "default": [],
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  },
+                                  "description": {
+                                    "default": "",
+                                    "type": "string",
+                                    "maxLength": 500
+                                  },
+                                  "priceCents": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100000000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "minutes": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 720
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "description"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "area": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "openHours": {
+                              "default": [
+                                {
+                                  "day": 1,
+                                  "start": "08:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 2,
+                                  "start": "08:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 3,
+                                  "start": "08:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 4,
+                                  "start": "08:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 5,
+                                  "start": "08:00",
+                                  "end": "17:00"
+                                }
+                              ],
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 6
+                                  },
+                                  "start": {
+                                    "type": "string"
+                                  },
+                                  "end": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "day",
+                                  "start",
+                                  "end"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "answerWhen": {
+                              "default": "always",
+                              "type": "string",
+                              "enum": [
+                                "always",
+                                "after_hours",
+                                "custom"
+                              ]
+                            },
+                            "customHours": {
+                              "default": [
+                                {
+                                  "day": 1,
+                                  "start": "09:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 2,
+                                  "start": "09:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 3,
+                                  "start": "09:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 4,
+                                  "start": "09:00",
+                                  "end": "17:00"
+                                },
+                                {
+                                  "day": 5,
+                                  "start": "09:00",
+                                  "end": "17:00"
+                                }
+                              ],
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 6
+                                  },
+                                  "start": {
+                                    "type": "string"
+                                  },
+                                  "end": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "day",
+                                  "start",
+                                  "end"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "facts": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "maxLength": 40
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "enum": [
+                                  "yes",
+                                  "no"
+                                ]
+                              }
+                            },
+                            "name": {
+                              "default": "Ava",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "disclosure": {
+                              "default": "first_message",
+                              "type": "string",
+                              "enum": [
+                                "first_message",
+                                "when_asked"
+                              ]
+                            },
+                            "tone": {
+                              "default": "friendly",
+                              "type": "string",
+                              "enum": [
+                                "friendly",
+                                "professional",
+                                "short",
+                                "keep"
+                              ]
+                            },
+                            "allowPrices": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "topQuestions": {
+                              "default": [],
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "question": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "answer": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 5000
+                                  }
+                                },
+                                "required": [
+                                  "question",
+                                  "answer"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "keepFindings": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "dropFindings": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "questions": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "question": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "kind": {
+                                    "default": "text",
+                                    "type": "string",
+                                    "enum": [
+                                      "text",
+                                      "choice",
+                                      "yes_no",
+                                      "number",
+                                      "file"
+                                    ]
+                                  },
+                                  "options": {
+                                    "default": [],
+                                    "maxItems": 20,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    }
+                                  },
+                                  "required": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "notAFitIf": {
+                                    "type": "object",
+                                    "properties": {
+                                      "answers": {
+                                        "default": [],
+                                        "maxItems": 20,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 100
+                                        }
+                                      },
+                                      "below": {
+                                        "default": null,
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      },
+                                      "above": {
+                                        "default": null,
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "answers",
+                                      "below",
+                                      "above"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "notify": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "admins"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "users"
+                                                ]
+                                              },
+                                              "userIds": {
+                                                "minItems": 1,
+                                                "maxItems": 20,
+                                                "type": "array",
+                                                "items": {
+                                                  "anyOf": [
+                                                    {
+                                                      "type": "string",
+                                                      "format": "uuid",
+                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                    },
+                                                    {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "$ph": {
+                                                          "type": "string",
+                                                          "pattern": "^[a-z][a-z0-9_]{0,59}$"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "$ph"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "userIds"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "lead_assignee"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "person_owner"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "question",
+                                  "kind",
+                                  "options",
+                                  "required",
+                                  "notAFitIf",
+                                  "notify"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "chat": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "jobs",
+                            "description",
+                            "services",
+                            "area",
+                            "openHours",
+                            "answerWhen",
+                            "customHours",
+                            "facts",
+                            "name",
+                            "disclosure",
+                            "tone",
+                            "allowPrices",
+                            "topQuestions",
+                            "keepFindings",
+                            "dropFindings",
+                            "questions",
+                            "chat"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "goal",
+                        "teamSize",
+                        "booksTime",
+                        "usePage",
                         "customersIn",
                         "hasEin",
                         "payWith",
@@ -134886,6 +135027,7 @@
                             "about",
                             "hours",
                             "look",
+                            "page",
                             "customers",
                             "booking",
                             "number",

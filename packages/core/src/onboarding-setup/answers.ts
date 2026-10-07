@@ -2,7 +2,7 @@
  * The onboarding setup's screens and answers, and what the business keeps of them
  * (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4–§5). Browser-safe.
  *
- * - The screens come in stops, as the flow chart draws them. Stop 10, the AI teammate, is the AI quick setup's own
+ * - The screens come in stops, as the flow chart draws them. Stop 12, the AI teammate, is the AI quick setup's own
  *   screens, minus the ones already asked: the business, its services and area, and its hours.
  * - The answers are one document, `OnboardingSetupAnswers`: the setup's own, and the AI quick setup's under `ai`,
  *   since "About your business" and "When are you open?" answer the AI part's questions too. Every field is picked
@@ -25,16 +25,14 @@ import { CUSTOMER_SOURCES, ONBOARDING_GOALS, TEAM_SIZES } from '../onboarding/st
 
 export const ONBOARDING_SETUP_SETTINGS_KEY = 'onboardingSetup';
 
-/**
- * The screens, in order. Signing up comes first and makes the business, so it isn't one of these. "A simple page"
- * joins after the logo and colour when it's built (§11).
- */
+/** The screens, in order. Signing up comes first and makes the business, so it isn't one of these. */
 export const ONBOARDING_SETUP_SCREENS = [
   'business',
   'goal',
   'about',
   'hours',
   'look',
+  'page',
   'customers',
   'booking',
   'number',
@@ -52,7 +50,7 @@ export const ONBOARDING_SETUP_SCREENS = [
 ] as const;
 export type OnboardingSetupScreen = (typeof ONBOARDING_SETUP_SCREENS)[number];
 
-/** The stops the screens come in, for "3 of 13"; the AI teammate's is several screens. */
+/** The stops the screens come in, for "3 of 15"; the AI teammate's is several screens. */
 export const ONBOARDING_SETUP_STOPS = [
   { key: 'signup', screens: [] },
   { key: 'business', screens: ['business'] },
@@ -60,6 +58,7 @@ export const ONBOARDING_SETUP_STOPS = [
   { key: 'about', screens: ['about'] },
   { key: 'hours', screens: ['hours'] },
   { key: 'look', screens: ['look'] },
+  { key: 'page', screens: ['page'] },
   { key: 'customers', screens: ['customers'] },
   { key: 'booking', screens: ['booking'] },
   { key: 'number', screens: ['number'] },
@@ -102,6 +101,8 @@ export const OnboardingSetupAnswers = z.object({
   teamSize: z.enum(TEAM_SIZES).default('solo'),
   /** "Do customers book a time with you?" No skips the booking stop. */
   booksTime: z.boolean().default(false),
+  /** "A simple page for your business", asked only with no website: Use this page, or Not now. */
+  usePage: z.boolean().default(true),
   /** "Where are your customers now?" Each answer opens its own way in. */
   customersIn: z.enum(CUSTOMER_SOURCES).default('none'),
   /** "Do you have an EIN?", for the kind of number: local with one, toll-free without. Null until asked. */
@@ -136,6 +137,7 @@ export const ONBOARDING_SETUP_SCREEN_FIELDS: Readonly<
   hours: { own: [], ai: ['openHours'] },
   // The logo and colour are saved at once, by their own commands (look/look.ts).
   look: { own: [], ai: [] },
+  page: { own: ['usePage'], ai: [] },
   customers: { own: ['customersIn'], ai: [] },
   booking: { own: [], ai: [] },
   number: { own: ['hasEin'], ai: [] },
@@ -156,14 +158,16 @@ export const ONBOARDING_SETUP_SCREEN_FIELDS: Readonly<
 export const ONBOARDING_SETUP_KIND_FIELDS: readonly OwnField[] = ['booksTime'];
 
 /**
- * Whether a screen shows: booking only when customers book a time; the AI part's qualifying questions only when Ava
- * asks them, and its chat only for a website without one.
+ * Whether a screen shows: the simple page only for a business with no website; booking only when customers book a
+ * time; the AI part's qualifying questions only when Ava asks them, and its chat only for a website (or the page)
+ * without one.
  */
 export function onboardingSetupScreenApplies(
   screen: OnboardingSetupScreen,
   answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'>,
   facts: AiSetupFlowFacts,
 ): boolean {
+  if (screen === 'page') return !facts.website;
   if (screen === 'booking') return answers.booksTime;
   if (screen === 'qualify' || screen === 'chat')
     return aiSetupStepApplies(screen, answers.ai, facts);

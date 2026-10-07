@@ -3,7 +3,7 @@
  * (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4). The AI part's screens keep the AI quick setup's
  * own words (`ai-setup/words.ts`). Setup says "business" everywhere, never "workspace". Browser-safe.
  */
-import { AI_SETUP_STEP_HINTS, AI_SETUP_STEP_TITLES, withAiName } from '../ai-setup/words';
+import { aiSetupStepHint, aiSetupStepTitle, withAiName } from '../ai-setup/words';
 import { LOOK_WORDS } from '../look/words';
 import { QUESTION_WORDS } from '../onboarding/words';
 import {
@@ -13,7 +13,7 @@ import {
   type PayWith,
 } from './answers';
 
-/** Each stop's short name, for "3 of 13 · About your business". */
+/** Each stop's short name, for "3 of 15 · About your business". */
 export const ONBOARDING_SETUP_STOP_NAMES: Readonly<Record<OnboardingSetupStop, string>> = {
   signup: 'Sign up',
   business: 'Your business',
@@ -21,6 +21,7 @@ export const ONBOARDING_SETUP_STOP_NAMES: Readonly<Record<OnboardingSetupStop, s
   about: 'About your business',
   hours: 'Your hours',
   look: 'Your logo and colour',
+  page: 'Your page',
   customers: 'Your customers',
   booking: 'Your booking page',
   number: 'Your business number',
@@ -52,6 +53,10 @@ const OWN_SCREENS: Readonly<
     hint: 'Used for your booking times, your team’s hours, {name} and what customers are told.',
   },
   look: { title: LOOK_WORDS.title, hint: LOOK_WORDS.intro },
+  page: {
+    title: 'A simple page for your business',
+    hint: 'Made from your answers. Customers can book, call, text or chat from it, and the phone carriers look at it before they approve your texting.',
+  },
   customers: {
     title: QUESTION_WORDS.customersIn,
     hint: 'Each answer goes straight to its way in. Nothing in your old system changes.',
@@ -76,19 +81,30 @@ const OWN_SCREENS: Readonly<
 
 /**
  * A screen's question, with the teammate's name in it: the setup's own, else the AI quick setup's. "When are you
- * open?" asks only that here; when Ava answers keeps its pick.
+ * open?" asks only that here; when Ava answers keeps its pick. With no website (`place.website` false), the chat
+ * screen asks about a chat on the business's simple page.
  */
-export const onboardingSetupTitle = (screen: OnboardingSetupScreen, name: string): string => {
+export const onboardingSetupTitle = (
+  screen: OnboardingSetupScreen,
+  name: string,
+  place?: { readonly website: boolean },
+): string => {
   const own = OWN_SCREENS[screen];
   const ai = AI_SCREEN_OF[screen];
-  return withAiName(own?.title ?? (ai ? AI_SETUP_STEP_TITLES[ai] : ''), name);
+  if (own) return withAiName(own.title, name);
+  return ai ? aiSetupStepTitle(ai, name, place) : '';
 };
 
 /** What a screen says under its question, with the teammate's name in it. */
-export const onboardingSetupHint = (screen: OnboardingSetupScreen, name: string): string => {
+export const onboardingSetupHint = (
+  screen: OnboardingSetupScreen,
+  name: string,
+  place?: { readonly website: boolean },
+): string => {
   const own = OWN_SCREENS[screen];
   const ai = AI_SCREEN_OF[screen];
-  return withAiName(own?.hint ?? (ai ? AI_SETUP_STEP_HINTS[ai] : ''), name);
+  if (own) return withAiName(own.hint, name);
+  return ai ? aiSetupStepHint(ai, name, place) : '';
 };
 
 export const PAY_WITH_LABELS: Readonly<Record<PayWith, string>> = {
@@ -103,7 +119,7 @@ export const ONBOARDING_SETUP_WORDS = {
   sources: QUESTION_WORDS.sources,
   teams: QUESTION_WORDS.teams,
   teamSize: QUESTION_WORDS.teamSize,
-  /** The counter: "3 of 13". */
+  /** The counter: "3 of 15". */
   position: (n: number, of: number) => `${n} of ${of}`,
   next: 'Next',
   back: 'Back',
@@ -181,6 +197,19 @@ export const ONBOARDING_SETUP_WORDS = {
   bookingAt: 'Customers book at',
   makingBooking: 'Making your booking page from your services and hours…',
   openBooking: 'Open it',
+
+  // Your page
+  usePage: 'Use this page',
+  notNow: 'Not now',
+  pageAt: 'Your page is at',
+  openPage: 'Open it',
+  /** Under the preview: the buttons that come with the stops after it. */
+  pageButtonsLater: (booksTime: boolean) =>
+    `${booksTime ? 'Book, Call, Text and Chat switch' : 'Call, Text and Chat switch'} on as you set them up next.`,
+  pagePreview: 'A preview of your page',
+  pageLater: 'Use your own domain for it any time in Settings → Workspace.',
+  pageNotNow:
+    'The phone carriers want a website before they approve texting. Turn your page on any time in Settings → Workspace.',
 
   // Number
   ein: 'Does your business have an EIN?',

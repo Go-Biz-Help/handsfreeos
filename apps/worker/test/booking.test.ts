@@ -7,13 +7,18 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   applyPatch,
+  bookingSiteSetPage,
   bookingSiteUpdate,
+  chatWidgetCreate,
+  chatWidgetPause,
   calendarCreate,
   calendarGet,
   calendarSave,
   calendarSetStatus,
   executeCommand,
   executeQuery,
+  knowledgeProfileUpdate,
+  KnowledgeProfile,
   organizationCreate,
   scheduleSet,
   sessionPublish,
@@ -21,6 +26,7 @@ import {
   type CommandDef,
   type ConfigPatch,
   type HumanActor,
+  workspaceUpdate,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -452,6 +458,89 @@ describe('the booking page', () => {
       sql`select count(*)::int as n from app.appointments where calendar_id = ${cal.id} and status = 'scheduled'`,
     );
     expect(n!.n).toBe(1);
+  });
+});
+
+describe('the simple page', () => {
+  interface Page {
+    description: string;
+    servicesTitle: string;
+    services: { name: string; description: string; price: string | null }[];
+    area: string;
+    place: string | null;
+    openHours: unknown;
+    hours: string;
+    privacyPath: string;
+    termsPath: string;
+    textTo: string | null;
+    chat: string | null;
+  }
+  const pageOf = async (query = '') => {
+    const res = await get(`/public/book/${site}${query}`);
+    expect(res.statusCode, res.body).toBe(200);
+    return (res.json() as { page: Page | null }).page;
+  };
+  const OPEN = [1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '18:00' }));
+  const profile = (allowPrices: boolean) =>
+    KnowledgeProfile.parse({
+      description: 'Heating and cooling for Houston homes.',
+      services: [
+        { name: 'AC repair', description: 'Same week', price: 'From $89' },
+        { name: 'Tune-up', price: null },
+      ],
+      serviceArea: 'Houston and Katy',
+      allowPrices,
+    });
+
+  it('isn’t there until the business turns it on', async () => {
+    expect(await pageOf()).toBeNull();
+  });
+
+  it('shows what the business keeps: what it does, its services, area, city and hours', async () => {
+    await run(knowledgeProfileUpdate, { workspaceId, profile: profile(false) });
+    await run(workspaceUpdate, {
+      workspaceId,
+      settings: {
+        openHours: OPEN,
+        address: { line1: '9 Elm St', city: 'Houston', state: 'TX', postalCode: '77002' },
+      },
+    });
+    await run(bookingSiteSetPage, { workspaceId, on: true });
+    expect(await pageOf()).toEqual({
+      description: 'Heating and cooling for Houston homes.',
+      servicesTitle: 'Services',
+      // No prices: the business doesn't tell customers its prices.
+      services: [
+        { name: 'AC repair', description: 'Same week', price: null },
+        { name: 'Tune-up', description: '', price: null },
+      ],
+      area: 'Houston and Katy',
+      place: 'Houston, Texas',
+      openHours: OPEN,
+      hours: '',
+      privacyPath: `/legal/${site}/privacy`,
+      termsPath: `/legal/${site}/terms`,
+      // No number yet, so nothing to text.
+      textTo: null,
+      chat: null,
+    });
+
+    await run(knowledgeProfileUpdate, { workspaceId, profile: profile(true) });
+    expect((await pageOf())?.services[0]).toMatchObject({ name: 'AC repair', price: 'From $89' });
+  });
+
+  it('offers the chat only where it’s set up, and not while it’s paused', async () => {
+    const made = await run(chatWidgetCreate, {
+      workspaceId,
+      allowedOrigins: ['https://page.example'],
+    });
+    const key = made.publicKey;
+    expect((await pageOf('?origin=https%3A%2F%2Fpage.example'))?.chat).toBe(key);
+    expect((await pageOf('?origin=https%3A%2F%2Felsewhere.example'))?.chat).toBeNull();
+    expect((await pageOf())?.chat).toBeNull();
+    expect((await pageOf("?origin=x'%20or%201%3D1"))?.chat).toBeNull();
+    await run(chatWidgetPause, { workspaceId, widgetId: made.widgetId });
+    expect((await pageOf('?origin=https%3A%2F%2Fpage.example'))?.chat).toBeNull();
   });
 });
 

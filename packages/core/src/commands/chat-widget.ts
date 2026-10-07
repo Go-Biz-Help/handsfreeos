@@ -129,6 +129,9 @@ export const chatWidgetUpdate = defineCommand({
   permission: 'channels.manage',
   scope: inWorkspace,
   emits: ['chat_widget.updated'],
+  // The system adds the business's own domain to a chat on its pages here once the domain is serving
+  // (the worker's chat/own-domain.ts).
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const w = await loadWidget(ctx, input.widgetId);
     const patch: Record<string, unknown> = {};

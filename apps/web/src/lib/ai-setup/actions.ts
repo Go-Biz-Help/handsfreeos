@@ -61,6 +61,8 @@ export function aiSetupActions(workspaceId: string) {
     finish: async (input: {
       answers: AiSetupAnswers;
       baseRevision: number | null;
+      /** Where the simple page is shown, for a chat on it. */
+      pageOrigin?: string;
     }): Promise<AiSetupFinished> =>
       AiSetupFinishOutput.parse(
         unwrap(
@@ -69,6 +71,7 @@ export function aiSetupActions(workspaceId: string) {
               workspaceId,
               answers: input.answers as unknown as AiSetupFinishBody['answers'],
               baseRevision: input.baseRevision,
+              ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
             },
           }),
         ),

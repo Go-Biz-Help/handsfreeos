@@ -299,14 +299,14 @@ export function LookScreen({ workspaceId, state, can, refresh }: OwnScreenProps)
   );
 }
 
-interface ShownLogo {
+export interface ShownLogo {
   readonly url: string;
   readonly width: number;
   readonly height: number;
 }
 
 /** The logo on white, or the initials in the colour's square, `size` high. */
-function Mark({
+export function Mark({
   name,
   logo,
   color,

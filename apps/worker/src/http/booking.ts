@@ -79,6 +79,7 @@ import {
 } from '../booking/deposit';
 import { icsCalendar, icsSequence } from '../booking/ics';
 import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
+import { businessPageOf } from '../booking/page';
 import { oneOnOne } from '../booking/visit';
 import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
@@ -1113,7 +1114,9 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
     });
 
     // ---------- the site: the business and its bookable calendars ----------
-    pub.get<{ Params: { site: string } }>(
+    // With the simple page on, also what the business does, its services, hours and area (booking/page.ts). `origin`
+    // is the address the page is shown at, for whether its website chat is set up there.
+    pub.get<{ Params: { site: string }; Querystring: { origin?: string } }>(
       '/public/book/:site',
       { config: { rateLimit: limits.read } },
       async (req) => {
@@ -1133,6 +1136,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
                     order by name, id`,
               )
             : [];
+          const origin = typeof req.query.origin === 'string' ? req.query.origin : null;
           return {
             business: await businessIn(tx, r.workspace_id, r.site_name, deps.storageUrl),
             site: {
@@ -1144,6 +1148,9 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             timezone: r.timezone,
             timezoneLabel: zoneLabel(r.timezone),
             calendars: list,
+            page: site?.pageEnabled
+              ? await businessPageOf(tx, r.workspace_id, r.site_slug!, origin)
+              : null,
           };
         });
       },

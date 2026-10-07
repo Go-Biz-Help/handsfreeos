@@ -54,6 +54,7 @@ import { aiSetupActions } from '@/lib/ai-setup/actions';
 import type { AiSetupData, AiSetupFinished, AiSetupGot } from '@/lib/ai-setup/data';
 import { ApiError, errorMessage } from '@/lib/api/client';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { AiSetupScreen } from './screens';
 import { TryAva } from './try-ava';
@@ -113,6 +114,10 @@ export function AiQuickSetup({
   const top = useRef<HTMLDivElement | null>(null);
 
   const facts = aiSetupFlowFactsOf(state);
+  const pageOrigin = usePublicOrigin(data.brandedOrigin);
+  /** The business's simple page, which the chat goes on when there's no website to paste it into. */
+  const pageUrl =
+    state.page && !state.website && pageOrigin ? `${pageOrigin}/book/${state.page.slug}` : null;
   const steps = aiSetupSteps(answers, facts);
   const name = answers.name.trim() || 'Ava';
   // While nobody picked, it follows the kind of business on the first screen.
@@ -271,6 +276,8 @@ export function AiQuickSetup({
       result = await actions.finish({
         answers: clean,
         baseRevision: state.teammate?.revision ?? null,
+        // A chat on the simple page goes on the address the page is shown at.
+        ...(state.page && pageOrigin ? { pageOrigin } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -346,9 +353,9 @@ export function AiQuickSetup({
             {AI_SETUP_WORDS.position(position + 1, steps.length)}
           </div>
           <h2 className="text-[24px] font-semibold leading-tight tracking-[-0.015em]">
-            {confirming ? AI_SETUP_WORDS.willChange : aiSetupStepTitle(step, name)}
+            {confirming ? AI_SETUP_WORDS.willChange : aiSetupStepTitle(step, name, facts)}
           </h2>
-          {confirming ? null : <p className="text-text-2">{aiSetupStepHint(step, name)}</p>}
+          {confirming ? null : <p className="text-text-2">{aiSetupStepHint(step, name, facts)}</p>}
         </div>
 
         {plan ? (
@@ -377,6 +384,7 @@ export function AiQuickSetup({
               notes={finished?.notes ?? []}
               chat={finished?.chat ?? null}
               brandedOrigin={data.brandedOrigin}
+              pageUrl={pageUrl}
               settingsHref={settingsHref}
               actions={actions}
               onDone={done}

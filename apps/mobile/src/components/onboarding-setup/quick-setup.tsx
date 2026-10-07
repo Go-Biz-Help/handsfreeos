@@ -59,6 +59,7 @@ import { BusinessScreen } from './business';
 import { DoneLines, SetupFrame } from './frame';
 import { LookScreen } from './look';
 import { NumberScreen } from './number';
+import { PageScreen } from './page';
 import {
   AboutScreen,
   aiProblemsOf,
@@ -95,6 +96,8 @@ const apiProblems = (e: unknown): AiSetupProblems =>
  *   changed that answer (`mergeOnboardingSetupAnswers`). Coming back to the app, or back online, asks again too.
  * - The logo and colour are kept as they change, by their own commands (look.tsx); the logo was looked for on the
  *   website when the first screen saved it.
+ * - A business with no website is offered its simple page (page.tsx), drawn from the answers so far. Kept, it goes
+ *   live, and the AI teammate's chat goes on it.
  * - The booking page is made as its screen opens: by then it's ready, not a question.
  * - "Stay in the loop" saves the rest (`onboarding_setup.finish`); a business that has a teammate sees what will
  *   change first. Then the test chat, and what already works.
@@ -150,6 +153,21 @@ export function OnboardingQuickSetup({
   const facts = aiSetupFlowFactsOf(state);
   const name = answers.ai.name.trim() || 'Ava';
   const can = React.useCallback((permission: Permission) => holds(grants, permission), [grants]);
+  /** Where customers' pages open: the simple page's address, which the chat goes on when there's no website. */
+  const [publicOrigin, setPublicOrigin] = React.useState<string | null>(null);
+  const hasPage = !!state.page;
+  React.useEffect(() => {
+    if (!hasPage) return;
+    let cancelled = false;
+    void calls.publicOrigin().then((o) => {
+      if (!cancelled) setPublicOrigin(o);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPage, calls]);
+  const pageUrl =
+    state.page && !state.website && publicOrigin ? `${publicOrigin}/book/${state.page.slug}` : null;
 
   /** Takes in what the server says now: all of it after the first screen, else what isn't answered on screen. */
   const adopt = React.useCallback((fresh: OnboardingSetupGot, all: boolean) => {
@@ -330,6 +348,8 @@ export function OnboardingQuickSetup({
           setInvites(['']);
           void refresh();
         }
+        // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow.
+        if (screen === 'page') await refresh();
         const after = onboardingSetupNextScreen(screen, clean, facts);
         if (after) go(after);
       }
@@ -347,6 +367,8 @@ export function OnboardingQuickSetup({
       result = await calls.finish({
         answers: clean,
         baseRevision: state.teammate?.revision ?? null,
+        // The chat goes on the simple page when there's no website: the page's address is the chat's site.
+        ...(state.page ? { pageOrigin: publicOrigin ?? (await calls.publicOrigin()) } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -458,6 +480,8 @@ export function OnboardingQuickSetup({
         return <HoursScreen {...own} />;
       case 'look':
         return <LookScreen {...own} />;
+      case 'page':
+        return <PageScreen {...own} />;
       case 'customers':
         return <CustomersScreen {...own} />;
       case 'booking':
@@ -479,6 +503,7 @@ export function OnboardingQuickSetup({
             }}
             notes={finished?.notes ?? []}
             chat={finished?.chat ?? null}
+            pageUrl={pageUrl}
             calls={calls.ai}
             onDone={(on) => void tried(on)}
           />
@@ -544,8 +569,8 @@ export function OnboardingQuickSetup({
     <SetupFrame
       screen={confirming ? 'confirm' : screen}
       progress={progress}
-      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name)}
-      hint={confirming ? '' : onboardingSetupHint(screen, name)}
+      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name, facts)}
+      hint={confirming ? '' : onboardingSetupHint(screen, name, facts)}
       banner={
         carrying ? (
           <View

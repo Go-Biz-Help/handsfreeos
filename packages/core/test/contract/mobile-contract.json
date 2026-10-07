@@ -511,6 +511,10 @@
                 "type": "null"
               }
             ]
+          },
+          "pageOrigin": {
+            "type": "string",
+            "maxLength": 300
           }
         },
         "required": ["workspaceId", "answers", "baseRevision"]
@@ -5198,6 +5202,10 @@
                 "default": false,
                 "type": "boolean"
               },
+              "usePage": {
+                "default": true,
+                "type": "boolean"
+              },
               "customersIn": {
                 "default": "none",
                 "type": "string",
@@ -5686,6 +5694,10 @@
                 "type": "null"
               }
             ]
+          },
+          "pageOrigin": {
+            "type": "string",
+            "maxLength": 300
           }
         },
         "required": ["workspaceId", "answers", "baseRevision"]
@@ -5708,6 +5720,7 @@
               "about",
               "hours",
               "look",
+              "page",
               "customers",
               "booking",
               "number",
@@ -5739,6 +5752,10 @@
               },
               "booksTime": {
                 "default": false,
+                "type": "boolean"
+              },
+              "usePage": {
+                "default": true,
                 "type": "boolean"
               },
               "customersIn": {

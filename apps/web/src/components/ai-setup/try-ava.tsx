@@ -19,7 +19,15 @@ import {
   withAiName,
   type TestOutcome,
 } from '@hfos/core';
-import { AlertTriangle, Building2, Check, MessageSquare, Send, UserRound } from 'lucide-react';
+import {
+  AlertTriangle,
+  Building2,
+  Check,
+  ExternalLink,
+  MessageSquare,
+  Send,
+  UserRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { Callout, Note } from '@/components/ai-team/parts';
@@ -64,6 +72,7 @@ export function TryAva({
   notes,
   chat,
   brandedOrigin,
+  pageUrl = null,
   settingsHref,
   actions,
   onDone,
@@ -79,6 +88,8 @@ export function TryAva({
   /** The website chat Save added. */
   chat: { publicKey: string } | null;
   brandedOrigin: string | null;
+  /** The business's simple page, when the chat went on it because there's no website: nothing to paste then. */
+  pageUrl?: string | null;
   settingsHref: string;
   actions: AiSetupActions;
   /** Turned on, or "Not yet". */
@@ -178,7 +189,9 @@ export function TryAva({
           {n}
         </Callout>
       ))}
-      {chat ? (
+      {chat && pageUrl ? (
+        <ChatOnPage name={name} pageUrl={pageUrl} />
+      ) : chat ? (
         <ChatCode
           publicKey={chat.publicKey}
           brandedOrigin={brandedOrigin}
@@ -485,6 +498,28 @@ function TestRow({
         </form>
       ) : null}
     </li>
+  );
+}
+
+/** The chat Save put on the business's simple page: it's already there, so only a way to see it. */
+function ChatOnPage({ name, pageUrl }: { name: string; pageUrl: string }) {
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-menu border border-border p-4"
+      data-testid="ai-setup-chat-on-page"
+    >
+      <h3 className="font-semibold">{withAiName(W.chatOnPage, name)}</h3>
+      <p className="text-[13px] text-text-2">{W.chatOnPageHint}</p>
+      <a
+        href={pageUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 self-start text-[13px] font-medium text-accent-text hover:underline"
+      >
+        {W.chatOnPageOpen}
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      </a>
+    </section>
   );
 }
 

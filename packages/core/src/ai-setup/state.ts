@@ -61,6 +61,11 @@ export const AiSetupStateOut = z.object({
   goal: z.enum(ONBOARDING_GOALS).nullable(),
   /** Knowledge → Website, else Getting started's answer; null when they have none. */
   website: z.string().nullable(),
+  /**
+   * The business's simple page, while it's on: its booking page grown into a one-page site at `/book/<slug>`, for a
+   * business with no website. Its website chat can go there.
+   */
+  page: z.object({ slug: z.string() }).nullable(),
   timeZone: z.string(),
   /** Settings → Workspace's open hours; null until someone sets them. */
   openHours: WeeklyHours.nullable(),

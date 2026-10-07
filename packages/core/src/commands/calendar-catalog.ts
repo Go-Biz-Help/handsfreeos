@@ -19,11 +19,14 @@ import {
 } from '@hfos/db/schema';
 import type { WeeklyHours } from '../calendar/config';
 import { formatDuration, formatHours } from '../calendar/format';
+import { ensureBookingSite } from '../calendar/site';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import {
+  BookingSiteSetPageInput,
+  BookingSiteSetPageOutput,
   BookingSiteUpdateInput,
   BookingSiteUpdateOutput,
   ResourceArchiveInput,
@@ -691,5 +694,52 @@ export const bookingSiteUpdate = defineCommand({
       after: { name: input.name, slug: input.slug, enabled: input.enabled },
     });
     return { siteId: row.id, slug: input.slug };
+  },
+});
+
+/**
+ * The simple page on or off (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4): the booking page grown into
+ * a one-page site, for a business with no website. Everything on it is what the business already keeps (Knowledge →
+ * Business profile, the open hours, the logo and colour, the calendars customers book), so this only says whether it
+ * shows. A business without a booking site gets one named after it, still not taking bookings: the page doesn't need
+ * them.
+ */
+export const bookingSiteSetPage = defineCommand({
+  name: 'booking_site.set_page',
+  description:
+    'Turn the business’s simple page on or off: its booking page (/book/<name>) showing what it does, its services, hours and area, with ways to book, call, text and chat. Makes the booking site, not taking bookings, when there isn’t one.',
+  risk: 1,
+  input: BookingSiteSetPageInput,
+  output: BookingSiteSetPageOutput,
+  permission: 'calendars.manage',
+  scope: inWorkspace,
+  emits: ['booking_site.page_set'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const site = await ensureBookingSite(ctx.tx, ws, me);
+    const [row] = await ctx.tx
+      .update(bookingSites)
+      .set({ pageEnabled: input.on })
+      .where(and(eq(bookingSites.id, site.id), ne(bookingSites.pageEnabled, input.on)))
+      .returning({ id: bookingSites.id });
+    if (!row) {
+      const [now] = await ctx.tx
+        .select({ page: bookingSites.pageEnabled })
+        .from(bookingSites)
+        .where(eq(bookingSites.id, site.id));
+      // Row-level security hides the change from someone who can't make it.
+      if (now?.page !== input.on) throw HfosError.forbidden();
+      return { siteId: site.id, slug: site.slug, page: input.on, changed: false };
+    }
+    await ctx.emit({
+      type: 'booking_site.page_set',
+      entityType: 'booking_site',
+      entityId: site.id,
+      payload: { on: input.on, slug: site.slug },
+      before: { page: !input.on },
+      after: { page: input.on },
+    });
+    return { siteId: site.id, slug: site.slug, page: input.on, changed: true };
   },
 });

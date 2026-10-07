@@ -145,6 +145,8 @@ export function onboardingSetupCalls(workspaceId: string) {
     finish: async (input: {
       answers: OnboardingSetupAnswers;
       baseRevision: number | null;
+      /** The simple page's address (`publicOrigin`), for its chat when the business has no website. */
+      pageOrigin?: string;
     }): Promise<OnboardingSetupFinished> =>
       OnboardingSetupFinishOutput.parse(
         unwrap(
@@ -154,6 +156,7 @@ export function onboardingSetupCalls(workspaceId: string) {
               answers:
                 input.answers as unknown as In<'/v1/commands/onboarding_setup.finish'>['answers'],
               baseRevision: input.baseRevision,
+              ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
             },
           }),
         ),

@@ -1137,6 +1137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/booking_site.set_page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn the business’s simple page on or off: its booking page (/book/<name>) showing what it does, its services, hours and area, with ways to book, call, text and chat. Makes the booking site, not taking bookings, when there isn’t one.
+         * @description Risk level 1. Requires calendars.manage. Emits booking_site.page_set.
+         */
+        post: operations["command_booking_site_set_page"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/booking_site.update": {
         parameters: {
             query?: never;
@@ -5407,7 +5427,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.
          * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
@@ -18742,6 +18762,7 @@ export interface operations {
                         }[];
                     };
                     baseRevision: number | null;
+                    pageOrigin?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -20591,6 +20612,40 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_booking_site_set_page: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        page: boolean;
+                        /** Format: uuid */
+                        siteId: string;
+                        slug: string;
                     };
                 };
             };
@@ -29993,8 +30048,11 @@ export interface operations {
                          * @enum {string}
                          */
                         teamSize?: "solo" | "small" | "big";
+                        /** @default true */
+                        usePage?: boolean;
                     };
                     baseRevision: number | null;
+                    pageOrigin?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -30292,6 +30350,8 @@ export interface operations {
                          * @enum {string}
                          */
                         teamSize?: "solo" | "small" | "big";
+                        /** @default true */
+                        usePage?: boolean;
                     };
                     business?: {
                         address?: {
@@ -30316,7 +30376,7 @@ export interface operations {
                     /** @default [] */
                     invite?: string[];
                     /** @enum {string} */
-                    screen: "business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -30338,7 +30398,7 @@ export interface operations {
                         kindChanged: boolean;
                         notes: string[];
                         /** @enum {string} */
-                        reached: "business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                         scanStarted: boolean;
                         /** Format: uuid */
                         workspaceId: string;
@@ -47208,6 +47268,9 @@ export interface operations {
                                 end: string;
                                 start: string;
                             }[] | null;
+                            page: {
+                                slug: string;
+                            } | null;
                             profile: {
                                 /** @default false */
                                 allowPrices: boolean;
@@ -49312,6 +49375,7 @@ export interface operations {
                             id: string;
                             intro: string | null;
                             name: string;
+                            page: boolean;
                             path: string;
                             slug: string;
                         } | null;
@@ -55979,6 +56043,8 @@ export interface operations {
                              * @enum {string}
                              */
                             teamSize: "solo" | "small" | "big";
+                            /** @default true */
+                            usePage: boolean;
                         };
                         finished: {
                             /** Format: date-time */
@@ -55986,7 +56052,7 @@ export interface operations {
                             /** Format: uuid */
                             by: string;
                         } | null;
-                        reached: ("business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
                         started: {
                             /** Format: date-time */
                             at: string;
@@ -56250,6 +56316,8 @@ export interface operations {
                              * @enum {string}
                              */
                             teamSize: "solo" | "small" | "big";
+                            /** @default true */
+                            usePage: boolean;
                         };
                         state: {
                             address: {
@@ -56443,6 +56511,9 @@ export interface operations {
                                 end: string;
                                 start: string;
                             }[] | null;
+                            page: {
+                                slug: string;
+                            } | null;
                             payments: {
                                 active: boolean;
                                 broken: boolean;

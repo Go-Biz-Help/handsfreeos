@@ -61,6 +61,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/api/client';
 import { onboardingSetupHref, type OnboardingSetupData } from '@/lib/onboarding-setup/data';
 import { keepSetupReturn } from '@/lib/setup-return';
+import { PagePreview } from './page-preview';
 import { usePublicOrigin } from '@/lib/use-origin';
 
 type OwnField = Exclude<keyof OnboardingSetupAnswers, 'ai'>;
@@ -269,6 +270,55 @@ export function AboutScreen({ state, answers, set, setAi, problems, name }: OwnS
         />
         <Hint>{W.booksTimeHint}</Hint>
       </div>
+    </>
+  );
+}
+
+// ---- A simple page for your business ----
+
+/** For a business with no website: Use this page, with a preview of it, or Not now. */
+export function PageScreen({ state, answers, set, data }: OwnScreenProps) {
+  const origin = usePublicOrigin(data.brandedOrigin);
+  const link = state.page && origin ? `${origin}/book/${state.page.slug}` : null;
+  return (
+    <>
+      <Pills
+        name="use-page"
+        options={['use', 'not'] as const}
+        labels={{ use: W.usePage, not: W.notNow }}
+        value={answers.usePage ? 'use' : 'not'}
+        onChange={(v) => set('usePage', v === 'use')}
+      />
+      {answers.usePage ? (
+        <>
+          <PagePreview state={state} answers={answers} />
+          {link ? (
+            <div className="flex flex-col gap-2" data-testid="setup-page-link">
+              <Label>{W.pageAt}</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <CopyField
+                  value={link}
+                  label="Copy the link"
+                  copied="Copied your page’s link"
+                  className="min-w-0 flex-1"
+                />
+                <a
+                  href={link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-accent-text hover:underline"
+                >
+                  {W.openPage}
+                  <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </a>
+              </div>
+            </div>
+          ) : null}
+          <Hint className="mt-0">{W.pageLater}</Hint>
+        </>
+      ) : (
+        <Note>{W.pageNotNow}</Note>
+      )}
     </>
   );
 }

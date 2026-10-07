@@ -11,6 +11,7 @@ import {
   onboardingSetupPreviousScreen,
   onboardingSetupProgress,
   onboardingSetupStateOf,
+  onboardingSetupTitle,
   setupKindOf,
   startingOnboardingSetupAnswers,
   teammateConfigFromPreset,
@@ -23,6 +24,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
+import { Linking } from 'react-native';
 
 import ChooseBusiness from '@/app/app/index';
 import OnboardingSetup from '@/app/app/w/[workspaceId]/setup';
@@ -123,6 +125,7 @@ const STATE: OnboardingSetupStateOut = {
   kind: setupKindOf('plumbing'),
   goal: null,
   website: null,
+  page: null,
   timeZone: 'America/Chicago',
   openHours: null,
   teammate: null,
@@ -294,6 +297,7 @@ describe('straight after signing up', () => {
     await screen.findByTestId('onboarding-setup-step-business');
     const at = onboardingSetupProgress('business', OnboardingSetupAnswers.parse({}), {
       website: false,
+      page: false,
       chat: false,
     });
     expect(screen.getByText(W.position(at.at, at.of))).toBeTruthy();
@@ -425,7 +429,35 @@ describe('the screens after the first', () => {
     await screen.findByTestId('onboarding-setup-step-look');
     expect(screen.getByTestId('look-no-logo')).toHaveTextContent(LOOK_WORDS.noLogo);
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+
+    // No website: the simple page, drawn from the answers so far, with Use this page picked. Not now says why it
+    // matters; kept, the page goes live and the setup asks where it stands again.
+    await screen.findByTestId('onboarding-setup-step-page');
+    expect(screen.getByText(onboardingSetupTitle('page', 'Ava'))).toBeTruthy();
+    expect(screen.getByTestId('ai-setup-use-page-use')).toBeChecked();
+    const preview = screen.getByTestId('setup-page-preview');
+    expect(preview).toHaveProp('accessibilityLabel', W.pagePreview);
+    expect(preview).toHaveTextContent('We fix leaks and water heaters in Austin.', {
+      exact: false,
+    });
+    expect(preview).toHaveTextContent('Leak repair', { exact: false });
+    expect(preview).toHaveTextContent('Austin, Texas', { exact: false });
+    expect(preview).toHaveTextContent('Austin and Round Rock', { exact: false });
+    expect(screen.getByText(W.pageButtonsLater(true))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ai-setup-use-page-not'));
+    expect(screen.getByText(W.pageNotNow)).toBeTruthy();
+    expect(screen.queryByTestId('setup-page-preview')).toBeNull();
+    await fireEvent.press(screen.getByTestId('ai-setup-use-page-use'));
+    const gets = sent('/v1/queries/onboarding_setup.get').length;
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
     await screen.findByTestId('onboarding-setup-step-customers');
+    expect(sent('/v1/commands/onboarding_setup.save').at(-1)).toEqual(
+      expect.objectContaining({
+        screen: 'page',
+        answers: expect.objectContaining({ usePage: true }),
+      }),
+    );
+    expect(sent('/v1/queries/onboarding_setup.get').length).toBeGreaterThan(gets);
 
     // Customers in GoHighLevel: bringing them in is easier on a computer, so it emails a link.
     answers['/v1/commands/onboarding.send_link'] = {
@@ -475,7 +507,7 @@ describe('the screens after the first', () => {
     );
     expect(
       sent('/v1/commands/onboarding_setup.save').map((b) => (b as { screen: string }).screen),
-    ).toEqual(['about', 'hours', 'look', 'customers', 'booking']);
+    ).toEqual(['about', 'hours', 'look', 'page', 'customers', 'booking']);
 
     // Next from the booking page goes straight on: it was saved as it opened.
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
@@ -644,6 +676,61 @@ describe('the screens after the first', () => {
     ]);
     await fireEvent.press(screen.getByTestId('onboarding-setup-home'));
     expect(router.back).toHaveBeenCalled();
+  });
+});
+
+describe('the simple page’s chat', () => {
+  it('goes on the page when there’s no website: nothing to paste, and the page a press away', async () => {
+    const live = { ...STATE, page: { slug: 'lone-star-plumbing' } };
+    // With the page live, "Add Ava to your page?" comes just before Stay in the loop.
+    const reached = onboardingSetupPreviousScreen(
+      'loop',
+      OnboardingSetupAnswers.parse({}),
+      aiSetupFlowFactsOf(onboardingSetupStateOf(live)),
+    );
+    expect(reached).toBe('chat');
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(live, { reached });
+    answers['/v1/commands/onboarding_setup.finish'] = {
+      teammateId: TEAMMATE,
+      revision: 1,
+      changes: ['Sets up Ava, your AI teammate', 'Adds a chat to your page'],
+      chat: {
+        widgetId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        publicKey: 'wk_abcdefghij0123456789',
+      },
+      calendarId: null,
+      notes: [],
+    };
+    await open();
+    await screen.findByTestId('onboarding-setup-step-loop');
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(
+      {
+        ...live,
+        teammate: {
+          id: TEAMMATE,
+          name: 'Ava',
+          status: 'off',
+          revision: 1,
+          config: teammateConfigFromPreset('blank', { industry: 'plumbing' }) as unknown as Record<
+            string,
+            unknown
+          >,
+        },
+      },
+      { reached: 'loop' },
+    );
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('ai-setup-try');
+    // The page's address is the chat's site: HandsFreeOS's own, with no domain of the business's serving.
+    expect(sent('/v1/commands/onboarding_setup.finish')).toEqual([
+      expect.objectContaining({ pageOrigin: 'https://app.handsfreeos.com' }),
+    ]);
+    const onPage = await screen.findByTestId('ai-setup-chat-on-page');
+    expect(onPage).toHaveTextContent('Ava answers the chat on your page', { exact: false });
+    expect(screen.queryByTestId('ai-setup-chat-code')).toBeNull();
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    await fireEvent.press(screen.getByTestId('ai-setup-chat-open-page'));
+    expect(opened).toHaveBeenCalledWith('https://app.handsfreeos.com/book/lone-star-plumbing');
   });
 });
 

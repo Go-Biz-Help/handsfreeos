@@ -38,7 +38,11 @@ import { SetupCard } from './frame';
 /** Today's picks: what the first screen keeps besides the business itself. */
 const STARTING = OnboardingSetupAnswers.parse({});
 /** Where the first screen sits before anything decides which screens follow. */
-const PROGRESS = onboardingSetupProgress('business', STARTING, { website: false, chat: false });
+const PROGRESS = onboardingSetupProgress('business', STARTING, {
+  website: false,
+  page: false,
+  chat: false,
+});
 
 export function CreateBusiness() {
   const router = useRouter();

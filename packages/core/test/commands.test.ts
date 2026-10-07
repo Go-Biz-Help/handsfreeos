@@ -265,6 +265,7 @@ describe('registry', () => {
       'territory.update',
       'territory.delete',
       'booking_site.update',
+      'booking_site.set_page',
       'schedule.set',
       'time_off.add',
       'time_off.remove',

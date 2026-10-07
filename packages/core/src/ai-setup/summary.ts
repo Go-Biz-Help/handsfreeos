@@ -148,7 +148,7 @@ export function aiSetupStepProblems(
 
 /** Everything Save checks: each screen this business goes through. */
 export function aiSetupProblems(answers: AiSetupAnswers, state: AiSetupState): AiSetupProblem[] {
-  const facts = { website: !!state.website, chat: !!state.chat };
+  const facts = { website: !!state.website, page: !!state.page, chat: !!state.chat };
   return aiSetupSteps(answers, facts).flatMap((s) => aiSetupStepProblems(s, answers, state));
 }
 

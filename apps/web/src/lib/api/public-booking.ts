@@ -5,6 +5,7 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
+import type { BusinessPageParts } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import { ApiError } from './errors';
@@ -41,7 +42,15 @@ export interface PublicSite {
     readonly name: string;
     readonly description: string | null;
   }[];
+  /** The simple page, while the business has it on: the booking page grown into a one-page site. */
+  readonly page: PublicBusinessPage | null;
 }
+
+/**
+ * What the simple page shows (the worker's booking/page.ts), all from what the business keeps: Knowledge → Business
+ * profile, its open hours and address, and its privacy policy and terms.
+ */
+export type PublicBusinessPage = BusinessPageParts;
 
 export type LocationKind = 'customer_address' | 'business' | 'virtual' | 'phone';
 
@@ -420,7 +429,12 @@ export async function pageData<T>(p: Promise<T>): Promise<T> {
   }
 }
 
-export const getSite = (site: string) => call<PublicSite>(`/public/book/${seg(site)}`, PAGE_CACHE);
+/** The booking site, and its simple page with the chat set up for `origin`, the address it's shown at. */
+export const getSite = (site: string, origin?: string | null) =>
+  call<PublicSite>(
+    `/public/book/${seg(site)}${origin ? `?origin=${seg(origin)}` : ''}`,
+    PAGE_CACHE,
+  );
 
 export const getCalendarPage = (site: string, calendar: string) =>
   call<PublicCalendarPage>(bookPath(site, calendar), PAGE_CACHE);

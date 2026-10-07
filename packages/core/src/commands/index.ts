@@ -47,6 +47,7 @@ import {
   calendarSetStatus,
 } from './calendar';
 import {
+  bookingSiteSetPage,
   bookingSiteUpdate,
   resourceArchive,
   resourceCreate,
@@ -617,6 +618,7 @@ export {
   territoryUpdate,
   territoryDelete,
   bookingSiteUpdate,
+  bookingSiteSetPage,
   scheduleSet,
   timeOffAdd,
   timeOffRemove,
@@ -810,6 +812,7 @@ export const commands: readonly CommandDef[] = [
   territoryUpdate,
   territoryDelete,
   bookingSiteUpdate,
+  bookingSiteSetPage,
   scheduleSet,
   timeOffAdd,
   timeOffRemove,

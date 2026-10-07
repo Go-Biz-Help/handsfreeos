@@ -72,6 +72,8 @@ export function aiSetupCalls(workspaceId: string) {
     finish: async (input: {
       answers: AiSetupAnswers;
       baseRevision: number | null;
+      /** The simple page's address (`chatOrigin`), for its chat when the business has no website. */
+      pageOrigin?: string;
     }): Promise<AiSetupFinished> =>
       AiSetupFinishOutput.parse(
         unwrap(
@@ -80,6 +82,7 @@ export function aiSetupCalls(workspaceId: string) {
               workspaceId,
               answers: input.answers as unknown as In<'/v1/commands/ai_setup.finish'>['answers'],
               baseRevision: input.baseRevision,
+              ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
             },
           }),
         ),

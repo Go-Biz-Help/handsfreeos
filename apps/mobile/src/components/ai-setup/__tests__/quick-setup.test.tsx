@@ -98,6 +98,7 @@ const STATE: AiSetupStateOut = {
   kind: setupKindOf('hvac'),
   goal: null,
   website: null,
+  page: null,
   timeZone: 'America/Chicago',
   openHours: null,
   teammate: null,

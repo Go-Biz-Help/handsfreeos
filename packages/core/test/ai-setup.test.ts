@@ -39,7 +39,9 @@ import {
   aiSetupReadDue,
   aiSetupReading,
   aiSetupScreenProblems,
+  aiSetupStepHint,
   aiSetupSteps,
+  aiSetupStepTitle,
   aiSetupSummary,
   aiSetupTestQuestions,
   aiSetupWentToPerson,
@@ -93,6 +95,7 @@ function business(patch: Partial<AiSetupState> = {}): AiSetupState {
     kind: setupKindOf(industry),
     goal: null,
     website: null,
+    page: null,
     timeZone: 'America/Chicago',
     openHours: null,
     teammate: null,
@@ -382,16 +385,29 @@ describe('the answers', () => {
 });
 
 describe('the screens', () => {
-  const noSite = { website: false, chat: false };
-  const site = { website: true, chat: false };
+  const noSite = { website: false, page: false, chat: false };
+  const site = { website: true, page: false, chat: false };
+  const page = { website: false, page: true, chat: false };
 
   it('show qualifying questions only when Ava asks them, and the chat only for a website without one', () => {
     expect(aiSetupSteps({ jobs: ['reply'] }, noSite)).not.toContain('qualify');
     expect(aiSetupSteps({ jobs: ['qualify'] }, noSite)).toContain('qualify');
     expect(aiSetupSteps({ jobs: [] }, noSite)).not.toContain('chat');
     expect(aiSetupSteps({ jobs: [] }, site)).toContain('chat');
-    expect(aiSetupSteps({ jobs: [] }, { website: true, chat: true })).not.toContain('chat');
+    expect(aiSetupSteps({ jobs: [] }, { ...site, chat: true })).not.toContain('chat');
     expect(aiSetupSteps({ jobs: ['qualify'] }, site)).toEqual([...AI_SETUP_STEPS]);
+  });
+
+  it('offer the chat on the simple page for a business with no website', () => {
+    expect(aiSetupSteps({ jobs: [] }, page)).toContain('chat');
+    expect(aiSetupSteps({ jobs: [] }, { ...page, chat: true })).not.toContain('chat');
+    expect(aiSetupStepTitle('chat', 'Ava', { website: false })).toBe('Add Ava to your page?');
+    expect(aiSetupStepTitle('chat', 'Ava', { website: true })).toBe(
+      aiSetupStepTitle('chat', 'Ava'),
+    );
+    expect(aiSetupStepHint('chat', 'Max', { website: false })).toContain(
+      'a chat on your page, Max',
+    );
   });
 
   it('skip the hidden ones going forward and back', () => {
@@ -413,7 +429,7 @@ describe('the screens', () => {
 describe('how the screens behave, on the web and the phone', () => {
   const state = business();
   const got = (reached: AiSetupStep | null, teammate: unknown = null) => ({
-    state: { website: null, chat: null, teammate },
+    state: { website: null, page: null, chat: null, teammate },
     answers: answers({ jobs: ['reply'] }),
     reached,
   });

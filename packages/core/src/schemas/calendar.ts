@@ -448,6 +448,16 @@ export const BookingSiteUpdateInput = z.object({
 });
 export const BookingSiteUpdateOutput = z.object({ siteId: uuid, slug: z.string() });
 
+/** The simple page on or off: the booking page grown into a one-page site for the business. */
+export const BookingSiteSetPageInput = z.object({ workspaceId: uuid, on: z.boolean() });
+export const BookingSiteSetPageOutput = z.object({
+  siteId: uuid,
+  slug: z.string(),
+  page: z.boolean(),
+  /** False when it was that way already. */
+  changed: z.boolean(),
+});
+
 export const ServiceOut = z.object({
   id: uuid,
   name: z.string(),
@@ -507,6 +517,8 @@ export const BookingSiteOut = z.object({
   name: z.string(),
   intro: z.string().nullable(),
   enabled: z.boolean(),
+  /** The simple page is on: the booking page shows what the business does, its services, hours and area. */
+  page: z.boolean(),
   path: z.string(),
 });
 export const BookingSiteGetInput = z.object({ workspaceId: uuid });
