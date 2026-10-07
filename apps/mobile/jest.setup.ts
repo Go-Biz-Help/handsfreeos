@@ -241,6 +241,7 @@ jest.mock('./modules/hfos-phone', () => ({
     isDeviceLocked: jest.fn(() => false),
     openInBrowser: jest.fn(async () => true),
     addContact: jest.fn(async () => 'added'),
+    pickContact: jest.fn(async () => 'cancelled'),
     viewFile: jest.fn(async () => 'closed'),
   },
 }));

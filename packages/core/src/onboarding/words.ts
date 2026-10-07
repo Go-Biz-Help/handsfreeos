@@ -479,7 +479,7 @@ export function previewDetail(
         case 'crm':
           return 'Export a spreadsheet from your old CRM, then import it';
         case 'phone':
-          return 'Add them one at a time, or a spreadsheet later';
+          return 'Pick them one by one in the phone app';
         default:
           return 'Add them as they come in';
       }
@@ -528,7 +528,7 @@ export const WIZARD_WORDS = {
     ghl: 'You said your customers are in GoHighLevel.',
     crm: 'You said your customers are in another CRM. Export them from it as a spreadsheet, then import that here.',
     phone:
-      'You said your customers are in your phone’s contacts. Export them as a spreadsheet, or add them as you go.',
+      'You said your customers are in your phone’s contacts. Pick them one by one in the phone app, under More → Customers, or import a spreadsheet of them here.',
     none: 'You said you don’t keep a list yet, so new leads can add themselves.',
   },
   fitsAnswer: 'Fits your answer',

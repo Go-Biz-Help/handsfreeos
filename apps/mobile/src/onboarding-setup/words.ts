@@ -44,8 +44,8 @@ export const ONBOARDING_SETUP_PHONE_WORDS = {
   // Customers
   customersOnComputer:
     'Bringing customers in from GoHighLevel, a spreadsheet or another CRM is easier on a computer.',
-  contactsSoon:
-    'Picking customers from this phone’s contacts is on its way to the app. Until then, new leads add themselves as they come in.',
+  /** Under "My phone’s contacts": the picking is right here (the web points at the phone app). */
+  phoneHint: 'Pick them one by one, right here. Personal contacts stay out.',
 
   // Booking
   share: 'Share the link',
