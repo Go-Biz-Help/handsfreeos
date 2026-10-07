@@ -50,6 +50,11 @@ export interface WorkerServices {
   readonly webUrl: string;
   /** Where providers reach the worker (webhooks, callbacks). */
   readonly publicUrl: string;
+  /**
+   * Supabase's address, for what anyone may see in its public buckets: a business's logo on its public pages and
+   * in its emails (look/public.ts). Without it, they show the business's name instead.
+   */
+  readonly storageUrl?: string | null;
   readonly telephony: TelephonyProvider;
   /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
   readonly transcriber: Transcriber;

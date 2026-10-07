@@ -3,6 +3,8 @@ import {
   aiSetupFlowFactsOf,
   emptyKnowledgeProfile,
   LINK_WORDS,
+  LOOK_WORDS,
+  NO_LOOK,
   ONBOARDING_SETUP_WORDS as W,
   OnboardingSetupAnswers,
   OnboardingSetupGetOutput,
@@ -148,6 +150,7 @@ const STATE: OnboardingSetupStateOut = {
   priceList: [],
   myHours: null,
   phones: 1,
+  look: NO_LOOK,
 };
 
 /** What `onboarding_setup.get` says: where it stands, the answers so far, and how far it got. */
@@ -417,6 +420,10 @@ describe('the screens after the first', () => {
     expect(router.setParams).toHaveBeenCalledWith({ at: 'hours' });
     expect(screen.queryByTestId('onboarding-setup-carry-on')).toBeNull();
 
+    // No logo yet: the initials stand in, and Next goes on without one.
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('onboarding-setup-step-look');
+    expect(screen.getByTestId('look-no-logo')).toHaveTextContent(LOOK_WORDS.noLogo);
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
     await screen.findByTestId('onboarding-setup-step-customers');
 
@@ -468,7 +475,7 @@ describe('the screens after the first', () => {
     );
     expect(
       sent('/v1/commands/onboarding_setup.save').map((b) => (b as { screen: string }).screen),
-    ).toEqual(['about', 'hours', 'customers', 'booking']);
+    ).toEqual(['about', 'hours', 'look', 'customers', 'booking']);
 
     // Next from the booking page goes straight on: it was saved as it opened.
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));

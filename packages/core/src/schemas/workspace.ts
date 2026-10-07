@@ -85,6 +85,8 @@ export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   aiSetup: 'ai_setup.save',
   // The onboarding setup's answers while someone is part way through, and who finished it.
   onboardingSetup: 'onboarding_setup.save',
+  // The business's logo and colour, and where the logo's being looked for or made ready (look/look.ts).
+  look: 'look.set',
 } as const;
 
 export const WorkspaceUpdateInput = z

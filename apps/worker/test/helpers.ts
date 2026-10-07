@@ -89,6 +89,7 @@ export function testServices(
     wallet: { db: testDbs().worker.db, log, mode: 'shadow' as const },
     webUrl: 'http://localhost:3000',
     publicUrl: TEST_PUBLIC_URL,
+    storageUrl: env.supabaseUrl,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
     transcriber: createFakeTranscriber({ log }),
     video: createFakeVideoConverter(),

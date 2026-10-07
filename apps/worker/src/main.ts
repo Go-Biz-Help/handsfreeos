@@ -81,6 +81,7 @@ const services: EngineServices = {
   log,
   webUrl: env.webUrl,
   publicUrl: env.publicUrl,
+  storageUrl: env.supabaseUrl,
   telephony,
   transcriber: createTranscriber(env, log, telephony),
   video: createFfmpegConverter({ log }),

@@ -280,6 +280,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
       <ChatStyles />
       <ChatHeader
         business={config.business.name}
+        logo={config.business.logo}
         subtitle={subtitle}
         markColor={colors.mark}
         onClose={host ? close : null}

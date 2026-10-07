@@ -80,6 +80,7 @@ import {
   type MoneyDocumentKind,
   type MoneyTokenResult,
 } from '../money/links';
+import { publicLookOf } from '../look/public';
 import { publicOrigin } from '../hosting/origin';
 import { paymentKindOf, WEBHOOK_MAX_BYTES } from '../money/webhook-events';
 import { accountFor, paymentConnectionUsable, type PaymentConnectionRow } from '../payments/index';
@@ -241,9 +242,13 @@ export interface PublicMoneyBusiness extends PublicBusiness {
   readonly address: string | null;
 }
 
-async function businessOf(tx: Tx, workspaceId: string): Promise<PublicMoneyBusiness> {
+async function businessOf(
+  tx: Tx,
+  workspaceId: string,
+  storageUrl: string | null | undefined,
+): Promise<PublicMoneyBusiness> {
   const [w] = await tx
-    .select({ name: workspaces.name })
+    .select({ name: workspaces.name, settings: workspaces.settings })
     .from(workspaces)
     .where(eq(workspaces.id, workspaceId));
   const [phone] = await tx
@@ -255,6 +260,7 @@ async function businessOf(tx: Tx, workspaceId: string): Promise<PublicMoneyBusin
     name: w?.name ?? 'The business',
     phone: phone?.e164 ?? null,
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
+    look: publicLookOf(w?.settings, storageUrl),
     address: await businessPostalAddress(tx, workspaceId),
   };
 }
@@ -323,7 +329,7 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
       Date.now(),
     );
     const open = state === 'sent' || state === 'viewed';
-    const business = await businessOf(tx, scope.workspaceId);
+    const business = await businessOf(tx, scope.workspaceId, deps.storageUrl);
     return {
       state: state as string,
       business,
@@ -492,7 +498,7 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
         : await payableAccount(deps, tx, scope.workspaceId, row, settings);
     return {
       state: state as string,
-      business: await businessOf(tx, scope.workspaceId),
+      business: await businessOf(tx, scope.workspaceId, deps.storageUrl),
       customer: {
         name: customerOf(row),
         email: row.person_email,
@@ -660,7 +666,7 @@ async function planView(deps: HttpDeps, scope: TenantScope, subscriptionId: stri
       : [];
     return {
       standing,
-      business: await businessOf(tx, scope.workspaceId),
+      business: await businessOf(tx, scope.workspaceId, deps.storageUrl),
       customer: {
         name: customerOf(row),
         email: row.person_email,
@@ -760,7 +766,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
     if (r.status === 'invalid') throw linkNotFound();
     if (r.status === 'stale') {
       const business = await asWorker(deps.httpDb, r.scope, (tx) =>
-        businessOf(tx, r.scope.workspaceId),
+        businessOf(tx, r.scope.workspaceId, deps.storageUrl),
       );
       throw staleLink(kind, business);
     }
@@ -914,7 +920,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             sql`select total_cents::float8 as total_cents from app.estimates where id = ${e.documentId}`,
           );
           if (!found) throw linkNotFound();
-          const business = await businessOf(tx, e.scope.workspaceId);
+          const business = await businessOf(tx, e.scope.workspaceId, deps.storageUrl);
           return acceptanceWording(Number(found.total_cents), business.name);
         });
         const { output } = await executeCommand(

@@ -57,6 +57,7 @@ import { ONBOARDING_SETUP_PHONE_WORDS as P } from '@/onboarding-setup/words';
 
 import { BusinessScreen } from './business';
 import { DoneLines, SetupFrame } from './frame';
+import { LookScreen } from './look';
 import { NumberScreen } from './number';
 import {
   AboutScreen,
@@ -92,6 +93,8 @@ const apiProblems = (e: unknown): AiSetupProblems =>
  *   later, here or on the computer. `?at=` names the screen, and a screen it asks for opens there.
  * - What Ava reads fills in the screens not finished yet, by asking again while it reads, unless the person already
  *   changed that answer (`mergeOnboardingSetupAnswers`). Coming back to the app, or back online, asks again too.
+ * - The logo and colour are kept as they change, by their own commands (look.tsx); the logo was looked for on the
+ *   website when the first screen saved it.
  * - The booking page is made as its screen opens: by then it's ready, not a question.
  * - "Stay in the loop" saves the rest (`onboarding_setup.finish`); a business that has a teammate sees what will
  *   change first. Then the test chat, and what already works.
@@ -453,6 +456,8 @@ export function OnboardingQuickSetup({
         return <AboutScreen {...own} />;
       case 'hours':
         return <HoursScreen {...own} />;
+      case 'look':
+        return <LookScreen {...own} />;
       case 'customers':
         return <CustomersScreen {...own} />;
       case 'booking':

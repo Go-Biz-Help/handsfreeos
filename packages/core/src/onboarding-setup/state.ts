@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { aiSetupStateOf, AiSetupStateOut, type AiSetupState } from '../ai-setup/state';
 import { WeeklyHours } from '../calendar/config';
+import { BusinessLookSchema } from '../look/look';
 import { OnboardingAnswersSchema } from '../onboarding/settings';
 import { phoneNextStep } from '../schemas/telephony';
 import { BusinessAddress } from './address';
@@ -76,6 +77,8 @@ export const OnboardingSetupStateOut = AiSetupStateOut.extend({
   myHours: WeeklyHours.nullable(),
   /** Phones this person gets notifications on: the phone app is in. */
   phones: z.int(),
+  /** The business's logo and colour, and where the logo's being looked for or made ready (look/look.ts). */
+  look: BusinessLookSchema,
 });
 export type OnboardingSetupStateOut = z.infer<typeof OnboardingSetupStateOut>;
 

@@ -16,11 +16,13 @@ import { money } from '@hfos/core';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CallButton } from '@/components/booking/public-shell';
+import { BusinessNameAndPhone, CallButton } from '@/components/booking/public-shell';
+import { BusinessMark } from '@/components/look/business-mark';
 import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { MoneyTotals, PublicBusiness, PublicMoneyLine } from '@/lib/api/public-money';
+import { brandLook } from '@/lib/look';
 import { cn, initials } from '@/lib/utils';
 import { unitWord } from './document-view';
 
@@ -48,7 +50,7 @@ const PRINT_CSS = `
 
 export const PrintStyles = () => <style>{PRINT_CSS}</style>;
 
-/** The business's initials in its accent square, as the canvas draws them. */
+/** The business's initials in its accent square, as the canvas draws them (the customer's portal). */
 export function BizMark({ name }: { name: string }) {
   return (
     <span
@@ -91,9 +93,11 @@ export function MoneyFrame({
   footer?: ReactNode;
   testId?: string;
 }) {
+  const look = brandLook(business?.look?.color);
   return (
     <div
-      className="flex min-h-dvh flex-col bg-bg text-text"
+      className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}
+      style={look.style}
       data-money-page
       data-testid={testId ?? 'money-page'}
     >
@@ -104,20 +108,8 @@ export function MoneyFrame({
             className="mx-auto flex w-full max-w-[560px] items-center gap-2.5 px-4 py-3"
             data-print="open"
           >
-            <BizMark name={business.name} />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[15px] font-medium" data-testid="business-name">
-                {business.name}
-              </span>
-              {business.phoneDisplay ? (
-                <a
-                  href={`tel:${business.phone}`}
-                  className="w-fit text-xs text-text-3 hover:text-text-2"
-                >
-                  {business.phoneDisplay}
-                </a>
-              ) : null}
-            </span>
+            <BusinessMark name={business.name} logo={business.look?.logo} />
+            <BusinessNameAndPhone business={business} />
           </div>
         </header>
       ) : null}

@@ -15,6 +15,15 @@ export interface PublicBusiness {
   readonly phoneDisplay: string | null;
   /** The separate box for offers under "Text me", for a business that sends them. */
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
+  /**
+   * Its logo and colour (the worker's look/public.ts); a page without them draws the initials in HandsFreeOS's
+   * blue.
+   */
+  readonly look?: {
+    readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
+    /** As picked (#rrggbb); the buttons are worked out from it (`brandLook`). */
+    readonly color: string | null;
+  };
 }
 
 export interface PublicSite {

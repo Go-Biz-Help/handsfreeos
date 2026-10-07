@@ -17,7 +17,7 @@ import {
   weekdayOf,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs } from '@hfos/db/testing';
+import { closeTestDbs, testEnv } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fakeBotCheck, type BotCheck } from '../src/booking/bot-check';
@@ -74,7 +74,7 @@ describe('the widget’s settings', () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.json()).toEqual({
-      business: { name: 'chat-routes Booking HVAC' },
+      business: { name: 'chat-routes Booking HVAC', logo: null },
       teammate: { name: 'Ava' },
       greeting: GREETING,
       awayMessage: AWAY,
@@ -131,6 +131,37 @@ describe('the widget’s settings', () => {
         sql`update app.workspaces set settings = settings - 'openHours' where id = ${w.workspaceId}`,
       );
       await setTeammateStatus(w.teammateId, 'training');
+    }
+  });
+});
+
+describe('the business’s logo', () => {
+  it('is at the top of the chat once the business has one', async () => {
+    const path = `${w.workspaceId}/logo/${randomUUID()}.png`;
+    const look = {
+      logo: { path, width: 400, height: 120, from: 'upload', at: new Date().toISOString() },
+    };
+    await rows(
+      admin(),
+      sql`update app.workspaces set settings = settings || jsonb_build_object('look', ${JSON.stringify(look)}::jsonb)
+          where id = ${w.workspaceId}`,
+    );
+    try {
+      expect((await configOf(w.key)).json()).toMatchObject({
+        business: {
+          name: 'chat-routes Booking HVAC',
+          logo: {
+            url: `${testEnv().supabaseUrl}/storage/v1/object/public/brand/${path}`,
+            width: 400,
+            height: 120,
+          },
+        },
+      });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set settings = settings - 'look' where id = ${w.workspaceId}`,
+      );
     }
   });
 });

@@ -112,6 +112,8 @@ test('the guided setup’s answers put the steps in order, and the wizard walks 
   await next.click();
   await at('hours');
   await next.click();
+  await at('look');
+  await next.click();
   await at('customers');
   await page.getByTestId('setup-customers-ghl').click();
   // GoHighLevel's private token is pasted right here.

@@ -4,6 +4,7 @@
  * own words (`ai-setup/words.ts`). Setup says "business" everywhere, never "workspace". Browser-safe.
  */
 import { AI_SETUP_STEP_HINTS, AI_SETUP_STEP_TITLES, withAiName } from '../ai-setup/words';
+import { LOOK_WORDS } from '../look/words';
 import { QUESTION_WORDS } from '../onboarding/words';
 import {
   AI_SCREEN_OF,
@@ -19,6 +20,7 @@ export const ONBOARDING_SETUP_STOP_NAMES: Readonly<Record<OnboardingSetupStop, s
   goal: 'Your goal',
   about: 'About your business',
   hours: 'Your hours',
+  look: 'Your logo and colour',
   customers: 'Your customers',
   booking: 'Your booking page',
   number: 'Your business number',
@@ -49,6 +51,7 @@ const OWN_SCREENS: Readonly<
     title: 'When are you open?',
     hint: 'Used for your booking times, your team’s hours, {name} and what customers are told.',
   },
+  look: { title: LOOK_WORDS.title, hint: LOOK_WORDS.intro },
   customers: {
     title: QUESTION_WORDS.customersIn,
     hint: 'Each answer goes straight to its way in. Nothing in your old system changes.',

@@ -98,6 +98,14 @@ import {
   LeadSetNextActionOutput,
   LeadUpdateInput,
   LeadUpdateOutput,
+  LookBeginUploadInput,
+  LookBeginUploadOutput,
+  LookFindInput,
+  LookFindOutput,
+  LookSetInput,
+  LookSetOutput,
+  LookUseUploadInput,
+  LookUseUploadOutput,
   MessageCancelScheduledInput,
   MessageCancelScheduledOutput,
   MessageRetryInput,
@@ -416,6 +424,12 @@ export const PHONE_COMMANDS = {
   'lead.restore': command(ANYTIME, LeadArchiveInput, LeadArchiveOutput),
   'lead.set_next_action': command(ANYTIME, LeadSetNextActionInput, LeadSetNextActionOutput),
   'lead.update': command(ANYTIME, LeadUpdateInput, LeadUpdateOutput),
+  // The business's logo and colour, on setup's "Your logo and colour" (§4 of the onboarding plan): online, since an
+  // upload goes straight to Storage and the worker makes it ready.
+  'look.begin_upload': command(ONLINE, LookBeginUploadInput, LookBeginUploadOutput),
+  'look.find': command(ONLINE, LookFindInput, LookFindOutput),
+  'look.set': command(ONLINE, LookSetInput, LookSetOutput),
+  'look.use_upload': command(ONLINE, LookUseUploadInput, LookUseUploadOutput),
   'message.cancel_scheduled': command(
     ANYTIME,
     MessageCancelScheduledInput,

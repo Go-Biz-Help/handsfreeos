@@ -2,7 +2,9 @@ import { eq } from 'drizzle-orm';
 import { workspaces } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { lookOf, lookSearchDue } from '../look/look';
 import { WorkspaceUpdateInput, WorkspaceUpdateOutput } from '../schemas/workspace';
+import { askForLogo } from './look';
 
 export const workspaceUpdate = defineCommand({
   name: 'workspace.update',
@@ -12,7 +14,7 @@ export const workspaceUpdate = defineCommand({
   output: WorkspaceUpdateOutput,
   permission: 'workspace.update',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
-  emits: ['workspace.updated'],
+  emits: ['workspace.updated', 'look.find_requested'],
   async handler(ctx, input) {
     const [current] = await ctx.tx
       .select()
@@ -51,6 +53,14 @@ export const workspaceUpdate = defineCommand({
       before,
       after,
     });
+    // A new website is looked at for the logo, while the business has none (look/look.ts).
+    const settings = (patch.settings ?? {}) as Record<string, unknown>;
+    const website = settings['website'];
+    const was = (current.settings ?? {}) as Record<string, unknown>;
+    if (typeof website === 'string' && website && website !== was['website']) {
+      const look = lookOf(settings);
+      if (lookSearchDue(look, website, new Date())) await askForLogo(ctx, look, website);
+    }
     return { workspaceId: current.id, updated };
   },
 });

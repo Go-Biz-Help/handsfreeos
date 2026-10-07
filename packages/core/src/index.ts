@@ -70,6 +70,8 @@ export * from './automations/index';
 export * from './onboarding/index';
 // The guided setup a new business goes through, from its address to its AI teammate.
 export * from './onboarding-setup/index';
+// The business's logo and colour, on its booking page, website chat, invoices and emails.
+export * from './look/index';
 // The AI keeps customers' tags and details up to date (0107).
 export * from './contact-ai/index';
 export * from './money/index';

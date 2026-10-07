@@ -112,6 +112,12 @@ const ONLINE_COMMANDS = [
   'onboarding_setup.finish',
   'phone_number.buy',
   'payment_connection.connect',
+  // Its logo and colour (§4): a place reserved for an upload and the upload handed to the worker, a colour picked or
+  // the logo taken off, and the website looked at again.
+  'look.begin_upload',
+  'look.use_upload',
+  'look.set',
+  'look.find',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social

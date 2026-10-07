@@ -9,6 +9,7 @@ import { rows, sql, type Tx } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { loadAiSetupState } from '../ai-setup/load';
 import { WeeklyHours } from '../calendar/config';
+import { lookOf } from '../look/look';
 import { loadOnboardingFacts } from '../onboarding/load';
 import { businessOnboardingOf } from '../onboarding/settings';
 import { businessAddressOf } from './address';
@@ -94,5 +95,6 @@ export async function loadOnboardingSetupState(
     priceList: priceList.map((p) => ({ ...p, priceCents: Number(p.priceCents) })),
     myHours: myHours?.success ? myHours.data : null,
     phones: facts.person.phones,
+    look: lookOf(settings),
   };
 }

@@ -4667,6 +4667,83 @@
         "required": ["workspaceId", "leadId"]
       }
     },
+    "look.begin_upload": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "mimeType": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["workspaceId", "name", "mimeType", "sizeBytes"]
+      }
+    },
+    "look.find": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "look.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "color": {
+            "type": "string"
+          },
+          "removeLogo": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "look.use_upload": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "objectPath": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:png|jpg|webp|gif|svg)$"
+          }
+        },
+        "required": ["workspaceId", "objectPath"]
+      }
+    },
     "message.cancel_scheduled": {
       "offline": "anytime",
       "input": {
@@ -5630,6 +5707,7 @@
               "goal",
               "about",
               "hours",
+              "look",
               "customers",
               "booking",
               "number",

@@ -26,14 +26,15 @@ import { CUSTOMER_SOURCES, ONBOARDING_GOALS, TEAM_SIZES } from '../onboarding/st
 export const ONBOARDING_SETUP_SETTINGS_KEY = 'onboardingSetup';
 
 /**
- * The screens, in order. Signing up comes first and makes the business, so it isn't one of these. "Your look" and
- * "A simple page" join after the hours when they're built (§11).
+ * The screens, in order. Signing up comes first and makes the business, so it isn't one of these. "A simple page"
+ * joins after the logo and colour when it's built (§11).
  */
 export const ONBOARDING_SETUP_SCREENS = [
   'business',
   'goal',
   'about',
   'hours',
+  'look',
   'customers',
   'booking',
   'number',
@@ -58,6 +59,7 @@ export const ONBOARDING_SETUP_STOPS = [
   { key: 'goal', screens: ['goal'] },
   { key: 'about', screens: ['about'] },
   { key: 'hours', screens: ['hours'] },
+  { key: 'look', screens: ['look'] },
   { key: 'customers', screens: ['customers'] },
   { key: 'booking', screens: ['booking'] },
   { key: 'number', screens: ['number'] },
@@ -132,6 +134,8 @@ export const ONBOARDING_SETUP_SCREEN_FIELDS: Readonly<
   goal: { own: ['goal', 'teamSize'], ai: [] },
   about: { own: ['booksTime'], ai: ['description', 'services', 'area'] },
   hours: { own: [], ai: ['openHours'] },
+  // The logo and colour are saved at once, by their own commands (look/look.ts).
+  look: { own: [], ai: [] },
   customers: { own: ['customersIn'], ai: [] },
   booking: { own: [], ai: [] },
   number: { own: ['hasEin'], ai: [] },

@@ -257,7 +257,7 @@ export const onboardingSetupSave = defineCommand({
   permission: 'workspace.update',
   scope: inWorkspace,
   // Saving the website on the first screen asks the worker to read it, as the AI quick setup's first screen does.
-  emits: ['onboarding_setup.started', 'ai_setup.read_requested'],
+  emits: ['onboarding_setup.started', 'ai_setup.read_requested', 'look.find_requested'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;

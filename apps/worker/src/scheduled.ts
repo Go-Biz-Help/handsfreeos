@@ -66,6 +66,7 @@ import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { READ_SITE_JOB, readSiteJob } from './ai-setup/read-site';
+import { FIND_LOGO_JOB, findLogoJob, MAKE_LOGO_JOB, makeLogoJob } from './look/jobs';
 import { mailboxSync } from './mailbox/sync';
 import { scheduledTextJobs } from './messaging/scheduled';
 import {
@@ -518,6 +519,9 @@ export const jobs: JobMap = {
   'knowledge.document': knowledgeDocumentJob,
   // Quick setup: what the business's website says, for its screens to start from.
   [READ_SITE_JOB]: readSiteJob,
+  // The business's logo: made from an upload, or found on its website.
+  [MAKE_LOGO_JOB]: makeLogoJob,
+  [FIND_LOGO_JOB]: findLogoJob,
   // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
   ...workflowJobs,
   // The agency's pushes: a template or knowledge pack into one business each.

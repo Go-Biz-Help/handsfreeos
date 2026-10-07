@@ -34,8 +34,9 @@ import { AI_SETUP_AREA_NAME } from '../ai-setup/words';
 import { HfosError, type HfosErrorCode } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
-import { executeCommandWithin } from '../kernel/execute';
+import { executeCommandWithin, scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
+import { lookSearchDue } from '../look/look';
 import {
   AiSetupFinishInput,
   AiSetupFinishOutput,
@@ -60,6 +61,7 @@ import {
   knowledgeSuggestionReject,
   normalizeSiteUrl,
 } from './knowledge';
+import { askForLogo, lockedLook } from './look';
 import { workspaceUpdate } from './workspace.update';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -181,6 +183,13 @@ export async function saveBusiness(
     await executeCommandWithin(ctx, workspaceUpdate, { workspaceId: ws, ...update });
   if (!website) return { scanStarted: false };
 
+  // The logo and colour are looked for on the website too (look/look.ts), unless a logo's kept or the website was
+  // looked at lately, and only for someone who may change them.
+  if (scopeCan(ctx.scope, 'workspace.update')) {
+    const { look } = await lockedLook(ctx);
+    if (lookSearchDue(look, website, new Date())) await askForLogo(ctx, look, website);
+  }
+
   const source = await executeCommandWithin(ctx, knowledgeSourceSet, {
     workspaceId: ws,
     url: website,
@@ -267,7 +276,7 @@ export const aiSetupSave = defineCommand({
   output: AiSetupSaveOutput,
   permission: 'ai_team.manage',
   scope: inWorkspace,
-  emits: ['ai_setup.started', 'ai_setup.read_requested'],
+  emits: ['ai_setup.started', 'ai_setup.read_requested', 'look.find_requested'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
