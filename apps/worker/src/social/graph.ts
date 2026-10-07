@@ -235,6 +235,14 @@ export interface MetaGraph {
   checkToken(token: string): Promise<MetaTokenCheck>;
   /** Every Page the person can answer for, with its token and its Instagram account. */
   pages(userToken: string): Promise<readonly MetaPage[]>;
+  /**
+   * Point the app's own webhook here, for Pages and Instagram, with every field read here: Meta sends a Page's events
+   * only for the fields both the app and the Page ask for. Says which fields Meta wouldn't take.
+   */
+  subscribeApp(input: {
+    readonly callbackUrl: string;
+    readonly verifyToken: string;
+  }): Promise<{ readonly refused: readonly string[] }>;
   /** Ask Meta to send this Page's messages, and its Instagram account's, here. */
   subscribe(pageId: string, pageToken: string): Promise<void>;
   unsubscribe(pageId: string, pageToken: string): Promise<void>;
@@ -257,7 +265,11 @@ export const META_DOWNLOAD_MAX_BYTES = 25 * 1024 * 1024;
 const GRAPH = 'https://graph.facebook.com';
 const DIALOG = 'https://www.facebook.com';
 
-/** What the Page is subscribed to: messages, buttons, ads and links, receipts, and replies sent elsewhere. */
+/**
+ * What the Page is subscribed to: messages, buttons, ads and links, receipts, and replies sent elsewhere. `standby`
+ * brings the chats another app holds, such as HighLevel when it's the Page's main app for messages: Meta sends those
+ * only to apps that ask for them.
+ */
 const PAGE_FIELDS = [
   'messages',
   'messaging_postbacks',
@@ -265,9 +277,32 @@ const PAGE_FIELDS = [
   'message_deliveries',
   'message_reads',
   'message_echoes',
+  'standby',
 ];
 /** Newer fields some Pages refuse: asked for, and dropped when Meta says no. */
 const PAGE_FIELDS_EXTRA = ['message_edits', 'message_reactions'];
+
+/**
+ * What the app's own webhook asks for, by object. Meta's dashboard doesn't offer every app `standby` for Pages, so
+ * it's asked for here; it and the newer fields are asked for one at a time when Meta refuses the lot.
+ */
+const APP_FIELDS = {
+  page: {
+    fields: [
+      'messages',
+      'messaging_postbacks',
+      'messaging_referrals',
+      'message_deliveries',
+      'message_reads',
+      'message_echoes',
+    ],
+    extra: ['standby', ...PAGE_FIELDS_EXTRA],
+  },
+  instagram: {
+    fields: ['messages', 'messaging_postbacks', 'messaging_seen', 'messaging_referral'],
+    extra: ['standby', 'message_edit', 'message_reactions'],
+  },
+};
 
 const AD_FIELDS =
   'id,name,effective_status,account_id,adset{id,name,targeting},campaign{id,name,objective},' +
@@ -537,6 +572,33 @@ export function createMetaGraph(opts: {
         if (!after) break;
       }
       return out;
+    },
+    async subscribeApp({ callbackUrl, verifyToken }) {
+      const refused: string[] = [];
+      for (const [object, { fields, extra }] of Object.entries(APP_FIELDS)) {
+        // Each ask adds to the fields the app already has, and Meta checks the address with the verify token first.
+        const ask = (list: readonly string[]) =>
+          call('POST', `/${opts.appId}/subscriptions`, appToken(), {
+            object,
+            callback_url: callbackUrl,
+            verify_token: verifyToken,
+            fields: list.join(','),
+          });
+        const refusal = (e: unknown) => e instanceof MetaError && e.code === 100;
+        try {
+          await ask([...fields, ...extra]);
+          continue;
+        } catch (e) {
+          if (!refusal(e)) throw e;
+        }
+        await ask(fields);
+        for (const field of extra)
+          await ask([field]).catch((e: unknown) => {
+            if (!refusal(e)) throw e;
+            refused.push(`${object}.${field}`);
+          });
+      }
+      return { refused };
     },
     async subscribe(pageId, pageToken) {
       const ask = (fields: readonly string[]) =>

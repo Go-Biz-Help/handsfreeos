@@ -33,8 +33,10 @@ messages: Meta" in `docs/operations.md`.
 `/oauth/facebook/start`, which sends it on to Facebook's sign-in (Facebook Login for Business). Back at
 `/oauth/facebook/callback`, the worker reads the Pages the person manages and the Instagram accounts linked to them.
 With more than one, the person ticks which ones on the same finishing page the other sign-ins use. Each one ticked
-is `meta_account.connect`, and the worker asks Meta to send that Page's messages here (`subscribed_apps`). The
-person's own sign-in is kept as a `meta_connection`: it is what reads the ads.
+is `meta_account.connect`, and the worker asks Meta to send that Page's messages here (`subscribed_apps`). First it
+points the app's own webhook here, with every field it reads (`/{app-id}/subscriptions`): Meta sends a Page's events
+only for the fields both the app and the Page ask for, and its dashboard doesn't list them all. The person's own
+sign-in is kept as a `meta_connection`: it is what reads the ads.
 
 **A message arrives.** Meta posts to `/webhooks/meta`. The worker checks Meta's signature with the app secret, keeps
 each event as a `webhook_deliveries` row of its own (provider `meta`, keyed so a retry from Meta is kept once), and
@@ -43,6 +45,9 @@ their name or @handle), their conversation (counterpart `messenger:<page id>:<th
 `instagram:<account id>:<their id>`), and the message (`meta_message.receive`), with any photos, videos, recordings
 and files copied off Meta into storage. A stranger who writes becomes a customer and a lead, unless the business
 turned that off in **Settings** → **Lead intake** ("Someone messages your Facebook Page", and the same for Instagram).
+When another app also answers the Page, such as HighLevel as its default app for messages, Meta sends the chats that
+app holds as `standby` events, and only to apps that ask for them. The app's webhook and the Page's subscription both
+ask, and they're read like any other message.
 
 **Replying.** A reply is `message.send` with `channel: 'messenger'` or `'instagram'`, queued like a text. The worker
 sends its photos and files first, each a message of its own, then the words, and keeps each part's id on the

@@ -47,7 +47,7 @@ import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
-import { FAKE_META_APP_ID, FAKE_META_APP_SECRET } from '../src/social/fake';
+import { FAKE_META_APP_ID, FAKE_META_APP_SECRET, FAKE_META_VERIFY_TOKEN } from '../src/social/fake';
 import { splitWebhook } from '../src/social/events';
 import { MetaError } from '../src/social/graph';
 import { finishSignIn, pickAccounts, testTokenVerifier, type Finished } from './finish-sign-in';
@@ -340,6 +340,11 @@ describe('connecting Facebook', () => {
     // Meta sends the Page's messages here, and the Instagram account's with them; not the Page left unpicked.
     expect(s.social.fake.subscribed()).toContain(pageA);
     expect(s.social.fake.subscribed()).not.toContain(pageB);
+    // And the app's own webhook points here, so nobody has to tick its fields in Meta's dashboard.
+    expect(s.social.fake.appWebhook()).toEqual({
+      callbackUrl: `${s.publicUrl}/webhooks/meta`,
+      verifyToken: FAKE_META_VERIFY_TOKEN,
+    });
     const c = await one<{ status: string; facebook_user_name: string; scopes: string[] }>(
       sql`select status, facebook_user_name, scopes from app.meta_connections
           where workspace_id = ${workspaceId}::uuid and status = 'connected'`,
@@ -661,6 +666,27 @@ describe('a customer writes', () => {
       }),
     );
     expect(named).toBe('@sam.builds');
+  });
+
+  it('hears a customer whose chat another app holds, such as HighLevel', async () => {
+    // Meta sends another app's chats as standby, to the apps that ask for it.
+    const dana = digits(16);
+    s.social.fake.setProfile(dana, { name: 'Dana Reyes', username: null });
+    await webhook({
+      object: 'page',
+      entry: [
+        {
+          id: pageA,
+          time: Date.now(),
+          standby: [fromCustomer(dana, pageA, { text: 'Are you open Saturday?' })],
+        },
+      ],
+    });
+    await drain();
+    const conv = await conversationOf(`messenger:${pageA}:${dana}`);
+    expect(await messagesIn(conv.id)).toEqual([
+      expect.objectContaining({ direction: 'inbound', body_text: 'Are you open Saturday?' }),
+    ]);
   });
 });
 

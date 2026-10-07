@@ -352,6 +352,29 @@ export async function answerMetaPick(
 }
 
 /**
+ * The app's own webhook, pointed here with every field read here each time somebody connects, so nobody has to find
+ * them in Meta's dashboard (it doesn't offer every app `standby` for Pages). Connecting carries on if Meta says no:
+ * the webhook can still be set by hand.
+ */
+async function pointAppWebhook(deps: HttpDeps): Promise<void> {
+  const verifyToken = deps.social.verifyToken;
+  if (!verifyToken) return;
+  await deps.social.graph
+    .subscribeApp({ callbackUrl: `${deps.publicUrl}/webhooks/meta`, verifyToken })
+    .then(
+      ({ refused }) => {
+        if (refused.length)
+          deps.log.warn({ refused }, 'Meta wouldn’t send some webhook fields to this app');
+      },
+      (e: unknown) =>
+        deps.log.warn(
+          { err: errorMessage(e) },
+          'Meta didn’t take the app’s webhook; set it in Meta’s dashboard',
+        ),
+    );
+}
+
+/**
  * The sign-in becomes the business's, Meta is asked to send each chosen Page's messages here, and each Page and
  * Instagram account is connected (again, for one that was here before: its threads carry on).
  */
@@ -383,6 +406,7 @@ async function connectChosen(
     systemActor(scope),
     workerMeta(),
   );
+  await pointAppWebhook(deps);
   // Meta sends a Page's messages, and its Instagram account's, to the apps the Page subscribes: asked once a Page.
   const subscribed = new Map<string, boolean>();
   for (const c of input.chosen) {
