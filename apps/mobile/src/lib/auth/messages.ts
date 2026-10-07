@@ -1,3 +1,4 @@
+import { signUpMessage } from '@hfos/core';
 import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 
 /** What the sign-in screens say when Supabase Auth says no, in the web's words where the web has them. */
@@ -12,7 +13,7 @@ function codeOf(error: unknown): string | null {
   return isAuthError(error) && typeof error.code === 'string' ? error.code : null;
 }
 
-function isNoSignal(error: unknown): boolean {
+export function isNoSignal(error: unknown): boolean {
   return isAuthRetryableFetchError(error) || error instanceof TypeError;
 }
 
@@ -23,7 +24,7 @@ export function sendCodeMessage(error: unknown): string {
     case 'otp_disabled':
     case 'signup_disabled':
     case 'user_not_found':
-      return 'There’s no HandsFreeOS account for that email. New accounts start on the web.';
+      return 'There’s no HandsFreeOS account for that email. Check it, or create an account.';
     case 'over_email_send_rate_limit':
     case 'over_request_rate_limit':
       return 'A code was sent a moment ago. Wait a minute, then send another.';
@@ -59,7 +60,7 @@ export function passwordMessage(error: unknown): string {
     case 'invalid_credentials':
       return 'That email and password do not match. Try again, or email yourself a code.';
     case 'email_not_confirmed':
-      return 'Confirm your email first. Check your inbox for the link.';
+      return 'Confirm your email first, with the code we email you.';
     case 'over_request_rate_limit':
       return 'Too many tries. Wait a minute, then try again.';
     case 'user_banned':
@@ -67,4 +68,10 @@ export function passwordMessage(error: unknown): string {
     default:
       return 'Signing in didn’t work. Try again.';
   }
+}
+
+/** Create account (core's words, so the web says the same). */
+export function signUpErrorMessage(error: unknown): string {
+  if (isNoSignal(error)) return NO_SIGNAL;
+  return signUpMessage(codeOf(error));
 }

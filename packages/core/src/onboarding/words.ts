@@ -401,8 +401,20 @@ export const GUIDE_WORDS = {
   appAndroidNote:
     'If Google Play says the app isn’t available, ask us to add your Google account to the testers.',
   appNotificationsNote: 'Notifications are turned on in the app itself, on your phone.',
-  /** On the card, for a business that never answered the quick questions. */
-  answerQuestions: 'Answer 4 quick questions to put these in order',
+  /**
+   * On the card, while the guided setup isn't finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §7):
+   * for a business that never answered the quick questions, and for one part way through it.
+   */
+  setUp: {
+    title: 'Set up your business',
+    detail: 'Simple questions, one at a time, about 15 minutes. Your answers are kept as you go.',
+    action: 'Start',
+  },
+  carryOn: {
+    title: 'Finish setting up your business',
+    detail: 'Your answers so far are kept. Carry on where you left off, here or in the phone app.',
+    action: 'Carry on',
+  },
 } as const;
 
 /** The quick questions after Create business (board 1 in design/onboarding). */

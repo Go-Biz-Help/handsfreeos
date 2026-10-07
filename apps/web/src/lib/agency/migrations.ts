@@ -8,6 +8,7 @@
  */
 import type { apiServer } from '@/lib/api/server';
 import { unwrap } from '@/lib/api/server';
+import { STATUS_WORDS } from './migration-words';
 
 type Api = Awaited<ReturnType<typeof apiServer>>['api'];
 
@@ -43,4 +44,34 @@ export async function loadReviewQueue(api: Api, organizationId: string, migratio
       body: { organizationId, migrationId, limit: 25 },
     }),
   );
+}
+
+/** Migrations still counting, as the Getting started card reads them. */
+const MOVE_RUNNING = new Set(['connected', 'scanning', 'importing', 'verifying']);
+/** Migrations finished or stopped: nothing left to open from setup. */
+const MOVE_OVER = new Set(['draft', 'imported', 'completed', 'cancelling', 'cancelled']);
+
+/**
+ * A business's move from its old CRM, as setup shows it: the connection ready to move from, and the newest move not
+ * finished or stopped, still counting (`running`) or waiting for a look.
+ */
+export function setupMoveOf({
+  migrations,
+  connections,
+}: Awaited<ReturnType<typeof loadMigrations>>): {
+  connection: { id: string; sourceLabel: string } | null;
+  move: { id: string; running: boolean; words: string } | null;
+} {
+  const live = connections.find((x) => x.status === 'active') ?? null;
+  const move = migrations.find((m) => !MOVE_OVER.has(m.status)) ?? null;
+  return {
+    connection: live ? { id: live.id, sourceLabel: live.sourceLabel } : null,
+    move: move
+      ? {
+          id: move.id,
+          running: MOVE_RUNNING.has(move.status),
+          words: STATUS_WORDS[move.status] ?? move.status,
+        }
+      : null,
+  };
 }

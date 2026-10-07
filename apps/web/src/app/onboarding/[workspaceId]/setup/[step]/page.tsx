@@ -16,7 +16,7 @@ import { StepLive } from '@/components/onboarding/step-live';
 import { WizardFrame, wizardNextHref } from '@/components/onboarding/wizard-frame';
 import { loadAiSetup } from '@/lib/ai-setup/load';
 import { teammateGetOf } from '@/lib/ai-team/types';
-import { STATUS_WORDS, loadMigrations } from '@/lib/agency/migrations';
+import { loadMigrations, setupMoveOf } from '@/lib/agency/migrations';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 import type { OnboardingStatus } from '@/lib/api/types';
@@ -48,11 +48,6 @@ const LIVE: Record<WizardStepKey, readonly string[]> = {
     'knowledge_suggestion',
   ],
 };
-
-/** Migrations still counting, as the Getting started card reads them. */
-const MOVE_RUNNING = new Set(['connected', 'scanning', 'importing', 'verifying']);
-/** Migrations finished or stopped: nothing left to open from here. */
-const MOVE_OVER = new Set(['draft', 'imported', 'completed', 'cancelling', 'cancelled']);
 
 /**
  * One step of the setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 2 to 5b). Only someone
@@ -174,26 +169,16 @@ async function stepBody(step: WizardStepKey, c: StepContext): Promise<ReactNode>
 
     case 'customers': {
       const canMigrate = can(c.permissions, 'migrations.manage');
-      const { migrations, connections } = canMigrate
-        ? await loadMigrations(api, c.organizationId, workspaceId)
-        : { migrations: [], connections: [] };
-      const live = connections.find((x) => x.status === 'active') ?? null;
-      const move = migrations.find((m) => !MOVE_OVER.has(m.status)) ?? null;
+      const { connection, move } = canMigrate
+        ? setupMoveOf(await loadMigrations(api, c.organizationId, workspaceId))
+        : { connection: null, move: null };
       return (
         <CustomersSetup
           workspaceId={workspaceId}
           organizationId={c.organizationId}
           customersIn={c.status.answers?.customersIn ?? null}
-          connection={live ? { id: live.id, sourceLabel: live.sourceLabel } : null}
-          move={
-            move
-              ? {
-                  id: move.id,
-                  running: MOVE_RUNNING.has(move.status),
-                  words: STATUS_WORDS[move.status] ?? move.status,
-                }
-              : null
-          }
+          connection={connection}
+          move={move}
           canImport={can(c.permissions, 'records.import')}
           canMigrate={canMigrate}
         />

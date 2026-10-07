@@ -2,11 +2,12 @@ import type { WizardStepKey } from '@hfos/core';
 import { setupHref } from './setup';
 
 /**
- * The way back to the setup wizard from a sign-in that leaves the app (Stripe, Square, GoHighLevel), or from
- * paying the carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a
- * payment, to the step's Settings page; a wizard step that starts one keeps a note in this tab first, and the
- * finishing page goes back to the step instead, with what happened (`?payments=connected`, `?fees=paid`).
- * Only in this tab, only for a while, and only when the worker was sending the person to that step's own page.
+ * The way back to setup from a sign-in that leaves the app (Stripe, Square, GoHighLevel), or from paying the
+ * carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a payment, to the
+ * step's Settings page; a setup screen that starts one keeps a note in this tab first, and the finishing page goes
+ * back to the screen instead, with what happened (`?payments=connected`, `?fees=paid`): the setup wizard's step, or
+ * the onboarding quick setup's screen (`to`, `/onboarding/<business>?at=paid`). Only in this tab, only for a while,
+ * and only when the worker was sending the person to that step's own page.
  */
 const KEY = 'hfos:setup-return';
 const LASTS_MS = 30 * 60_000;
@@ -25,15 +26,19 @@ const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
   number: (ws) => [new RegExp(`^/app/w/${ws}/settings/texting$`)],
 };
 
-export function keepSetupReturn(workspaceId: string, step: Leaves): void {
+/** Notes the way back before leaving; `to` is a page of this business's setup, the wizard's step when left out. */
+export function keepSetupReturn(workspaceId: string, step: Leaves, to?: string): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ workspaceId, step, at: Date.now() }));
+    sessionStorage.setItem(
+      KEY,
+      JSON.stringify({ workspaceId, step, at: Date.now(), ...(to ? { to } : {}) }),
+    );
   } catch {
     // Storage off: the sign-in still finishes, on the Settings page.
   }
 }
 
-/** Where a finished sign-in goes: `next` from the worker, or the wizard step that started it. */
+/** Where a finished sign-in goes: `next` from the worker, or the setup screen that started it. */
 export function setupReturnFor(next: string): string {
   let kept: unknown = null;
   try {
@@ -43,7 +48,7 @@ export function setupReturnFor(next: string): string {
     return next;
   }
   if (!kept || typeof kept !== 'object') return next;
-  const { workspaceId, step, at } = kept as Record<string, unknown>;
+  const { workspaceId, step, at, to } = kept as Record<string, unknown>;
   if (
     typeof workspaceId !== 'string' ||
     !UUID.test(workspaceId) ||
@@ -60,5 +65,18 @@ export function setupReturnFor(next: string): string {
   }
   if (url.origin !== window.location.origin) return next;
   if (!PAGES[step](workspaceId).some((p) => p.test(url.pathname))) return next;
-  return `${setupHref(workspaceId, step)}${url.search}`;
+  // Only ever a page of this business's own setup.
+  const own = (path: string) =>
+    path === `/onboarding/${workspaceId}` || path.startsWith(`/onboarding/${workspaceId}/`);
+  let back = new URL(setupHref(workspaceId, step), window.location.origin);
+  if (typeof to === 'string') {
+    try {
+      const asked = new URL(to, window.location.origin);
+      if (asked.origin === window.location.origin && own(asked.pathname)) back = asked;
+    } catch {
+      // Not a page: the wizard's step.
+    }
+  }
+  url.searchParams.forEach((value, key) => back.searchParams.set(key, value));
+  return `${back.pathname}${back.search}`;
 }

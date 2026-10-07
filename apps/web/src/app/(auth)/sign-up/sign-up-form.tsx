@@ -1,9 +1,15 @@
 'use client';
-import { Mail } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { EXISTING_ACCOUNT_MESSAGE, isExistingAccount, signUpMessage } from '@hfos/core';
+import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
+import { CodeStep } from '@/components/auth/code-step';
+import { OrDivider } from '@/components/auth/divider';
+import { GoogleButton } from '@/components/auth/google-button';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { NO_CONNECTION } from '@/lib/auth/code-messages';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -17,23 +23,26 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
   return { score: s as 1 | 2 | 3 | 4, label: ['', 'Weak', 'Okay', 'Good', 'Strong'][s]! };
 }
 
-/**
- * Who this person was on handsfreeos.com before they got here: the website adds Opinly's anonymous visitor id to
- * its "Start free" links as `?oa=`. It is kept on the new sign-in, so the worker can credit the sign-up, and
- * anything bought later, to the article or campaign that brought them (apps/worker/src/analytics/opinly.ts).
- * Only something shaped like one of Opinly's ids is kept, and deleting the account clears it with the rest of
- * the sign-in's details.
- */
-function visitorFromLink(): string | undefined {
-  const id = new URLSearchParams(window.location.search).get('oa');
-  return id && /^[A-Za-z0-9-]{8,128}$/.test(id) ? id : undefined;
-}
-
 /** HandsFreeOS's own terms and privacy policy, on the website (apps/site's /terms and /privacy). */
 const TERMS_URL = 'https://handsfreeos.com/terms';
 const PRIVACY_URL = 'https://handsfreeos.com/privacy';
 
-export function SignUpForm({ children }: { children?: ReactNode }) {
+/**
+ * Creating an account: Continue with Google once it's turned on, or a name, an email and a password. The email is
+ * confirmed with a 6-digit code typed here, read on whichever device gets the email, and the new account carries on
+ * to `next`: setting up a business, or the invitation it came from. `visitor` is the website's Opinly visitor id
+ * (`lib/auth/visitor.ts`).
+ */
+export function SignUpForm({
+  next,
+  visitor,
+  google,
+}: {
+  next: string;
+  visitor?: string;
+  google: boolean;
+}) {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,84 +54,78 @@ export function SignUpForm({ children }: { children?: ReactNode }) {
   }>({});
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const [resent, setResent] = useState(false);
   const strength = passwordStrength(password);
   const strengthColor = ['', 'bg-danger', 'bg-warning', 'bg-success', 'bg-success'][strength.score];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const next: typeof errors = {};
-    if (name.trim().length < 2) next.name = 'Enter your name so teammates recognize you.';
+    const problems: typeof errors = {};
+    if (name.trim().length < 2) problems.name = 'Enter your name so teammates recognize you.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim()))
-      next.email = 'Enter a valid email address.';
+      problems.email = 'Enter a valid email address.';
     if (password.length < 12)
-      next.password = 'Use at least 12 characters. A short sentence works well.';
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
+      problems.password = 'Use at least 12 characters. A short sentence works well.';
+    setErrors(problems);
+    if (Object.keys(problems).length > 0) return;
     setBusy(true);
-    const visitor = visitorFromLink();
-    const { error } = await supabaseBrowser().auth.signUp({
+    const { data, error } = await supabaseBrowser().auth.signUp({
       email: email.trim(),
       password,
       options: {
         data: { full_name: name.trim(), ...(visitor ? { opinly_anon_id: visitor } : {}) },
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },
     });
     setBusy(false);
     if (error) {
       setErrors({
-        form: /already registered|already exists/i.test(error.message)
-          ? 'That email already has an account. Sign in instead.'
-          : error.message,
+        form: isAuthRetryableFetchError(error)
+          ? NO_CONNECTION
+          : signUpMessage(isAuthError(error) ? (error.code ?? null) : null),
       });
       return;
     }
+    if (isExistingAccount(data.user)) {
+      setErrors({ form: EXISTING_ACCOUNT_MESSAGE });
+      return;
+    }
+    // Only where email confirmation is off (never on the hosted project) does signing up sign in straight away.
+    if (data.session) return carryOn();
     setSent(true);
   }
 
+  function carryOn() {
+    router.replace(next);
+    router.refresh();
+  }
+
   if (sent) {
+    const address = email.trim();
     return (
-      <div className="text-center" data-testid="check-email">
-        <div className="mx-auto mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-dialog bg-accent-soft text-accent-text">
-          <Mail className="h-6 w-6" />
-        </div>
-        <h1 className="text-[22px] font-semibold tracking-tight">Check your email</h1>
-        <p className="mt-2 leading-relaxed text-text-2">
-          We sent a confirmation link to{' '}
-          <strong className="font-medium text-text">{email.trim()}</strong>. Open it on this device
-          to finish creating your account.
-        </p>
-        <div className="mt-6 flex flex-col gap-2.5">
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
-            onClick={async () => {
-              await supabaseBrowser().auth.resend({
-                type: 'signup',
-                email: email.trim(),
-                options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-              });
-              setResent(true);
-            }}
-          >
-            {resent ? 'Sent again' : 'Resend email'}
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => {
-              setSent(false);
-              setPassword('');
-              setResent(false);
-            }}
-          >
-            Use a different email
-          </Button>
-        </div>
-        <p className="mt-4 text-[12.5px] text-text-3">The link expires in 24 hours.</p>
-      </div>
+      <CodeStep
+        inputId="sign-up-code"
+        testId="check-email"
+        lead={(again) => (
+          <>
+            {again ? 'We sent a new 6-digit code to ' : 'We sent a 6-digit code to '}
+            <b className="font-semibold text-text">{address}</b>. Type it here to finish creating
+            your account.
+          </>
+        )}
+        submitLabel="Continue"
+        verify={(token) =>
+          supabaseBrowser().auth.verifyOtp({ email: address, token, type: 'signup' })
+        }
+        resend={() => supabaseBrowser().auth.resend({ type: 'signup', email: address })}
+        onDone={carryOn}
+        other={{
+          label: 'Use a different email',
+          onClick: () => {
+            setSent(false);
+            setPassword('');
+          },
+        }}
+        footnote="The code works once and expires in one hour. Check your spam folder if it isn’t there."
+      />
     );
   }
 
@@ -131,8 +134,15 @@ export function SignUpForm({ children }: { children?: ReactNode }) {
       <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.015em]">
         Create your account
       </h1>
-      <p className="mt-1.5 text-text-2">Set up your business in about two minutes.</p>
-      {children}
+      <p className="mt-1.5 text-text-2">Then you’ll set up your business.</p>
+      {google ? (
+        <>
+          <div className="mt-6">
+            <GoogleButton next={next} visitor={visitor} />
+          </div>
+          <OrDivider />
+        </>
+      ) : null}
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <Field label="Full name" htmlFor="name" error={errors.name}>
           <Input

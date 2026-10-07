@@ -1,3 +1,4 @@
+import { isAuthError } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { FieldError, Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { session } from '@/lib/auth';
-import { passwordMessage } from '@/lib/auth/messages';
+import { passwordMessage, sendCodeMessage } from '@/lib/auth/messages';
 import { config } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 
@@ -28,6 +29,15 @@ export default function Password() {
     setBusy(true);
     setError(null);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError && isAuthError(signInError) && signInError.code === 'email_not_confirmed') {
+      // Only the right password gets this far: a code confirms the email and signs in. One sent a moment ago (by
+      // signing up) still works, so being told to wait still goes to the code.
+      const { error: sendError } = await supabase.auth.resend({ type: 'signup', email });
+      setBusy(false);
+      const waitABit = isAuthError(sendError) && /rate_limit/.test(sendError.code ?? '');
+      if (sendError && !waitABit) return setError(sendCodeMessage(sendError));
+      return router.replace({ pathname: '/code', params: { email, purpose: 'sign-up' } });
+    }
     if (signInError) {
       setBusy(false);
       return setError(passwordMessage(signInError));

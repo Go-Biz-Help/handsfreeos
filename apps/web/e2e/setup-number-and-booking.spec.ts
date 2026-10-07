@@ -1,15 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { BUSINESS_ADDRESS, createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * Setup's number and calendar steps the way a new owner with an EIN meets them, and what used to trip them up
- * (onboarding question 55): the website from the quick questions is already in website chat and in the carriers'
- * form; "Set this up for me" gives the agreement box, privacy policy and terms we host their addresses at once,
- * so the review lets the registration go without a reload; paying the carriers' fees on Stripe's page comes back
- * to the setup, not Settings; and the booking page the agreement box's form named, switched off, is turned on by
- * making the booking calendar. Before all that, the sign-up page's Terms and Privacy Policy open.
+ * (onboarding question 55): the website and the address from setup's first screen are already in website chat and
+ * in the carriers' form; "Set this up for me" gives the agreement box, privacy policy and terms we host their
+ * addresses at once, so the review lets the registration go without a reload; paying the carriers' fees on Stripe's
+ * page comes back to the setup, not Settings; and the booking page the agreement box's form named, switched off, is
+ * turned on by making the booking calendar. Before all that, the sign-up page's Terms and Privacy Policy open.
  */
 
+/** The website given on setup's first screen, which takes only a public https address. Nothing is served there. */
+const WEBSITE = 'setup-fixes-electric.example';
 /** The stand-in website playwright.config.ts serves, which the worker may open (FETCH_TEST_ORIGINS). */
 const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
 
@@ -31,20 +33,12 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   await signUpAndConfirm(page, 'setup-fixes');
   const workspaceId = await createBusiness(page, {
     name: 'Setup Fixes Electric',
-    answerQuestions: true,
+    website: WEBSITE,
   });
-  await page.getByTestId('question-goal').getByRole('button', { name: 'Getting booked' }).click();
-  await page.getByTestId('question-customers').getByRole('button', { name: 'Nowhere yet' }).click();
-  await page.getByTestId('question-team').getByRole('button', { name: 'Just me' }).click();
-  await page.getByLabel('What’s your website?').fill(KNOWLEDGE_SITE);
-  await page.getByTestId('questions-continue').click();
-  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/setup/number$`));
 
   // Website chat starts from that website.
   await page.goto(`/app/w/${workspaceId}/settings/website-chat`);
-  await expect(page.getByTestId('chat-setup').getByTestId('chat-site')).toContainText(
-    '127.0.0.1:4190',
-  );
+  await expect(page.getByTestId('chat-setup').getByTestId('chat-site')).toContainText(WEBSITE);
   await expect(page.getByTestId('chat-create')).toBeEnabled();
 
   // The number step: an EIN means a local number.
@@ -63,12 +57,14 @@ test('setup: a local number on what we host, its fees paid, and the booking page
 
   await page.getByLabel('Your EIN').fill('12-3456789');
   await next.click();
-  // The website is the one already given.
-  await expect(page.getByLabel('Your website')).toHaveValue(KNOWLEDGE_SITE);
-  await page.getByLabel('Street address').fill('4410 Westpark Dr');
-  await page.getByLabel('City', { exact: true }).fill('Houston');
-  await page.getByLabel('State', { exact: true }).fill('TX');
-  await page.getByLabel('ZIP code').fill('77027');
+  // The website and the address are the ones already given.
+  await expect(page.getByLabel('Your website')).toHaveValue(`https://${WEBSITE}/`);
+  await expect(page.getByLabel('Street address')).toHaveValue(BUSINESS_ADDRESS.line1);
+  await expect(page.getByLabel('City', { exact: true })).toHaveValue(BUSINESS_ADDRESS.city);
+  await expect(page.getByLabel('State', { exact: true })).toHaveValue(BUSINESS_ADDRESS.state);
+  await expect(page.getByLabel('ZIP code')).toHaveValue(BUSINESS_ADDRESS.postalCode);
+  // The review opens the website, as a carrier's reviewer would: here, the stand-in is the one that answers.
+  await page.getByLabel('Your website').fill(KNOWLEDGE_SITE);
   await next.click();
   await page.getByLabel('Phone', { exact: true }).fill('(713) 555-0162');
   await next.click();

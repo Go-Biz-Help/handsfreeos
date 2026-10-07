@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { api, makeCalendar, ownerWithSite, type Owner } from './booking-helpers';
+import { BUSINESS_ADDRESS } from './helpers';
 
 /**
  * Settings → Payments and Products (design/m9 Settings.dc.html and Products.dc.html), plus the calendar's
@@ -241,7 +242,18 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   });
 
   await page.reload();
+  // The address setup asked for heads them until one is written here, so nothing warns.
   const noAddress = page.getByTestId('issue-no_business_address');
+  await expect(page.getByTestId('business-address-setup')).toContainText(
+    `${BUSINESS_ADDRESS.line1}, ${BUSINESS_ADDRESS.city}, ${BUSINESS_ADDRESS.state} ${BUSINESS_ADDRESS.postalCode}`,
+  );
+  await expect(noAddress).toHaveCount(0);
+  // A business made before setup asked has none, and is warned.
+  await api(owner.token, 'commands', 'workspace.update', {
+    workspaceId: owner.workspaceId,
+    settings: { address: null },
+  });
+  await page.reload();
   await expect(noAddress).toContainText('without your address on them');
   await expect(noAddress).toContainText('Doesn’t stop it saving');
   // Nobody can patch in an address, so the fix puts the cursor in the box.

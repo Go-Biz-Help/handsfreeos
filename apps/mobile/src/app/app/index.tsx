@@ -71,7 +71,11 @@ function Chooser({ userId }: { userId: string }) {
               Try again
             </Button>
           )}
-          <Button variant="ghost" onPress={() => setSigningOut(true)}>
+          <Button
+            variant="ghost"
+            onPress={() => setSigningOut(true)}
+            testID="choose-business-sign-out"
+          >
             Sign out
           </Button>
         </>

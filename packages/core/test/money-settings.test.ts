@@ -293,6 +293,16 @@ describe('settings that fight', () => {
     // Given one, it says nothing at all.
     const filled = settings({ businessAddress: '4120 Almeda Rd\nHouston, TX 77004' });
     expect(checkMoneySettings(filled, { hasSentDocuments: true })).toEqual([]);
+    // Nor while the address the setup asked for is on documents in its place.
+    expect(
+      checkMoneySettings(blank, {
+        hasSentDocuments: true,
+        setupAddress: '4120 Almeda Rd\nHouston, TX 77004',
+      }),
+    ).toEqual([]);
+    expect(
+      checkMoneySettings(blank, { hasSentDocuments: true, setupAddress: '  ' }).map((i) => i.code),
+    ).toEqual(['no_business_address']);
   });
 
   it('names every way they can fight', () => {

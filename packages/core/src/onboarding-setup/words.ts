@@ -109,8 +109,24 @@ export const ONBOARDING_SETUP_WORDS = {
   startOver: 'Start over',
   summary: 'Your setup so far',
   seeSummary: 'See the summary',
+  /** A screen's own part while it's fetched. */
+  loading: 'One moment…',
+  /** The last screen's button. */
+  goHome: 'Go to Home',
+  /** Someone who can set the business up but not use what a stop opens (a custom role). */
+  cantDo:
+    'Your role can’t change this part of the business. Ask an owner of this business to do it, or carry on.',
+
+  // Your business, before it's made
+  agency: 'I run an agency that manages several businesses',
+  agencyHint: 'Each client gets a business of its own, under one agency you control.',
+  agencyName: 'Agency name',
+  agencyNameHint: (business: string) =>
+    `Shown in your list of businesses as the agency that owns ${business}.`,
 
   // Your business
+  /** The business in the summary before it has a name. */
+  unnamed: 'Your business',
   businessName: 'Business name',
   businessNameMissing: 'Name your business.',
   whatYouDo: 'What do you do?',
@@ -157,7 +173,10 @@ export const ONBOARDING_SETUP_WORDS = {
   // Booking
   connectCalendar: 'Connect Google or Outlook (optional)',
   connectCalendarHint: 'So customers never book a time you’re busy.',
+  connectCalendarLink: 'Connect your calendar',
   bookingAt: 'Customers book at',
+  makingBooking: 'Making your booking page from your services and hours…',
+  openBooking: 'Open it',
 
   // Number
   ein: 'Does your business have an EIN?',
@@ -170,7 +189,15 @@ export const ONBOARDING_SETUP_WORDS = {
   // Paid
   payWith: 'How do customers pay you?',
   payWithLabels: PAY_WITH_LABELS,
+  payLater:
+    'Customers pay you the way they do today. Connect Stripe or Square any time in Settings → Payments.',
+  payConnected: (provider: string) =>
+    `${provider} is connected. Customers pay by card on their own link.`,
+  paySignInAgain: (provider: string) =>
+    `${provider} needs you to sign in again before customers can pay.`,
   reviewLink: 'Your Google review link (optional)',
   reviewLinkHint: 'The thank-you text after a job sends it.',
   findReviewLink: 'How to find it',
+  reviewLinkHelp:
+    'Search for your business on Google and open your Business Profile. Press Ask for reviews, copy the link it shows, and paste it here.',
 } as const;

@@ -25,6 +25,7 @@ export default [
         maestro: 'readonly',
         EMAIL: 'readonly',
         MAILPIT_URL: 'readonly',
+        SUBJECT: 'readonly',
         FROM: 'readonly',
         BODY: 'readonly',
         TO: 'readonly',
