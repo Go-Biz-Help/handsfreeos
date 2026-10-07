@@ -235,10 +235,8 @@ export function FinishSignIn() {
                 size="lg"
                 className="w-full"
                 loading={choosing === 'pick'}
-                disabled={
-                  choosing !== null ||
-                  !view.pick.options.some((o) => !o.disabled && ticked.has(o.id))
-                }
+                // One already here counts: connecting it again is how a Page that stopped working is mended.
+                disabled={choosing !== null || ticked.size === 0}
                 onClick={() => answer(view.pick, [...ticked])}
                 data-testid="finish-pick-submit"
               >
