@@ -640,19 +640,24 @@ describe('your friend requests, as Facebook drew them in 2026', () => {
     ]);
   });
 
-  it('knows a request you’ve sent by its Cancel request', () => {
-    const doc = load('friend-requests-2026.html', url);
-    // The rows as requests you've sent: one Cancel request in place of Confirm and Delete.
-    for (const confirm of doc.querySelectorAll('[aria-label="Confirm"]:not([aria-hidden])')) {
-      const buttons = confirm.parentElement!.parentElement!;
-      buttons.innerHTML =
-        '<div role="button" aria-label="Cancel request"><span>Cancel request</span></div>';
-    }
-    expect(brief(readPage(doc, url, NOW))?.map(({ name, request }) => [name, request])).toEqual([
-      ['Avery Lane', 'sent'],
-      ['Quinn Harper', 'sent'],
-      ['Casey Brooks', 'answered'],
-      ['Rowan Blake', 'sent'],
+  it('reads the requests you’ve sent from the box View sent requests opens, not the page behind it', () => {
+    const result = read('friend-requests-sent-2026.html', url);
+    expect(result.friendList).toBe('requests');
+    expect(brief(result)).toEqual([
+      {
+        name: 'Morgan Ellis',
+        profile: 'morgan.ellis.7',
+        details: ['4 mutual friends'],
+        request: 'sent',
+      },
+      { name: 'Drew Kim', profile: '100004000000009', details: [], request: 'sent' },
+      {
+        name: 'Taylor Reed',
+        profile: 'taylor.reed.3',
+        details: ['1 mutual friend'],
+        request: 'sent',
+      },
+      // Jesse Moore's request has no profile to link to.
     ]);
   });
 

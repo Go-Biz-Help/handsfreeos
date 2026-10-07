@@ -27,6 +27,7 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ['friends-list.html', 'https://www.facebook.com/friends/list'],
   ['friend-requests.html', 'https://www.facebook.com/friends/requests/?profile_id=100007000000001'],
   ['friend-requests-2026.html', 'https://www.facebook.com/friends/requests/'],
+  ['friend-requests-sent-2026.html', 'https://www.facebook.com/friends/requests/'],
   ['groups-joined.html', 'https://www.facebook.com/groups/joins/'],
   ['warning.html', 'https://www.facebook.com/groups/texascontractors/'],
 ];

@@ -60,12 +60,18 @@ export function listBeside(href: string): boolean {
  * Your list on /friends/requests and /friends/list: the one beside the page, the longest of them, or null when there
  * is none. The page itself shows the profile of whoever's picked, whose links aren't yours. A list of requests is the
  * people its rows are about: the faces of mutual friends on a row are links to them too, but they aren't in it.
+ * While a list is open over the page, as View sent requests opens yours, that one: Facebook hides the page behind it.
  */
 export function readListBeside(
   doc: Document,
   base: string,
   list: ListPage | null,
 ): Person[] | null {
+  for (const dialog of doc.querySelectorAll('[role="dialog"]')) {
+    if (!shown(dialog)) continue;
+    const people = readPeople(dialog, base, { sections: true });
+    if (people.length) return withRequests(people, dialog, base, list === 'requests');
+  }
   let best: { readonly place: Element; readonly people: Person[] } | null = null;
   for (const place of doc.querySelectorAll('[role="navigation"]')) {
     if (inTopBar(place)) continue;

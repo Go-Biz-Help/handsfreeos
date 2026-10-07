@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the fourth test build (0.4.1).** It reads the Facebook page you have open and shows what it found in
+**This is the fourth test build (0.4.2).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
@@ -38,7 +38,8 @@ who each person is), an open chat repeats each message at the end of it for scre
 (comments are never read as posts). A friend request shows the faces of mutual friends, which link to them: each
 request is about the one person it names in words, and the faces aren't requests. Facebook keeps a hidden copy of
 each request's Confirm and Delete beside the ones shown (left out), and a request you've just answered says so in
-place of them ("Request accepted") until the page loads again.
+place of them ("Request accepted") until the page loads again. **View sent requests** opens the ones you've sent
+in a box over the page, and Facebook hides the page behind it: while the box is open, it's the list that's read.
 
 ## Signing in and saving
 
