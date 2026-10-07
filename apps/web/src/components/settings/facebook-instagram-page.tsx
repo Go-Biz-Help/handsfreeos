@@ -185,8 +185,9 @@ export function FacebookInstagramPage({
         </div>
         <ul className="mt-4 flex flex-col gap-1.5 text-[13px] text-text-2">
           <li>
-            Sign in with a Facebook account that manages your business’s Page. You pick which Pages
-            answer here.
+            Sign in with a Facebook account that manages your business’s Page. Facebook asks which
+            Pages and Instagram accounts HandsFreeOS may use, and for permission to manage their
+            messages: leave every permission ticked. Then you pick which Pages answer here.
           </li>
           <li>
             An Instagram account comes along with the Page it’s linked to, once it’s a professional
