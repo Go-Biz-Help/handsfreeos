@@ -7,6 +7,7 @@ import {
   withAiName,
   type TestOutcome,
 } from '@hfos/core';
+import * as Linking from 'expo-linking';
 import * as React from 'react';
 import { Share, View } from 'react-native';
 
@@ -81,6 +82,7 @@ export function TryAva({
   teammate,
   notes,
   chat,
+  pageUrl = null,
   calls,
   onDone,
 }: {
@@ -93,6 +95,8 @@ export function TryAva({
   notes: readonly string[];
   /** The website chat Save added. */
   chat: { publicKey: string } | null;
+  /** The business's simple page, when the chat went on it because there's no website: nothing to paste then. */
+  pageUrl?: string | null;
   calls: AiSetupCalls;
   /** Turned on, or "Not yet". */
   onDone: (turnedOn: boolean) => void;
@@ -195,7 +199,9 @@ export function TryAva({
           <Text className="min-w-0 flex-1 text-[13.5px] leading-[19px] text-warning-text">{n}</Text>
         </View>
       ))}
-      {chat ? (
+      {chat && pageUrl ? (
+        <ChatOnPage name={name} pageUrl={pageUrl} />
+      ) : chat ? (
         <ChatCode workspaceId={workspaceId} publicKey={chat.publicKey} calls={calls} />
       ) : null}
 
@@ -413,6 +419,26 @@ function TestRow({
           </View>
         </View>
       ) : null}
+    </Card>
+  );
+}
+
+/** The chat Save put on the business's simple page: it's already there, so only a way to see it. */
+function ChatOnPage({ name, pageUrl }: { name: string; pageUrl: string }) {
+  return (
+    <Card className="gap-2.5 p-3.5" testID="ai-setup-chat-on-page">
+      <Text className="text-base font-semibold">{withAiName(W.chatOnPage, name)}</Text>
+      <Text className="text-[13px] leading-[18px] text-text-2">{W.chatOnPageHint}</Text>
+      <Button
+        variant="ghost"
+        size="md"
+        icon={ExternalLink}
+        className="self-start"
+        onPress={() => void Linking.openURL(pageUrl)}
+        testID="ai-setup-chat-open-page"
+      >
+        {W.chatOnPageOpen}
+      </Button>
     </Card>
   );
 }

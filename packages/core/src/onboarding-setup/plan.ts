@@ -5,19 +5,29 @@
  * Most answers are kept until "Stay in the loop", which saves everything at once (`planOnboardingSetup`): the AI
  * quick setup's plan (open hours, the business profile, facts, a website chat and the teammate), the price list,
  * and the person's own hours. A few can't wait, because later stops or other people need them: the business itself
- * (the AI starts reading the website), invitations, where customers are, the booking page (`planOnboardingBooking`:
- * the carriers look at it on the number stop), and the review link.
+ * (the AI starts reading the website), invitations, the simple page (`planOnboardingPage`) and the booking page
+ * (`planOnboardingBooking`), which the carriers look at on the number stop, where customers are, and the review
+ * link.
  */
 import { setupFor } from '../ai-setup/kinds';
 import {
   planAiSetup,
+  planAiSetupAbout,
   serviceNameKey,
   serviceWriteOf,
   type AiSetupPlan,
   type AiSetupServiceWrite,
 } from '../ai-setup/plan';
+import {
+  businessPageService,
+  businessPageServicesTitle,
+  type BusinessPageParts,
+} from '../calendar/business-page';
 import type { WeeklyHours } from '../calendar/config';
 import { formatHours } from '../calendar/format';
+import { consentPolicyPath, consentTermsPath } from '../messaging/consent';
+import { cityAndState } from './address';
+import type { KnowledgeProfile } from '../knowledge/profile';
 import { money } from '../money/format';
 import type { OnboardingSetupAnswers } from './answers';
 import type { OnboardingSetupState } from './state';
@@ -56,6 +66,70 @@ export function myHoursFrom(
 
 /** "Your hours: Mon–Fri 7:00 AM–6:00 PM", for what will change. */
 export const myHoursChange = (hours: WeeklyHours): string => `Your hours: ${formatHours(hours)}`;
+
+// ---- The simple page ----
+
+export interface OnboardingPagePlan {
+  /** Turn the page on, or off; null when it stays as it is. */
+  readonly page: 'on' | 'off' | null;
+  /** The open hours, saved before it goes live so the page shows them; null when they don't change. */
+  readonly openHours: WeeklyHours | null;
+  /** The business profile with "About your business" in it, for the same reason; null when it doesn't change. */
+  readonly profile: KnowledgeProfile | null;
+  /** What will change, one line each. */
+  readonly changes: readonly string[];
+}
+
+/**
+ * What leaving "A simple page for your business" does (decision 43B, call 4). Use this page turns it on, with what
+ * "About your business" and "When are you open?" said saved first, since the page shows them and the carriers open
+ * it on the number stop; Not now turns off a page this setup turned on. Nothing changes for a business with a
+ * website, which never sees the screen.
+ */
+export function planOnboardingPage(
+  state: OnboardingSetupState,
+  answers: OnboardingSetupAnswers,
+): OnboardingPagePlan {
+  if (state.website) return { page: null, openHours: null, profile: null, changes: [] };
+  if (!answers.usePage)
+    return state.page
+      ? { page: 'off', openHours: null, profile: null, changes: ['Turns off your page'] }
+      : { page: null, openHours: null, profile: null, changes: [] };
+  const about = planAiSetupAbout(state, answers.ai);
+  return {
+    page: state.page ? null : 'on',
+    openHours: about.openHours,
+    profile: about.profile,
+    changes: [...(state.page ? [] : ['Puts your page live']), ...about.changes],
+  };
+}
+
+/**
+ * The simple page as the setup's preview draws it, before it goes live: what "About your business" and "When are you
+ * open?" said, the way the page will show them. Text and Chat wait for the business number and the AI teammate's
+ * chat, so they're none here.
+ */
+export function onboardingPagePreview(
+  state: OnboardingSetupState,
+  answers: OnboardingSetupAnswers,
+): BusinessPageParts {
+  const about = planAiSetupAbout(state, answers.ai);
+  const profile = about.profile ?? state.profile;
+  const slug = state.page?.slug ?? state.booking.site?.slug ?? null;
+  return {
+    description: profile.description,
+    servicesTitle: businessPageServicesTitle(state.industry),
+    services: profile.services.map((s) => businessPageService(s, profile.allowPrices)),
+    area: profile.serviceArea,
+    place: state.address ? cityAndState(state.address) : null,
+    openHours: about.openHours ?? state.openHours,
+    hours: profile.hours,
+    privacyPath: slug ? consentPolicyPath(slug) : '',
+    termsPath: slug ? consentTermsPath(slug) : '',
+    textTo: null,
+    chat: null,
+  };
+}
 
 // ---- The booking page ----
 

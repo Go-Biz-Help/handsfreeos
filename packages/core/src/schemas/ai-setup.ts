@@ -76,6 +76,12 @@ export const AiSetupSaveOutput = z.object({
   scanStarted: z.boolean(),
 });
 
+/**
+ * Where the business's simple page is, as the app shows its address: https://app.handsfreeos.com, or the business's
+ * own domain once it works. A business with no website gets its website chat there.
+ */
+export const pageOrigin = z.string().trim().max(300).optional();
+
 export const AiSetupFinishInput = z.object({
   workspaceId: uuid,
   answers: AiSetupAnswers,
@@ -84,6 +90,7 @@ export const AiSetupFinishInput = z.object({
    * settings in between is a revision_conflict.
    */
   baseRevision: z.int().min(1).nullable(),
+  pageOrigin,
 });
 export const AiSetupFinishOutput = z.object({
   teammateId: uuid,

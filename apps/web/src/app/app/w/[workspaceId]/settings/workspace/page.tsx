@@ -5,6 +5,7 @@ import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
 import { DeleteWorkspace } from '@/components/settings/delete-workspace';
 import { GettingStartedSwitch } from '@/components/settings/getting-started-switch';
 import { LookCard } from '@/components/settings/look-card';
+import { PageCard } from '@/components/settings/page-card';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { Card } from '@/components/ui/card';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -22,9 +23,15 @@ export default async function WorkspaceSettingsPage({
   if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   // The domain lives here rather than under Calendars: it carries the forms, the estimates and the
   // payment links too, and nobody looking for "my own web address" thinks to open the booking site.
-  const branded = unwrapPage(
-    await api.POST('/v1/queries/branded_domain.get', { body: { workspaceId } }),
-  );
+  const [branded, booking] = await Promise.all([
+    api.POST('/v1/queries/branded_domain.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/booking_site.get', { body: { workspaceId } }).then(unwrapPage),
+  ]);
+  const serving = branded.domain;
+  const brandedOrigin =
+    serving && serving.status === 'verified' && serving.certificateReady
+      ? `https://${serving.domain}`
+      : null;
   const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
   return (
     <>
@@ -46,6 +53,13 @@ export default async function WorkspaceSettingsPage({
               : null
           }
           canChange={can(got.workspace.permissions, 'workspace.update')}
+        />
+        {/* The booking page grown into a one-page site: switched with the calendars (calendars.manage). */}
+        <PageCard
+          workspaceId={workspaceId}
+          site={booking.site}
+          brandedOrigin={brandedOrigin}
+          canChange={can(got.workspace.permissions, 'calendars.manage')}
         />
         {/* Getting started for everyone here: owners and admins can turn it off (workspace.update, as above). */}
         <GettingStartedSwitch workspaceId={workspaceId} enabled={got.workspace.gettingStarted} />

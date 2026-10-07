@@ -111,6 +111,11 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
     sql`select id, allowed_origins as origins from app.chat_widgets
         where workspace_id = ${workspaceId} and paused_at is null order by created_at limit 1`,
   );
+  const [page] = await rows<{ slug: string }>(
+    tx,
+    sql`select slug::text as slug from app.booking_sites
+        where workspace_id = ${workspaceId} and page_enabled`,
+  );
   const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
   const kind = setupKindOf(ws.industry);
@@ -121,6 +126,7 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
     kind,
     goal: businessOnboardingOf(settings).answers?.goal ?? null,
     website: source?.url ?? (typed || null),
+    page: page ? { slug: page.slug } : null,
     timeZone: ws.timezone,
     openHours: openHours.success ? openHours.data : null,
     teammate: row

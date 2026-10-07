@@ -1059,6 +1059,7 @@ export const bookingSiteGet = defineQuery({
             name: site.name,
             intro: site.intro,
             enabled: site.enabled,
+            page: site.pageEnabled,
             path: `/book/${site.slug}`,
           }
         : null,

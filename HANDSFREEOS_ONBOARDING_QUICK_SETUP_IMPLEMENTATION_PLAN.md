@@ -10,11 +10,12 @@ a booking page if customers book a time, and its AI teammate on with training wh
 It is built like the AI teammate's quick setup (`HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md`), and the AI
 teammate's part of it is that quick setup's own screens.
 
-> **Status: steps 1 to 8 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
-> the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
+> **Status: steps 1 to 9 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business, the
+> shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
 > `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; signing up on the web and the
-> phone; the web's screens, the phone's, and the logo and colour). The flow chart is the "Onboarding quick setup" artifact; the questions and the
-> owner's answers are `onboarding-setup/questions.md` in the project files.
+> phone; the web's screens, the phone's, the logo and colour, and the simple page). The flow chart is the "Onboarding
+> quick setup" artifact; the questions and the owner's answers are `onboarding-setup/questions.md` in the project
+> files.
 
 ---
 
@@ -107,25 +108,27 @@ search finds any of the 116.
 
 ## 4. The screens
 
-Fourteen stops (`ONBOARDING_SETUP_STOPS`). Signing up comes first and makes the business, so it isn't a screen here;
-the AI teammate's stop is several screens. "A simple page" joins after the logo when it's built (§11).
+Fifteen stops (`ONBOARDING_SETUP_STOPS`), or fourteen for a business with a website, which isn't asked about a simple
+page. Signing up comes first and makes the business, so it isn't a screen here; the AI teammate's stop is several
+screens.
 
-| Stop | Screen                            | Asks                                                                                                                                                                         | Saved                                    |
-| ---- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| 1    | Sign up                           | Google, Apple on an iPhone, or email with a 6-digit code (§11 step 5)                                                                                                        | Their account and the business           |
-| 2    | Your business                     | Name, what you do, your address (it sets the time zone), your website or "We don't have one"                                                                                 | At once; Ava starts reading the website  |
-| 3    | What do you want help with first? | The goal; how many people work with you, with an optional "Invite them now"                                                                                                  | At once: invitations, Getting started    |
-| 4    | About your business               | What you do, your services (name, optional price and length), where you work; do customers book a time?                                                                      | At "Stay in the loop"                    |
-| 5    | When are you open?                | Open hours                                                                                                                                                                   | At "Stay in the loop"                    |
-| 6    | Your logo and colour              | The logo, found on the website or uploaded, and a colour: the logo's until another is picked                                                                                 | At once                                  |
-| 7    | Where are your customers now?     | GoHighLevel, a spreadsheet, another CRM, phone contacts, or nowhere yet                                                                                                      | At once: Getting started                 |
-| 8    | Your booking page is ready        | Nothing: it shows the page. Only when customers book a time                                                                                                                  | At once: the services, calendar and page |
-| 9    | Your business number              | Do you have an EIN?, the number, then "Check these details" for the carriers                                                                                                 | Today's number commands                  |
-| 10   | Get paid, and get reviews         | Stripe, Square or Later; the Google review link                                                                                                                              | At once: the review link                 |
-| 11   | Your AI teammate                  | The AI quick setup's screens: what Ava helps with, quick facts, Meet Ava, how Ava sounds, what Ava learned, qualifying questions (if ticked), website chat (if there's none) | At "Stay in the loop"                    |
-| 12   | Stay in the loop                  | Get the phone app or turn on notifications; your cell                                                                                                                        | Everything else                          |
-| 13   | Try Ava, then turn it on          | The test chat; Turn on with training wheels                                                                                                                                  | The AI quick setup's own                 |
-| 14   | It's already working for you      | Nothing: what works now, and what's still on its way                                                                                                                         |                                          |
+| Stop | Screen                            | Asks                                                                                                                                                                                                                             | Saved                                      |
+| ---- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1    | Sign up                           | Google, Apple on an iPhone, or email with a 6-digit code (§11 step 5)                                                                                                                                                            | Their account and the business             |
+| 2    | Your business                     | Name, what you do, your address (it sets the time zone), your website or "We don't have one"                                                                                                                                     | At once; Ava starts reading the website    |
+| 3    | What do you want help with first? | The goal; how many people work with you, with an optional "Invite them now"                                                                                                                                                      | At once: invitations, Getting started      |
+| 4    | About your business               | What you do, your services (name, optional price and length), where you work; do customers book a time?                                                                                                                          | At "Stay in the loop"                      |
+| 5    | When are you open?                | Open hours                                                                                                                                                                                                                       | At "Stay in the loop"                      |
+| 6    | Your logo and colour              | The logo, found on the website or uploaded, and a colour: the logo's until another is picked                                                                                                                                     | At once                                    |
+| 7    | A simple page for your business   | Only with no website: Use this page (picked) or Not now, with a picture of the page made from the answers so far                                                                                                                 | At once: the page goes live, or comes down |
+| 8    | Where are your customers now?     | GoHighLevel, a spreadsheet, another CRM, phone contacts, or nowhere yet                                                                                                                                                          | At once: Getting started                   |
+| 9    | Your booking page is ready        | Nothing: it shows the page. Only when customers book a time                                                                                                                                                                      | At once: the services, calendar and page   |
+| 10   | Your business number              | Do you have an EIN?, the number, then "Check these details" for the carriers                                                                                                                                                     | Today's number commands                    |
+| 11   | Get paid, and get reviews         | Stripe, Square or Later; the Google review link                                                                                                                                                                                  | At once: the review link                   |
+| 12   | Your AI teammate                  | The AI quick setup's screens: what Ava helps with, quick facts, Meet Ava, how Ava sounds, what Ava learned, qualifying questions (if ticked), website chat (if there's none), or "Add Ava to your page?" with the simple page on | At "Stay in the loop"                      |
+| 13   | Stay in the loop                  | Get the phone app or turn on notifications; your cell                                                                                                                                                                            | Everything else                            |
+| 14   | Try Ava, then turn it on          | The test chat; Turn on with training wheels                                                                                                                                                                                      | The AI quick setup's own                   |
+| 15   | It's already working for you      | Nothing: what works now, and what's still on its way                                                                                                                                                                             |                                            |
 
 **The address** (`onboarding-setup/address.ts`) is a US address: street, an optional suite, city, state and a 5-digit
 ZIP code, as the carriers' registration needs it. The state picks the time zone, and a few ZIP code ranges pick
@@ -150,6 +153,29 @@ buttons, deepened where white words wouldn't read on it. A new website chat star
 - **The colour** is the logo's, else the website's own, until a person picks one (`look.set`, which also takes the
   logo off). Nothing found later replaces a colour someone picked.
 - **The same screen** is Settings → Workspace's "Logo and colour" card on the web, for later changes.
+
+**A simple page** (`calendar/business-page.ts`, decision 43B and call 4) is the booking page grown into a one-page
+site, for a business with no website: one page to keep up, not a website builder.
+
+- **What it shows** is all what the business already keeps, so there's nothing new to write: its name, logo and
+  colour; what it does and its city (Knowledge → Business profile, the address); Book, Call, Text and Chat; its
+  services, called what its kind of business calls them, with prices only when it tells customers its prices; the
+  open hours, Monday first with days alike together; where it works; and links to its privacy policy and terms. Never
+  the street address.
+- **Each button shows when it works.** Book when a calendar takes bookings (one calendar goes straight to it), Call
+  when the business has a phone number, Text once the carriers approve texting, and Chat when the website chat is set
+  up for the address the page is shown at. The setup's picture of the page shows them all and says they switch on as
+  the next stops set them up.
+- **Where it lives:** the booking page's address, `/book/<name>`, and the start page of the business's own domain
+  once that's serving. A calendar's own page stays a booking page.
+- **On and off.** The setup's "Use this page" (picked) and Settings → Workspace's "Your page" card, both
+  `booking_site.set_page`. It's kept in `booking_sites.page_enabled`, and it makes the booking site when there isn't
+  one, not yet taking bookings.
+- **What uses it.** The texting registration gives the carriers its address as the website. Ava's chat goes on it:
+  the AI part's chat screen becomes "Add Ava to your page?", the chat is set up for the address the app shows the page
+  at, and the worker adds the business's own domain to that chat once the domain is serving (`chat/own-domain.ts`).
+  Try Ava then says there's nothing to paste, with a link to the page.
+- **Public pages are kept 30 seconds** in production, so a change shows on the page within about half a minute.
 
 **The summary** beside the questions (`onboardingSetupSummary`) follows the answers before anything is saved and
 what's set up after:
@@ -193,18 +219,20 @@ setup's picks for that goal, with Book ticked only when customers book a time, o
 words (`onboarding-setup/plan.ts`):
 
 - **Leaving a screen** saves what later stops or other people need: the business itself, invitations, Getting
-  started's answers (they order Home's card), "Add them as you go", the booking page (the carriers look at it on the
-  number stop), and the review link.
+  started's answers (they order Home's card), the simple page (with what it shows first: what the business does and
+  its open hours), "Add them as you go", the booking page (the carriers look at it on the number stop), and the
+  review link.
 - **"Stay in the loop"** saves the rest at once (`planOnboardingSetup`): the AI quick setup's own plan (open hours,
   the profile, facts, answers, a website chat and the teammate, which stays off), services with a price on the price
   list by name (each tied to the bookable service of its name), and the person's own hours from the open hours while
   they have none of their own.
 
-| Operation                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `onboarding_setup.get`    | The state, the answers to start from, today's picks alone (Start over), how far it got and when it was finished. Needs `workspace.update`                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `onboarding_setup.save`   | Keeps the answers and the furthest screen, and saves what can't wait: on the first screen the name, kind, address, time zone and website (the worker reads the site once per address); on the goal, invitations as team members and Getting started's answers; on customers, those answers and "Add them as you go"; on the booking stop, the services, your hours, the calendar (turned on) and the booking page (made and turned on); on payments, the review link. Risk 2, `workspace.update`; `onboarding_setup.started` once per run |
-| `onboarding_setup.finish` | "Stay in the loop": checks every screen's answers, runs `ai_setup.finish` with the AI part's answers, then the price list, your hours and Getting started's answers. Refuses stale answers (`revision_conflict`). Risk 2, `workspace.update`; `onboarding_setup.finished`                                                                                                                                                                                                                                                                 |
+| Operation                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onboarding_setup.get`    | The state, the answers to start from, today's picks alone (Start over), how far it got and when it was finished. Needs `workspace.update`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `onboarding_setup.save`   | Keeps the answers and the furthest screen, and saves what can't wait: on the first screen the name, kind, address, time zone and website (the worker reads the site once per address); on the goal, invitations as team members and Getting started's answers; on customers, those answers and "Add them as you go"; on the simple page, what it shows (what the business does, its open hours) and the page on or off; on the booking stop, the services, your hours, the calendar (turned on) and the booking page (made and turned on); on payments, the review link. Risk 2, `workspace.update`; `onboarding_setup.started` once per run |
+| `onboarding_setup.finish` | "Stay in the loop": checks every screen's answers, runs `ai_setup.finish` with the AI part's answers, then the price list, your hours and Getting started's answers. Refuses stale answers (`revision_conflict`). Risk 2, `workspace.update`; `onboarding_setup.finished`                                                                                                                                                                                                                                                                                                                                                                    |
+| `booking_site.set_page`   | The simple page on or off, from the setup or Settings → Workspace. Makes the booking site, not yet taking bookings, when there isn't one. Risk 1, `calendars.manage`; `booking_site.page_set`                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 Each part runs the command it already has, in the same transaction, with its own permission and events. Someone
 already in the business, or already invited, is a note rather than a refusal ("sam@… is already in this business"),
@@ -218,9 +246,11 @@ and so is a calendar that can't be turned on yet. Run again with nothing changed
 
 - **Where they open** (`onboardingSetupFirstScreen`): the screen after the furthest one finished; a finished setup
   opens on its last screen.
-- **Which screens show** (`onboardingSetupScreens`): booking only when customers book a time; qualifying questions
-  and the website chat as the AI quick setup decides. Next and Back skip the rest.
-- **The counter** (`onboardingSetupProgress`): "4 of 14 · About your business", by stop, with signing up counted.
+- **Which screens show** (`onboardingSetupScreens`): the simple page only with no website; booking only when
+  customers book a time; qualifying questions and the website chat as the AI quick setup decides, the chat for the
+  simple page too while it's on. Next and Back skip the rest.
+- **The counter** (`onboardingSetupProgress`): "4 of 15 · About your business", counting the stops that show,
+  signing up included.
 - **The first screen** (`onboardingSetupBusinessDraftOf`, `withBusinessAddress`, `onboardingSetupBusinessOf`): the
   business as it is, the time zone following the address unless someone picked their own, and the website left out
   when there's none.
@@ -255,14 +285,19 @@ setup's address when no other is typed there, and stops warning that documents g
 - **The logo and colour** (step 8): a logo dropped or picked goes straight to Storage, and the screen asks again
   while the worker makes it ready or looks on the website, then says where it came from. A colour picked is kept at
   once, and the preview shows the booking page's top in it. The same card is in Settings → Workspace.
+- **The simple page** (step 9): its screen shows the picture of the page and, once it's live, its address to copy
+  or open. Settings → Workspace's "Your page" card turns it on or off later, for those who manage calendars, with
+  its address. With the page on and no website, Try Ava says Ava answers the chat on the page, with a link to it,
+  instead of the code to paste.
 - **Home.** Getting started's card says **Start** to a business that never answered the quick questions, and **Carry
   on** part way through, as its one primary button; nothing once it's finished. The setup wizard's steps stay, opened
   from the card's own rows.
 - **Tests.** `apps/web/e2e/onboarding-setup.spec.ts` goes through every stop (an uploaded logo and a picked colour
-  included, then on the booking page); `look.spec.ts` covers Settings → Workspace's card (a refused SVG, a logo made
-  ready, a colour kept, the logo taken off); `getting-started.spec.ts` checks that the answers order Home's steps and
-  the wizard; every other browser test makes its business on the first screen
-  (`createBusiness` in `e2e/helpers.ts`).
+  included, then on the booking page, which is the simple page with Ava's chat on it); `look.spec.ts` covers Settings
+  → Workspace's card (a refused SVG, a logo made ready, a colour kept, the logo taken off); `business-page.spec.ts`
+  covers the "Your page" card and the page itself (what it shows, its Chat, a calendar's own page, turned off);
+  `getting-started.spec.ts` checks that the answers order Home's steps and the wizard; every other browser test makes
+  its business on the first screen (`createBusiness` in `e2e/helpers.ts`).
 
 ---
 
@@ -286,19 +321,20 @@ one, notifications turned on right there, and the summary as a "See the summary"
   toll-free), picked and bought right there (`phone_number.buy`); a refusal (not enough on the balance for the first
   month, say) stays on screen. Payments: Stripe's or Square's own sign-in in the phone's browser, and where it stands
   asked again on the way back. The booking page is made as its screen opens, with its link to share. The logo is
-  picked from the phone's photos (no permission needed), shrunk to 1,600 px and sent straight to Storage, a PNG kept
-  a PNG so its see-through background stays; the colour is picked or typed. "Stay in the loop", the test chat and
-  what already works are the AI quick setup's own. The phone has no Settings → Workspace, so later changes are on
-  the web.
+  picked from the phone's photos (no permission needed), shrunk to 1,600 px and sent straight to Storage, a PNG kept a
+  PNG so its see-through background stays; the colour is picked or typed. The simple page shows the same picture, and
+  once it's live its address to share or open. "Stay in the loop", the test chat and what already works are the AI
+  quick setup's own. The phone has no Settings → Workspace, so later changes are on the web.
 - **What's easier on a computer** emails the person a link, as Getting started does on the phone: the carriers'
   registration, keeping a number they already have, bringing customers in from GoHighLevel, a spreadsheet or another
   CRM, and connecting Google or Outlook. Picking customers from the phone's contacts is step 10.
 - **Home.** Getting started's card says **Start** or **Carry on** as on the web, as its one primary button, until
   it's finished; it reads where the setup stands from the phone's copy of the business.
-- **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making
-  the business, carrying on, the booking page, the number, payments, "Stay in the loop" to the end, who may run it,
-  no signal), `look.test.tsx` (a logo picked and sent to Storage, then made ready; a colour picked or typed; a
-  refused upload and the website looked at again; no signal; a role that can't change them), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
+- **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making the
+  business, carrying on, the simple page, the booking page, the number, payments, "Stay in the loop" to the end, who
+  may run it, no signal, and Try Ava pointing at the page's chat), `look.test.tsx` (a logo picked and sent to Storage,
+  then made ready; a colour picked or typed; a refused upload and the website looked at again; no signal; a role that
+  can't change them), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
   `sign-up-with-code.yaml` makes the business on the phone after signing up.
 
 ---
@@ -343,7 +379,9 @@ Each step is its own draft pull request, merged in order.
    logo a PNG with sharp, from the website or an upload. Migration `20261027000100_business_logo_and_colour.sql`
    makes the two buckets, lets someone upload only to the place `look.begin_upload` reserved for them, and lets the
    worker keep the look of the business it works for and nothing else.
-9. **The simple page,** for a business with no website: a new stop after the logo. Needs a database change.
+9. **The simple page** (built, §4), for a business with no website: a new stop after the logo, on the web and the
+   phone, and a card in Settings → Workspace. Migration `20261027000200_business_page.sql` adds
+   `booking_sites.page_enabled`; the table's own grants and policies already cover it.
 10. **Phone contacts** in the phone app.
 11. **Agencies** (§9). Needs a database change.
 
@@ -368,3 +406,10 @@ Each step is its own draft pull request, merged in order.
   fitting it, the refusals, a safe SVG, finding the logo on a website, the email header) and `look-jobs.test.ts` (the
   jobs end to end); `packages/db/test/brand-uploads.test.ts` (who may upload where, and the worker's own reads and
   writes).
+- The simple page: `packages/core/test/business-page.test.ts` (the hours Monday first and grouped, a day with a
+  break, the services' title by kind); `onboarding-setup.test.ts` and `ai-setup.test.ts` (asked only with no website,
+  what each answer sets, the chat on the page); `onboarding-setup-commands.test.ts` and `ai-setup-commands.test.ts`
+  (local database: the page going live with what it shows saved first, Ava's chat at the page's address, Not now, a
+  business with a website left alone, who may turn it on); `apps/worker/test/booking.test.ts` (what the page shows,
+  and Chat only where it's set up and not paused) and `chat-own-domain.test.ts` (the chat following the business to
+  its own domain, and never twice).

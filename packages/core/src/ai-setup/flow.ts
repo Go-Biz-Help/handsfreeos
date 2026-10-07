@@ -30,11 +30,12 @@ export function aiSetupProblemAt(problems: AiSetupProblems, path: string): strin
   return under ? problems[under] : undefined;
 }
 
-/** What decides the screens that show only when they apply: a website, and a chat on it. */
+/** What decides the screens that show only when they apply: a website or the business's simple page, and a chat. */
 export const aiSetupFlowFactsOf = (state: {
   readonly website: string | null;
+  readonly page: unknown;
   readonly chat: unknown;
-}): AiSetupFlowFacts => ({ website: !!state.website, chat: !!state.chat });
+}): AiSetupFlowFacts => ({ website: !!state.website, page: !!state.page, chat: !!state.chat });
 
 /** What Ava reads on the website fills these in, on screens not finished yet. */
 export const AI_SETUP_READ_FIELDS: readonly Field[] = [
@@ -78,6 +79,7 @@ export function aiSetupFirstStep(
   got: {
     readonly state: {
       readonly website: string | null;
+      readonly page: unknown;
       readonly chat: unknown;
       readonly teammate: unknown;
     };

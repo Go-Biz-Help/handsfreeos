@@ -23,6 +23,7 @@ import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/ke
 import {
   aiSetupFinish,
   aiSetupGet,
+  bookingSiteSetPage,
   aiSetupNoteFound,
   aiSetupSave,
   organizationCreate,
@@ -499,5 +500,57 @@ describe('what Ava read on the website', () => {
         run(aiSetupNoteFound, { workspaceId: biz.ws, sourceId: biz.sourceId, found: READ }, dale),
       'forbidden',
     );
+  });
+});
+
+describe('a business with no website and its simple page', () => {
+  let shop: string;
+  beforeAll(async () => {
+    shop = (await run(organizationCreate, { businessName: 'Page HVAC', industry: 'hvac' }, dale))
+      .workspaceId;
+  });
+  const ready = (answers: AiSetupAnswers) =>
+    AiSetupAnswers.parse({
+      ...answers,
+      description: 'Heating and cooling for Austin homes.',
+      services: [{ name: 'AC repair' }],
+      chat: true,
+    });
+
+  it('offers the chat once the page is on, for the page', async () => {
+    expect((await get(dale, shop)).starting.chat).toBe(false);
+    await run(bookingSiteSetPage, { workspaceId: shop, on: true }, dale);
+    const r = await get(dale, shop);
+    expect(r.state.page).not.toBeNull();
+    expect(r.starting.chat).toBe(true);
+  });
+
+  it('adds the chat at the address the app shows the page at, and says so when it has none', async () => {
+    const { answers } = await get(dale, shop);
+    const first = await run(
+      aiSetupFinish,
+      { workspaceId: shop, answers: ready(answers), baseRevision: null },
+      dale,
+    );
+    expect(first.chat).toBeNull();
+    expect(first.notes).toEqual([expect.stringContaining('Settings → Website chat')]);
+
+    const out = await run(
+      aiSetupFinish,
+      {
+        workspaceId: shop,
+        answers: ready(answers),
+        baseRevision: first.revision,
+        pageOrigin: 'https://app.handsfreeos.test',
+      },
+      dale,
+    );
+    expect(out.changes).toContain('Adds a chat to your page');
+    const [widget] = await rows<{ origins: string[]; teammate: string }>(
+      admin(),
+      sql`select allowed_origins as origins, teammate_id as teammate from app.chat_widgets
+          where id = ${out.chat!.widgetId}`,
+    );
+    expect(widget).toEqual({ origins: ['https://app.handsfreeos.test'], teammate: out.teammateId });
   });
 });

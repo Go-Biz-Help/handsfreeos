@@ -2091,6 +2091,8 @@ export const bookingSites = app.table('booking_sites', {
   name: text('name').notNull(),
   intro: text('intro'),
   enabled: boolean('enabled').notNull().default(true),
+  /** The simple page: what the business does, its services, hours and area, around the booking. */
+  pageEnabled: boolean('page_enabled').notNull().default(false),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });

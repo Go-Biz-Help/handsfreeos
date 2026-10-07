@@ -43,6 +43,7 @@ import {
   NO_LOOK,
   planAiSetup,
   planOnboardingBooking,
+  planOnboardingPage,
   planOnboardingSetup,
   planPriceList,
   resumeOnboardingSetup,
@@ -82,6 +83,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     kind: setupKindOf(industry),
     goal: null,
     website: null,
+    page: null,
     timeZone: 'America/Chicago',
     openHours: null,
     teammate: null,
@@ -116,7 +118,8 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
 
 const answers = (patch: OnboardingSetupAnswersInput = {}): OnboardingSetupAnswers =>
   OnboardingSetupAnswers.parse(patch);
-const facts = { website: false, chat: false };
+const facts = { website: false, page: false, chat: false };
+const site = { website: true, page: false, chat: false };
 
 describe('the address', () => {
   it('picks the time zone from the state, and from the ZIP code where a state is split', () => {
@@ -185,12 +188,22 @@ describe('the screens', () => {
     expect(none).not.toContain('booking');
     expect(none).not.toContain('qualify');
     expect(none).not.toContain('chat');
+    // With no website, the simple page; once it's on, the chat can go there.
     const all = onboardingSetupScreens(answers({ booksTime: true, ai: { jobs: ['qualify'] } }), {
-      website: true,
-      chat: false,
+      ...facts,
+      page: true,
     });
     expect(all).toEqual([...ONBOARDING_SETUP_SCREENS]);
-    expect(onboardingSetupScreens(answers(), { website: true, chat: true })).not.toContain('chat');
+    expect(onboardingSetupScreens(answers(), { ...site, chat: true })).not.toContain('chat');
+  });
+
+  it('ask about the simple page only when there’s no website', () => {
+    expect(onboardingSetupScreens(answers(), facts)).toContain('page');
+    expect(onboardingSetupScreens(answers(), site)).not.toContain('page');
+    expect(onboardingSetupScreens(answers(), site)).toContain('chat');
+    expect(onboardingSetupNextScreen('look', answers(), facts)).toBe('page');
+    expect(onboardingSetupNextScreen('look', answers(), site)).toBe('customers');
+    expect(onboardingSetupPreviousScreen('customers', answers(), site)).toBe('look');
   });
 
   it('go on and back past the ones that don’t apply', () => {
@@ -209,17 +222,23 @@ describe('the screens', () => {
     expect(onboardingSetupProgress('business', answers(), facts)).toEqual({
       stop: 'business',
       at: 2,
-      of: 13,
+      of: 14,
     });
-    expect(onboardingSetupProgress('look', answers(), facts)).toEqual({
-      stop: 'look',
-      at: 6,
-      of: 13,
+    expect(onboardingSetupProgress('page', answers(), facts)).toEqual({
+      stop: 'page',
+      at: 7,
+      of: 14,
     });
     expect(onboardingSetupProgress('meet', answers({ booksTime: true }), facts)).toEqual({
       stop: 'ai',
-      at: 11,
-      of: 14,
+      at: 12,
+      of: 15,
+    });
+    // A website skips the simple page.
+    expect(onboardingSetupProgress('customers', answers(), site)).toEqual({
+      stop: 'customers',
+      at: 7,
+      of: 13,
     });
   });
 
@@ -229,6 +248,11 @@ describe('the screens', () => {
     expect(onboardingSetupTitle('look', 'Ava')).toBe('Your logo and colour');
     expect(onboardingSetupTitle('meet', 'Max')).toBe('Meet Max');
     expect(onboardingSetupHint('business', 'Max')).toContain('Max starts reading your website');
+    expect(onboardingSetupTitle('page', 'Ava')).toBe('A simple page for your business');
+    // With no website, the chat goes on the simple page.
+    expect(onboardingSetupTitle('chat', 'Max', { website: false })).toBe('Add Max to your page?');
+    expect(onboardingSetupTitle('chat', 'Max', { website: true })).toBe('Add Max to your website?');
+    expect(onboardingSetupHint('chat', 'Max', { website: false })).toContain('chat on your page');
     for (const s of ONBOARDING_SETUP_SCREENS) expect(onboardingSetupTitle(s, 'Ava')).not.toBe('');
   });
 });
@@ -362,6 +386,74 @@ describe('carrying on', () => {
     expect(resumeOnboardingSetup(state, { draft: null, reached: null, kind: null })).toEqual(
       startingOnboardingSetupAnswers(state),
     );
+  });
+});
+
+describe('the simple page', () => {
+  const open = [1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '18:00' }));
+  const about = {
+    description: 'We fix AC in Austin.',
+    services: [{ name: 'AC repair' }],
+    openHours: open,
+  };
+
+  it('goes live with what the business does and its hours saved first, since the page shows them', () => {
+    const plan = planOnboardingPage(business(), answers({ ai: about }));
+    expect(plan.page).toBe('on');
+    expect(plan.openHours).toEqual(open);
+    expect(plan.profile).toMatchObject({
+      description: 'We fix AC in Austin.',
+      services: [{ name: 'AC repair' }],
+      hours: 'Mon–Fri 7:00 AM–6:00 PM',
+    });
+    expect(plan.changes).toEqual([
+      'Puts your page live',
+      'Open hours: Mon–Fri 7:00 AM–6:00 PM',
+      'Business profile: what you do, services and hours updated',
+    ]);
+  });
+
+  it('leaves the tone and whether prices are told for Save', () => {
+    const state = business();
+    const plan = planOnboardingPage(state, answers({ ai: { ...about, allowPrices: true } }));
+    expect(plan.profile?.allowPrices).toBe(state.profile.allowPrices);
+    expect(plan.profile?.tone).toBe(state.profile.tone);
+  });
+
+  it('changes nothing for a page that’s on with the same answers, or a business with a website', () => {
+    const a = answers({ ai: about });
+    const first = planOnboardingPage(business(), a);
+    const live = business({
+      page: { slug: 'lonestar' },
+      openHours: first.openHours,
+      profile: first.profile!,
+    });
+    expect(planOnboardingPage(live, a)).toEqual({
+      page: null,
+      openHours: null,
+      profile: null,
+      changes: [],
+    });
+    const site = planOnboardingPage(
+      business({ website: 'https://lonestarhvac.com' }),
+      answers({ ai: about }),
+    );
+    expect(site).toEqual({ page: null, openHours: null, profile: null, changes: [] });
+  });
+
+  it('turns the page off on Not now, and saves nothing else', () => {
+    expect(
+      planOnboardingPage(
+        business({ page: { slug: 'lonestar' } }),
+        answers({ usePage: false, ai: about }),
+      ),
+    ).toEqual({ page: 'off', openHours: null, profile: null, changes: ['Turns off your page'] });
+    expect(planOnboardingPage(business(), answers({ usePage: false, ai: about }))).toEqual({
+      page: null,
+      openHours: null,
+      profile: null,
+      changes: [],
+    });
   });
 });
 
@@ -566,6 +658,12 @@ describe('the summary', () => {
     expect(lines).toContain('You’ll get a toll-free number, approved faster.');
     expect(lines).toContain('Connect Stripe to take payments.');
     expect(lines[0]).toBe('Bella: Hair salon, on Central time.');
+    expect(lines.some((l) => l.includes('page is live'))).toBe(false);
+  });
+
+  it('says when the simple page is live', () => {
+    const lines = onboardingSetupSummary(business({ page: { slug: 'lonestar' } }), answers());
+    expect(lines).toContain('Your page is live, made from your answers.');
   });
 });
 
@@ -573,7 +671,7 @@ describe('the screens’ behaviour', () => {
   it('open after the furthest screen finished', () => {
     const got = (reached: (typeof ONBOARDING_SETUP_SCREENS)[number] | null, finished = false) =>
       onboardingSetupFirstScreen({
-        state: { website: null, chat: null },
+        state: { website: null, page: null, chat: null },
         answers: answers(),
         reached,
         finished: finished ? { at: '2026-10-06T00:00:00.000Z', by: DALE } : null,
@@ -587,7 +685,7 @@ describe('the screens’ behaviour', () => {
 
   it('open on the screen a link asks for, never past where they would open', () => {
     const got = (reached: (typeof ONBOARDING_SETUP_SCREENS)[number] | null) => ({
-      state: { website: null, chat: null },
+      state: { website: null, page: null, chat: null },
       answers: answers(),
       reached,
       finished: null,

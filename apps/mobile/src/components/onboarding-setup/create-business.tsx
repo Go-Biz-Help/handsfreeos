@@ -31,7 +31,11 @@ import { SetupFrame } from './frame';
 /** Today's picks: what the first screen keeps besides the business itself. */
 const STARTING = OnboardingSetupAnswers.parse({});
 /** Where the first screen sits before anything decides which screens follow. */
-const PROGRESS = onboardingSetupProgress('business', STARTING, { website: false, chat: false });
+const PROGRESS = onboardingSetupProgress('business', STARTING, {
+  website: false,
+  page: false,
+  chat: false,
+});
 
 /**
  * "Your business" before there is one, on the phone (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8):

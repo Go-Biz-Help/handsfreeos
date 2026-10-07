@@ -30,6 +30,8 @@ const PUBLIC_PREFIXES = [
   '/embed/',
   // An add-on's public pages: a listing's page, an open house's sign-in.
   '/a/',
+  // The business's privacy policy and terms, which its simple page and its agreement boxes link to.
+  '/legal/',
 ] as const;
 
 /** A single name with nothing else in it: `/quote`, not `/quote/thanks`. */

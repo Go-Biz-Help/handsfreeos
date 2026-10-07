@@ -116,6 +116,21 @@ export function AiQuickSetup({
   const facts = aiSetupFlowFactsOf(state);
   const steps = aiSetupSteps(answers, facts);
   const name = answers.name.trim() || 'Ava';
+  /** Where customers' pages open: the simple page's address, which the chat goes on when there's no website. */
+  const [publicOrigin, setPublicOrigin] = React.useState<string | null>(null);
+  const hasPage = !!state.page;
+  React.useEffect(() => {
+    if (!hasPage) return;
+    let cancelled = false;
+    void calls.chatOrigin().then((o) => {
+      if (!cancelled) setPublicOrigin(o);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPage, calls]);
+  const pageUrl =
+    state.page && !state.website && publicOrigin ? `${publicOrigin}/book/${state.page.slug}` : null;
   // While nobody picked, it follows the kind of business on the first screen.
   const startFrom =
     got.templates.length && !got.state.teammate
@@ -277,6 +292,8 @@ export function AiQuickSetup({
       result = await calls.finish({
         answers: clean,
         baseRevision: state.teammate?.revision ?? null,
+        // The chat goes on the simple page when there's no website: the page's address is the chat's site.
+        ...(state.page ? { pageOrigin: publicOrigin ?? (await calls.chatOrigin()) } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -377,9 +394,9 @@ export function AiQuickSetup({
           ) : null}
           <View className="gap-1.5" testID={`ai-setup-step-${confirming ? 'confirm' : step}`}>
             <Text variant="heading">
-              {confirming ? AI_SETUP_WORDS.willChange : aiSetupStepTitle(step, name)}
+              {confirming ? AI_SETUP_WORDS.willChange : aiSetupStepTitle(step, name, facts)}
             </Text>
-            {confirming ? null : <Text variant="lead">{aiSetupStepHint(step, name)}</Text>}
+            {confirming ? null : <Text variant="lead">{aiSetupStepHint(step, name, facts)}</Text>}
           </View>
 
           {plan ? (
@@ -407,6 +424,7 @@ export function AiQuickSetup({
                 }}
                 notes={finished?.notes ?? []}
                 chat={finished?.chat ?? null}
+                pageUrl={pageUrl}
                 calls={calls}
                 onDone={done}
               />

@@ -67,12 +67,14 @@ import {
   type OnboardingSetupGot,
 } from '@/lib/onboarding-setup/data';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { BusinessScreen } from './business';
 import { SetupCard } from './frame';
 import {
   AboutScreen,
   aiProblemsOf,
   BookingScreen,
+  PageScreen,
   CustomersScreen,
   DoneScreen,
   GoalScreen,
@@ -149,6 +151,10 @@ export function OnboardingQuickSetup({
   latest.current = { answers, state };
 
   const facts = aiSetupFlowFactsOf(state);
+  const pageOrigin = usePublicOrigin(data.brandedOrigin);
+  /** The business's simple page, which the chat goes on when there's no website to paste it into. */
+  const pageUrl =
+    state.page && !state.website && pageOrigin ? `${pageOrigin}/book/${state.page.slug}` : null;
   const name = answers.ai.name.trim() || 'Ava';
 
   /** Takes in what the server says now: all of it after the first screen, else what isn't answered on screen. */
@@ -322,6 +328,8 @@ export function OnboardingQuickSetup({
           setInvites(['']);
           void refresh();
         }
+        // The page on or off decides whether Ava's chat can go on it, a few screens on.
+        if (screen === 'page') await refresh();
         const after = onboardingSetupNextScreen(screen, clean, facts);
         if (after) go(after);
       }
@@ -339,6 +347,8 @@ export function OnboardingQuickSetup({
       result = await actions.finish({
         answers: clean,
         baseRevision: state.teammate?.revision ?? null,
+        // A chat on the simple page goes on the address the page is shown at.
+        ...(state.page && pageOrigin ? { pageOrigin } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -442,6 +452,8 @@ export function OnboardingQuickSetup({
             onChanged={() => void refresh()}
           />
         );
+      case 'page':
+        return <PageScreen {...own} />;
       case 'customers':
         return (
           <>
@@ -469,6 +481,7 @@ export function OnboardingQuickSetup({
             notes={finished?.notes ?? []}
             chat={finished?.chat ?? null}
             brandedOrigin={data.brandedOrigin}
+            pageUrl={pageUrl}
             settingsHref={`${home}/ai-team`}
             actions={ai}
             onDone={(on) => void tried(on)}
@@ -549,8 +562,8 @@ export function OnboardingQuickSetup({
     <SetupCard
       screen={confirming ? 'confirm' : screen}
       counter={`${W.position(progress.at, progress.of)} · ${ONBOARDING_SETUP_STOP_NAMES[progress.stop]}`}
-      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name)}
-      hint={confirming ? '' : onboardingSetupHint(screen, name)}
+      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name, facts)}
+      hint={confirming ? '' : onboardingSetupHint(screen, name, facts)}
       banner={
         carrying ? (
           <div

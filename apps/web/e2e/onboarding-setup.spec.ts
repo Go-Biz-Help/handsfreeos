@@ -11,11 +11,11 @@ const LOGO_SVG =
  * Quick setup for a new business on the web (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §7): straight
  * after signing up, one question per screen with the summary beside it. The first screen makes the business, its
  * address setting the time zone. The goal invites the team. "About your business" fills in the AI part too. The logo
- * is uploaded and its colour comes with it, and a business whose customers book a time has its booking page made,
- * with that logo and colour, as that screen opens. The number stop is Settings → Texting & calls, looking near the
- * address. Finish later goes Home, whose card carries on where they left off; Stripe's sign-in comes straight back.
- * The AI teammate's screens follow, "Stay in the loop" saves it all, the test chat turns it on with training wheels,
- * and the last screen says what already works. Home has nothing left to carry on.
+ * is uploaded and its colour comes with it. With no website, the simple page is drawn from the answers and goes
+ * live at the booking page's address. A business whose customers book a time has its booking page made, with that
+ * logo and colour, as that screen opens. The number stop is Settings → Texting & calls, looking near the address. Finish later goes Home, whose card carries on where they left off; Stripe's sign-in comes straight back.
+ * The AI teammate's screens follow, "Stay in the loop" saves it all with the chat on the page, the test chat turns it
+ * on with training wheels, and the last screen says what already works. Home has nothing left to carry on.
  */
 test('a new owner sets up the business one question at a time, carries on later, and finishes', async ({
   page,
@@ -31,7 +31,7 @@ test('a new owner sets up the business one question at a time, carries on later,
 
   // 1. Your business: what's missing is said where it's missing.
   await at('business');
-  await expect(counter).toHaveText('2 of 13 · Your business');
+  await expect(counter).toHaveText('2 of 14 · Your business');
   await next.click();
   await expect(setup).toContainText('Name your business.');
   await expect(setup).toContainText('Pick what you do');
@@ -56,7 +56,7 @@ test('a new owner sets up the business one question at a time, carries on later,
   await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\?at=goal$/);
   const workspaceId = /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
   await at('goal');
-  await expect(counter).toHaveText('3 of 14 · Your goal');
+  await expect(counter).toHaveText('3 of 15 · Your goal');
   await expect(page.getByTestId('onboarding-setup-carry-on')).toHaveCount(0);
   await page.getByTestId('setup-goal-booked').click();
   // Anyone else gets an invitation from here.
@@ -92,7 +92,7 @@ test('a new owner sets up the business one question at a time, carries on later,
   // 5. The logo and colour: with no website to find it on, an upload, which the worker makes ready; its colour
   // comes with it until another is picked. Each is kept as it changes.
   await at('look');
-  await expect(counter).toHaveText('6 of 14 · Your logo and colour');
+  await expect(counter).toHaveText('6 of 15 · Your logo and colour');
   await expect(page.getByTestId('look-no-logo')).toContainText('Your initials stand in');
   await page.getByTestId('look-file').setInputFiles({
     name: 'bella-logo.svg',
@@ -111,7 +111,29 @@ test('a new owner sets up the business one question at a time, carries on later,
   );
   await next.click();
 
-  // 6. Where customers are: a spreadsheet opens the import right here; "Nowhere yet" adds them as they come.
+  // 6. With no website, a simple page made from the answers, as customers will see it. Not now says why it matters.
+  await at('page');
+  await expect(counter).toHaveText('7 of 15 · Your page');
+  await expect(page.getByTestId('ai-setup-use-page-use')).toHaveAttribute('aria-checked', 'true');
+  const preview = page.getByTestId('setup-page-preview');
+  await expect(preview.getByRole('heading', { level: 1 })).toHaveText('Bella Hair Studio');
+  await expect(preview).toContainText('Cuts, color and styling for everyone in Boulder.');
+  await expect(preview).toContainText('Boulder, Colorado');
+  await expect(preview.getByTestId('business-page-services')).toContainText('Haircut');
+  await expect(preview.getByTestId('business-page-hours')).toBeVisible();
+  await expect(preview).toContainText(
+    'Book, Call, Text and Chat switch on as you set them up next.',
+  );
+  await page.getByTestId('ai-setup-use-page-not').click();
+  await expect(setup).toContainText(
+    'The phone carriers want a website before they approve texting.',
+  );
+  await expect(preview).toHaveCount(0);
+  await page.getByTestId('ai-setup-use-page-use').click();
+  await next.click();
+  await expect(summary).toContainText('Your page is live, made from your answers.');
+
+  // 7. Where customers are: a spreadsheet opens the import right here; "Nowhere yet" adds them as they come.
   await at('customers');
   await page.getByTestId('setup-customers-sheet').click();
   await expect(page.getByTestId('import-step-upload')).toBeVisible();
@@ -119,7 +141,7 @@ test('a new owner sets up the business one question at a time, carries on later,
   await expect(page.getByTestId('import-step-upload')).toHaveCount(0);
   await next.click();
 
-  // 7. The booking page, made from the service and the hours as the screen opens.
+  // 8. The booking page, made from the service and the hours as the screen opens.
   await at('booking');
   await expect(page.getByTestId('setup-booking-changes')).toBeVisible({ timeout: 30_000 });
   await expect(
@@ -141,10 +163,19 @@ test('a new owner sets up the business one question at a time, carries on later,
     'style',
     /--accent:\s*#0e7490/,
   );
+  // Its address is the simple page now: what the salon does, with Book going straight to the one calendar.
+  await expect(bookingPage.getByTestId('business-page')).toContainText(
+    'Cuts, color and styling for everyone in Boulder.',
+  );
+  await expect(bookingPage.getByTestId('business-page-book')).toHaveAttribute(
+    'href',
+    /\/book\/[a-z0-9-]+\/[a-z0-9-]+$/,
+  );
+  await expect(bookingPage.getByText('Made with HandsFreeOS')).toBeVisible();
   await bookingPage.close();
   await next.click();
 
-  // 8. The business number: with an EIN it's a local one, and numbers near the address show straight away.
+  // 9. The business number: with an EIN it's a local one, and numbers near the address show straight away.
   await at('number');
   await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}\\?at=number$`));
   await page.getByTestId('setup-ein-yes').click();
@@ -165,7 +196,7 @@ test('a new owner sets up the business one question at a time, carries on later,
     'Carry on where you left off',
   );
 
-  // 9. Payments: Stripe's sign-in comes straight back here, connected; and the review link.
+  // 10. Payments: Stripe's sign-in comes straight back here, connected; and the review link.
   await page.getByTestId('setup-pay-stripe').click();
   await page.getByTestId('setup-pay-connect').click();
   await page.waitForURL(/\/oauth\/fake\/payments\/stripe\/authorize/);
@@ -180,28 +211,38 @@ test('a new owner sets up the business one question at a time, carries on later,
   await page.getByTestId('setup-review-link').fill('https://g.page/r/bella-hair-studio/review');
   await next.click();
 
-  // 10. The AI teammate's screens, as the AI quick setup asks them: its name, and the rest as picked.
+  // 11. The AI teammate's screens, as the AI quick setup asks them: its name, and the rest as picked. With the
+  // page live, its chat goes on the page.
   await at('jobs');
-  await expect(counter).toHaveText('11 of 14 · Your AI teammate');
+  await expect(counter).toHaveText('12 of 15 · Your AI teammate');
   for (let i = 0; i < 8 && (await setup.getAttribute('data-screen')) !== 'loop'; i++) {
     const screen = (await setup.getAttribute('data-screen'))!;
     if (screen === 'meet') await page.getByTestId('ai-setup-name').fill('Max');
+    if (screen === 'chat') await expect(setup).toContainText('Add Max to your page?');
     await next.click();
     await expect(setup).not.toHaveAttribute('data-screen', screen);
   }
 
-  // 11. Stay in the loop: Save sets it all up, and the test chat comes next.
+  // 12. Stay in the loop: Save sets it all up, and the test chat comes next. The chat is on the page already, so
+  // there's nothing to paste.
   await at('loop');
   await expect(next).toHaveText('Save');
   await next.click();
   await at('try');
   await expect(page.getByTestId('ai-setup-try')).toBeVisible({ timeout: 60_000 });
+  const onPage = page.getByTestId('ai-setup-chat-on-page');
+  await expect(onPage).toContainText('Max answers the chat on your page');
+  await expect(onPage.getByRole('link', { name: 'Open your page' })).toHaveAttribute(
+    'href',
+    /\/book\/[a-z0-9-]+$/,
+  );
+  await expect(page.getByTestId('ai-setup-chat-code')).toHaveCount(0);
   await page.getByTestId('ai-setup-turn-on').click();
   await expect(
     page.getByText('Turned on. Max starts with training wheels: every message waits for your OK.'),
   ).toBeVisible();
 
-  // 12. What already works, then Home, with nothing left to carry on.
+  // 13. What already works, then Home, with nothing left to carry on.
   await at('done');
   await expect(page.getByTestId('onboarding-setup-done')).toContainText('Bella Hair Studio');
   await page.getByTestId('onboarding-setup-home').click();

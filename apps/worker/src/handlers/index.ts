@@ -8,6 +8,7 @@ import { onPortalReplySent } from '../portal/replies';
 import { onPortalAccessGiven } from '../portal/invite';
 import { onAllClear, onCheckedIn, onContactSaved, onHelp } from '../safety/ladder';
 import { onChatReplySent } from '../chat/followup';
+import { onDomainServing } from '../chat/own-domain';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
 import { onAiSetupReadRequested } from '../ai-setup/read-site';
@@ -196,6 +197,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,
     'branded_domain.removed': onBrandedDomainRemoved,
+    // Once it's serving, a chat on the business's pages here goes on its domain too (chat/own-domain.ts).
+    'branded_domain.status_changed': onDomainServing,
     // Automations' pipeline rows (automations/pipeline.ts): someone got back to a customer, so their deal may move
     // on; and someone really talking with the business may need a deal of their own.
     // …and "Promises not kept" reads what a person on the team wrote for one (automations/promises.ts).

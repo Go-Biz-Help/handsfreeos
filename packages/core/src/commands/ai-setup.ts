@@ -472,16 +472,20 @@ export const aiSetupFinish = defineCommand({
         postalCodes: [...plan.booking.zipCodes],
       });
 
-    // The website chat, answered by the teammate.
+    // The website chat, answered by the teammate: on the website, else on the simple page where the app shows it.
     let chat: { widgetId: string; publicKey: string } | null = null;
-    if (plan.chat && state.website) {
+    const site = state.website ?? (state.page ? (input.pageOrigin ?? null) : null);
+    if (plan.chat && site) {
       const made = await executeCommandWithin(ctx, chatWidgetCreate, {
         workspaceId: ws,
-        allowedOrigins: [state.website],
+        allowedOrigins: [site],
         teammateId: state.teammate?.id ?? null,
       });
       chat = { widgetId: made.output.widgetId, publicKey: made.output.publicKey };
-    }
+    } else if (plan.chat)
+      notes.push(
+        'Your page’s chat wasn’t added this time. Add it in Settings → Website chat, with your page’s address as the website.',
+      );
 
     // The teammate, with what was just made.
     const next = teammateFromAiSetup(state, answers, {

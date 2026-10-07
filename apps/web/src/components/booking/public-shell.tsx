@@ -70,11 +70,14 @@ export function Byline({
 export function PublicFrame({
   business,
   byline,
+  footer,
   children,
 }: {
   business: PublicBusiness | null;
   /** The line at the bottom, when the page isn't a booking page. */
   byline?: string;
+  /** The bottom line drawn some other way, in place of `byline`. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const look = brandLook(business?.look?.color);
@@ -86,9 +89,7 @@ export function PublicFrame({
     >
       {business ? <PublicHeader business={business} /> : null}
       <div className="flex flex-1 flex-col">{children}</div>
-      <footer className="px-4 pb-5 pt-3">
-        <Byline words={byline} />
-      </footer>
+      <footer className="px-4 pb-5 pt-3">{footer ?? <Byline words={byline} />}</footer>
     </div>
   );
 }

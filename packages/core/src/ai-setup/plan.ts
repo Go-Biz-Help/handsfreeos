@@ -163,7 +163,7 @@ export function startingAiSetupAnswers(
             ? read.questions
             : setupFor(state.industry).questions,
     ),
-    chat: !!state.website && !state.chat,
+    chat: (!!state.website || !!state.page) && !state.chat,
   };
 }
 
@@ -279,6 +279,16 @@ export function websiteHost(website: string): string {
   }
 }
 
+/** Where a new website chat goes: the website's host, else "your page" (the simple page). */
+export const aiSetupChatPlace = (state: Pick<AiSetupState, 'website'>): string =>
+  state.website ? websiteHost(state.website) : 'your page';
+
+/** "Adds a website chat for lonestarhvac.com", or "Adds a chat to your page". */
+export const aiSetupChatLine = (state: Pick<AiSetupState, 'website'>): string =>
+  state.website
+    ? `Adds a website chat for ${websiteHost(state.website)}`
+    : 'Adds a chat to your page';
+
 const PROFILE_FIELD_WORDS: Readonly<Partial<Record<keyof KnowledgeProfile, string>>> = {
   description: 'what you do',
   services: 'services',
@@ -345,23 +355,38 @@ export interface AiSetupPlan {
   readonly changes: readonly string[];
 }
 
-/** What Save does with these answers. */
-export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSetupPlan {
-  const lines: string[] = [];
+/** What "About your business" and "When are you open?" save: the open hours, and those parts of the profile. */
+export interface AiSetupAboutPlan {
+  /** Settings → Workspace's open hours; null when they don't change. */
+  readonly openHours: WeeklyHours | null;
+  /** Knowledge → Business profile with what you do, your services, where you work and your hours; null when same. */
+  readonly profile: KnowledgeProfile | null;
+  /** What will change, one line each. */
+  readonly changes: readonly string[];
+}
 
-  // Open hours, asked once for Settings and Knowledge.
-  const hoursChanged = hoursKey(answers.openHours) !== hoursKey(state.openHours);
-  const openHours = hoursChanged ? answers.openHours : null;
-  if (openHours)
-    lines.push(
-      state.openHours
-        ? `Open hours: ${formatHours(state.openHours)} → ${formatHours(openHours)}`
-        : `Open hours: ${formatHours(openHours)}`,
-    );
+/** The open hours as answered, when they change, and what will change in words. */
+function openHoursChange(state: Pick<AiSetupState, 'openHours'>, answers: AiSetupAnswers) {
+  const openHours =
+    hoursKey(answers.openHours) !== hoursKey(state.openHours) ? answers.openHours : null;
+  const lines = openHours
+    ? [
+        state.openHours
+          ? `Open hours: ${formatHours(state.openHours)} → ${formatHours(openHours)}`
+          : `Open hours: ${formatHours(openHours)}`,
+      ]
+    : [];
+  return { openHours, lines };
+}
 
-  // The business profile.
+/** The profile with what "About your business" and "When are you open?" say; the rest of it as it is. */
+function aboutProfile(
+  state: Pick<AiSetupState, 'profile'>,
+  answers: AiSetupAnswers,
+  hoursChanged: boolean,
+): KnowledgeProfile {
   const priceOf = new Map(state.profile.services.map((s) => [nameKey(s.name), s.price]));
-  const nextProfile: KnowledgeProfile = {
+  return {
     ...state.profile,
     description: answers.description,
     // A price said in the setup, else the one the profile has for that name.
@@ -375,18 +400,57 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
       answers.openHours.length && (hoursChanged || !state.profile.hours.trim())
         ? formatHours(answers.openHours)
         : state.profile.hours,
+  };
+}
+
+/** "Business profile: what you do and services updated", for the parts of the profile that change. */
+function profileLines(before: KnowledgeProfile, after: KnowledgeProfile): string[] {
+  const lines: string[] = [];
+  const fields = (Object.keys(PROFILE_FIELD_WORDS) as (keyof KnowledgeProfile)[])
+    .filter((k) => !same(before[k], after[k]))
+    .map((k) => PROFILE_FIELD_WORDS[k]!);
+  if (fields.length) lines.push(`Business profile: ${joinAnd(fields)} updated`);
+  if (before.allowPrices !== after.allowPrices)
+    lines.push(`Tells customers your prices: ${after.allowPrices ? 'off → on' : 'on → off'}`);
+  return lines;
+}
+
+/**
+ * What "About your business" and "When are you open?" save on their own: the open hours, and what you do, your
+ * services, where you work and your hours in the profile. Save does it with everything else; onboarding's simple
+ * page does it as the page goes live, so the page shows them.
+ */
+export function planAiSetupAbout(
+  state: Pick<AiSetupState, 'openHours' | 'profile'>,
+  answers: AiSetupAnswers,
+): AiSetupAboutPlan {
+  const hours = openHoursChange(state, answers);
+  const next = aboutProfile(state, answers, !!hours.openHours);
+  const profile = same(next, state.profile) ? null : next;
+  return {
+    openHours: hours.openHours,
+    profile,
+    changes: [...hours.lines, ...(profile ? profileLines(state.profile, profile) : [])],
+  };
+}
+
+/** What Save does with these answers. */
+export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSetupPlan {
+  const lines: string[] = [];
+
+  // Open hours, asked once for Settings and Knowledge.
+  const hours = openHoursChange(state, answers);
+  const openHours = hours.openHours;
+  lines.push(...hours.lines);
+
+  // The business profile.
+  const nextProfile: KnowledgeProfile = {
+    ...aboutProfile(state, answers, !!openHours),
     tone: answers.tone === 'keep' ? state.profile.tone : AI_SETUP_TONE_TEXTS[answers.tone],
     allowPrices: answers.allowPrices,
   };
   const profile = same(nextProfile, state.profile) ? null : nextProfile;
-  if (profile) {
-    const fields = (Object.keys(PROFILE_FIELD_WORDS) as (keyof KnowledgeProfile)[])
-      .filter((k) => !same(state.profile[k], profile[k]))
-      .map((k) => PROFILE_FIELD_WORDS[k]!);
-    if (fields.length) lines.push(`Business profile: ${joinAnd(fields)} updated`);
-    if (state.profile.allowPrices !== profile.allowPrices)
-      lines.push(`Tells customers your prices: ${profile.allowPrices ? 'off → on' : 'on → off'}`);
-  }
+  if (profile) lines.push(...profileLines(state.profile, profile));
 
   // Quick facts. A fact a person rewrote stays theirs.
   const create: AiSetupFactWrite[] = [];
@@ -461,9 +525,9 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
       `Checks ZIP codes before booking: adds a service area with ${count(zipCodes.length, 'ZIP code', 'ZIP codes')}`,
     );
 
-  // The website chat.
-  const chat = answers.chat && !!state.website && !state.chat;
-  if (chat && state.website) lines.push(`Adds a website chat for ${websiteHost(state.website)}`);
+  // The website chat, on the website or else the simple page.
+  const chat = answers.chat && (!!state.website || !!state.page) && !state.chat;
+  if (chat) lines.push(aiSetupChatLine(state));
 
   // The teammate.
   const teammate = teammateFromAiSetup(state, answers, {
@@ -487,9 +551,7 @@ export function planAiSetup(state: AiSetupState, answers: AiSetupAnswers): AiSet
       ],
       chatWidgets: [
         ...(state.chat ? [state.chat] : []),
-        ...(chat && state.website
-          ? [{ id: AI_SETUP_NEW_CHAT, name: websiteHost(state.website) }]
-          : []),
+        ...(chat ? [{ id: AI_SETUP_NEW_CHAT, name: aiSetupChatPlace(state) }] : []),
       ],
       ...(state.emailAddress ? { emailAddresses: [state.emailAddress] } : {}),
     };

@@ -9,7 +9,7 @@ import {
   OnboardingSetupMark,
 } from '../onboarding-setup/answers';
 import { OnboardingSetupStateOut } from '../onboarding-setup/state';
-import { AiSetupFinishOutput } from './ai-setup';
+import { AiSetupFinishOutput, pageOrigin } from './ai-setup';
 import { displayName, email, industry, timezone, uuid } from './common';
 
 const screen = z.enum(ONBOARDING_SETUP_SCREENS);
@@ -80,6 +80,7 @@ export const OnboardingSetupFinishInput = z.object({
    * settings in between is a revision_conflict.
    */
   baseRevision: z.int().min(1).nullable(),
+  pageOrigin,
 });
 export const OnboardingSetupFinishOutput = AiSetupFinishOutput.extend({
   /** Everything that changed, the AI part's and the setup's own, one line each. */

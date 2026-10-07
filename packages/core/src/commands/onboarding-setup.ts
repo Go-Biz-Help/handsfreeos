@@ -4,7 +4,8 @@
  *
  * The answers live in `workspaces.settings.onboardingSetup`, so a person can stop on the computer and carry on from
  * the phone. Leaving a screen saves what later screens or other people need straight away: the business itself (and
- * the AI starts reading its website), invitations, Getting started's answers, the booking page, and the review link.
+ * the AI starts reading its website), invitations, Getting started's answers, the simple page, the booking page, and
+ * the review link.
  * "Stay in the loop" saves the rest (`onboarding_setup.finish`): the AI quick setup's own Save, the price list and
  * the person's own hours.
  *
@@ -36,6 +37,7 @@ import {
   myHoursChange,
   myHoursFrom,
   planOnboardingBooking,
+  planOnboardingPage,
   planPriceList,
   priceListChanges,
 } from '../onboarding-setup/plan';
@@ -49,8 +51,10 @@ import {
 import { linkProblem } from '../schemas/workspace';
 import { aiSetupFinish, saveBusiness } from './ai-setup';
 import { calendarCreate, calendarSetStatus } from './calendar';
-import { bookingSiteUpdate, serviceCreate } from './calendar-catalog';
+import { bookingSiteSetPage, bookingSiteUpdate, serviceCreate } from './calendar-catalog';
+import { chatWidgetUpdate } from './chat-widget';
 import { scheduleSet } from './calendar-hours';
+import { knowledgeProfileUpdate } from './knowledge';
 import { membershipInvite } from './membership.invite';
 import { productCreate, productUpdate } from './money-catalog';
 import { onboardingAsYouGo, onboardingSaveAnswers } from './onboarding';
@@ -216,6 +220,32 @@ async function makeBookingPage(ctx: CommandContext, answers: OnboardingSetupAnsw
   out.changes.push(...plan.changes);
 }
 
+/**
+ * "A simple page for your business": Use this page puts it live, with the open hours and what "About your business"
+ * said saved first, so the page shows them when the carriers open it on the number stop. Not now turns it off.
+ */
+async function savePage(ctx: CommandContext, answers: OnboardingSetupAnswers, out: Done) {
+  const ws = ctx.scope.workspaceId!;
+  const state = await loadOnboardingSetupState(ctx.tx, ws, requireHuman(ctx).userId);
+  const plan = planOnboardingPage(state, answers);
+  if (plan.openHours)
+    await executeCommandWithin(ctx, workspaceUpdate, {
+      workspaceId: ws,
+      settings: { openHours: plan.openHours },
+    });
+  if (plan.profile)
+    await executeCommandWithin(ctx, knowledgeProfileUpdate, {
+      workspaceId: ws,
+      profile: plan.profile,
+    });
+  if (plan.page)
+    await executeCommandWithin(ctx, bookingSiteSetPage, {
+      workspaceId: ws,
+      on: plan.page === 'on',
+    });
+  out.changes.push(...plan.changes);
+}
+
 /** "Your Google review link", which the thank-you text sends: saved as typed, or taken away when it's cleared. */
 async function saveReviewLink(
   ctx: CommandContext,
@@ -247,10 +277,38 @@ async function saveReviewLink(
   );
 }
 
+/**
+ * A website chat made during this setup that nobody answers yet (the carriers' agreement box on the number stop
+ * makes one, on the website or the simple page) is answered by the teammate this setup just set up, as a chat Save
+ * makes is. A chat the business had before, or a teammate it had, stays as it is.
+ */
+async function answerSetupChat(
+  ctx: CommandContext,
+  since: OnboardingSetupRecord['started'],
+  hadTeammate: boolean,
+  teammateId: string,
+): Promise<boolean> {
+  if (hadTeammate || !since) return false;
+  const [widget] = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select id from app.chat_widgets
+        where workspace_id = ${ctx.scope.workspaceId!} and teammate_id is null and paused_at is null
+          and created_at >= ${since.at}
+        order by created_at limit 1`,
+  );
+  if (!widget) return false;
+  await executeCommandWithin(ctx, chatWidgetUpdate, {
+    workspaceId: ctx.scope.workspaceId!,
+    widgetId: widget.id,
+    teammateId,
+  });
+  return true;
+}
+
 export const onboardingSetupSave = defineCommand({
   name: 'onboarding_setup.save',
   description:
-    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.',
+    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.',
   risk: 2,
   input: OnboardingSetupSaveInput,
   output: OnboardingSetupSaveOutput,
@@ -294,6 +352,9 @@ export const onboardingSetupSave = defineCommand({
           workspaceId: ws,
           asYouGo: answers.customersIn === 'none',
         });
+        break;
+      case 'page':
+        await savePage(ctx, answers, out);
         break;
       case 'booking':
         if (answers.booksTime) await makeBookingPage(ctx, answers, out);
@@ -359,8 +420,11 @@ export const onboardingSetupFinish = defineCommand({
       workspaceId: ws,
       answers: answers.ai,
       baseRevision: input.baseRevision,
+      ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
     });
     const lines = [...ai.output.changes];
+    if (await answerSetupChat(ctx, record.started, !!state.teammate, ai.output.teammateId))
+      lines.push(`${answers.ai.name.trim() || 'Ava'} answers your website chat`);
 
     // The price list, by name: read again, since the AI part may have added services to price.
     const priceList = planPriceList(await loadOnboardingSetupState(ctx.tx, ws, me), answers);

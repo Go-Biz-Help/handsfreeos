@@ -54,6 +54,8 @@ export function onboardingSetupActions(workspaceId: string) {
     finish: async (input: {
       answers: OnboardingSetupAnswers;
       baseRevision: number | null;
+      /** Where the simple page is shown, for a chat on it. */
+      pageOrigin?: string;
     }): Promise<OnboardingSetupFinished> =>
       OnboardingSetupFinishOutput.parse(
         unwrap(
@@ -62,6 +64,7 @@ export function onboardingSetupActions(workspaceId: string) {
               workspaceId,
               answers: input.answers as unknown as OnboardingSetupFinishBody['answers'],
               baseRevision: input.baseRevision,
+              ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
             },
           }),
         ),

@@ -177,11 +177,16 @@ export const AI_SETUP_STEP_FIELDS: Readonly<
 export interface AiSetupFlowFacts {
   /** The business has a website. */
   readonly website: boolean;
+  /** Its simple page is on (HandsFreeOS's page for a business with no website), where a chat can go too. */
+  readonly page: boolean;
   /** It has a website chat already. */
   readonly chat: boolean;
 }
 
-/** Whether a screen shows: qualifying questions only when Ava asks them, the chat only for a website without one. */
+/**
+ * Whether a screen shows: qualifying questions only when Ava asks them, the chat only for a website (or the simple
+ * page) without one.
+ */
 export function aiSetupStepApplies(
   step: AiSetupStep,
   answers: Pick<AiSetupAnswers, 'jobs'>,
@@ -191,7 +196,7 @@ export function aiSetupStepApplies(
     case 'qualify':
       return answers.jobs.includes('qualify');
     case 'chat':
-      return facts.website && !facts.chat;
+      return (facts.website || facts.page) && !facts.chat;
     default:
       return true;
   }

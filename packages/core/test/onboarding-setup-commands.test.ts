@@ -19,6 +19,7 @@ import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
 import { OnboardingSetupAnswers } from '../src/onboarding-setup/index';
 import {
+  bookingSiteSetPage,
   onboardingSetupFinish,
   onboardingSetupGet,
   onboardingSetupSave,
@@ -410,6 +411,129 @@ describe('onboarding_setup.save', () => {
       () => run(workspaceUpdate, { workspaceId: ws, settings: { onboardingSetup: {} } }, dale),
       'validation',
     );
+  });
+});
+
+describe('the simple page', () => {
+  let shop: string;
+  beforeAll(async () => {
+    shop = (
+      await run(organizationCreate, { businessName: 'Page Plumbing', industry: 'plumbing' }, dale)
+    ).workspaceId;
+  });
+  const about = (answers: OnboardingSetupAnswers) =>
+    OnboardingSetupAnswers.parse({
+      ...answers,
+      ai: {
+        ...answers.ai,
+        description: 'Leaks and drains fixed fast, all over Austin.',
+        services: [{ name: 'Drain cleaning' }, { name: 'Leak repair' }],
+        area: 'Austin and Round Rock',
+        openHours: OPEN,
+      },
+    });
+  const siteOf = async (workspaceId: string) => {
+    const [site] = await rows<{ page: boolean; enabled: boolean; slug: string }>(
+      admin(),
+      sql`select page_enabled as page, enabled, slug::text as slug from app.booking_sites
+          where workspace_id = ${workspaceId}`,
+    );
+    return site;
+  };
+
+  it('goes live for a business with no website, with what it does and its hours saved first', async () => {
+    const { answers } = await get(dale, shop);
+    const a = about(answers);
+    const out = await run(
+      onboardingSetupSave,
+      { workspaceId: shop, screen: 'page', answers: a },
+      dale,
+    );
+    expect(out.changes).toEqual([
+      'Puts your page live',
+      'Open hours: Tue–Sat 10:00 AM–7:00 PM',
+      'Business profile: what you do, services, where you work and hours updated',
+    ]);
+    // The page is the booking site's, made here still not taking bookings.
+    expect(await siteOf(shop)).toMatchObject({ page: true, enabled: false });
+    expect((await settingsOf(shop))['openHours']).toEqual(OPEN);
+    const [profile] = await rows<{ profile: Record<string, unknown> }>(
+      admin(),
+      sql`select profile from app.knowledge_profiles where workspace_id = ${shop}`,
+    );
+    expect(profile!.profile).toMatchObject({
+      description: 'Leaks and drains fixed fast, all over Austin.',
+      services: [{ name: 'Drain cleaning' }, { name: 'Leak repair' }],
+      serviceArea: 'Austin and Round Rock',
+      hours: 'Tue–Sat 10:00 AM–7:00 PM',
+    });
+    expect(await eventCount(shop, 'booking_site.page_set')).toBe(1);
+
+    const r = await get(dale, shop);
+    expect(r.state.page).toEqual({ slug: (await siteOf(shop))!.slug });
+    // With the page on, Ava's chat can go on it, and is picked.
+    expect(r.answers.ai.chat).toBe(true);
+    const again = await run(
+      onboardingSetupSave,
+      { workspaceId: shop, screen: 'page', answers: r.answers },
+      dale,
+    );
+    expect(again.changes).toEqual([]);
+    expect(await eventCount(shop, 'booking_site.page_set')).toBe(1);
+  });
+
+  it('puts the chat on the page at the address it’s shown at, answered by Ava', async () => {
+    const { answers } = await get(dale, shop);
+    const out = await run(
+      onboardingSetupFinish,
+      {
+        workspaceId: shop,
+        answers: { ...answers, ai: { ...answers.ai, chat: true } },
+        baseRevision: null,
+        pageOrigin: 'https://app.handsfreeos.test',
+      },
+      dale,
+    );
+    expect(out.changes).toContain('Adds a chat to your page');
+    const [widget] = await rows<{ origins: string[]; teammate: string | null }>(
+      admin(),
+      sql`select allowed_origins as origins, teammate_id as teammate from app.chat_widgets
+          where workspace_id = ${shop}`,
+    );
+    expect(widget).toEqual({ origins: ['https://app.handsfreeos.test'], teammate: out.teammateId });
+  });
+
+  it('turns off on Not now, and leaves a business with a website alone', async () => {
+    const { answers } = await get(dale, shop);
+    const off = await run(
+      onboardingSetupSave,
+      { workspaceId: shop, screen: 'page', answers: { ...answers, usePage: false } },
+      dale,
+    );
+    expect(off.changes).toEqual(['Turns off your page']);
+    expect(await siteOf(shop)).toMatchObject({ page: false });
+
+    // Bella Salon has a website: the screen isn't for it, and saving it changes nothing.
+    const r = await get(dale, ws);
+    const none = await run(
+      onboardingSetupSave,
+      { workspaceId: ws, screen: 'page', answers: r.answers },
+      dale,
+    );
+    expect(none.changes).toEqual([]);
+    expect((await siteOf(ws))?.page ?? false).toBe(false);
+  });
+
+  it('is turned on and off only by those who manage calendars', async () => {
+    await expectHfos(
+      () => run(bookingSiteSetPage, { workspaceId: ws, on: true }, marco),
+      'forbidden',
+    );
+    const on = await run(bookingSiteSetPage, { workspaceId: shop, on: true }, dale);
+    expect(on).toMatchObject({ page: true, changed: true });
+    expect(await run(bookingSiteSetPage, { workspaceId: shop, on: true }, dale)).toMatchObject({
+      changed: false,
+    });
   });
 });
 
