@@ -10,9 +10,10 @@ a booking page if customers book a time, and its AI teammate on with training wh
 It is built like the AI teammate's quick setup (`HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md`), and the AI
 teammate's part of it is that quick setup's own screens.
 
-> **Status: steps 1 to 4 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
-> and the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
-> `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words). The flow chart is the
+> **Status: steps 1 to 5 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
+> the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
+> `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; and signing up on the web and the
+> phone). The flow chart is the
 > "Onboarding quick setup" artifact; the questions and the owner's answers are `onboarding-setup/questions.md` in the
 > project files.
 
@@ -258,7 +259,13 @@ Each step is its own draft pull request, merged in order.
 3. **Many business types** (built, with the AI quick setup): nineteen kinds for all 116 industries.
 4. **The shared part** (built): the stops, the answers and what each one sets, kept across devices, the summary,
    the words, and `onboarding_setup.get`, `.save` and `.finish`.
-5. **Signing up:** Google, Apple on iPhones and the 6-digit code, on the web and the phone.
+5. **Signing up** (built): Google, Apple on iPhones and the 6-digit code, on the web and the phone. Each button shows
+   once its provider is on in Supabase (`signInProviders`, from Supabase's own settings), so nothing waits on a
+   deploy. The sign-up email carries the code instead of a link, and an unconfirmed account that signs in with its
+   password confirms with a code right there. Someone invited signs up and comes straight back to the invitation. The
+   phone's Google sign-in returns to `handsfreeos://auth/callback`; Apple's name, shared only the first time, is kept
+   on the profile. The steps in Supabase, Google and Apple are in `docs/operations.md` ("Check the Auth settings",
+   "Sign in with Google", "Sign in with Apple").
 6. **The web screens** (§7).
 7. **The phone screens** (§8), creating the business included.
 8. **Logo and colour,** on the booking page, chat, invoices and emails: a new stop after the hours. Needs a database

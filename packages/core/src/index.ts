@@ -52,6 +52,7 @@ export * from './assistant/places-map';
 export * from './assistant/words';
 export * from './account/settings-words';
 export * from './account/view-as-words';
+export * from './account/sign-in';
 // The side menu, as each person arranges it.
 export * from './account/menu';
 export * from './calendar/index';

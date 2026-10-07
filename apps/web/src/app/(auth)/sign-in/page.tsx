@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { OrDivider } from '@/components/auth/divider';
+import { GoogleButton } from '@/components/auth/google-button';
 import { PasskeyButton } from '@/components/auth/passkey-button';
 import { Card } from '@/components/ui/card';
+import { webSignInProviders } from '@/lib/auth/providers';
 import { safeNext } from '@/lib/utils';
 import { SignInForm } from './sign-in-form';
 
@@ -22,6 +24,7 @@ export default async function SignInPage({
   const params = await searchParams;
   const next = safeNext(typeof params.next === 'string' ? params.next : null);
   const error = typeof params.error === 'string' ? params.error : null;
+  const providers = await webSignInProviders();
   return (
     <>
       <Card className="w-[440px] max-w-full rounded-dialog p-9 max-md:p-6">
@@ -59,6 +62,7 @@ export default async function SignInPage({
                 </p>
               ) : null}
               <div className="mt-6 flex flex-col gap-2.5">
+                {providers.google ? <GoogleButton next={next} /> : null}
                 <PasskeyButton next={next} />
               </div>
               <OrDivider />

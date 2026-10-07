@@ -1,6 +1,12 @@
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 
-import { isValidEmail, passwordMessage, sendCodeMessage, verifyCodeMessage } from '../messages';
+import {
+  isValidEmail,
+  passwordMessage,
+  sendCodeMessage,
+  signUpErrorMessage,
+  verifyCodeMessage,
+} from '../messages';
 
 const api = (status: number, code: string) => new AuthApiError('from Supabase Auth', status, code);
 
@@ -12,9 +18,9 @@ describe('sign-in messages', () => {
     expect(isValidEmail('dale')).toBe(false);
   });
 
-  it('says there’s no account, and that accounts start on the web', () => {
+  it('says there’s no account, and to create one', () => {
     expect(sendCodeMessage(api(422, 'otp_disabled'))).toBe(
-      'There’s no HandsFreeOS account for that email. New accounts start on the web.',
+      'There’s no HandsFreeOS account for that email. Check it, or create an account.',
     );
   });
 
@@ -24,6 +30,7 @@ describe('sign-in messages', () => {
       sendCodeMessage(noSignal),
       verifyCodeMessage(noSignal),
       passwordMessage(noSignal),
+      signUpErrorMessage(noSignal),
     ])
       expect(message).toBe('No signal. Try again when you’re back online.');
   });
@@ -33,8 +40,15 @@ describe('sign-in messages', () => {
       'That email and password do not match. Try again, or email yourself a code.',
     );
     expect(passwordMessage(api(400, 'email_not_confirmed'))).toBe(
-      'Confirm your email first. Check your inbox for the link.',
+      'Confirm your email first, with the code we email you.',
     );
+  });
+
+  it('tells a sign-up that the email already has an account, in the web’s words', () => {
+    expect(signUpErrorMessage(api(422, 'user_already_exists'))).toBe(
+      'That email already has an account. Sign in instead.',
+    );
+    expect(signUpErrorMessage(api(422, 'weak_password'))).toMatch(/at least 12 characters/);
   });
 
   it('explains a wrong or old code, and too many codes', () => {

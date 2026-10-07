@@ -1,20 +1,14 @@
 'use client';
+import { isAuthApiError } from '@supabase/supabase-js';
 import { Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { CodeInput } from '@/components/auth/code-input';
+import { CodeStep } from '@/components/auth/code-step';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import {
-  CODE_LENGTH,
-  countdown,
-  isEmail,
-  RESEND_SECONDS,
-  sendCodeMessage,
-  verifyCodeMessage,
-} from '@/lib/auth/code-messages';
+import { isEmail, sendCodeMessage } from '@/lib/auth/code-messages';
 import { keepHandoffFromSignIn } from '@/lib/auth/sign-in-handoff';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
@@ -22,6 +16,9 @@ import { supabaseBrowser } from '@/lib/supabase/client';
  * Signing in with a password, or with a 6-digit code emailed to an existing account (Email me a code). The code
  * step takes the card's place: "Check your email", the code typed or pasted, Send another code once a minute has
  * passed, and back to the password. People who only ever used Google here have the same way into the phone app.
+ *
+ * An account whose email was never confirmed gets a code to confirm it instead of a dead end: the right password
+ * sends one, and typing it signs in.
  */
 export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) {
   const router = useRouter();
@@ -31,7 +28,7 @@ export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) 
   const [codeError, setCodeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
-  const [step, setStep] = useState<'password' | 'code'>('password');
+  const [step, setStep] = useState<'password' | 'code' | 'confirm'>('password');
 
   // Signed out when a provider sign-in came back: keep what it carried, so it finishes after this.
   useEffect(() => keepHandoffFromSignIn(next), [next]);
@@ -49,15 +46,27 @@ export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) 
       email: email.trim(),
       password,
     });
-    if (error) {
-      setBusy(false);
-      setError(
-        /confirm/i.test(error.message)
-          ? 'Confirm your email first. Check your inbox for the link.'
-          : 'That email and password do not match. Try again, or use a passkey.',
-      );
-      return;
-    }
+    if (!error) return signedIn();
+    if (
+      (isAuthApiError(error) && error.code === 'email_not_confirmed') ||
+      /not confirmed/i.test(error.message)
+    )
+      return confirmByCode();
+    setBusy(false);
+    setError('That email and password do not match. Try again, or use a passkey.');
+  }
+
+  /** Only the right password gets an unconfirmed account this far: a code confirms the email and signs in. */
+  async function confirmByCode() {
+    const { error } = await supabaseBrowser().auth.resend({ type: 'signup', email: email.trim() });
+    setBusy(false);
+    // A code sent a moment ago (by signing up) still works, so being told to wait still shows the code step.
+    const waitABit = isAuthApiError(error) && /rate_limit/.test(error.code ?? '');
+    if (error && !waitABit) setError(sendCodeMessage(error));
+    else setStep('confirm');
+  }
+
+  function signedIn() {
     router.replace(next);
     router.refresh();
   }
@@ -82,15 +91,60 @@ export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) 
     setStep('code');
   }
 
+  const toPassword = () => {
+    setPassword('');
+    setStep('password');
+  };
+  const address = email.trim();
+
   if (step === 'code')
     return (
       <CodeStep
-        email={email.trim()}
-        next={next}
-        onPassword={() => {
-          setPassword('');
-          setStep('password');
-        }}
+        inputId="sign-in-code"
+        testId="code-step"
+        lead={(again) => (
+          <>
+            {again ? 'We sent a new 6-digit code to ' : 'We sent a 6-digit code to '}
+            <b className="font-semibold text-text">{address}</b>.
+          </>
+        )}
+        submitLabel="Sign in"
+        verify={(token) =>
+          supabaseBrowser().auth.verifyOtp({ email: address, token, type: 'email' })
+        }
+        resend={() =>
+          supabaseBrowser().auth.signInWithOtp({
+            email: address,
+            options: { shouldCreateUser: false },
+          })
+        }
+        onDone={signedIn}
+        other={{ label: 'Use my password instead', onClick: toPassword }}
+      />
+    );
+
+  if (step === 'confirm')
+    return (
+      <CodeStep
+        title="Confirm your email"
+        inputId="confirm-code"
+        testId="confirm-email"
+        lead={(again) => (
+          <>
+            {again
+              ? 'We sent a new 6-digit code to '
+              : 'Your email isn’t confirmed yet, so we sent a 6-digit code to '}
+            <b className="font-semibold text-text">{address}</b>. Type it here to sign in.
+          </>
+        )}
+        submitLabel="Sign in"
+        verify={(token) =>
+          supabaseBrowser().auth.verifyOtp({ email: address, token, type: 'signup' })
+        }
+        resend={() => supabaseBrowser().auth.resend({ type: 'signup', email: address })}
+        onDone={signedIn}
+        other={{ label: 'Back to sign in', onClick: toPassword }}
+        footnote="The code works once and expires in one hour."
       />
     );
 
@@ -162,127 +216,5 @@ export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) 
         ) : null}
       </div>
     </>
-  );
-}
-
-/** "Check your email": the code from the email, typed or pasted; it signs in as soon as all six digits are in. */
-function CodeStep({
-  email,
-  next,
-  onPassword,
-}: {
-  email: string;
-  next: string;
-  onPassword: () => void;
-}) {
-  const router = useRouter();
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [wait, setWait] = useState(RESEND_SECONDS);
-  const [resending, setResending] = useState(false);
-  const [sentAgain, setSentAgain] = useState(false);
-
-  useEffect(() => {
-    if (wait <= 0) return;
-    const timer = setTimeout(() => setWait((w) => w - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [wait]);
-
-  async function verify(token: string) {
-    if (token.length !== CODE_LENGTH || checking) return;
-    setChecking(true);
-    setError(null);
-    const { error } = await supabaseBrowser().auth.verifyOtp({ email, token, type: 'email' });
-    if (error) {
-      setChecking(false);
-      setError(verifyCodeMessage(error));
-      return;
-    }
-    router.replace(next);
-    router.refresh();
-  }
-
-  async function resend() {
-    setError(null);
-    setResending(true);
-    const { error } = await supabaseBrowser().auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-    setResending(false);
-    if (error) {
-      setError(sendCodeMessage(error));
-      return;
-    }
-    setCode('');
-    setSentAgain(true);
-    setWait(RESEND_SECONDS);
-  }
-
-  return (
-    <div data-testid="code-step">
-      <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.015em]">
-        Check your email
-      </h1>
-      <p className="mt-1.5 text-text-2">
-        {sentAgain ? 'We sent a new 6-digit code to ' : 'We sent a 6-digit code to '}
-        <b className="font-semibold text-text">{email}</b>.
-      </p>
-      <form
-        className="mt-6"
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void verify(code);
-        }}
-      >
-        <CodeInput
-          id="sign-in-code"
-          value={code}
-          invalid={!!error}
-          disabled={checking}
-          describedBy={error ? 'code-error' : undefined}
-          onChange={(value) => {
-            setCode(value);
-            if (error) setError(null);
-            if (value.length === CODE_LENGTH) void verify(value);
-          }}
-        />
-        <FieldError id="code-error">{error}</FieldError>
-        <Button
-          type="submit"
-          size="lg"
-          className="mt-5 w-full"
-          loading={checking}
-          disabled={code.length !== CODE_LENGTH}
-        >
-          Sign in
-        </Button>
-      </form>
-      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
-        <button
-          type="button"
-          onClick={onPassword}
-          className="text-[13px] text-accent-text hover:underline"
-        >
-          Use my password instead
-        </button>
-        {wait > 0 ? (
-          <span className="text-[13px] text-text-3" data-testid="resend-wait">
-            Send another code in {countdown(wait)}
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void resend()}
-            disabled={resending}
-            className="text-[13px] font-medium text-accent-text hover:underline disabled:opacity-50"
-          >
-            Send another code
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

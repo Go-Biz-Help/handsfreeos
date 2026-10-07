@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 
 import { colors, useThemeName } from '@/theme';
 
-/** Signing in: the email first, then a code or a password. No Create an account: new accounts start on the web. */
+/** Signing in (Apple, Google, or the email then a code or a password), and creating an account. */
 export default function AuthLayout() {
   const theme = useThemeName();
   return (

@@ -204,7 +204,7 @@ Still to do:
 
 - Put the two connection strings and the worker's secret key into Fly, and the publishable values into Vercel.
 - Send Auth email through Postmark (custom SMTP).
-- Turn on Sign in with Google. The sign-in and sign-up pages always show **Continue with Google**, and it fails until this is done.
+- Turn on Sign in with Google, and Sign in with Apple for the iPhone app. Each button appears on the sign-in and sign-up pages, and in the phone app, once its provider is on in Supabase.
 - Create your first account.
 
 ### Which app gets which value
@@ -667,7 +667,7 @@ Never run these against the hosted project:
 
 - `supabase db push --include-seed`: seed data never goes to the hosted project.
 - `supabase db reset --linked`: it wipes the hosted database.
-- `supabase config push`: it replaces the hosted Auth settings with the local ones in `supabase/config.toml`. Those include localhost addresses (`http://localhost:3000`), passkeys for `localhost` and a limit of 2 emails an hour. It could also turn off Sign in with Google and custom SMTP (Postmark), because the local file has Google off and no SMTP settings. If the CLI ever asks you to confirm changes to Auth settings, answer no. Change Auth settings in the dashboard.
+- `supabase config push`: it replaces the hosted Auth settings with the local ones in `supabase/config.toml`. Those include localhost addresses (`http://localhost:3000`), passkeys for `localhost` and a limit of 2 emails an hour. It could also turn off Sign in with Google and Apple and custom SMTP (Postmark), because the local file has both off and no SMTP settings. If the CLI ever asks you to confirm changes to Auth settings, answer no. Change Auth settings in the dashboard.
 - `pnpm db:reset`, `pnpm db:seed`, `pnpm env:local` and `pnpm test:e2e`: they are for the local stack only.
 
 #### If you used the Supabase connector instead
@@ -749,14 +749,15 @@ You entered these on 2026-09-12. Only the dashboard shows them, so check them on
 1. In the left sidebar, click **Authentication**.
 2. Under **Configuration**, click **URL Configuration**. Direct link: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/auth/url-configuration`.
 3. Check that **Site URL** is `https://app.handsfreeos.com`. Every link in Auth emails starts with it. If you change it, click **Save changes**.
-4. Check that **Redirect URLs** lists both of these:
-   - `https://app.handsfreeos.com/auth/callback`: where Sign in with Google returns.
-   - `https://app.handsfreeos.com/auth/confirm`: where the links in sign-up, password-reset and email-change emails land.
+4. Check that **Redirect URLs** lists all three of these:
+   - `https://app.handsfreeos.com/auth/callback`: where Sign in with Google returns on the web.
+   - `https://app.handsfreeos.com/auth/confirm`: where the links in password-reset and email-change emails land.
+   - `handsfreeos://auth/callback`: where Sign in with Google returns in the phone app. Without it, the phone shows the website's sign-in page instead of coming back to the app.
 5. If one is missing, click the button that adds a redirect URL. It opens the **Add new redirect URLs** dialog.
 6. Enter the missing address in the URL field.
 7. Click **Save URLs**.
 
-   You should see both addresses in the list.
+   You should see all three addresses in the list.
 
 Add other addresses (such as Vercel preview addresses or `http://localhost:3000`) only if they should be able to sign in against the hosted project. "Preview deployments" in "The web app on Vercel" explains why previews are not worth adding.
 
@@ -789,7 +790,7 @@ Four emails are customized. Their bodies are in `supabase/templates` and their s
 6. Replace the template body in the dashboard with the clipboard contents.
 7. Save the template.
 
-   You should see `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup` in the body. That is the button's link.
+   You should see `{{ .Token }}` in the body, and no link. It's the 6-digit code someone types to confirm their email when they create an account, on the web or in the phone app. Until this body is in, the email has Supabase's default link instead: it still confirms the account, but only in the browser that opens it, while the page that sent it waits for a code.
 
 8. Repeat steps 3 to 7 for **Reset password**. Copy its body with the command below. Its link ends in `&type=recovery`.
 
@@ -832,6 +833,8 @@ The email sign-in rules are on **Authentication** → **Sign In / Providers** �
 
 - Minimum password length is `12`.
 - **Confirm email** is on, so new accounts must confirm their address.
+- **Email OTP Length** is `6`. The pages and the phone app have six boxes for a code.
+- **Email OTP Expiration** is `3600` seconds. The emails say a code works for one hour.
 
 Look for these two on the same **Sign In / Providers** page. If they are not there, search the dashboard for "manual linking" or "anonymous":
 
@@ -850,7 +853,7 @@ Passkeys only work at `https://app.handsfreeos.com`. On your laptop, the local s
 
 #### Sign in with Google
 
-The sign-in and sign-up pages already show **Continue with Google**. It does not work until the Google provider is turned on in Supabase. That needs its own Google OAuth client with Supabase's callback address on it. This client and its redirect are separate from the Gmail client in "Connected mailboxes: Outlook and Gmail", whose redirect is on `hooks.handsfreeos.com`.
+**Continue with Google** appears on the sign-in and sign-up pages, and in the phone app, once the Google provider is on in Supabase. They ask Supabase which providers are on, so nothing needs deploying, and until then they offer only email. On an iPhone it shows only beside **Continue with Apple** ("Sign in with Apple" below), because Apple's review rules ask an app that offers another company's sign-in to offer Apple's too. The provider needs its own Google OAuth client with Supabase's callback address on it. This client and its redirect are separate from the Gmail client in "Connected mailboxes: Outlook and Gmail", whose redirect is on `hooks.handsfreeos.com`.
 
 Put the sign-in client in its own Google Cloud project. The Gmail project stays in testing until Google's CASA review is done, and while a project is in testing, only its listed test users can sign in. Publishing the Gmail project instead would send its restricted Gmail scopes into review.
 
@@ -873,7 +876,34 @@ Google Cloud's pages change often. If a label below differs, search the console 
 15. Turn the provider on.
 16. Click **Save**.
 
-    You should see Google's account chooser when you click **Continue with Google** at `https://app.handsfreeos.com/sign-in`.
+    Within a minute, `https://app.handsfreeos.com/sign-in` shows **Continue with Google**. Click it. You should see Google's account chooser, then your business. A Google account with no HandsFreeOS account yet gets one, and goes to **Set up your business** first.
+
+17. On an Android phone with the app, sign out and check the sign-in screen. You should see **Continue with Google** there too, as long as the phone has a build from after 6 October 2026: the button needs a new build, not an update. Tap it and pick your account. The app comes back signed in.
+
+#### Sign in with Apple
+
+The iPhone app shows **Continue with Apple** above the email once the Apple provider is on in Supabase, with **Continue with Google** below it when Google is on too. The web and Android phones never show it. The iPhone's own sheet does the signing in and hands Supabase Apple's signed answer, so there is no client secret, key or redirect to set up. Apple shares the person's name the first time only, and the app keeps it on their profile.
+
+Do steps 1 to 3 before the first iPhone build with Sign in with Apple in it (any build after 6 October 2026). The app asks Apple for the capability, and the build can only be signed once the app's identifier has it.
+
+1. Open `https://developer.apple.com/account/resources/identifiers/list` (**Certificates, Identifiers & Profiles** → **Identifiers**) and click the identifier `com.gobizhelp.handsfreeos`.
+2. Under **Capabilities**, tick **Sign In with Apple**. If it asks how, choose **Enable as a primary App ID**.
+3. Click **Save**, then confirm. Apple says the app's provisioning profiles become invalid: EAS makes new ones at the next build.
+4. In Supabase, open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/auth/providers?provider=Apple`. That is **Authentication** → **Sign In / Providers** → **Apple**.
+5. Turn the provider on.
+6. In **Client IDs**, enter `com.gobizhelp.handsfreeos`, the iPhone app's bundle ID.
+7. Leave **Secret Key (for OAuth)** empty. It's only for signing in with Apple on a website, which HandsFreeOS doesn't offer.
+8. Click **Save**.
+9. On an iPhone with a TestFlight build from after 6 October 2026, sign out of the app.
+
+   You should see **Continue with Apple**. Tap it and confirm with Face ID, and the app comes back signed in. An Apple ID with no HandsFreeOS account yet gets one.
+
+If the iPhone build fails with a provisioning profile that doesn't support Sign in with Apple, steps 1 to 3 came after the build started. Build once from your Mac, in `apps/mobile`, and sign in to Apple when it asks, so EAS can make the new profile: `npx --yes eas-cli@latest build --platform ios --profile production --auto-submit`.
+
+Apple lets people hide their email address. HandsFreeOS then gets a private one instead, ending in `@privaterelay.appleid.com`, which Apple forwards. Two things follow:
+
+- An invitation works only for the address it was sent to. Someone invited by email should sign in with that email and a code, or with Apple, choosing to share their email.
+- Apple forwards mail to a private address only from senders it knows. To let HandsFreeOS's emails through, open **Certificates, Identifiers & Profiles** → **Services** → **Sign in with Apple for Email Communication** → **Configure**, and add `handsfreeos.com`, the domain HandsFreeOS's own mail (codes, invitations and alerts) comes from.
 
 ### Send Auth email through Postmark
 
@@ -927,9 +957,9 @@ Test it with an address that is not on the Supabase team, such as a personal Gma
 2. Fill in **Full name**, **Work email** (the test address) and **Password** (at least 12 characters).
 3. Click **Create account**.
 
-   You should see **Check your email**. The email arrives from HandsFreeOS with the subject `Confirm your HandsFreeOS email`, and it appears in the Postmark server's Activity.
+   You should see **Check your email**, with six boxes for a code. The email arrives from HandsFreeOS with the subject `Confirm your HandsFreeOS email`, and it appears in the Postmark server's Activity.
 
-4. In the email, click **Confirm email**.
+4. Type the 6-digit code from the email and click **Continue**.
 
    You should land on the **Set up your business** page (`https://app.handsfreeos.com/onboarding`). You do not need to finish it for this test account.
 
@@ -959,10 +989,10 @@ Before you start:
 2. Fill in **Full name**, **Work email** (your own work address) and **Password** (at least 12 characters).
 3. Click **Create account**.
 
-   You should see **Check your email**.
+   You should see **Check your email**, with six boxes for a code.
 
 4. Open the email titled `Confirm your HandsFreeOS email`.
-5. Click **Confirm email**. If Auth email already goes through Postmark, this also proves Supabase's SMTP settings work.
+5. Type its 6-digit code and click **Continue**. If Auth email already goes through Postmark, this also proves Supabase's SMTP settings work.
 
    You should land on the **Set up your business** page (`https://app.handsfreeos.com/onboarding`). If no email arrives within five minutes, see "Sign-in emails do not arrive" in "Going live, and when something goes wrong".
 
@@ -991,7 +1021,7 @@ A person can delete their own account, typing their email address to confirm: in
    - They come off every calendar's team and every service's staff list, through the calendars' own settings, so booking stops offering them. Their upcoming visits stay booked as they are, and nobody is contacted. A calendar left with nobody to book is paused. A service they were the only one listed for stays as it is, because an empty list means everyone.
    - The mailboxes they connected are disconnected.
 3. **The profile.** Their memberships, confirmed cell, phones registered for notifications, command receipts and Assistant chats are deleted, and their own calendar is disconnected. The profile becomes "Former teammate" with a made-up address, `deleted-<id>@deleted.handsfreeos.invalid`. Everything they worked on stays, credited to "Former teammate". A deleted account can never join a business again.
-4. **Sign-in, in Supabase Auth.** Every session ends at once: the worker signs the person out everywhere, which deletes all their refresh tokens. Then sign-in is blocked. The sign-in is banned for 100 years, so Supabase refuses their password, emailed links and codes, Sign in with Google and any refresh token. Its email moves to the made-up address and its name and photo are removed, so the person's email address is free for a new account. The sign-in itself stays, because deleting it would delete the business records linked to it. An access token already handed out keeps working until it expires, within the hour, but the person belongs to no business by then, so it opens nothing.
+4. **Sign-in, in Supabase Auth.** Every session ends at once: the worker signs the person out everywhere, which deletes all their refresh tokens. Then sign-in is blocked. The sign-in is banned for 100 years, so Supabase refuses their password, emailed links and codes, Sign in with Google and Apple, and any refresh token. Its email moves to the made-up address and its name and photo are removed, so the person's email address is free for a new account. The sign-in itself stays, because deleting it would delete the business records linked to it. An access token already handed out keeps working until it expires, within the hour, but the person belongs to no business by then, so it opens nothing.
 5. **The audit log** of each business records the deletion (`account.deleted`).
 
 An account that belongs to no business goes straight to step 3: there is no business to leave, so its request queues the worker's job directly (`private.request_account_deletion`) and is noted on the account itself.
@@ -11531,7 +11561,7 @@ This is signing in to HandsFreeOS with a Google account, handled by the local Su
     pnpm supabase:stop && pnpm supabase:start
     ```
 
-13. On `http://localhost:3000/sign-in`, click **Continue with Google** and choose your Google account.
+13. On `http://localhost:3000/sign-in`, click **Continue with Google** and choose your Google account. The button appears within a minute of the restart.
 
     You should land back in HandsFreeOS, signed in. A Google address with no workspace yet goes to onboarding first.
 
@@ -11986,11 +12016,12 @@ Several checks from here on sign in to the web app, so your first account comes 
 10. Before any business uses the AI teammate or the website chat, work through "Going live with the AI teammate and website chat" in "The AI teammate and website chat".
 11. Before any business takes a payment, finish "Money: Stripe and Square": the Stripe Connect webhook (Stripe Part 4) and the Square webhook subscription (Square Part 4), which both check the live worker address before they save, then give the worker the seven payment values and check its `worker started` line says `"payments":"real"`.
 
-#### Stage 7: sign-in email and Sign in with Google
+#### Stage 7: sign-in email, and Sign in with Google and Apple
 
 1. Only after Postmark approves the account, send Supabase's Auth email through Postmark ("Send Auth email through Postmark" in "The database: Supabase (hosted)"). Its test signs up a second address and resets that address's password, which proves the SMTP settings.
-2. Turn on Sign in with Google ("Sign in with Google" in the same section). The sign-in and sign-up pages always show **Continue with Google**, and it fails until this is done.
-3. If you have not created your account yet (Stage 5, step 2), create it now with "Create your first account" in the same section. This is Check 1 of the end-to-end check below.
+2. Turn on Sign in with Google ("Sign in with Google" in the same section). Until then the sign-in and sign-up pages offer only email.
+3. Turn on Sign in with Apple for the iPhone app ("Sign in with Apple" in the same section). Until then the iPhone app offers only email.
+4. If you have not created your account yet (Stage 5, step 2), create it now with "Create your first account" in the same section. This is Check 1 of the end-to-end check below.
 
 #### Stage 8: test Gmail, then send it to Google's review
 

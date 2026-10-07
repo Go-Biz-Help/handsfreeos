@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { ProviderButtons } from '@/components/auth/provider-buttons';
 import { KeyRound, Mail } from '@/components/icons';
 import { Brand } from '@/components/shell/brand';
 import { Button } from '@/components/ui/button';
@@ -17,9 +18,9 @@ import { passkeysAvailable, signInWithPasskey } from '@/lib/passkey';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Signing in starts from the email address: then an emailed code (it works for everyone, including people who only
- * ever used Google on the web), a password, or a passkey once passkeys are set up. No Google or Apple buttons, and
- * no Create an account: new accounts start on the web.
+ * Signing in: Continue with Apple (iPhones) or Google once each is turned on in Supabase, or the email address, then
+ * an emailed code (it works for everyone, including people who only ever used Google on the web), a password, or a
+ * passkey once passkeys are set up. New to HandsFreeOS? Create an account, here as on the web.
  */
 export default function SignIn() {
   const params = useLocalSearchParams<{ email?: string }>();
@@ -100,6 +101,7 @@ export default function SignIn() {
           </Text>
         </View>
       ) : null}
+      <ProviderButtons onError={setError} />
       <View className="gap-1.5">
         <Label nativeID="email-label">Email</Label>
         <Input
@@ -150,6 +152,22 @@ export default function SignIn() {
       <Button variant="ghost" onPress={usePassword} testID="use-my-password">
         Use my password
       </Button>
+      <View className="flex-row flex-wrap items-center justify-center pt-1">
+        <Text className="text-[13.5px] text-text-2">New to HandsFreeOS? </Text>
+        <Pressable
+          role="link"
+          hitSlop={12}
+          onPress={() =>
+            router.push({
+              pathname: '/sign-up',
+              params: email.trim() ? { email: email.trim() } : {},
+            })
+          }
+          testID="create-an-account"
+        >
+          <Text className="text-[13.5px] font-medium text-accent-text">Create an account</Text>
+        </Pressable>
+      </View>
     </AuthScreen>
   );
 }
