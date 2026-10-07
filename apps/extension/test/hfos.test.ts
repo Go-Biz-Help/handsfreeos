@@ -245,15 +245,23 @@ describe('onPage', () => {
         kind: 'profile',
         profile: profilePage(),
         people: [
-          { name: 'Lee Park', profile: lee, details: [], badges: [], section: null },
+          { name: 'Lee Park', profile: lee, details: [], badges: [], section: null, request: null },
           {
             name: 'Dana Reyes',
             profile: { ...dana, username: 'DANA.REYES.12' },
             details: [],
             badges: [],
             section: null,
+            request: null,
           },
-          { name: 'No Link', profile: null, details: [], badges: [], section: null },
+          {
+            name: 'No Link',
+            profile: null,
+            details: [],
+            badges: [],
+            section: null,
+            request: null,
+          },
         ],
       }),
     );
@@ -310,6 +318,7 @@ describe('your lists', () => {
     details: [],
     badges: [],
     section: null,
+    request: null,
     ...more,
   });
   const read = (more: Partial<ReadResult>): ReadResult => ({
@@ -327,9 +336,10 @@ describe('your lists', () => {
       list: 'friends',
       people: [avery],
     });
-    const asking = person('Quinn Harper', { section: 'Friend requests' });
+    const asking = person('Quinn Harper', { section: 'Friend requests', request: 'received' });
+    const answered = person('Sky Patel', { section: 'Friend requests', request: 'answered' });
     const suggested = person('Rowan Blake', { section: 'People you may know' });
-    expect(listOnPage(read({ people: [asking, suggested] }))).toEqual({
+    expect(listOnPage(read({ people: [asking, answered, suggested] }))).toEqual({
       list: 'requests',
       people: [asking],
     });
@@ -338,6 +348,25 @@ describe('your lists', () => {
     expect(
       listOnPage(read({ kind: 'group-members', friendList: undefined, people: [avery] })),
     ).toBeNull();
+  });
+
+  it('saves the requests you’ve got and haven’t answered, or the ones you’ve sent', () => {
+    const requests = (people: Person[]) => read({ friendList: 'requests', people });
+    const asking = person('Quinn Harper', { request: 'received' });
+    const accepted = person('Sky Patel', { request: 'answered' });
+    const sent = person('Jamie Cole', { request: 'sent' });
+    expect(listOnPage(requests([asking, accepted]))).toEqual({
+      list: 'requests',
+      people: [asking],
+    });
+    expect(listOnPage(requests([sent, accepted]))).toEqual({ list: 'sent', people: [sent] });
+    expect(listOnPage(requests([accepted]))).toBeNull();
+    // A request you've sent shows on someone you may know too, but that isn't your list of them.
+    expect(listOnPage(read({ people: [{ ...sent, section: 'People you may know' }] }))).toBeNull();
+    expect(friendsSave([], 'sent', WS)).toEqual({
+      ok: false,
+      why: 'There are no sent requests on the page to save.',
+    });
   });
 
   it('saves each person once with their mutual friends, in parts', () => {

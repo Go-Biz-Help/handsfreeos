@@ -3,12 +3,13 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the fourth test build (0.4.0).** It reads the Facebook page you have open and shows what it found in
+**This is the fourth test build (0.4.3).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
-yourself, with the group you found each person in. It saves your friends and the friend requests you've got, puts
-the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people to
-keep and the ones nobody pitches. It never sends anything on Facebook, and never clicks, scrolls or changes the page.
+yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
+puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
+to keep and the ones nobody pitches. It never sends anything on Facebook, and never clicks, scrolls or changes the
+page.
 
 ## What it reads
 
@@ -16,7 +17,7 @@ keep and the ones nobody pitches. It never sends anything on Facebook, and never
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | A profile                                   | Name, bio and details, whether you're friends, mutual friends, recent posts                          |
 | Friends, followers, following, friends list | Each person, with the line under their name                                                          |
-| Your friend requests                        | Each request in the list beside the page, with their mutual friends                                  |
+| Your friend requests                        | Each request in the list beside the page, how long ago and their mutual friends; answered ones too   |
 | A group's People tab                        | The group, and each member with the list they're in; admins and moderators are marked to leave alone |
 | A group                                     | The group (public or private, members, joined or not) and its posts                                  |
 | Your groups                                 | Each group, with the line under its name                                                             |
@@ -34,7 +35,15 @@ Facebook draws some pages two ways, and both are read. Since 2026 a profile can 
 top instead of an Intro card, a group's People tab has a row of faces above its tabs (left out: the lists below say
 who each person is), an open chat repeats each message at the end of it for screen readers, saying who sent it
 (read once, and used to tell whose it is), and posts in the News Feed aren't articles while their comments are
-(comments are never read as posts).
+(comments are never read as posts). A friend request shows the faces of mutual friends, which link to them: each
+request is about the one person it names in words, and the faces aren't requests. Facebook keeps a hidden copy of
+each request's Confirm and Delete beside the ones shown (left out), and a request you've just answered says so in
+place of them ("Request accepted") until the page loads again. **View sent requests** opens the ones you've sent
+in a box over the page, and Facebook hides the page behind it: while the box is open, it's the list that's read.
+Picking someone in the list opens their profile beside it, with **Confirm request** and **Delete request** under its
+intro and the same two in its **Respond** menu; its address has their number and its tabs their username, and the
+answer is noted with both. A chat open in a small window over another page is known by its messages, labelled as the
+conversation, and is with whoever its header links to.
 
 ## Signing in and saving
 
@@ -48,7 +57,7 @@ the panel still reads pages and says there's nowhere to save.
 | A profile | **Save to HandsFreeOS**: adds them to Contacts (source Facebook) with their intro and where you stand, or brings a saved one up to date. Customers with the same name are offered first: **It’s them** links the profile to one |
 | A chat    | **Save this chat**: the messages on the page join what was saved before, the latest 100 kept, each with the day it was sent spelled out ("Today" becomes the date)                                                              |
 | Lists     | **In HandsFreeOS** beside each person saved there, and **Saved** beside each chat you've saved                                                                                                                                  |
-| Friends   | **Save my friends** or **Save these requests** on your friends list and your requests: everyone loaded on the page, 500 at a time, for the Friends tab in Social Outreach. Nobody is added to Contacts                          |
+| Friends   | **Save my friends**, **Save these requests** or **Save these sent requests**: everyone loaded on the page, 500 at a time, for the Friends tab in Social Outreach, but no request already answered. Nobody is added to Contacts  |
 
 Saved people link to their page in HandsFreeOS, where a **Social** card shows their profile and chats. Each save says
 what it did in the line under **Read this page**. If Social Outreach is turned off while the panel is open, the next
@@ -72,7 +81,7 @@ was to, never what you wrote.
 | Friend request | press **Add friend**                                                              | the profile it's at the top of, or the one person its card links to |
 | Like           | press **Like** on a post or a comment (not when you take a like back)             | whoever wrote the post or the comment                               |
 | Comment        | press Enter or the send button in a comment box with something in it              | whoever wrote the post, or the comment you're replying to           |
-| Message        | press Enter or the send button in a chat, or a chat window over a page            | who the chat is with                                                |
+| Message        | press Enter or the send button in a chat, or in a small chat window over a page   | who the chat is with                                                |
 | Confirm        | press **Confirm** on a friend request you got, or in a profile's **Respond** menu | who asked: they're your friend in HandsFreeOS too                   |
 | Delete         | press **Delete** on a friend request you got, or in the same menu                 | who asked: their request is kept as deleted                         |
 

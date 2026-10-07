@@ -5607,7 +5607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, or the friend requests they’ve got. Adds nobody to Contacts.
+         * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved.
          */
         post: operations["command_outreach_friends_save"];
@@ -30554,7 +30554,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    list: "friends" | "requests";
+                    list: "friends" | "requests" | "sent";
                     people: {
                         /** @default null */
                         mutualFriends?: number | null;

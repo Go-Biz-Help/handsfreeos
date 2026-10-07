@@ -25,6 +25,7 @@ import {
   FriendsOutput,
   FriendsSaveInput,
   FriendsSaveOutput,
+  type FriendList,
   type FriendState,
   type FriendView,
 } from '../friends';
@@ -42,10 +43,11 @@ import {
   type ProfileKey,
 } from './common';
 
-/** What a list says about everyone in it. */
-const LIST_STATE: Readonly<Record<'friends' | 'requests', FriendState>> = {
+/** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
+const LIST_STATE: Readonly<Record<FriendList, FriendState & Friendship>> = {
   friends: 'friends',
   requests: 'request_received',
+  sent: 'request_sent',
 };
 
 export const friendNote = defineAddonCommand(outreachAddon, {
@@ -115,7 +117,7 @@ function eachOnce<T extends { readonly profile: ProfileKey }>(people: readonly T
 export const friendsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.friends.save',
   description:
-    'Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, or the friend requests they’ve got. Adds nobody to Contacts.',
+    'Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.',
   risk: 1,
   input: FriendsSaveInput,
   output: FriendsSaveOutput,
@@ -167,8 +169,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
                 username: p.profile.username,
                 url: p.profile.url,
                 name: p.name,
-                friendship:
-                  input.list === 'friends' ? ('friends' as const) : ('request_received' as const),
+                friendship: LIST_STATE[input.list],
                 mutualFriends: p.mutualFriends,
                 savedBy: me,
                 lastSeenBy: me,
@@ -183,7 +184,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
       }
 
       // Known already: what the list says now, and a number or username the first look didn't show.
-      const friendship: Friendship = input.list === 'friends' ? 'friends' : 'request_received';
+      const friendship = LIST_STATE[input.list];
       for (const p of people) {
         const had = found(p.profile)!;
         if (added.includes(had)) continue;

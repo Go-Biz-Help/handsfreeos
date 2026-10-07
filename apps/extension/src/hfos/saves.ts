@@ -19,7 +19,7 @@ import {
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
 import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
-import { asked, mutualFriendsIn, type FriendList } from '../facebook/friends';
+import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../facebook/friends';
 import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
 import { profileKey } from '../facebook/urls';
 import type {
@@ -232,16 +232,28 @@ export interface ListOnPage {
 }
 
 /**
- * Your list on the page: your friends, or the friend requests you've got; on /friends, the requests in its "Friend
- * requests" part. Null on any other page, someone else's friends among them.
+ * Your list on the page: your friends; the friend requests you've got and haven't answered, on the requests page or
+ * in the "Friend requests" part of /friends; or, after View sent requests, the ones you've sent. Null on any other
+ * page, someone else's friends among them.
  */
 export function listOnPage(result: ReadResult): ListOnPage | null {
   const people = result.people ?? [];
-  if (result.friendList) return { list: result.friendList, people };
+  if (result.friendList === 'friends') return { list: 'friends', people };
   if (result.kind !== 'friends') return null;
-  const requests = people.filter((person) => asked(person, null));
-  return requests.length ? { list: 'requests', people: requests } : null;
+  const page = result.friendList ?? null;
+  const received = people.filter((person) => asked(person, page));
+  if (received.length) return { list: 'requests', people: received };
+  const sent = people.filter((person) => askedByYou(person, page));
+  return sent.length ? { list: 'sent', people: sent } : null;
 }
+
+/** What one of your lists is called, for "Saved 12 friend requests". */
+const LIST_ITEM: Readonly<Record<FriendList, string>> = {
+  friends: 'friend',
+  requests: 'friend request',
+  sent: 'sent request',
+};
+export const listItem = (list: FriendList) => LIST_ITEM[list];
 
 /**
  * The people in one of your lists, to save, each once: in parts of FRIENDS_SAVE_MOST, which the panel sends one
@@ -267,7 +279,7 @@ export function friendsSave(
       why:
         list === 'friends'
           ? 'There are no friends on the page to save. Scroll down so Facebook shows them, then try again.'
-          : 'There are no friend requests on the page to save.',
+          : `There are no ${listItem(list)}s on the page to save.`,
     };
   const parts: FriendsSaveInput[] = [];
   for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)

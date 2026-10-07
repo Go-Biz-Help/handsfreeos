@@ -75264,7 +75264,7 @@
     "/v1/commands/outreach.friends.save": {
       "post": {
         "operationId": "command_outreach_friends_save",
-        "summary": "Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, or the friend requests they’ve got. Adds nobody to Contacts.",
+        "summary": "Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.",
         "tags": [
           "commands"
         ],
@@ -75292,7 +75292,8 @@
                     "type": "string",
                     "enum": [
                       "friends",
-                      "requests"
+                      "requests",
+                      "sent"
                     ]
                   },
                   "people": {

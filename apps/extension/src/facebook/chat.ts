@@ -25,7 +25,7 @@ import {
   withoutPicturePrefix,
 } from './dom';
 import { bestName, isNameLike } from './people';
-import type { ChatMessage, ChatPage, PageAddress, ProfileRef } from './types';
+import type { ChatMessage, ChatPage, PageAddress, ProfileRef, ThreadRef } from './types';
 import { facebookUrl, profileFromUrl } from './urls';
 import { isWhen, UI_WORDS } from './vocabulary';
 
@@ -64,12 +64,16 @@ export function measuredSide(element: Element, conversation: Element): Side | nu
   return left < right ? 'left' : 'right';
 }
 
-/** The box that holds the messages: the one labelled as the conversation, else the main column's grid. */
-function conversationIn(main: Element): Element {
-  for (const element of main.querySelectorAll('[aria-label]')) {
-    if (CONVERSATION.test(clean(element.getAttribute('aria-label')))) return element;
+/** Whether an element holds a chat's messages, as Facebook labels them: "Messages in conversation with Jane Doe". */
+export const isConversation = (element: Element) =>
+  CONVERSATION.test(clean(element.getAttribute('aria-label')));
+
+/** The box that holds the messages: the one labelled as the conversation, else the chat's grid. */
+function conversationIn(scope: Element): Element {
+  for (const element of scope.querySelectorAll('[aria-label]')) {
+    if (isConversation(element)) return element;
   }
-  return main.querySelector('[role="grid"]') ?? main;
+  return scope.querySelector('[role="grid"]') ?? scope;
 }
 
 /** The conversation's messages: its rows, else its articles, else each piece of writing. Outermost only. */
@@ -159,19 +163,19 @@ function labelsIn(
 
 /** Who the chat is with: the profile its header links to, else its heading, else the conversation's label. */
 function whoWith(
-  main: Element,
+  scope: Element,
   conversation: Element,
   base: string,
 ): { name: string | null; profile: ProfileRef | null } {
-  const outside = (element: Element) => conversation === main || !conversation.contains(element);
-  for (const anchor of main.querySelectorAll('a[href]')) {
+  const outside = (element: Element) => conversation === scope || !conversation.contains(element);
+  for (const anchor of scope.querySelectorAll('a[href]')) {
     if (!outside(anchor)) continue;
     const url = facebookUrl(anchor.getAttribute('href') ?? '', base);
     const profile = url ? profileFromUrl(url) : null;
     const name = profile ? bestName(namesOn([anchor])) : null;
     if (profile && name) return { name, profile };
   }
-  for (const heading of main.querySelectorAll('h1, h2, [role="heading"]')) {
+  for (const heading of scope.querySelectorAll('h1, h2, [role="heading"]')) {
     const text = clean(heading.textContent);
     if (outside(heading) && isNameLike(text) && !UI_WORDS.has(text.toLowerCase()))
       return { name: text, profile: null };
@@ -186,9 +190,18 @@ export function readChat(
   base: string,
   options: ChatOptions = {},
 ): ChatPage {
-  const main = doc.querySelector('[role="main"]') ?? doc.body;
-  const conversation = conversationIn(main);
-  const { name, profile } = whoWith(main, conversation, base);
+  return readChatIn(doc.querySelector('[role="main"]') ?? doc.body, address.thread, base, options);
+}
+
+/** The chat a part of the page shows: the main column of a chat's own page, or a small chat window over another page. */
+export function readChatIn(
+  scope: Element,
+  thread: ThreadRef | null,
+  base: string,
+  options: ChatOptions = {},
+): ChatPage {
+  const conversation = conversationIn(scope);
+  const { name, profile } = whoWith(scope, conversation, base);
   const sideOf = options.sideOf ?? measuredSide;
 
   const messages: ChatMessage[] = [];
@@ -251,7 +264,7 @@ export function readChat(
   const oneToOne = senders.size === 0 || (senders.size === 1 && name !== null && senders.has(name));
   return {
     name,
-    thread: address.thread,
+    thread,
     profile,
     messages: messages.map((message) =>
       message.from === 'them' && !message.sender && oneToOne

@@ -1,7 +1,7 @@
 /**
  * Social Outreach: friends (docs/outreach.md, decisions 10 to 13).
- * - Saving the friends list, or the friend requests someone's got, keeps each person's own state with them and adds
- *   nobody to Contacts; saving the same list again changes nothing.
+ * - Saving the friends list, the friend requests someone's got, or the ones they've sent, keeps each person's own
+ *   state with them and adds nobody to Contacts; saving the same list again changes nothing.
  * - Confirm makes them friends and Delete turns the request down; a friend request sent says so; a profile saved
  *   says where things stand; an answer that waited to send never undoes a later look.
  * - Keep is the person's own; Don't pitch is the business's, and only whoever put someone on it, or an owner or
@@ -118,6 +118,24 @@ describe('saving a list', () => {
     });
     expect(saved).toEqual({ saved: 2, added: 1, changed: 1 });
     expect((await stateOf(ws, owner, 'rowan.blake.9'))?.state).toBe('request_received');
+  });
+
+  it('keeps the friend requests someone’s sent', async () => {
+    const saved = await save(owner, {
+      list: 'sent',
+      people: [
+        { ...byName('morgan.ellis.7', 'Morgan Ellis'), mutualFriends: 4 },
+        { ...byNumber('100004000000009', 'Casey Brooks'), mutualFriends: null },
+      ],
+    });
+    expect(saved).toEqual({ saved: 2, added: 2, changed: 0 });
+    expect((await stateOf(ws, owner, 'morgan.ellis.7'))?.state).toBe('request_sent');
+    const [kept] = await rows(
+      admin(),
+      sql`select friendship from addon_outreach.profiles
+          where workspace_id = ${ws} and username = 'morgan.ellis.7'`,
+    );
+    expect(kept).toEqual({ friendship: 'request_sent' });
   });
 
   it('refuses an empty list, and one too long for a save', async () => {

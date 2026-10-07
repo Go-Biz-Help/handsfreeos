@@ -49,10 +49,14 @@ export const FriendNoteOutput = z.object({
   state: z.enum(FRIEND_STATE_KEYS),
 });
 
-/** The lists the extension can save as the page shows them: your friends, and the friend requests you've got. */
+/**
+ * The lists the extension can save as the page shows them: your friends, the friend requests you've got, and the ones
+ * you've sent.
+ */
 export const FRIEND_LISTS = {
   friends: 'Your friends',
   requests: 'Friend requests',
+  sent: 'Sent requests',
 } as const;
 export type FriendList = keyof typeof FRIEND_LISTS;
 export const FRIEND_LIST_KEYS = Object.keys(FRIEND_LISTS) as [FriendList, ...FriendList[]];
@@ -80,7 +84,7 @@ export const FriendsSaveOutput = z.object({
   saved: z.number().int(),
   /** New to HandsFreeOS. */
   added: z.number().int(),
-  /** Known before, and now friends or asking where they weren't. */
+  /** Known before, and now where the list says they are (friends, or a request either way) where they weren't. */
   changed: z.number().int(),
 });
 
