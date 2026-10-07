@@ -129,14 +129,16 @@ export const FRIEND_VIEWS = {
 export type FriendView = keyof typeof FRIEND_VIEWS;
 export const FRIEND_VIEW_KEYS = Object.keys(FRIEND_VIEWS) as [FriendView, ...FriendView[]];
 
-/** The most people the Friends tab lists at once; `more` says how many it left out. */
-export const FRIENDS_SHOWN = 200;
+/** How many people a page of the Friends tab lists. */
+export const FRIENDS_PAGE = 100;
 
 export const FriendsInput = z.object({
   workspaceId: z.uuid(),
   view: z.enum(FRIEND_VIEW_KEYS).default('friends'),
   /** Part of a name. */
   search: z.string().trim().max(100).optional(),
+  /** Which page, from 1. One past the end shows the last. */
+  page: z.number().int().min(1).max(100_000).default(1),
 });
 export type FriendsInput = z.input<typeof FriendsInput>;
 
@@ -181,6 +183,12 @@ export const FriendsOutput = z.object({
         .nullable(),
     }),
   ),
+  /** The page these are, from 1, out of `pages`; there's always one, if empty. */
+  page: count.min(1),
+  pages: count.min(1),
+  /** Everyone in this view who has the name searched for, on every page. */
+  total: count,
+  /** How many come after this page. */
   more: count,
 });
 export type FriendsOutput = z.output<typeof FriendsOutput>;

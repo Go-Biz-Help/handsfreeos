@@ -21,11 +21,11 @@ Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, 
   wrote. Its side panel shows the day so far (apps/extension/README.md, "What it notes").
 - **Friends** (`/a/outreach?view=friends`): the person's friends against Facebook's 5,000, the friend requests
   they've got in order of how each fits the playbooks in use (with why), the requests they sent that nobody has
-  answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list, each
-  searchable by name. The extension saves the friends list and the requests from Facebook's pages (the ones the person
-  got and hasn't answered, and after View sent requests the ones they sent), notes Confirm and Delete as the person
-  presses them, sorts the requests on the page by fit, and sets Keep and Don't pitch from a profile
-  (apps/extension/README.md).
+  answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list, each 100 to
+  a page and searched by name as it's typed. The extension saves the friends list and the requests from Facebook's
+  pages (the ones the person got and hasn't answered, and after View sent requests the ones they sent), notes Confirm
+  and Delete as the person presses them, sorts the requests on the page by fit, and sets Keep and Don't pitch from a
+  profile (apps/extension/README.md).
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -73,7 +73,7 @@ Operations, all through the kernel:
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                         |
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                |
 | `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                  |
-| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and one list searched by name, the requests by fit                      |
+| `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit            |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).

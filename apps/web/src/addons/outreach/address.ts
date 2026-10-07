@@ -1,8 +1,9 @@
 /**
  * What Social Outreach's page shows, from its address: the tab (`?view=friends` or `playbooks`, else the activity);
  * for the activity the stretch of days (`?period=today`, `week` or `month`) and whose steps (`?who=everyone`, for
- * owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or `dont_pitch`) and a name
- * searched for (`?q=`). A plain module, so the page reads it on the server and the tabs build their links from it.
+ * owners and admins); for friends, which of them (`?show=requests`, `sent`, `keep` or `dont_pitch`), a name
+ * searched for (`?q=`) and the page (`?page=2`). A plain module, so the page reads it on the server and the tabs
+ * build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/friends';
@@ -21,6 +22,8 @@ export interface OutreachAddress {
   readonly show: FriendView;
   /** Part of a name, for friends. */
   readonly search: string;
+  /** Which page of friends, from 1. */
+  readonly page: number;
 }
 
 export function readOutreachAddress(
@@ -34,10 +37,11 @@ export function readOutreachAddress(
     everyone: one(sp.who) === 'everyone',
     show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
     search: one(sp.q).trim().slice(0, 100),
+    page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
   };
 }
 
-/** The address of a tab: for the activity its stretch and whose, for friends which and the name searched for. */
+/** A tab's address: for the activity its stretch and whose, for friends which, the name searched for and the page. */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
   if (to.view === 'playbooks') params.set('view', 'playbooks');
@@ -45,6 +49,7 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
     params.set('view', 'friends');
     if (to.show && to.show !== 'friends') params.set('show', to.show);
     if (to.search) params.set('q', to.search);
+    if (to.page && to.page > 1) params.set('page', String(to.page));
   } else {
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);
     if (to.everyone) params.set('who', 'everyone');
