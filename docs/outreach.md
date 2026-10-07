@@ -22,9 +22,10 @@ Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, 
 - **Friends** (`/a/outreach?view=friends`): the person's friends against Facebook's 5,000, the friend requests
   they've got in order of how each fits the playbooks in use (with why), the requests they sent that nobody has
   answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list, each
-  searchable by name. The extension saves the friends list and the requests from Facebook's pages, notes Confirm and
-  Delete as the person presses them, sorts the requests on the page by fit, and sets Keep and Don't pitch from a
-  profile (apps/extension/README.md).
+  searchable by name. The extension saves the friends list and the requests from Facebook's pages (the ones the person
+  got and hasn't answered, and after View sent requests the ones they sent), notes Confirm and Delete as the person
+  presses them, sorts the requests on the page by fit, and sets Keep and Don't pitch from a profile
+  (apps/extension/README.md).
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer

@@ -33,8 +33,8 @@ import {
   textLines,
   textWithEmoji,
 } from './dom';
-import { mutualFriendsIn } from './friends';
-import { bestName, isNameLike } from './people';
+import { CONFIRM, DELETE, mutualFriendsIn, shown } from './friends';
+import { aboutWhom, bestName, isNameLike, peopleLinked, sameName } from './people';
 import { commentAround, commentsIn, postAround, postBefore, readPost } from './posts';
 import { nameFromTitle } from './profile';
 import type { GroupRef, Named, PageAddress, ProfileRef, ThreadRef } from './types';
@@ -120,31 +120,8 @@ function rootOf(element: Element, doc: Document): Element {
   return main.contains(element) ? main : doc.body;
 }
 
-const sameName = (a: string, b: string) => clean(a).toLowerCase() === clean(b).toLowerCase();
-
 const urlOf = (anchor: Element, base: string) =>
   facebookUrl(anchor.getAttribute('href') ?? '', base);
-
-/** The people some links lead to, each once with every link to them, in page order. The top bar's are never. */
-function peopleLinked(
-  anchors: Iterable<Element>,
-  base: string,
-): { readonly profile: ProfileRef; readonly name: string | null }[] {
-  const found = new Map<string, { profile: ProfileRef; anchors: Element[] }>();
-  for (const anchor of anchors) {
-    if (inTopBar(anchor)) continue;
-    const url = urlOf(anchor, base);
-    const profile = url ? profileFromUrl(url) : null;
-    if (!profile) continue;
-    const entry = found.get(profileKey(profile));
-    if (entry) entry.anchors.push(anchor);
-    else found.set(profileKey(profile), { profile, anchors: [anchor] });
-  }
-  return [...found.values()].map(({ profile, anchors }) => ({
-    profile,
-    name: bestName(namesOn(anchors)),
-  }));
-}
 
 const reachedOf = (named: Named | null | undefined): Reached | null =>
   named?.profile && named.name ? { name: named.name, profile: named.profile } : null;
@@ -245,7 +222,8 @@ function pagePerson(doc: Document, address: PageAddress, base: string): Reached 
 
 /**
  * The one person the card a button is on is about: the people linked from the nearest box around it that links to
- * anyone. When the button names someone, the one with that name; otherwise there must be only one.
+ * anyone. When the button names someone, the one with that name; otherwise the only one, or the one the card names
+ * in words where the rest are the faces of mutual friends (./people.ts `aboutWhom`).
  */
 function personNear(
   control: Element,
@@ -263,14 +241,8 @@ function personNear(
         const person = match ?? only;
         return person ? { name: named, profile: person.profile } : null;
       }
-      // The same person linked twice, by number and by name, is still one.
-      const first = people[0]!;
-      const one = people.every(
-        (person) => person.name && first.name && sameName(person.name, first.name),
-      );
-      return first.name && (people.length === 1 || one)
-        ? { name: first.name, profile: first.profile }
-        : null;
+      const person = aboutWhom(people);
+      return person?.name ? { name: person.name, profile: person.profile } : null;
     }
     if (box === root) break;
     box = box.parentElement;
@@ -511,16 +483,14 @@ export interface Answered {
   readonly mutualFriends: number | null;
 }
 
-/** A request's two buttons: "Confirm" or "Confirm Jane Doe", and "Delete" or "Delete request". */
-const CONFIRM = /^(?:confirm(?: friend)?(?: request)?|accept(?: request)?)(?:\s+(.+))?$/i;
-const DELETE =
-  /^(?:delete(?: friend)?(?: request)?|remove request|decline(?: request)?)(?:\s+(.+))?$/i;
-/** The same in the menu a profile's Respond opens: only these words, since other menus say "Delete". */
+/** A request's two buttons in the menu a profile's Respond opens: only these words, since other menus say "Delete". */
 const MENU_CONFIRM = /^confirm(?: request)?$/i;
 const MENU_DELETE = /^delete(?: friend)? request$/i;
 const RESPOND = /^respond$/i;
 
-const controlsIn = (box: Element) => box.querySelectorAll('[role="button"], button');
+/** The buttons in a box the person can see: Facebook keeps a hidden copy of each request's beside the ones shown. */
+const controlsIn = (box: Element) =>
+  [...box.querySelectorAll('[role="button"], button')].filter(shown);
 
 /**
  * The two buttons a request's button is one of: the nearest box around it that has the other one too. A box that
@@ -529,7 +499,7 @@ const controlsIn = (box: Element) => box.querySelectorAll('[role="button"], butt
 function requestButtons(control: Element, other: RegExp, root: Element): Element | null {
   let box = control.parentElement;
   for (let steps = 0; box && steps < CARD_STEPS; steps++) {
-    const others = [...controlsIn(box)].filter(
+    const others = controlsIn(box).filter(
       (found) => found !== control && other.test(labelOf(found)),
     );
     if (others.length) return others.length === 1 ? box : null;
@@ -579,7 +549,7 @@ export function answerFromClick(target: Element, doc: Document, href: string): A
     const answer = MENU_CONFIRM.test(label) ? 'confirm' : MENU_DELETE.test(label) ? 'delete' : null;
     const address = classifyUrl(href);
     const main = mainOf(doc);
-    const responding = [...controlsIn(main)].some((control) => RESPOND.test(labelOf(control)));
+    const responding = controlsIn(main).some((control) => RESPOND.test(labelOf(control)));
     const to = answer && responding ? pagePerson(doc, address, href) : null;
     return answer && to && !isYou(to, doc, href) ? { answer, to, mutualFriends: null } : null;
   }

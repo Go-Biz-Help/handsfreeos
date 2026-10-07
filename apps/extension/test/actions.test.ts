@@ -369,6 +369,27 @@ describe('answers to friend requests', () => {
     });
   });
 
+  it('notes Confirm and Delete on a request that shows mutual friends’ faces, to whoever asked', () => {
+    const url = `${FB}/friends/requests/`;
+    const doc = load('friend-requests-2026.html', url);
+    expect(answerFromClick(button(doc, 'Confirm', 0), doc, url)).toEqual({
+      answer: 'confirm',
+      to: { name: 'Avery Lane', profile: byName('avery.lane.4') },
+      mutualFriends: 1,
+    });
+    // Each request has a hidden copy of its two buttons: Rowan's Delete is the sixth "Delete", the one shown.
+    expect(answerFromClick(button(doc, 'Delete', 5), doc, url)).toEqual({
+      answer: 'delete',
+      to: { name: 'Rowan Blake', profile: byName('rowan.blake.4') },
+      mutualFriends: 16,
+    });
+    expect(answerFromClick(button(doc, 'Confirm', 2), doc, url)).toEqual({
+      answer: 'confirm',
+      to: { name: 'Quinn Harper', profile: byId('100007000000002') },
+      mutualFriends: null,
+    });
+  });
+
   it('notes the answer at the top of the profile picked beside the list, as theirs', () => {
     const doc = load('friend-requests.html', requests);
     // Their mutual friends from the top of the profile: "12 mutual".
@@ -504,6 +525,12 @@ describe('pages with more boxes than their outline shows', () => {
       'friend-requests.html',
       `${FB}/friends/requests/?profile_id=100007000000001`,
       (doc, url) => answerFromClick(button(doc, 'Confirm', 1), doc, url),
+    ],
+    [
+      'Delete on a friend request that shows mutual friends',
+      'friend-requests-2026.html',
+      `${FB}/friends/requests/`,
+      (doc, url) => answerFromClick(button(doc, 'Delete', 5), doc, url),
     ],
     [
       'Delete at the top of the profile picked beside the requests',

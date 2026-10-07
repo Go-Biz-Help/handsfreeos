@@ -33,6 +33,7 @@ import {
   chatSave,
   friendSet,
   friendsSave,
+  listItem,
   listOnPage,
   nameKey,
   onPage,
@@ -579,7 +580,7 @@ async function saveList(mine: ListOnPage): Promise<void> {
   saving.delete(key);
   // What HandsFreeOS keeps about them changed: ask again.
   for (const person of mine.people) if (person.profile) k.marks.delete(profileKey(person.profile));
-  const what = mine.list === 'friends' ? 'friend' : 'friend request';
+  const what = listItem(mine.list);
   const news = [
     done.added ? `${done.added.toLocaleString()} new` : null,
     done.changed ? `${done.changed.toLocaleString()} changed` : null,
@@ -858,23 +859,26 @@ export function listBlock(result: ReadResult): HTMLElement | null {
   if (!k || !mine?.people.length) return null;
   const busy = saving.has(`list:${mine.list}`);
   const count = mine.people.length;
-  const friends = mine.list === 'friends';
+  const these = (what: string) =>
+    `Save ${count === 1 ? `this ${what}` : `these ${count.toLocaleString()} ${what}s`}`;
   return block(
     h(
       'p',
       { class: 'muted' },
-      friends
+      mine.list === 'friends'
         ? 'Facebook shows your friends as you scroll. Scroll to the end of the list, then save it.'
-        : k.playbooks?.length
-          ? 'Sorted by how they fit your playbooks, the best first.'
-          : 'Say what to look for in a playbook, in quotes, to sort these by fit.',
+        : mine.list === 'sent'
+          ? 'Requests you’ve sent. Saving them marks each one Request sent in the Friends tab.'
+          : k.playbooks?.length
+            ? 'Sorted by how they fit your playbooks, the best first.'
+            : 'Say what to look for in a playbook, in quotes, to sort these by fit.',
     ),
     button(
       busy
         ? 'Saving…'
-        : friends
+        : mine.list === 'friends'
           ? `Save my ${counted(count, 'friend')}`
-          : `Save ${count === 1 ? 'this request' : `these ${count.toLocaleString()} requests`}`,
+          : these(mine.list === 'sent' ? 'sent request' : 'request'),
       () => void saveList(mine),
       { primary: true, disabled: busy },
     ),

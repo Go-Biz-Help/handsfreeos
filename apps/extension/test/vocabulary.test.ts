@@ -46,6 +46,11 @@ describe('Facebook’s own words', () => {
     expect(isFacebookText('12 mutual friends')).toBe(true);
     expect(isFacebookText('Public group · 1.2K members')).toBe(true);
     expect(isFacebookText('Jane Doe')).toBe(false);
+    // On the friend requests page.
+    expect(isFacebookText('36 Friend requests')).toBe(true);
+    expect(isFacebookText('View sent requests')).toBe(true);
+    expect(isFacebookText('Followed by 1.1K')).toBe(true);
+    expect(isFacebookText('Request accepted')).toBe(true);
     expect(sectionTitleOf('Admins and moderators · 4')).toBe('Admins and moderators');
     expect(sectionTitleOf('New to the group')).toBe('New to the group');
     expect(sectionTitleOf('Jane Doe')).toBeNull();

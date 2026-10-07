@@ -58,6 +58,12 @@ export interface Named {
   readonly profile: ProfileRef | null;
 }
 
+/**
+ * Where a friend request with someone stands, as their row in a list shows it (./friends.ts): one they sent you, with
+ * Confirm and Delete; one you sent them, with Cancel request; or one answered already, "Request accepted".
+ */
+export type RequestRow = 'received' | 'sent' | 'answered';
+
 export interface Person extends Named {
   /** The lines under the name, as shown: "12 mutual friends", "Owner at Smith Plumbing", "Joined 2 hours ago". */
   readonly details: readonly string[];
@@ -65,6 +71,8 @@ export interface Person extends Named {
   readonly badges: readonly string[];
   /** The part of the list they're in ("Admins and moderators", "Members"), on pages that have parts. */
   readonly section: string | null;
+  /** On your friends pages, the friend request their row is about. Null for anyone else, and on other pages. */
+  readonly request: RequestRow | null;
 }
 
 export interface ProfilePage {
@@ -157,7 +165,10 @@ export interface ReadResult {
   readonly posts?: readonly Post[];
   readonly chats?: readonly ChatSummary[];
   readonly notices?: readonly Notice[];
-  /** Which of your own lists the page shows (./friends.ts): your friends, or the friend requests you've got. */
+  /**
+   * Which of your own lists the page shows (./friends.ts): your friends, or your friend requests, the ones you've got
+   * or, after View sent requests, the ones you've sent.
+   */
   readonly friendList?: 'friends' | 'requests';
   /** Facebook's own warnings on the page: a block, a limit, a security check. Later phases stop for the day on any. */
   readonly warnings: readonly string[];

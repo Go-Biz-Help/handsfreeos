@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { measuredSide, readChat } from '../src/facebook/chat';
 import { friendListOf, mutualFriendsIn, yourProfile } from '../src/facebook/friends';
 import { readPage } from '../src/facebook/page';
+import type { ReadResult } from '../src/facebook/types';
 import { runsGroup } from '../src/facebook/people';
 import { classifyUrl } from '../src/facebook/urls';
 import { readWarnings } from '../src/facebook/warnings';
@@ -559,15 +560,26 @@ describe('your friend requests', () => {
     expect(result.kind).toBe('friends');
     expect(result.friendList).toBe('requests');
     expect(
-      result.people?.map(({ name, profile, details }) => ({
+      result.people?.map(({ name, profile, details, request }) => ({
         name,
         profile: profile?.id ?? profile?.username,
         details,
+        request,
       })),
     ).toEqual([
-      { name: 'Avery Lane', profile: '100007000000001', details: ['12 mutual friends'] },
-      { name: 'Quinn Harper', profile: '100007000000002', details: ['1 mutual friend'] },
-      { name: 'Rowan Blake', profile: 'rowan.blake.4', details: [] },
+      {
+        name: 'Avery Lane',
+        profile: '100007000000001',
+        details: ['12 mutual friends'],
+        request: 'received',
+      },
+      {
+        name: 'Quinn Harper',
+        profile: '100007000000002',
+        details: ['1 mutual friend'],
+        request: 'received',
+      },
+      { name: 'Rowan Blake', profile: 'rowan.blake.4', details: [], request: 'received' },
     ]);
   });
 
@@ -593,6 +605,66 @@ describe('your friend requests', () => {
     expect(mutualFriendsIn(['1.2K friends · 45 mutual'])).toBe(45);
     expect(mutualFriendsIn(['1 mutual friend'])).toBe(1);
     expect(mutualFriendsIn(['Lives in Round Rock'])).toBeNull();
+  });
+});
+
+describe('your friend requests, as Facebook drew them in 2026', () => {
+  const url = 'https://www.facebook.com/friends/requests/';
+  const brief = (result: ReadResult) =>
+    result.people?.map(({ name, profile, details, request }) => ({
+      name,
+      profile: profile?.id ?? profile?.username,
+      details,
+      request,
+    }));
+
+  it('reads each request, not the mutual friends whose faces are on it, and which are answered', () => {
+    const result = read('friend-requests-2026.html', url);
+    expect(result.friendList).toBe('requests');
+    expect(brief(result)).toEqual([
+      {
+        name: 'Avery Lane',
+        profile: 'avery.lane.4',
+        details: ['2w', '1 mutual friend'],
+        request: 'received',
+      },
+      { name: 'Quinn Harper', profile: '100007000000002', details: ['2y'], request: 'received' },
+      // Facebook keeps a request answered a moment ago on the page.
+      { name: 'Casey Brooks', profile: 'casey.brooks.5', details: [], request: 'answered' },
+      {
+        name: 'Rowan Blake',
+        profile: 'rowan.blake.4',
+        details: ['1y', '16 mutual friends'],
+        request: 'received',
+      },
+    ]);
+  });
+
+  it('knows a request you’ve sent by its Cancel request', () => {
+    const doc = load('friend-requests-2026.html', url);
+    // The rows as requests you've sent: one Cancel request in place of Confirm and Delete.
+    for (const confirm of doc.querySelectorAll('[aria-label="Confirm"]:not([aria-hidden])')) {
+      const buttons = confirm.parentElement!.parentElement!;
+      buttons.innerHTML =
+        '<div role="button" aria-label="Cancel request"><span>Cancel request</span></div>';
+    }
+    expect(brief(readPage(doc, url, NOW))?.map(({ name, request }) => [name, request])).toEqual([
+      ['Avery Lane', 'sent'],
+      ['Quinn Harper', 'sent'],
+      ['Casey Brooks', 'answered'],
+      ['Rowan Blake', 'sent'],
+    ]);
+  });
+
+  it('leaves out a request whose row can’t be told from the rest', () => {
+    const doc = load('friend-requests-2026.html', url);
+    // Avery's buttons, but no link of Avery's own: the row is about nobody it names.
+    for (const anchor of doc.querySelectorAll('a[href="/avery.lane.4"]')) anchor.remove();
+    expect(brief(readPage(doc, url, NOW))?.map(({ name }) => name)).toEqual([
+      'Quinn Harper',
+      'Casey Brooks',
+      'Rowan Blake',
+    ]);
   });
 });
 

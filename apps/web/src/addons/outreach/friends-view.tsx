@@ -60,7 +60,7 @@ const EMPTY: Record<FriendView, { readonly title: string; readonly body: string 
   },
   sent: {
     title: 'No requests waiting on an answer',
-    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first.',
+    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first. For ones you sent before, open View sent requests on Facebook and press Save these sent requests.',
   },
   keep: {
     title: 'Nobody on your Keep list',
