@@ -4,26 +4,36 @@ import {
   aiSetupBusinessDraftOf,
   aiSetupFlowFactsOf,
   aiSetupTestQuestions,
+  chosenAiSetupTemplate,
   cleanOnboardingSetupAnswers,
   holds,
   mergeOnboardingSetupAnswers,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_SETUP_SCREENS,
   ONBOARDING_SETUP_WORDS as W,
   onboardingSetupBusinessDraftOf,
   onboardingSetupBusinessOf,
+  onboardingSetupChecking,
   onboardingSetupDraftLine,
   onboardingSetupHint,
   onboardingSetupNextScreen,
   onboardingSetupOpenAt,
+  onboardingSetupOwnerNext,
+  onboardingSetupOwnerPart,
+  onboardingSetupOwnerPrevious,
+  onboardingSetupOwnerProgress,
+  onboardingSetupOwnerScreens,
   onboardingSetupPreviousScreen,
   onboardingSetupProblemsOf,
   onboardingSetupProgress,
   onboardingSetupScreenProblemsOf,
   onboardingSetupStateOf,
+  onboardingSetupStopName,
   onboardingSetupSummary,
   onboardingSetupTitle,
   planOnboardingBooking,
   planOnboardingSetup,
+  setupKindOf,
   withAiName,
   type AiSetupAnswers,
   type AiSetupFinding,
@@ -39,9 +49,10 @@ import { AppState, View, type ScrollView } from 'react-native';
 
 import { AiSetupScreen } from '@/components/ai-setup/screens';
 import { TryAva } from '@/components/ai-setup/try-ava';
-import { ArrowLeft, RotateCcw } from '@/components/icons';
+import { ArrowLeft, Check, RotateCcw } from '@/components/icons';
 import { businessHref } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { FieldError } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
@@ -64,8 +75,10 @@ import {
   AboutScreen,
   aiProblemsOf,
   BookingScreen,
+  CheckScreen,
   CustomersScreen,
   GoalScreen,
+  HandOverScreen,
   HoursScreen,
   Loading,
   PaidScreen,
@@ -101,6 +114,9 @@ const apiProblems = (e: unknown): AiSetupProblems =>
  * - The booking page is made as its screen opens: by then it's ready, not a question.
  * - "Stay in the loop" saves the rest (`onboarding_setup.finish`); a business that has a teammate sees what will
  *   change first. Then the test chat, and what already works.
+ * - Someone from the business's agency (`state.forClient`, §9) hands it to the owner in place of "Stay in the
+ *   loop", leaving them the booking page and payments. The owner then opens on what the agency set up, to check:
+ *   "Change something" walks the whole setup, and "Finish my part" only their own screens (`?part=owner`).
  * - Every decision is core's (onboarding-setup/flow.ts, answers.ts, summary.ts, words.ts), as on the web.
  */
 export function OnboardingQuickSetup({
@@ -108,6 +124,7 @@ export function OnboardingQuickSetup({
   got: first,
   findings: firstFindings,
   at,
+  part = null,
   calls,
 }: {
   workspaceId: string;
@@ -115,6 +132,8 @@ export function OnboardingQuickSetup({
   findings: readonly AiSetupFinding[];
   /** `?at=`: the screen asked for, when it's one this business goes through and isn't past where it opens. */
   at: string | null;
+  /** `?part=owner`: the owner finishing their part of what their agency set up. */
+  part?: string | null;
   calls: OnboardingSetupCalls;
 }) {
   const { online } = useNetwork();
@@ -136,10 +155,23 @@ export function OnboardingQuickSetup({
   const [confirming, setConfirming] = React.useState(false);
   const [finished, setFinished] = React.useState<OnboardingSetupFinished | null>(null);
   const [booking, setBooking] = React.useState<BookingMade>(NOTHING_MADE);
+  const asked = ONBOARDING_SETUP_SCREENS.some((s) => s === at);
+  // Handed over by the agency and not finished, for the owner: what the agency did comes first, to check.
+  const [checking, setChecking] = React.useState(() => !asked && onboardingSetupChecking(first));
+  /** "Finish my part": the owner's own screens, as they stood when it started; null on the whole setup. */
+  const [walk, setWalk] = React.useState<readonly OnboardingSetupScreen[] | null>(() =>
+    asked && part === 'owner' && onboardingSetupChecking(first)
+      ? onboardingSetupOwnerScreens(first.answers, onboardingSetupStateOf(first.state), screen)
+      : null,
+  );
   // Opened part way through without a screen named (Home's Carry on): it says it carries on where they left off.
   const [carrying, setCarrying] = React.useState(
-    () => !ONBOARDING_SETUP_SCREENS.some((s) => s === at) && !!first.reached && !first.finished,
+    () => !asked && !!first.reached && !first.finished && !first.handedOver,
   );
+  /** "Start from", changed on the first screen since it was last saved: saved answers, or null for our picks. */
+  const [startPick, setStartPick] = React.useState<string | null | undefined>(undefined);
+  /** Handing it over: the owner's email, to invite them. */
+  const [ownerEmail, setOwnerEmail] = React.useState('');
   /** Answers changed on screen since the last save, as `goal` and `ai.services`: what arrives never overwrites them. */
   const touched = React.useRef(new Set<string>());
   /** The first screen changed since it was last saved. */
@@ -152,6 +184,21 @@ export function OnboardingQuickSetup({
 
   const facts = aiSetupFlowFactsOf(state);
   const name = answers.ai.name.trim() || 'Ava';
+  const forClient = state.forClient;
+  // While nobody picked, it follows the kind of business on the first screen.
+  const startFrom =
+    got.templates.length && !got.state.teammate
+      ? {
+          templates: got.templates,
+          value:
+            chosenAiSetupTemplate(
+              got.templates,
+              startPick !== undefined ? startPick : got.templatePicked ? got.templateId : undefined,
+              setupKindOf(business.industry),
+            )?.id ?? null,
+          onChange: (templateId: string | null) => setStartPick(templateId),
+        }
+      : null;
   const can = React.useCallback((permission: Permission) => holds(grants, permission), [grants]);
   /** Where customers' pages open: the simple page's address, which the chat goes on when there's no website. */
   const [publicOrigin, setPublicOrigin] = React.useState<string | null>(null);
@@ -255,13 +302,38 @@ export function OnboardingQuickSetup({
 
   const toTop = () => scroller.current?.scrollTo({ y: 0, animated: false });
 
-  function go(next: OnboardingSetupScreen) {
+  function go(next: OnboardingSetupScreen, ownerPart = !!walk) {
     setScreen(next);
+    setChecking(false);
     setConfirming(false);
     setProblems({});
     setError(null);
     // So the screen opens there again if it's drawn afresh.
-    router.setParams({ at: next });
+    router.setParams({ at: next, part: ownerPart ? 'owner' : undefined });
+    toTop();
+  }
+
+  /** "Finish my part": the owner's own screens only, from the first. */
+  function finishMyPart() {
+    const screens = onboardingSetupOwnerScreens(answers, state);
+    setWalk(screens);
+    go(screens[0] ?? 'loop', true);
+  }
+
+  /** "Change something": the whole setup, from its first screen. */
+  function changeSomething() {
+    setWalk(null);
+    go('business', false);
+  }
+
+  /** Back from the first of the owner's screens: checking what the agency set up again. */
+  function backToChecking() {
+    setWalk(null);
+    setChecking(true);
+    setConfirming(false);
+    setProblems({});
+    setError(null);
+    router.setParams({ at: undefined, part: undefined });
     toTop();
   }
 
@@ -287,6 +359,8 @@ export function OnboardingQuickSetup({
     if (bookingTried.current) return;
     bookingTried.current = true;
     const { state: now, answers: given } = latest.current;
+    // Someone setting it up for the owner leaves it to them: it books the owner's time.
+    if (now.forClient) return;
     if (!now.booking.on || planOnboardingBooking(now, given).changes.length) void makeBooking();
   }, [screen, makeBooking]);
 
@@ -310,11 +384,13 @@ export function OnboardingQuickSetup({
           screen,
           answers: clean,
           business: onboardingSetupBusinessOf(business),
+          ...(startPick !== undefined ? { templateId: startPick } : {}),
         });
         reached.current = saved.reached;
         const [fresh, read] = await Promise.all([calls.get(), calls.ai.findings()]);
         touched.current.clear();
         businessTouched.current = false;
+        setStartPick(undefined);
         // Kept as they were, and picked again for the kind of business when that changed.
         adopt(fresh, true);
         setFindings(read);
@@ -350,7 +426,9 @@ export function OnboardingQuickSetup({
         }
         // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow.
         if (screen === 'page') await refresh();
-        const after = onboardingSetupNextScreen(screen, clean, facts);
+        const after = walk
+          ? onboardingSetupOwnerNext(walk, screen)
+          : onboardingSetupNextScreen(screen, clean, facts);
         if (after) go(after);
       }
     } catch (e) {
@@ -369,6 +447,8 @@ export function OnboardingQuickSetup({
         baseRevision: state.teammate?.revision ?? null,
         // The chat goes on the simple page when there's no website: the page's address is the chat's site.
         ...(state.page ? { pageOrigin: publicOrigin ?? (await calls.publicOrigin()) } : {}),
+        // Handed to the owner, inviting them now or later from Members.
+        ...(state.forClient ? { owner: { email: ownerEmail.trim() || null } } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -403,6 +483,12 @@ export function OnboardingQuickSetup({
       setConfirming(false);
       return;
     }
+    if (walk) {
+      const before = onboardingSetupOwnerPrevious(walk, screen);
+      if (before) go(before);
+      else backToChecking();
+      return;
+    }
     const prev = onboardingSetupPreviousScreen(screen, answers, facts);
     if (prev) go(prev);
   }
@@ -421,8 +507,14 @@ export function OnboardingQuickSetup({
     else router.replace(businessHref(workspaceId));
   }
 
-  const progress = onboardingSetupProgress(screen, answers, facts);
-  const prev = onboardingSetupPreviousScreen(screen, answers, facts);
+  const progress = walk
+    ? onboardingSetupOwnerProgress(walk, screen)
+    : onboardingSetupProgress(screen, answers, facts);
+  // The first of the owner's own screens goes back to checking what the agency set up.
+  const canGoBack = walk
+    ? walk.includes(screen)
+    : !!onboardingSetupPreviousScreen(screen, answers, facts);
+  const handedOver = got.handedOver;
   const teammate = got.state.teammate;
   const aiBusiness = React.useMemo(() => aiSetupBusinessDraftOf(state), [state]);
   const aiStep = AI_SCREEN_OF[screen];
@@ -448,6 +540,13 @@ export function OnboardingQuickSetup({
   };
 
   const body = (() => {
+    if (checking)
+      return (
+        <CheckScreen
+          lines={summary.current}
+          part={onboardingSetupOwnerPart(onboardingSetupOwnerScreens(answers, state), answers)}
+        />
+      );
     if (changes)
       return (
         <View className="gap-2" testID="onboarding-setup-changes">
@@ -462,6 +561,19 @@ export function OnboardingQuickSetup({
           )}
         </View>
       );
+    // Someone from the agency hands it to the owner in place of staying in the loop.
+    if (screen === 'loop' && forClient)
+      return (
+        <HandOverScreen
+          email={ownerEmail}
+          onChange={(email) => {
+            setOwnerEmail(email);
+            clearProblems('owner');
+          }}
+          role={got.handOverAs ?? 'admin'}
+          error={problems['owner.email'] ?? problems['owner']}
+        />
+      );
     switch (screen) {
       case 'business':
         return (
@@ -470,6 +582,7 @@ export function OnboardingQuickSetup({
             onChange={setBusiness}
             problems={problems}
             name={name}
+            startFrom={startFrom}
           />
         );
       case 'goal':
@@ -528,51 +641,85 @@ export function OnboardingQuickSetup({
     }
   })();
 
-  const footer =
-    screen === 'done' ? (
-      <Button onPress={home} testID="onboarding-setup-home">
-        {W.goHome}
+  const footer = checking ? (
+    <View className="flex-row items-center gap-3">
+      <Button variant="secondary" onPress={changeSomething} testID="onboarding-setup-change">
+        {HW.change}
       </Button>
-    ) : screen === 'try' && teammate ? null : (
-      <>
-        {error ? <FieldError testID="onboarding-setup-error">{error}</FieldError> : null}
-        <View className="flex-row items-center gap-3">
-          {prev || confirming ? (
-            <Button
-              variant="ghost"
-              icon={ArrowLeft}
-              onPress={back}
-              disabled={busy}
-              testID="onboarding-setup-back"
-            >
-              {W.back}
-            </Button>
-          ) : null}
+      <Button className="flex-1" onPress={finishMyPart} testID="onboarding-setup-finish-part">
+        {HW.finishPart}
+      </Button>
+    </View>
+  ) : screen === 'done' ? (
+    <Button onPress={home} testID="onboarding-setup-home">
+      {W.goHome}
+    </Button>
+  ) : screen === 'try' && teammate ? null : (
+    <>
+      {error ? <FieldError testID="onboarding-setup-error">{error}</FieldError> : null}
+      <View className="flex-row items-center gap-3">
+        {canGoBack || confirming ? (
           <Button
-            className="flex-1"
-            onPress={() => (screen === 'try' ? void tried(false) : void next())}
-            loading={busy}
-            disabled={booking.making}
-            testID="onboarding-setup-next"
+            variant="ghost"
+            icon={ArrowLeft}
+            onPress={back}
+            disabled={busy}
+            testID="onboarding-setup-back"
           >
-            {screen === 'loop'
-              ? confirming
+            {W.back}
+          </Button>
+        ) : null}
+        <Button
+          className="flex-1"
+          onPress={() => (screen === 'try' ? void tried(false) : void next())}
+          loading={busy}
+          disabled={booking.making}
+          testID="onboarding-setup-next"
+        >
+          {screen === 'loop'
+            ? forClient
+              ? HW.handOver
+              : confirming
                 ? AI_SETUP_WORDS.saveChanges
                 : AI_SETUP_WORDS.save
-              : W.next}
-          </Button>
-        </View>
-      </>
-    );
+            : W.next}
+        </Button>
+      </View>
+    </>
+  );
 
   return (
     <SetupFrame
-      screen={confirming ? 'confirm' : screen}
-      progress={progress}
-      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name, facts)}
-      hint={confirming ? '' : onboardingSetupHint(screen, name, facts)}
+      screen={checking ? 'check' : confirming ? 'confirm' : screen}
+      progress={checking ? null : progress}
+      label={HW.checkCounter}
+      stopName={onboardingSetupStopName(progress.stop, forClient)}
+      title={
+        checking && handedOver
+          ? HW.checkTitle(handedOver.agency)
+          : confirming
+            ? AI_SETUP_WORDS.willChange
+            : onboardingSetupTitle(screen, name, facts, forClient)
+      }
+      hint={
+        checking && handedOver
+          ? HW.checkHint(handedOver.name, state.businessName)
+          : confirming
+            ? ''
+            : onboardingSetupHint(screen, name, facts, forClient)
+      }
       banner={
-        carrying ? (
+        forClient && handedOver && (screen === 'try' || screen === 'done') ? (
+          <View
+            className="flex-row items-start gap-2.5 rounded-menu bg-success-soft px-3.5 py-2.5"
+            testID="onboarding-setup-handed-over"
+          >
+            <Icon as={Check} className="mt-0.5 size-4 text-success-text" strokeWidth={2} />
+            <Text className="min-w-0 flex-1 text-[13.5px] leading-[19px] text-success-text">
+              {handedOver.email ? HW.sent(handedOver.email) : HW.notSent}
+            </Text>
+          </View>
+        ) : carrying ? (
           <View
             className="flex-row flex-wrap items-center gap-2 rounded-menu bg-accent-soft py-1.5 pl-3.5 pr-1.5"
             testID="onboarding-setup-carry-on"
@@ -590,7 +737,7 @@ export function OnboardingQuickSetup({
           </View>
         ) : null
       }
-      summary={screen === 'done' || screen === 'try' ? null : summary.current}
+      summary={checking || screen === 'done' || screen === 'try' ? null : summary.current}
       footer={footer}
       scroller={scroller}
     >

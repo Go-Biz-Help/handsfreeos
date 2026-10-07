@@ -127,6 +127,13 @@ export function SetupSheet({
               >
                 {first ? w.remind(first) : w.remindNoOwner}
               </Button>
+              <ButtonLink
+                href={`/onboarding/${c.workspaceId}`}
+                variant="secondary"
+                data-testid="setup-open-setup"
+              >
+                {w.openSetup}
+              </ButtonLink>
               <ButtonLink href={`/app/w/${c.workspaceId}`} variant="ghost">
                 {w.openWorkspace}
                 <ArrowUpRight className="h-4 w-4" strokeWidth={1.5} />

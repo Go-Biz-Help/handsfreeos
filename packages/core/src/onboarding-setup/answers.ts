@@ -22,6 +22,7 @@ import {
 } from '../ai-setup/answers';
 import { SETUP_KINDS, type SetupKind } from '../ai-setup/kinds';
 import { CUSTOMER_SOURCES, ONBOARDING_GOALS, TEAM_SIZES } from '../onboarding/steps';
+import { canActOnRole, type WorkspaceRole } from '../permissions';
 
 export const ONBOARDING_SETUP_SETTINGS_KEY = 'onboardingSetup';
 
@@ -286,6 +287,42 @@ export function resumeAiAnswers(
 export const OnboardingSetupMark = z.object({ at: z.iso.datetime(), by: z.uuid() });
 export type OnboardingSetupMark = z.infer<typeof OnboardingSetupMark>;
 
+/** The roles an agency invites a business's owner as: owner when it may give that role, else admin. */
+export const HAND_OVER_ROLES = ['owner', 'admin'] as const;
+export type HandOverRole = (typeof HAND_OVER_ROLES)[number];
+
+/** What handing it over invites the owner as, from the role here of whoever hands it over. */
+export const handOverRoleOf = (role: WorkspaceRole | null): HandOverRole =>
+  canActOnRole(role, 'owner') ? 'owner' : 'admin';
+
+/**
+ * An agency set the business up for its owner and handed it over to check and finish (the owner's 53A): who did it
+ * and when, and whom it invited. `name` and `agency` are kept as they were then, for "Sam at Bright Marketing set up
+ * …": the owner may not see either otherwise. Null `email` and `role`: nobody was invited from the setup.
+ */
+export const OnboardingSetupHandOver = OnboardingSetupMark.extend({
+  name: z.string().max(200),
+  agency: z.string().max(200),
+  email: z.email().nullable(),
+  role: z.enum(HAND_OVER_ROLES).nullable(),
+});
+export type OnboardingSetupHandOver = z.infer<typeof OnboardingSetupHandOver>;
+
+/**
+ * The hand-over an invitation brings someone to: the setup was handed to the owner and isn't finished, and the
+ * invitation is for the email it named (or anyone's, when it named none) as an owner or admin, who may finish it.
+ * The invitation email says so, and accepting it opens the setup.
+ */
+export function handOverFor(
+  record: Pick<OnboardingSetupRecord, 'handedOver' | 'finished'>,
+  invitation: { readonly email: string; readonly role: string },
+): OnboardingSetupHandOver | null {
+  const h = record.handedOver;
+  if (!h || record.finished || (invitation.role !== 'owner' && invitation.role !== 'admin'))
+    return null;
+  return h.email === null || h.email.toLowerCase() === invitation.email.toLowerCase() ? h : null;
+}
+
 /** What the business keeps. */
 export interface OnboardingSetupRecord {
   /** The answers so far; kept once finished too, so the last screens can still show them. */
@@ -294,8 +331,15 @@ export interface OnboardingSetupRecord {
   readonly reached: OnboardingSetupScreen | null;
   /** The kind of business the draft was answered for. */
   readonly kind: SetupKind | null;
+  /**
+   * The agency's saved answers picked on the first screen (the owner's 54A), null for our picks; left out while
+   * nobody picked, so the newest for the business's kind is used.
+   */
+  readonly template?: string | null;
   readonly started: OnboardingSetupMark | null;
-  /** When "Stay in the loop" saved everything. */
+  /** When the agency handed it to the business's owner to check and finish; left out until it does. */
+  readonly handedOver?: OnboardingSetupHandOver;
+  /** When "Stay in the loop" saved everything, by someone on the business's own team. */
   readonly finished: OnboardingSetupMark | null;
 }
 
@@ -314,11 +358,16 @@ export function onboardingSetupOf(
   const raw = asRecord(settings?.[ONBOARDING_SETUP_SETTINGS_KEY]);
   const draft = raw['draft'] == null ? null : parsed(OnboardingSetupAnswers, raw['draft']);
   const reached = draft ? parsed(z.enum(ONBOARDING_SETUP_SCREENS), raw['reached']) : null;
+  const template =
+    raw['template'] === null ? null : (parsed(z.uuid(), raw['template']) ?? undefined);
+  const handedOver = parsed(OnboardingSetupHandOver, raw['handedOver']);
   return {
     draft: reached ? draft : null,
     reached,
     kind: reached ? parsed(z.enum(SETUP_KINDS), raw['kind']) : null,
+    ...(reached && template !== undefined ? { template } : {}),
     started: parsed(OnboardingSetupMark, raw['started']),
+    ...(handedOver ? { handedOver } : {}),
     finished: parsed(OnboardingSetupMark, raw['finished']),
   };
 }
@@ -331,9 +380,11 @@ export function storedOnboardingSetup(next: OnboardingSetupRecord): Record<strin
           draft: next.draft,
           reached: next.reached,
           ...(next.kind ? { kind: next.kind } : {}),
+          ...(next.template !== undefined ? { template: next.template } : {}),
         }
       : {}),
     ...(next.started ? { started: next.started } : {}),
+    ...(next.handedOver ? { handedOver: next.handedOver } : {}),
     ...(next.finished ? { finished: next.finished } : {}),
   };
 }

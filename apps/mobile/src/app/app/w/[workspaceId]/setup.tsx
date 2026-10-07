@@ -17,19 +17,21 @@ import { useColors } from '@/theme';
 /**
  * Setting up the business, full screen (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), as the web's
  * /onboarding/<business>: where a new business goes once it's made, and where Home's Getting started card points
- * until it's finished. `?at=` is the screen it's on. It's for people who set the business up, and it needs signal:
- * everything it asks and keeps is HandsFreeOS's, so it carries on what was started on the computer.
+ * until it's finished. `?at=` is the screen it's on, and `?part=owner` walks only the owner's part of a business its
+ * agency set up. It's for people who set the business up, and it needs signal: everything it asks and keeps is
+ * HandsFreeOS's, so it carries on what was started on the computer.
  */
 export default function OnboardingSetup() {
   const { business } = useBusiness();
-  const { at } = useLocalSearchParams<{ at?: string }>();
+  const { at, part } = useLocalSearchParams<{ at?: string; part?: string }>();
   const grants = useGrants();
   const allowed = holds(grants, 'workspace.update');
   const calls = React.useMemo(() => onboardingSetupCalls(business.id), [business.id]);
   const { start, retry } = useOnboardingSetupStart(calls, allowed);
   const colors = useColors();
-  // Where it opened: later moves change `?at=` too, which mustn't open it somewhere else.
+  // Where it opened: later moves change `?at=` and `?part=` too, which mustn't open it somewhere else.
   const [openAt] = React.useState(at ?? null);
+  const [openPart] = React.useState(part ?? null);
 
   if (allowed && start.state === 'ready')
     return (
@@ -38,6 +40,7 @@ export default function OnboardingSetup() {
         got={start.got}
         findings={start.findings}
         at={openAt}
+        part={openPart}
         calls={calls}
       />
     );

@@ -9,6 +9,7 @@
  * (`planOnboardingBooking`), which the carriers look at on the number stop, where customers are, and the review
  * link.
  */
+import type { AiSetupAnswers } from '../ai-setup/answers';
 import { setupFor } from '../ai-setup/kinds';
 import {
   planAiSetup,
@@ -250,14 +251,28 @@ export interface OnboardingSetupPlan {
   readonly changes: readonly string[];
 }
 
-/** What "Stay in the loop" saves. */
+/**
+ * The AI part's answers as "Stay in the loop" saves them. Someone setting it up for the owner leaves booking to them
+ * (the owner's 53A): Ava books on the booking page the owner makes, on their own hours, so until then it doesn't,
+ * unless customers can book a calendar already.
+ */
+export function onboardingSetupAiAnswers(
+  state: Pick<OnboardingSetupState, 'forClient' | 'calendars'>,
+  answers: Pick<OnboardingSetupAnswers, 'ai'>,
+): AiSetupAnswers {
+  if (!state.forClient || state.calendars.length || !answers.ai.jobs.includes('book'))
+    return answers.ai;
+  return { ...answers.ai, jobs: answers.ai.jobs.filter((j) => j !== 'book') };
+}
+
+/** What "Stay in the loop" saves. Someone setting it up for the owner has no hours of their own here. */
 export function planOnboardingSetup(
   state: OnboardingSetupState,
   answers: OnboardingSetupAnswers,
 ): OnboardingSetupPlan {
-  const ai = planAiSetup(state, answers.ai);
+  const ai = planAiSetup(state, onboardingSetupAiAnswers(state, answers));
   const priceList = planPriceList(state, answers);
-  const myHours = myHoursFrom(state, answers);
+  const myHours = state.forClient ? null : myHoursFrom(state, answers);
   const lines = [...ai.changes, ...priceListChanges(priceList)];
   if (myHours) lines.push(myHoursChange(myHours));
   return { ai, priceList, myHours, changes: lines };

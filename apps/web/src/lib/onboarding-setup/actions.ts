@@ -35,6 +35,8 @@ export function onboardingSetupActions(workspaceId: string) {
       business?: ReturnType<typeof onboardingSetupBusinessOf>;
       /** "Invite them now", on the goal. */
       invite?: readonly string[];
+      /** Start from: saved answers picked on the first screen, or null for our picks. */
+      templateId?: string | null;
     }): Promise<OnboardingSetupSaved> =>
       OnboardingSetupSaveOutput.parse(
         unwrap(
@@ -47,6 +49,7 @@ export function onboardingSetupActions(workspaceId: string) {
                 ? { business: input.business as OnboardingSetupSaveBody['business'] }
                 : {}),
               ...(input.invite?.length ? { invite: [...input.invite] } : {}),
+              ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
             },
           }),
         ),
@@ -56,6 +59,8 @@ export function onboardingSetupActions(workspaceId: string) {
       baseRevision: number | null;
       /** Where the simple page is shown, for a chat on it. */
       pageOrigin?: string;
+      /** An agency handing the business over: the owner's email, or null to send nothing yet. */
+      owner?: { email: string | null };
     }): Promise<OnboardingSetupFinished> =>
       OnboardingSetupFinishOutput.parse(
         unwrap(
@@ -65,6 +70,7 @@ export function onboardingSetupActions(workspaceId: string) {
               answers: input.answers as unknown as OnboardingSetupFinishBody['answers'],
               baseRevision: input.baseRevision,
               ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
+              ...(input.owner ? { owner: input.owner } : {}),
             },
           }),
         ),

@@ -1,4 +1,9 @@
-import { GUIDE_WORDS, LINK_WORDS, PHONE_GUIDE_WORDS } from '@hfos/core';
+import {
+  GUIDE_WORDS,
+  LINK_WORDS,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
+  PHONE_GUIDE_WORDS,
+} from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
@@ -21,8 +26,9 @@ import {
 /**
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10): an owner's
  * card, shorter than the web's, where a step that's easier on a computer emails a link and the AI teammate is set up
- * on the phone itself; the guided setup's Start or Carry on until it's finished; a teammate's four rows, with
- * notifications turned on from the phone itself; the tour of the bottom bar; and "You're set up" once.
+ * on the phone itself; the guided setup's Start, Carry on, or Check it and finish until it's finished; a teammate's
+ * four rows, with notifications turned on from the phone itself; the tour of the bottom bar; and "You're set up"
+ * once.
  */
 
 jest.mock('expo-router', () => ({
@@ -243,6 +249,27 @@ it('points whoever sets the business up at the guided setup until it’s finishe
   expect(screen.getByTestId('getting-started-setup')).toHaveTextContent(GUIDE_WORDS.setUp.title, {
     exact: false,
   });
+
+  // Set up by the business's agency and handed over: the owner checks it and finishes their part.
+  const handedOver = {
+    at: '2026-10-06T15:00:00.000Z',
+    by: '22222222-2222-4222-8222-222222222222',
+    name: 'Alex Agent',
+    agency: 'Handover Agency',
+    email: null,
+    role: 'owner',
+  };
+  setup({ started: mark, handedOver });
+  await view.rerender();
+  const check = screen.getByTestId('getting-started-setup');
+  expect(check).toHaveTextContent(HW.homeTitle('Handover Agency'), { exact: false });
+  expect(check).toHaveTextContent(HW.homeDetail, { exact: false });
+  expect(screen.getByTestId('getting-started-setup-open')).toHaveTextContent(HW.homeAction);
+
+  // Whoever handed it over has nothing left to do there.
+  setup({ started: mark, handedOver: { ...handedOver, by: DALE } });
+  await view.rerender();
+  expect(screen.queryByTestId('getting-started-setup')).toBeNull();
 
   // Finished: the next step is back.
   setup({ started: mark, finished: mark });

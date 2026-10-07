@@ -7865,7 +7865,7 @@ Where to find them:
 
 - **Workflows** is in the sidebar after **Calendar** (in the menu drawer on phones). Its tabs are **Workflows**, **Runs** and **Approvals**.
 - **Knowledge** is in the sidebar after **Workflows**. Its tabs are **Overview**, **Items**, **Documents**, **Website** and **Suggestions**.
-- The agency area is at `https://app.handsfreeos.com/app/org/<organization id>`. Open the workspace switcher and click **Agency area** next to the organization's name. Only the organization's owners and admins see the link. The area has **Client businesses**, **Templates**, **Knowledge packs** and **AI setups**.
+- The agency area is at `https://app.handsfreeos.com/app/org/<organization id>`. Open the workspace switcher and click **Agency area** next to the organization's name. Only the organization's owners and admins see the link. The area has **Client businesses**, **Templates**, **Knowledge packs** and **Saved setups**.
 
 Owners and admins of a business build, test, publish and pause its workflows, and edit its knowledge base. Everyone in the business can look at both, add a customer to a workflow or take them out, and decide an approval that names them.
 
@@ -8105,14 +8105,25 @@ A knowledge pack is a set of FAQs, articles and facts for many businesses, such 
 
 Each business gets the items as suggestions under **Suggestions** → **Go Biz Help**, to accept, edit or reject. Nothing is added until someone there accepts it, and an item the business already has isn't suggested.
 
-#### AI setups
+#### Setting up a client's business
 
-An AI setup is the answers one business gave in the AI teammate's quick setup, kept so the agency's other businesses start from them: what the teammate helps with, when it answers, its name, how it says it's AI, its tone, prices and questions for leads. Nothing about the business itself is kept.
+An agency can set up a business for its owner, then hand it over: the owner gets an email to check what was set up and finish their part. Only the agency's owners and admins can.
 
-1. Run quick setup in one business. On the test chat after **Save**, click **Save these answers for your other businesses** and name them. Or, in the agency area, open **AI setups** and click **Save from a business**.
-2. A business that hasn't set up its teammate starts quick setup from the newest AI setup saved for its kind of business. Its first screen's **Start from** picks another one, or our picks.
+1. In the agency area, open **Client businesses** and click **Add a client business**. Its **Who runs this business?** starts on **I’m setting it up for someone else**, so you aren't put on its team. Adding it opens the setup. For a client business already there, click where its setup stands on its row, then **Open the setup**.
+2. Answer the setup's questions for them. Three things wait for the owner: the booking page (it books their time), signing in to Stripe or Square (payments go to their own account), and picking customers from their phone's contacts.
+3. The last stop is **Hand it over**: type the owner's email and click **Save and hand it over**. It saves everything, as **Stay in the loop** does, and invites them. An owner of the agency invites them as the business's owner; an admin of the agency invites them as an admin, since only an owner can make an owner. Left empty, invite them later from **Members**.
+4. The owner accepts the invitation and lands on **Check what <agency> set up**. **Change something** walks the whole setup; **Finish my part** walks only what's left for them: the booking page, payments, and **Stay in the loop** with their notifications. Until they finish, Home's Getting started card says **<agency> set up your business**, with **Check it and finish**.
 
-Renaming or removing an AI setup changes no business. The table comes from `20261026000100_saved_ai_setups.sql`; see "Apply new migrations".
+Nothing new to set up for it: the invitation email is the usual one, saying who set the business up.
+
+#### Saved setups
+
+A saved setup is the answers one business gave in its setup, kept so the agency's other businesses start from them: what they want help with first, their open hours, how customers pay, and the AI teammate's answers (what it helps with, when it answers, its name, how it says it's AI, its tone, prices and questions for leads). Nothing that's only the business's own is kept: not its name, address, services, number or customers.
+
+1. Set up one business. On the test chat after **Save** (or **Save and hand it over**), click **Save these answers for your other businesses** and name them. Or, in the agency area, open **Saved setups** and click **Save from a business**.
+2. A business that hasn't set up its teammate starts its setup, or the AI teammate's quick setup, from the newest one saved for its kind of business. Its first screen's **Start from** picks another one, or our picks.
+
+Renaming or removing a saved setup changes no business. The table comes from `20261026000100_saved_ai_setups.sql`; see "Apply new migrations".
 
 #### The daily agency digest
 

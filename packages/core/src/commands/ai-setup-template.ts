@@ -1,18 +1,26 @@
 /**
  * An agency's saved answers for quick setup (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §9): its owners and
  * admins save the answers one client business was set up with, those that aren't about that business, so its other
- * businesses can start quick setup from them (the owner's 58B). Saving, renaming or removing them changes no
- * business: one set up from them keeps its answers.
+ * businesses can start quick setup from them (the owner's 58B), and the onboarding setup too, with its goal, open
+ * hours and how customers pay (the owner's 54A). Saving, renaming or removing them changes no business: one set up
+ * from them keeps its answers.
  */
 import { and, eq, ne, sql } from 'drizzle-orm';
+import { rows, type Tx } from '@hfos/db/client';
 import { aiSetupTemplates, workspaces } from '@hfos/db/schema';
 import { loadAiSetupState } from '../ai-setup/load';
-import { aiSetupTemplateOfBusiness } from '../ai-setup/templates';
+import type { AiSetupState } from '../ai-setup/state';
+import {
+  aiSetupTemplateOfBusiness,
+  savedSetupStartOf,
+  type SavedSetupStart,
+} from '../ai-setup/templates';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
+import { onboardingSetupOf } from '../onboarding-setup/answers';
 import {
   AiSetupTemplateDeleteInput,
   AiSetupTemplateDeleteOutput,
@@ -29,7 +37,7 @@ const inOrganization = (i: { organizationId: string }) => ({
 
 const nameTaken = (name: string) =>
   HfosError.conflict(
-    `Your agency already has saved answers called “${name}”. Pick a different name, or rename those in the agency area under AI setups.`,
+    `Your agency already has saved answers called “${name}”. Pick a different name, or rename those in the agency area under Saved setups.`,
     'name_taken',
   );
 
@@ -53,6 +61,30 @@ async function checkName(ctx: CommandContext, name: string, except?: string) {
   if (taken) throw nameTaken(name);
 }
 
+/**
+ * What a business answered for the onboarding setup's own questions that isn't about it: what it wanted help with
+ * first, and how its customers pay, by the payments it connected, else as it answered.
+ */
+async function setupStartOfBusiness(
+  tx: Tx,
+  workspaceId: string,
+  state: AiSetupState,
+): Promise<SavedSetupStart> {
+  const [w] = await rows<{ settings: unknown; provider: string | null }>(
+    tx,
+    sql`select w.settings,
+          (select pc.provider::text from app.payment_connections pc
+            where pc.workspace_id = w.id and pc.status <> 'disconnected'
+            order by (pc.status = 'active') desc, pc.is_default desc, pc.created_at limit 1) as provider
+        from app.workspaces w where w.id = ${workspaceId}`,
+  );
+  const draft = onboardingSetupOf(w?.settings as Record<string, unknown> | null).draft;
+  return savedSetupStartOf({
+    goal: state.goal ?? draft?.goal,
+    payWith: w?.provider ?? draft?.payWith,
+  });
+}
+
 /** Runs a write, refusing a name another write took meanwhile. */
 async function namedWrite<T>(name: string, write: () => Promise<T>): Promise<T> {
   try {
@@ -66,7 +98,7 @@ async function namedWrite<T>(name: string, write: () => Promise<T>): Promise<T> 
 export const aiSetupTemplateSave = defineCommand({
   name: 'ai_setup_template.save',
   description:
-    'Save the AI teammate answers one of your client businesses was set up with (what it helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing about the business itself) so your other businesses can start quick setup from them.',
+    'Save the answers one of your client businesses was set up with (what it wanted help with first, its open hours, how customers pay, and what its AI teammate helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing else about the business itself) so your other businesses can start their setup from them.',
   risk: 1,
   input: AiSetupTemplateSaveInput,
   output: AiSetupTemplateSaveOutput,
@@ -98,7 +130,10 @@ export const aiSetupTemplateSave = defineCommand({
         `${ws.name} hasn’t set up its AI teammate yet, so there are no answers to save. Run quick setup there first.`,
       );
     await checkName(ctx, input.name);
-    const answers = aiSetupTemplateOfBusiness(state);
+    const answers = {
+      ...aiSetupTemplateOfBusiness(state),
+      ...(await setupStartOfBusiness(ctx.tx, ws.id, state)),
+    };
     const [row] = await namedWrite(input.name, () =>
       ctx.tx
         .insert(aiSetupTemplates)

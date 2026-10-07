@@ -216,8 +216,16 @@ function BusinessScreen({ answers, business, setBusiness, problems, startFrom }:
   );
 }
 
-/** Where the answers start: answers the agency saved, or our picks (§9). */
-function StartFrom({ templates, value, onChange }: NonNullable<ScreenProps['startFrom']>) {
+/**
+ * Where the answers start: answers the agency saved, or our picks (§9). `basics`: the onboarding setup, which also
+ * starts from what they want help with first, the open hours and how customers pay.
+ */
+export function StartFrom({
+  templates,
+  value,
+  onChange,
+  basics = false,
+}: NonNullable<ScreenProps['startFrom']> & { readonly basics?: boolean }) {
   const T = AI_SETUP_TEMPLATE_WORDS;
   return (
     <View className="gap-2">
@@ -233,7 +241,7 @@ function StartFrom({ templates, value, onChange }: NonNullable<ScreenProps['star
             onSelect={() => onChange(t.id)}
             title={t.name}
             badge={<Badge>{SETUP_KIND_LABELS[t.kind]}</Badge>}
-            description={t.about}
+            description={basics && t.basics ? `${t.basics}\n${t.about}` : t.about}
             testID={`ai-setup-start-${t.id}`}
           />
         ))}

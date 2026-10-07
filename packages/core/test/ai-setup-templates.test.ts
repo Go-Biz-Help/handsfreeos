@@ -174,6 +174,8 @@ describe('ai_setup_template.save', () => {
         'disclosure',
         'jobs',
         'name',
+        // The open hours too, for the onboarding setup (the owner's 54A); a business's own come first.
+        'openHours',
         'questions',
         'tone',
       ].sort(),

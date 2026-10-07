@@ -1,4 +1,11 @@
-import { addDays, can, industryLabel, localInstant, onboardingSetupOf } from '@hfos/core';
+import {
+  addDays,
+  can,
+  industryLabel,
+  localInstant,
+  onboardingSetupHomeOf,
+  onboardingSetupOf,
+} from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
@@ -83,9 +90,12 @@ export default async function WorkspaceHomePage({
   const greeted = (await getWorkspaceShell(workspaceId)).teammateView?.person ?? me.user;
   const firstName = (greeted.fullName || greeted.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
-  // The guided setup, which Getting started points at until it's finished.
-  const setupRecord = onboardingSetupOf(ws.settings as Record<string, unknown>);
-  const setup = { started: !!setupRecord.started, finished: !!setupRecord.finished };
+  // The guided setup, which Getting started points at until it's finished: for the owner of a business their
+  // agency set up, until they check it and finish their part.
+  const setup = onboardingSetupHomeOf(
+    onboardingSetupOf(ws.settings as Record<string, unknown>),
+    userId,
+  );
   const guide = onboarding ? (
     <GettingStarted
       workspaceId={ws.id}

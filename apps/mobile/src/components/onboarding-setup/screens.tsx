@@ -4,6 +4,7 @@ import {
   CUSTOMER_SOURCES,
   LINK_WORDS,
   ONBOARDING_GOALS,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_KIND_INFO,
   ONBOARDING_SETUP_MAX,
   ONBOARDING_SETUP_WORDS as W,
@@ -17,6 +18,7 @@ import {
   type AiSetupAnswers,
   type AiSetupProblems,
   type CustomerSource,
+  type HandOverRole,
   type OnboardingSetupAnswers,
   type OnboardingSetupState,
   type OnboardingStepKey,
@@ -66,6 +68,10 @@ import { useColors } from '@/theme';
  * can (the payment provider's sign-in); the frame (quick-setup.tsx) checks, keeps and saves. What's easier on a
  * computer (a spreadsheet, the move from GoHighLevel, a calendar's sign-in) emails the person a link, as Getting
  * started does on the phone.
+ *
+ * Someone from the business's agency setting it up for the owner (`state.forClient`, §9) leaves what's the owner's
+ * to them: the booking page, payments and the phone's contacts. They hand it over in place of "Stay in the loop"
+ * (`HandOverScreen`), and the owner first checks what they set up (`CheckScreen`).
  */
 
 type OwnField = Exclude<keyof OnboardingSetupAnswers, 'ai'>;
@@ -394,7 +400,7 @@ const SOURCE_HINTS: Readonly<Record<CustomerSource, string>> = {
   none: W.noneHint,
 };
 
-export function CustomersScreen({ workspaceId, answers, set, can }: OwnScreenProps) {
+export function CustomersScreen({ workspaceId, state, answers, set, can }: OwnScreenProps) {
   const source = answers.customersIn;
   return (
     <>
@@ -423,6 +429,11 @@ export function CustomersScreen({ workspaceId, answers, set, can }: OwnScreenPro
           testID="setup-customers-computer"
         >
           {P.customersOnComputer}
+        </Note>
+      ) : source === 'phone' && state.forClient ? (
+        // This phone's contacts aren't the business's: the owner picks theirs once they join.
+        <Note icon={Info} testID="setup-customers-owner">
+          {HW.phoneWaits}
         </Note>
       ) : source === 'phone' && can('records.write') ? (
         <PickFromContacts workspaceId={workspaceId} />
@@ -522,6 +533,8 @@ export function BookingScreen({
   }, [calls]);
   const site = state.booking.site;
   const link = site && origin ? `${origin}/book/${site.slug}` : null;
+  // The owner makes it when they finish: the question and its hint say so.
+  if (state.forClient) return null;
   return (
     <>
       {booking.making ? (
@@ -689,7 +702,7 @@ export function PaidScreen({
             {W.payConnected(provider)}
           </Note>
         )
-      ) : p.broken && p.provider && provider ? (
+      ) : p.broken && p.provider && provider && !state.forClient ? (
         <Note
           tone="danger"
           icon={CircleAlert}
@@ -710,7 +723,12 @@ export function PaidScreen({
         </Note>
       ) : null}
       {picked && !(p.provider === picked && (p.active || p.broken)) ? (
-        !mayConnect ? (
+        state.forClient ? (
+          // Payments go to the owner's own account, so they sign in when they finish.
+          <Note icon={Info} testID="setup-pay-owner">
+            {HW.payWaits(W.payWithLabels[picked])}
+          </Note>
+        ) : !mayConnect ? (
           <Note icon={Info}>{W.cantDo}</Note>
         ) : noBuild ? (
           <Note
@@ -761,6 +779,79 @@ export function PaidScreen({
           <Text className="text-[13.5px] font-medium text-accent-text">{W.findReviewLink}</Text>
         </Pressable>
         {help ? <Note icon={Info}>{W.reviewLinkHelp}</Note> : null}
+      </View>
+    </>
+  );
+}
+
+// ---- Hand it to the owner ----
+
+/** For someone from the agency, in place of "Stay in the loop": whom to invite to check it and finish. */
+export function HandOverScreen({
+  email,
+  onChange,
+  role,
+  error,
+}: {
+  readonly email: string;
+  readonly onChange: (email: string) => void;
+  /** What they're invited as: an owner, when whoever hands it over may make one. */
+  readonly role: HandOverRole;
+  readonly error?: string;
+}) {
+  return (
+    <Field label={HW.ownerEmail} error={error} hint={HW.ownerEmailHint(role)}>
+      <Input
+        value={email}
+        onChangeText={onChange}
+        placeholder="owner@theirbusiness.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="off"
+        maxLength={254}
+        invalid={!!error}
+        accessibilityLabel={HW.ownerEmail}
+        testID="setup-owner-email"
+      />
+    </Field>
+  );
+}
+
+// ---- Check what your agency set up ----
+
+/** The owner's first look at what their agency set up: what works now, then what's left for them to do. */
+export function CheckScreen({
+  lines,
+  part,
+}: {
+  readonly lines: readonly string[];
+  /** "Your part", one line each (`onboardingSetupOwnerPart`). */
+  readonly part: readonly string[];
+}) {
+  return (
+    <>
+      <View className="gap-2.5" testID="onboarding-setup-check">
+        {lines.map((line) => (
+          <View
+            key={line}
+            className="flex-row items-start gap-2.5 rounded-menu bg-card-2 px-3.5 py-3"
+          >
+            <Icon as={Check} className="mt-0.5 size-4 text-success-text" strokeWidth={2} />
+            <Text className="min-w-0 flex-1 text-[14.5px] leading-[20px]">{line}</Text>
+          </View>
+        ))}
+      </View>
+      <View className="gap-2.5" testID="onboarding-setup-your-part">
+        <Text className="text-[15px] font-semibold">{HW.yourPart}</Text>
+        {part.map((line, i) => (
+          <View key={line} className="flex-row items-start gap-2.5">
+            <View className="size-5 items-center justify-center rounded-full bg-accent-soft">
+              <Text className="text-[12px] font-semibold text-accent-text">{i + 1}</Text>
+            </View>
+            <Text className="min-w-0 flex-1 text-[14.5px] leading-[20px]">{line}</Text>
+          </View>
+        ))}
       </View>
     </>
   );

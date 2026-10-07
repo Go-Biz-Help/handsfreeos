@@ -13,8 +13,10 @@ export const AiSetupTemplateOption = z.object({
   name: z.string(),
   /** The kind of business they were saved from: one of that kind starts from the newest. */
   kind: z.enum(SETUP_KINDS),
-  /** What they set, in a line (`aiSetupTemplateAbout`). */
+  /** What they set for the AI teammate, in a line (`aiSetupTemplateAbout`). */
   about: z.string(),
+  /** What they set for the business, in a line (`savedSetupBasics`): the goal, open hours and payments. */
+  basics: z.string().default(''),
   updatedAt: isoDateTime,
 });
 export type AiSetupTemplateOption = z.infer<typeof AiSetupTemplateOption>;

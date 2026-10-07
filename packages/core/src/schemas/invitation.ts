@@ -15,6 +15,8 @@ export const InvitationAcceptOutput = z.object({
   organizationId: uuid,
   workspaceId: uuid,
   role: workspaceRole,
+  /** The business's agency set it up for this person to check and finish: they go to its setup. */
+  setup: z.boolean().default(false),
 });
 
 export const PendingInvitation = z.object({

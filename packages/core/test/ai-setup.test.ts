@@ -947,6 +947,8 @@ describe('an agency’s saved answers', () => {
         'disclosure',
         'jobs',
         'name',
+        // The onboarding setup's open hours (the owner's 54A).
+        'openHours',
         'questions',
         'tone',
       ].sort(),
@@ -956,6 +958,7 @@ describe('an agency’s saved answers', () => {
       disclosure: 'when_asked',
       answerWhen: 'after_hours',
       tone: 'professional',
+      openHours: startingAiSetupAnswers(set).openHours,
       questions: [expect.objectContaining({ question: MAX_Q.question })],
     });
 

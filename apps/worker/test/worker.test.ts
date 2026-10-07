@@ -329,6 +329,47 @@ describe('invitation emails', () => {
   });
 });
 
+describe('an invitation that hands a business over', () => {
+  it('says the agency set it up for them, and asks them to check it and finish', async () => {
+    const email = `worker-handover-${randomUUID().slice(0, 8)}@hfos.test`;
+    const handedOver = {
+      at: new Date().toISOString(),
+      by: owner.id,
+      name: 'Rita Agency',
+      agency: 'Bright Marketing',
+      email,
+      role: 'owner',
+    };
+    await rows(
+      testDbs().admin.db,
+      sql`update app.workspaces
+          set settings = jsonb_set(settings, '{onboardingSetup}', ${JSON.stringify({ handedOver })}::jsonb)
+          where id = ${workspaceId}`,
+    );
+    try {
+      const { eventIds } = await executeCommand(
+        testDbs().api.db,
+        membershipInvite,
+        { workspaceId, email, role: 'owner' },
+        actor(owner),
+        meta(),
+      );
+      await reserveForTests(eventIds);
+      await processReserved(deps);
+      const [mail] = await mailpitSearch(email);
+      expect(mail!.Subject).toContain('set up Lone Star HVAC & Roofing on HandsFreeOS for you');
+      const body = await mailpitBody(mail!.ID);
+      expect(body).toContain('finish your part');
+      expect(body).toMatch(/Check it and finish: http:\/\/localhost:3000\/invite\/inv_/);
+    } finally {
+      await rows(
+        testDbs().admin.db,
+        sql`update app.workspaces set settings = settings - 'onboardingSetup' where id = ${workspaceId}`,
+      );
+    }
+  });
+});
+
 describe('failure handling', () => {
   it('retries with backoff, then marks the row failed after the last attempt; unknown event types are marked done', async () => {
     const admin = testDbs().admin.db;

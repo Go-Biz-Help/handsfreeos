@@ -2,8 +2,15 @@
  * Quick setup's saved answers (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §9): an agency keeps the answers one
  * client business gave, only those that aren't about that business (`AI_SETUP_TEMPLATE_FIELDS`), as a starting point
  * for its others (the owner's 58B). A business without a teammate starts from the ones picked on the first screen,
- * else from the newest saved for its kind of business. Browser-safe.
+ * else from the newest saved for its kind of business. The onboarding setup starts from them too, with what they set
+ * for its own questions beside them: the goal and how customers pay (`SavedSetupStart`, the owner's 54A).
+ * Browser-safe.
  */
+import { z } from 'zod';
+import { formatHours } from '../calendar/format';
+import { PAY_WITH, type PayWith } from '../onboarding-setup/answers';
+import { ONBOARDING_GOALS, type OnboardingGoal } from '../onboarding/steps';
+import { QUESTION_WORDS } from '../onboarding/words';
 import { AiSetupAnswers } from './answers';
 import { SETUP_JOBS, type SetupJob, type SetupKind } from './kinds';
 import { AI_SETUP_TEMPLATE_FIELDS, startingAiSetupAnswers, type AiSetupTemplate } from './plan';
@@ -120,6 +127,53 @@ export function aiSetupTemplateAbout(template: Partial<AiSetupTemplate>): string
     .join(' · ');
 }
 
+/**
+ * What saved answers set for the onboarding setup's own questions (the owner's 54A): what to help with first, and how
+ * customers pay. They're kept beside the AI teammate's answers and read the same forgiving way. Never anything about
+ * one business: its name, address, services, number or customers.
+ */
+export interface SavedSetupStart {
+  readonly goal?: OnboardingGoal;
+  readonly payWith?: PayWith;
+}
+
+/** The goal and how customers pay, as saved answers keep them, each only while it still reads. */
+export function savedSetupStartOf(stored: unknown): SavedSetupStart {
+  const raw =
+    stored && typeof stored === 'object' && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : {};
+  const goal = z.enum(ONBOARDING_GOALS).safeParse(raw['goal']);
+  const payWith = z.enum(PAY_WITH).safeParse(raw['payWith']);
+  return {
+    ...(goal.success ? { goal: goal.data } : {}),
+    ...(payWith.success ? { payWith: payWith.data } : {}),
+  };
+}
+
+const PAY_WORDS: Readonly<Record<PayWith, string>> = {
+  stripe: 'Customers pay with Stripe',
+  square: 'Customers pay with Square',
+  later: 'Payments later',
+};
+
+/**
+ * What saved answers set for the onboarding setup, in a line: "Getting booked · Open Mon–Fri 8:00 AM–5:00 PM ·
+ * Customers pay with Stripe". Empty for answers saved before they kept these.
+ */
+export function savedSetupBasics(
+  template: Pick<Partial<AiSetupTemplate>, 'openHours'>,
+  start: SavedSetupStart,
+): string {
+  return [
+    start.goal ? QUESTION_WORDS.goals[start.goal] : null,
+    template.openHours?.length ? `Open ${formatHours(template.openHours)}` : null,
+    start.payWith ? PAY_WORDS[start.payWith] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** Shared by the web and the phone. `{name}` is the teammate's name (`withAiName`). */
 export const AI_SETUP_TEMPLATE_WORDS = {
   /** The first screen's choice, while the agency has saved answers and the business has no teammate. */
@@ -129,7 +183,7 @@ export const AI_SETUP_TEMPLATE_WORDS = {
   /** After Save, for the agency's owners and admins. */
   saveTitle: 'Save these answers for your other businesses',
   saveHint: (agency: string) =>
-    `What {name} helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads. Nothing about this business is saved. ${agency}’s other businesses can start quick setup from them.`,
+    `What you want help with first, your open hours, how customers pay, and what {name} helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads. Nothing else about this business is saved: not its name, address, services, number or customers. ${agency}’s other businesses can start their setup from them.`,
   saveName: 'Name',
   saveAction: 'Save',
   saved: (saved: string) =>

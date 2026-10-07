@@ -26,16 +26,24 @@ import {
   onboardingSetupBusinessDraftOf,
   onboardingSetupBusinessLine,
   onboardingSetupBusinessOf,
+  onboardingSetupChecking,
   onboardingSetupDraftLine,
   onboardingSetupFirstScreen,
   onboardingSetupHint,
   onboardingSetupNextScreen,
   onboardingSetupOf,
   onboardingSetupOpenAt,
+  onboardingSetupOwnerNext,
+  onboardingSetupOwnerPart,
+  onboardingSetupOwnerPrevious,
+  onboardingSetupOwnerProgress,
+  onboardingSetupOwnerScreens,
+  onboardingSetupHomeOf,
   onboardingSetupPreviousScreen,
   onboardingSetupProgress,
   onboardingSetupScreenProblemsOf,
   onboardingSetupScreens,
+  onboardingSetupStopName,
   onboardingSetupSummary,
   onboardingSetupTitle,
   OnboardingSetupAnswers,
@@ -47,10 +55,13 @@ import {
   planOnboardingSetup,
   planPriceList,
   resumeOnboardingSetup,
+  savedSetupBasics,
+  savedSetupStartOf,
   SETUP_KINDS,
   setupKindOf,
   startingOnboardingSetupAnswers,
   storedOnboardingSetup,
+  withOnboardingSetupSaved,
   teammateConfigFromPreset,
   timeZoneForAddress,
   usTimeZoneLabel,
@@ -110,6 +121,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     bookable: [],
     priceList: [],
     myHours: null,
+    forClient: false,
     phones: 0,
     look: NO_LOOK,
     ...patch,
@@ -258,6 +270,40 @@ describe('the screens', () => {
 });
 
 describe('what the business keeps', () => {
+  it('keeps the saved answers picked and the hand-over to the owner', () => {
+    const mark = { at: '2026-10-07T09:00:00.000Z', by: DALE };
+    const handedOver = {
+      ...mark,
+      name: 'Rita Agency',
+      agency: 'Bright Marketing',
+      email: 'carl@coolair.test',
+      role: 'owner' as const,
+    };
+    const record = {
+      draft: answers(),
+      reached: 'loop' as const,
+      kind: 'home' as const,
+      template: uid(70),
+      started: mark,
+      handedOver,
+      finished: null,
+    };
+    expect(onboardingSetupOf({ onboardingSetup: storedOnboardingSetup(record) })).toEqual(record);
+    // "Our picks" is kept as null; nobody picking is left out.
+    const ours = { ...record, template: null };
+    expect(onboardingSetupOf({ onboardingSetup: storedOnboardingSetup(ours) })).toEqual(ours);
+    const { template: _, ...nobody } = record;
+    expect(
+      onboardingSetupOf({ onboardingSetup: storedOnboardingSetup(nobody) }),
+    ).not.toHaveProperty('template');
+    // A hand-over that doesn't read is no hand-over.
+    expect(
+      onboardingSetupOf({
+        onboardingSetup: { ...storedOnboardingSetup(record), handedOver: { at: 'soon' } },
+      }),
+    ).not.toHaveProperty('handedOver');
+  });
+
   it('is read forgivingly, and stored with nothing empty kept', () => {
     const mark = { at: '2026-10-06T19:00:00.000Z', by: DALE };
     const record = {
@@ -386,6 +432,164 @@ describe('carrying on', () => {
     expect(resumeOnboardingSetup(state, { draft: null, reached: null, kind: null })).toEqual(
       startingOnboardingSetupAnswers(state),
     );
+  });
+});
+
+describe('an agency’s saved answers', () => {
+  const weekdays = [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '17:00' }));
+  const saved = {
+    answers: {
+      jobs: ['reply', 'answer', 'book', 'follow_up'] as (
+        'reply' | 'answer' | 'book' | 'follow_up'
+      )[],
+      openHours: weekdays,
+      name: 'Max',
+      tone: 'professional' as const,
+    },
+    start: { goal: 'paid' as const, payWith: 'stripe' as const },
+  };
+
+  it('start a new business from the goal, hours and payments saved', () => {
+    const a = startingOnboardingSetupAnswers(business(), saved);
+    expect(a).toMatchObject({ goal: 'paid', payWith: 'stripe' });
+    expect(a.ai).toMatchObject({ name: 'Max', tone: 'professional', openHours: weekdays });
+    // An HVAC business's customers don't book a time, so there's nothing for Max to book on.
+    expect(a.ai.jobs).toEqual(['reply', 'answer', 'follow_up']);
+    // One whose customers book a time gets booking, though the business they were saved from had none.
+    const salon = startingOnboardingSetupAnswers(business({ industry: 'hair_salon' }), {
+      ...saved,
+      answers: { ...saved.answers, jobs: ['reply', 'answer'] },
+    });
+    expect(salon.ai.jobs).toEqual(['reply', 'answer', 'book']);
+  });
+
+  it('leave what the business has and said as it is', () => {
+    const own = [2, 3, 4].map((day) => ({ day, start: '09:00', end: '13:00' }));
+    const a = startingOnboardingSetupAnswers(
+      business({
+        goal: 'leads',
+        openHours: own,
+        payments: {
+          active: true,
+          checking: false,
+          needsInfo: false,
+          broken: false,
+          provider: 'square',
+        },
+      }),
+      saved,
+    );
+    expect(a).toMatchObject({ goal: 'leads', payWith: 'square' });
+    expect(a.ai.openHours).toEqual(own);
+  });
+
+  it('are picked again when someone picks where to start from', () => {
+    const state = business();
+    const given = startingOnboardingSetupAnswers(state);
+    const a = withOnboardingSetupSaved(
+      { ...given, booksTime: true, ai: { ...given.ai, description: 'We fix AC.' } },
+      state,
+      saved,
+    );
+    expect(a).toMatchObject({ goal: 'paid', payWith: 'stripe', booksTime: true });
+    expect(a.ai).toMatchObject({ name: 'Max', description: 'We fix AC.', openHours: weekdays });
+    // Booking follows the answer given, not the kind's pick.
+    expect(a.ai.jobs).toContain('book');
+    // Our picks take them back.
+    expect(withOnboardingSetupSaved(a, state, null)).toMatchObject({
+      goal: 'leads',
+      payWith: 'later',
+      ai: { name: 'Ava', description: 'We fix AC.' },
+    });
+  });
+
+  it('read forgivingly, and say what they set', () => {
+    expect(savedSetupStartOf({ goal: 'paid', payWith: 'square', name: 'Max' })).toEqual({
+      goal: 'paid',
+      payWith: 'square',
+    });
+    expect(savedSetupStartOf({ goal: 'everything', payWith: 7 })).toEqual({});
+    expect(savedSetupStartOf(null)).toEqual({});
+    expect(savedSetupBasics({ openHours: weekdays }, saved.start)).toBe(
+      'Getting paid · Open Mon–Fri 8:00 AM–5:00 PM · Customers pay with Stripe',
+    );
+    expect(savedSetupBasics({}, {})).toBe('');
+  });
+});
+
+describe('handing it to the owner', () => {
+  const handedOver = {
+    at: '2026-10-07T09:00:00.000Z',
+    by: DALE,
+    name: 'Rita Agency',
+    agency: 'Bright Marketing',
+    email: 'carl@coolair.test',
+    role: 'owner' as const,
+  };
+
+  it('opens on checking it for the owner, until they finish', () => {
+    const owner = { state: { forClient: false }, handedOver, finished: null };
+    expect(onboardingSetupChecking(owner)).toBe(true);
+    expect(onboardingSetupChecking({ ...owner, finished: { at: handedOver.at, by: DALE } })).toBe(
+      false,
+    );
+    // Whoever handed it over carries on as before.
+    expect(onboardingSetupChecking({ ...owner, state: { forClient: true } })).toBe(false);
+    expect(onboardingSetupChecking({ ...owner, handedOver: null })).toBe(false);
+  });
+
+  it('asks the owner to check it on Home, and nobody who handed it over', () => {
+    const carl = uid(9);
+    const record = { started: { at: handedOver.at, by: DALE }, finished: null, handedOver };
+    expect(onboardingSetupHomeOf(record, carl)).toEqual({
+      started: true,
+      finished: false,
+      checkFrom: 'Bright Marketing',
+    });
+    expect(onboardingSetupHomeOf(record, handedOver.by).finished).toBe(true);
+    const done = { ...record, finished: { at: handedOver.at, by: carl } };
+    expect(onboardingSetupHomeOf(done, carl)).toEqual({
+      started: true,
+      finished: true,
+      checkFrom: null,
+    });
+  });
+
+  it('leaves the owner only what’s theirs to do', () => {
+    const state = business();
+    const paid = answers({ booksTime: true, payWith: 'square' });
+    const screens = onboardingSetupOwnerScreens(paid, state);
+    expect(screens).toEqual(['booking', 'paid', 'loop', 'try', 'done']);
+    expect(onboardingSetupOwnerPart(screens, paid)).toEqual([
+      'Make your booking page, on your own hours',
+      'Sign in to Square, so payments go to your account',
+      'Get alerts on your phone when a customer needs you',
+    ]);
+    expect(onboardingSetupOwnerNext(screens, 'booking')).toBe('paid');
+    expect(onboardingSetupOwnerNext(screens, 'done')).toBeNull();
+    expect(onboardingSetupOwnerPrevious(screens, 'paid')).toBe('booking');
+    // Back from the first goes back to checking it.
+    expect(onboardingSetupOwnerPrevious(screens, 'booking')).toBeNull();
+    expect(onboardingSetupOwnerProgress(screens, 'paid')).toEqual({ stop: 'paid', at: 2, of: 5 });
+    // What's done already, or not wanted, isn't asked again.
+    const booked = { ...state, booking: { on: true, site: null } };
+    expect(
+      onboardingSetupOwnerScreens(answers({ booksTime: true, payWith: 'later' }), booked),
+    ).toEqual(['loop', 'try', 'done']);
+    // Unless it's the screen open now: the page loaded again carries on from it.
+    expect(onboardingSetupOwnerScreens(paid, booked, 'booking')).toEqual(screens);
+  });
+
+  it('asks the agency to hand it over in place of staying in the loop', () => {
+    expect(onboardingSetupTitle('loop', 'Ava', facts, true)).toBe('Hand it to the owner');
+    expect(onboardingSetupTitle('loop', 'Ava', facts)).toBe('Stay in the loop');
+    expect(onboardingSetupTitle('booking', 'Ava', facts, true)).toBe(
+      'The booking page is the owner’s',
+    );
+    expect(onboardingSetupHint('booking', 'Ava', facts, true)).toContain('their own hours');
+    expect(onboardingSetupTitle('hours', 'Ava', facts, true)).toBe('When are you open?');
+    expect(onboardingSetupStopName('loop', true)).toBe('Hand it over');
+    expect(onboardingSetupStopName('loop')).toBe('Stay in the loop');
   });
 });
 

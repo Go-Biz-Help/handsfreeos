@@ -1,15 +1,16 @@
 /**
  * The onboarding setup's query (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §5): what the business has
- * today, and where the screens start, from what someone answered so far or else from today's picks. The AI part
- * starts from the newest answers the business's agency saved for its kind of business, as the AI quick setup does.
+ * today, and where the screens start, from what someone answered so far or else from today's picks. A business with
+ * no teammate starts from answers its agency saved (§9): the ones picked on the first screen, else the newest for
+ * its kind of business, as the AI quick setup does.
  */
 import { eq } from 'drizzle-orm';
 import { workspaces } from '@hfos/db/schema';
-import { loadAiSetupTemplates } from '../ai-setup/load';
+import { loadAiSetupSaveTo, loadAiSetupTemplates } from '../ai-setup/load';
 import { chosenAiSetupTemplate } from '../ai-setup/templates';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { onboardingSetupOf } from '../onboarding-setup/answers';
+import { handOverRoleOf, onboardingSetupOf } from '../onboarding-setup/answers';
 import { loadOnboardingSetupState } from '../onboarding-setup/load';
 import { resumeOnboardingSetup, startingOnboardingSetupAnswers } from '../onboarding-setup/picks';
 import { OnboardingSetupGetInput, OnboardingSetupGetOutput } from '../schemas/onboarding-setup';
@@ -17,7 +18,7 @@ import { OnboardingSetupGetInput, OnboardingSetupGetOutput } from '../schemas/on
 export const onboardingSetupGet = defineQuery({
   name: 'onboarding_setup.get',
   description:
-    'The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else picks for its kind of business), how far it got, and when it was finished.',
+    'The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else answers its agency saved or picks for its kind of business), how far it got, whether its agency handed it to the owner to check and finish, and when it was finished.',
   input: OnboardingSetupGetInput,
   output: OnboardingSetupGetOutput,
   // It sets the business up, so it's for those who may change it.
@@ -37,7 +38,7 @@ export const onboardingSetupGet = defineQuery({
     // Saved answers start a business that has no teammate yet.
     const templates =
       w && !state.teammate ? await loadAiSetupTemplates(ctx.tx, w.organizationId) : [];
-    const template = chosenAiSetupTemplate(templates, undefined, state.kind)?.answers ?? null;
+    const template = chosenAiSetupTemplate(templates, record.template, state.kind);
     return {
       state: {
         ...state,
@@ -50,7 +51,20 @@ export const onboardingSetupGet = defineQuery({
       starting: startingOnboardingSetupAnswers(state, template),
       reached: record.reached,
       started: record.started,
+      handedOver: record.handedOver ?? null,
+      handOverAs: state.forClient ? handOverRoleOf(ctx.scope.workspaceRole) : null,
       finished: record.finished,
+      templates: templates.map((t) => ({
+        id: t.id,
+        name: t.name,
+        kind: t.kind,
+        about: t.about,
+        basics: t.basics,
+        updatedAt: t.updatedAt,
+      })),
+      templateId: template?.id ?? null,
+      templatePicked: record.template !== undefined,
+      saveTo: w ? await loadAiSetupSaveTo(ctx.tx, w.organizationId) : null,
     };
   },
 });

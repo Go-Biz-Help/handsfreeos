@@ -21,9 +21,15 @@ export type OnboardingSetupFinished = ReturnType<typeof OnboardingSetupFinishOut
 export const onboardingSetupGotOf = (raw: unknown): OnboardingSetupGot =>
   OnboardingSetupGetOutput.parse(raw);
 
-/** The setup's own page, on a screen: where a stop that leaves for a sign-in or a payment comes back to. */
-export const onboardingSetupHref = (workspaceId: string, screen?: OnboardingSetupScreen) =>
-  `/onboarding/${workspaceId}${screen ? `?at=${screen}` : ''}`;
+/**
+ * The setup's own page, on a screen: where a stop that leaves for a sign-in or a payment comes back to. `ownerPart`:
+ * the owner is finishing their part of what their agency set up (`?part=owner`), walking only their own screens.
+ */
+export const onboardingSetupHref = (
+  workspaceId: string,
+  screen?: OnboardingSetupScreen,
+  ownerPart = false,
+) => `/onboarding/${workspaceId}${screen ? `?at=${screen}${ownerPart ? '&part=owner' : ''}` : ''}`;
 
 /** "Where are your customers now?": GoHighLevel's connection and its move, and what this person may start. */
 export interface OnboardingCustomersData {
@@ -56,6 +62,13 @@ export interface OnboardingSetupData {
    * on where they left off. Moving on, loading the page again and coming back from a sign-in all name the screen.
    */
   readonly resumed: boolean;
+  /**
+   * The owner opened what their agency set up for them without a screen in its address (the invitation's link, or
+   * Home's card): it opens on what the agency did, to check, with "Change something" and "Finish my part".
+   */
+  readonly checking: boolean;
+  /** "Finish my part": the owner walks only the screens that are theirs to do (`?part=owner`). */
+  readonly ownerPart: boolean;
   /** The number stop: Settings → Texting & calls as it is, or null when this person can't manage the channels. */
   readonly texting?: ComponentProps<typeof TextingPage> | null;
   /** The customers stop. */

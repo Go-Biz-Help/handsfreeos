@@ -67,6 +67,11 @@ export async function loadOnboardingSetupState(
         where workspace_id = ${workspaceId} and owner_kind = 'user' and owner_id = ${userId} limit 1`,
   );
   const myHours = mine ? WeeklyHours.safeParse(mine.weekly) : null;
+  const [me] = await rows<{ member: boolean }>(
+    tx,
+    sql`select exists (select 1 from app.workspace_memberships
+          where workspace_id = ${workspaceId} and user_id = ${userId}) as member`,
+  );
   const links = settings['links'];
   const review =
     links && typeof links === 'object' && !Array.isArray(links)
@@ -94,6 +99,7 @@ export async function loadOnboardingSetupState(
     bookable,
     priceList: priceList.map((p) => ({ ...p, priceCents: Number(p.priceCents) })),
     myHours: myHours?.success ? myHours.data : null,
+    forClient: !me?.member,
     phones: facts.person.phones,
     look: lookOf(settings),
   };

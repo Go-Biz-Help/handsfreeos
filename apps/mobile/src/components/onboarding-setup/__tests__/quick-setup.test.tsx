@@ -5,12 +5,14 @@ import {
   LINK_WORDS,
   LOOK_WORDS,
   NO_LOOK,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_SETUP_WORDS as W,
   OnboardingSetupAnswers,
   OnboardingSetupGetOutput,
   onboardingSetupPreviousScreen,
   onboardingSetupProgress,
   onboardingSetupStateOf,
+  onboardingSetupStopName,
   onboardingSetupTitle,
   setupKindOf,
   startingOnboardingSetupAnswers,
@@ -40,7 +42,8 @@ import { ONBOARDING_SETUP_PHONE_WORDS as P } from '@/onboarding-setup/words';
  * and the worker played by stand-ins: the first screen making the business straight after signing up; carrying on
  * where it was left, each screen kept as it's finished, and the booking page made as its screen opens; a number
  * found near the address and bought; payments connected in the phone's browser; "Stay in the loop", the test chat
- * and what already works; and someone who can't run it, and no signal.
+ * and what already works; an agency setting it up for its client and handing it over, and the owner checking it and
+ * finishing their part; starting from the agency's saved answers; and someone who can't run it, and no signal.
  */
 
 jest.mock('expo-router', () => ({
@@ -107,6 +110,8 @@ const DALE = '11111111-1111-4111-8111-111111111111';
 const LONE_STAR = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ORG = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const TEAMMATE = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const ALEX = '22222222-2222-4222-8222-222222222222';
+const PLUMBERS = '33333333-3333-4333-8333-333333333333';
 const MARK = { at: '2026-10-06T12:00:00.000Z', by: DALE };
 
 const AUSTIN = {
@@ -154,12 +159,20 @@ const STATE: OnboardingSetupStateOut = {
   myHours: null,
   phones: 1,
   look: NO_LOOK,
+  forClient: false,
 };
 
-/** What `onboarding_setup.get` says: where it stands, the answers so far, and how far it got. */
+/**
+ * What `onboarding_setup.get` says: where it stands, the answers so far, and how far it got. `more` is the rest of
+ * what it says: a hand-over, the agency's saved answers.
+ */
 function gotOf(
   state: OnboardingSetupStateOut = STATE,
-  extra: { reached?: OnboardingSetupScreen | null; answers?: OnboardingSetupAnswersInput } = {},
+  extra: {
+    reached?: OnboardingSetupScreen | null;
+    answers?: OnboardingSetupAnswersInput;
+    more?: Record<string, unknown>;
+  } = {},
 ) {
   const starting = startingOnboardingSetupAnswers(onboardingSetupStateOf(state));
   return OnboardingSetupGetOutput.parse({
@@ -169,8 +182,24 @@ function gotOf(
     reached: extra.reached ?? null,
     started: MARK,
     finished: null,
+    ...extra.more,
   });
 }
+
+/** Lone Star with its teammate saved, as "Stay in the loop" leaves it. */
+const withTeammate = (state: OnboardingSetupStateOut): OnboardingSetupStateOut => ({
+  ...state,
+  teammate: {
+    id: TEAMMATE,
+    name: 'Ava',
+    status: 'off',
+    revision: 1,
+    config: teammateConfigFromPreset('blank', { industry: 'plumbing' }) as unknown as Record<
+      string,
+      unknown
+    >,
+  },
+});
 
 /** The screen before this one for Lone Star's answers: where someone stopped to open the setup on this one. */
 const before = (screen: OnboardingSetupScreen, given: OnboardingSetupAnswersInput = {}) =>
@@ -645,22 +674,7 @@ describe('the screens after the first', () => {
     await screen.findByTestId('onboarding-setup-step-loop');
     expect(screen.getByTestId('onboarding-setup-next')).toHaveTextContent(AI_SETUP_WORDS.save);
 
-    answers['/v1/queries/onboarding_setup.get'] = gotOf(
-      {
-        ...STATE,
-        teammate: {
-          id: TEAMMATE,
-          name: 'Ava',
-          status: 'off',
-          revision: 1,
-          config: teammateConfigFromPreset('blank', { industry: 'plumbing' }) as unknown as Record<
-            string,
-            unknown
-          >,
-        },
-      },
-      { reached: 'loop' },
-    );
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(withTeammate(STATE), { reached: 'loop' });
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
     await screen.findByTestId('ai-setup-try');
     expect(sent('/v1/commands/onboarding_setup.finish')).toEqual([
@@ -703,22 +717,7 @@ describe('the simple page’s chat', () => {
     };
     await open();
     await screen.findByTestId('onboarding-setup-step-loop');
-    answers['/v1/queries/onboarding_setup.get'] = gotOf(
-      {
-        ...live,
-        teammate: {
-          id: TEAMMATE,
-          name: 'Ava',
-          status: 'off',
-          revision: 1,
-          config: teammateConfigFromPreset('blank', { industry: 'plumbing' }) as unknown as Record<
-            string,
-            unknown
-          >,
-        },
-      },
-      { reached: 'loop' },
-    );
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(withTeammate(live), { reached: 'loop' });
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
     await screen.findByTestId('ai-setup-try');
     // The page's address is the chat's site: HandsFreeOS's own, with no domain of the business's serving.
@@ -731,6 +730,212 @@ describe('the simple page’s chat', () => {
     const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     await fireEvent.press(screen.getByTestId('ai-setup-chat-open-page'));
     expect(opened).toHaveBeenCalledWith('https://app.handsfreeos.com/book/lone-star-plumbing');
+  });
+});
+
+describe('an agency setting it up for its client', () => {
+  const FOR_CLIENT: OnboardingSetupStateOut = { ...STATE, forClient: true };
+
+  it('leaves the owner their contacts and their booking page', async () => {
+    const given = { goal: 'booked', booksTime: true } as const;
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(FOR_CLIENT, {
+      reached: before('customers', given),
+      answers: given,
+    });
+    await open();
+    await screen.findByTestId('onboarding-setup-step-customers');
+    // This phone's contacts aren't the client's: the owner picks theirs once they join.
+    await fireEvent.press(screen.getByTestId('setup-customers-phone'));
+    expect(screen.getByTestId('setup-customers-owner')).toHaveTextContent(HW.phoneWaits);
+    expect(screen.queryByTestId('setup-customers-pick')).toBeNull();
+
+    // The booking page books the owner's time: it says so, and nothing is made as it opens.
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('onboarding-setup-step-booking');
+    expect(screen.getByText(onboardingSetupTitle('booking', 'Ava', undefined, true))).toBeTruthy();
+    expect(screen.queryByTestId('setup-booking-making')).toBeNull();
+    expect(
+      sent('/v1/commands/onboarding_setup.save').map((b) => (b as { screen: string }).screen),
+    ).toEqual(['customers']);
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('onboarding-setup-step-number');
+  });
+
+  it('leaves payments to the owner’s own sign-in', async () => {
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(FOR_CLIENT, { reached: before('paid') });
+    await open();
+    await screen.findByTestId('onboarding-setup-step-paid');
+    await fireEvent.press(screen.getByTestId('setup-pay-stripe'));
+    expect(screen.getByTestId('setup-pay-owner')).toHaveTextContent(HW.payWaits('Stripe'));
+    expect(screen.queryByTestId('setup-pay-connect')).toBeNull();
+  });
+
+  it('hands it to the owner in place of staying in the loop', async () => {
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(FOR_CLIENT, {
+      reached: before('loop'),
+      more: { handOverAs: 'owner' },
+    });
+    answers['/v1/commands/onboarding_setup.finish'] = {
+      teammateId: TEAMMATE,
+      revision: 1,
+      changes: ['Sets up Ava, your AI teammate'],
+      chat: null,
+      calendarId: null,
+      notes: [],
+    };
+    await open();
+    await screen.findByTestId('onboarding-setup-step-loop');
+    expect(screen.getByText(onboardingSetupStopName('loop', true))).toBeTruthy();
+    expect(screen.getByText(onboardingSetupTitle('loop', 'Ava', undefined, true))).toBeTruthy();
+    // Someone who may make an owner invites them as one.
+    expect(screen.getByText(HW.ownerEmailHint('owner'))).toBeTruthy();
+    expect(screen.getByTestId('onboarding-setup-next')).toHaveTextContent(HW.handOver);
+    await fireEvent.changeText(
+      screen.getByTestId('setup-owner-email'),
+      ' dale@lonestarplumbing.test ',
+    );
+
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(withTeammate(FOR_CLIENT), {
+      reached: 'loop',
+      more: {
+        handOverAs: 'owner',
+        handedOver: {
+          at: '2026-10-06T15:00:00.000Z',
+          by: DALE,
+          name: 'Dale Porter',
+          agency: 'Handover Agency',
+          email: 'dale@lonestarplumbing.test',
+          role: 'owner',
+        },
+      },
+    });
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('ai-setup-try');
+    expect(sent('/v1/commands/onboarding_setup.finish')).toEqual([
+      expect.objectContaining({ owner: { email: 'dale@lonestarplumbing.test' } }),
+    ]);
+    expect(screen.getByTestId('onboarding-setup-handed-over')).toHaveTextContent(
+      HW.sent('dale@lonestarplumbing.test'),
+    );
+  });
+
+  it('says who an admin of the agency invites the owner as', async () => {
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(FOR_CLIENT, {
+      reached: before('loop'),
+      more: { handOverAs: 'admin' },
+    });
+    await open();
+    await screen.findByTestId('onboarding-setup-step-loop');
+    expect(screen.getByText(HW.ownerEmailHint('admin'))).toBeTruthy();
+  });
+});
+
+describe('the owner, once their agency handed it over', () => {
+  /** Handed over by Alex from Handover Agency: their booking page and Stripe still to do. */
+  const handed = () =>
+    gotOf(STATE, {
+      reached: 'loop',
+      answers: { goal: 'booked', booksTime: true, payWith: 'stripe' },
+      more: {
+        handedOver: {
+          at: '2026-10-06T15:00:00.000Z',
+          by: ALEX,
+          name: 'Alex Agent',
+          agency: 'Handover Agency',
+          email: 'dale@lonestarplumbing.test',
+          role: 'owner',
+        },
+      },
+    });
+
+  it('opens on what the agency set up, and walks only their part', async () => {
+    answers['/v1/queries/onboarding_setup.get'] = handed();
+    answers['/v1/commands/onboarding_setup.save'] = (body: { screen: string }) => ({
+      ...saved(body),
+      changes: body.screen === 'booking' ? ['Makes your booking page'] : [],
+    });
+    await open();
+    await screen.findByTestId('onboarding-setup-check');
+    expect(screen.getByText(HW.checkCounter)).toBeTruthy();
+    expect(screen.getByText(HW.checkTitle('Handover Agency'))).toBeTruthy();
+    expect(screen.getByText(HW.checkHint('Alex Agent', 'Lone Star Plumbing'))).toBeTruthy();
+    expect(screen.getByTestId('onboarding-setup-check')).toHaveTextContent('Lone Star Plumbing', {
+      exact: false,
+    });
+    const part = screen.getByTestId('onboarding-setup-your-part');
+    expect(part).toHaveTextContent(HW.partBooking, { exact: false });
+    expect(part).toHaveTextContent(HW.partPaid('Stripe'), { exact: false });
+    expect(part).toHaveTextContent(HW.partLoop, { exact: false });
+    // What it shows is the summary: no sheet of it as well.
+    expect(screen.queryByTestId('onboarding-setup-see-summary')).toBeNull();
+
+    // Finish my part: their booking page first, made as it opens.
+    await fireEvent.press(screen.getByTestId('onboarding-setup-finish-part'));
+    await screen.findByTestId('onboarding-setup-step-booking');
+    expect(router.setParams).toHaveBeenLastCalledWith({ at: 'booking', part: 'owner' });
+    expect(screen.getByText(W.position(1, 5))).toBeTruthy();
+    expect(await screen.findByTestId('setup-booking-changes')).toHaveTextContent(
+      'Makes your booking page',
+    );
+
+    // Back from the first goes back to checking it.
+    await fireEvent.press(screen.getByTestId('onboarding-setup-back'));
+    await screen.findByTestId('onboarding-setup-check');
+    expect(router.setParams).toHaveBeenLastCalledWith({ at: undefined, part: undefined });
+
+    // Change something: the whole setup, from its first screen.
+    await fireEvent.press(screen.getByTestId('onboarding-setup-change'));
+    await screen.findByTestId('onboarding-setup-step-business');
+    expect(router.setParams).toHaveBeenLastCalledWith({ at: 'business', part: undefined });
+  });
+
+  it('opens on their part again from its link, as on the way back from paying', async () => {
+    mockParams = { at: 'paid', part: 'owner' };
+    answers['/v1/queries/onboarding_setup.get'] = handed();
+    await open();
+    await screen.findByTestId('onboarding-setup-step-paid');
+    // The booking page is still theirs to make: payments are the second of their five.
+    expect(screen.getByText(W.position(2, 5))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('onboarding-setup-back'));
+    await screen.findByTestId('onboarding-setup-step-booking');
+    expect(router.setParams).toHaveBeenLastCalledWith({ at: 'booking', part: 'owner' });
+  });
+});
+
+describe('starting from the agency’s saved answers', () => {
+  it('offers them on the first screen, with what they set for the business, and saves the one picked', async () => {
+    mockParams = { at: 'business' };
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(STATE, {
+      reached: 'goal',
+      more: {
+        templates: [
+          {
+            id: PLUMBERS,
+            name: 'Plumbers',
+            kind: STATE.kind,
+            about: 'Ava answers and books jobs',
+            basics: 'Getting booked · Customers pay with Stripe',
+            updatedAt: '2026-10-01T12:00:00.000Z',
+          },
+        ],
+      },
+    });
+    await open();
+    await screen.findByTestId('onboarding-setup-step-business');
+    const plumbers = screen.getByTestId(`ai-setup-start-${PLUMBERS}`);
+    expect(plumbers).toHaveTextContent('Customers pay with Stripe', { exact: false });
+    expect(plumbers).toHaveTextContent('Ava answers and books jobs', { exact: false });
+    // Nobody picked yet: it follows the kind of business, so a plumber starts from the plumbers' answers.
+    expect(plumbers).toBeChecked();
+
+    await fireEvent.press(screen.getByTestId('ai-setup-start-picks'));
+    await fireEvent.press(screen.getByTestId('ai-setup-no-website'));
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await waitFor(() =>
+      expect(sent('/v1/commands/onboarding_setup.save')).toEqual([
+        expect.objectContaining({ screen: 'business', templateId: null }),
+      ]),
+    );
   });
 });
 

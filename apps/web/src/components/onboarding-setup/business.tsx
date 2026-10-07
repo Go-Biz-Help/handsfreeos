@@ -22,6 +22,7 @@ import {
 } from '@hfos/core';
 import { useState } from 'react';
 import { WebsiteField } from '@/components/ai-setup/fields';
+import { StartFrom, type ScreenProps } from '@/components/ai-setup/screens';
 import { IndustryPicker } from '@/components/settings/industry-picker';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -40,12 +41,15 @@ export function BusinessScreen({
   onChange,
   problems,
   name,
+  startFrom = null,
 }: {
   business: OnboardingSetupBusinessDraft;
   onChange: (next: OnboardingSetupBusinessDraft) => void;
   problems: AiSetupProblems;
   /** The AI teammate's name, for the website's hint. */
   name: string;
+  /** "Start from", while the agency has saved answers and the business has no teammate (§9). */
+  startFrom?: ScreenProps['startFrom'];
 }) {
   return (
     <>
@@ -88,6 +92,7 @@ export function BusinessScreen({
         )}
         error={problems['business.website']}
       />
+      {startFrom ? <StartFrom {...startFrom} basics /> : null}
     </>
   );
 }

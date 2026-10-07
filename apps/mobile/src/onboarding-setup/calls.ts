@@ -122,6 +122,8 @@ export function onboardingSetupCalls(workspaceId: string) {
       business?: OnboardingSetupBusiness;
       /** "Invite them now", on the goal. */
       invite?: readonly string[];
+      /** Start from: saved answers picked on the first screen, or null for our picks. */
+      templateId?: string | null;
     }): Promise<OnboardingSetupSaved> =>
       OnboardingSetupSaveOutput.parse(
         unwrap(
@@ -138,6 +140,7 @@ export function onboardingSetupCalls(workspaceId: string) {
                   }
                 : {}),
               ...(input.invite?.length ? { invite: [...input.invite] } : {}),
+              ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
             },
           }),
         ),
@@ -147,6 +150,8 @@ export function onboardingSetupCalls(workspaceId: string) {
       baseRevision: number | null;
       /** The simple page's address (`publicOrigin`), for its chat when the business has no website. */
       pageOrigin?: string;
+      /** An agency handing the business over: the owner's email, or null to invite them later. */
+      owner?: { email: string | null };
     }): Promise<OnboardingSetupFinished> =>
       OnboardingSetupFinishOutput.parse(
         unwrap(
@@ -157,6 +162,7 @@ export function onboardingSetupCalls(workspaceId: string) {
                 input.answers as unknown as In<'/v1/commands/onboarding_setup.finish'>['answers'],
               baseRevision: input.baseRevision,
               ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
+              ...(input.owner ? { owner: input.owner } : {}),
             },
           }),
         ),

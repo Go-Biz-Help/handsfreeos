@@ -920,7 +920,7 @@ function describeAction(e: AuditEntry): string {
       ];
       return `read ${kbSite(e.after?.url)} for quick setup and found ${andJoin(found)}`;
     }
-    // An agency's saved answers for quick setup (the agency area's AI setups)
+    // An agency's saved answers for the setup (the agency area's Saved setups)
     case 'ai_setup_template.save':
       return `saved ${s(e.after?.from) ? `${s(e.after?.from)}’s ` : ''}quick setup answers as the AI setup “${name(e)}”`;
     case 'ai_setup_template.rename':

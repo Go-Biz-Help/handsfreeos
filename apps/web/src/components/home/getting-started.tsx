@@ -3,6 +3,7 @@ import {
   can,
   canActOnStep,
   GUIDE_WORDS,
+  ONBOARDING_SETUP_HAND_OVER_WORDS,
   ONBOARDING_WORDS,
   progressWords,
   stepTitle,
@@ -24,6 +25,13 @@ import { cn } from '@/lib/utils';
 import { useAssistant } from '@/components/assistant/assistant-provider';
 import { startTour } from '@/components/onboarding/tour';
 import { PhoneAppDialog } from './phone-app-dialog';
+
+type GuidedSetup = {
+  readonly started: boolean;
+  readonly finished: boolean;
+  /** Set up by this agency, for the owner to check and finish. */
+  readonly checkFrom?: string | null;
+};
 
 /**
  * Getting started on Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, board 6 in design/onboarding).
@@ -47,8 +55,8 @@ export function GettingStarted({
   status: OnboardingStatus;
   permissions: readonly string[];
   compact?: boolean;
-  /** The guided setup (`workspaces.settings.onboardingSetup`): whether it was started, and finished. */
-  setup?: { readonly started: boolean; readonly finished: boolean } | null;
+  /** The guided setup (`onboardingSetupHomeOf`): whether it was started, and finished, and who set it up. */
+  setup?: GuidedSetup | null;
 }) {
   // Turned off for the whole business by an owner or admin: nothing, not even "You're set up".
   if (!status.enabled) return null;
@@ -77,7 +85,7 @@ function Steps({
   status: OnboardingStatus;
   permissions: readonly string[];
   compact: boolean;
-  setup: { readonly started: boolean; readonly finished: boolean } | null;
+  setup: GuidedSetup | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -124,15 +132,22 @@ function Steps({
         : undefined,
     );
 
-  // The guided setup, until it's finished: a business part way through carries on, and one that never answered
-  // the quick questions starts it. Its button is then the card's one primary button.
+  // The guided setup, until it's finished: a business its agency set up is checked and finished, one part way
+  // through carries on, and one that never answered the quick questions starts it. Its button is then the card's
+  // one primary button.
   const guided =
     business && setup && !setup.finished && can(permissions, 'workspace.update')
-      ? setup.started
-        ? GUIDE_WORDS.carryOn
-        : status.answers
-          ? null
-          : GUIDE_WORDS.setUp
+      ? setup.checkFrom
+        ? {
+            title: ONBOARDING_SETUP_HAND_OVER_WORDS.homeTitle(setup.checkFrom),
+            detail: ONBOARDING_SETUP_HAND_OVER_WORDS.homeDetail,
+            action: ONBOARDING_SETUP_HAND_OVER_WORDS.homeAction,
+          }
+        : setup.started
+          ? GUIDE_WORDS.carryOn
+          : status.answers
+            ? null
+            : GUIDE_WORDS.setUp
       : null;
   const next = status.steps.find((s) => s.key === status.next) ?? null;
   const row = (step: OnboardingStep) => (

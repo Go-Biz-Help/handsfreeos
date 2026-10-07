@@ -3,6 +3,7 @@ import {
   aiSetupFindingsOf,
   can,
   ONBOARDING_SETUP_SCREENS,
+  onboardingSetupChecking,
   onboardingSetupOpenAt,
   onboardingSetupStateOf,
   type OnboardingSetupScreen,
@@ -27,6 +28,8 @@ export async function loadOnboardingSetup(
     readonly permissions: readonly string[];
   },
   at: string | null,
+  /** `?part=owner`: the owner finishing their part of what their agency set up. */
+  part: string | null = null,
 ): Promise<OnboardingSetupData> {
   const workspaceId = ws.id;
   const [raw, scan, cell, devices, phone, brandedOrigin] = await Promise.all([
@@ -50,6 +53,9 @@ export async function loadOnboardingSetup(
   const got = onboardingSetupGotOf(raw);
   const screen = onboardingSetupOpenAt({ ...got, state: onboardingSetupStateOf(got.state) }, at);
   const asked = ONBOARDING_SETUP_SCREENS.find((s) => s === at);
+  // Handed over and not finished, for the owner: what the agency did comes first, to check.
+  const handedToMe = onboardingSetupChecking(got);
+  const checking = !asked && handedToMe;
   const wants = (s: OnboardingSetupScreen) => screen === s || asked === s;
   const canMigrate = can(ws.permissions, 'migrations.manage');
   const [findings, texting, move] = await Promise.all([
@@ -75,7 +81,9 @@ export async function loadOnboardingSetup(
     appOnPhone: (devices?.devices.length ?? 0) > 0,
     brandedOrigin,
     at: screen,
-    resumed: !asked && !!got.reached && !got.finished,
+    resumed: !asked && !checking && !!got.reached && !got.finished && !got.handedOver,
+    checking,
+    ownerPart: !!asked && part === 'owner' && handedToMe,
     ...(wants('number') ? { texting: texting ?? null } : {}),
     ...(wants('customers')
       ? {

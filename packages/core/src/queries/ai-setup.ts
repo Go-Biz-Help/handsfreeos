@@ -4,10 +4,9 @@
  * business's agency saved (§9).
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { rows, sql, type Tx } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { aiSetupOf, resumeAiSetup } from '../ai-setup/answers';
-import { loadAiSetupState, loadAiSetupTemplates } from '../ai-setup/load';
+import { loadAiSetupSaveTo, loadAiSetupState, loadAiSetupTemplates } from '../ai-setup/load';
 import { startingAiSetupAnswers } from '../ai-setup/plan';
 import { chosenAiSetupTemplate } from '../ai-setup/templates';
 import { defineQuery } from '../kernel/define';
@@ -17,21 +16,6 @@ import {
   AiSetupTemplateListInput,
   AiSetupTemplateListOutput,
 } from '../schemas/ai-setup';
-
-/**
- * Where this person may save a business's answers for the agency's other businesses: its owners and admins, once
- * it has more than one business.
- */
-async function saveToOf(tx: Tx, organizationId: string) {
-  const [org] = await rows<{ name: string; manages: boolean; businesses: number }>(
-    tx,
-    sql`select o.name, private.has_org_permission(o.id, 'org.templates.manage') as manages,
-          (select count(*) from app.workspaces w
-            where w.organization_id = o.id and w.deletion_requested_at is null)::int as businesses
-        from app.organizations o where o.id = ${organizationId}`,
-  );
-  return org?.manages && org.businesses > 1 ? { organizationId, name: org.name } : null;
-}
 
 export const aiSetupGet = defineQuery({
   name: 'ai_setup.get',
@@ -73,11 +57,12 @@ export const aiSetupGet = defineQuery({
         name: t.name,
         kind: t.kind,
         about: t.about,
+        basics: t.basics,
         updatedAt: t.updatedAt,
       })),
       templateId: template?.id ?? null,
       templatePicked: record.template !== undefined,
-      saveTo: w ? await saveToOf(ctx.tx, w.organizationId) : null,
+      saveTo: w ? await loadAiSetupSaveTo(ctx.tx, w.organizationId) : null,
     };
   },
 });
@@ -116,6 +101,7 @@ export const aiSetupTemplateList = defineQuery({
           name: t.name,
           kind: t.kind,
           about: t.about,
+          basics: t.basics,
           updatedAt: t.updatedAt,
           createdAt: t.createdAt,
           from: name ? { workspaceId: t.fromWorkspaceId!, name } : null,
