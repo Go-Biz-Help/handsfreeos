@@ -107,6 +107,9 @@ test('a wrong password is told so; an unconfirmed account confirms with a code f
   await expect(page.locator('#sign-in-error')).toContainText(
     'That email and password do not match.',
   );
+  // Supabase sends no second sign-up email within `max_frequency` (1s in supabase/config.toml) of the first, and
+  // sign-in then shows the code step without one. Wait that out, so signing in sends a new code.
+  await page.waitForTimeout(1_500);
   await signIn(page, email, PASSWORD, { expectSuccess: false });
   const step = page.getByTestId('confirm-email');
   await expect(step.getByRole('heading', { name: 'Confirm your email' })).toBeVisible();

@@ -104,6 +104,14 @@ import {
   MessageRetryOutput,
   MessageSendInput,
   MessageSendOutput,
+  OnboardingSetupFinishInput,
+  OnboardingSetupFinishOutput,
+  OnboardingSetupSaveInput,
+  OnboardingSetupSaveOutput,
+  OrganizationCreateInput,
+  OrganizationCreateOutput,
+  PaymentConnectionConnectInput,
+  PaymentConnectionConnectOutput,
   PaymentStateOutput,
   PersonArchiveInput,
   PersonArchiveOutput,
@@ -113,6 +121,8 @@ import {
   PersonRestoreOutput,
   PersonUpdateInput,
   PersonUpdateOutput,
+  PhoneNumberBuyInput,
+  PhoneNumberBuyOutput,
   PushDeviceRegisterInput,
   PushDeviceRegisterOutput,
   PushDeviceRemoveInput,
@@ -414,10 +424,28 @@ export const PHONE_COMMANDS = {
   // A text or email that didn't go out, sent again from its thread: with signal only, since it goes at once.
   'message.retry': command(ONLINE, MessageRetryInput, MessageRetryOutput),
   'message.send': command(FRESH, MessageSendInput, MessageSendOutput),
+  // The onboarding setup (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): making the business after
+  // signing up, each screen's answers as it's finished, and "Stay in the loop". Online, as quick setup's are: what
+  // each screen shows next comes from HandsFreeOS.
+  'onboarding_setup.finish': command(
+    ONLINE,
+    OnboardingSetupFinishInput,
+    OnboardingSetupFinishOutput,
+  ),
+  'onboarding_setup.save': command(ONLINE, OnboardingSetupSaveInput, OnboardingSetupSaveOutput),
+  'organization.create': command(ONLINE, OrganizationCreateInput, OrganizationCreateOutput),
+  // The setup's payments stop: Stripe's or Square's own sign-in starts from it, in the phone's browser.
+  'payment_connection.connect': command(
+    ONLINE,
+    PaymentConnectionConnectInput,
+    PaymentConnectionConnectOutput,
+  ),
   'person.archive': command(ANYTIME, PersonArchiveInput, PersonArchiveOutput),
   'person.create': command(ANYTIME, PersonCreateInput, PersonCreateOutput),
   'person.restore': command(ANYTIME, PersonRestoreInput, PersonRestoreOutput),
   'person.update': command(ANYTIME, PersonUpdateInput, PersonUpdateOutput),
+  // The setup's number stop: the number picked near the address, bought right there.
+  'phone_number.buy': command(ONLINE, PhoneNumberBuyInput, PhoneNumberBuyOutput),
   // A client let into their portal, or sent the link again, from the client's to-do (board 85): it emails them.
   'portal_access.give': command(ONLINE, PortalAccessGiveInput, PortalAccessGiveOutput),
   'push_device.register': command(ONLINE, PushDeviceRegisterInput, PushDeviceRegisterOutput),

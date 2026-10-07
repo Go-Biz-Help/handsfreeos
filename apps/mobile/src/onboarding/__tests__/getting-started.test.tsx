@@ -1,4 +1,4 @@
-import { LINK_WORDS, PHONE_GUIDE_WORDS } from '@hfos/core';
+import { GUIDE_WORDS, LINK_WORDS, PHONE_GUIDE_WORDS } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import * as React from 'react';
 import { GettingStartedCard } from '@/components/onboarding/getting-started-card';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
+import { WORKSPACE_SQL } from '@/home/queries';
 import { api } from '@/lib/api';
 import type { Business, Me } from '@/lib/businesses';
 import { pushRegistration } from '@/push/device';
@@ -20,8 +21,8 @@ import {
 /**
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10): an owner's
  * card, shorter than the web's, where a step that's easier on a computer emails a link and the AI teammate is set up
- * on the phone itself; a teammate's four rows, with notifications turned on from the phone itself; the tour of the
- * bottom bar; and "You're set up" once.
+ * on the phone itself; the guided setup's Start or Carry on until it's finished; a teammate's four rows, with
+ * notifications turned on from the phone itself; the tour of the bottom bar; and "You're set up" once.
  */
 
 jest.mock('expo-router', () => ({
@@ -210,6 +211,44 @@ it('sets up the AI teammate on the phone itself, and asks again once there is on
   await waitFor(() => expect(sent('/v1/queries/onboarding.status')).toHaveLength(2));
   expect(await screen.findByTestId('getting-started-ai-link')).toBeTruthy();
   expect(screen.queryByTestId('getting-started-ai-setup')).toBeNull();
+});
+
+it('points whoever sets the business up at the guided setup until it’s finished', async () => {
+  const mark = { at: '2026-10-06T12:00:00.000Z', by: DALE };
+  /** The business's settings in the phone's copy, with the guided setup as given. */
+  const setup = (record: Record<string, unknown>) =>
+    jest.mocked(useQuery).mockImplementation(((sql: string) => ({
+      data:
+        sql === WORKSPACE_SQL
+          ? [{ settings: JSON.stringify({ onboardingSetup: record }), timezone: 'America/Chicago' }]
+          : [],
+      isLoading: false,
+      isFetching: false,
+    })) as unknown as typeof useQuery);
+
+  // Part way through, on this phone or the computer: Carry on.
+  setup({ started: mark });
+  const view = await show({ ...OWNER, answers: null });
+  const card = await screen.findByTestId('getting-started-setup');
+  expect(card).toHaveTextContent(GUIDE_WORDS.carryOn.title, { exact: false });
+  expect(card).toHaveTextContent(PHONE_GUIDE_WORDS.carryOnDetail, { exact: false });
+  // The card's one primary button: the next step waits among the rows meanwhile.
+  expect(screen.queryByTestId('getting-started-next')).toBeNull();
+  await fireEvent.press(screen.getByTestId('getting-started-setup-open'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/setup`);
+
+  // Never started, and the quick questions never answered: Start.
+  setup({});
+  await view.rerender();
+  expect(screen.getByTestId('getting-started-setup')).toHaveTextContent(GUIDE_WORDS.setUp.title, {
+    exact: false,
+  });
+
+  // Finished: the next step is back.
+  setup({ started: mark, finished: mark });
+  await view.rerender();
+  expect(screen.queryByTestId('getting-started-setup')).toBeNull();
+  expect(screen.getByTestId('getting-started-next')).toBeTruthy();
 });
 
 it('folds an owner’s list to a few rows, with the rest a press away', async () => {

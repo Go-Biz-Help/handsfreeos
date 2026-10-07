@@ -56,7 +56,7 @@ export function AppBar({
       <View
         className={cn(
           'h-[52px] flex-row items-center pr-1.5',
-          leading === 'business' ? 'pl-3' : 'pl-0.5',
+          leading === 'business' ? 'pl-3' : leading === 'none' ? 'pl-4' : 'pl-0.5',
         )}
       >
         {leading === 'business' && ctx ? (

@@ -153,6 +153,7 @@ export const ONBOARDING_SETUP_WORDS = {
     'They get an email to join as team members. An owner can make any of them an admin later.',
   inviteEmail: 'Their email',
   addInvite: 'Add someone',
+  removeInvite: 'Remove this person',
   invited: (email: string) => `Invited ${email}`,
 
   // About your business

@@ -104,6 +104,14 @@ const ONLINE_COMMANDS = [
   'ai_setup.finish',
   'knowledge_item.create',
   'ai_teammate.set_status',
+  // The onboarding setup (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): making the business after
+  // signing up, each screen's answers kept as it's finished, Stay in the loop, and what a stop does in place: a
+  // business number bought, and the payment provider's sign-in started.
+  'organization.create',
+  'onboarding_setup.save',
+  'onboarding_setup.finish',
+  'phone_number.buy',
+  'payment_connection.connect',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -164,6 +172,8 @@ const QUERIES = [
   'ai_setup.get',
   'knowledge_scan.get',
   'knowledge_suggestion.list',
+  // The onboarding setup: where it stands.
+  'onboarding_setup.get',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

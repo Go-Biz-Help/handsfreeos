@@ -31,7 +31,14 @@ function servicesFromSite(state: OnboardingSetupState, answers: OnboardingSetupA
   );
 }
 
-function numberLine(state: OnboardingSetupState, answers: OnboardingSetupAnswers): string | null {
+/**
+ * Where the business number stands, as the summary says it: "Calls to (512) 555-0148 work now. Texting starts once
+ * the carriers approve your details." The phone's number stop says it too, under the number.
+ */
+export function onboardingSetupNumberLine(
+  state: Pick<OnboardingSetupState, 'numberSetup'>,
+  answers: Pick<OnboardingSetupAnswers, 'hasEin'>,
+): string | null {
   const n = state.numberSetup;
   const shown = n.display ?? 'your number';
   switch (n.next) {
@@ -136,7 +143,7 @@ export function onboardingSetupSummary(
     lines.push(`${plural(state.team.invited.length, 'invitation', 'invitations')} sent.`);
 
   lines.push(customersLine(state, answers));
-  const number = numberLine(state, answers);
+  const number = onboardingSetupNumberLine(state, answers);
   if (number) lines.push(number);
   lines.push(paymentsLine(state, answers));
   if (answers.reviewLink.trim()) lines.push('Thank-you texts ask for a Google review.');

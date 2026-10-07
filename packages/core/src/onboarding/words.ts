@@ -354,6 +354,9 @@ export const PHONE_GUIDE_WORDS = {
   tour: 'Take the 1-minute tour',
   /** The AI step while the business has no teammate: quick setup runs on the phone too. */
   aiSetUp: 'Set up',
+  /** The guided setup part way through, on the phone, where "here or in the phone app" would be the same place. */
+  carryOnDetail:
+    'Your answers so far are kept. Carry on where you left off, here or on your computer.',
 } as const;
 
 /** "Email me a link": a step that's easier on a computer, sent to the person's email from the phone. */
