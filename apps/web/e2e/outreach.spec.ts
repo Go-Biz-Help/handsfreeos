@@ -306,7 +306,10 @@ test('the friends tab lists what the extension saved, keeps a friend, and puts s
   await people.filter({ hasText: 'Sky Patel' }).getByTestId('friend-keep').click();
   await expect(page.getByText('You’ll keep Sky Patel.')).toBeVisible();
   await expect(page.getByTestId('friends-show-keep')).toContainText('1');
-  await expect(people.filter({ hasText: 'Sky Patel' })).toContainText('Keep');
+  await expect(people.filter({ hasText: 'Sky Patel' }).getByTestId('friend-keep')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
 
   // The request still waiting, by fit: mutual friends alone until a playbook says what to look for.
   await page.getByTestId('friends-show-requests').click();

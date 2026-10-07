@@ -299,9 +299,16 @@ function FriendRow({
 }) {
   const since = sinceWords(f);
   const listed = f.dontPitch !== null && f.dontPitch.at !== null;
+  // Where you stand, where the list doesn't say: Don't pitch, or a friend kept who isn't one now.
+  const state =
+    f.state && (show === 'dont_pitch' || (show === 'keep' && f.state !== 'friends'))
+      ? f.state
+      : null;
+  const mutual = f.fit ? null : f.mutualFriends;
   return (
     <li className="border-t border-border px-5 py-3" data-testid="friend">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      {/* The switches sit on the name's line; they say whether someone's kept or not pitched. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 text-[13.5px]">
           {f.personId ? (
             <Link
@@ -321,29 +328,50 @@ function FriendRow({
           >
             Facebook
           </a>
+          {since ? <span className="ml-2 text-[12.5px] text-text-3">{since}</span> : null}
           {f.group ? (
             <div className="text-[12.5px] text-text-3">Found in {groupName(f.group)}</div>
           ) : null}
         </div>
-        {since ? <span className="text-[12.5px] text-text-3">{since}</span> : null}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-text-2">
+          {f.state === 'friends' || f.keep ? (
+            <span className="inline-flex items-center gap-2">
+              <Switch
+                checked={f.keep}
+                onChange={(keep) => onSet({ keep })}
+                label={`Keep ${f.name}: never suggest unfriending them`}
+                disabled={busy}
+                testId="friend-keep"
+              />
+              Keep
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-2">
+            <Switch
+              checked={listed}
+              onChange={(dontPitch) => onSet({ dontPitch })}
+              label={`Don’t pitch ${f.name}`}
+              disabled={busy}
+              testId="friend-dont-pitch"
+            />
+            Don’t pitch
+          </span>
+        </div>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        {f.fit ? (
-          <Badge variant={FIT_TONE[f.fit.level]} data-testid="friend-fit">
-            {FIT_LEVELS[f.fit.level]}
-            {f.fit.playbookName ? ` · ${f.fit.playbookName}` : ''}
-          </Badge>
-        ) : null}
-        {/* Where you stand, where the list doesn't say: Don't pitch, or a friend kept who isn't one now. */}
-        {f.state && (show === 'dont_pitch' || (show === 'keep' && f.state !== 'friends')) ? (
-          <Badge variant={f.state === 'friends' ? 'ok' : 'gray'}>{FRIEND_STATES[f.state]}</Badge>
-        ) : null}
-        {f.mutualFriends && !f.fit ? (
-          <Badge>{f.mutualFriends.toLocaleString()} mutual</Badge>
-        ) : null}
-        {f.keep ? <Badge variant="accent">Keep</Badge> : null}
-        {f.dontPitch ? <Badge variant="pending">Don’t pitch</Badge> : null}
-      </div>
+      {f.fit || state || mutual ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {f.fit ? (
+            <Badge variant={FIT_TONE[f.fit.level]} data-testid="friend-fit">
+              {FIT_LEVELS[f.fit.level]}
+              {f.fit.playbookName ? ` · ${f.fit.playbookName}` : ''}
+            </Badge>
+          ) : null}
+          {state ? (
+            <Badge variant={state === 'friends' ? 'ok' : 'gray'}>{FRIEND_STATES[state]}</Badge>
+          ) : null}
+          {mutual ? <Badge>{mutual.toLocaleString()} mutual</Badge> : null}
+        </div>
+      ) : null}
       {f.fit?.reasons.length ? (
         <p className="mt-1 text-[12.5px] text-text-2" data-testid="friend-fit-reasons">
           {f.fit.reasons.join(' · ')}
@@ -355,30 +383,6 @@ function FriendRow({
       {f.dontPitch ? (
         <p className="mt-1 text-[12.5px] text-text-3">{dontPitchWords(f.dontPitch)}</p>
       ) : null}
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-text-2">
-        {f.state === 'friends' || f.keep ? (
-          <span className="inline-flex items-center gap-2">
-            <Switch
-              checked={f.keep}
-              onChange={(keep) => onSet({ keep })}
-              label={`Keep ${f.name}: never suggest unfriending them`}
-              disabled={busy}
-              testId="friend-keep"
-            />
-            Keep
-          </span>
-        ) : null}
-        <span className="inline-flex items-center gap-2">
-          <Switch
-            checked={listed}
-            onChange={(dontPitch) => onSet({ dontPitch })}
-            label={`Don’t pitch ${f.name}`}
-            disabled={busy}
-            testId="friend-dont-pitch"
-          />
-          Don’t pitch
-        </span>
-      </div>
     </li>
   );
 }
