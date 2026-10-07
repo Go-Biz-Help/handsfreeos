@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { MORE_WORDS } from '@hfos/core';
+import { holds, MORE_WORDS, PICKED_CONTACT_WORDS as PC } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
-import { Building, Search, SquareKanban, StickyNote, User, X } from '@/components/icons';
+import { Building, Search, SquareKanban, StickyNote, User, UserPlus, X } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Avatar } from '@/components/ui/avatar';
@@ -11,6 +11,8 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
+import { usePickCustomer } from '@/customers/pick-contact';
 import {
   useCustomers,
   useCustomerSearch,
@@ -22,10 +24,13 @@ import {
 
 /**
  * Contacts, reached from More: people and companies from the phone's copy, and a search across customers, companies
- * and leads that works with no signal — by name, by number, and by a word someone wrote in a note.
+ * and leads that works with no signal — by name, by number, and by a word someone wrote in a note. The button at the
+ * top adds a customer picked from the phone's own contacts, one at a time.
  */
 export default function Customers() {
-  const { business } = useBusiness();
+  const { business, viewing } = useBusiness();
+  const { pick, picking } = usePickCustomer(business.id);
+  const mayAdd = !viewing && holds(business, 'records.write');
   const [tab, setTab] = React.useState<CustomerTab>('people');
   const [typed, setTyped] = React.useState('');
   const [q, setQ] = React.useState('');
@@ -52,8 +57,40 @@ export default function Customers() {
     [business.id],
   );
 
+  const pickFromContacts = async () => {
+    const result = await pick();
+    if (result.kind === 'failed') toast.error(result.message);
+    if (result.kind !== 'added' && result.kind !== 'already') return;
+    toast.show(result.kind === 'added' ? PC.added(result.name) : PC.already(result.name), {
+      action: {
+        label: PC.open,
+        onPress: () =>
+          router.push(businessHref(business.id, `customers/people/${result.id}`) as Href),
+      },
+    });
+  };
+
   return (
-    <Screen title={MORE_WORDS.customers} leading="back" testID="customers" scroll={false}>
+    <Screen
+      title={MORE_WORDS.customers}
+      leading="back"
+      testID="customers"
+      scroll={false}
+      trailing={
+        mayAdd ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={PC.addFromContacts}
+            accessibilityState={{ busy: picking }}
+            onPress={() => void pickFromContacts()}
+            testID="customers-pick"
+            className="size-11 items-center justify-center rounded-full active:bg-card-2"
+          >
+            <Icon as={UserPlus} className="size-[22px] text-accent" />
+          </Pressable>
+        ) : undefined
+      }
+    >
       <View className="gap-3 border-b border-border bg-card px-3.5 pb-3 pt-3">
         <Input
           value={typed}

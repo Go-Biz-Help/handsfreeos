@@ -8,6 +8,7 @@ import {
   ONBOARDING_SETUP_MAX,
   ONBOARDING_SETUP_WORDS as W,
   PAY_WITH,
+  PICKED_CONTACT_WORDS as PC,
   QUESTION_WORDS,
   setupFor,
   TEAM_SIZES,
@@ -40,6 +41,7 @@ import {
   Share as ShareIcon,
   Trash,
   TriangleAlert,
+  UserPlus,
 } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,6 +50,7 @@ import { Input } from '@/components/ui/input';
 import { FieldError, Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { usePickCustomer } from '@/customers/pick-contact';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
 import { cn } from '@/lib/utils';
@@ -387,11 +390,11 @@ const SOURCE_HINTS: Readonly<Record<CustomerSource, string>> = {
   ghl: W.ghlHint,
   sheet: W.sheetHint,
   crm: W.crmHint,
-  phone: W.phoneHint,
+  phone: P.phoneHint,
   none: W.noneHint,
 };
 
-export function CustomersScreen({ workspaceId, answers, set }: OwnScreenProps) {
+export function CustomersScreen({ workspaceId, answers, set, can }: OwnScreenProps) {
   const source = answers.customersIn;
   return (
     <>
@@ -421,12 +424,72 @@ export function CustomersScreen({ workspaceId, answers, set }: OwnScreenProps) {
         >
           {P.customersOnComputer}
         </Note>
-      ) : source === 'phone' ? (
-        <Note icon={Info} testID="setup-customers-contacts">
-          {P.contactsSoon}
-        </Note>
+      ) : source === 'phone' && can('records.write') ? (
+        <PickFromContacts workspaceId={workspaceId} />
       ) : null}
     </>
+  );
+}
+
+/**
+ * Customers picked from this phone's contacts one at a time (call 8), each added as it's picked, and the list of who
+ * came in so far. Someone already a customer is listed as such rather than added twice.
+ */
+function PickFromContacts({ workspaceId }: { workspaceId: string }) {
+  const { pick, picking } = usePickCustomer(workspaceId);
+  const [picked, setPicked] = React.useState<
+    readonly { readonly id: string; readonly name: string; readonly already: boolean }[]
+  >([]);
+
+  const onPick = async () => {
+    const result = await pick();
+    if (result.kind === 'failed') toast.error(result.message);
+    if (result.kind !== 'added' && result.kind !== 'already') return;
+    setPicked((list) => [
+      ...list.filter((p) => p.id !== result.id),
+      { id: result.id, name: result.name, already: result.kind === 'already' },
+    ]);
+  };
+
+  return (
+    <View className="gap-3">
+      <Note
+        icon={Info}
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={UserPlus}
+            loading={picking}
+            onPress={() => void onPick()}
+            testID="setup-customers-pick"
+          >
+            {picked.length ? PC.pickAnother : PC.pick}
+          </Button>
+        }
+        testID="setup-customers-contacts"
+      >
+        {PC.onlyPicked}
+      </Note>
+      {picked.length ? (
+        <View testID="setup-customers-picked">
+          {picked.map((p) => (
+            <View
+              key={p.id}
+              className="min-h-11 flex-row items-center justify-between gap-3 border-b border-border py-2"
+              testID={`setup-picked-${p.id}`}
+            >
+              <Text className="min-w-0 flex-1 text-[15px]" numberOfLines={1}>
+                {p.name}
+              </Text>
+              <Badge variant={p.already ? 'gray' : 'ok'}>
+                {p.already ? PC.alreadyTag : PC.addedTag}
+              </Badge>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 

@@ -10,10 +10,11 @@ a booking page if customers book a time, and its AI teammate on with training wh
 It is built like the AI teammate's quick setup (`HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md`), and the AI
 teammate's part of it is that quick setup's own screens.
 
-> **Status: steps 1 to 9 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business, the
-> shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
+> **Status: steps 1 to 10 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
+> the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
 > `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; signing up on the web and the
-> phone; the web's screens, the phone's, the logo and colour, and the simple page). The flow chart is the "Onboarding
+> phone; the web's screens, the phone's, the logo and colour, the simple page, and customers picked from the phone's
+> contacts). The flow chart is the "Onboarding
 > quick setup" artifact; the questions and the owner's answers are `onboarding-setup/questions.md` in the project
 > files.
 
@@ -279,7 +280,7 @@ setup's address when no other is typed there, and stops warning that documents g
 - **The stops that bring their own part** get it from the server for their screen: Settings → Texting & calls for the
   number (a local number searched near the city in the address straight away, and the registration starting from the
   address and the website), and GoHighLevel's move for the customers. A spreadsheet or another CRM opens the import
-  right there; the phone's contacts point at the phone app.
+  right there; the phone's contacts point at the phone app, where they're picked one at a time (§8).
 - **The booking page** is made as its screen opens (`onboarding_setup.save` on `booking`, which never makes it
   twice), so the screen shows its link.
 - **The logo and colour** (step 8): a logo dropped or picked goes straight to Storage, and the screen asks again
@@ -327,15 +328,31 @@ one, notifications turned on right there, and the summary as a "See the summary"
   quick setup's own. The phone has no Settings → Workspace, so later changes are on the web.
 - **What's easier on a computer** emails the person a link, as Getting started does on the phone: the carriers'
   registration, keeping a number they already have, bringing customers in from GoHighLevel, a spreadsheet or another
-  CRM, and connecting Google or Outlook. Picking customers from the phone's contacts is step 10.
+  CRM, and connecting Google or Outlook.
+- **Customers from the phone's contacts** (step 10, call 8) are picked one at a time, on the customers stop when
+  the answer is "My phone's contacts" and from the button on More → Customers, by anyone who may add customers
+  (`records.write`). The phone's own picker hands over only the contact picked, so the app asks for no contacts
+  permission: on an iPhone the system's contact picker gives the card (names, company, numbers, emails, addresses);
+  on Android the contacts app's number picker gives the name and the number picked. Core's `personFromContact` makes
+  the customer (`person.create`, source "Phone contacts"): the first mobile number is the main one, so texts reach a
+  cell, and a number or email the server would refuse is left out rather than refusing the customer; a contact with
+  no name says how to fix it. `alreadyACustomer` finds someone with one of its numbers or emails in the phone's copy
+  and says they're already a customer rather than adding them twice. Adding works with no signal, like any new
+  customer on the phone. The picker is the app's own native module (`modules/hfos-phone`), so the release after it
+  is a store build; the App Store's privacy answers and Play's Data safety list Contacts as collected (only the ones
+  picked).
 - **Home.** Getting started's card says **Start** or **Carry on** as on the web, as its one primary button, until
   it's finished; it reads where the setup stands from the phone's copy of the business.
 - **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making the
   business, carrying on, the simple page, the booking page, the number, payments, "Stay in the loop" to the end, who
   may run it, no signal, and Try Ava pointing at the page's chat), `look.test.tsx` (a logo picked and sent to Storage,
   then made ready; a colour picked or typed; a refused upload and the website looked at again; no signal; a role that
-  can't change them), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
-  `sign-up-with-code.yaml` makes the business on the phone after signing up.
+  can't change them), `src/customers/__tests__/pick-contact.test.tsx` (a picked card added with no signal needed,
+  someone already a customer found, a contact with no name, a cancelled picker, the setup's stop and the Customers
+  button), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
+  `sign-up-with-code.yaml` makes the business on the phone after signing up. Core's
+  `packages/core/test/picked-contact.test.ts` covers making the customer from an iPhone's card and an Android
+  phone's number, and finding them already there.
 
 ---
 
@@ -382,7 +399,9 @@ Each step is its own draft pull request, merged in order.
 9. **The simple page** (built, §4), for a business with no website: a new stop after the logo, on the web and the
    phone, and a card in Settings → Workspace. Migration `20261027000200_business_page.sql` adds
    `booking_sites.page_enabled`; the table's own grants and policies already cover it.
-10. **Phone contacts** in the phone app.
+10. **Phone contacts** (built, §8): picked one at a time in the phone app, on the setup's customers stop and More →
+    Customers, through the phone's own picker with no contacts permission. A new native call in `modules/hfos-phone`,
+    so the release after it is a store build. No database change.
 11. **Agencies** (§9). Needs a database change.
 
 ---

@@ -80,8 +80,11 @@ Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the 
 ### What iOS is never asked for
 
 No contacts, no "Always" location, no calendar, no reminders, no health, no Bluetooth, no tracking
-prompt. Each is absent because nothing in the app calls it — `expo-contacts` is not a dependency, and adding the business
-number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
+prompt. Each is absent because nothing in the app calls it — `expo-contacts` is not a dependency. Picking a customer from
+Contacts (More → Customers, and the setup's customers stop) uses the system's own contact picker
+(`CNContactPickerViewController`, in `modules/hfos-phone`), which runs outside the app and hands it only the one contact
+picked, so iOS asks nothing; adding the business number to Contacts hands it to the phone's own New Contact screen
+(`src/inbox/contact-card.ts`).
 
 **Location while in use** (M18, `expo-location`): asked for the first time a tech taps **On my way** on a visit, never
 at launch and never in the background. The one reading goes with that tap, and the server rounds it to about 100 m, so
@@ -156,7 +159,9 @@ ones (from the step that built photos) and background location are in `app.json`
 
 ### Never asked for
 
-No `READ_CONTACTS` or `WRITE_CONTACTS`, no `READ_CALENDAR`, no `READ_PHONE_STATE` or `CALL_PHONE` (calling goes
+No `READ_CONTACTS` or `WRITE_CONTACTS`: picking a customer from the contacts uses the contacts app's own picker
+(`ACTION_PICK` on phone numbers, in `modules/hfos-phone`), which lends the app the one row picked, a name and a number,
+and nothing else. No `READ_CALENDAR`, no `READ_PHONE_STATE` or `CALL_PHONE` (calling goes
 through the phone's own dialler and the carrier), no `com.google.android.gms.permission.AD_ID`, no `READ_MEDIA_IMAGES`,
 and no `QUERY_ALL_PACKAGES`. The manifest's `<queries>` blocks ask only which app opens an `https` link, which is what
 opening the web app needs, and which apps take a shared file (`ACTION_SEND`, from `expo-sharing`), which is what saving
