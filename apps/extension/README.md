@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the fourth test build (0.4.2).** It reads the Facebook page you have open and shows what it found in
+**This is the fourth test build (0.4.3).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
@@ -40,6 +40,10 @@ request is about the one person it names in words, and the faces aren't requests
 each request's Confirm and Delete beside the ones shown (left out), and a request you've just answered says so in
 place of them ("Request accepted") until the page loads again. **View sent requests** opens the ones you've sent
 in a box over the page, and Facebook hides the page behind it: while the box is open, it's the list that's read.
+Picking someone in the list opens their profile beside it, with **Confirm request** and **Delete request** under its
+intro and the same two in its **Respond** menu; its address has their number and its tabs their username, and the
+answer is noted with both. A chat open in a small window over another page is known by its messages, labelled as the
+conversation, and is with whoever its header links to.
 
 ## Signing in and saving
 
@@ -77,7 +81,7 @@ was to, never what you wrote.
 | Friend request | press **Add friend**                                                              | the profile it's at the top of, or the one person its card links to |
 | Like           | press **Like** on a post or a comment (not when you take a like back)             | whoever wrote the post or the comment                               |
 | Comment        | press Enter or the send button in a comment box with something in it              | whoever wrote the post, or the comment you're replying to           |
-| Message        | press Enter or the send button in a chat, or a chat window over a page            | who the chat is with                                                |
+| Message        | press Enter or the send button in a chat, or in a small chat window over a page   | who the chat is with                                                |
 | Confirm        | press **Confirm** on a friend request you got, or in a profile's **Respond** menu | who asked: they're your friend in HandsFreeOS too                   |
 | Delete         | press **Delete** on a friend request you got, or in the same menu                 | who asked: their request is kept as deleted                         |
 

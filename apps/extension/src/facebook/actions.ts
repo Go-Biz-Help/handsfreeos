@@ -14,14 +14,14 @@
  * - **Comment:** Enter in a box to comment in with something written in it, or the button beside it that sends it. It's
  *   to whoever wrote the post, or for a reply, the comment it answers.
  * - **Message:** the same in an open chat, to who it's with; or in a chat open in a small window over another page, to
- *   the one person the window links to.
+ *   who the window's header links to.
  * - **Confirm or Delete** on a friend request: the two buttons side by side on its card (the requests page, /friends,
- *   a notification), to the one person the card links to; the same at the top of their profile; or in the menu their
- *   profile's Respond opens.
+ *   a notification), to the one person the card links to; the same on their profile, at its top or under its intro,
+ *   or on the profile open beside the requests; or in the menu their profile's Respond opens.
  *
  * A step to yourself (your own post) isn't one, and neither is a step the page can't tie to exactly one person.
  */
-import { readChat } from './chat';
+import { isConversation, readChat, readChatIn } from './chat';
 import {
   clean,
   inTopBar,
@@ -33,11 +33,11 @@ import {
   textLines,
   textWithEmoji,
 } from './dom';
-import { CONFIRM, DELETE, mutualFriendsIn, shown } from './friends';
+import { CONFIRM, DELETE, mutualFriendsIn, requestRows, shown } from './friends';
 import { aboutWhom, bestName, isNameLike, peopleLinked, sameName } from './people';
 import { commentAround, commentsIn, postAround, postBefore, readPost } from './posts';
 import { nameFromTitle } from './profile';
-import type { GroupRef, Named, PageAddress, ProfileRef, ThreadRef } from './types';
+import type { ChatPage, GroupRef, Named, PageAddress, ProfileRef, ThreadRef } from './types';
 import {
   classifyUrl,
   facebookUrl,
@@ -107,8 +107,11 @@ const YOUR_PROFILE = /^your profile$/i;
 const CARD_STEPS = 16;
 /** How far up from a send button the box it sends can be. */
 const SEND_STEPS = 12;
-/** How far up from the box to write in a chat window's link to who it's with can be. */
+/** How far up from the box to write in a window without a chat's label its link to who it's with can be. */
 const WINDOW_STEPS = 20;
+
+/** The boxes to write in. */
+const WRITING = '[role="textbox"], [contenteditable="true"]';
 
 const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
@@ -349,9 +352,8 @@ function comment(
 
 // ------------------------------------------------------------------------------------------------ messages
 
-/** A message sent in the chat the page is: to who it's with, answering them when the last message was theirs. */
-function messageInChat(doc: Document, address: PageAddress, base: string): Step | null {
-  const chat = readChat(doc, address, base);
+/** A message sent in a chat: to who it's with, answering them when the chat's last message was theirs. */
+function messageTo(chat: ChatPage, doc: Document, base: string): Step | null {
   if (!chat.profile || !chat.name) return null;
   const to = { name: chat.name, profile: chat.profile };
   if (isYou(to, doc, base)) return null;
@@ -361,32 +363,70 @@ function messageInChat(doc: Document, address: PageAddress, base: string): Step 
     to,
     group: null,
     postUrl: null,
-    thread: address.thread,
+    thread: chat.thread,
     replying: !last ? false : last.from === 'unknown' ? null : last.from === 'them',
   };
 }
 
+/** The chat a link in a part of the page opens: "Open in Messenger". */
+function threadLinkedIn(box: Element, base: string): ThreadRef | null {
+  for (const anchor of box.querySelectorAll('a[href]')) {
+    const url = urlOf(anchor, base);
+    const thread = url ? threadFromUrl(url) : null;
+    if (thread) return thread;
+  }
+  return null;
+}
+
 /**
- * A message sent in a chat open in a small window over another page: to the one person the window links to. The
- * window is the nearest box around the box to write in that links to anyone, and it has no other box to write in.
+ * The small chat window a box to write in is in, over another page: the nearest box around it that holds a chat's
+ * messages ("Messages in conversation with Jane Doe") and links to someone outside them, as the window's header does.
+ * Never past a box over the page or into the main column; a box with a second chat or a second box to write in is
+ * past the window.
  */
-function messageInWindow(box: Element, doc: Document, base: string): Step | null {
+function chatWindowOf(box: Element, doc: Document, base: string): Element | null {
+  const chats = [...doc.querySelectorAll('[aria-label]')].filter(isConversation);
+  if (chats.length === 0) return null;
+  const boxes = [...doc.querySelectorAll(WRITING)];
+  const root = rootOf(box, doc);
+  const main = mainOf(doc);
+  for (let up = box.parentElement; up && root.contains(up); up = up.parentElement) {
+    const here = up;
+    if (here.contains(main)) break;
+    const inside = chats.filter((chat) => here.contains(chat));
+    if (inside.length > 1 || boxes.filter((other) => here.contains(other)).length > 1) return null;
+    const chat = inside[0];
+    if (!chat) continue;
+    const outside = [...here.querySelectorAll('a[href]')].filter(
+      (anchor) => !chat.contains(anchor),
+    );
+    if (peopleLinked(outside, base).length > 0) return here;
+  }
+  return null;
+}
+
+/**
+ * A message sent in a chat window with no chat's label in it: to the one person the window links to. The window is
+ * the nearest box around the box to write in that links to anyone, and it has no other box to write in.
+ */
+function messageNear(box: Element, doc: Document, base: string): Step | null {
   const main = mainOf(doc);
   let up = box.parentElement;
   for (let steps = 0; up && steps < WINDOW_STEPS && !up.contains(main); steps++) {
     const people = peopleLinked(up.querySelectorAll('a[href]'), base);
     if (people.length > 0) {
-      const writing = up.querySelectorAll('[role="textbox"], [contenteditable="true"]');
       const person = people[0]!;
-      if (people.length > 1 || writing.length > 1 || !person.name) return null;
+      if (people.length > 1 || up.querySelectorAll(WRITING).length > 1 || !person.name) return null;
       const to = { name: person.name, profile: person.profile };
       if (isYou(to, doc, base)) return null;
-      const thread =
-        [...up.querySelectorAll('a[href]')]
-          .map((anchor) => urlOf(anchor, base))
-          .map((url) => (url ? threadFromUrl(url) : null))
-          .find((found) => found !== null) ?? null;
-      return { kind: 'message', to, group: null, postUrl: null, thread, replying: null };
+      return {
+        kind: 'message',
+        to,
+        group: null,
+        postUrl: null,
+        thread: threadLinkedIn(up, base),
+        replying: null,
+      };
     }
     up = up.parentElement;
   }
@@ -395,11 +435,14 @@ function messageInWindow(box: Element, doc: Document, base: string): Step | null
 
 // ------------------------------------------------------------------------------------------------ sending
 
-/** What writing sent from a box was: a message in a chat, a comment or a reply on a post, or a message in a window. */
+/** What writing sent from a box was: a message in a chat or a chat window, or a comment or a reply on a post. */
 function written(box: Element, doc: Document, href: string): Step | null {
   const address = classifyUrl(href);
   if (address.kind === 'chat' && mainOf(doc).contains(box))
-    return messageInChat(doc, address, href);
+    return messageTo(readChat(doc, address, href), doc, href);
+  const chatWindow = chatWindowOf(box, doc, href);
+  if (chatWindow)
+    return messageTo(readChatIn(chatWindow, threadLinkedIn(chatWindow, href), href), doc, href);
   const label =
     clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
   const root = rootOf(box, doc);
@@ -407,7 +450,7 @@ function written(box: Element, doc: Document, href: string): Step | null {
   const post = postAround(box, root) ?? (commentBox ? postBefore(box, root) : null);
   if (post && (commentBox || !MESSAGE_BOX.test(label)))
     return comment(box, post, label, doc, address, href);
-  return MESSAGE_BOX.test(label) ? messageInWindow(box, doc, href) : null;
+  return MESSAGE_BOX.test(label) ? messageNear(box, doc, href) : null;
 }
 
 /**
@@ -417,7 +460,7 @@ function written(box: Element, doc: Document, href: string): Step | null {
 function boxSentBy(control: Element): Element | null {
   let up = control.parentElement;
   for (let steps = 0; up && steps < SEND_STEPS; steps++) {
-    const boxes = [...up.querySelectorAll('[role="textbox"], [contenteditable="true"]')];
+    const boxes = [...up.querySelectorAll(WRITING)];
     if (boxes.length > 0) {
       const box = boxes.filter((b) => isBefore(b, control)).pop();
       return box && hasWriting(box) ? box : null;
@@ -447,7 +490,7 @@ export function stepFromClick(target: Element, doc: Document, href: string): Ste
  * a list under the box is open: there Enter picks a name or an emoji.
  */
 export function stepFromEnter(target: Element, doc: Document, href: string): Step | null {
-  const box = target.closest('[role="textbox"], [contenteditable="true"]');
+  const box = target.closest(WRITING);
   if (!box || inTopBar(box) || !hasWriting(box)) return null;
   if (box.getAttribute('aria-expanded') === 'true' || box.getAttribute('aria-activedescendant'))
     return null;
@@ -509,13 +552,19 @@ function requestButtons(control: Element, other: RegExp, root: Element): Element
   return null;
 }
 
+/** The keys a profile goes by: its number's and its username's, when it has both. */
+const keysOf = (profile: ProfileRef): string[] => [
+  profileKey(profile),
+  ...(profile.id && profile.username ? [profileKey({ ...profile, id: null })] : []),
+];
+
 /** The card someone's request is on: the nearest box around its button that links to them. */
 function cardOf(control: Element, to: Reached, root: Element, base: string): Element | null {
-  const key = profileKey(to.profile);
+  const keys = keysOf(to.profile);
   let box = control.parentElement;
   for (let steps = 0; box && steps < CARD_STEPS; steps++) {
     const linked = peopleLinked(box.querySelectorAll('a[href]'), base);
-    if (linked.some((person) => profileKey(person.profile) === key)) return box;
+    if (linked.some((person) => keys.includes(profileKey(person.profile)))) return box;
     if (box === root) break;
     box = box.parentElement;
   }
@@ -524,20 +573,50 @@ function cardOf(control: Element, to: Reached, root: Element, base: string): Ele
 
 /**
  * Whose profile is open beside the requests list (/friends/requests/?profile_id=…): the number in the address, and
- * the name on the links to them or the heading.
+ * the username its tabs link to (/jane.doe.5/about) when one of them links to that number too; named by the links to
+ * either, else its heading.
  */
 function previewPerson(doc: Document, href: string): Reached | null {
   const url = facebookUrl(href);
   if (!url || pathParts(url)[0]?.toLowerCase() !== 'friends') return null;
-  const profile = profileFromUrl(url);
-  if (!profile) return null;
-  const key = profileKey(profile);
-  const heading = clean(mainOf(doc).querySelector('h1, h2')?.textContent);
-  const name =
-    peopleLinked(doc.querySelectorAll('a[href]'), href).find(
-      (person) => profileKey(person.profile) === key,
-    )?.name ?? (isNameLike(heading) ? heading : null);
+  const number = profileFromUrl(url);
+  if (!number) return null;
+  const main = mainOf(doc);
+  const tabs = tabsIn(main);
+  const tabbed = tabs
+    ? [...tabs.querySelectorAll('a[href]')].flatMap((tab) => {
+        const profile = classifyUrl(urlOf(tab, href)?.href ?? '').profile;
+        return profile ? [profile] : [];
+      })
+    : [];
+  const usernames = new Set(tabbed.flatMap((p) => (p.username ? [p.username.toLowerCase()] : [])));
+  const username =
+    usernames.size === 1 && tabbed.some((p) => p.id === number.id)
+      ? (tabbed.find((p) => p.username)?.username ?? null)
+      : null;
+  const profile = { ...number, username };
+  const keys = keysOf(profile);
+  const anchors = [...doc.querySelectorAll('a[href]')].filter((anchor) => {
+    if (inTopBar(anchor)) return false;
+    const linked = urlOf(anchor, href);
+    const person = linked ? profileFromUrl(linked) : null;
+    return person !== null && keys.includes(profileKey(person));
+  });
+  const heading = clean(main.querySelector('h1')?.textContent);
+  const name = bestName(namesOn(anchors)) ?? (isNameLike(heading) ? heading : null);
   return name ? { name, profile } : null;
+}
+
+/** What their row in the requests list beside their profile says: "16 mutual friends". */
+function mutualFriendsBeside(doc: Document, to: Reached, base: string): number | null {
+  const keys = keysOf(to.profile);
+  for (const list of doc.querySelectorAll('[role="navigation"]')) {
+    if (inTopBar(list)) continue;
+    const rows = requestRows(list, base);
+    const row = keys.map((key) => rows.get(key)).find((found) => found !== undefined);
+    if (row) return mutualFriendsIn(textLines(row.box, 12));
+  }
+  return null;
 }
 
 /** The answer a click gives a friend request, when it's on one of the buttons that answer one. */
@@ -550,8 +629,10 @@ export function answerFromClick(target: Element, doc: Document, href: string): A
     const address = classifyUrl(href);
     const main = mainOf(doc);
     const responding = controlsIn(main).some((control) => RESPOND.test(labelOf(control)));
-    const to = answer && responding ? pagePerson(doc, address, href) : null;
-    return answer && to && !isYou(to, doc, href) ? { answer, to, mutualFriends: null } : null;
+    const to =
+      answer && responding ? (pagePerson(doc, address, href) ?? previewPerson(doc, href)) : null;
+    if (!answer || !to || isYou(to, doc, href)) return null;
+    return { answer, to, mutualFriends: mutualFriendsBeside(doc, to, href) };
   }
   const control = target.closest('[role="button"], button');
   if (!control || inTopBar(control) || control.getAttribute('aria-disabled') === 'true')
@@ -577,5 +658,7 @@ export function answerFromClick(target: Element, doc: Document, href: string): A
   to ??= personNear(control, root, href, named);
   if (!to || isYou(to, doc, href)) return null;
   const card = cardOf(control, to, root, href);
-  return { answer, to, mutualFriends: card ? mutualFriendsIn(textLines(card, 12)) : null };
+  const mutualFriends =
+    (card ? mutualFriendsIn(textLines(card, 12)) : null) ?? mutualFriendsBeside(doc, to, href);
+  return { answer, to, mutualFriends };
 }

@@ -269,7 +269,72 @@ describe('messages', () => {
     expect(step?.replying).toBe(true);
   });
 
-  it('notes a message in a chat open over another page, by the one person it links to', () => {
+  it('notes a message sent in a small chat window over another page, to who its header links to', () => {
+    const page = `${FB}/friends/requests/`;
+    const doc = load('chat-window-2026.html', page);
+    const box = write(doc, 'Write to Riley Quinn', 'Here are three');
+    const step = stepFromEnter(box, doc, page);
+    expect(step).toEqual({
+      kind: 'message',
+      to: { name: 'Riley Quinn', profile: byName('riley.quinn.7') },
+      group: null,
+      postUrl: null,
+      thread: null,
+      // Riley's "Sure, send them over" was the last.
+      replying: true,
+    });
+    expect(stepFromClick(button(doc, 'Press enter to send'), doc, page)).toEqual(step);
+    // The last message yours, it answers nobody.
+    const articles = doc.querySelectorAll('[role="log"] [role="article"]');
+    articles[articles.length - 1]!.remove();
+    expect(stepFromEnter(box, doc, page)?.replying).toBe(false);
+  });
+
+  it('knows a chat window by its chat, whatever its box to write in says', () => {
+    const page = `${FB}/friends/requests/`;
+    const doc = load('chat-window-2026.html', page);
+    const box = write(doc, 'Write to Riley Quinn', 'Here are three');
+    // Words a box to reply to a comment has.
+    box.setAttribute('aria-label', 'Reply to Riley Quinn');
+    expect(stepFromEnter(box, doc, page)?.to).toEqual({
+      name: 'Riley Quinn',
+      profile: byName('riley.quinn.7'),
+    });
+  });
+
+  it('notes each chat window’s message to its own person, with two open', () => {
+    const page = `${FB}/friends/requests/`;
+    const doc = load('chat-window-2026.html', page);
+    const riley = doc.querySelector('[aria-label="Chat settings"]')!.closest('[role="none"]')!;
+    const sam = riley.cloneNode(true) as Element;
+    const link = sam.querySelector('a[aria-label="Riley Quinn"]')!;
+    link.setAttribute('aria-label', 'Sam Ortega');
+    link.setAttribute('href', '/sam.ortega.3/');
+    sam
+      .querySelector('[role="log"]')!
+      .setAttribute('aria-label', 'Messages in conversation with Sam Ortega');
+    sam.querySelector('[role="textbox"]')!.setAttribute('aria-label', 'Write to Sam Ortega');
+    riley.after(sam);
+    expect(stepFromEnter(write(doc, 'Write to Sam Ortega', 'Hi Sam'), doc, page)?.to).toEqual({
+      name: 'Sam Ortega',
+      profile: byName('sam.ortega.3'),
+    });
+    expect(stepFromEnter(write(doc, 'Write to Riley Quinn', 'Hi Riley'), doc, page)?.to).toEqual({
+      name: 'Riley Quinn',
+      profile: byName('riley.quinn.7'),
+    });
+  });
+
+  it('notes nothing in a group chat’s window, which is with no one person', () => {
+    const page = `${FB}/friends/requests/`;
+    const doc = load('chat-window-2026.html', page);
+    doc
+      .querySelector('a[aria-label="Riley Quinn"]')!
+      .setAttribute('href', '/messages/t/7788990011/');
+    expect(stepFromEnter(write(doc, 'Write to Riley Quinn', 'Hi all'), doc, page)).toBeNull();
+  });
+
+  it('notes a message in a chat window with no chat’s label, by the one person it links to', () => {
     const feed = `${FB}/`;
     const doc = load('feed-2026.html', feed);
     const window = doc.createElement('div');
@@ -397,6 +462,53 @@ describe('answers to friend requests', () => {
       answer: 'delete',
       to: avery,
       mutualFriends: 12,
+    });
+  });
+
+  it('notes the answer under the intro of a 2026 profile picked beside the list, by its number and username', () => {
+    const url = `${FB}/friends/requests/?profile_id=100007000000004`;
+    const doc = load('friend-requests-profile-2026.html', url);
+    const rowan = {
+      name: 'Rowan Blake',
+      profile: {
+        id: '100007000000004',
+        username: 'rowan.blake.4',
+        url: `${FB}/profile.php?id=100007000000004`,
+      },
+    };
+    // Their mutual friends from their request in the list: "16 mutual friends".
+    expect(answerFromClick(button(doc, 'Confirm request'), doc, url)).toEqual({
+      answer: 'confirm',
+      to: rowan,
+      mutualFriends: 16,
+    });
+    // Facebook's hidden copy of Delete request comes first.
+    expect(answerFromClick(button(doc, 'Delete request', 1), doc, url)).toEqual({
+      answer: 'delete',
+      to: rowan,
+      mutualFriends: 16,
+    });
+    // The menu its Respond opens says the same.
+    button(doc, 'Respond').setAttribute('aria-expanded', 'true');
+    const layer = doc.createElement('div');
+    layer.innerHTML = `
+      <div><div role="menu"><div aria-hidden="false">
+        <div role="menuitem"><span dir="auto">Confirm</span><div role="none"></div></div>
+        <div role="menuitem"><span dir="auto">Delete request</span><div role="none"></div></div>
+      </div></div></div>`;
+    doc.body.append(layer);
+    const [confirm, remove] = layer.querySelectorAll('[role="menuitem"] span');
+    expect(answerFromClick(confirm!, doc, url)).toEqual({
+      answer: 'confirm',
+      to: rowan,
+      mutualFriends: 16,
+    });
+    expect(answerFromClick(remove!, doc, url)?.answer).toBe('delete');
+    // The list beside it is read as before.
+    expect(answerFromClick(button(doc, 'Confirm', 0), doc, url)).toEqual({
+      answer: 'confirm',
+      to: { name: 'Avery Lane', profile: byName('avery.lane.4') },
+      mutualFriends: 1,
     });
   });
 
@@ -531,6 +643,18 @@ describe('pages with more boxes than their outline shows', () => {
       'friend-requests-2026.html',
       `${FB}/friends/requests/`,
       (doc, url) => answerFromClick(button(doc, 'Delete', 5), doc, url),
+    ],
+    [
+      'Confirm under the intro of a 2026 profile picked beside the requests',
+      'friend-requests-profile-2026.html',
+      `${FB}/friends/requests/?profile_id=100007000000004`,
+      (doc, url) => answerFromClick(button(doc, 'Confirm request'), doc, url),
+    ],
+    [
+      'a message in a small chat window',
+      'chat-window-2026.html',
+      `${FB}/friends/requests/`,
+      (doc, url) => stepFromEnter(write(doc, 'Write to Riley Quinn', 'Hi Riley'), doc, url),
     ],
     [
       'Delete at the top of the profile picked beside the requests',
