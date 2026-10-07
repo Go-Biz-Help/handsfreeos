@@ -378,6 +378,73 @@ describe('the Friends tab and the look-up', () => {
     ]);
   });
 
+  it('lists a long list a page at a time, and a search looks through all of it', async () => {
+    const big = await business('Outreach Pages Co');
+    // 205 made-up friends, Friend 001 to Friend 205: two full pages, and five on the third.
+    const numbered = (n: number) => String(n).padStart(3, '0');
+    await runAs(owner, big, 'outreach.friends.save', {
+      list: 'friends',
+      people: Array.from({ length: 205 }, (_, i) =>
+        byName(`friend.${numbered(i + 1)}`, `Friend ${numbered(i + 1)}`),
+      ),
+    });
+    const names = (got: { people: { name: string }[] }) => got.people.map((p) => p.name);
+
+    const first = await runAs(owner, big, 'outreach.friends', {});
+    expect(first).toMatchObject({ page: 1, pages: 3, total: 205, more: 105 });
+    expect(names(first)).toHaveLength(100);
+    expect([names(first)[0], names(first)[99]]).toEqual(['Friend 001', 'Friend 100']);
+    expect(names(await runAs(owner, big, 'outreach.friends', { page: 2 }))[0]).toBe('Friend 101');
+    const last = await runAs(owner, big, 'outreach.friends', { page: 3 });
+    expect(last).toMatchObject({ page: 3, pages: 3, total: 205, more: 0 });
+    expect(names(last)).toEqual([
+      'Friend 201',
+      'Friend 202',
+      'Friend 203',
+      'Friend 204',
+      'Friend 205',
+    ]);
+    // A page past the end shows the last one.
+    expect(await runAs(owner, big, 'outreach.friends', { page: 9 })).toMatchObject({
+      page: 3,
+      people: last.people,
+    });
+
+    // A search looks through every page, and has pages of its own.
+    const found = await runAs(owner, big, 'outreach.friends', { search: '20', page: 2 });
+    expect(found).toMatchObject({ page: 1, pages: 1, total: 8, more: 0 });
+    expect(names(found)).toEqual([
+      'Friend 020',
+      'Friend 120',
+      'Friend 200',
+      'Friend 201',
+      'Friend 202',
+      'Friend 203',
+      'Friend 204',
+      'Friend 205',
+    ]);
+    // An empty list is one empty page.
+    expect(await runAs(owner, big, 'outreach.friends', { view: 'keep' })).toMatchObject({
+      people: [],
+      page: 1,
+      pages: 1,
+      total: 0,
+      more: 0,
+    });
+
+    // The friend requests are put in order of fit before they're cut into pages.
+    await runAs(owner, big, 'outreach.friends.save', {
+      list: 'requests',
+      people: Array.from({ length: 105 }, (_, i) => ({
+        ...byName(`asker.${numbered(i + 1)}`, `Asker ${numbered(i + 1)}`),
+        mutualFriends: i + 1,
+      })),
+    });
+    const asked = await runAs(owner, big, 'outreach.friends', { view: 'requests', page: 2 });
+    expect(asked).toMatchObject({ page: 2, pages: 2, total: 105, more: 0 });
+    expect(names(asked)).toEqual(['Asker 005', 'Asker 004', 'Asker 003', 'Asker 002', 'Asker 001']);
+  });
+
   it('marks the people on a page: where things stand, Keep and Don’t pitch, with a customer or not', async () => {
     await runAs(owner, ws, 'outreach.friend.set', {
       ...byName('quinn.harper.5', 'Quinn Harper'),

@@ -16,7 +16,7 @@ import { bestFit, byFit, type FitPlaybook } from '../fit';
 import {
   DONT_PITCH_TAG,
   FRIENDS_CAP,
-  FRIENDS_SHOWN,
+  FRIENDS_PAGE,
   FriendNoteInput,
   FriendNoteOutput,
   FriendSetInput,
@@ -419,30 +419,36 @@ export const friendsList = defineAddonQuery(outreachAddon, {
           where p.workspace_id = ${ws} and (p.dont_pitch or ${tagged})`,
     );
 
-    const requests = input.view === 'requests';
-    const listed = await rows<Listed>(
-      ctx.tx,
-      sql`select l.* from (
-            select p.id as profile_id, p.person_id,
-              coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
-              f.state, f.since, f.keep, p.dont_pitch,
-              coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
-              ${tagged} as tagged, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url
-            from addon_outreach.profiles p
-            left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
-            left join app.people pp on pp.id = p.person_id
-            left join app.users u on u.id = p.dont_pitch_by
-            left join addon_outreach.groups g on g.id = p.group_id
-            where p.workspace_id = ${ws}
-          ) l
-          where ${VIEW_WHERE[input.view]}
-            and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(l.name)) > 0` : sql`true`}
-          order by ${VIEW_ORDER[input.view]}
-          limit ${requests ? REQUESTS_MOST : FRIENDS_SHOWN + 1}`,
-    );
+    const profilesHere = sql`select p.id as profile_id, p.person_id,
+        coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
+        f.state, f.since, f.keep, p.dont_pitch,
+        coalesce(nullif(u.full_name, ''), u.email::text) as dont_pitch_by, p.dont_pitch_at,
+        ${tagged} as tagged, p.mutual_friends, p.intro, g.name as group_name, g.url as group_url
+      from addon_outreach.profiles p
+      left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
+      left join app.people pp on pp.id = p.person_id
+      left join app.users u on u.id = p.dont_pitch_by
+      left join addon_outreach.groups g on g.id = p.group_id
+      where p.workspace_id = ${ws}`;
+    const shown = sql`${VIEW_WHERE[input.view]}
+      and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(l.name)) > 0` : sql`true`}`;
+    const read = (limit: number, offset = 0) =>
+      rows<Listed>(
+        ctx.tx,
+        sql`select l.* from (${profilesHere}) l where ${shown}
+            order by ${VIEW_ORDER[input.view]} limit ${limit} offset ${offset}`,
+      );
+    const counted = async () => {
+      const [got] = await rows<{ total: number }>(
+        ctx.tx,
+        sql`select count(*)::int as total from (${profilesHere}) l where ${shown}`,
+      );
+      return got?.total ?? 0;
+    };
 
+    const requests = input.view === 'requests';
     const fitted = requests ? await playbooksInUse(ctx) : null;
-    const people = listed.map((l) => {
+    const personOf = (l: Listed) => {
       const fit = fitted
         ? bestFit(fitted, {
             lines: l.intro,
@@ -476,8 +482,18 @@ export const friendsList = defineAddonQuery(outreachAddon, {
           reasons: [...fit.reasons],
         },
       };
-    });
-    const ordered = requests ? byFit(people) : people;
+    };
+
+    // The friend requests go in order of fit, worked out here, so they're all read and the page is cut from that
+    // order. Any other view is counted, and its page read, in the database.
+    const allRequests = requests ? byFit((await read(REQUESTS_MOST)).map(personOf)) : null;
+    const total = allRequests ? allRequests.length : await counted();
+    const pages = Math.max(1, Math.ceil(total / FRIENDS_PAGE));
+    const page = Math.min(input.page, pages);
+    const from = (page - 1) * FRIENDS_PAGE;
+    const people = allRequests
+      ? allRequests.slice(from, from + FRIENDS_PAGE)
+      : (await read(FRIENDS_PAGE, from)).map(personOf);
     return {
       counts: {
         friends: mine?.friends ?? 0,
@@ -487,8 +503,11 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         dontPitch: never?.dont_pitch ?? 0,
       },
       cap: FRIENDS_CAP,
-      people: ordered.slice(0, FRIENDS_SHOWN),
-      more: Math.max(0, ordered.length - FRIENDS_SHOWN),
+      people,
+      page,
+      pages,
+      total,
+      more: Math.max(0, total - from - people.length),
     };
   },
 });

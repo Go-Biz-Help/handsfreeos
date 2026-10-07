@@ -56908,6 +56908,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default 1 */
+                    page?: number;
                     search?: string;
                     /**
                      * @default friends
@@ -56936,6 +56938,8 @@ export interface operations {
                             sent: number;
                         };
                         more: number;
+                        page: number;
+                        pages: number;
                         people: {
                             dontPitch: {
                                 at: string | null;
@@ -56964,6 +56968,7 @@ export interface operations {
                             state: ("friends" | "request_sent" | "request_received" | "declined" | "not_friends") | null;
                             url: string;
                         }[];
+                        total: number;
                     };
                 };
             };

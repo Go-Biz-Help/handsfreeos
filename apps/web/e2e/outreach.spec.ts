@@ -247,7 +247,7 @@ test('the activity tab counts what the extension noted, by group and person, ove
   await expect(people).toHaveCount(3);
 });
 
-test('the friends tab lists what the extension saved, keeps a friend, and puts someone on the Don’t pitch list', async ({
+test('the friends tab lists what the extension saved a page at a time, keeps a friend, and puts someone on the Don’t pitch list', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -294,11 +294,11 @@ test('the friends tab lists what the extension saved, keeps a friend, and puts s
   await expect(page.getByTestId('friends-show-requests')).toContainText('1');
   await expect(page.getByTestId('friends-cap')).toContainText('3 of 5,000');
 
-  // Found by part of a name, in the address; an empty box shows everyone again.
-  await page.getByTestId('friends-search').fill('sky');
-  await page.getByTestId('friends-search').press('Enter');
+  // Found by part of a name as it's typed, with no Enter, in the address; an empty box shows everyone again.
+  await page.getByTestId('friends-search').pressSequentially('sky', { delay: 50 });
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&q=sky$`));
   await expect(people).toHaveText([/Sky Patel/]);
+  await expect(page.getByTestId('friends-search')).toHaveValue('sky');
   await page.getByTestId('friends-search').fill('');
   await expect(people).toHaveCount(3);
 
@@ -337,4 +337,30 @@ test('the friends tab lists what the extension saved, keeps a friend, and puts s
       replying: null,
     }),
   ).rejects.toThrow(/outreach_dont_pitch/);
+
+  // A long list comes a page at a time: 98 more friends make 101, so the last by name is on page 2.
+  await save(
+    'friends',
+    Array.from({ length: 98 }, (_, i) =>
+      who(`1000070000002${String(i).padStart(2, '0')}`, `Zoe Friend ${i + 1}`),
+    ),
+  );
+  await page.getByTestId('friends-show-friends').click();
+  await expect(page.getByTestId('friends-show-friends')).toContainText('101');
+  await expect(people).toHaveCount(100);
+  await expect(page.getByTestId('friends-range')).toContainText('1–100 of 101');
+  await expect(page.getByTestId('friends-page')).toHaveText('Page 1 of 2');
+  await expect(page.getByTestId('friends-page-previous')).toBeDisabled();
+  await page.getByTestId('friends-page-next').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&page=2$`));
+  await expect(people).toHaveText([/Zoe Friend 98/]);
+  await expect(page.getByTestId('friends-page')).toHaveText('Page 2 of 2');
+  await expect(page.getByTestId('friends-page-next')).toBeDisabled();
+  // A search starts again at its first page: Zoe Friend 9, and 90 to 98.
+  await page.getByTestId('friends-search').fill('zoe friend 9');
+  await expect(page).toHaveURL(
+    new RegExp(`/a/outreach\\?view=friends&q=zoe(\\+|%20)friend(\\+|%20)9$`),
+  );
+  await expect(people).toHaveCount(10);
+  await expect(page.getByTestId('friends-pages')).toHaveCount(0);
 });

@@ -4,7 +4,8 @@
  * people, as the browser extension saved and noted it (apps/extension/README.md). Their friends against Facebook's
  * cap, the friend requests they've got in order of how each fits the playbooks in use, the requests they sent that
  * nobody has answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list.
- * Which, and a name searched for, are in the address (./address.ts), so the page asks HandsFreeOS for them.
+ * Which, a name searched for and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
+ * The list follows the search box as a name is typed, a page at a time.
  */
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
@@ -12,12 +13,14 @@ import {
   FRIEND_STATES,
   FRIEND_VIEW_KEYS,
   FRIEND_VIEWS,
+  FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -128,17 +131,33 @@ export function FriendsView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const go = (to: { show?: FriendView; search?: string }) =>
-    startTransition(() =>
-      router.replace(
-        outreachHref(workspaceId, {
-          view: 'friends',
-          show: to.show ?? show,
-          search: to.search ?? search,
-        }),
-        { scroll: false },
-      ),
-    );
+  // The list and name last asked for, ahead of the address while it loads: a name typed as another list opens is
+  // looked for in that list. Another list or another name starts again at the first page.
+  const asked = useRef({ show, search });
+  useEffect(() => {
+    asked.current = { show, search };
+  }, [show, search]);
+  const go = (to: { show?: FriendView; search?: string; page?: number }) => {
+    asked.current = {
+      show: to.show ?? asked.current.show,
+      search: to.search ?? asked.current.search,
+    };
+    const href = outreachHref(workspaceId, {
+      view: 'friends',
+      ...asked.current,
+      page: to.page ?? 1,
+    });
+    startTransition(() => router.replace(href, { scroll: false }));
+  };
+  // A new page opens at its top (below the phone's bar), wherever the list was scrolled to.
+  const list = useRef<HTMLDivElement>(null);
+  const shownPage = useRef(friends.page);
+  useEffect(() => {
+    if (friends.page === shownPage.current) return;
+    shownPage.current = friends.page;
+    const top = list.current;
+    if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ block: 'start' });
+  }, [friends.page]);
   const { busy, act } = useAct();
   const set = (f: Friend, change: { keep?: boolean; dontPitch?: boolean }) =>
     act(
@@ -178,7 +197,7 @@ export function FriendsView({
             }))}
           />
         </div>
-        <SearchBox key={search} search={search} onSearch={(s) => go({ search: s })} />
+        <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <div
         className={cn(
@@ -187,12 +206,15 @@ export function FriendsView({
         )}
         aria-busy={pending || undefined}
       >
-        <div className="min-w-0">
+        <div className="min-w-0 scroll-mt-16 md:scroll-mt-4" ref={list}>
           {friends.people.length ? (
             <Card className="p-0" data-testid="friends-list">
               <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
                 <h3 className="text-[15px] font-semibold">{FRIEND_VIEWS[show]}</h3>
-                <span className="text-[12.5px] text-text-3">{ORDER[show]}</span>
+                <span className="text-[12.5px] text-text-3" data-testid="friends-range">
+                  {ORDER[show]}
+                  {friends.pages > 1 ? ` · ${rangeWords(friends)}` : ''}
+                </span>
               </div>
               {noPlaybook ? (
                 <p className="px-5 pt-1 text-[12.5px] text-text-2">
@@ -218,11 +240,8 @@ export function FriendsView({
                   />
                 ))}
               </ul>
-              {friends.more ? (
-                <p className="border-t border-border px-5 py-3 text-[12.5px] text-text-3">
-                  And {friends.more.toLocaleString()} more, not shown. Search for a name to find
-                  them.
-                </p>
+              {friends.pages > 1 ? (
+                <Pager page={friends.page} pages={friends.pages} onPage={(page) => go({ page })} />
               ) : null}
             </Card>
           ) : (
@@ -254,16 +273,90 @@ export function FriendsView({
   );
 }
 
-/** Part of a name, looked for when Enter is pressed. */
+/** "101–200 of 1,459": who this page shows, of everyone in the list. */
+function rangeWords(f: Friends): string {
+  const first = (f.page - 1) * FRIENDS_PAGE + 1;
+  const last = first + f.people.length - 1;
+  return `${first.toLocaleString()}–${last.toLocaleString()} of ${f.total.toLocaleString()}`;
+}
+
+/** The pages of a long list: the one before, which this is, and the one after. */
+function Pager({
+  page,
+  pages,
+  onPage,
+}: {
+  page: number;
+  pages: number;
+  onPage: (page: number) => void;
+}) {
+  return (
+    <nav
+      aria-label="Pages"
+      className="flex items-center justify-between gap-3 border-t border-border px-5 py-3"
+      data-testid="friends-pages"
+    >
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+        data-testid="friends-page-previous"
+      >
+        Previous
+      </Button>
+      <span className="text-[12.5px] tabular-nums text-text-2" data-testid="friends-page">
+        Page {page.toLocaleString()} of {pages.toLocaleString()}
+      </span>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={page >= pages}
+        onClick={() => onPage(page + 1)}
+        data-testid="friends-page-next"
+      >
+        Next
+      </Button>
+    </nav>
+  );
+}
+
+/** How long the box waits after a key before it looks, so a name typed quickly is one look. */
+const SEARCH_WAIT_MS = 300;
+
+/** Part of a name, looked for as it's typed; Enter looks at once. */
 function SearchBox({ search, onSearch }: { search: string; onSearch: (s: string) => void }) {
   const [typed, setTyped] = useState(search);
+  // What the box last looked for. The address catches up with it a moment later, and mustn't undo what's been
+  // typed since; an address changed some other way, like the Friends tab at the top, shows in the box.
+  const looked = useRef(search);
+  useEffect(() => {
+    if (search === looked.current) return;
+    looked.current = search;
+    setTyped(search);
+  }, [search]);
+  const look = (words: string) => {
+    if (words === looked.current) return;
+    looked.current = words;
+    onSearch(words);
+  };
+  useEffect(() => {
+    const words = typed.trim();
+    // Clearing the box shows everyone again straight away.
+    if (!words) {
+      look('');
+      return;
+    }
+    const wait = setTimeout(() => look(words), SEARCH_WAIT_MS);
+    return () => clearTimeout(wait);
+  }, [typed]);
   return (
     <form
       role="search"
       className="w-full sm:w-[240px]"
       onSubmit={(e) => {
         e.preventDefault();
-        onSearch(typed.trim());
+        look(typed.trim());
       }}
     >
       <Input
@@ -273,11 +366,7 @@ function SearchBox({ search, onSearch }: { search: string; onSearch: (s: string)
         placeholder="Search by name"
         value={typed}
         maxLength={100}
-        onChange={(e) => {
-          setTyped(e.target.value);
-          // Clearing the box shows everyone again.
-          if (!e.target.value && search) onSearch('');
-        }}
+        onChange={(e) => setTyped(e.target.value)}
         data-testid="friends-search"
       />
     </form>

@@ -42,6 +42,7 @@ export default async function OutreachPage({
               workspaceId,
               view: shown.show,
               ...(shown.search ? { search: shown.search } : {}),
+              page: shown.page,
             },
           })
           .then(unwrapPage),
