@@ -51,6 +51,10 @@ describe('Facebook’s own words', () => {
     expect(isFacebookText('View sent requests')).toBe(true);
     expect(isFacebookText('Followed by 1.1K')).toBe(true);
     expect(isFacebookText('Request accepted')).toBe(true);
+    // On a chat in a small window, and the menu a profile's Respond opens.
+    expect(isFacebookText('Minimize chat')).toBe(true);
+    expect(isFacebookText('Press Enter to send')).toBe(true);
+    expect(isFacebookText('Delete request')).toBe(true);
     expect(sectionTitleOf('Admins and moderators · 4')).toBe('Admins and moderators');
     expect(sectionTitleOf('New to the group')).toBe('New to the group');
     expect(sectionTitleOf('Jane Doe')).toBeNull();
