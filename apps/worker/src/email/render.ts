@@ -4,26 +4,48 @@
  */
 import { convert } from 'html-to-text';
 import sanitizeHtml from 'sanitize-html';
+import { emailLinkColor, emailLogoSize, type PublicLook } from '../look/public';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const linkify = (escaped: string) =>
+const linkify = (escaped: string, color: string) =>
   escaped.replace(
     /\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)]/g,
-    (url) => `<a href="${url}" style="color:#2f5bd3">${url}</a>`,
+    (url) => `<a href="${url}" style="color:${color}">${url}</a>`,
   );
 
-/** What people type is plain text: paragraphs and line breaks, links made clickable, nothing else. */
-export function renderEmailHtml(text: string): string {
+/** A business's logo and colour on the emails HandsFreeOS sends for it automatically (look/public.ts). */
+export interface EmailBrand {
+  readonly name: string;
+  readonly look: PublicLook;
+}
+
+/**
+ * What people type is plain text: paragraphs and line breaks, links made clickable, nothing else. An email the
+ * business sends automatically (a confirmation, a reminder, an invoice) has its logo at the top and its links in
+ * its colour.
+ */
+export function renderEmailHtml(text: string, brand?: EmailBrand | null): string {
+  const color = (brand && emailLinkColor(brand.look)) ?? '#2f5bd3';
   const paragraphs = text
     .trim()
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 12px">${linkify(escapeHtml(p)).replace(/\n/g, '<br>')}</p>`)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 12px">${linkify(escapeHtml(p), color).replace(/\n/g, '<br>')}</p>`,
+    )
     .join('');
+  const logo = brand?.look.logo;
+  const size = logo && emailLogoSize(logo);
+  const header =
+    logo && size
+      ? `<div style="margin:0 0 20px"><img src="${escapeHtml(logo.url)}" alt="${escapeHtml(brand.name)}" ` +
+        `width="${size.width}" height="${size.height}" style="display:block;border:0;width:${size.width}px;height:${size.height}px"></div>`
+      : '';
   return (
     '<!doctype html><html><body style="margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,' +
-    `'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#191d25">${paragraphs}</body></html>`
+    `'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#191d25">${header}${paragraphs}</body></html>`
   );
 }
 

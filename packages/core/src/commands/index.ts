@@ -296,6 +296,14 @@ import {
 import { aiSetupFinish, aiSetupNoteFound, aiSetupSave } from './ai-setup';
 import { onboardingSetupFinish, onboardingSetupSave } from './onboarding-setup';
 import {
+  lookBeginUpload,
+  lookFind,
+  lookNoteUpload,
+  lookNoteWebsite,
+  lookSet,
+  lookUseUpload,
+} from './look';
+import {
   aiSetupTemplateDelete,
   aiSetupTemplateRename,
   aiSetupTemplateSave,
@@ -1062,6 +1070,13 @@ export const commands: readonly CommandDef[] = [
   // The onboarding setup: the guided questions a new business goes through.
   onboardingSetupSave,
   onboardingSetupFinish,
+  // The business's logo and colour, on its booking page, website chat, invoices and emails.
+  lookBeginUpload,
+  lookUseUpload,
+  lookSet,
+  lookFind,
+  lookNoteWebsite,
+  lookNoteUpload,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -1099,6 +1114,7 @@ export * from './chat-widget';
 export * from './intake-source';
 export * from './onboarding';
 export * from './onboarding-setup';
+export * from './look';
 export * from './intake';
 export * from './chat';
 export * from './attention';

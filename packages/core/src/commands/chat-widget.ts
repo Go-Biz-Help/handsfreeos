@@ -5,13 +5,14 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { chatWidgets } from '@hfos/db/schema';
+import { chatWidgets, workspaces } from '@hfos/db/schema';
 import { loadTeammate } from '../ai-team/load';
 import { chatWidgetName, normalizeChatOrigins } from '../chat/origins';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
+import { lookOf } from '../look/look';
 import {
   ChatAskFor,
   chatAskForOf,
@@ -83,6 +84,12 @@ export const chatWidgetCreate = defineCommand({
   async handler(ctx, input) {
     const allowedOrigins = originsOrThrow(input.allowedOrigins);
     await assertOwnTeammate(ctx, input.teammateId);
+    // A new widget starts in the business's colour (look/look.ts) unless it's given one.
+    const [w] = await ctx.tx
+      .select({ settings: workspaces.settings })
+      .from(workspaces)
+      .where(eq(workspaces.id, ctx.scope.workspaceId!));
+    const accentColor = input.accentColor?.toLowerCase() ?? lookOf(w?.settings).color?.hex;
     const [row] = await ctx.tx
       .insert(chatWidgets)
       .values({
@@ -91,7 +98,7 @@ export const chatWidgetCreate = defineCommand({
         teammateId: input.teammateId ?? null,
         greeting: input.greeting ?? null,
         launcherLabel: input.launcherLabel,
-        accentColor: input.accentColor?.toLowerCase(),
+        accentColor,
         position: input.position,
         awayMessage: input.awayMessage ?? null,
         askFor: input.askFor ?? ChatAskFor.parse({}),

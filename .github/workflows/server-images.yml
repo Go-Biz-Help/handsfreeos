@@ -67,3 +67,12 @@ jobs:
           fi
           docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c 'du -sh /app/node_modules'
           docker image ls hfos-${{ matrix.app }}:check --format 'Image size: {{.Size}}'
+
+      # The worker makes businesses' logos with sharp (src/look/logo.ts), whose native part must be Alpine's.
+      - name: The worker's image can make a logo
+        if: matrix.app == 'worker'
+        run: |
+          docker run --rm --workdir /app --entrypoint node hfos-worker:check --input-type=module -e "
+            import sharp from 'sharp';
+            await sharp({ create: { width: 4, height: 4, channels: 4, background: '#2d69d8' } }).png().toBuffer();
+            console.log('sharp', sharp.versions.sharp, 'works');"

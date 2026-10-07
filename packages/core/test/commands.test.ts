@@ -730,6 +730,12 @@ describe('registry', () => {
       'onboarding.remind',
       'onboarding_setup.save',
       'onboarding_setup.finish',
+      'look.begin_upload',
+      'look.use_upload',
+      'look.set',
+      'look.find',
+      'look.note_website',
+      'look.note_upload',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',

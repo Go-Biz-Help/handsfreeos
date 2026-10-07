@@ -1,9 +1,10 @@
-import { can } from '@hfos/core';
+import { can, lookOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
 import { DeleteWorkspace } from '@/components/settings/delete-workspace';
 import { GettingStartedSwitch } from '@/components/settings/getting-started-switch';
+import { LookCard } from '@/components/settings/look-card';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { Card } from '@/components/ui/card';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -24,6 +25,7 @@ export default async function WorkspaceSettingsPage({
   const branded = unwrapPage(
     await api.POST('/v1/queries/branded_domain.get', { body: { workspaceId } }),
   );
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
   return (
     <>
       <div className="flex flex-col gap-5">
@@ -34,6 +36,17 @@ export default async function WorkspaceSettingsPage({
           </p>
           <WorkspaceForm workspace={got.workspace} />
         </Card>
+        <LookCard
+          workspaceId={workspaceId}
+          look={lookOf(settings)}
+          businessName={got.workspace.name}
+          website={
+            typeof settings['website'] === 'string' && settings['website']
+              ? settings['website']
+              : null
+          }
+          canChange={can(got.workspace.permissions, 'workspace.update')}
+        />
         {/* Getting started for everyone here: owners and admins can turn it off (workspace.update, as above). */}
         <GettingStartedSwitch workspaceId={workspaceId} enabled={got.workspace.gettingStarted} />
         {/* Adding the domain is setting up where the business is reached (channels.manage), as email's is. */}

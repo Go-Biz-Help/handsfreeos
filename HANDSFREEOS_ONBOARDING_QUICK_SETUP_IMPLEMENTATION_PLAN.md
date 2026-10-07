@@ -10,10 +10,10 @@ a booking page if customers book a time, and its AI teammate on with training wh
 It is built like the AI teammate's quick setup (`HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md`), and the AI
 teammate's part of it is that quick setup's own screens.
 
-> **Status: steps 1 to 6 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
+> **Status: steps 1 to 8 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
 > the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
 > `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; signing up on the web and the
-> phone; and the web's screens). The flow chart is the "Onboarding quick setup" artifact; the questions and the
+> phone; the web's screens, the phone's, and the logo and colour). The flow chart is the "Onboarding quick setup" artifact; the questions and the
 > owner's answers are `onboarding-setup/questions.md` in the project files.
 
 ---
@@ -107,9 +107,8 @@ search finds any of the 116.
 
 ## 4. The screens
 
-Thirteen stops (`ONBOARDING_SETUP_STOPS`). Signing up comes first and makes the business, so it isn't a screen here;
-the AI teammate's stop is several screens. "Your look" and "A simple page" join after the hours when they're built
-(§11).
+Fourteen stops (`ONBOARDING_SETUP_STOPS`). Signing up comes first and makes the business, so it isn't a screen here;
+the AI teammate's stop is several screens. "A simple page" joins after the logo when it's built (§11).
 
 | Stop | Screen                            | Asks                                                                                                                                                                         | Saved                                    |
 | ---- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
@@ -118,14 +117,15 @@ the AI teammate's stop is several screens. "Your look" and "A simple page" join 
 | 3    | What do you want help with first? | The goal; how many people work with you, with an optional "Invite them now"                                                                                                  | At once: invitations, Getting started    |
 | 4    | About your business               | What you do, your services (name, optional price and length), where you work; do customers book a time?                                                                      | At "Stay in the loop"                    |
 | 5    | When are you open?                | Open hours                                                                                                                                                                   | At "Stay in the loop"                    |
-| 6    | Where are your customers now?     | GoHighLevel, a spreadsheet, another CRM, phone contacts, or nowhere yet                                                                                                      | At once: Getting started                 |
-| 7    | Your booking page is ready        | Nothing: it shows the page. Only when customers book a time                                                                                                                  | At once: the services, calendar and page |
-| 8    | Your business number              | Do you have an EIN?, the number, then "Check these details" for the carriers                                                                                                 | Today's number commands                  |
-| 9    | Get paid, and get reviews         | Stripe, Square or Later; the Google review link                                                                                                                              | At once: the review link                 |
-| 10   | Your AI teammate                  | The AI quick setup's screens: what Ava helps with, quick facts, Meet Ava, how Ava sounds, what Ava learned, qualifying questions (if ticked), website chat (if there's none) | At "Stay in the loop"                    |
-| 11   | Stay in the loop                  | Get the phone app or turn on notifications; your cell                                                                                                                        | Everything else                          |
-| 12   | Try Ava, then turn it on          | The test chat; Turn on with training wheels                                                                                                                                  | The AI quick setup's own                 |
-| 13   | It's already working for you      | Nothing: what works now, and what's still on its way                                                                                                                         |                                          |
+| 6    | Your logo and colour              | The logo, found on the website or uploaded, and a colour: the logo's until another is picked                                                                                 | At once                                  |
+| 7    | Where are your customers now?     | GoHighLevel, a spreadsheet, another CRM, phone contacts, or nowhere yet                                                                                                      | At once: Getting started                 |
+| 8    | Your booking page is ready        | Nothing: it shows the page. Only when customers book a time                                                                                                                  | At once: the services, calendar and page |
+| 9    | Your business number              | Do you have an EIN?, the number, then "Check these details" for the carriers                                                                                                 | Today's number commands                  |
+| 10   | Get paid, and get reviews         | Stripe, Square or Later; the Google review link                                                                                                                              | At once: the review link                 |
+| 11   | Your AI teammate                  | The AI quick setup's screens: what Ava helps with, quick facts, Meet Ava, how Ava sounds, what Ava learned, qualifying questions (if ticked), website chat (if there's none) | At "Stay in the loop"                    |
+| 12   | Stay in the loop                  | Get the phone app or turn on notifications; your cell                                                                                                                        | Everything else                          |
+| 13   | Try Ava, then turn it on          | The test chat; Turn on with training wheels                                                                                                                                  | The AI quick setup's own                 |
+| 14   | It's already working for you      | Nothing: what works now, and what's still on its way                                                                                                                         |                                          |
 
 **The address** (`onboarding-setup/address.ts`) is a US address: street, an optional suite, city, state and a 5-digit
 ZIP code, as the carriers' registration needs it. The state picks the time zone, and a few ZIP code ranges pick
@@ -133,6 +133,23 @@ another where a state has two (`timeZoneForAddress`); someone who picks their ow
 changes. It's kept in `workspaces.settings.address` (`workspace.update` checks it). Quotes, invoices and campaign
 emails carry it when Settings → Payments has no address typed (`businessPostalAddress`), and the number stop uses it
 for the texting registration and the number search.
+
+**Your logo and colour** (`look/`, decisions 18B and 3) show on the booking page, invoices and quotes, the website
+chat and emails: the logo beside the name (or alone, when it's wide and spells the name out), and the colour on their
+buttons, deepened where white words wouldn't read on it. A new website chat starts in it.
+
+- **Kept** in `workspaces.settings.look`, written only by the look commands (`workspace.update` refuses the key), and
+  read forgivingly.
+- **The logo comes from the website** when it has one: saving a website asks the worker to look there while there's
+  no logo, and `look.find` ("Look on lonestarhvac.com again") asks again. The worker takes the site's logo or icon and
+  makes a PNG of it.
+- **Or it's uploaded.** `look.begin_upload` reserves a place in the private `brand-uploads` bucket, the picture goes
+  straight there from the browser or the phone, and `look.use_upload` hands it to the worker. The worker makes a PNG
+  in the public `brand` bucket (so emails and websites can show it for good), or says why it can't: too small, white
+  (it wouldn't show on white pages), unreadable, or an SVG with parts it can't show safely.
+- **The colour** is the logo's, else the website's own, until a person picks one (`look.set`, which also takes the
+  logo off). Nothing found later replaces a colour someone picked.
+- **The same screen** is Settings → Workspace's "Logo and colour" card on the web, for later changes.
 
 **The summary** beside the questions (`onboardingSetupSummary`) follows the answers before anything is saved and
 what's set up after:
@@ -203,7 +220,7 @@ and so is a calendar that can't be turned on yet. Run again with nothing changed
   opens on its last screen.
 - **Which screens show** (`onboardingSetupScreens`): booking only when customers book a time; qualifying questions
   and the website chat as the AI quick setup decides. Next and Back skip the rest.
-- **The counter** (`onboardingSetupProgress`): "3 of 13 · About your business", by stop, with signing up counted.
+- **The counter** (`onboardingSetupProgress`): "4 of 14 · About your business", by stop, with signing up counted.
 - **The first screen** (`onboardingSetupBusinessDraftOf`, `withBusinessAddress`, `onboardingSetupBusinessOf`): the
   business as it is, the time zone following the address unless someone picked their own, and the website left out
   when there's none.
@@ -235,11 +252,16 @@ setup's address when no other is typed there, and stops warning that documents g
   right there; the phone's contacts point at the phone app.
 - **The booking page** is made as its screen opens (`onboarding_setup.save` on `booking`, which never makes it
   twice), so the screen shows its link.
+- **The logo and colour** (step 8): a logo dropped or picked goes straight to Storage, and the screen asks again
+  while the worker makes it ready or looks on the website, then says where it came from. A colour picked is kept at
+  once, and the preview shows the booking page's top in it. The same card is in Settings → Workspace.
 - **Home.** Getting started's card says **Start** to a business that never answered the quick questions, and **Carry
   on** part way through, as its one primary button; nothing once it's finished. The setup wizard's steps stay, opened
   from the card's own rows.
-- **Tests.** `apps/web/e2e/onboarding-setup.spec.ts` goes through every stop; `getting-started.spec.ts` checks that
-  the answers order Home's steps and the wizard; every other browser test makes its business on the first screen
+- **Tests.** `apps/web/e2e/onboarding-setup.spec.ts` goes through every stop (an uploaded logo and a picked colour
+  included, then on the booking page); `look.spec.ts` covers Settings → Workspace's card (a refused SVG, a logo made
+  ready, a colour kept, the logo taken off); `getting-started.spec.ts` checks that the answers order Home's steps and
+  the wizard; every other browser test makes its business on the first screen
   (`createBusiness` in `e2e/helpers.ts`).
 
 ---
@@ -263,8 +285,11 @@ one, notifications turned on right there, and the summary as a "See the summary"
 - **What the phone does in place.** The number: the EIN question, then numbers near the city in the address (or
   toll-free), picked and bought right there (`phone_number.buy`); a refusal (not enough on the balance for the first
   month, say) stays on screen. Payments: Stripe's or Square's own sign-in in the phone's browser, and where it stands
-  asked again on the way back. The booking page is made as its screen opens, with its link to share. "Stay in the
-  loop", the test chat and what already works are the AI quick setup's own.
+  asked again on the way back. The booking page is made as its screen opens, with its link to share. The logo is
+  picked from the phone's photos (no permission needed), shrunk to 1,600 px and sent straight to Storage, a PNG kept
+  a PNG so its see-through background stays; the colour is picked or typed. "Stay in the loop", the test chat and
+  what already works are the AI quick setup's own. The phone has no Settings → Workspace, so later changes are on
+  the web.
 - **What's easier on a computer** emails the person a link, as Getting started does on the phone: the carriers'
   registration, keeping a number they already have, bringing customers in from GoHighLevel, a spreadsheet or another
   CRM, and connecting Google or Outlook. Picking customers from the phone's contacts is step 10.
@@ -272,7 +297,8 @@ one, notifications turned on right there, and the summary as a "See the summary"
   it's finished; it reads where the setup stands from the phone's copy of the business.
 - **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making
   the business, carrying on, the booking page, the number, payments, "Stay in the loop" to the end, who may run it,
-  no signal), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
+  no signal), `look.test.tsx` (a logo picked and sent to Storage, then made ready; a colour picked or typed; a
+  refused upload and the website looked at again; no signal; a role that can't change them), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
   `sign-up-with-code.yaml` makes the business on the phone after signing up.
 
 ---
@@ -312,8 +338,11 @@ Each step is its own draft pull request, merged in order.
    "Sign in with Google", "Sign in with Apple").
 6. **The web screens** (built, §7).
 7. **The phone screens** (built, §8), creating the business included.
-8. **Logo and colour,** on the booking page, chat, invoices and emails: a new stop after the hours. Needs a database
-   change.
+8. **Logo and colour** (built, §4): a new stop after the hours, on the web and the phone, and a card in Settings →
+   Workspace. The booking page, invoices and quotes, the website chat and emails show them. The worker makes every
+   logo a PNG with sharp, from the website or an upload. Migration `20261027000100_business_logo_and_colour.sql`
+   makes the two buckets, lets someone upload only to the place `look.begin_upload` reserved for them, and lets the
+   worker keep the look of the business it works for and nothing else.
 9. **The simple page,** for a business with no website: a new stop after the logo. Needs a database change.
 10. **Phone contacts** in the phone app.
 11. **Agencies** (§9). Needs a database change.
@@ -331,3 +360,11 @@ Each step is its own draft pull request, merged in order.
   started's answers; "Add them as you go"; the booking page made, turned on, and not made twice; the review link;
   "Stay in the loop" setting up the teammate, the price list and its new prices; running it again changing nothing;
   and stale answers refused.
+- The logo and colour: `packages/core/test/look.test.ts` (the colour maths, a logo's colour, the look read
+  forgivingly, when the website is looked at, what the screens say, the words); `look-commands.test.ts` (local
+  database: an upload reserved, handed over and made the logo, or refused with why; a picked colour that nothing
+  replaces; who may change them; the website chat's colour; the website looked at once, its logo kept, and never
+  over one kept); `apps/worker/test/look-logo.test.ts` (making a logo from a PNG, JPG, GIF, WebP or SVG, trimming and
+  fitting it, the refusals, a safe SVG, finding the logo on a website, the email header) and `look-jobs.test.ts` (the
+  jobs end to end); `packages/db/test/brand-uploads.test.ts` (who may upload where, and the worker's own reads and
+  writes).

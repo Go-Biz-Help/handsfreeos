@@ -1,37 +1,46 @@
 /**
- * The frame every public booking page shares: the business's name and phone on top, no app chrome, and a
- * small "Booking by HandsFreeOS" line at the bottom. Light or dark follows the customer's device.
+ * The frame every public booking page shares: the business's logo (or initials), name and phone on top, its colour
+ * on the buttons, no app chrome, and a small "Booking by HandsFreeOS" line at the bottom. Light or dark follows the
+ * customer's device.
  */
+import { isWideLogo } from '@hfos/core';
 import { CalendarOff, Phone } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { BusinessMark } from '@/components/look/business-mark';
 import { BrandMark } from '@/components/ui/brand';
 import { buttonClassName } from '@/components/ui/button';
 import type { PublicBusiness } from '@/lib/api/public-booking';
-import { cn, initials } from '@/lib/utils';
+import { brandLook } from '@/lib/look';
+import { cn } from '@/lib/utils';
+
+/** The business's name, said by its logo when that spells it out; and its phone. */
+export function BusinessNameAndPhone({ business }: { business: PublicBusiness }) {
+  return (
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span
+        className={cn(
+          'truncate text-[15px] font-medium',
+          isWideLogo(business.look?.logo) && 'sr-only',
+        )}
+        data-testid="business-name"
+      >
+        {business.name}
+      </span>
+      {business.phoneDisplay ? (
+        <a href={`tel:${business.phone}`} className="w-fit text-xs text-text-3 hover:text-text-2">
+          {business.phoneDisplay}
+        </a>
+      ) : null}
+    </span>
+  );
+}
 
 export function PublicHeader({ business }: { business: PublicBusiness }) {
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex w-full max-w-[860px] items-center gap-2.5 px-4 py-3 md:px-6">
-        <span
-          aria-hidden
-          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-accent text-[13px] font-bold tracking-[0.02em] text-white"
-        >
-          {initials(business.name)}
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[15px] font-medium" data-testid="business-name">
-            {business.name}
-          </span>
-          {business.phoneDisplay ? (
-            <a
-              href={`tel:${business.phone}`}
-              className="w-fit text-xs text-text-3 hover:text-text-2"
-            >
-              {business.phoneDisplay}
-            </a>
-          ) : null}
-        </span>
+        <BusinessMark name={business.name} logo={business.look?.logo} />
+        <BusinessNameAndPhone business={business} />
       </div>
     </header>
   );
@@ -68,8 +77,13 @@ export function PublicFrame({
   byline?: string;
   children: ReactNode;
 }) {
+  const look = brandLook(business?.look?.color);
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-text" data-testid="public-page">
+    <div
+      className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}
+      style={look.style}
+      data-testid="public-page"
+    >
       {business ? <PublicHeader business={business} /> : null}
       <div className="flex flex-1 flex-col">{children}</div>
       <footer className="px-4 pb-5 pt-3">

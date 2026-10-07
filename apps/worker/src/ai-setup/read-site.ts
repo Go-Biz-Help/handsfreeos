@@ -359,7 +359,11 @@ async function readPages(ctx: JobContext, start: string, log: Logger): Promise<S
 }
 
 /** robots.txt for HandsFreeOS: none counts as everything allowed; null when the site can't be reached. */
-async function robotsOf(ctx: JobContext, origin: string, log: Logger): Promise<Robots | null> {
+export async function robotsOf(
+  ctx: JobContext,
+  origin: string,
+  log: Logger,
+): Promise<Robots | null> {
   try {
     const res = await ctx.fetchUrl(`${origin}/robots.txt`, {
       sameHost: true,

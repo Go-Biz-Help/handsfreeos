@@ -5,6 +5,7 @@
  * (16 px on phones, so they don't zoom in), and "Powered by HandsFreeOS". Colours come from the widget's accent
  * through --wacc and --wacc-on, which follow the visitor's light or dark setting.
  */
+import { logoBox } from '@hfos/core';
 import {
   CircleAlert,
   CircleCheck,
@@ -24,6 +25,7 @@ import {
   type RefObject,
 } from 'react';
 import { TeammateMark } from '@/components/ai-team/mark';
+import type { ShownLogo } from '@/components/look/business-mark';
 import { BrandMark } from '@/components/ui/brand';
 import type { DetailsValues, FieldProblems, LogItem } from '@/lib/chat/session';
 import { markOf } from '@/lib/chat/look';
@@ -116,24 +118,45 @@ export function PhasePanel({ kind, onRetry }: { kind: UnavailableKind; onRetry?:
 
 export function ChatHeader({
   business,
+  logo,
   subtitle,
   markColor,
   onClose,
 }: {
   business: string;
+  /** The business's logo, on the white square instead of its initials. */
+  logo: ShownLogo | null;
   subtitle: string;
   markColor: string;
   onClose: (() => void) | null;
 }) {
+  const box = logo ? logoBox(logo, 34) : null;
   return (
     <header className="flex flex-none items-center gap-2.5 bg-[var(--wacc)] py-3 pl-3.5 pr-2 text-[var(--wacc-on)]">
-      <span
-        aria-hidden
-        className="inline-flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] bg-white text-[12.5px] font-bold tracking-[0.02em]"
-        style={{ color: markColor }}
-      >
-        {markOf(business)}
-      </span>
+      {logo && box ? (
+        <span
+          aria-hidden
+          className="inline-flex h-[34px] min-w-[34px] flex-none items-center justify-center rounded-[10px] bg-white"
+          style={{ width: box.width + 6 }}
+        >
+          <img
+            src={logo.url}
+            alt=""
+            width={box.width}
+            height={box.height}
+            style={{ width: box.width, height: box.height }}
+            data-testid="chat-logo"
+          />
+        </span>
+      ) : (
+        <span
+          aria-hidden
+          className="inline-flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] bg-white text-[12.5px] font-bold tracking-[0.02em]"
+          style={{ color: markColor }}
+        >
+          {markOf(business)}
+        </span>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <h1 className="truncate text-[15px] font-semibold leading-[1.25]">{business}</h1>
         <p className="truncate text-xs opacity-90" data-testid="chat-subtitle">

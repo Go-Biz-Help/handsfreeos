@@ -7,6 +7,7 @@ import { setupFor } from '../ai-setup/kinds';
 import { serviceNameKey } from '../ai-setup/plan';
 import { formatHours } from '../calendar/format';
 import { industryLabel } from '../industries';
+import { LOOK_WORDS } from '../look/words';
 import { cityAndState, usTimeZoneLabel, type BusinessAddress } from './address';
 import { AI_SCREEN_OF, type OnboardingSetupAnswers, type OnboardingSetupScreen } from './answers';
 import type { OnboardingSetupState } from './state';
@@ -125,6 +126,7 @@ export function onboardingSetupSummary(
 
   const hours = answers.ai.openHours;
   lines.push(hours.length ? `Open ${formatHours(hours)}.` : 'No open hours yet.');
+  if (state.look.logo || state.look.color) lines.push(LOOK_WORDS.summary(!!state.look.logo));
 
   const services = answers.ai.services.length;
   if (services)

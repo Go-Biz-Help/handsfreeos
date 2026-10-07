@@ -40,6 +40,7 @@ import {
   onboardingSetupTitle,
   OnboardingSetupAnswers,
   pickerKeyOf,
+  NO_LOOK,
   planAiSetup,
   planOnboardingBooking,
   planOnboardingSetup,
@@ -108,6 +109,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     priceList: [],
     myHours: null,
     phones: 0,
+    look: NO_LOOK,
     ...patch,
   };
 }
@@ -207,18 +209,24 @@ describe('the screens', () => {
     expect(onboardingSetupProgress('business', answers(), facts)).toEqual({
       stop: 'business',
       at: 2,
-      of: 12,
+      of: 13,
+    });
+    expect(onboardingSetupProgress('look', answers(), facts)).toEqual({
+      stop: 'look',
+      at: 6,
+      of: 13,
     });
     expect(onboardingSetupProgress('meet', answers({ booksTime: true }), facts)).toEqual({
       stop: 'ai',
-      at: 10,
-      of: 13,
+      at: 11,
+      of: 14,
     });
   });
 
   it('take the setup’s words, and the AI quick setup’s for its own screens', () => {
     expect(onboardingSetupTitle('goal', 'Ava')).toBe('What do you want help with first?');
     expect(onboardingSetupTitle('hours', 'Ava')).toBe('When are you open?');
+    expect(onboardingSetupTitle('look', 'Ava')).toBe('Your logo and colour');
     expect(onboardingSetupTitle('meet', 'Max')).toBe('Meet Max');
     expect(onboardingSetupHint('business', 'Max')).toContain('Max starts reading your website');
     for (const s of ONBOARDING_SETUP_SCREENS) expect(onboardingSetupTitle(s, 'Ava')).not.toBe('');
@@ -486,6 +494,17 @@ describe('the summary', () => {
   it('says what the business will have, in plain sentences', () => {
     const state = business({
       address: BusinessAddress.parse(AUSTIN),
+      look: {
+        ...NO_LOOK,
+        logo: {
+          path: `${uid(60)}/logo/${uid(61)}.png`,
+          width: 400,
+          height: 120,
+          from: 'website',
+          at: '2026-10-06T00:00:00.000Z',
+        },
+        color: { hex: '#b42318', from: 'logo', at: '2026-10-06T00:00:00.000Z' },
+      },
       found: {
         url: 'https://lonestarhvac.com',
         at: '2026-10-06T00:00:00.000Z',
@@ -525,6 +544,7 @@ describe('the summary', () => {
     expect(lines).toEqual([
       'Lone Star HVAC: HVAC in Austin, Texas, on Central time.',
       'Open Mon–Fri 7:00 AM–6:00 PM.',
+      'Your logo and colour are on your booking page, website chat, invoices and emails.',
       '1 service, from your website.',
       '1,240 customers so far, with more moving over from GoHighLevel.',
       'Texts will come from (512) 555-0142 once the carriers approve it, usually in 1 to 3 weeks. Calls work now.',
@@ -540,6 +560,7 @@ describe('the summary', () => {
       answers({ booksTime: true, hasEin: false, payWith: 'stripe', ai: { openHours: [] } }),
     );
     expect(lines).toContain('No open hours yet.');
+    expect(lines.some((l) => l.includes('logo'))).toBe(false);
     expect(lines).toContain('Customers will book Appointments on your booking page.');
     expect(lines).toContain('New customers add themselves as they come in.');
     expect(lines).toContain('You’ll get a toll-free number, approved faster.');

@@ -9,6 +9,7 @@
  * it), a bot check (Cloudflare Turnstile when configured), a honeypot field, US and Canadian numbers only,
  * the page's idempotency key, and the database's own caps (appointment.book_online, waitlist.join_online).
  */
+import { publicLookOf, type PublicLook } from '../look/public';
 import { placeOf } from '../geo/geocoder';
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
@@ -164,6 +165,8 @@ export interface PublicBusiness {
   readonly name: string;
   readonly phone: string | null;
   readonly phoneDisplay: string | null;
+  /** Its logo and colour, for the top of the page and its buttons. */
+  readonly look: PublicLook;
   /** The separate box for offers under "Text me", for a business that sends them; null otherwise. */
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
 }
@@ -333,15 +336,13 @@ async function businessIn(
   tx: Tx,
   workspaceId: string,
   siteName: string | null,
+  storageUrl: string | null | undefined,
 ): Promise<PublicBusiness> {
-  let name = siteName;
-  if (!name) {
-    const [w] = await tx
-      .select({ name: workspaces.name })
-      .from(workspaces)
-      .where(eq(workspaces.id, workspaceId));
-    name = w?.name ?? 'The business';
-  }
+  const [w] = await tx
+    .select({ name: workspaces.name, settings: workspaces.settings })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  const name = siteName || (w?.name ?? 'The business');
   const [phone] = await tx
     .select({ e164: phoneNumbers.e164 })
     .from(phoneNumbers)
@@ -351,6 +352,7 @@ async function businessIn(
     name,
     phone: phone?.e164 ?? null,
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
+    look: publicLookOf(w?.settings, storageUrl),
     offersConsent: await offersBoxFor(tx, workspaceId, name),
   };
 }
@@ -756,7 +758,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           .select({ name: bookingSites.name })
           .from(bookingSites)
           .where(eq(bookingSites.workspaceId, r.scope.workspaceId));
-        return businessIn(tx, r.scope.workspaceId, site?.name ?? null);
+        return businessIn(tx, r.scope.workspaceId, site?.name ?? null, deps.storageUrl);
       });
       throw new HfosError(
         'rule_violation',
@@ -779,7 +781,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         .select()
         .from(bookingSites)
         .where(eq(bookingSites.workspaceId, scope.workspaceId));
-      const business = await businessIn(tx, scope.workspaceId, site?.name ?? null);
+      const business = await businessIn(tx, scope.workspaceId, site?.name ?? null, deps.storageUrl);
       // The booking keeps the policies of the revision it was made under.
       const [rev] = await tx
         .select({ config: calendarRevisions.config })
@@ -937,7 +939,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
       const amountCents = invoice?.amountCents ?? plan?.charge.amountCents ?? 0;
       return {
         state,
-        business: await businessIn(tx, scope.workspaceId, site?.name ?? null),
+        business: await businessIn(tx, scope.workspaceId, site?.name ?? null, deps.storageUrl),
         calendar: {
           name: calendar.name,
           bookingPath: bookable && site ? `/book/${site.slug}/${calendar.slug}` : null,
@@ -1033,7 +1035,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
       if (!e) throw linkNotFound();
       const calendar = await loadCalendar(tx, ws, e.calendarId);
       const [site] = await tx.select().from(bookingSites).where(eq(bookingSites.workspaceId, ws));
-      const business = await businessIn(tx, ws, site?.name ?? null);
+      const business = await businessIn(tx, ws, site?.name ?? null, deps.storageUrl);
       const bookable = calendar.status === 'active' && calendar.config.public && !!site?.enabled;
       const offer = parseWaitlistOffer(e.offer);
       const service = offer?.serviceId ? await loadCatalogService(tx, ws, offer.serviceId) : null;
@@ -1132,7 +1134,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               )
             : [];
           return {
-            business: await businessIn(tx, r.workspace_id, r.site_name),
+            business: await businessIn(tx, r.workspace_id, r.site_name, deps.storageUrl),
             site: {
               slug: r.site_slug,
               name: r.site_name,
@@ -1160,7 +1162,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           return {
             state: open ? ('open' as const) : ('off' as const),
             canonical: { site: r.site_slug!, calendar: r.calendar_slug! },
-            business: await businessIn(tx, r.workspace_id, r.site_name),
+            business: await businessIn(tx, r.workspace_id, r.site_name, deps.storageUrl),
             timezone: calendar.timeZone,
             timezoneLabel: zoneLabel(calendar.timeZone),
             calendar: {

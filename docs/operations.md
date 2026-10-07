@@ -1051,18 +1051,24 @@ If the job fails 5 times it stops with the business hidden but not yet purged, a
 
 ### Storage buckets
 
-The migrations create three private buckets. There is nothing to create by hand.
+The migrations create four private buckets and one public one. There is nothing to create by hand.
 
-| Bucket        | Holds                                                                        | Largest file | Who adds files                                         |
-| ------------- | ---------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
-| `attachments` | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first |
-| `imports`     | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths               |
-| `telephony`   | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link |
+| Bucket          | Holds                                                                        | Largest file | Who adds files                                                                               |
+| --------------- | ---------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
+| `attachments`   | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first                                       |
+| `imports`       | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths                                                     |
+| `telephony`     | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link                                       |
+| `brand-uploads` | A logo someone uploads, until the worker makes it ready                      | 5 MiB        | Signed-in people who may change the business's settings, only at the place reserved for them |
+| `brand`         | Businesses' logos, as the PNGs the worker made. **Public**                   | 2 MiB        | The worker                                                                                   |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
+- `brand` is public on purpose: a business's logo shows in its emails, booking page and website chat, and an email
+  sent last month still shows it. It only ever holds logos, each at an address nobody can guess
+  (`<business>/logo/<random id>.png`). See "Your logo and colour" in
+  `HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md`.
 - To check the buckets, click **Storage** in the left sidebar.
 
-  You should see the three buckets, none of them public.
+  You should see the five buckets, with only `brand` public.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").

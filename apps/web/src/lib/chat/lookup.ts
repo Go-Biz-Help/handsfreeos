@@ -13,7 +13,11 @@ import { chatAskForOf, readableTextOn, type ChatAskFor } from '@hfos/core';
 import { publicEnv } from '../env';
 
 export interface ChatConfig {
-  readonly business: { readonly name: string };
+  readonly business: {
+    readonly name: string;
+    /** Its logo, on the header's white square instead of its initials; null when it has none. */
+    readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
+  };
   /** The AI teammate that answers here: its name, nothing else. */
   readonly teammate: { readonly name: string } | null;
   readonly greeting: string | null;
@@ -71,6 +75,22 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
 
 /** The worker's answer, read defensively: anything it doesn't say falls back to the widget defaults. */
 
+/** The business's logo, when the worker sent a web address and its size; anything else means its initials. */
+function logoOf(raw: unknown): ChatConfig['business']['logo'] {
+  if (!isObj(raw) || typeof raw.url !== 'string') return null;
+  const size = (v: unknown) =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 4000 ? v : null;
+  const width = size(raw.width);
+  const height = size(raw.height);
+  try {
+    const url = new URL(raw.url);
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !width || !height) return null;
+    return { url: url.href, width, height };
+  } catch {
+    return null;
+  }
+}
+
 /** The offers box's words, when the worker sent both; anything else means no box. */
 function offersOf(raw: unknown): { title: string; detail: string } | null {
   if (!isObj(raw)) return null;
@@ -92,7 +112,7 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
   const check = isObj(raw.humanCheck) ? raw.humanCheck : null;
   const max = typeof raw.maxMessageLength === 'number' ? raw.maxMessageLength : 1000;
   return {
-    business: { name: text(raw.business.name) ?? 'Chat' },
+    business: { name: text(raw.business.name) ?? 'Chat', logo: logoOf(raw.business.logo) },
     teammate: teammateName ? { name: teammateName } : null,
     greeting: text(raw.greeting),
     awayMessage: text(raw.awayMessage),

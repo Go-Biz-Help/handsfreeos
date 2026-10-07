@@ -9,6 +9,8 @@
  *   were, and the stops that bring their own part (the number, the customers) get it from the server.
  * - What Ava reads fills in the screens not finished yet, as it arrives (live, or by asking again while it reads),
  *   unless the person already changed that answer (`mergeOnboardingSetupAnswers`).
+ * - The logo and colour are kept as they change, by their own commands (look-editor.tsx); the logo was looked for on
+ *   the website when the first screen saved it.
  * - The booking page is made as its screen opens: by then it's ready, not a question.
  * - "Stay in the loop" saves the rest (`onboarding_setup.finish`); a business that has a teammate sees what will
  *   change first. Then the test chat, and what already works.
@@ -51,6 +53,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AiSetupScreen } from '@/components/ai-setup/screens';
 import { TryAva } from '@/components/ai-setup/try-ava';
+import { LookEditor } from '@/components/look/look-editor';
 import { StepLive } from '@/components/onboarding/step-live';
 import { Button } from '@/components/ui/button';
 import { FieldError } from '@/components/ui/field';
@@ -428,6 +431,17 @@ export function OnboardingQuickSetup({
         return <AboutScreen {...own} />;
       case 'hours':
         return <HoursScreen {...own} />;
+      case 'look':
+        return (
+          <LookEditor
+            workspaceId={ws}
+            look={state.look}
+            businessName={state.businessName}
+            website={state.website}
+            canChange
+            onChanged={() => void refresh()}
+          />
+        );
       case 'customers':
         return (
           <>

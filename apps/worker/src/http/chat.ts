@@ -44,6 +44,7 @@ import {
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { publicLookOf } from '../look/public';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
 import { ChatHub, type HubClient, type HubEvent } from '../chat/hub';
 import {
@@ -423,8 +424,10 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           const now = Date.now();
           const aiAnswering =
             !!teammate && teammateWorkingNow(teammate.config, openHours, timeZone, now);
+          const brand = publicLookOf(ws?.settings, deps.storageUrl);
           return {
-            business: { name: ws?.name ?? '' },
+            // Its logo for the top of the chat (its name alone without one).
+            business: { name: ws?.name ?? '', logo: brand.logo },
             /** The AI teammate that answers here: its name, nothing else. */
             teammate: teammate ? { name: teammate.name } : null,
             greeting: widget.greeting,

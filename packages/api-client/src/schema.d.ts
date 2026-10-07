@@ -568,7 +568,7 @@ export interface paths {
         put?: never;
         /**
          * Keep quick setup’s answers while someone is part way through, so they can carry on later or from the phone. Nothing in the business changes until Save, except the first screen: the business’s name, kind and website are saved straight away, and the AI teammate starts reading the website. The first screen also picks where the answers start from: answers the business’s agency saved, or our picks.
-         * @description Risk level 1. Requires ai_team.manage. Emits ai_setup.started, ai_setup.read_requested.
+         * @description Risk level 1. Requires ai_team.manage. Emits ai_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_ai_setup_save"];
         delete?: never;
@@ -4437,6 +4437,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/look.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place to upload a picture of the business’s logo (PNG, JPG, WebP, GIF or SVG, up to 5 MB). Upload it there, then hand it over with look.use_upload.
+         * @description Risk level 1. Requires workspace.update. Emits .
+         */
+        post: operations["command_look_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/look.find": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look on the business’s website for its logo, and the colour it stands for. A logo found there never replaces one already kept.
+         * @description Risk level 1. Requires workspace.update. Emits look.find_requested.
+         */
+        post: operations["command_look_find"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/look.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the business’s colour, or take its logo off so its initials stand in. The website chat follows the colour unless it has one of its own.
+         * @description Risk level 1. Requires workspace.update. Emits look.changed.
+         */
+        post: operations["command_look_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/look.use_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand the uploaded picture of the logo to HandsFreeOS, which makes it ready for the booking page, chat, invoices and emails, and picks its colour unless one was picked.
+         * @description Risk level 1. Requires workspace.update. Emits look.upload_ready.
+         */
+        post: operations["command_look_use_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/mailbox.connect": {
         parameters: {
             query?: never;
@@ -5328,7 +5408,7 @@ export interface paths {
         put?: never;
         /**
          * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.
-         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested.
+         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
         delete?: never;
@@ -12808,7 +12888,7 @@ export interface paths {
         put?: never;
         /**
          * Change a workspace name, time zone, industry or settings.
-         * @description Risk level 2. Requires workspace.update. Emits workspace.updated.
+         * @description Risk level 2. Requires workspace.update. Emits workspace.updated, look.find_requested.
          */
         post: operations["command_workspace_update"];
         delete?: never;
@@ -27542,6 +27622,262 @@ export interface operations {
             };
         };
     };
+    command_look_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mimeType: string;
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        bucket: "brand-uploads";
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_look_find: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        look: {
+                            asked: {
+                                /** Format: date-time */
+                                at: string;
+                                url: string;
+                            } | null;
+                            color: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "logo" | "website" | "person";
+                                hex: string;
+                            } | null;
+                            logo: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "website" | "upload";
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            problem: {
+                                /** Format: date-time */
+                                at: string;
+                                message: string;
+                            } | null;
+                            searched: {
+                                /** Format: date-time */
+                                at: string;
+                                found: boolean;
+                                url: string;
+                            } | null;
+                            upload: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                by: string;
+                                name: string;
+                                path: string;
+                                /** @default false */
+                                sent: boolean;
+                            } | null;
+                        };
+                        url: string;
+                    };
+                };
+            };
+        };
+    };
+    command_look_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    color?: string;
+                    /** @enum {boolean} */
+                    removeLogo?: true;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        look: {
+                            asked: {
+                                /** Format: date-time */
+                                at: string;
+                                url: string;
+                            } | null;
+                            color: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "logo" | "website" | "person";
+                                hex: string;
+                            } | null;
+                            logo: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "website" | "upload";
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            problem: {
+                                /** Format: date-time */
+                                at: string;
+                                message: string;
+                            } | null;
+                            searched: {
+                                /** Format: date-time */
+                                at: string;
+                                found: boolean;
+                                url: string;
+                            } | null;
+                            upload: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                by: string;
+                                name: string;
+                                path: string;
+                                /** @default false */
+                                sent: boolean;
+                            } | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_look_use_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    objectPath: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        look: {
+                            asked: {
+                                /** Format: date-time */
+                                at: string;
+                                url: string;
+                            } | null;
+                            color: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "logo" | "website" | "person";
+                                hex: string;
+                            } | null;
+                            logo: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                from: "website" | "upload";
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            problem: {
+                                /** Format: date-time */
+                                at: string;
+                                message: string;
+                            } | null;
+                            searched: {
+                                /** Format: date-time */
+                                at: string;
+                                found: boolean;
+                                url: string;
+                            } | null;
+                            upload: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                by: string;
+                                name: string;
+                                path: string;
+                                /** @default false */
+                                sent: boolean;
+                            } | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_mailbox_connect: {
         parameters: {
             query?: never;
@@ -29980,7 +30316,7 @@ export interface operations {
                     /** @default [] */
                     invite?: string[];
                     /** @enum {string} */
-                    screen: "business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    screen: "business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -30002,7 +30338,7 @@ export interface operations {
                         kindChanged: boolean;
                         notes: string[];
                         /** @enum {string} */
-                        reached: "business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        reached: "business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                         scanStarted: boolean;
                         /** Format: uuid */
                         workspaceId: string;
@@ -55650,7 +55986,7 @@ export interface operations {
                             /** Format: uuid */
                             by: string;
                         } | null;
-                        reached: ("business" | "goal" | "about" | "hours" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "look" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
                         started: {
                             /** Format: date-time */
                             at: string;
@@ -56045,6 +56381,50 @@ export interface operations {
                             industry: string | null;
                             /** @enum {string} */
                             kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                            look: {
+                                asked: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    url: string;
+                                } | null;
+                                color: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** @enum {string} */
+                                    from: "logo" | "website" | "person";
+                                    hex: string;
+                                } | null;
+                                logo: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** @enum {string} */
+                                    from: "website" | "upload";
+                                    height: number;
+                                    path: string;
+                                    width: number;
+                                } | null;
+                                problem: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    message: string;
+                                } | null;
+                                searched: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    found: boolean;
+                                    url: string;
+                                } | null;
+                                upload: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    by: string;
+                                    name: string;
+                                    path: string;
+                                    /** @default false */
+                                    sent: boolean;
+                                } | null;
+                            };
                             myHours: {
                                 day: number;
                                 end: string;
