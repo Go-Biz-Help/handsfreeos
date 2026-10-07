@@ -31,3 +31,9 @@ export interface AiSetupData {
   /** The business's own domain when one is serving: the chat's code loads from it. */
   readonly brandedOrigin: string | null;
 }
+
+/** What the question screens read of it, so the onboarding setup can show them too. */
+export type AiSetupScreenData = Pick<
+  AiSetupData,
+  'workspaceId' | 'cell' | 'businessNumber' | 'appOnPhone'
+>;

@@ -1,5 +1,6 @@
 'use client';
 import {
+  can,
   canActOnStep,
   GUIDE_WORDS,
   ONBOARDING_WORDS,
@@ -10,7 +11,6 @@ import {
   TOUR_WORDS,
 } from '@hfos/core';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Clock } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -41,11 +41,14 @@ export function GettingStarted({
   status,
   permissions,
   compact = false,
+  setup = null,
 }: {
   workspaceId: string;
   status: OnboardingStatus;
   permissions: readonly string[];
   compact?: boolean;
+  /** The guided setup (`workspaces.settings.onboardingSetup`): whether it was started, and finished. */
+  setup?: { readonly started: boolean; readonly finished: boolean } | null;
 }) {
   // Turned off for the whole business by an owner or admin: nothing, not even "You're set up".
   if (!status.enabled) return null;
@@ -53,7 +56,13 @@ export function GettingStarted({
     return <SetUp workspaceId={workspaceId} status={status} />;
   if (!status.view.show) return null;
   return (
-    <Steps workspaceId={workspaceId} status={status} permissions={permissions} compact={compact} />
+    <Steps
+      workspaceId={workspaceId}
+      status={status}
+      permissions={permissions}
+      compact={compact}
+      setup={setup}
+    />
   );
 }
 
@@ -62,11 +71,13 @@ function Steps({
   status,
   permissions,
   compact,
+  setup,
 }: {
   workspaceId: string;
   status: OnboardingStatus;
   permissions: readonly string[];
   compact: boolean;
+  setup: { readonly started: boolean; readonly finished: boolean } | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -113,6 +124,16 @@ function Steps({
         : undefined,
     );
 
+  // The guided setup, until it's finished: a business part way through carries on, and one that never answered
+  // the quick questions starts it. Its button is then the card's one primary button.
+  const guided =
+    business && setup && !setup.finished && can(permissions, 'workspace.update')
+      ? setup.started
+        ? GUIDE_WORDS.carryOn
+        : status.answers
+          ? null
+          : GUIDE_WORDS.setUp
+      : null;
   const next = status.steps.find((s) => s.key === status.next) ?? null;
   const row = (step: OnboardingStep) => (
     <StepRow
@@ -120,8 +141,8 @@ function Steps({
       workspaceId={workspaceId}
       step={step}
       status={status}
-      isNext={step.key === status.next}
-      primary={step.key === status.next && !compact}
+      isNext={step.key === status.next && !guided}
+      primary={step.key === status.next && !compact && !guided}
       canAct={canActOnStep(step.key, permissions)}
       busy={busy === step.key}
       onSkip={(skipped) => void skip(step, skipped)}
@@ -172,14 +193,24 @@ function Steps({
       {business ? null : (
         <p className="mt-1 px-1 text-[13px] text-text-2">{GUIDE_WORDS.teammateIntro}</p>
       )}
-      {business && !status.answers ? (
-        <Link
-          href={`/onboarding/${workspaceId}/questions?from=guide`}
-          className="mt-1 inline-block px-1 text-[13px] font-medium text-accent-text hover:underline"
-          data-testid="getting-started-questions"
+      {guided ? (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-menu bg-accent-soft px-3.5 py-3 sm:flex-nowrap"
+          data-testid="getting-started-setup"
         >
-          {GUIDE_WORDS.answerQuestions}
-        </Link>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-medium">{guided.title}</span>
+            <span className="text-[13px] text-text-2">{guided.detail}</span>
+          </span>
+          <ButtonLink
+            href={`/onboarding/${workspaceId}`}
+            size="sm"
+            variant={compact ? 'secondary' : 'primary'}
+            className={PHONE_BUTTON}
+          >
+            {guided.action}
+          </ButtonLink>
+        </div>
       ) : null}
       <div
         className="mx-1 mb-3 mt-3 h-1.5 overflow-hidden rounded-full bg-card-2"

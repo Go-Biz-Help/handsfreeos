@@ -1,4 +1,4 @@
-import { can } from '@hfos/core';
+import { businessAddressOf, can } from '@hfos/core';
 import type { ApiClient } from '@hfos/api-client';
 import type { ComponentProps } from 'react';
 import type { TextingPage } from '@/components/settings/texting-page';
@@ -56,6 +56,8 @@ export async function loadTexting(
     businessName: got.workspace.name,
     // Settings → Workspace's website, which setup's quick questions fill in too.
     businessWebsite: typeof settings['website'] === 'string' ? settings['website'] || null : null,
+    // Setup's address, which a first registration starts from.
+    businessAddress: businessAddressOf(settings),
     status,
     me: { fullName: me.user.fullName, email: me.user.email },
     team,

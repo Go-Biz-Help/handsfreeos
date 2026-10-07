@@ -11,7 +11,7 @@ import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { WorkspaceGet } from '@/lib/api/types';
-import { TIMEZONES } from '@/app/onboarding/onboarding-form';
+import { TIMEZONES } from '@/lib/time-zones';
 
 export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspace'] }) {
   const router = useRouter();

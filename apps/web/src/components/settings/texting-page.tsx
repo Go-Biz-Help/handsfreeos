@@ -1,5 +1,5 @@
 'use client';
-import { formatClock, formatPhone, money, normalizePhone } from '@hfos/core';
+import { formatClock, formatPhone, money, normalizePhone, type BusinessAddress } from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -67,6 +67,7 @@ import type {
 import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { setupHref } from '@/lib/setup';
 import { keepSetupReturn, setupReturnFor } from '@/lib/setup-return';
 import { cn } from '@/lib/utils';
 import { RcsCard, type RcsPrefill } from './rcs-card';
@@ -103,6 +104,7 @@ export function TextingPage({
   workspaceId,
   businessName,
   businessWebsite = null,
+  businessAddress = null,
   status,
   me,
   team,
@@ -121,6 +123,8 @@ export function TextingPage({
   businessName: string;
   /** The website the business already gave (Settings → Workspace), which a first registration starts from. */
   businessWebsite?: string | null;
+  /** The address setup asked for, which a first registration starts from too. */
+  businessAddress?: BusinessAddress | null;
   status: Status;
   me: { fullName: string; email: string };
   /** First names of the people whose browsers ring for calls. */
@@ -151,10 +155,12 @@ export function TextingPage({
   /** The registration's answers as they were left (`registration.get_draft`), for the wizard to pick up. */
   registrationDraft?: Record<string, unknown> | null;
   /**
-   * Shown inside the setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6): the kind of number its EIN
-   * question picked, and none of the account's own settings, which aren't a first-day question.
+   * Shown inside setup (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, and the onboarding quick setup): the kind
+   * of number its EIN question picked, and none of the account's own settings, which aren't a first-day question.
+   * `returnTo` is where Stripe's texting fee page comes back to (the wizard's number step when left out), and with
+   * `nearAddress` a local number is looked for near the business's address straight away.
    */
-  setup?: { numberType: NumberType };
+  setup?: { numberType: NumberType; returnTo?: string; nearAddress?: boolean };
 }) {
   useLiveRefresh([
     'phone_number',
@@ -183,6 +189,12 @@ export function TextingPage({
   }, [busy, router]);
   const [fixing, setFixing] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  // In setup: where Stripe's texting fee page comes back to, through Settings.
+  const setupReturn = setup ? (setup.returnTo ?? setupHref(workspaceId, 'number')) : null;
+  const near =
+    setup?.nearAddress && businessAddress
+      ? { city: businessAddress.city, state: businessAddress.state }
+      : null;
   // Just sent a registration with fees to pay: off to the payment page as soon as it is made.
   const [goPay, setGoPay] = useState(false);
   // Sent: the page shows what went, and any fees, at once. The live channel leaves this tab's own changes to it
@@ -361,7 +373,7 @@ export function TextingPage({
             workspaceId={workspaceId}
             fee={status.textingFees.due}
             goPay={goPay}
-            fromSetup={!!setup}
+            setupReturn={setupReturn}
           />
         ) : null}
         {step === 'buy_number' ? (
@@ -371,6 +383,7 @@ export function TextingPage({
             ports={ports}
             porting={porting}
             numberType={setup?.numberType}
+            near={near}
           />
         ) : step === 'porting' ? (
           // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
@@ -395,6 +408,7 @@ export function TextingPage({
             workspaceId={workspaceId}
             businessName={businessName}
             businessWebsite={businessWebsite}
+            businessAddress={businessAddress}
             number={status.number!}
             me={me}
             initial={fixing ? submission : null}
@@ -429,6 +443,7 @@ export function TextingPage({
           workspaceId={workspaceId}
           businessName={businessName}
           businessWebsite={businessWebsite}
+          businessAddress={businessAddress}
           status={status}
           me={me}
           surfaces={surfaces}
@@ -437,7 +452,7 @@ export function TextingPage({
           arriving={ahead.arriving}
           onViewSent={() => setShowSent(true)}
           goPay={goPay}
-          fromSetup={!!setup}
+          setupReturn={setupReturn}
           onSent={sent}
         />
       ) : null}
@@ -556,6 +571,7 @@ function NumberStep({
   ports,
   porting,
   numberType = 'toll_free',
+  near = null,
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
@@ -563,6 +579,8 @@ function NumberStep({
   porting: Porting;
   /** The kind to search first. Toll-free unless the setup wizard's EIN question said local. */
   numberType?: NumberType;
+  /** In setup: the business's city, where local numbers are looked for first, straight away. */
+  near?: { city: string; state: string } | null;
 }) {
   const router = useRouter();
   /**
@@ -583,12 +601,12 @@ function NumberStep({
   const [type, setType] = useState<NumberType>(numberType);
   const [area, setArea] = useState('');
   const [prefix, setPrefix] = useState('');
-  const [city, setCity] = useState('');
-  const [region, setRegion] = useState('');
+  const [city, setCity] = useState(near?.city ?? '');
+  const [region, setRegion] = useState(near?.state ?? '');
   const [digits, setDigits] = useState('');
   // '' is the city itself; anything else is a radius around it, in miles.
-  const [miles, setMiles] = useState('');
-  const [more, setMore] = useState(false);
+  const [miles, setMiles] = useState(near ? '25' : '');
+  const [more, setMore] = useState(!!near);
   const [results, setResults] = useState<AvailableNumber[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -648,6 +666,14 @@ function NumberStep({
       setSearching(false);
     }
   }
+
+  // In setup, local numbers near the business show straight away. Once, on the way in.
+  const looked = useRef(false);
+  useEffect(() => {
+    if (looked.current || !near || type !== 'local' || source !== 'new') return;
+    looked.current = true;
+    void search();
+  }, []);
 
   async function buy() {
     if (!pickedNumber) return;
@@ -1099,14 +1125,14 @@ function TextingFeeDue({
   workspaceId,
   fee,
   goPay,
-  fromSetup = false,
+  setupReturn = null,
 }: {
   workspaceId: string;
   fee: Fee;
   /** Just sent: go to the page as soon as it is made. */
   goPay: boolean;
-  /** In setup's number step: Stripe's page comes back to Settings, which sends them on to the step. */
-  fromSetup?: boolean;
+  /** In setup's number step: Stripe's page comes back to Settings, which sends them on to this. */
+  setupReturn?: string | null;
 }) {
   const router = useRouter();
   const [paying, setPaying] = useState(false);
@@ -1116,10 +1142,10 @@ function TextingFeeDue({
   }, []);
   const toPage = useCallback(
     (url: string) => {
-      if (fromSetup) keepSetupReturn(workspaceId, 'number');
+      if (setupReturn) keepSetupReturn(workspaceId, 'number', setupReturn);
       window.location.assign(url);
     },
-    [fromSetup, workspaceId],
+    [setupReturn, workspaceId],
   );
   const go = goPay || paying;
   useEffect(() => {
@@ -1213,6 +1239,7 @@ function RegisterAhead({
   workspaceId,
   businessName,
   businessWebsite,
+  businessAddress,
   status,
   me,
   surfaces,
@@ -1221,12 +1248,13 @@ function RegisterAhead({
   arriving,
   onViewSent,
   goPay,
-  fromSetup,
+  setupReturn,
   onSent,
 }: {
   workspaceId: string;
   businessName: string;
   businessWebsite: string | null;
+  businessAddress: BusinessAddress | null;
   status: Status;
   me: { fullName: string; email: string };
   surfaces: HostedSurfaces;
@@ -1236,8 +1264,8 @@ function RegisterAhead({
   arriving: string | null;
   onViewSent: () => void;
   goPay: boolean;
-  /** In setup's number step. */
-  fromSetup: boolean;
+  /** In setup's number step: where Stripe's texting fee page comes back to. */
+  setupReturn: string | null;
   /** Sent, with the fees to pay when there are any. */
   onSent: (fee: { id: string } | null) => void;
 }) {
@@ -1256,6 +1284,7 @@ function RegisterAhead({
         workspaceId={workspaceId}
         businessName={businessName}
         businessWebsite={businessWebsite}
+        businessAddress={businessAddress}
         number={arriving ? { numberType: 'local', display: arriving } : null}
         me={me}
         initial={fixing ? submission : null}
@@ -1330,7 +1359,7 @@ function RegisterAhead({
           workspaceId={workspaceId}
           fee={status.textingFees.due}
           goPay={goPay}
-          fromSetup={fromSetup}
+          setupReturn={setupReturn}
         />
       ) : null}
       {body}

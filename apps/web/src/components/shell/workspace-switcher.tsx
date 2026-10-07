@@ -14,9 +14,9 @@ import { Input, Select } from '@/components/ui/input';
 import { agencyHref } from '@/lib/agency/org';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import { TIMEZONES } from '@/lib/time-zones';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
-import { TIMEZONES } from '@/app/onboarding/onboarding-form';
 
 /** `staff` is the person's role at HandsFreeOS support (`platform.me`), or null for everyone who doesn't work here. */
 export function WorkspaceSwitcher({

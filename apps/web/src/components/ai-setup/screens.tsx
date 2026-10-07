@@ -44,7 +44,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { AiSetupData } from '@/lib/ai-setup/data';
+import type { AiSetupScreenData } from '@/lib/ai-setup/data';
 import { errorMessage } from '@/lib/api/client';
 import { DOCUMENT_ACCEPT, uploadKnowledgeDocument } from '@/lib/knowledge/upload';
 import {
@@ -67,7 +67,7 @@ export interface ScreenProps {
   readonly business: AiSetupBusinessDraft;
   readonly setBusiness: (patch: Partial<AiSetupBusinessDraft>) => void;
   readonly findings: readonly AiSetupFinding[];
-  readonly data: AiSetupData;
+  readonly data: AiSetupScreenData;
   /** The first screen's "Start from", while the agency has saved answers and the business has no teammate. */
   readonly startFrom?: {
     readonly templates: readonly AiSetupTemplateOption[];

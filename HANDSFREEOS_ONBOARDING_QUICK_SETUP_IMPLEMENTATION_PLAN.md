@@ -10,12 +10,11 @@ a booking page if customers book a time, and its AI teammate on with training wh
 It is built like the AI teammate's quick setup (`HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md`), and the AI
 teammate's part of it is that quick setup's own screens.
 
-> **Status: steps 1 to 5 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
+> **Status: steps 1 to 6 of §11 are built** (the fixes, GoHighLevel by token only, the nineteen kinds of business,
 > the shared part in core: the stops and screens, the answers and what each one sets, `onboarding_setup.get`,
-> `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; and signing up on the web and the
-> phone). The flow chart is the
-> "Onboarding quick setup" artifact; the questions and the owner's answers are `onboarding-setup/questions.md` in the
-> project files.
+> `onboarding_setup.save` and `onboarding_setup.finish`, the summary and the words; signing up on the web and the
+> phone; and the web's screens). The flow chart is the "Onboarding quick setup" artifact; the questions and the
+> owner's answers are `onboarding-setup/questions.md` in the project files.
 
 ---
 
@@ -217,11 +216,31 @@ and so is a calendar that can't be turned on yet. Run again with nothing changed
 
 ## 7. Web
 
-Step 6 of §11. The screens replace Create business, the quick questions and the setup steps: a new owner lands on
-them after signing up, and Getting started's Home card points at them until they're finished. Each stop uses the
-screen that already does the job where there is one (the number search and registration, the GoHighLevel move, the
-spreadsheet import, payments sign-in), opened in place and coming straight back. Settings → Payments shows the
+Step 6 of §11 (built). The screens replace Create business, the quick questions and the setup steps: a new owner
+lands on them after signing up, and Getting started's Home card points at them until they're finished. Each stop uses
+the screen that already does the job where there is one (the number search and registration, the GoHighLevel move,
+the spreadsheet import, payments sign-in), opened in place and coming straight back. Settings → Payments shows the
 setup's address when no other is typed there, and stops warning that documents go out without one.
+
+- **Where they are.** `/onboarding` is the first screen, which makes the business (`organization.create`, with the
+  agency switch where agencies sign up) and saves the rest of it (`onboarding_setup.save`). Everything after it is
+  `/onboarding/<business>`, which only someone with `workspace.update` opens. `?at=` names the screen, kept as it
+  moves on, so a page loaded again, or coming back from Stripe, Square, GoHighLevel or the texting fees, opens there
+  (`onboardingSetupOpenAt`: never past where it would open). Without `?at=`, part way through, it says "Carry on
+  where you left off", with **Start over**. **Finish later** goes Home, with the tour the first time. The old
+  questions' address opens it too.
+- **The stops that bring their own part** get it from the server for their screen: Settings → Texting & calls for the
+  number (a local number searched near the city in the address straight away, and the registration starting from the
+  address and the website), and GoHighLevel's move for the customers. A spreadsheet or another CRM opens the import
+  right there; the phone's contacts point at the phone app.
+- **The booking page** is made as its screen opens (`onboarding_setup.save` on `booking`, which never makes it
+  twice), so the screen shows its link.
+- **Home.** Getting started's card says **Start** to a business that never answered the quick questions, and **Carry
+  on** part way through, as its one primary button; nothing once it's finished. The setup wizard's steps stay, opened
+  from the card's own rows.
+- **Tests.** `apps/web/e2e/onboarding-setup.spec.ts` goes through every stop; `getting-started.spec.ts` checks that
+  the answers order Home's steps and the wizard; every other browser test makes its business on the first screen
+  (`createBusiness` in `e2e/helpers.ts`).
 
 ---
 
@@ -266,7 +285,7 @@ Each step is its own draft pull request, merged in order.
    phone's Google sign-in returns to `handsfreeos://auth/callback`; Apple's name, shared only the first time, is kept
    on the profile. The steps in Supabase, Google and Apple are in `docs/operations.md` ("Check the Auth settings",
    "Sign in with Google", "Sign in with Apple").
-6. **The web screens** (§7).
+6. **The web screens** (built, §7).
 7. **The phone screens** (§8), creating the business included.
 8. **Logo and colour,** on the booking page, chat, invoices and emails: a new stop after the hours. Needs a database
    change.

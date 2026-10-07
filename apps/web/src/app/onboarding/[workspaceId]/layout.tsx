@@ -6,11 +6,12 @@ import { LiveProvider } from '@/lib/realtime/live-provider';
 import { parseTheme } from '@/lib/theme';
 
 /**
- * The setup wizard's providers: the business's live changes, so a step moves on when a number is bought or a scan
- * finishes, and what this person may do in it. None of the sidebar's (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md
- * §6): the wizard is a frame of its own.
+ * The business's setup pages' providers, for the guided setup and the setup wizard's steps: the business's live
+ * changes, so a screen moves on when a number is bought or Ava finishes reading the website, and what this person may
+ * do in it. None of the sidebar's (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §7): setup is a frame of
+ * its own.
  */
-export default async function SetupLayout({
+export default async function BusinessSetupLayout({
   children,
   params,
 }: {

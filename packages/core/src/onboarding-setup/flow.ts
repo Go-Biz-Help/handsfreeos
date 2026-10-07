@@ -12,11 +12,13 @@ import {
 import { BusinessAddress, timeZoneForAddress, type BusinessAddressInput } from './address';
 import {
   ONBOARDING_SETUP_SCREEN_FIELDS,
+  ONBOARDING_SETUP_SCREENS,
   OnboardingSetupAnswers,
   onboardingSetupNextScreen,
+  onboardingSetupScreenApplies,
   type OnboardingSetupScreen,
 } from './answers';
-import { onboardingSetupScreenProblems } from './summary';
+import { onboardingSetupBusinessLine, onboardingSetupScreenProblems } from './summary';
 import type { OnboardingSetupState } from './state';
 import { ONBOARDING_SETUP_WORDS as W } from './words';
 
@@ -38,6 +40,62 @@ export function onboardingSetupFirstScreen(got: {
   );
 }
 
+const screenAt = (s: OnboardingSetupScreen | null) =>
+  s ? ONBOARDING_SETUP_SCREENS.indexOf(s) : -1;
+
+/**
+ * The screen a link asks for (`?at=paid`, coming back from Stripe), when it's one this business goes through and
+ * isn't past where it would open; else where it opens.
+ */
+export function onboardingSetupOpenAt(
+  got: Parameters<typeof onboardingSetupFirstScreen>[0],
+  at: string | null | undefined,
+): OnboardingSetupScreen {
+  const first = onboardingSetupFirstScreen(got);
+  const asked = ONBOARDING_SETUP_SCREENS.find((s) => s === at);
+  if (
+    !asked ||
+    screenAt(asked) > screenAt(first) ||
+    !onboardingSetupScreenApplies(asked, got.answers, aiSetupFlowFactsOf(got.state))
+  )
+    return first;
+  return asked;
+}
+
+/** The screen each answer is on: the setup's own by name, the AI part's as `ai.<name>`. */
+const SCREEN_OF = new Map<string, OnboardingSetupScreen>(
+  ONBOARDING_SETUP_SCREENS.flatMap((s) => [
+    ...ONBOARDING_SETUP_SCREEN_FIELDS[s].own.map((f) => [f, s] as const),
+    ...ONBOARDING_SETUP_SCREEN_FIELDS[s].ai.map((f) => [`ai.${f}`, s] as const),
+  ]),
+);
+
+/**
+ * Fresh answers from the server over the ones on screen: each answer not changed on screen since the last save
+ * (`touched`, by the same names: `goal`, `ai.services`) whose screen isn't finished yet. So what Ava reads, and the
+ * picks that follow the goal and the kind of business, fill in what's still to come, and never undo what someone
+ * typed or a screen they finished. An answer no screen asks (when Ava answers) follows the server.
+ */
+export function mergeOnboardingSetupAnswers(
+  local: OnboardingSetupAnswers,
+  fresh: OnboardingSetupAnswers,
+  touched: ReadonlySet<string>,
+  reached: OnboardingSetupScreen | null,
+): OnboardingSetupAnswers {
+  const done = screenAt(reached);
+  const take = (key: string) => {
+    const screen = SCREEN_OF.get(key);
+    return !touched.has(key) && (!screen || screenAt(screen) > done);
+  };
+  const out: Record<string, unknown> = { ...local };
+  for (const key of Object.keys(fresh) as (keyof OnboardingSetupAnswers)[])
+    if (key !== 'ai' && take(key)) out[key] = fresh[key];
+  const ai: Record<string, unknown> = { ...local.ai };
+  for (const key of Object.keys(fresh.ai) as (keyof OnboardingSetupAnswers['ai'])[])
+    if (take(`ai.${key}`)) ai[key] = fresh.ai[key];
+  return { ...(out as OnboardingSetupAnswers), ai: ai as OnboardingSetupAnswers['ai'] };
+}
+
 /** The first screen's answers, saved to the business straight away. */
 export interface OnboardingSetupBusinessDraft {
   readonly name: string;
@@ -55,6 +113,17 @@ export interface OnboardingSetupBusinessDraft {
 
 const bareSite = (url: string | null): string =>
   (url ?? '').replace(/^https?:\/\//i, '').replace(/\/$/, '');
+
+/** The first screen before the business is made, right after signing up. */
+export const NEW_ONBOARDING_SETUP_BUSINESS: OnboardingSetupBusinessDraft = {
+  name: '',
+  industry: '',
+  address: { line1: '', line2: '', city: '', state: '', postalCode: '' },
+  timeZone: 'America/Chicago',
+  timeZonePicked: false,
+  site: '',
+  noSite: false,
+};
 
 /** The first screen to start from: the business as it is. */
 export const onboardingSetupBusinessDraftOf = (
@@ -81,6 +150,17 @@ export function withBusinessAddress(
   return { ...draft, address, ...(zone ? { timeZone: zone } : {}) };
 }
 
+/** The summary's first line while the first screen is typed, before it's saved: "Bella: Hair salon in Denver, …". */
+export function onboardingSetupDraftLine(draft: OnboardingSetupBusinessDraft): string {
+  const city = draft.address.city.trim();
+  return onboardingSetupBusinessLine({
+    businessName: draft.name.trim() || W.unnamed,
+    industry: draft.industry || null,
+    address: city && draft.address.state ? { city, state: draft.address.state } : null,
+    timeZone: draft.timeZone,
+  });
+}
+
 /** The first screen's answers as `onboarding_setup.save` takes them: no website when there's none, or none typed. */
 export function onboardingSetupBusinessOf(draft: OnboardingSetupBusinessDraft) {
   const site = draft.site.trim();
@@ -97,9 +177,25 @@ export function onboardingSetupBusinessOf(draft: OnboardingSetupBusinessDraft) {
 export const onboardingSetupProblemsOf = (details: unknown): AiSetupProblems =>
   aiSetupProblemsOf(details);
 
+/** What the first screen still needs before Next, by path: the name, what they do and the address. */
+export function onboardingSetupBusinessProblemsOf(
+  business: Pick<OnboardingSetupBusinessDraft, 'name' | 'industry' | 'address'>,
+): AiSetupProblems {
+  const out: Record<string, string> = {};
+  if (!business.name.trim()) out['business.name'] = W.businessNameMissing;
+  if (!business.industry) out['business.industry'] = W.kindMissing;
+  const address = BusinessAddress.safeParse(business.address);
+  if (!address.success)
+    for (const issue of address.error.issues) {
+      const path = ['business', 'address', ...issue.path.map(String)].join('.');
+      if (!out[path]) out[path] = issue.message;
+    }
+  return out;
+}
+
 /**
- * What a screen still needs before Next, by path: on the first screen the name, what they do and the address; on
- * the others each answer's own checks for the screen's fields, then what `onboardingSetupScreenProblems` says.
+ * What a screen still needs before Next, by path: on the first screen `onboardingSetupBusinessProblemsOf`; on the
+ * others each answer's own checks for the screen's fields, then what `onboardingSetupScreenProblems` says.
  */
 export function onboardingSetupScreenProblemsOf(
   screen: OnboardingSetupScreen,
@@ -107,18 +203,8 @@ export function onboardingSetupScreenProblemsOf(
   state: OnboardingSetupState,
   business: Pick<OnboardingSetupBusinessDraft, 'name' | 'industry' | 'address'>,
 ): AiSetupProblems {
+  if (screen === 'business') return onboardingSetupBusinessProblemsOf(business);
   const out: Record<string, string> = {};
-  if (screen === 'business') {
-    if (!business.name.trim()) out['business.name'] = W.businessNameMissing;
-    if (!business.industry) out['business.industry'] = W.kindMissing;
-    const address = BusinessAddress.safeParse(business.address);
-    if (!address.success)
-      for (const issue of address.error.issues) {
-        const path = ['business', 'address', ...issue.path.map(String)].join('.');
-        if (!out[path]) out[path] = issue.message;
-      }
-    return out;
-  }
   const fields = ONBOARDING_SETUP_SCREEN_FIELDS[screen];
   const parsed = OnboardingSetupAnswers.safeParse(answers);
   if (!parsed.success)

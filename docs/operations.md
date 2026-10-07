@@ -997,17 +997,22 @@ Before you start:
    You should land on the **Set up your business** page (`https://app.handsfreeos.com/onboarding`). If no email arrives within five minutes, see "Sign-in emails do not arrive" in "Going live, and when something goes wrong".
 
 6. Fill in **Business name**. For the go-live test, use the business whose details you will send to the carriers.
-7. Pick the **Industry**.
-8. Pick the **Time zone**. Quiet hours for texts follow it.
-9. If you see the agency switch, leave it as it is. Production hides it.
-10. Click **Create business**.
+7. Under **What do you do?**, search for the kind of business, like "plumber", or click the closest of the big buttons and pick from the list it opens.
+8. Fill in **Your address**: street, city, state and ZIP code. It goes on invoices and the texting registration, and it sets the time zone, which quiet hours for texts follow. The line under it names the time zone, like "Central time, from your address."; click **Change** if it's wrong.
+9. Type **Your website** without `https://`, or click **We don’t have one**.
+10. If you see the agency switch, leave it off. Production hides it.
+11. Click **Next**.
 
-    You should see your workspace's home page, at an address like `https://app.handsfreeos.com/app/w/<workspace id>`.
+    You should see the next question, **What do you want help with first?**, at an address like `https://app.handsfreeos.com/onboarding/<business id>?at=goal`. Setup asks one simple question at a time and keeps the answers as it goes, so it can be finished later, here or in the phone app.
 
-11. Open a private browser window and go to `https://app.handsfreeos.com/sign-in`.
-12. Enter your **Email** and **Password**, and click **Continue**.
+12. Click **Finish later**, at the top right.
 
-    You should land back in the workspace. Close the private window.
+    You should see the business's home page, at an address like `https://app.handsfreeos.com/app/w/<business id>`. The Getting started card says **Finish setting up your business**, and **Carry on** opens setup where it was left.
+
+13. Open a private browser window and go to `https://app.handsfreeos.com/sign-in`.
+14. Enter your **Email** and **Password**, and click **Continue**.
+
+    You should land back in the business. Close the private window.
 
 ### Deleting an account
 

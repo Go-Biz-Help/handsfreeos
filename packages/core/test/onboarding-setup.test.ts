@@ -15,18 +15,23 @@ import {
   emptyKnowledgeProfile,
   industriesForPicker,
   INDUSTRIES,
+  mergeOnboardingSetupAnswers,
   myHoursFrom,
+  NEW_ONBOARDING_SETUP_BUSINESS,
   ONBOARDING_KIND_INFO,
   ONBOARDING_PICKER,
   ONBOARDING_SETUP_SCREENS,
   ONBOARDING_SETUP_STOPS,
   onboardingKindFor,
   onboardingSetupBusinessDraftOf,
+  onboardingSetupBusinessLine,
   onboardingSetupBusinessOf,
+  onboardingSetupDraftLine,
   onboardingSetupFirstScreen,
   onboardingSetupHint,
   onboardingSetupNextScreen,
   onboardingSetupOf,
+  onboardingSetupOpenAt,
   onboardingSetupPreviousScreen,
   onboardingSetupProgress,
   onboardingSetupScreenProblemsOf,
@@ -557,6 +562,83 @@ describe('the screens’ behaviour', () => {
     expect(got('customers')).toBe('number');
     expect(got('done')).toBe('done');
     expect(got(null, true)).toBe('done');
+  });
+
+  it('open on the screen a link asks for, never past where they would open', () => {
+    const got = (reached: (typeof ONBOARDING_SETUP_SCREENS)[number] | null) => ({
+      state: { website: null, chat: null },
+      answers: answers(),
+      reached,
+      finished: null,
+    });
+    expect(onboardingSetupOpenAt(got('number'), 'paid')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('number'), 'number')).toBe('number');
+    expect(onboardingSetupOpenAt(got('goal'), 'paid')).toBe('about');
+    // Booking shows only when customers book a time.
+    expect(onboardingSetupOpenAt(got('number'), 'booking')).toBe('paid');
+    expect(onboardingSetupOpenAt(got(null), 'nowhere')).toBe('business');
+    expect(onboardingSetupOpenAt(got(null), null)).toBe('business');
+  });
+
+  it('take in what the server says, but never what was typed or a screen finished', () => {
+    const local = answers({
+      goal: 'booked',
+      ai: { description: 'We fix AC.', services: [{ name: 'Tune-up' }], tone: 'friendly' },
+    });
+    const fresh = answers({
+      goal: 'leads',
+      booksTime: true,
+      ai: {
+        description: 'Read from the website.',
+        services: [{ name: 'AC repair' }],
+        jobs: ['reply', 'book'],
+        tone: 'professional',
+      },
+    });
+    // "About your business" is next: what Ava read fills it in, unless it was typed.
+    const merged = mergeOnboardingSetupAnswers(local, fresh, new Set(['ai.services']), 'goal');
+    expect(merged.goal).toBe('booked');
+    expect(merged.booksTime).toBe(true);
+    expect(merged.ai.description).toBe('Read from the website.');
+    expect(merged.ai.services).toEqual([{ name: 'Tune-up', description: '' }]);
+    expect(merged.ai.jobs).toEqual(['reply', 'book']);
+    expect(merged.ai.tone).toBe('professional');
+    // Finished up to the AI teammate's first screen: only what comes after it follows the server.
+    const later = mergeOnboardingSetupAnswers(local, fresh, new Set(), 'jobs');
+    expect(later.ai.description).toBe('We fix AC.');
+    expect(later.ai.jobs).toEqual(local.ai.jobs);
+    expect(later.ai.tone).toBe('professional');
+  });
+
+  it('say the business in one line before it’s made', () => {
+    expect(
+      onboardingSetupBusinessLine({
+        businessName: 'Bella',
+        industry: 'hair_salon',
+        address: BusinessAddress.parse({ ...AUSTIN, state: 'CO', city: 'Denver' }),
+        timeZone: 'America/Denver',
+      }),
+    ).toBe('Bella: Hair salon in Denver, Colorado, on Mountain time.');
+    // As the first screen is typed: no name yet, and a city only once its state is picked too.
+    expect(onboardingSetupDraftLine(NEW_ONBOARDING_SETUP_BUSINESS)).toBe(
+      'Your business, on Central time.',
+    );
+    expect(
+      onboardingSetupDraftLine({
+        ...NEW_ONBOARDING_SETUP_BUSINESS,
+        name: ' Bella ',
+        industry: 'hair_salon',
+        address: { line1: '', city: 'Denver', state: 'CO', postalCode: '' },
+        timeZone: 'America/Denver',
+      }),
+    ).toBe('Bella: Hair salon in Denver, Colorado, on Mountain time.');
+    expect(
+      onboardingSetupDraftLine({
+        ...NEW_ONBOARDING_SETUP_BUSINESS,
+        name: 'Bella',
+        address: { line1: '', city: 'Denver', state: '', postalCode: '' },
+      }),
+    ).toBe('Bella, on Central time.');
   });
 
   it('pick the time zone from the address, unless someone picked their own', () => {

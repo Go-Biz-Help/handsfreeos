@@ -200,6 +200,7 @@ export function PaymentsSettings({
   connections,
   team,
   hasSentDocuments,
+  setupAddress = null,
   result,
 }: {
   workspaceId: string;
@@ -212,6 +213,8 @@ export function PaymentsSettings({
   team: readonly TeamMember[];
   /** Whether an estimate or an invoice has ever gone out: the missing-address warning waits for it. */
   hasSentDocuments: boolean;
+  /** The address the onboarding setup asked for, which documents carry while none is typed here. */
+  setupAddress?: string | null;
   /** `?payments=` from the provider's redirect. */
   result: string | null;
 }) {
@@ -239,7 +242,8 @@ export function PaymentsSettings({
     router.replace(`/app/w/${workspaceId}/settings/payments`, { scroll: false });
   }, [result, router, workspaceId]);
 
-  const issues = checkMoneySettings(settings, { hasSentDocuments });
+  const facts = { hasSentDocuments, setupAddress };
+  const issues = checkMoneySettings(settings, facts);
   const blocking = hasBlockingMoneyIssues(issues);
   const addressMissing = issues.some((i) => i.code === 'no_business_address');
 
@@ -252,8 +256,7 @@ export function PaymentsSettings({
     const next = change(before);
     latest.current = next;
     setSettings(next);
-    if (hasBlockingMoneyIssues(checkMoneySettings(next, { hasSentDocuments })))
-      return Promise.resolve(false);
+    if (hasBlockingMoneyIssues(checkMoneySettings(next, facts))) return Promise.resolve(false);
     const run = queue.current.then(async () => {
       try {
         const out = unwrap(
@@ -700,9 +703,16 @@ export function PaymentsSettings({
                 }
               />
             </div>
-            <p className="mt-1.5 text-[12.5px] text-text-3">
-              Five lines at most. Without it a customer only sees your business name.
-            </p>
+            {setupAddress && !settings.businessAddress.trim() ? (
+              <p className="mt-1.5 text-[12.5px] text-text-3" data-testid="business-address-setup">
+                Until you write one here, documents show the address from your setup:{' '}
+                <span className="text-text-2">{setupAddress.replaceAll('\n', ', ')}</span>.
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[12.5px] text-text-3">
+                Five lines at most. Without it a customer only sees your business name.
+              </p>
+            )}
           </Section>
 
           <Section
