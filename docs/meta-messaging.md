@@ -43,6 +43,9 @@ their name or @handle), their conversation (counterpart `messenger:<page id>:<th
 `instagram:<account id>:<their id>`), and the message (`meta_message.receive`), with any photos, videos, recordings
 and files copied off Meta into storage. A stranger who writes becomes a customer and a lead, unless the business
 turned that off in **Settings** → **Lead intake** ("Someone messages your Facebook Page", and the same for Instagram).
+When another app also answers the Page, such as HighLevel as its default app for messages, Meta sends the chats that
+app holds as `standby` events, and only to apps that ask for them. The Page's subscription asks, and they're read
+like any other message.
 
 **Replying.** A reply is `message.send` with `channel: 'messenger'` or `'instagram'`, queued like a text. The worker
 sends its photos and files first, each a message of its own, then the words, and keeps each part's id on the

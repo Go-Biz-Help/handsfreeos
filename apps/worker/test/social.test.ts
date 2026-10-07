@@ -662,6 +662,27 @@ describe('a customer writes', () => {
     );
     expect(named).toBe('@sam.builds');
   });
+
+  it('hears a customer whose chat another app holds, such as HighLevel', async () => {
+    // Meta sends another app's chats as standby, to the apps that ask for it.
+    const dana = digits(16);
+    s.social.fake.setProfile(dana, { name: 'Dana Reyes', username: null });
+    await webhook({
+      object: 'page',
+      entry: [
+        {
+          id: pageA,
+          time: Date.now(),
+          standby: [fromCustomer(dana, pageA, { text: 'Are you open Saturday?' })],
+        },
+      ],
+    });
+    await drain();
+    const conv = await conversationOf(`messenger:${pageA}:${dana}`);
+    expect(await messagesIn(conv.id)).toEqual([
+      expect.objectContaining({ direction: 'inbound', body_text: 'Are you open Saturday?' }),
+    ]);
+  });
 });
 
 describe('answering', () => {

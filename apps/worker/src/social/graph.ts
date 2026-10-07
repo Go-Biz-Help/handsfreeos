@@ -257,7 +257,11 @@ export const META_DOWNLOAD_MAX_BYTES = 25 * 1024 * 1024;
 const GRAPH = 'https://graph.facebook.com';
 const DIALOG = 'https://www.facebook.com';
 
-/** What the Page is subscribed to: messages, buttons, ads and links, receipts, and replies sent elsewhere. */
+/**
+ * What the Page is subscribed to: messages, buttons, ads and links, receipts, and replies sent elsewhere. `standby`
+ * brings the chats another app holds, such as HighLevel when it's the Page's main app for messages: Meta sends those
+ * only to apps that ask for them.
+ */
 const PAGE_FIELDS = [
   'messages',
   'messaging_postbacks',
@@ -265,6 +269,7 @@ const PAGE_FIELDS = [
   'message_deliveries',
   'message_reads',
   'message_echoes',
+  'standby',
 ];
 /** Newer fields some Pages refuse: asked for, and dropped when Meta says no. */
 const PAGE_FIELDS_EXTRA = ['message_edits', 'message_reactions'];
