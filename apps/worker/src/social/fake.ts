@@ -54,6 +54,8 @@ export interface FakeMeta {
   sent(): readonly FakeSent[];
   /** The next send, or the next few, are refused like this. */
   failNextSend(...errors: MetaError[]): void;
+  /** Where the app's own webhook was pointed, and with what verify token; null until somebody connects. */
+  appWebhook(): { readonly callbackUrl: string; readonly verifyToken: string } | null;
   /** Pages Meta was asked to send messages for. */
   subscribed(): readonly string[];
   /** Asking Meta to send a Page's messages fails like this until it's cleared. */
@@ -120,6 +122,7 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
   const revokedUsers = new Set<string>();
   const sent: FakeSent[] = [];
   const failures: MetaError[] = [];
+  let appWebhook: { callbackUrl: string; verifyToken: string } | null = null;
   const subscribed = new Set<string>();
   const subscribeFailures = new Map<string, MetaError>();
   const profiles = new Map<string, MetaProfile | null>();
@@ -244,6 +247,10 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
         ];
       });
     },
+    async subscribeApp({ callbackUrl, verifyToken }) {
+      appWebhook = { callbackUrl, verifyToken };
+      return { refused: [] };
+    },
     async subscribe(pageId, token) {
       pageOf(pageId, token);
       const failure = subscribeFailures.get(pageId);
@@ -303,6 +310,7 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
     failNextSend: (...errors) => {
       failures.push(...errors);
     },
+    appWebhook: () => appWebhook,
     subscribed: () => [...subscribed],
     failSubscribe: (pageId, error) => {
       if (error) subscribeFailures.set(pageId, error);
