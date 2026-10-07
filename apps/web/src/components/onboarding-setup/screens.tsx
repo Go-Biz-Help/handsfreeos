@@ -187,7 +187,7 @@ export function GoalScreen({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={W.inviteEmail}
+                  aria-label={W.removeInvite}
                   onClick={() => setInvites(invites.filter((_, j) => j !== i))}
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={1.75} />

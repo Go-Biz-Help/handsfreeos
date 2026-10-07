@@ -1,7 +1,9 @@
 appId: com.gobizhelp.handsfreeos
 name: Create an account with an emailed code
 # A new account made on the phone, confirmed with the code supabase/templates/confirmation.html sends, read from the
-# local stack's Mailpit. With no business yet it lands on No business yet, and signs out for the next flow.
+# local stack's Mailpit. With no business yet it lands on the setup's first screen, which makes the business and opens
+# the rest of the setup (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8); then it signs out for the next
+# flow.
 tags:
   - ci
   - code
@@ -51,15 +53,91 @@ tags:
 - tapOn:
     id: 'code-input'
 - inputText: ${output.code}
-# Signed in, and in no business yet.
-- extendedWaitUntil:
-    visible: 'No business yet'
-    timeout: 30000
-- tapOn:
-    id: 'choose-business-sign-out'
-- tapOn:
-    id: 'confirm-sign-out'
+# Signed in, and in no business yet: the setup's first screen, where the business is made.
 - extendedWaitUntil:
     visible:
-      id: 'sign-in'
-    timeout: 20000
+      id: 'onboarding-setup-step-business'
+    timeout: 30000
+- assertVisible:
+    id: 'choose-business-sign-out'
+- tapOn:
+    id: 'setup-business-name'
+- inputText: 'Natarajan Plumbing'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: setup-business-name
+# What they do: a big button opens the kinds in it.
+- tapOn:
+    id: 'setup-kind-button-home'
+- scrollUntilVisible:
+    element:
+      id: 'setup-kind-plumbing'
+    centerElement: true
+- tapOn:
+    id: 'setup-kind-plumbing'
+# The address. Its state is picked on a sheet, and sets the time zone.
+- scrollUntilVisible:
+    element:
+      id: 'setup-line1'
+    centerElement: true
+- tapOn:
+    id: 'setup-line1'
+- inputText: '12 Oak St'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: setup-line1
+- scrollUntilVisible:
+    element:
+      id: 'setup-city'
+    centerElement: true
+- tapOn:
+    id: 'setup-city'
+- inputText: 'Austin'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: setup-city
+- scrollUntilVisible:
+    element:
+      id: 'setup-state'
+    centerElement: true
+- tapOn:
+    id: 'setup-state'
+- extendedWaitUntil:
+    visible:
+      id: 'setup-state-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'setup-state-search'
+- inputText: 'Texas'
+- tapOn:
+    id: 'setup-state-TX'
+- scrollUntilVisible:
+    element:
+      id: 'setup-postal-code'
+    centerElement: true
+- tapOn:
+    id: 'setup-postal-code'
+- inputText: '78701'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: setup-postal-code
+# No website: the next screens ask instead.
+- scrollUntilVisible:
+    element:
+      id: 'ai-setup-no-website'
+    centerElement: true
+- tapOn:
+    id: 'ai-setup-no-website'
+- tapOn:
+    id: 'onboarding-setup-next'
+# Made, and the rest of the setup opens on the business's own screen, at the goal.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-setup-step-goal'
+    timeout: 30000
+# Signed out for the next flow, from the new business's Home once its copy is on the phone.
+- runFlow: subflows/start-signed-out.yaml

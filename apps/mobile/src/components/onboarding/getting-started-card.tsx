@@ -2,6 +2,7 @@ import {
   GUIDE_WORDS,
   holds,
   LINK_WORDS,
+  onboardingSetupOf,
   PHONE_GUIDE_WORDS,
   progressWords,
   stepTitle,
@@ -23,6 +24,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { TEAMMATE_SQL } from '@/home/queries';
+import { useWorkspaceRow } from '@/home/use-home';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
@@ -46,6 +48,10 @@ const FOLDED = 4;
  * app, which it is, its notifications, and the AI teammate's quick setup while the business has no teammate);
  * everything else is easier on a computer, so its button emails the person a link (`onboarding.send_link`). Hidden or
  * finished on the web, it's gone here too.
+ *
+ * Until the guided setup is finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), whoever sets the
+ * business up sees it in place of the next step, as on the web: Carry on for a business part way through, and Start
+ * for one that never answered the quick questions. It runs on the phone too.
  */
 export function GettingStartedCard({ className }: { className?: string }) {
   const { business, userId } = useBusiness();
@@ -86,6 +92,23 @@ function Steps({
     if (hasTeammate && hadTeammate.current === false) reload();
     hadTeammate.current = hasTeammate;
   }, [isLoading, hasTeammate, reload]);
+  // The guided setup, as the phone's copy of the business has it, until it's finished.
+  const { settings } = useWorkspaceRow();
+  const setup = React.useMemo(() => {
+    try {
+      return onboardingSetupOf(settings ? (JSON.parse(settings) as Record<string, unknown>) : null);
+    } catch {
+      return onboardingSetupOf(null);
+    }
+  }, [settings]);
+  const guided =
+    owner && !setup.finished && holds(grants, 'workspace.update')
+      ? setup.started
+        ? GUIDE_WORDS.carryOn
+        : status.answers
+          ? null
+          : GUIDE_WORDS.setUp
+      : null;
   /** The step this phone does itself. */
   const onPhone = (step: OnboardingStep) =>
     step.key === 'app' || step.key === 'notifications' || (step.key === 'ai' && setsUpAi);
@@ -179,7 +202,8 @@ function Steps({
     );
   };
 
-  const next = status.steps.find((s) => s.key === status.next) ?? null;
+  // The guided setup is the card's one primary button: the next step is one row among the others meanwhile.
+  const next = guided ? null : (status.steps.find((s) => s.key === status.next) ?? null);
   const rest = status.steps.filter((s) => s !== next);
   const shown = owner && !all ? rest.slice(0, FOLDED) : rest;
 
@@ -208,6 +232,28 @@ function Steps({
           style={{ width: `${status.total ? (status.done / status.total) * 100 : 100}%` }}
         />
       </View>
+
+      {guided ? (
+        <View
+          className="gap-2 rounded-[12px] bg-accent-soft px-3 py-3"
+          testID="getting-started-setup"
+        >
+          <View className="gap-0.5">
+            <Text className="text-[15px] font-semibold">{guided.title}</Text>
+            <Text className="text-[13.5px] leading-[19px] text-text-2">
+              {guided === GUIDE_WORDS.carryOn ? PHONE_GUIDE_WORDS.carryOnDetail : guided.detail}
+            </Text>
+          </View>
+          <Button
+            size="sm"
+            className="self-start"
+            onPress={() => router.push(businessHref(business.id, 'setup'))}
+            testID="getting-started-setup-open"
+          >
+            {guided.action}
+          </Button>
+        </View>
+      ) : null}
 
       {next ? (
         <View

@@ -9,7 +9,10 @@ import {
   findIndustry,
   industryLabel,
   isAiSetupQuestionKind,
+  money,
   newAiSetupQuestion,
+  ONBOARDING_SETUP_WORDS,
+  parseMoney,
   searchIndustries,
   withAiSetupQuestionKind,
   type AiSetupProblems,
@@ -395,20 +398,70 @@ function AddRow({
   );
 }
 
+/** How long a service takes, to pick from; a length set elsewhere shows too. */
+const LENGTHS = [15, 30, 45, 60, 90, 120, 180, 240, 480] as const;
+
+/** A price that may be left empty: empty is "not said" (null), never $0.00. */
+function PriceInput({
+  cents,
+  onChange,
+  label,
+  invalid,
+  testID,
+}: {
+  cents: number | null | undefined;
+  onChange: (cents: number | null) => void;
+  label: string;
+  invalid: boolean;
+  testID: string;
+}) {
+  const shown = cents == null ? '' : money(cents);
+  // What's typed, while it's being typed; otherwise the price as it is, so a row moved up shows its own.
+  const [typing, setTyping] = React.useState<string | null>(null);
+  const text = typing ?? shown;
+  return (
+    <Input
+      value={text}
+      onFocus={() => setTyping(shown)}
+      onChangeText={(next) => {
+        setTyping(next);
+        if (!next.trim()) onChange(null);
+        else {
+          const parsed = parseMoney(next);
+          if (parsed !== null) onChange(parsed);
+        }
+      }}
+      onBlur={() => setTyping(null)}
+      placeholder={label}
+      accessibilityLabel={label}
+      keyboardType="decimal-pad"
+      invalid={invalid || (!!text.trim() && parseMoney(text) === null)}
+      testID={testID}
+    />
+  );
+}
+
 export function ServicesField({
   services,
   onChange,
   problems,
+  legend = W.services,
+  priced = false,
 }: {
   services: readonly AiSetupService[];
   onChange: (next: AiSetupService[]) => void;
   problems: AiSetupProblems;
+  /** The list's heading: what the business calls what it sells ("Menu", "Classes and sessions"). */
+  legend?: string;
+  /** Each with an optional price and length, as the onboarding setup asks them. */
+  priced?: boolean;
 }) {
   const set = (i: number, patch: Partial<AiSetupService>) =>
     onChange(services.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const O = ONBOARDING_SETUP_WORDS;
   return (
     <View className="gap-2" testID="ai-setup-services">
-      <Label>{W.services}</Label>
+      <Label>{legend}</Label>
       {services.map((s, i) => (
         <View
           key={i}
@@ -434,6 +487,34 @@ export function ServicesField({
               maxLength={500}
               testID={`ai-setup-service-${i}-description`}
             />
+            {priced ? (
+              <View className="flex-row gap-2">
+                <View className="min-w-0 flex-1 gap-1">
+                  <PriceInput
+                    cents={s.priceCents}
+                    onChange={(priceCents) => set(i, { priceCents })}
+                    label={O.servicePrice}
+                    invalid={!!problems[`services.${i}.priceCents`]}
+                    testID={`ai-setup-service-${i}-price`}
+                  />
+                  <FieldError>{problems[`services.${i}.priceCents`]}</FieldError>
+                </View>
+                <View className="min-w-0 flex-1 gap-1">
+                  <ChoiceField
+                    value={s.minutes ?? null}
+                    options={[...new Set([...LENGTHS, ...(s.minutes == null ? [] : [s.minutes])])]
+                      .sort((a, b) => a - b)
+                      .map((m) => ({ value: m, label: O.minutes(m) }))}
+                    onChange={(minutes) => set(i, { minutes })}
+                    placeholder={O.serviceLength}
+                    none={O.serviceLength}
+                    sheetTitle={O.serviceLength}
+                    error={problems[`services.${i}.minutes`]}
+                    testID={`ai-setup-service-${i}-minutes`}
+                  />
+                </View>
+              </View>
+            ) : null}
           </View>
           <Remove
             label={W.removeService}
@@ -636,18 +717,23 @@ export function KindField({
   value,
   onChange,
   error,
+  question = W.kind,
+  hint = W.kindHint,
 }: {
   value: string;
   onChange: (industry: string) => void;
   error?: string;
+  /** The field's label: the onboarding setup asks "What do you do?". */
+  question?: string;
+  hint?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const label = value ? industryLabel(value) : '';
   return (
-    <Field label={W.kind} error={error} hint={W.kindHint}>
+    <Field label={question} error={error} hint={hint}>
       <Pressable
         role="button"
-        accessibilityLabel={`${W.kind}: ${label || P.pickKind}`}
+        accessibilityLabel={`${question}: ${label || P.pickKind}`}
         onPress={() => setOpen(true)}
         testID="ai-setup-kind"
         className={cn(
@@ -758,5 +844,139 @@ function KindSheet({
         </ScrollView>
       </View>
     </Sheet>
+  );
+}
+
+/**
+ * A pick-one field whose choices open on a sheet, in place of the web's menu: the address's state, the time zone, how
+ * long a service takes. `none` adds a first row that leaves it unsaid; `search` a box over a long list.
+ */
+export function ChoiceField<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+  none,
+  sheetTitle,
+  search,
+  error,
+  testID,
+}: {
+  label?: string;
+  value: T | null;
+  options: readonly { readonly value: T; readonly label: string; readonly hint?: string }[];
+  onChange: (value: T | null) => void;
+  placeholder: string;
+  /** The row that picks nothing, by its words. */
+  none?: string;
+  sheetTitle: string;
+  /** The search box's words, for a long list. */
+  search?: string;
+  error?: string | null;
+  testID: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const { height } = useWindowDimensions();
+  const keyboard = useKeyboardHeight();
+  const picked = options.find((o) => o.value === value) ?? null;
+  const typed = query.trim().toLowerCase();
+  const shown = typed
+    ? options.filter(
+        (o) => o.label.toLowerCase().includes(typed) || String(o.value).toLowerCase() === typed,
+      )
+    : options;
+  const rows: { readonly value: T | null; readonly label: string; readonly hint?: string }[] = [
+    ...(none && !typed ? [{ value: null, label: none }] : []),
+    ...shown,
+  ];
+  const field = (
+    <Pressable
+      role="button"
+      accessibilityLabel={`${label ?? placeholder}: ${picked?.label ?? placeholder}`}
+      onPress={() => setOpen(true)}
+      testID={testID}
+      className={cn(
+        'h-12 flex-row items-center gap-2 rounded-menu border bg-card px-3.5 active:bg-card-2',
+        error ? 'border-danger' : 'border-border-strong',
+      )}
+    >
+      <Text className={cn('min-w-0 flex-1 text-base', !picked && 'text-text-3')} numberOfLines={1}>
+        {picked?.label ?? placeholder}
+      </Text>
+      <Icon as={ChevronDown} className="size-4 text-text-3" />
+    </Pressable>
+  );
+  return (
+    <>
+      {label ? (
+        <Field label={label} error={error}>
+          {field}
+        </Field>
+      ) : (
+        <>
+          {field}
+          {error ? <FieldError>{error}</FieldError> : null}
+        </>
+      )}
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        onClosed={() => setQuery('')}
+        title={sheetTitle}
+        testID={`${testID}-sheet`}
+      >
+        <View className="mt-3 gap-2" style={keyboard ? { paddingBottom: keyboard } : undefined}>
+          {search ? (
+            <Input
+              value={query}
+              onChangeText={setQuery}
+              placeholder={search}
+              accessibilityLabel={search}
+              autoCorrect={false}
+              returnKeyType="search"
+              trailing={<Icon as={Search} className="mr-3 size-4 text-text-3" />}
+              testID={`${testID}-search`}
+            />
+          ) : null}
+          <ScrollView
+            style={{ maxHeight: Math.max(200, height * 0.6 - keyboard) }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {rows.map((option) => {
+              const on = option.value === value;
+              return (
+                <Pressable
+                  key={String(option.value)}
+                  role="radio"
+                  aria-checked={on}
+                  accessibilityLabel={option.label}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  testID={`${testID}-${option.value ?? 'none'}`}
+                  className={cn(
+                    'min-h-11 flex-row items-center gap-2 rounded-control px-2.5 py-2.5 active:bg-card-2',
+                    on && 'bg-accent-soft',
+                  )}
+                >
+                  <View className="min-w-0 flex-1">
+                    <Text className={cn('text-[15px]', on && 'font-medium text-accent-text')}>
+                      {option.label}
+                    </Text>
+                    {option.hint ? (
+                      <Text className="text-[12.5px] text-text-3">{option.hint}</Text>
+                    ) : null}
+                  </View>
+                  {on ? <Icon as={Check} className="size-4 text-accent-text" /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Sheet>
+    </>
   );
 }

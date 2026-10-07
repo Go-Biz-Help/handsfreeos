@@ -246,9 +246,34 @@ setup's address when no other is typed there, and stops warning that documents g
 
 ## 8. Phone
 
-Step 7 of §11. Every stop works in the phone app too, signing up and creating the business included (45B), with the
-same answers kept, so someone can start on one and finish on the other. On the phone: contacts picked one by one,
-notifications turned on right there, and the summary as a "See the summary" sheet.
+Step 7 of §11 (built). Every stop works in the phone app too, signing up and creating the business included (45B),
+with the same answers kept, so someone can start on one and finish on the other. On the phone: contacts picked one by
+one, notifications turned on right there, and the summary as a "See the summary" sheet.
+
+- **Where they are.** Someone in no business (straight after signing up) gets the first screen in place of the old
+  "No business yet", with Sign out beside it. It makes the business (`organization.create`), saves the rest of the
+  screen (`onboarding_setup.save`), and opens the business's own setup screen at the goal
+  (`/app/w/<business>/setup`, full screen, for `workspace.update`). `?at=` names the screen as on the web, and
+  part way through without one it says "Carry on where you left off", with **Start over**. Closing it is Finish
+  later. An agency is named on the web, where agencies sign up.
+- **The same screens.** Each screen asks what the web's asks, with core deciding everything (the flow, the
+  answers, the summary, the words); the state and the time zone are sheets, and so are a service's length and the
+  kinds' search. What Ava reads fills in what's still to come while it reads, and coming back to the app, or back
+  online, asks again. It needs signal, and says so.
+- **What the phone does in place.** The number: the EIN question, then numbers near the city in the address (or
+  toll-free), picked and bought right there (`phone_number.buy`); a refusal (not enough on the balance for the first
+  month, say) stays on screen. Payments: Stripe's or Square's own sign-in in the phone's browser, and where it stands
+  asked again on the way back. The booking page is made as its screen opens, with its link to share. "Stay in the
+  loop", the test chat and what already works are the AI quick setup's own.
+- **What's easier on a computer** emails the person a link, as Getting started does on the phone: the carriers'
+  registration, keeping a number they already have, bringing customers in from GoHighLevel, a spreadsheet or another
+  CRM, and connecting Google or Outlook. Picking customers from the phone's contacts is step 10.
+- **Home.** Getting started's card says **Start** or **Carry on** as on the web, as its one primary button, until
+  it's finished; it reads where the setup stands from the phone's copy of the business.
+- **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making
+  the business, carrying on, the booking page, the number, payments, "Stay in the loop" to the end, who may run it,
+  no signal), the card's in `src/onboarding/__tests__/getting-started.test.tsx`, and the Maestro flow
+  `sign-up-with-code.yaml` makes the business on the phone after signing up.
 
 ---
 
@@ -286,7 +311,7 @@ Each step is its own draft pull request, merged in order.
    on the profile. The steps in Supabase, Google and Apple are in `docs/operations.md` ("Check the Auth settings",
    "Sign in with Google", "Sign in with Apple").
 6. **The web screens** (built, §7).
-7. **The phone screens** (§8), creating the business included.
+7. **The phone screens** (built, §8), creating the business included.
 8. **Logo and colour,** on the booking page, chat, invoices and emails: a new stop after the hours. Needs a database
    change.
 9. **The simple page,** for a business with no website: a new stop after the logo. Needs a database change.
