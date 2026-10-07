@@ -92,9 +92,14 @@ function factsFromSite(state: AiSetupState): Record<string, 'yes' | 'no'> {
   return out;
 }
 
-/** The answers an agency can save to start its clients from: none of them is about one business. */
+/**
+ * The answers an agency can save to start its clients from: none of them is about one business. The open hours are
+ * the onboarding setup's "hours" (the owner's 54A): a client starts from them only when neither it nor its website
+ * says when it's open.
+ */
 export const AI_SETUP_TEMPLATE_FIELDS = [
   'jobs',
+  'openHours',
   'answerWhen',
   'customHours',
   'name',
@@ -116,7 +121,8 @@ function fieldOr<K extends keyof AiSetupAnswers>(key: K, value: unknown): AiSetu
  * Every answer picked before anyone answers. A business with a teammate starts from what's saved now; one without
  * starts from its Getting started goal and its kind of business, or from its agency's saved answers (each one that
  * still reads, `aiSetupTemplateOf`). What the business hasn't said yet (what it does, its services, where it works,
- * its hours, quick facts, questions for leads) starts from what Ava read on its website.
+ * its hours, quick facts, questions for leads) starts from what Ava read on its website; hours the website doesn't
+ * give come from the saved answers.
  */
 export function startingAiSetupAnswers(
   state: AiSetupState,
@@ -142,7 +148,10 @@ export function startingAiSetupAnswers(
           : read?.services,
     ),
     area: fieldOr('area', p.serviceArea.trim() || read?.area),
-    openHours: fieldOr('openHours', state.openHours ?? read?.openHours ?? DEFAULT_OPEN_HOURS),
+    openHours: fieldOr(
+      'openHours',
+      state.openHours ?? read?.openHours ?? tpl?.openHours ?? DEFAULT_OPEN_HOURS,
+    ),
     answerWhen: fieldOr('answerWhen', tpl?.answerWhen ?? t?.hours.mode),
     customHours: fieldOr('customHours', tpl?.customHours ?? t?.hours.custom),
     facts: { ...factsFromSite(state), ...factAnswersOf(state) },

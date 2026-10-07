@@ -1,16 +1,18 @@
 'use client';
 import { AGENCY_SETUP_WORDS, CLIENT_GROUPS } from '@hfos/core';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
+import { CreateWorkspaceDialog } from '@/components/shell/workspace-switcher';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { behindBy } from '@/lib/agency/installs';
 import { agencyHref } from '@/lib/agency/org';
-import type { OnboardingClient, OnboardingClients, WorkflowTemplateGet } from '@/lib/api/types';
+import type { Me, OnboardingClient, OnboardingClients, WorkflowTemplateGet } from '@/lib/api/types';
 import { GROUP_BADGE, SetupSheet } from './setup-sheet';
 import { InstallChip, type Business } from './template-list';
 
@@ -40,9 +42,7 @@ export function BusinessList({
   if (!businesses.length)
     return (
       <Card>
-        <EmptyState title="No client businesses yet">
-          Create one from the workspace switcher; it joins this agency.
-        </EmptyState>
+        <EmptyState title="No client businesses yet">{AGENCY_SETUP_WORDS.noClients}</EmptyState>
       </Card>
     );
   const w = AGENCY_SETUP_WORDS;
@@ -144,6 +144,32 @@ export function BusinessList({
         organizationId={organizationId}
         client={open ? (setupOf.get(open) ?? null) : null}
         onOpenChange={(o) => !o && setOpen(null)}
+      />
+    </>
+  );
+}
+
+/** "Add a client business": made under this agency for someone else, then set up for them (§9 of the setup's plan). */
+export function AddClientBusiness({
+  organizationId,
+  organizations,
+}: {
+  organizationId: string;
+  organizations: Me['organizations'];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} data-testid="add-client-business">
+        <Plus className="h-4 w-4" strokeWidth={1.75} />
+        {AGENCY_SETUP_WORDS.add}
+      </Button>
+      <CreateWorkspaceDialog
+        open={open}
+        onOpenChange={setOpen}
+        organizations={organizations}
+        organizationId={organizationId}
+        forClient
       />
     </>
   );

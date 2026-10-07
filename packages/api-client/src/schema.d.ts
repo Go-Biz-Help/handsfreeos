@@ -527,7 +527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save the AI teammate answers one of your client businesses was set up with (what it helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing about the business itself) so your other businesses can start quick setup from them.
+         * Save the answers one of your client businesses was set up with (what it wanted help with first, its open hours, how customers pay, and what its AI teammate helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing else about the business itself) so your other businesses can start their setup from them.
          * @description Risk level 1. Requires org.templates.manage. Emits ai_setup_template.saved.
          */
         post: operations["command_ai_setup_template_save"];
@@ -5407,8 +5407,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Refuses answers that started from older AI teammate settings (revision_conflict).
-         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.finished.
+         * Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Someone from the business’s agency who isn’t on its team hands it to the owner instead: everything but their own hours is saved, and the owner is invited by email to check it and finish. Refuses answers that started from older AI teammate settings (revision_conflict).
+         * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.finished, onboarding_setup.handed_over.
          */
         post: operations["command_onboarding_setup_finish"];
         delete?: never;
@@ -5427,7 +5427,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.
          * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
@@ -15167,7 +15167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else picks for its kind of business), how far it got, and when it was finished.
+         * The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else answers its agency saved or picks for its kind of business), how far it got, whether its agency handed it to the owner to check and finish, and when it was finished.
          * @description Requires workspace.update.
          */
         post: operations["query_onboarding_setup_get"];
@@ -26186,6 +26186,8 @@ export interface operations {
                         organizationId: string;
                         /** @enum {string} */
                         role: "owner" | "admin" | "member";
+                        /** @default false */
+                        setup: boolean;
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -30052,6 +30054,9 @@ export interface operations {
                         usePage?: boolean;
                     };
                     baseRevision: number | null;
+                    owner?: {
+                        email: string | null;
+                    };
                     pageOrigin?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -30072,6 +30077,17 @@ export interface operations {
                             publicKey: string;
                             /** Format: uuid */
                             widgetId: string;
+                        } | null;
+                        /** @default null */
+                        handedOver: {
+                            agency: string;
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            by: string;
+                            email: string | null;
+                            name: string;
+                            role: ("owner" | "admin") | null;
                         } | null;
                         notes: string[];
                         revision: number;
@@ -30377,6 +30393,7 @@ export interface operations {
                     invite?: string[];
                     /** @enum {string} */
                     screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    templateId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -46789,6 +46806,8 @@ export interface operations {
                     "application/json": {
                         items: {
                             about: string;
+                            /** @default  */
+                            basics: string;
                             /** Format: date-time */
                             createdAt: string;
                             from: {
@@ -47333,6 +47352,8 @@ export interface operations {
                         /** @default [] */
                         templates: {
                             about: string;
+                            /** @default  */
+                            basics: string;
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
@@ -56052,7 +56073,26 @@ export interface operations {
                             /** Format: uuid */
                             by: string;
                         } | null;
+                        /** @default null */
+                        handedOver: {
+                            agency: string;
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            by: string;
+                            email: string | null;
+                            name: string;
+                            role: ("owner" | "admin") | null;
+                        } | null;
+                        /** @default null */
+                        handOverAs: ("owner" | "admin") | null;
                         reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        /** @default null */
+                        saveTo: {
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                        } | null;
                         started: {
                             /** Format: date-time */
                             at: string;
@@ -56379,6 +56419,7 @@ export interface operations {
                                 tags: string[];
                                 title: string;
                             }[];
+                            forClient: boolean;
                             found: {
                                 /** @default  */
                                 area: string;
@@ -56597,6 +56638,23 @@ export interface operations {
                             timeZone: string;
                             website: string | null;
                         };
+                        /** @default null */
+                        templateId: string | null;
+                        /** @default false */
+                        templatePicked: boolean;
+                        /** @default [] */
+                        templates: {
+                            about: string;
+                            /** @default  */
+                            basics: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "home" | "salon" | "fitness" | "health" | "pets" | "auto" | "lessons" | "real_estate" | "property" | "insurance" | "legal_money" | "professional" | "events" | "food" | "stays" | "rentals" | "retail" | "community" | "other";
+                            name: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
                     };
                 };
             };

@@ -31,6 +31,8 @@ export function SetupFrame({
   banner,
   summary,
   footer,
+  label,
+  stopName,
   leading = 'close',
   trailing,
   scroller,
@@ -38,7 +40,12 @@ export function SetupFrame({
 }: {
   /** The screen's key, for its testID: `onboarding-setup-step-goal`. */
   screen: string;
-  progress: { readonly stop: OnboardingSetupStop; readonly at: number; readonly of: number };
+  /** Where it is, for "3 of 14"; null where it isn't one of the steps (the owner checking what was set up). */
+  progress: { readonly stop: OnboardingSetupStop; readonly at: number; readonly of: number } | null;
+  /** The app bar's line in place of "3 of 14" and the stop's name: "Set up for you". */
+  label?: string;
+  /** The stop's name, when it isn't the usual one: "Hand it over" for someone from the agency. */
+  stopName?: string;
   title: string;
   hint: string;
   /** Over the question: "Carry on where you left off". */
@@ -58,26 +65,28 @@ export function SetupFrame({
   const bottom = keyboard ? keyboard + (Platform.OS === 'android' ? insets.bottom : 0) : 0;
   return (
     <Screen
-      title={W.position(progress.at, progress.of)}
-      subtitle={ONBOARDING_SETUP_STOP_NAMES[progress.stop]}
+      title={progress ? W.position(progress.at, progress.of) : (label ?? '')}
+      subtitle={progress ? (stopName ?? ONBOARDING_SETUP_STOP_NAMES[progress.stop]) : undefined}
       leading={leading}
       trailing={trailing}
       ask={false}
       scroll={false}
       testID="onboarding-setup"
     >
-      <View
-        className="h-1 bg-card-2"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={progress.of}
-        aria-valuenow={progress.at}
-      >
+      {progress ? (
         <View
-          className="h-full bg-accent"
-          style={{ width: `${(progress.at / Math.max(progress.of, 1)) * 100}%` }}
-        />
-      </View>
+          className="h-1 bg-card-2"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.of}
+          aria-valuenow={progress.at}
+        >
+          <View
+            className="h-full bg-accent"
+            style={{ width: `${(progress.at / Math.max(progress.of, 1)) * 100}%` }}
+          />
+        </View>
+      ) : null}
       <View className="flex-1" style={{ paddingBottom: bottom }}>
         <ScrollView
           ref={scroller}

@@ -16,11 +16,18 @@ import {
   OnboardingSetupAnswers,
   onboardingSetupNextScreen,
   onboardingSetupScreenApplies,
+  onboardingSetupStopOf,
+  type OnboardingSetupRecord,
   type OnboardingSetupScreen,
+  type OnboardingSetupStop,
 } from './answers';
 import { onboardingSetupBusinessLine, onboardingSetupScreenProblems } from './summary';
 import type { OnboardingSetupState } from './state';
-import { ONBOARDING_SETUP_WORDS as W } from './words';
+import {
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
+  ONBOARDING_SETUP_WORDS as W,
+  PAY_WITH_LABELS,
+} from './words';
 
 /**
  * Where the screens open: the screen after the furthest one finished, or that one when it's the last. A finished
@@ -61,6 +68,96 @@ export function onboardingSetupOpenAt(
     return first;
   return asked;
 }
+
+/**
+ * The owner opens a setup their agency handed over and they haven't finished (the owner's 53A): it opens on what the
+ * agency set up, to check, with "Change something" and "Finish my part". Whoever handed it over carries on as before.
+ */
+export const onboardingSetupChecking = (got: {
+  readonly state: Pick<OnboardingSetupState, 'forClient'>;
+  readonly handedOver: unknown;
+  readonly finished: unknown;
+}): boolean => !!got.handedOver && !got.finished && !got.state.forClient;
+
+/**
+ * Getting started's card on Home: start the setup, carry on, or for the owner of a business their agency set up,
+ * check it and finish (`checkFrom`, the agency's name). Whoever handed it over has nothing left to do there.
+ */
+export function onboardingSetupHomeOf(
+  record: Pick<OnboardingSetupRecord, 'started' | 'finished' | 'handedOver'>,
+  userId: string,
+): { readonly started: boolean; readonly finished: boolean; readonly checkFrom: string | null } {
+  const handedOver = record.finished ? null : (record.handedOver ?? null);
+  return {
+    started: !!record.started,
+    finished: !!record.finished || handedOver?.by === userId,
+    checkFrom: handedOver && handedOver.by !== userId ? handedOver.agency : null,
+  };
+}
+
+/**
+ * "Finish my part": the screens only the owner can do, their booking page (it books their time) and payments (they
+ * go to their own account), each while it's still to do; then "Stay in the loop", the test chat and what works.
+ * `at`, the screen open now, stays in it once done, so a page loaded again on it carries on from there.
+ */
+export function onboardingSetupOwnerScreens(
+  answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'payWith'>,
+  state: Pick<OnboardingSetupState, 'booking' | 'payments'>,
+  at?: OnboardingSetupScreen,
+): OnboardingSetupScreen[] {
+  return [
+    ...(answers.booksTime && (!state.booking.on || at === 'booking') ? (['booking'] as const) : []),
+    ...(answers.payWith !== 'later' && (!state.payments.active || at === 'paid')
+      ? (['paid'] as const)
+      : []),
+    'loop',
+    'try',
+    'done',
+  ];
+}
+
+/** The screen after this one in the owner's part, or null after the last. */
+export const onboardingSetupOwnerNext = (
+  screens: readonly OnboardingSetupScreen[],
+  screen: OnboardingSetupScreen,
+): OnboardingSetupScreen | null => {
+  const at = screens.indexOf(screen);
+  return at < 0 ? null : (screens[at + 1] ?? null);
+};
+
+/** The screen before this one in the owner's part; null on the first, which goes back to checking it. */
+export const onboardingSetupOwnerPrevious = (
+  screens: readonly OnboardingSetupScreen[],
+  screen: OnboardingSetupScreen,
+): OnboardingSetupScreen | null => {
+  const at = screens.indexOf(screen);
+  return at > 0 ? (screens[at - 1] ?? null) : null;
+};
+
+/** Where a screen sits in the owner's part, for "2 of 4". */
+export const onboardingSetupOwnerProgress = (
+  screens: readonly OnboardingSetupScreen[],
+  screen: OnboardingSetupScreen,
+): { readonly stop: OnboardingSetupStop; readonly at: number; readonly of: number } => ({
+  stop: onboardingSetupStopOf(screen),
+  at: Math.max(screens.indexOf(screen), 0) + 1,
+  of: screens.length,
+});
+
+/** "Your part", where the owner checks it: a line for each thing only they can do. */
+export const onboardingSetupOwnerPart = (
+  screens: readonly OnboardingSetupScreen[],
+  answers: Pick<OnboardingSetupAnswers, 'payWith'>,
+): string[] =>
+  screens.flatMap((s) =>
+    s === 'booking'
+      ? [HW.partBooking]
+      : s === 'paid'
+        ? [HW.partPaid(PAY_WITH_LABELS[answers.payWith])]
+        : s === 'loop'
+          ? [HW.partLoop]
+          : [],
+  );
 
 /** The screen each answer is on: the setup's own by name, the AI part's as `ai.<name>`. */
 const SCREEN_OF = new Map<string, OnboardingSetupScreen>(

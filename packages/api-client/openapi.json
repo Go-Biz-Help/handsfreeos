@@ -1010,13 +1010,18 @@
                         "admin",
                         "member"
                       ]
+                    },
+                    "setup": {
+                      "default": false,
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "invitationId",
                     "organizationId",
                     "workspaceId",
-                    "role"
+                    "role",
+                    "setup"
                   ],
                   "additionalProperties": false
                 }
@@ -26513,7 +26518,7 @@
     "/v1/commands/ai_setup_template.save": {
       "post": {
         "operationId": "command_ai_setup_template_save",
-        "summary": "Save the AI teammate answers one of your client businesses was set up with (what it helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing about the business itself) so your other businesses can start quick setup from them.",
+        "summary": "Save the answers one of your client businesses was set up with (what it wanted help with first, its open hours, how customers pay, and what its AI teammate helps with, when it answers, its name, how it says it’s AI, its tone, prices and questions for leads; nothing else about the business itself) so your other businesses can start their setup from them.",
         "tags": [
           "commands"
         ],
@@ -52961,7 +52966,7 @@
     "/v1/commands/onboarding_setup.save": {
       "post": {
         "operationId": "command_onboarding_setup_save",
-        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.",
+        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.",
         "tags": [
           "commands"
         ],
@@ -53781,6 +53786,18 @@
                       }
                     }
                   },
+                  "templateId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "invite": {
                     "default": [],
                     "maxItems": 10,
@@ -53920,11 +53937,11 @@
     "/v1/commands/onboarding_setup.finish": {
       "post": {
         "operationId": "command_onboarding_setup_finish",
-        "summary": "Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Refuses answers that started from older AI teammate settings (revision_conflict).",
+        "summary": "Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Someone from the business’s agency who isn’t on its team hands it to the owner instead: everything but their own hours is saved, and the owner is invited by email to check it and finish. Refuses answers that started from older AI teammate settings (revision_conflict).",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires workspace.update. Emits onboarding_setup.finished.",
+        "description": "Risk level 2. Requires workspace.update. Emits onboarding_setup.finished, onboarding_setup.handed_over.",
         "requestBody": {
           "required": true,
           "content": {
@@ -54543,6 +54560,20 @@
                   "pageOrigin": {
                     "type": "string",
                     "maxLength": 300
+                  },
+                  "owner": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "email"
+                    ]
                   }
                 },
                 "required": [
@@ -54620,6 +54651,72 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "handedOver": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "by": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "agency": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "email": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "email",
+                                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "role": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "owner",
+                                    "admin"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "by",
+                            "name",
+                            "agency",
+                            "email",
+                            "role"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -54628,7 +54725,8 @@
                     "changes",
                     "chat",
                     "calendarId",
-                    "notes"
+                    "notes",
+                    "handedOver"
                   ],
                   "additionalProperties": false
                 }
@@ -112626,6 +112724,10 @@
                           "about": {
                             "type": "string"
                           },
+                          "basics": {
+                            "default": "",
+                            "type": "string"
+                          },
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -112637,6 +112739,7 @@
                           "name",
                           "kind",
                           "about",
+                          "basics",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -112783,6 +112886,10 @@
                           "about": {
                             "type": "string"
                           },
+                          "basics": {
+                            "default": "",
+                            "type": "string"
+                          },
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -112824,6 +112931,7 @@
                           "name",
                           "kind",
                           "about",
+                          "basics",
                           "updatedAt",
                           "from",
                           "createdAt"
@@ -132265,7 +132373,7 @@
     "/v1/queries/onboarding_setup.get": {
       "post": {
         "operationId": "query_onboarding_setup_get",
-        "summary": "The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else picks for its kind of business), how far it got, and when it was finished.",
+        "summary": "The onboarding setup: what the business has today (its address, website, hours, services, number, payments, customers, booking page, team and AI teammate), the answers to start from (what someone answered so far, else answers its agency saved or picks for its kind of business), how far it got, whether its agency handed it to the owner to check and finish, and when it was finished.",
         "tags": [
           "queries"
         ],
@@ -133470,6 +133578,9 @@
                             }
                           ]
                         },
+                        "forClient": {
+                          "type": "boolean"
+                        },
                         "phones": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -133727,6 +133838,7 @@
                         "bookable",
                         "priceList",
                         "myHours",
+                        "forClient",
                         "phones",
                         "look"
                       ],
@@ -135077,6 +135189,87 @@
                         }
                       ]
                     },
+                    "handedOver": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "by": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "agency": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "email": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "email",
+                                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "role": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "owner",
+                                    "admin"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "by",
+                            "name",
+                            "agency",
+                            "email",
+                            "role"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "handOverAs": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "owner",
+                            "admin"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "finished": {
                       "anyOf": [
                         {
@@ -135103,6 +135296,111 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "templates": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "salon",
+                              "fitness",
+                              "health",
+                              "pets",
+                              "auto",
+                              "lessons",
+                              "real_estate",
+                              "property",
+                              "insurance",
+                              "legal_money",
+                              "professional",
+                              "events",
+                              "food",
+                              "stays",
+                              "rentals",
+                              "retail",
+                              "community",
+                              "other"
+                            ]
+                          },
+                          "about": {
+                            "type": "string"
+                          },
+                          "basics": {
+                            "default": "",
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "kind",
+                          "about",
+                          "basics",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "templateId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "templatePicked": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "saveTo": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "organizationId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "organizationId",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -135111,7 +135409,13 @@
                     "starting",
                     "reached",
                     "started",
-                    "finished"
+                    "handedOver",
+                    "handOverAs",
+                    "finished",
+                    "templates",
+                    "templateId",
+                    "templatePicked",
+                    "saveTo"
                   ],
                   "additionalProperties": false
                 }

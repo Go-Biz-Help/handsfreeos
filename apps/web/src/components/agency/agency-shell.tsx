@@ -35,7 +35,7 @@ const SECTIONS: readonly { key: AgencySection; label: string; icon: LucideIcon }
   { key: 'businesses', label: 'Client businesses', icon: Building2 },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
   { key: 'packs', label: 'Knowledge packs', icon: Package },
-  { key: 'ai-setups', label: 'AI setups', icon: Sparkles },
+  { key: 'ai-setups', label: 'Saved setups', icon: Sparkles },
   { key: 'migrations', label: 'Migrations', icon: Import },
 ];
 

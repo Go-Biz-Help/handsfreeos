@@ -5,6 +5,10 @@
  * The first screen is business.tsx, and the AI teammate's are the AI quick setup's own. Each only shows and changes
  * answers, or opens the screen that already does a stop's job (the number search and registration, the GoHighLevel
  * move, the spreadsheet import, the payments sign-in) in place; the frame (quick-setup.tsx) checks, keeps and saves.
+ *
+ * Someone from the business's agency setting it up for the owner (`state.forClient`, §9) leaves what's the owner's
+ * to them: the booking page, which books their time, payments, which go to their account, and their phone's
+ * contacts. In place of "Stay in the loop" they hand it over, and the owner first checks what they set up.
  */
 import {
   AI_SETUP_FIELD_WORDS as AW,
@@ -12,6 +16,7 @@ import {
   CUSTOMER_SOURCES,
   ONBOARDING_GOALS,
   ONBOARDING_KIND_INFO,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_SETUP_MAX,
   ONBOARDING_SETUP_WORDS as W,
   PAY_WITH,
@@ -23,6 +28,7 @@ import {
   type AiSetupAnswers,
   type AiSetupProblems,
   type CustomerSource,
+  type HandOverRole,
   type OnboardingSetupAnswers,
   type OnboardingSetupState,
 } from '@hfos/core';
@@ -352,7 +358,7 @@ const SOURCE_HINTS: Readonly<Record<CustomerSource, string>> = {
   none: W.noneHint,
 };
 
-export function CustomersScreen({ answers, set, data }: OwnScreenProps) {
+export function CustomersScreen({ state, answers, set, data }: OwnScreenProps) {
   const [app, setApp] = useState(false);
   return (
     <>
@@ -378,6 +384,8 @@ export function CustomersScreen({ answers, set, data }: OwnScreenProps) {
         ) : (
           <Note>{W.cantDo}</Note>
         )
+      ) : answers.customersIn === 'phone' && state.forClient ? (
+        <Note>{HW.phoneWaits}</Note>
       ) : answers.customersIn === 'phone' ? (
         <div>
           <Button
@@ -470,6 +478,8 @@ export function BookingScreen({
   const origin = usePublicOrigin(data.brandedOrigin);
   const site = state.booking.site;
   const link = site && origin ? `${origin}/book/${site.slug}` : null;
+  // The owner makes it when they finish: the question and its hint say so.
+  if (state.forClient) return null;
   return (
     <>
       {booking.making ? (
@@ -627,7 +637,7 @@ export function PaidScreen({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(false);
-  const back = onboardingSetupHref(data.workspaceId, 'paid');
+  const back = onboardingSetupHref(data.workspaceId, 'paid', data.ownerPart);
 
   const told = useRef(false);
   useEffect(() => {
@@ -686,7 +696,7 @@ export function PaidScreen({
             {W.payConnected(provider)}
           </Callout>
         )
-      ) : p.broken && p.provider && provider ? (
+      ) : p.broken && p.provider && provider && !state.forClient ? (
         <Callout tone="danger" icon={AlertTriangle}>
           <span className="flex flex-col items-start gap-2">
             {W.paySignInAgain(provider)}
@@ -702,11 +712,16 @@ export function PaidScreen({
         </Callout>
       ) : null}
       {picked && !(p.provider === picked && (p.active || p.broken)) ? (
-        <div>
-          <Button loading={busy} onClick={() => connect(picked)} data-testid="setup-pay-connect">
-            {WIZARD_WORDS.connect(W.payWithLabels[picked])}
-          </Button>
-        </div>
+        state.forClient ? (
+          // Payments go to the owner's own account, so they sign in when they finish.
+          <Note>{HW.payWaits(W.payWithLabels[picked])}</Note>
+        ) : (
+          <div>
+            <Button loading={busy} onClick={() => connect(picked)} data-testid="setup-pay-connect">
+              {WIZARD_WORDS.connect(W.payWithLabels[picked])}
+            </Button>
+          </div>
+        )
       ) : null}
       <div>
         <Field
@@ -756,5 +771,85 @@ export function DoneScreen({ lines }: { readonly lines: readonly string[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// ---- Hand it to the owner ----
+
+/** For someone from the agency, in place of "Stay in the loop": whom to invite to check it and finish. */
+export function HandOverScreen({
+  email,
+  onChange,
+  role,
+  error,
+}: {
+  readonly email: string;
+  readonly onChange: (email: string) => void;
+  /** What they're invited as: an owner, when whoever hands it over may make one. */
+  readonly role: HandOverRole;
+  readonly error?: string;
+}) {
+  return (
+    <Field
+      label={HW.ownerEmail}
+      htmlFor="setup-owner-email"
+      error={error}
+      hint={HW.ownerEmailHint(role)}
+    >
+      <Input
+        id="setup-owner-email"
+        type="email"
+        inputMode="email"
+        inputSize="lg"
+        autoComplete="off"
+        placeholder="owner@theirbusiness.com"
+        value={email}
+        maxLength={254}
+        invalid={!!error}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid="setup-owner-email"
+      />
+    </Field>
+  );
+}
+
+// ---- Check what your agency set up ----
+
+/** The owner's first look at what their agency set up: what works now, then what's left for them to do. */
+export function CheckScreen({
+  lines,
+  part,
+}: {
+  readonly lines: readonly string[];
+  /** "Your part", one line each (`onboardingSetupOwnerPart`). */
+  readonly part: readonly string[];
+}) {
+  return (
+    <>
+      <ul className="flex flex-col gap-2.5" data-testid="onboarding-setup-check">
+        {lines.map((line) => (
+          <li
+            key={line}
+            className="flex items-start gap-2.5 rounded-menu bg-card-2 px-3.5 py-3 text-[14px]"
+          >
+            <Check className="mt-0.5 h-4 w-4 flex-none text-success-text" strokeWidth={2} />
+            {line}
+          </li>
+        ))}
+      </ul>
+      <section className="flex flex-col gap-2.5" data-testid="onboarding-setup-your-part">
+        <h2 className="text-[15px] font-semibold">{HW.yourPart}</h2>
+        <ol className="flex flex-col gap-2">
+          {part.map((line, i) => (
+            <li key={line} className="flex items-start gap-2.5 text-[14px]">
+              <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent-text">
+                {i + 1}
+              </span>
+              {line}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </>
   );
 }

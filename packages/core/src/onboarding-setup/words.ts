@@ -8,6 +8,7 @@ import { LOOK_WORDS } from '../look/words';
 import { QUESTION_WORDS } from '../onboarding/words';
 import {
   AI_SCREEN_OF,
+  type HandOverRole,
   type OnboardingSetupScreen,
   type OnboardingSetupStop,
   type PayWith,
@@ -80,16 +81,35 @@ const OWN_SCREENS: Readonly<
 };
 
 /**
+ * The screens that ask something else when someone from the business's agency sets it up for the owner (the owner's
+ * 53A): the booking page and "Stay in the loop" are the owner's to do.
+ */
+const FOR_CLIENT_SCREENS: Readonly<
+  Partial<Record<OnboardingSetupScreen, { readonly title: string; readonly hint: string }>>
+> = {
+  booking: {
+    title: 'The booking page is the owner’s',
+    hint: 'It books their time, on their own hours, so they make it when they finish. Your services and open hours are saved for it.',
+  },
+  loop: {
+    title: 'Hand it to the owner',
+    hint: 'They get an email to check what you set up and finish their part: the booking page, payments and their notifications.',
+  },
+};
+
+/**
  * A screen's question, with the teammate's name in it: the setup's own, else the AI quick setup's. "When are you
  * open?" asks only that here; when Ava answers keeps its pick. With no website (`place.website` false), the chat
- * screen asks about a chat on the business's simple page.
+ * screen asks about a chat on the business's simple page. `forClient`: someone from the agency is setting it up
+ * for the owner (`state.forClient`).
  */
 export const onboardingSetupTitle = (
   screen: OnboardingSetupScreen,
   name: string,
   place?: { readonly website: boolean },
+  forClient = false,
 ): string => {
-  const own = OWN_SCREENS[screen];
+  const own = (forClient ? FOR_CLIENT_SCREENS[screen] : undefined) ?? OWN_SCREENS[screen];
   const ai = AI_SCREEN_OF[screen];
   if (own) return withAiName(own.title, name);
   return ai ? aiSetupStepTitle(ai, name, place) : '';
@@ -100,12 +120,17 @@ export const onboardingSetupHint = (
   screen: OnboardingSetupScreen,
   name: string,
   place?: { readonly website: boolean },
+  forClient = false,
 ): string => {
-  const own = OWN_SCREENS[screen];
+  const own = (forClient ? FOR_CLIENT_SCREENS[screen] : undefined) ?? OWN_SCREENS[screen];
   const ai = AI_SCREEN_OF[screen];
   if (own) return withAiName(own.hint, name);
   return ai ? aiSetupStepHint(ai, name, place) : '';
 };
+
+/** A stop's short name: "Stay in the loop" is "Hand it over" for someone setting it up for the owner. */
+export const onboardingSetupStopName = (stop: OnboardingSetupStop, forClient = false): string =>
+  forClient && stop === 'loop' ? 'Hand it over' : ONBOARDING_SETUP_STOP_NAMES[stop];
 
 export const PAY_WITH_LABELS: Readonly<Record<PayWith, string>> = {
   stripe: 'Stripe',
@@ -233,4 +258,43 @@ export const ONBOARDING_SETUP_WORDS = {
   findReviewLink: 'How to find it',
   reviewLinkHelp:
     'Search for your business on Google and open your Business Profile. Press Ask for reviews, copy the link it shows, and paste it here.',
+} as const;
+
+/**
+ * When someone from the business's agency sets it up for the owner, and when the owner checks it and finishes (the
+ * owner's 53A). `agency` is the agency's name, `name` the person's who set it up.
+ */
+export const ONBOARDING_SETUP_HAND_OVER_WORDS = {
+  /** On "Get paid", in place of Connect: payments go to the owner's own account. */
+  payWaits: (provider: string) =>
+    `The owner signs in to ${provider} when they finish, so payments go to their own account.`,
+  /** On the customers stop, in place of the phone's contacts. */
+  phoneWaits: 'The owner picks them one by one in the phone app, once they join.',
+
+  // Handing it over
+  ownerEmail: 'The owner’s email (optional)',
+  ownerEmailHint: (role: HandOverRole) =>
+    role === 'owner'
+      ? 'They join as the owner of this business. Leave it empty to invite them later from Members.'
+      : 'They join as an admin, since only an owner of your agency can make someone an owner. Leave it empty to invite them later from Members.',
+  handOver: 'Save and hand it over',
+  /** Done, for whoever handed it over. */
+  sent: (email: string) => `${email} has an email to check it and finish their part.`,
+  notSent: 'Invite the owner from Members when you’re ready. They check it and finish from there.',
+
+  // The owner checks it
+  checkCounter: 'Set up for you',
+  checkTitle: (agency: string) => `Check what ${agency} set up`,
+  checkHint: (name: string, business: string) =>
+    `${name} set up ${business} for you. Look it over and change anything you like, then finish your part.`,
+  yourPart: 'Your part',
+  partBooking: 'Make your booking page, on your own hours',
+  partPaid: (provider: string) => `Sign in to ${provider}, so payments go to your account`,
+  partLoop: 'Get alerts on your phone when a customer needs you',
+  change: 'Change something',
+  finishPart: 'Finish my part',
+  /** Home's Getting started card, until the owner finishes. */
+  homeTitle: (agency: string) => `${agency} set up your business`,
+  homeDetail: 'Look over what they did, change anything you like, and finish your part.',
+  homeAction: 'Check it and finish',
 } as const;

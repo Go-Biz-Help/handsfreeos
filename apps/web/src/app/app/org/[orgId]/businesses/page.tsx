@@ -1,7 +1,7 @@
 import { AGENCY_SETUP_WORDS } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { BusinessList } from '@/components/agency/businesses';
+import { AddClientBusiness, BusinessList } from '@/components/agency/businesses';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadTemplates } from '@/lib/agency/load';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
@@ -37,6 +37,7 @@ export default async function AgencyBusinessesPage({
             ? `${AGENCY_SETUP_WORDS.summary(setup.counts.all, setup.counts.stuck, setup.counts.setup)}. Each business’s templates, the version it has, and whether it’s behind.`
             : 'Each business’s templates, the version it has, and whether it’s behind.'
         }
+        actions={<AddClientBusiness organizationId={orgId} organizations={me.organizations} />}
       />
       <BusinessList
         organizationId={orgId}

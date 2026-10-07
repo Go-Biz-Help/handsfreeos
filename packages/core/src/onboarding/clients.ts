@@ -62,6 +62,10 @@ export const AGENCY_SETUP_WORDS = {
   remind: (firstName: string) => `Email ${firstName} a reminder`,
   remindNoOwner: 'Email a reminder',
   openWorkspace: 'Open their workspace',
+  /** The guided setup, which hands the business to its owner at the end. */
+  openSetup: 'Open the setup',
+  add: 'Add a client business',
+  noClients: 'Add one, set it up for them, and hand it to its owner to check and finish.',
   reminded: (email: string) => `Reminder sent to ${email}.`,
   remindedToday:
     'This business already got a reminder today. One a day is plenty; try again tomorrow.',

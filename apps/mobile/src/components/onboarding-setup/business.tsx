@@ -18,6 +18,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { ChoiceField, Field, KindField, WebsiteField } from '@/components/ai-setup/fields';
+import { StartFrom, type ScreenProps } from '@/components/ai-setup/screens';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
@@ -36,12 +37,15 @@ export function BusinessScreen({
   onChange,
   problems,
   name,
+  startFrom = null,
 }: {
   business: OnboardingSetupBusinessDraft;
   onChange: (next: OnboardingSetupBusinessDraft) => void;
   problems: AiSetupProblems;
   /** The AI teammate's name, for the website's hint. */
   name: string;
+  /** "Start from", while the agency has saved answers and the business has no teammate (§9). */
+  startFrom?: ScreenProps['startFrom'];
 }) {
   return (
     <>
@@ -85,6 +89,7 @@ export function BusinessScreen({
         )}
         error={problems['business.website']}
       />
+      {startFrom ? <StartFrom {...startFrom} basics /> : null}
     </>
   );
 }

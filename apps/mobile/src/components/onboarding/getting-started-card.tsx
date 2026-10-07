@@ -2,6 +2,8 @@ import {
   GUIDE_WORDS,
   holds,
   LINK_WORDS,
+  ONBOARDING_SETUP_HAND_OVER_WORDS,
+  onboardingSetupHomeOf,
   onboardingSetupOf,
   PHONE_GUIDE_WORDS,
   progressWords,
@@ -50,8 +52,9 @@ const FOLDED = 4;
  * finished on the web, it's gone here too.
  *
  * Until the guided setup is finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), whoever sets the
- * business up sees it in place of the next step, as on the web: Carry on for a business part way through, and Start
- * for one that never answered the quick questions. It runs on the phone too.
+ * business up sees it in place of the next step, as on the web: Check it and finish for a business its agency set up
+ * and handed over, Carry on for one part way through, and Start for one that never answered the quick questions. It
+ * runs on the phone too.
  */
 export function GettingStartedCard({ className }: { className?: string }) {
   const { business, userId } = useBusiness();
@@ -73,7 +76,7 @@ function Steps({
   reload: () => void;
   className?: string;
 }) {
-  const { business } = useBusiness();
+  const { business, userId } = useBusiness();
   const { online } = useNetwork();
   const push = usePushRegistration();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -92,22 +95,31 @@ function Steps({
     if (hasTeammate && hadTeammate.current === false) reload();
     hadTeammate.current = hasTeammate;
   }, [isLoading, hasTeammate, reload]);
-  // The guided setup, as the phone's copy of the business has it, until it's finished.
+  // The guided setup, as the phone's copy of the business has it, until it's finished: finished too for whoever handed
+  // it to its owner.
   const { settings } = useWorkspaceRow();
   const setup = React.useMemo(() => {
+    let parsed: Record<string, unknown> | null = null;
     try {
-      return onboardingSetupOf(settings ? (JSON.parse(settings) as Record<string, unknown>) : null);
+      parsed = settings ? (JSON.parse(settings) as Record<string, unknown>) : null;
     } catch {
-      return onboardingSetupOf(null);
+      parsed = null;
     }
-  }, [settings]);
+    return onboardingSetupHomeOf(onboardingSetupOf(parsed), userId);
+  }, [settings, userId]);
   const guided =
     owner && !setup.finished && holds(grants, 'workspace.update')
-      ? setup.started
-        ? GUIDE_WORDS.carryOn
-        : status.answers
-          ? null
-          : GUIDE_WORDS.setUp
+      ? setup.checkFrom
+        ? {
+            title: ONBOARDING_SETUP_HAND_OVER_WORDS.homeTitle(setup.checkFrom),
+            detail: ONBOARDING_SETUP_HAND_OVER_WORDS.homeDetail,
+            action: ONBOARDING_SETUP_HAND_OVER_WORDS.homeAction,
+          }
+        : setup.started
+          ? GUIDE_WORDS.carryOn
+          : status.answers
+            ? null
+            : GUIDE_WORDS.setUp
       : null;
   /** The step this phone does itself. */
   const onPhone = (step: OnboardingStep) =>

@@ -201,7 +201,8 @@ optional price and length (`AiSetupService`), which the AI quick setup now uses 
 length and price, and the profile shows the price.
 
 **While someone is part way through**, `workspaces.settings.onboardingSetup` keeps the answers, the furthest screen
-finished, the kind they were answered for, and who started and finished it. Only the setup's commands write it:
+finished, the kind they were answered for, who started and finished it, and who handed it to its owner when its
+agency set it up (§9). Only the setup's commands write it:
 `workspace.update` refuses the key. It's read forgivingly, and carrying on works like the AI quick setup's: the
 answers of the screens finished over today's picks, with what's picked by kind picked again when the kind changed
 on the first screen. The AI part's answers stay in this record, not the AI quick setup's, because the screens come
@@ -290,9 +291,9 @@ setup's address when no other is typed there, and stops warning that documents g
   or open. Settings → Workspace's "Your page" card turns it on or off later, for those who manage calendars, with
   its address. With the page on and no website, Try Ava says Ava answers the chat on the page, with a link to it,
   instead of the code to paste.
-- **Home.** Getting started's card says **Start** to a business that never answered the quick questions, and **Carry
-  on** part way through, as its one primary button; nothing once it's finished. The setup wizard's steps stay, opened
-  from the card's own rows.
+- **Home.** Getting started's card says **Start** to a business that never answered the quick questions, **Carry
+  on** part way through, and **Check it and finish** to the owner of a business its agency handed over (§9), as its
+  one primary button; nothing once it's finished. The setup wizard's steps stay, opened from the card's own rows.
 - **Tests.** `apps/web/e2e/onboarding-setup.spec.ts` goes through every stop (an uploaded logo and a picked colour
   included, then on the booking page, which is the simple page with Ava's chat on it); `look.spec.ts` covers Settings
   → Workspace's card (a refused SVG, a logo made ready, a colour kept, the logo taken off); `business-page.spec.ts`
@@ -341,8 +342,11 @@ one, notifications turned on right there, and the summary as a "See the summary"
   customer on the phone. The picker is the app's own native module (`modules/hfos-phone`), so the release after it
   is a store build; the App Store's privacy answers and Play's Data safety list Contacts as collected (only the ones
   picked).
-- **Home.** Getting started's card says **Start** or **Carry on** as on the web, as its one primary button, until
-  it's finished; it reads where the setup stands from the phone's copy of the business.
+- **Home.** Getting started's card says **Start**, **Carry on** or **Check it and finish** as on the web, as its one
+  primary button, until it's finished; it reads where the setup stands from the phone's copy of the business.
+- **Agencies** (§9). Someone from the agency sets a client's business up and hands it over on the phone as on the
+  web, and the owner checks it and finishes their part there too. Saving the answers for the agency's other
+  businesses is on the web, as with the AI quick setup.
 - **Tests.** `apps/mobile/src/components/onboarding-setup/__tests__/quick-setup.test.tsx` (the first screen making the
   business, carrying on, the simple page, the booking page, the number, payments, "Stay in the loop" to the end, who
   may run it, no signal, and Try Ava pointing at the page's chat), `look.test.tsx` (a logo picked and sent to Storage,
@@ -358,9 +362,47 @@ one, notifications turned on right there, and the summary as a "See the summary"
 
 ## 9. Agencies
 
-Step 11 of §11. An agency can set up a client's business and invite the owner by email to check it and finish. It
-can save its answers as a starting point for clients: the goal, hours and payment choice, plus the AI quick setup's
-saved answers. Never a client's name, address, services, number or customers.
+Step 11 of §11 (built). An agency can set up a client's business and invite the owner by email to check it and finish
+(53A). It can save its answers as a starting point for clients: the goal, hours and payment choice, plus the AI quick
+setup's saved answers. Never a client's name, address, services, number or customers (54A).
+
+- **Setting it up for the owner.** The agency area's Client businesses has **Add a client business**: the business
+  is made with "I'm setting it up for someone else", so the agency isn't on its team, and the setup opens. A
+  client's setup sheet has **Open the setup** for later. Someone who isn't on the business's own team
+  (`state.forClient`: an owner or admin of its agency) goes through the same screens, with what's the owner's own
+  left for them: the booking page books their time (the stop says so, and nothing is made), payments go to their
+  own account (it says they sign in when they finish), and customers from a phone's contacts are theirs to pick.
+- **Handing it over.** "Stay in the loop" is **Hand it over** for them: the owner's email, then **Save and hand it
+  over**. `onboarding_setup.finish` with `owner` saves everything as "Stay in the loop" does, keeps the hand-over in
+  the setup's record (`handedOver`: when, who, the agency, the email and the role), and invites them. An owner of
+  the agency invites them as the business's owner, anyone else as an admin, since only an owner can make an owner
+  (`handOverAs` on `onboarding_setup.get` says which before they press it). With no email, they're invited later from
+  Members. Someone on the business's own team can't hand it over. The invitation email says who set the business up
+  and asks them to check it and finish; accepting it opens the setup. Whoever handed it over sees nothing more on
+  Home's card.
+- **The owner checks it.** Opened without a screen named, the setup shows **Check what <agency> set up**: the
+  summary, then "Your part" (the booking page, payments and their notifications, each while it's still to do).
+  **Change something** walks the whole setup from the first screen; **Finish my part** walks only their own screens
+  (`onboardingSetupOwnerScreens`, `?part=owner`, so a page loaded again or the way back from Stripe keeps to it),
+  counted on their own ("1 of 5"), with Back from the first going back to checking it. Until they finish, Home's
+  card says **<agency> set up your business**, with **Check it and finish** (`onboardingSetupHomeOf`). The same on
+  the web and the phone.
+- **Saved setups.** The agency's saved answers (the AI quick setup's, called **Saved setups** in the agency area now)
+  keep what the business wanted help with first and how its customers pay beside the AI teammate's answers and open
+  hours, read forgivingly (`savedSetupStartOf`). A new business starts from the newest saved for its kind, and the
+  first screen's **Start from** shows what each sets for the business ("Getting booked · Open Mon–Fri 8:00 AM–5:00
+  PM · Customers pay with Stripe") and picks another, or our picks. They're saved from the test chat at the end of
+  either setup, or from the agency area; what the business has or said already stays as it is.
+- **No database change.** The hand-over lives in the setup's own record, the goal and payments in the saved answers'
+  own document, and whether someone's from the agency comes from the business's team.
+- **Tests.** `packages/core/test/onboarding-setup.test.ts` (saved answers starting a business, read forgivingly and
+  picked again; the owner's screens and "Your part"; Home's card; the hand-over's stop),
+  `onboarding-setup-commands.test.ts` (local database: who's from the agency, the booking page left to the owner,
+  handing it over and who it invites as, refusing it to the business's own team, the owner accepting and finishing,
+  saving the answers), `apps/worker/test/worker.test.ts` (the hand-over's invitation email),
+  `apps/web/e2e/agency-handover.spec.ts` (an agency adds a client business, sets it up, hands it over and saves the
+  answers, which the next business starts from; the owner signs up from the email, checks it on the web and finishes
+  their part, payments included), and the phone's `quick-setup.test.tsx` and `getting-started.test.tsx`.
 
 ---
 
@@ -402,7 +444,9 @@ Each step is its own draft pull request, merged in order.
 10. **Phone contacts** (built, §8): picked one at a time in the phone app, on the setup's customers stop and More →
     Customers, through the phone's own picker with no contacts permission. A new native call in `modules/hfos-phone`,
     so the release after it is a store build. No database change.
-11. **Agencies** (§9). Needs a database change.
+11. **Agencies** (built, §9): an agency sets up a client's business, hands it to the owner to check and finish their
+    part, and saves its answers, the goal, hours and payments included, for its other businesses. On the web and the
+    phone. No database change.
 
 ---
 

@@ -5698,6 +5698,15 @@
           "pageOrigin": {
             "type": "string",
             "maxLength": 300
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["email"]
           }
         },
         "required": ["workspaceId", "answers", "baseRevision"]
@@ -6414,6 +6423,17 @@
                 ]
               }
             }
+          },
+          "templateId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "invite": {
             "default": [],

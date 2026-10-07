@@ -18,7 +18,13 @@ import { SETUP_KINDS, setupKindOf, type SetupKind } from './kinds';
 import { aiSetupFoundOf, aiSetupReading } from './found';
 import type { AiSetupTemplate } from './plan';
 import { AI_SETUP_FACT_TAG, type AiSetupScanState, type AiSetupState } from './state';
-import { aiSetupTemplateAbout, aiSetupTemplateOf } from './templates';
+import {
+  aiSetupTemplateAbout,
+  aiSetupTemplateOf,
+  savedSetupBasics,
+  savedSetupStartOf,
+  type SavedSetupStart,
+} from './templates';
 
 const SCAN_STATES: Readonly<Record<string, AiSetupScanState>> = {
   queued: 'running',
@@ -165,8 +171,12 @@ export interface AiSetupTemplateRow {
   readonly name: string;
   readonly kind: SetupKind;
   readonly answers: Partial<AiSetupTemplate>;
-  /** What they set, in a line. */
+  /** What they set for the onboarding setup's own questions: the goal and how customers pay. */
+  readonly start: SavedSetupStart;
+  /** What they set for the AI teammate, in a line. */
   readonly about: string;
+  /** What they set for the business, in a line: the goal, open hours and payments. Empty for older ones. */
+  readonly basics: string;
   readonly fromWorkspaceId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -195,16 +205,37 @@ export async function loadAiSetupTemplates(
     .orderBy(sql`lower(${aiSetupTemplates.name})`, aiSetupTemplates.createdAt);
   return list.map((t) => {
     const answers = aiSetupTemplateOf(t.answers);
+    const start = savedSetupStartOf(t.answers);
     return {
       id: t.id,
       name: t.name,
       // A kind no longer on the list counts as Other businesses.
       kind: (SETUP_KINDS as readonly string[]).includes(t.kind) ? (t.kind as SetupKind) : 'other',
       answers,
+      start,
       about: aiSetupTemplateAbout(answers),
+      basics: savedSetupBasics(answers, start),
       fromWorkspaceId: t.fromWorkspaceId,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
     };
   });
+}
+
+/**
+ * Where this person may save a business's answers for the agency's other businesses: its owners and admins, once
+ * it has more than one business.
+ */
+export async function loadAiSetupSaveTo(
+  tx: Tx,
+  organizationId: string,
+): Promise<{ organizationId: string; name: string } | null> {
+  const [org] = await rows<{ name: string; manages: boolean; businesses: number }>(
+    tx,
+    sql`select o.name, private.has_org_permission(o.id, 'org.templates.manage') as manages,
+          (select count(*) from app.workspaces w
+            where w.organization_id = o.id and w.deletion_requested_at is null)::int as businesses
+        from app.organizations o where o.id = ${organizationId}`,
+  );
+  return org?.manages && org.businesses > 1 ? { organizationId, name: org.name } : null;
 }

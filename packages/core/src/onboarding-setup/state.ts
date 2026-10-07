@@ -75,6 +75,12 @@ export const OnboardingSetupStateOut = AiSetupStateOut.extend({
   ),
   /** The hours the person setting up has saved for themselves; null while they have the default. */
   myHours: WeeklyHours.nullable(),
+  /**
+   * The person setting it up isn't on the business's own team: someone from its agency, setting it up for the
+   * owner to check and finish (the owner's 53A). What's the owner's own waits for them: the booking page, which
+   * books their time, and payments, which go to their account.
+   */
+  forClient: z.boolean(),
   /** Phones this person gets notifications on: the phone app is in. */
   phones: z.int(),
   /** The business's logo and colour, and where the logo's being looked for or made ready (look/look.ts). */

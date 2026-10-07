@@ -9,13 +9,19 @@
  * "Stay in the loop" saves the rest (`onboarding_setup.finish`): the AI quick setup's own Save, the price list and
  * the person's own hours.
  *
+ * Someone from the business's agency, who isn't on its team, sets it up for the owner (§9, the owner's 53A): the
+ * booking page (it books the owner's time) and their own hours wait for the owner, and "Stay in the loop" hands it
+ * over instead, inviting the owner to check it and finish.
+ *
  * Each part runs the command it already has, in this transaction, with its own permission and events.
  */
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { aiSetupFlowFactsOf } from '../ai-setup/flow';
-import { setupKindOf } from '../ai-setup/kinds';
+import { setupKindOf, type SetupKind } from '../ai-setup/kinds';
+import { loadAiSetupTemplates } from '../ai-setup/load';
+import { chosenAiSetupTemplate } from '../ai-setup/templates';
 import { ensureBookingSite } from '../calendar/site';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -24,18 +30,22 @@ import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import { businessOnboardingOf } from '../onboarding/settings';
 import {
+  handOverRoleOf,
   laterOnboardingSetupScreen,
   ONBOARDING_SETUP_SETTINGS_KEY,
   onboardingSetupOf,
   onboardingSetupScreens,
   storedOnboardingSetup,
   type OnboardingSetupAnswers,
+  type OnboardingSetupHandOver,
   type OnboardingSetupRecord,
 } from '../onboarding-setup/answers';
 import { loadOnboardingSetupState } from '../onboarding-setup/load';
+import { withOnboardingSetupSaved } from '../onboarding-setup/picks';
 import {
   myHoursChange,
   myHoursFrom,
+  onboardingSetupAiAnswers,
   planOnboardingBooking,
   planOnboardingPage,
   planPriceList,
@@ -104,6 +114,51 @@ async function saveRecord(ctx: CommandContext, next: OnboardingSetupRecord) {
     throw HfosError.forbidden(
       'The setup saves to the business’s settings, and your role can’t change them. Ask an owner of this business to run it.',
     );
+}
+
+/** The person setting it up isn't on the business's own team: someone from its agency, setting it up for the owner. */
+async function forClient(ctx: CommandContext): Promise<boolean> {
+  const [me] = await rows<{ member: boolean }>(
+    ctx.tx,
+    sql`select exists (select 1 from app.workspace_memberships
+          where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${requireHuman(ctx).userId}) as member`,
+  );
+  return !me?.member;
+}
+
+/**
+ * The first screen's "Start from" (§9, the owner's 54A): the agency's saved answers picked, kept with the draft, and
+ * the answers with what saved answers set picked again when where they start from changed, by picking others or,
+ * while nobody picked, by the kind of business changing. A business with a teammate starts from its own settings.
+ */
+async function startFrom(
+  ctx: CommandContext,
+  input: { readonly answers: OnboardingSetupAnswers; readonly templateId?: string | null },
+  record: OnboardingSetupRecord,
+  kinds: { readonly before: SetupKind; readonly now: SetupKind },
+): Promise<{ template: string | null | undefined; answers: OnboardingSetupAnswers }> {
+  const ws = ctx.scope.workspaceId!;
+  const kept = { template: record.template, answers: input.answers };
+  const [w] = await rows<{ organizationId: string; teammate: boolean }>(
+    ctx.tx,
+    sql`select w.organization_id as "organizationId",
+          exists (select 1 from app.ai_teammates t where t.workspace_id = w.id) as teammate
+        from app.workspaces w where w.id = ${ws}`,
+  );
+  if (!w || w.teammate) return kept;
+  const templates = await loadAiSetupTemplates(ctx.tx, w.organizationId);
+  if (input.templateId && !templates.some((t) => t.id === input.templateId))
+    throw HfosError.rule(
+      'template_gone',
+      409,
+      'Those saved answers aren’t there anymore. Pick others, or start from our picks.',
+    );
+  const picked = input.templateId !== undefined ? input.templateId : record.template;
+  const was = chosenAiSetupTemplate(templates, record.template, kinds.before);
+  const now = chosenAiSetupTemplate(templates, picked, kinds.now);
+  if (was?.id === now?.id) return { ...kept, template: picked };
+  const state = await loadOnboardingSetupState(ctx.tx, ws, requireHuman(ctx).userId);
+  return { template: picked, answers: withOnboardingSetupSaved(input.answers, state, now) };
 }
 
 /** Getting started's answers, which put Home's list in order, when they changed. */
@@ -278,6 +333,53 @@ async function saveReviewLink(
 }
 
 /**
+ * "Hand it to the owner" (the owner's 53A): the owner invited to check it and finish, as the business's owner when the
+ * person handing it over may make them one, else as an admin. Someone already in, or already invited, is a note:
+ * they find it waiting when they open the setup.
+ */
+async function handOver(
+  ctx: CommandContext,
+  email: string | null,
+  out: { notes: string[]; changes: string[] },
+): Promise<OnboardingSetupHandOver> {
+  const me = requireHuman(ctx).userId;
+  const role = handOverRoleOf(ctx.scope.workspaceRole);
+  if (email) {
+    try {
+      await executeCommandWithin(ctx, membershipInvite, {
+        workspaceId: ctx.scope.workspaceId!,
+        email,
+        role,
+      });
+      out.changes.push(
+        `Invites ${email} to check it and finish, as ${role === 'owner' ? 'the owner' : 'an admin'}`,
+      );
+    } catch (e) {
+      if (
+        !(e instanceof HfosError) ||
+        (e.rule !== 'already_member' && e.rule !== 'invitation_pending')
+      )
+        throw e;
+      out.notes.push(e.message);
+    }
+  }
+  const [who] = await rows<{ name: string | null; agency: string | null }>(
+    ctx.tx,
+    sql`select (select coalesce(nullif(btrim(u.full_name), ''), u.email::text) from app.users u where u.id = ${me})
+               as name,
+             (select o.name from app.organizations o where o.id = ${ctx.scope.organizationId!}) as agency`,
+  );
+  return {
+    at: new Date().toISOString(),
+    by: me,
+    name: (who?.name ?? '').slice(0, 200) || 'Your agency',
+    agency: (who?.agency ?? '').slice(0, 200) || 'Your agency',
+    email,
+    role: email ? role : null,
+  };
+}
+
+/**
  * A website chat made during this setup that nobody answers yet (the carriers' agreement box on the number stop
  * makes one, on the website or the simple page) is answered by the teammate this setup just set up, as a chat Save
  * makes is. A chat the business had before, or a teammate it had, stays as it is.
@@ -308,7 +410,7 @@ async function answerSetupChat(
 export const onboardingSetupSave = defineCommand({
   name: 'onboarding_setup.save',
   description:
-    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on; and the review link is saved for thank-you texts.',
+    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.',
   risk: 2,
   input: OnboardingSetupSaveInput,
   output: OnboardingSetupSaveOutput,
@@ -327,6 +429,13 @@ export const onboardingSetupSave = defineCommand({
       throw HfosError.validation([
         { path: 'invite', message: 'People are invited from “How many people work with you?”.' },
       ]);
+    if (input.templateId !== undefined && input.screen !== 'business')
+      throw HfosError.validation([
+        {
+          path: 'templateId',
+          message: 'Where the answers start from is picked on the first screen.',
+        },
+      ]);
     const before = await lockSetup(ctx);
     let scanStarted = false;
     if (input.business) {
@@ -339,7 +448,10 @@ export const onboardingSetupSave = defineCommand({
     const { record, kind, settings } = await lockSetup(ctx);
     const kindChanged = kind !== before.kind;
     const reached = laterOnboardingSetupScreen(record.reached, input.screen);
-    const answers = input.answers;
+    const { template, answers } =
+      input.screen === 'business'
+        ? await startFrom(ctx, input, record, { before: before.kind, now: kind })
+        : { template: record.template, answers: input.answers };
     const out: Done = { invited: [], changes: [], notes: [], calendarId: null };
     switch (input.screen) {
       case 'goal':
@@ -357,7 +469,8 @@ export const onboardingSetupSave = defineCommand({
         await savePage(ctx, answers, out);
         break;
       case 'booking':
-        if (answers.booksTime) await makeBookingPage(ctx, answers, out);
+        // It books the owner's own time, on their hours: someone setting it up for them leaves it to them.
+        if (answers.booksTime && !(await forClient(ctx))) await makeBookingPage(ctx, answers, out);
         break;
       case 'paid':
         await saveReviewLink(ctx, settings, answers.reviewLink, out);
@@ -373,6 +486,7 @@ export const onboardingSetupSave = defineCommand({
       reached,
       // These answers were given for the kind before, so what's picked by kind is picked again on the next read.
       kind: kindChanged ? (record.kind ?? before.kind) : kind,
+      ...(template !== undefined ? { template } : {}),
       started: record.started ?? { at: new Date().toISOString(), by: me },
     });
     if (newRun)
@@ -389,18 +503,23 @@ export const onboardingSetupSave = defineCommand({
 export const onboardingSetupFinish = defineCommand({
   name: 'onboarding_setup.finish',
   description:
-    'Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Refuses answers that started from older AI teammate settings (revision_conflict).',
+    'Save everything the onboarding setup kept, on “Stay in the loop”: the AI quick setup’s own Save (open hours, the business profile, quick facts, a website chat and the AI teammate, which stays off), services with a price on the price list, and your own hours from the open hours. Someone from the business’s agency who isn’t on its team hands it to the owner instead: everything but their own hours is saved, and the owner is invited by email to check it and finish. Refuses answers that started from older AI teammate settings (revision_conflict).',
   risk: 2,
   input: OnboardingSetupFinishInput,
   output: OnboardingSetupFinishOutput,
   permission: 'workspace.update',
   scope: inWorkspace,
-  emits: ['onboarding_setup.finished'],
+  emits: ['onboarding_setup.finished', 'onboarding_setup.handed_over'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const { record, kind, settings } = await lockSetup(ctx);
     const state = await loadOnboardingSetupState(ctx.tx, ws, me);
+    if (input.owner && !state.forClient)
+      throw HfosError.validation(
+        [{ path: 'owner', message: 'You’re on this business’s team, so it’s yours to finish.' }],
+        'You’re on this business’s team, so it’s yours to finish rather than hand over.',
+      );
     const answers = input.answers;
     const problems = onboardingSetupScreens(answers, aiSetupFlowFactsOf(state)).flatMap((s) =>
       onboardingSetupScreenProblems(s, answers, state),
@@ -413,12 +532,13 @@ export const onboardingSetupFinish = defineCommand({
         })),
         problems[0]!.message,
       );
-    const myHours = myHoursFrom(state, answers);
+    // Someone setting it up for the owner has no hours of their own here.
+    const myHours = state.forClient ? null : myHoursFrom(state, answers);
 
-    // The AI part: the AI quick setup's own Save.
+    // The AI part: the AI quick setup's own Save, booking left to the owner when it's set up for them.
     const ai = await executeCommandWithin(ctx, aiSetupFinish, {
       workspaceId: ws,
-      answers: answers.ai,
+      answers: onboardingSetupAiAnswers(state, answers),
       baseRevision: input.baseRevision,
       ...(input.pageOrigin ? { pageOrigin: input.pageOrigin } : {}),
     });
@@ -454,6 +574,32 @@ export const onboardingSetupFinish = defineCommand({
       lines.push(myHoursChange(myHours));
     }
     await saveQuickAnswers(ctx, settings, answers);
+    const notes = [...ai.output.notes];
+
+    if (state.forClient) {
+      const handedOver = await handOver(ctx, input.owner?.email ?? null, { notes, changes: lines });
+      await saveRecord(ctx, {
+        ...record,
+        draft: answers,
+        reached: laterOnboardingSetupScreen(record.reached, 'loop'),
+        kind,
+        started: record.started ?? { at: handedOver.at, by: me },
+        handedOver,
+      });
+      await ctx.emit({
+        type: 'onboarding_setup.handed_over',
+        entityType: 'workspace',
+        entityId: ws,
+        payload: {
+          teammateId: ai.output.teammateId,
+          email: handedOver.email,
+          role: handedOver.role,
+          changes: lines.slice(0, 50),
+        },
+        after: { email: handedOver.email, role: handedOver.role, changes: lines.slice(0, 20) },
+      });
+      return { ...ai.output, changes: lines, notes, handedOver };
+    }
 
     const finished = { at: new Date().toISOString(), by: me };
     await saveRecord(ctx, {
@@ -471,6 +617,6 @@ export const onboardingSetupFinish = defineCommand({
       payload: { teammateId: ai.output.teammateId, changes: lines.slice(0, 50) },
       after: { changes: lines.slice(0, 20) },
     });
-    return { ...ai.output, changes: lines };
+    return { ...ai.output, changes: lines, notes, handedOver: null };
   },
 });

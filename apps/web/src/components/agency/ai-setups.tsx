@@ -1,8 +1,9 @@
 'use client';
 /**
- * The agency's saved answers for quick setup (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §9): the answers one
- * client business was set up with, kept so the others start quick setup from them. Saved from quick setup's last
- * screen or here, renamed and removed here. Removing them changes no business.
+ * The agency's saved setups (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §9, and §9 of the onboarding quick
+ * setup's plan): the answers one client business was set up with, kept so the others start the setup and quick
+ * setup from them. Saved from the test chat after either, or here, renamed and removed here. Removing them changes
+ * no business.
  */
 import { AI_SETUP_MAX, formatDate, SETUP_KIND_LABELS } from '@hfos/core';
 import { Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
@@ -39,8 +40,8 @@ export function AiSetupBoard({
   return (
     <>
       <PageHeader
-        title="AI setups"
-        description="Answers from quick setup your businesses start from: what the AI teammate helps with, when it answers, its name, tone, prices and questions for leads. A business setting up its teammate starts from the newest saved for its kind, and can pick another on the first screen."
+        title="Saved setups"
+        description="Answers your businesses start their setup from: what they want help with first, their open hours, how customers pay, and what the AI teammate helps with, when it answers, its name, tone, prices and questions for leads. Never a business’s name, address, services, number or customers. A new business starts from the newest saved for its kind, and can pick another on the first screen."
         actions={
           <Button onClick={() => setSaving(true)} data-testid="ai-setups-save">
             <Plus className="h-4 w-4" strokeWidth={1.75} />
@@ -64,6 +65,7 @@ export function AiSetupBoard({
                   <span className="truncate text-sm font-semibold">{s.name}</span>
                   <Badge className="h-5 text-[11.5px]">{SETUP_KIND_LABELS[s.kind]}</Badge>
                 </span>
+                {s.basics ? <span className="text-xs text-text-2">{s.basics}</span> : null}
                 {s.about ? <span className="text-xs text-text-2">{s.about}</span> : null}
                 <span className="text-xs text-text-3">
                   {s.from ? `From ${s.from.name} · ` : ''}Saved {formatDate(s.updatedAt)}
@@ -95,15 +97,15 @@ export function AiSetupBoard({
       ) : (
         <Card data-testid="ai-setups-empty">
           <EmptyState
-            title="No saved AI setups yet"
+            title="No saved setups yet"
             actions={
               <Button size="sm" onClick={() => setSaving(true)}>
                 Save from a business
               </Button>
             }
           >
-            Set up the AI teammate in one of your businesses with quick setup, then save its answers
-            from the last screen or here. Your other businesses start from them.
+            Set up one of your businesses, then save its answers from the test chat at the end or
+            here. Your other businesses start from them.
           </EmptyState>
         </Card>
       )}

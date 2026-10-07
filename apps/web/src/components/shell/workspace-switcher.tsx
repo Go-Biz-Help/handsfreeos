@@ -209,23 +209,31 @@ export function WorkspaceSwitcher({
   );
 }
 
-function CreateWorkspaceDialog({
+/**
+ * "Add a business": made under one of the person's organizations, then set up with the guided setup. `forClient`
+ * starts on "I'm setting it up for someone else", as the agency's Client businesses page does.
+ */
+export function CreateWorkspaceDialog({
   open,
   onOpenChange,
   organizations,
+  organizationId,
+  forClient = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   organizations: Me['organizations'];
+  organizationId?: string;
+  forClient?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [orgId, setOrgId] = useState(organizations[0]?.id ?? '');
+  const [orgId, setOrgId] = useState(organizationId ?? organizations[0]?.id ?? '');
   const [timezone, setTimezone] = useState('America/Chicago');
   // Whether they are on the business or only administer it from the organization. Asked rather than
   // assumed: an agency setting one up for a client has no place in that client's team, and somebody
   // adding a business they run themselves expects to be on it. Changeable later on Members.
-  const [joinAsOwner, setJoinAsOwner] = useState(true);
+  const [joinAsOwner, setJoinAsOwner] = useState(!forClient);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,7 +251,8 @@ function CreateWorkspaceDialog({
       onOpenChange(false);
       setName('');
       document.cookie = `${WORKSPACE_COOKIE}=${out.workspaceId}; path=/; max-age=31536000; samesite=lax`;
-      router.push(`/app/w/${out.workspaceId}`);
+      // The guided setup, one question at a time: for someone else's business, to hand it to them at the end.
+      router.push(`/onboarding/${out.workspaceId}`);
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));

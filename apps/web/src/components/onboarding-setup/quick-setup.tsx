@@ -14,6 +14,9 @@
  * - The booking page is made as its screen opens: by then it's ready, not a question.
  * - "Stay in the loop" saves the rest (`onboarding_setup.finish`); a business that has a teammate sees what will
  *   change first. Then the test chat, and what already works.
+ * - Someone from the business's agency (`state.forClient`, §9) hands it to the owner in place of "Stay in the
+ *   loop", leaving them the booking page and payments. The owner then opens on what the agency set up, to check:
+ *   "Change something" walks the whole setup, and "Finish my part" only their own screens (`?part=owner`).
  * - What a screen shows and what it still needs come from core, as on the phone.
  */
 import {
@@ -22,24 +25,33 @@ import {
   aiSetupBusinessDraftOf,
   aiSetupFlowFactsOf,
   aiSetupTestQuestions,
+  chosenAiSetupTemplate,
   cleanOnboardingSetupAnswers,
   mergeOnboardingSetupAnswers,
-  ONBOARDING_SETUP_STOP_NAMES,
+  ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_SETUP_WORDS as W,
   onboardingSetupBusinessDraftOf,
   onboardingSetupBusinessOf,
   onboardingSetupDraftLine,
   onboardingSetupHint,
   onboardingSetupNextScreen,
+  onboardingSetupOwnerNext,
+  onboardingSetupOwnerPart,
+  onboardingSetupOwnerPrevious,
+  onboardingSetupOwnerProgress,
+  onboardingSetupOwnerScreens,
   onboardingSetupPreviousScreen,
   onboardingSetupProblemsOf,
   onboardingSetupProgress,
   onboardingSetupScreenProblemsOf,
   onboardingSetupStateOf,
+  onboardingSetupStopName,
   onboardingSetupSummary,
   onboardingSetupTitle,
   planOnboardingBooking,
   planOnboardingSetup,
+  SETUP_KIND_LABELS,
+  setupKindOf,
   withAiName,
   type AiSetupAnswers,
   type AiSetupProblems,
@@ -47,7 +59,7 @@ import {
   type OnboardingSetupBusinessDraft,
   type OnboardingSetupScreen,
 } from '@hfos/core';
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -74,10 +86,12 @@ import {
   AboutScreen,
   aiProblemsOf,
   BookingScreen,
+  CheckScreen,
   PageScreen,
   CustomersScreen,
   DoneScreen,
   GoalScreen,
+  HandOverScreen,
   HoursScreen,
   Loading,
   NumberScreen,
@@ -141,6 +155,22 @@ export function OnboardingQuickSetup({
   const [finished, setFinished] = useState<OnboardingSetupFinished | null>(null);
   const [booking, setBooking] = useState<BookingMade>(NOTHING_MADE);
   const [carrying, setCarrying] = useState(data.resumed);
+  /** The owner opened what their agency set up: what it did comes first, to check. */
+  const [checking, setChecking] = useState(data.checking);
+  /** "Finish my part": the owner's own screens, as they stood when it started; null on the whole setup. */
+  const [walk, setWalk] = useState<readonly OnboardingSetupScreen[] | null>(() =>
+    data.ownerPart
+      ? onboardingSetupOwnerScreens(
+          data.got.answers,
+          onboardingSetupStateOf(data.got.state),
+          data.at,
+        )
+      : null,
+  );
+  /** "Start from", changed on the first screen since it was last saved: saved answers, or null for our picks. */
+  const [startPick, setStartPick] = useState<string | null | undefined>(undefined);
+  /** Handing it over: the owner's email, to invite them. */
+  const [ownerEmail, setOwnerEmail] = useState('');
   /** Answers changed on screen since the last save, as `goal` and `ai.services`: what arrives never overwrites them. */
   const touched = useRef(new Set<string>());
   /** The first screen changed since it was last saved. */
@@ -156,6 +186,21 @@ export function OnboardingQuickSetup({
   const pageUrl =
     state.page && !state.website && pageOrigin ? `${pageOrigin}/book/${state.page.slug}` : null;
   const name = answers.ai.name.trim() || 'Ava';
+  const forClient = state.forClient;
+  // While nobody picked, it follows the kind of business on the first screen.
+  const startFrom =
+    got.templates.length && !got.state.teammate
+      ? {
+          templates: got.templates,
+          value:
+            chosenAiSetupTemplate(
+              got.templates,
+              startPick !== undefined ? startPick : got.templatePicked ? got.templateId : undefined,
+              setupKindOf(business.industry),
+            )?.id ?? null,
+          onChange: (templateId: string | null) => setStartPick(templateId),
+        }
+      : null;
 
   /** Takes in what the server says now: all of it after the first screen, else what isn't answered on screen. */
   const adopt = useCallback((fresh: OnboardingSetupGot, all: boolean) => {
@@ -239,13 +284,38 @@ export function OnboardingQuickSetup({
     setProblems((p) => (Object.keys(p).some((k) => k.startsWith('business.')) ? {} : p));
   }
 
-  function go(next: OnboardingSetupScreen) {
+  function go(next: OnboardingSetupScreen, ownerPart = !!walk) {
     setScreen(next);
+    setChecking(false);
     setConfirming(false);
     setProblems({});
     setError(null);
     // Drawn again for the screen it's now on, which brings what the number and the customers need.
-    router.replace(onboardingSetupHref(ws, next), { scroll: false });
+    router.replace(onboardingSetupHref(ws, next, ownerPart), { scroll: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** "Finish my part": the owner's own screens only, from the first. */
+  function finishMyPart() {
+    const screens = onboardingSetupOwnerScreens(answers, state);
+    setWalk(screens);
+    go(screens[0] ?? 'loop', true);
+  }
+
+  /** "Change something": the whole setup, from its first screen. */
+  function changeSomething() {
+    setWalk(null);
+    go('business', false);
+  }
+
+  /** Back from the first of the owner's screens: checking what the agency set up again. */
+  function backToChecking() {
+    setWalk(null);
+    setChecking(true);
+    setConfirming(false);
+    setProblems({});
+    setError(null);
+    router.replace(onboardingSetupHref(ws), { scroll: false });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -271,6 +341,8 @@ export function OnboardingQuickSetup({
     if (bookingTried.current) return;
     bookingTried.current = true;
     const { state: now, answers: given } = latest.current;
+    // Someone setting it up for the owner leaves it to them: it books the owner's time.
+    if (now.forClient) return;
     if (!now.booking.on || planOnboardingBooking(now, given).changes.length) void makeBooking();
   }, [screen, makeBooking]);
 
@@ -290,11 +362,13 @@ export function OnboardingQuickSetup({
           screen,
           answers: clean,
           business: onboardingSetupBusinessOf(business),
+          ...(startPick !== undefined ? { templateId: startPick } : {}),
         });
         reached.current = saved.reached;
         const [fresh, read] = await Promise.all([actions.get(), ai.findings()]);
         touched.current.clear();
         businessTouched.current = false;
+        setStartPick(undefined);
         // Kept as they were, and picked again for the kind of business when that changed.
         adopt(fresh, true);
         setFindings(read);
@@ -330,7 +404,9 @@ export function OnboardingQuickSetup({
         }
         // The page on or off decides whether Ava's chat can go on it, a few screens on.
         if (screen === 'page') await refresh();
-        const after = onboardingSetupNextScreen(screen, clean, facts);
+        const after = walk
+          ? onboardingSetupOwnerNext(walk, screen)
+          : onboardingSetupNextScreen(screen, clean, facts);
         if (after) go(after);
       }
     } catch (e) {
@@ -349,6 +425,8 @@ export function OnboardingQuickSetup({
         baseRevision: state.teammate?.revision ?? null,
         // A chat on the simple page goes on the address the page is shown at.
         ...(state.page && pageOrigin ? { pageOrigin } : {}),
+        // Handed to the owner, inviting them now or later from Members.
+        ...(state.forClient ? { owner: { email: ownerEmail.trim() || null } } : {}),
       });
     } catch (e) {
       // Someone saved the teammate meanwhile: what will change is worked out again from what they saved.
@@ -383,6 +461,12 @@ export function OnboardingQuickSetup({
       setConfirming(false);
       return;
     }
+    if (walk) {
+      const before = onboardingSetupOwnerPrevious(walk, screen);
+      if (before) go(before);
+      else backToChecking();
+      return;
+    }
     const prev = onboardingSetupPreviousScreen(screen, answers, facts);
     if (prev) go(prev);
   }
@@ -395,8 +479,14 @@ export function OnboardingQuickSetup({
     go('business');
   }
 
-  const progress = onboardingSetupProgress(screen, answers, facts);
-  const prev = onboardingSetupPreviousScreen(screen, answers, facts);
+  const progress = walk
+    ? onboardingSetupOwnerProgress(walk, screen)
+    : onboardingSetupProgress(screen, answers, facts);
+  // The first of the owner's own screens goes back to checking what the agency set up.
+  const canGoBack = walk
+    ? walk.includes(screen)
+    : !!onboardingSetupPreviousScreen(screen, answers, facts);
+  const handedOver = got.handedOver;
   const teammate = got.state.teammate;
   const aiBusiness = useMemo(() => aiSetupBusinessDraftOf(state), [state]);
   const aiStep = AI_SCREEN_OF[screen];
@@ -411,6 +501,13 @@ export function OnboardingQuickSetup({
   const own: OwnScreenProps = { state, answers, set, setAi, problems, data, name };
 
   const body = (() => {
+    if (checking)
+      return (
+        <CheckScreen
+          lines={summary.current}
+          part={onboardingSetupOwnerPart(onboardingSetupOwnerScreens(answers, state), answers)}
+        />
+      );
     if (changes)
       return (
         <ul className="flex flex-col gap-2" data-testid="onboarding-setup-changes">
@@ -425,6 +522,19 @@ export function OnboardingQuickSetup({
           )}
         </ul>
       );
+    // Someone from the agency hands it to the owner in place of staying in the loop.
+    if (screen === 'loop' && forClient)
+      return (
+        <HandOverScreen
+          email={ownerEmail}
+          onChange={(email) => {
+            setOwnerEmail(email);
+            clearProblems('owner');
+          }}
+          role={got.handOverAs ?? 'admin'}
+          error={problems['owner.email'] ?? problems['owner']}
+        />
+      );
     switch (screen) {
       case 'business':
         return (
@@ -433,6 +543,7 @@ export function OnboardingQuickSetup({
             onChange={setBusiness}
             problems={problems}
             name={name}
+            startFrom={startFrom}
           />
         );
       case 'goal':
@@ -485,6 +596,15 @@ export function OnboardingQuickSetup({
             settingsHref={`${home}/ai-team`}
             actions={ai}
             onDone={(on) => void tried(on)}
+            saveTo={
+              got.saveTo
+                ? {
+                    organizationId: got.saveTo.organizationId,
+                    agency: got.saveTo.name,
+                    suggested: SETUP_KIND_LABELS[state.kind],
+                  }
+                : null
+            }
           />
         ) : (
           <Loading />
@@ -508,64 +628,101 @@ export function OnboardingQuickSetup({
     }
   })();
 
-  const footer =
-    screen === 'done' ? (
-      <div className="mt-auto flex justify-end border-t border-border pt-4">
+  const footer = checking ? (
+    <div className="mt-auto flex flex-wrap-reverse items-center justify-between gap-3 border-t border-border pt-4">
+      <Button variant="secondary" onClick={changeSomething} data-testid="onboarding-setup-change">
+        {HW.change}
+      </Button>
+      <Button size="lg" onClick={finishMyPart} data-testid="onboarding-setup-finish-part">
+        {HW.finishPart}
+        <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+      </Button>
+    </div>
+  ) : screen === 'done' ? (
+    <div className="mt-auto flex justify-end border-t border-border pt-4">
+      <Button
+        size="lg"
+        onClick={() => {
+          router.push(`${home}?tour=1`);
+          router.refresh();
+        }}
+        data-testid="onboarding-setup-home"
+      >
+        {W.goHome}
+        <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+      </Button>
+    </div>
+  ) : screen === 'try' && teammate ? null : (
+    <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">
+      {error ? <FieldError>{error}</FieldError> : null}
+      <div className="flex flex-wrap-reverse items-center justify-between gap-3">
+        {canGoBack || confirming ? (
+          <Button
+            variant="ghost"
+            onClick={back}
+            disabled={busy}
+            data-testid="onboarding-setup-back"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+            {W.back}
+          </Button>
+        ) : (
+          <span />
+        )}
         <Button
           size="lg"
-          onClick={() => {
-            router.push(`${home}?tour=1`);
-            router.refresh();
-          }}
-          data-testid="onboarding-setup-home"
+          onClick={() => (screen === 'try' ? void tried(false) : void next())}
+          loading={busy}
+          disabled={booking.making}
+          data-testid="onboarding-setup-next"
         >
-          {W.goHome}
+          {screen === 'loop'
+            ? forClient
+              ? HW.handOver
+              : confirming
+                ? AI_SETUP_WORDS.saveChanges
+                : AI_SETUP_WORDS.save
+            : W.next}
           <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
         </Button>
       </div>
-    ) : screen === 'try' && teammate ? null : (
-      <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">
-        {error ? <FieldError>{error}</FieldError> : null}
-        <div className="flex flex-wrap-reverse items-center justify-between gap-3">
-          {prev || confirming ? (
-            <Button
-              variant="ghost"
-              onClick={back}
-              disabled={busy}
-              data-testid="onboarding-setup-back"
-            >
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
-              {W.back}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <Button
-            size="lg"
-            onClick={() => (screen === 'try' ? void tried(false) : void next())}
-            loading={busy}
-            disabled={booking.making}
-            data-testid="onboarding-setup-next"
-          >
-            {screen === 'loop'
-              ? confirming
-                ? AI_SETUP_WORDS.saveChanges
-                : AI_SETUP_WORDS.save
-              : W.next}
-            <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-          </Button>
-        </div>
-      </div>
-    );
+    </div>
+  );
 
   return (
     <SetupCard
-      screen={confirming ? 'confirm' : screen}
-      counter={`${W.position(progress.at, progress.of)} · ${ONBOARDING_SETUP_STOP_NAMES[progress.stop]}`}
-      title={confirming ? AI_SETUP_WORDS.willChange : onboardingSetupTitle(screen, name, facts)}
-      hint={confirming ? '' : onboardingSetupHint(screen, name, facts)}
+      screen={checking ? 'check' : confirming ? 'confirm' : screen}
+      counter={
+        checking
+          ? HW.checkCounter
+          : `${W.position(progress.at, progress.of)} · ${onboardingSetupStopName(progress.stop, forClient)}`
+      }
+      title={
+        checking && handedOver
+          ? HW.checkTitle(handedOver.agency)
+          : confirming
+            ? AI_SETUP_WORDS.willChange
+            : onboardingSetupTitle(screen, name, facts, forClient)
+      }
+      hint={
+        checking && handedOver
+          ? HW.checkHint(handedOver.name, state.businessName)
+          : confirming
+            ? ''
+            : onboardingSetupHint(screen, name, facts, forClient)
+      }
       banner={
-        carrying ? (
+        forClient && handedOver && (screen === 'try' || screen === 'done') ? (
+          <div
+            className="flex items-start gap-2.5 rounded-menu bg-success-soft px-3.5 py-2.5 text-[13.5px] text-success-text"
+            data-testid="onboarding-setup-handed-over"
+          >
+            <Check className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
+            <span className="min-w-0 flex-1">
+              {handedOver.email ? HW.sent(handedOver.email) : HW.notSent}
+            </span>
+          </div>
+        ) : carrying ? (
           <div
             className="flex flex-wrap items-center gap-3 rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13.5px] text-accent-text"
             data-testid="onboarding-setup-carry-on"
@@ -583,7 +740,7 @@ export function OnboardingQuickSetup({
           </div>
         ) : null
       }
-      summary={screen === 'done' ? null : summary.current}
+      summary={checking || screen === 'done' ? null : summary.current}
       footer={footer}
     >
       {body}

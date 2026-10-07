@@ -139,7 +139,9 @@ export function onboardingSetupSummary(
     lines.push(
       state.booking.on
         ? `Customers book ${calendar} on your booking page.`
-        : `Customers will book ${calendar} on your booking page.`,
+        : state.forClient
+          ? `Customers will book ${calendar} once the owner makes the booking page.`
+          : `Customers will book ${calendar} on your booking page.`,
     );
   }
   if (state.team.invited.length)

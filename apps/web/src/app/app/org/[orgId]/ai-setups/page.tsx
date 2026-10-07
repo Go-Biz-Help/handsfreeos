@@ -4,9 +4,9 @@ import { AiSetupBoard } from '@/components/agency/ai-setups';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
-export const metadata: Metadata = { title: 'AI setups' };
+export const metadata: Metadata = { title: 'Saved setups' };
 
-/** Quick setup answers the agency saved, which its businesses start their AI teammate from. */
+/** Setup answers the agency saved, which its businesses start the setup and their AI teammate from. */
 export default async function AgencyAiSetupsPage({
   params,
 }: {

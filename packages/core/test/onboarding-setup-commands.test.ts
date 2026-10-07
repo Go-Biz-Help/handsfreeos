@@ -8,9 +8,13 @@
  * - **Stay in the loop** saves the rest in one go: the AI teammate (off until it's turned on) and everything around
  *   it, the price list and the person's own hours. Run again with nothing changed, it changes nothing.
  * - It's for those who may change the business, and refuses answers that started from older teammate settings.
+ * - **An agency** sets a client's business up for its owner (§9): the booking page and their hours wait for the
+ *   owner, who is invited to check it and finish. What the agency saved starts its other businesses.
  */
 import { randomUUID } from 'node:crypto';
-import { rows, sql } from '@hfos/db/client';
+import { eq } from 'drizzle-orm';
+import { asWorker, rows, sql } from '@hfos/db/client';
+import { invitations } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
@@ -19,11 +23,16 @@ import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
 import { OnboardingSetupAnswers } from '../src/onboarding-setup/index';
 import {
+  aiSetupTemplateDelete,
+  aiSetupTemplateSave,
   bookingSiteSetPage,
+  hashInvitationToken,
+  invitationAccept,
   onboardingSetupFinish,
   onboardingSetupGet,
   onboardingSetupSave,
   organizationCreate,
+  workspaceCreate,
   workspaceUpdate,
 } from '../src/server';
 
@@ -663,6 +672,316 @@ describe('onboarding_setup.finish', () => {
       () =>
         run(onboardingSetupFinish, { workspaceId: ws, answers: r.answers, baseRevision: 2 }, marco),
       'forbidden',
+    );
+  });
+});
+
+describe('an agency sets it up for the owner', () => {
+  /** Owns the agency. */
+  let rita: TestUser;
+  /** An admin of the agency. */
+  let alex: TestUser;
+  /** The salon's owner, invited to check it and finish. */
+  let carl: TestUser;
+  let agency: string;
+  /** A salon the agency set up and isn't on. */
+  let salon: string;
+  let saved: string;
+
+  /** The answers so far, with every screen's own filled in. */
+  const ready = async (u: TestUser, workspaceId: string) => {
+    const { answers } = await get(u, workspaceId);
+    return OnboardingSetupAnswers.parse({
+      ...answers,
+      payWith: 'stripe',
+      ai: {
+        ...answers.ai,
+        description: 'Cuts and colour in downtown Austin.',
+        services: [{ name: 'Haircut', priceCents: 4500, minutes: 45 }],
+        openHours: OPEN,
+      },
+    });
+  };
+  const made = async (workspaceId: string) => {
+    const [r] = await rows<{ calendars: number; sites: number; hours: number }>(
+      admin(),
+      sql`select
+            (select count(*) from app.calendars where workspace_id = ${workspaceId})::int as calendars,
+            (select count(*) from app.booking_sites where workspace_id = ${workspaceId} and enabled)::int as sites,
+            (select count(*) from app.schedules where workspace_id = ${workspaceId} and owner_kind = 'user')::int
+              as hours`,
+    );
+    return r!;
+  };
+
+  beforeAll(async () => {
+    [rita, alex, carl] = await Promise.all([
+      createTestUser('onboard-agency-owner', { fullName: 'Rita Agency' }),
+      createTestUser('onboard-agency-admin', { fullName: 'Alex Agency' }),
+      createTestUser('onboard-client-owner', { fullName: 'Carl Client' }),
+    ]);
+    agency = (
+      await run(organizationCreate, { businessName: 'Bright Marketing', industry: 'hvac' }, rita)
+    ).organizationId;
+    salon = (
+      await run(
+        workspaceCreate,
+        { organizationId: agency, name: 'Shear Joy Salon', industry: 'hair_salon' },
+        rita,
+      )
+    ).workspaceId;
+    await rows(
+      admin(),
+      sql`insert into app.organization_memberships (organization_id, user_id, role) values (${agency}, ${alex.id}, 'admin')`,
+    );
+  });
+
+  it('knows who isn’t on the business’s team, and what handing it over invites the owner as', async () => {
+    const [byOwner, byAdmin, own] = await Promise.all([
+      get(rita, salon),
+      get(alex, salon),
+      get(dale, ws),
+    ]);
+    expect(byOwner.state.forClient).toBe(true);
+    expect(byOwner.handOverAs).toBe('owner');
+    expect(byAdmin.handOverAs).toBe('admin');
+    expect(own.state.forClient).toBe(false);
+    expect(own.handOverAs).toBeNull();
+  });
+
+  it('leaves the booking page to the owner: it books their time', async () => {
+    const answers = await ready(rita, salon);
+    expect(answers.booksTime).toBe(true);
+    const out = await run(
+      onboardingSetupSave,
+      { workspaceId: salon, screen: 'booking', answers },
+      rita,
+    );
+    expect(out).toMatchObject({ calendarId: null, changes: [] });
+    expect(await made(salon)).toEqual({ calendars: 0, sites: 0, hours: 0 });
+  });
+
+  it('refuses to hand over a business you’re on the team of', async () => {
+    const r = await get(dale, ws);
+    await expectHfos(
+      () =>
+        run(
+          onboardingSetupFinish,
+          {
+            workspaceId: ws,
+            answers: r.answers,
+            baseRevision: r.state.teammate?.revision ?? null,
+            owner: { email: 'someone@example.com' },
+          },
+          dale,
+        ),
+      'validation',
+    );
+  });
+
+  it('hands it to the owner, inviting them to check it and finish', async () => {
+    const email = carl.email.toLowerCase();
+    const out = await run(
+      onboardingSetupFinish,
+      {
+        workspaceId: salon,
+        answers: await ready(rita, salon),
+        baseRevision: null,
+        owner: { email },
+      },
+      rita,
+    );
+    expect(out.handedOver).toMatchObject({
+      by: rita.id,
+      name: 'Rita Agency',
+      agency: 'Bright Marketing',
+      email,
+      role: 'owner',
+    });
+    expect(out.changes).toContain(`Invites ${email} to check it and finish, as the owner`);
+    // No booking calendar, no hours of the agency's own, and Ava books once the owner makes the booking page.
+    expect(out.calendarId).toBeNull();
+    expect(out.changes.some((c) => c.startsWith('Your hours'))).toBe(false);
+    expect(await made(salon)).toEqual({ calendars: 0, sites: 0, hours: 0 });
+    const [t] = await rows<{ status: string; book: { enabled: boolean } }>(
+      admin(),
+      sql`select status::text as status, config->'book' as book from app.ai_teammates where id = ${out.teammateId}`,
+    );
+    expect(t).toMatchObject({ status: 'off', book: { enabled: false } });
+
+    const [inv] = await rows<{ role: string }>(
+      admin(),
+      sql`select role::text as role from app.invitations where workspace_id = ${salon} and email = ${email}`,
+    );
+    expect(inv!.role).toBe('owner');
+    const setup = (await settingsOf(salon))['onboardingSetup'] as Record<string, unknown>;
+    expect(setup).toMatchObject({ reached: 'loop', handedOver: { email, role: 'owner' } });
+    expect(setup).not.toHaveProperty('finished');
+    expect(await eventCount(salon, 'onboarding_setup.handed_over')).toBe(1);
+    expect(await eventCount(salon, 'onboarding_setup.finished')).toBe(0);
+    // Whoever handed it over carries on as before, on the test chat.
+    expect(await get(rita, salon)).toMatchObject({ reached: 'loop', finished: null });
+  });
+
+  it('invites the owner as an admin when an agency admin hands it over', async () => {
+    const pipes = (
+      await run(
+        workspaceCreate,
+        { organizationId: agency, name: 'Pipes Plumbing', industry: 'plumbing' },
+        rita,
+      )
+    ).workspaceId;
+    const out = await run(
+      onboardingSetupFinish,
+      {
+        workspaceId: pipes,
+        answers: await ready(alex, pipes),
+        baseRevision: null,
+        owner: { email: 'owner@pipes.example.com' },
+      },
+      alex,
+    );
+    expect(out.handedOver).toMatchObject({ name: 'Alex Agency', role: 'admin' });
+    expect(out.changes).toContain(
+      'Invites owner@pipes.example.com to check it and finish, as an admin',
+    );
+    // Handing it over again invites nobody twice: it says they have an invitation waiting.
+    const again = await run(
+      onboardingSetupFinish,
+      {
+        workspaceId: pipes,
+        answers: (await get(alex, pipes)).answers,
+        baseRevision: out.revision,
+        owner: { email: 'owner@pipes.example.com' },
+      },
+      alex,
+    );
+    expect(again.notes.join(' ')).toContain('already has an invitation waiting');
+    expect(again.handedOver?.email).toBe('owner@pipes.example.com');
+  });
+
+  it('takes the owner who accepts to it, and lets them finish their part', async () => {
+    const [inv] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.invitations where workspace_id = ${salon} and email = ${carl.email.toLowerCase()}`,
+    );
+    const token = `tok_${randomUUID().replace(/-/g, '')}`;
+    await asWorker(testDbs().worker.db, { workspaceId: salon, organizationId: agency }, (tx) =>
+      tx
+        .update(invitations)
+        .set({ tokenHash: hashInvitationToken(token), sentAt: new Date() })
+        .where(eq(invitations.id, inv!.id)),
+    );
+    const accepted = await run(invitationAccept, { token }, carl);
+    expect(accepted).toMatchObject({ workspaceId: salon, role: 'owner', setup: true });
+
+    const r = await get(carl, salon);
+    expect(r.state.forClient).toBe(false);
+    expect(r).toMatchObject({
+      handedOver: { name: 'Rita Agency', agency: 'Bright Marketing' },
+      finished: null,
+    });
+    // Their part: the booking page on their own hours, then everything else as it was set up.
+    const booked = await run(
+      onboardingSetupSave,
+      { workspaceId: salon, screen: 'booking', answers: r.answers },
+      carl,
+    );
+    expect(booked.calendarId).not.toBeNull();
+    const after = await get(carl, salon);
+    const out = await run(
+      onboardingSetupFinish,
+      {
+        workspaceId: salon,
+        answers: after.answers,
+        baseRevision: after.state.teammate!.revision,
+      },
+      carl,
+    );
+    expect(out.handedOver).toBeNull();
+    const [t] = await rows<{ book: { enabled: boolean; calendarIds: string[] } }>(
+      admin(),
+      sql`select config->'book' as book from app.ai_teammates where id = ${out.teammateId}`,
+    );
+    expect(t!.book).toMatchObject({ enabled: true, calendarIds: [booked.calendarId] });
+    const setup = (await settingsOf(salon))['onboardingSetup'] as Record<string, unknown>;
+    expect(setup).toMatchObject({ finished: { by: carl.id }, handedOver: { by: rita.id } });
+    expect(await eventCount(salon, 'onboarding_setup.finished')).toBe(1);
+  });
+
+  it('saves what was set up as a starting point for the agency’s other businesses', async () => {
+    saved = (
+      await run(
+        aiSetupTemplateSave,
+        { organizationId: agency, workspaceId: salon, name: 'Salons' },
+        rita,
+      )
+    ).templateId;
+    const [row] = await rows<{ answers: Record<string, unknown> }>(
+      admin(),
+      sql`select answers from app.ai_setup_templates where id = ${saved}`,
+    );
+    expect(row!.answers).toMatchObject({ goal: 'booked', payWith: 'stripe', openHours: OPEN });
+    // Never anything about the salon itself.
+    for (const key of ['description', 'services', 'area', 'facts', 'chat'])
+      expect(row!.answers).not.toHaveProperty(key);
+
+    const curl = (
+      await run(
+        workspaceCreate,
+        { organizationId: agency, name: 'Curl Up Salon', industry: 'hair_salon' },
+        rita,
+      )
+    ).workspaceId;
+    const r = await get(rita, curl);
+    expect(r.templates).toEqual([
+      expect.objectContaining({
+        id: saved,
+        name: 'Salons',
+        basics: expect.stringContaining('Customers pay with Stripe'),
+      }),
+    ]);
+    expect(r.templates[0]!.basics).toContain('Getting booked');
+    expect(r).toMatchObject({ templateId: saved, templatePicked: false });
+    expect(r.answers).toMatchObject({ goal: 'booked', payWith: 'stripe' });
+    expect(r.answers.ai.openHours).toEqual(OPEN);
+    expect(r.saveTo).toEqual({ organizationId: agency, name: 'Bright Marketing' });
+
+    // "Our picks" on the first screen picks again without them, and picking them brings them back.
+    await run(
+      onboardingSetupSave,
+      { workspaceId: curl, screen: 'business', answers: r.answers, templateId: null },
+      rita,
+    );
+    const ours = await get(rita, curl);
+    expect(ours).toMatchObject({ templateId: null, templatePicked: true });
+    expect(ours.answers.payWith).toBe('later');
+    await run(
+      onboardingSetupSave,
+      { workspaceId: curl, screen: 'business', answers: ours.answers, templateId: saved },
+      rita,
+    );
+    expect((await get(rita, curl)).answers.payWith).toBe('stripe');
+
+    await expectHfos(
+      () =>
+        run(
+          onboardingSetupSave,
+          { workspaceId: curl, screen: 'goal', answers: ours.answers, templateId: saved },
+          rita,
+        ),
+      'validation',
+    );
+    await run(aiSetupTemplateDelete, { organizationId: agency, templateId: saved }, rita);
+    await expectHfos(
+      () =>
+        run(
+          onboardingSetupSave,
+          { workspaceId: curl, screen: 'business', answers: ours.answers, templateId: saved },
+          rita,
+        ),
+      'rule_violation',
+      'template_gone',
     );
   });
 });
