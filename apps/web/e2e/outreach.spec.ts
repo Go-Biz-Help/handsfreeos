@@ -439,5 +439,6 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   );
   // The request's real day, for cancelling the ones nobody answers.
   await page.getByTestId('friends-show-sent').click();
+  await expect(people).toHaveText([/Quinn Harper/]);
   await expect(people.getByTestId('friend-since')).toHaveText(`Sent · ${day(sentAt)}`);
 });

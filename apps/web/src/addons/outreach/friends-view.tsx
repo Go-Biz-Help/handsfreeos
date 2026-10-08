@@ -446,9 +446,9 @@ function FriendRow({
             Facebook
           </a>
           {since ? (
-            <span className="ml-2 text-[12.5px] text-text-3" data-testid="friend-since">
+            <div className="text-[12.5px] text-text-3" data-testid="friend-since">
               {since}
-            </span>
+            </div>
           ) : null}
           {f.group ? (
             <div className="text-[12.5px] text-text-3">Found in {groupName(f.group)}</div>
