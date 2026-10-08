@@ -83,10 +83,16 @@ import {
 import { publicLookOf } from '../look/public';
 import { publicOrigin } from '../hosting/origin';
 import { paymentKindOf, WEBHOOK_MAX_BYTES } from '../money/webhook-events';
-import { accountFor, paymentConnectionUsable, type PaymentConnectionRow } from '../payments/index';
+import {
+  accountFor,
+  paymentConnectionUsable,
+  WEBHOOK_SECRET_SETTING,
+  type PaymentConnectionRow,
+} from '../payments/index';
 import {
   declineWording,
   isPaymentProvider,
+  PAYMENT_NAME,
   PaymentAuthError,
   PaymentError,
   type PaymentCapabilities,
@@ -1371,6 +1377,20 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
           'stripe-signature': header(req, 'stripe-signature'),
           'x-square-hmacsha256-signature': header(req, 'x-square-hmacsha256-signature'),
         };
+        // Not a forgery: with no secret to check against nothing can pass, and the log and the provider's own
+        // delivery page say which setting is missing. "Invalid signature" hid that from Stripe for nine days.
+        if (provider?.configured && !provider.webhooks.configured) {
+          deps.log.error(
+            { provider: name },
+            `refused a payment webhook: ${WEBHOOK_SECRET_SETTING[name]} is not set on the worker`,
+          );
+          return reply
+            .code(403)
+            .type('text/plain; charset=utf-8')
+            .send(
+              `This server doesn’t have the signing secret for ${PAYMENT_NAME[name]}’s events yet.`,
+            );
+        }
         // The provider's own scheme, over the exact bytes and the URL they were signed against.
         if (!provider?.configured || !provider.webhooks.verify({ rawBody, headers, url })) {
           deps.log.warn({ provider: name }, 'rejected an unsigned or mis-signed payment webhook');

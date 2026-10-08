@@ -917,6 +917,7 @@ export function createStripePayments(opts: {
     },
 
     webhooks: {
+      configured: !!opts.webhookSecret,
       /** The Connect endpoint's events, with the Connect endpoint's secret. */
       verify: (input: WebhookInput) => verifyStripeSignature(opts.webhookSecret, input),
       parse(rawBody) {

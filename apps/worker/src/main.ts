@@ -24,7 +24,7 @@ import { createMoneyLinks } from './money/links';
 import { createPortalLinks } from './portal/links';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
-import { createPayments } from './payments/index';
+import { createPayments, PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
 import { createPush } from './push/index';
 import { createSafeFetch } from './http/safe-fetch';
 import { buildHttpServer } from './http/server';
@@ -288,6 +288,16 @@ else {
 }
 if (env.pushProvider === 'none')
   log.warn('EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is');
+// A payment app without its webhook secret refuses every event it is sent, and after days of refusals the
+// provider turns the endpoint off, as Stripe did on 2026-10-08 with nothing here saying why.
+for (const name of ['stripe', 'square'] as const) {
+  const provider = services.payments.providers[name];
+  if (provider.configured && !provider.webhooks.configured)
+    log.error(
+      `${WEBHOOK_SECRET_SETTING[name]} is not set: every event ${PAYMENT_NAME[name]} sends is refused ` +
+        'until it is, so its payments, refunds and disconnections never reach anyone here',
+    );
+}
 
 let running = true;
 

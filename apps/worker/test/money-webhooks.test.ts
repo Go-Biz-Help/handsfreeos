@@ -21,10 +21,14 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
+import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildHttpServer } from '../src/http/server';
 import { disputeFactsOf } from '../src/money/webhook-events';
 import { FAKE_BANK, FAKE_CARDS } from '../src/payments/fake';
+import { createStripePayments } from '../src/payments/stripe';
 import { systemActor } from '../src/services';
+import { testTokenVerifier } from './finish-sign-in';
 import { TEST_PUBLIC_URL } from './helpers';
 import {
   admin,
@@ -214,6 +218,59 @@ describe('what the routes refuse before anything is stored', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ignored: true });
     expect(await deliveryRows(w.workspaceId)).toHaveLength(before);
+  });
+
+  // Stripe was answered "Invalid signature" for nine days by a worker that had no secret to check with, then
+  // turned the endpoint off (2026-10-08). A missing secret is a setting to fix, and is said to be one.
+  it('says the signing secret is missing, rather than calling every event a forgery', async () => {
+    const said: string[] = [];
+    const app = await buildHttpServer({
+      ...w.s,
+      log: pino({ level: 'warn' }, { write: (line: string) => void said.push(line) }),
+      // The real adapter, set up in every way but the secret its webhooks are checked with.
+      payments: {
+        ...w.s.payments,
+        providers: {
+          ...w.s.payments.providers,
+          stripe: createStripePayments({
+            clientId: 'ca_test',
+            secretKey: 'sk_test',
+            publishableKey: 'pk_test',
+            webhookSecret: null,
+          }),
+        },
+      },
+      httpDb: testDbs().worker.db,
+      verifyToken: testTokenVerifier(),
+      webOrigins: ['http://localhost:3000'],
+    });
+    try {
+      const before = (await deliveryRows(w.workspaceId)).length;
+      const body = stripeBody('payment_intent.succeeded', w.stripe.accountId, {
+        id: 'pi_unchecked',
+        object: 'payment_intent',
+        amount: 700,
+        status: 'succeeded',
+      });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/webhooks/stripe',
+        // As Stripe sends it.
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          ...w.s.payments.fake.signStripe(body),
+        },
+        payload: body,
+      });
+      expect(res.statusCode).toBe(403);
+      // Stripe shows this on the endpoint's delivery page, curly apostrophes and all.
+      expect(res.headers['content-type']).toBe('text/plain; charset=utf-8');
+      expect(res.body).toContain('signing secret');
+      expect(said.join('\n')).toContain('STRIPE_WEBHOOK_SECRET is not set on the worker');
+      expect(await deliveryRows(w.workspaceId)).toHaveLength(before);
+    } finally {
+      await app.close();
+    }
   });
 });
 

@@ -750,6 +750,7 @@ export function createSquarePayments(opts: {
     },
 
     webhooks: {
+      configured: opts.webhookSignatureKeys.length > 0,
       /** Base64 HMAC-SHA256 over **the URL Square called plus the raw body**, with any live signature key. */
       verify({ rawBody, headers, url }: WebhookInput) {
         const given = headers['x-square-hmacsha256-signature'];
