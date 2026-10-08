@@ -110,3 +110,11 @@ export const FRIENDS_CAP = 5000;
 export const FRIENDS_SAVE_MOST = 500;
 /** Customers with this tag in Contacts are never pitched, like those on the Don't pitch list. */
 export const DONT_PITCH_TAG = 'Friend or family';
+
+/**
+ * Facebook's download file (./download.ts): the most people, and the most chats, one part of it sends, and how big a
+ * part may be as sent, under the API's 256 KB. A bigger file goes in parts.
+ */
+export const DOWNLOAD_PEOPLE_MOST = 600;
+export const DOWNLOAD_CHATS_MOST = 400;
+export const DOWNLOAD_PART_BYTES = 200_000;

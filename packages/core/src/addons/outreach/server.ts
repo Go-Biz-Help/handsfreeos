@@ -6,12 +6,19 @@
 import type { AddonServerModule } from '../server';
 import { outreachAddon } from './manifest';
 import { activityCommands, activityQueries } from './ops/activity';
+import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
-  commands: [...playbookCommands, ...saveCommands, ...activityCommands, ...friendCommands],
+  commands: [
+    ...playbookCommands,
+    ...saveCommands,
+    ...activityCommands,
+    ...friendCommands,
+    ...downloadCommands,
+  ],
   queries: [...playbookQueries, ...saveQueries, ...activityQueries, ...friendQueries],
 };

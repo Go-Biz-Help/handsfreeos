@@ -5,7 +5,8 @@
  * cap, the friend requests they've got in order of how each fits the playbooks in use, the requests they sent that
  * nobody has answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch list.
  * Which, a name searched for and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
- * The list follows the search box as a name is typed, a page at a time.
+ * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
+ * the side (./download-card.tsx), adds since when they've been friends and the latest message.
  */
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
@@ -29,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { DownloadCard } from './download-card';
 import type { Friend, Friends } from './types';
 import { useAct } from './use-act';
 
@@ -82,9 +84,25 @@ const FIT_TONE: Record<FitLevel, BadgeVariant> = {
   skip: 'danger',
 };
 
-/** "Asked · 3 d ago": when a request came or went, or was deleted. Nothing for friends, whose day isn't known. */
+const WEEK = 7 * 86_400_000;
+
+/** "3 d ago" within the week, then "Sep 1", and "Jul 14, 2019" in another year. */
+function dayWords(iso: string): string {
+  const at = new Date(iso);
+  if (Date.now() - at.getTime() < WEEK) return relativeTime(iso);
+  return at.toLocaleDateString(
+    'en-US',
+    at.getFullYear() === new Date().getFullYear()
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' },
+  );
+}
+
+/**
+ * "Asked · 3 d ago": when a request came or went, or was deleted. A friend's day is the one Facebook's download file
+ * says ("Friends since Mar 2019"); without it, nothing. Then the latest message, from the file or noted since.
+ */
 function sinceWords(f: Friend): string | null {
-  if (!f.since) return null;
   const word =
     f.state === 'request_received'
       ? 'Asked'
@@ -93,7 +111,16 @@ function sinceWords(f: Friend): string | null {
         : f.state === 'declined'
           ? 'Deleted'
           : null;
-  return word ? `${word} · ${relativeTime(f.since)}` : null;
+  const since =
+    word && f.since
+      ? `${word} · ${dayWords(f.since)}`
+      : f.state === 'friends' && f.friendsSince
+        ? `Friends since ${new Date(f.friendsSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+        : null;
+  const message = f.lastMessage
+    ? `Last message ${dayWords(f.lastMessage.at)}, from ${f.lastMessage.fromMe ? 'you' : 'them'}`
+    : null;
+  return [since, message].filter(Boolean).join(' · ') || null;
 }
 
 /** Why someone isn't pitched: the list, who put them on it and when, or the Contacts tag. */
@@ -258,6 +285,7 @@ export function FriendsView({
         </div>
         <aside className="space-y-4">
           <CapCard counts={friends.counts} cap={friends.cap} />
+          <DownloadCard workspaceId={workspaceId} download={friends.download} />
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
@@ -417,7 +445,11 @@ function FriendRow({
           >
             Facebook
           </a>
-          {since ? <span className="ml-2 text-[12.5px] text-text-3">{since}</span> : null}
+          {since ? (
+            <span className="ml-2 text-[12.5px] text-text-3" data-testid="friend-since">
+              {since}
+            </span>
+          ) : null}
           {f.group ? (
             <div className="text-[12.5px] text-text-3">Found in {groupName(f.group)}</div>
           ) : null}
@@ -483,7 +515,8 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
     <Card className="p-4" data-testid="friends-cap">
       <h3 className="text-[15px] font-semibold">Your friends</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
-        Facebook allows {cap.toLocaleString()}. Saved from your friends list with the extension.
+        Facebook allows {cap.toLocaleString()}. Saved from your friends list with the extension, or
+        from Facebook’s download file.
       </p>
       <div className="mt-3 flex items-baseline justify-between gap-2 text-[13px]">
         <span>Friends</span>

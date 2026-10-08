@@ -5,6 +5,7 @@
  * web draws the Friends tab, and the server checks them.
  */
 import { z } from 'zod';
+import { DownloadCounts } from './download';
 import { FIT_LEVEL_KEYS } from './fit';
 import {
   FRIEND_ANSWER_KEYS,
@@ -157,6 +158,10 @@ export const FriendsOutput = z.object({
   }),
   /** Facebook's cap on friends. */
   cap: count,
+  /** The person's latest Facebook download file brought in: when Facebook made it, when it came, and what it held. */
+  download: z
+    .object({ madeAt: z.iso.datetime(), at: z.iso.datetime(), counts: DownloadCounts })
+    .nullable(),
   people: z.array(
     z.object({
       profileId: z.uuid(),
@@ -172,6 +177,10 @@ export const FriendsOutput = z.object({
       /** The first lines of their intro, as last saved. */
       intro: z.array(z.string().max(INTRO_LINE_MOST)).max(INTRO_LINES),
       group: z.object({ name: z.string().nullable(), url: z.string() }).nullable(),
+      /** When they became friends, as the person's Facebook download file says. */
+      friendsSince: z.iso.datetime().nullable(),
+      /** The latest message between them, from the download file or noted since, and whether it was the person's. */
+      lastMessage: z.object({ at: z.iso.datetime(), fromMe: z.boolean() }).nullable(),
       /** How they fit the playbooks in use, for the requests. */
       fit: z
         .object({
