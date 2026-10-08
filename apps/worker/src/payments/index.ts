@@ -52,6 +52,12 @@ export interface PaymentServices {
   readonly refreshAheadMs: number;
 }
 
+/** The worker setting each provider's webhook secret comes from, named wherever it is missing. */
+export const WEBHOOK_SECRET_SETTING: Readonly<Record<PaymentProviderName, string>> = {
+  stripe: 'STRIPE_WEBHOOK_SECRET',
+  square: 'SQUARE_WEBHOOK_SIGNATURE_KEYS',
+};
+
 const WEEK = 7 * 86_400_000;
 const THREE_DAYS = 3 * 86_400_000;
 

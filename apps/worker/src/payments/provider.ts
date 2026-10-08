@@ -399,6 +399,11 @@ export interface PaymentProvider {
    * anything, and deduplicate on `PaymentEvent.id`.
    */
   readonly webhooks: {
+    /**
+     * False until the endpoint's signing secret is on the server. Nothing verifies without it, so every event is
+     * refused — and a provider refused for days turns the endpoint off (Stripe did, 2026-10-08).
+     */
+    readonly configured: boolean;
     /** True only when the bytes really came from the provider, within its time window. */
     verify(input: WebhookInput): boolean;
     /** The event, or null when the body isn't one we understand. */

@@ -1175,6 +1175,7 @@ export function createFakePayments(opts: {
       },
 
       webhooks: {
+        configured: true,
         verify({ rawBody, headers, url }) {
           if (name === 'stripe') {
             const header = headers['stripe-signature'];
