@@ -38,6 +38,7 @@ import type {
   Business,
   ChatInput,
   ChatsCollectInput,
+  DemoMarkInput,
   FriendNoteInput,
   FriendSetInput,
   FriendsSaveInput,
@@ -360,6 +361,18 @@ export function friendSet(
   if (profileId) return { ok: true, input: { ...base, profileId } };
   const who = whom(to);
   return who ? { ok: true, input: { ...base, ...who } } : { ok: false, why: NOT_WHOSE };
+}
+
+/** Marking that someone booked a demo some other way than the demo link, or taking it back (decision 24). */
+export function demoMark(
+  to: { readonly profile: ProfileRef; readonly name: string },
+  workspaceId: string,
+  booked: boolean,
+): Built<DemoMarkInput> {
+  const who = whom(to);
+  return who
+    ? { ok: true, input: { workspaceId, platform: 'facebook', ...who, booked } }
+    : { ok: false, why: NOT_WHOSE };
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */

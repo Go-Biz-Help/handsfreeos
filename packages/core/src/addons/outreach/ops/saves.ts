@@ -265,6 +265,7 @@ export const lookup = defineAddonQuery(outreachAddon, {
             dont_pitch_by: string | null;
             dont_pitch_at: Date | string | null;
             tagged: boolean;
+            demo: 'link' | 'marked' | null;
             intro: string[];
             mutual_friends: number | null;
             group_name: string | null;
@@ -275,6 +276,10 @@ export const lookup = defineAddonQuery(outreachAddon, {
                   exists (select 1 from app.record_tags rt join app.tags t on t.id = rt.tag_id
                           where rt.workspace_id = p.workspace_id and rt.record_type = 'person'
                             and rt.record_id = p.person_id and lower(t.name::text) = lower(${DONT_PITCH_TAG})) as tagged,
+                  (select d.how from addon_outreach.demos d
+                    where d.workspace_id = p.workspace_id and d.user_id = ${me} and d.profile_id = p.id
+                      and d.undone_at is null
+                    order by d.how = 'link' desc limit 1) as demo,
                   p.intro, p.mutual_friends, g.name as group_name
                 from addon_outreach.profiles p
                 left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
@@ -355,6 +360,7 @@ export const lookup = defineAddonQuery(outreachAddon, {
                 tagged: m.tagged,
               }
             : null,
+        demo: m.demo,
         intro: m.intro,
         mutualFriends: m.mutual_friends,
         groupName: m.group_name,

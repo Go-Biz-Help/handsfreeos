@@ -355,6 +355,7 @@ export const appointmentBookOnline = defineCommand({
       contactEmail: email,
       smsOk,
       source: 'booking_page',
+      linkRef: input.linkRef ?? null,
     };
     const result = await bookAppointment(ctx, {
       calendar,

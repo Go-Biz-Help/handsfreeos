@@ -75433,6 +75433,26 @@
                           "maxLength": 1000
                         }
                       },
+                      "openerStyles": {
+                        "default": [],
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "ownOpeners": {
+                        "default": [],
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 600
+                        }
+                      },
                       "questions": {
                         "maxItems": 20,
                         "type": "array",
@@ -75744,6 +75764,26 @@
                             "maxLength": 1000
                           }
                         },
+                        "openerStyles": {
+                          "default": [],
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "ownOpeners": {
+                          "default": [],
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 600
+                          }
+                        },
                         "questions": {
                           "maxItems": 20,
                           "type": "array",
@@ -75862,6 +75902,8 @@
                         "pace",
                         "tone",
                         "samples",
+                        "openerStyles",
+                        "ownOpeners",
                         "questions",
                         "avoid",
                         "disclaimer",
@@ -76126,6 +76168,26 @@
                             "maxLength": 1000
                           }
                         },
+                        "openerStyles": {
+                          "default": [],
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "ownOpeners": {
+                          "default": [],
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 600
+                          }
+                        },
                         "questions": {
                           "maxItems": 20,
                           "type": "array",
@@ -76244,6 +76306,8 @@
                         "pace",
                         "tone",
                         "samples",
+                        "openerStyles",
+                        "ownOpeners",
                         "questions",
                         "avoid",
                         "disclaimer",
@@ -78809,6 +78873,352 @@
                   },
                   "required": [
                     "postId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.replies.note": {
+      "post": {
+        "operationId": "command_outreach_replies_note",
+        "summary": "The extension saw chats on the person’s Facebook whose last message is theirs: each one after a message of the person’s it noted is kept as a reply, once, and their phone told unless they were looking at it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.reply.seen.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "seen": {
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "threadKey": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[0-9]{1,30}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "profile": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\d{1,30}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "username": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z0-9.]{1,100}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "username",
+                                "url"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ]
+                    }
+                  },
+                  "looking": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "seen"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "replies"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.opener.use": {
+      "post": {
+        "operationId": "command_outreach_opener_use",
+        "summary": "The person copied a first message to someone: note which of the playbook’s openers it was drafted with, for the results card. Once a first message to them is noted, the opener stays the one it was.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.opener.used.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "opener": {
+                    "type": "object",
+                    "properties": {
+                      "playbookId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "style",
+                          "own"
+                        ]
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 600
+                      }
+                    },
+                    "required": [
+                      "playbookId",
+                      "kind",
+                      "text"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "opener"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "noted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "noted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.demo.mark": {
+      "post": {
+        "operationId": "command_outreach_demo_mark",
+        "summary": "The person says someone they reached booked a demo some other way than the demo link, or takes that back. It counts toward which openers work.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.demo.marked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook"
+                    ]
+                  },
+                  "profile": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{1,30}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "username": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9.]{1,100}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "url": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "username",
+                      "url"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "booked": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profile",
+                  "name",
+                  "booked"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "booked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "booked"
                   ],
                   "additionalProperties": false
                 }
@@ -154384,6 +154794,26 @@
                                   "maxLength": 1000
                                 }
                               },
+                              "openerStyles": {
+                                "default": [],
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "ownOpeners": {
+                                "default": [],
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 600
+                                }
+                              },
                               "questions": {
                                 "maxItems": 20,
                                 "type": "array",
@@ -154502,6 +154932,8 @@
                               "pace",
                               "tone",
                               "samples",
+                              "openerStyles",
+                              "ownOpeners",
                               "questions",
                               "avoid",
                               "disclaimer",
@@ -154776,6 +155208,20 @@
                               }
                             ]
                           },
+                          "demo": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "link",
+                                  "marked"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "intro": {
                             "type": "array",
                             "items": {
@@ -154808,6 +155254,7 @@
                           "state",
                           "keep",
                           "dontPitch",
+                          "demo",
                           "intro",
                           "mutualFriends",
                           "groupName"
@@ -156828,6 +157275,12 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "demoLink": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -156844,7 +157297,8 @@
                           "why",
                           "summary",
                           "nextStep",
-                          "playbookName"
+                          "playbookName",
+                          "demoLink"
                         ],
                         "additionalProperties": false
                       }
@@ -157270,6 +157724,129 @@
                     "friends",
                     "cap",
                     "warning"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.openers": {
+      "post": {
+        "operationId": "query_outreach_openers",
+        "summary": "Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo. Everyone’s for owners and admins.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "everyone": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "everyone": {
+                      "type": "boolean"
+                    },
+                    "playbooks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "playbookId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "openers": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "style",
+                                    "own"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "current": {
+                                  "type": "boolean"
+                                },
+                                "sent": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "replies": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "demos": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text",
+                                "current",
+                                "sent",
+                                "replies",
+                                "demos"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "playbookId",
+                          "name",
+                          "openers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "everyone",
+                    "playbooks"
                   ],
                   "additionalProperties": false
                 }

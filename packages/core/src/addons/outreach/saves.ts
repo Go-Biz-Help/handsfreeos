@@ -185,6 +185,8 @@ export const OutreachLookupOutput = z.object({
       state: z.enum(FRIEND_STATE_KEYS).nullable(),
       keep: z.boolean(),
       dontPitch: DontPitch.nullable(),
+      /** A demo they booked after the person reached them: through the demo link, or marked (./demos.ts `DEMO_HOWS`). */
+      demo: z.enum(['link', 'marked']).nullable(),
       intro: z.array(z.string()),
       mutualFriends: z.number().int().nullable(),
       groupName: z.string().nullable(),

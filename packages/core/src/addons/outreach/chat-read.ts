@@ -24,12 +24,17 @@ export const CONTACTS_FROM_CHATS_WORDS: Record<ContactsFromChats, string> = {
   prospects: 'Only people who look like a prospect',
 };
 
+/** The hour of the morning push to start, in the business's time zone (decision 22; ./alerts.ts). */
+export const MORNING_PUSH_HOUR = 8;
+
 /** Social Outreach's settings for a business (Add-ons → Social Outreach), checked on every save. */
 export const OutreachSettingsSchema = z.object({
   /** Who from the chats brought in goes in Contacts. The tagged, unless the business says otherwise. */
   contactsFromChats: z.enum(CONTACTS_FROM_CHATS).default('tagged'),
   /** How many weeks a sent friend request waits before it's suggested for cancelling (decision 12). */
   cancelRequestsAfterWeeks: z.number().int().min(1).max(12).default(CANCEL_AFTER_WEEKS),
+  /** The hour each person hears what's on their list for today (decision 22); null sends none. */
+  morningPushHour: z.number().int().min(0).max(23).nullable().default(MORNING_PUSH_HOUR),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 

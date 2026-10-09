@@ -5,8 +5,10 @@
  */
 import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { requireHuman } from '../../../kernel/actor';
+import { HfosError } from '../../../errors';
+import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
+import { demoLink, demoRef } from '../demos';
 import { bestFit } from '../fit';
 import { bestGroupFit } from '../groups';
 import { dailyLimitsNow, DONT_PITCH_TAG } from '../limits';
@@ -44,9 +46,12 @@ export const today = defineAddonQuery(outreachAddon, {
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
+  // The worker asks on a person's behalf for the morning push (decision 22).
+  actors: ['human', 'system'],
   scope: inWorkspace,
   async handler(ctx, _input) {
-    const me = requireHuman(ctx).userId;
+    const me = userIdOf(ctx.actor);
+    if (!me) throw HfosError.forbidden('Only a person has a list for today.');
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const todayStart = await startOfToday(ctx, now);
@@ -97,8 +102,15 @@ export const today = defineAddonQuery(outreachAddon, {
       summary: null,
       nextStep: null,
       playbookName: null,
+      demoLink: null,
       ...more,
     });
+    // The demo link for a message (decision 24): the first playbook in use with a link, by name.
+    const linked = [...playbooks]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .find((p) => p.details.link);
+    const demoFor = (profileId: string | null) =>
+      linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
 
     // Friend requests: people found in the groups, the best fit first.
     const requestsLeft = leftToday(limits, 'friend_request');
@@ -191,6 +203,7 @@ export const today = defineAddonQuery(outreachAddon, {
             profileId: p.id,
             profileUrl: p.url,
             why: [`Accepted your request ${dayWords(p.since, now)}`],
+            demoLink: demoFor(p.id),
           }),
         );
     }
@@ -241,6 +254,43 @@ export const today = defineAddonQuery(outreachAddon, {
           ],
           summary: c.summary,
           nextStep: c.next_step,
+          demoLink: demoFor(c.profile_id),
+        }),
+      );
+    }
+
+    // Replies the extension saw (decision 22), for anyone not listed from their chat already, until the person
+    // writes back.
+    const listed = new Set(items.map((i) => i.profileId).filter(Boolean));
+    const seen = await rows<{
+      profile_id: string;
+      name: string;
+      url: string;
+      thread_key: string | null;
+      seen_at: Date | string;
+    }>(
+      ctx.tx,
+      sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at
+          from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
+          where r.workspace_id = ${ws} and r.user_id = ${me}
+            and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
+            and not exists (select 1 from addon_outreach.touches t
+              where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
+                and t.at > r.seen_at)
+          order by r.profile_id, r.seen_at desc`,
+    );
+    seen.sort((a, b) => new Date(b.seen_at).getTime() - new Date(a.seen_at).getTime());
+    for (const r of seen) {
+      if (listed.has(r.profile_id) || replies-- <= 0) continue;
+      items.push(
+        item({
+          kind: 'reply',
+          name: r.name,
+          profileId: r.profile_id,
+          profileUrl: r.url,
+          threadKey: r.thread_key,
+          why: [`Wrote back ${dayWords(r.seen_at, now)}`],
+          demoLink: demoFor(r.profile_id),
         }),
       );
     }

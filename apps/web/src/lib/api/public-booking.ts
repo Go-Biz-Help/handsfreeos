@@ -360,6 +360,8 @@ export interface BookingRequest extends CustomerFields {
   readonly chosenUserId?: string | null;
   readonly intake: Readonly<Record<string, string | number | boolean | readonly string[] | null>>;
   readonly notes?: string | null;
+  /** The `ref` the page was opened with, for whoever's link it was. */
+  readonly ref?: string | null;
 }
 
 export interface WaitlistRequest extends CustomerFields {

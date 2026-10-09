@@ -6,9 +6,12 @@
  * good posts in their groups (decision 20). Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
  * notes it, which takes it off the list and counts it against today's limits. The extension's panel looks the person
- * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows.
+ * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows. A first message's
+ * drafts open the way the playbook's next opener says, and copying one notes which it was, for the results card
+ * (decision 23). Anyone on the list for a message has the person's own demo link to copy (decision 24).
  */
 import { DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
+import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import {
   DRAFT_KINDS,
@@ -16,7 +19,7 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { Copy, Loader2, Sparkles, X } from 'lucide-react';
+import { CalendarCheck, Copy, Loader2, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -204,6 +207,8 @@ function Drafts({
 }) {
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<readonly string[]>([]);
+  /** The opener the drafts were written with, for a first message. */
+  const [opener, setOpener] = useState<DraftOpener | null>(null);
   const skipping = useAct();
   const skip = (postId: string) =>
     skipping.act(
@@ -228,14 +233,35 @@ function Drafts({
       );
       if (!out.drafts.length) toast.message('The AI had nothing to suggest. Try again.');
       setDrafts(out.drafts);
+      setOpener(out.opener);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
       setBusy(false);
     }
   };
+  /** Copying a first message notes which opener it was; that it couldn't is no reason to stop them. */
+  const copy = async (text: string) => {
+    await copyText(
+      text,
+      kind === 'comment'
+        ? 'Copied. Paste it as a comment on the post.'
+        : 'Copied. Paste it in Messenger.',
+    );
+    if (!opener || !item.profileId) return;
+    await apiBrowser()
+      .POST('/v1/commands/outreach.opener.use', {
+        body: { workspaceId, profileId: item.profileId, opener },
+      })
+      .catch(() => undefined);
+  };
   return (
     <div className="mt-2">
+      {drafts.length && opener ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-opener">
+          Opens with {OPENER_KINDS[opener.kind].toLowerCase()}: “{openerShort(opener.text, 70)}”
+        </p>
+      ) : null}
       {drafts.length ? (
         <ul className="space-y-1.5" data-testid="today-drafts">
           {drafts.map((text) => (
@@ -248,14 +274,7 @@ function Drafts({
                 variant="ghost"
                 size="icon"
                 aria-label="Copy this draft"
-                onClick={() =>
-                  void copyText(
-                    text,
-                    kind === 'comment'
-                      ? 'Copied. Paste it as a comment on the post.'
-                      : 'Copied. Paste it in Messenger.',
-                  )
-                }
+                onClick={() => void copy(text)}
               >
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -278,6 +297,23 @@ function Drafts({
         )}
         {drafts.length ? 'Draft again' : kind === 'comment' ? 'Draft a comment' : 'Draft a message'}
       </Button>
+      {item.demoLink ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          onClick={() =>
+            void copyText(
+              item.demoLink!,
+              'Copied your demo link for them. A booking through it counts by itself.',
+            )
+          }
+          data-testid="today-demo-link"
+        >
+          <CalendarCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Copy demo link
+        </Button>
+      ) : null}
       {item.postId ? (
         <Button
           variant="ghost"

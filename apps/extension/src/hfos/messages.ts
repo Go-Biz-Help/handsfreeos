@@ -68,6 +68,13 @@ export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
 export type PostMark = PostsSaved['posts'][number];
 export type PostSkipInput = Body<'/v1/commands/outreach.post.skip'>;
 export type PostSkipped = Ok<'/v1/commands/outreach.post.skip'>;
+/** Which opener a copied draft was, and a demo marked booked (packages/core/src/addons/outreach/openers.ts, demos.ts). */
+export type OpenerUseInput = Body<'/v1/commands/outreach.opener.use'>;
+export type OpenerUsed = Ok<'/v1/commands/outreach.opener.use'>;
+export type DemoMarkInput = Body<'/v1/commands/outreach.demo.mark'>;
+export type DemoMarked = Ok<'/v1/commands/outreach.demo.mark'>;
+/** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
+export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -156,6 +163,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
   | { readonly type: 'hfos-post-skip'; readonly input: PostSkipInput }
+  | { readonly type: 'hfos-opener-use'; readonly input: OpenerUseInput }
+  | { readonly type: 'hfos-demo-mark'; readonly input: DemoMarkInput }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
 
@@ -185,6 +194,8 @@ export interface HfosValues {
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
   readonly 'hfos-post-skip': PostSkipped;
+  readonly 'hfos-opener-use': OpenerUsed;
+  readonly 'hfos-demo-mark': DemoMarked;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
 }
@@ -214,6 +225,8 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-warning',
   'hfos-save-posts',
   'hfos-post-skip',
+  'hfos-opener-use',
+  'hfos-demo-mark',
   'hfos-today',
   'hfos-noting',
 ]);

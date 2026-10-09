@@ -4,6 +4,7 @@
  */
 import type { Answered, Seen, Step } from './facebook/actions';
 import type { FetchStep, StepResult } from './facebook/fetch';
+import type { ReplySighting } from './facebook/replies';
 import type { ReadResult } from './facebook/types';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
@@ -55,18 +56,25 @@ export type Note = { readonly type: 'hfos-changed' };
 
 /**
  * What a Facebook tab tells the background as the person works there (src/facebook/actions.ts): a step they took, or
- * their answer to a friend request, and when; or someone they opened from a group. Never what a comment or a message
- * said.
+ * their answer to a friend request, and when; or someone they opened from a group; or the chats on the page whose last
+ * message is theirs (src/facebook/replies.ts), and whether the person had the tab in front of them. Never what a
+ * comment or a message said.
  */
 export type TabNote =
   | { readonly type: 'hfos-noted'; readonly step: Step; readonly at: string }
   | { readonly type: 'hfos-answered'; readonly answered: Answered; readonly at: string }
-  | { readonly type: 'hfos-seen'; readonly seen: Seen };
+  | { readonly type: 'hfos-seen'; readonly seen: Seen }
+  | {
+      readonly type: 'hfos-replies';
+      readonly seen: readonly ReplySighting[];
+      readonly looking: boolean;
+    };
 
 export const TAB_NOTES: ReadonlySet<string> = new Set<TabNote['type']>([
   'hfos-noted',
   'hfos-answered',
   'hfos-seen',
+  'hfos-replies',
 ]);
 
 /** Where the switch that turns noting on and off is kept, for the tabs to read: `false` is off, anything else on. */

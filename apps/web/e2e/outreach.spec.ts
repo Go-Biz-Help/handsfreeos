@@ -118,6 +118,15 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByLabel('Your tone')).toHaveValue('Friendly, no hard sell');
   await next.click();
 
+  // How it starts a chat: a style tapped, and an opener of the business's own.
+  await expect(builder.getByRole('heading', { name: 'How do you start a chat?' })).toBeVisible();
+  await builder.getByRole('button', { name: /^Mention the group you’re both in/ }).click();
+  await builder.getByRole('button', { name: 'Add an opener' }).click();
+  await builder
+    .getByLabel('Your opener 1')
+    .fill('Hi {first name}! Who orders lunch at your office?');
+  await next.click();
+
   // The summary: named after its goal to start with, and the conversation as it reads.
   await expect(builder.getByTestId('playbook-name')).toHaveValue('Make a sale');
   await builder.getByTestId('playbook-name').fill('Office orders');
@@ -130,6 +139,10 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(script).toContainText('“Yes” adds Wants a tasting, then make the offer');
   await expect(script).toContainText('“No” adds Not a fit, then stop here');
   await expect(script).toContainText('They answer in their own words.');
+  await expect(builder.getByTestId('review-openers')).toContainText(
+    'Mention the group you’re both in',
+  );
+  await expect(builder.getByTestId('review-openers')).toContainText('1 opener of your own');
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is ready.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=playbooks$`));
@@ -157,8 +170,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
   await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
-  await builder.getByTestId('playbook-next').click();
-  await builder.getByTestId('playbook-next').click();
+  for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('playbook-name')).toHaveValue('CRM demos');
   await expect(script).toContainText(
     '“No”, then ask question 4: “How do you keep track of follow-ups now?”',

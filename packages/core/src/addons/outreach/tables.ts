@@ -1,7 +1,8 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
- * for tidying friends and Facebook's warnings, and 20261027001000 for group posts): the Drizzle mirror its server code reads and writes through.
+ * for tidying friends and Facebook's warnings, 20261027001000 for group posts, and 20261027001100 for replies, openers
+ * and demos): the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -20,8 +21,10 @@ import {
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { ChatReadState } from './chat-read';
+import type { DemoHow } from './demos';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
+import type { OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
 import type { Friendship, Platform, SavedMessage } from './saves';
@@ -461,6 +464,97 @@ export const posts = addonOutreach.table(
   ],
 );
 
+/**
+ * A reply the extension saw (decision 22): the last message in someone's chat is theirs, after a message of the
+ * person's it noted. One per message of the person's it answers (`after_at`), so a chat seen again is no news.
+ */
+export const replies = addonOutreach.table(
+  'replies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    threadKey: text('thread_key'),
+    /** The person's message it answers: their last one noted before it was seen. */
+    afterAt: ts('after_at').notNull(),
+    seenAt: ts('seen_at').notNull(),
+    /** Whether their phone was told: not while they were looking at it. */
+    pushed: boolean('pushed').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId, t.afterAt),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * The opener a first message to someone was drafted with (decision 23), as the person copied it: one per person they
+ * reach, the last copied before their first message was noted.
+ */
+export const openerUses = addonOutreach.table(
+  'opener_uses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    /** The playbook it's from (let go when it goes). */
+    playbookId: uuid('playbook_id'),
+    kind: text('kind').notNull().$type<OpenerKind>(),
+    text: text('text').notNull(),
+    usedAt: ts('used_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A demo someone the person reached booked (decision 24): through the person's demo link, which core's booking kept
+ * as its `ref` (`appointment_id`, `person_id`), or marked by the person. One a booking, and one mark a person.
+ */
+export const demos = addonOutreach.table(
+  'demos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    how: text('how').notNull().$type<DemoHow>(),
+    appointmentId: uuid('appointment_id'),
+    personId: uuid('person_id'),
+    at: ts('at').notNull(),
+    /** A mark the person took back: kept, and not counted. */
+    undoneAt: ts('undone_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   fileChats,
@@ -471,9 +565,12 @@ export const OUTREACH_TABLES = {
   groups,
   myGroups,
   imports,
+  demos,
+  openerUses,
   playbooks,
   posts,
   profiles,
+  replies,
   threads,
   touches,
   warnings,

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the ninth test build (0.9.0).** It reads the Facebook page you have open and shows what it found in
+**This is the tenth test build (0.10.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
@@ -11,7 +11,9 @@ puts the requests in order of how they fit your playbooks, notes when you confir
 to keep and the ones nobody pitches. It reads your Messenger chats for the AI, saves groups and their members with how
 each group fits, finds posts in your groups worth a comment, and gives you a list for the day with the AI's drafts
 to copy, after looking the person up on Facebook. It gets your Facebook download file for you and brings it in, and
-cancels old friend requests and unfriends the people you tick. It stops for the day on any Facebook warning. It never
+cancels old friend requests and unfriends the people you tick. It spots who wrote back so your phone can tell you,
+takes turns with your playbook's openers, and gives you a demo link for each person. It stops for the day on any
+Facebook warning. It never
 sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
 in Messenger's chat list, in your groups' feeds and on the profiles you ticked, once you ask it to.
 
@@ -105,6 +107,13 @@ back, and the last few steps noted, with **See all** opening the activity on the
 do on Facebook** turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
 up to 200, and go in order when it's back.
 
+**Who wrote back** (decision 22): while noting is on, each Facebook tab looks at the chats on the page as it changes,
+at most every 10 seconds and not in the 20 seconds after you send one: Messenger's list (a line that doesn't start
+"You"), the chat open on its page, and small chat windows over any page, where the last message is theirs
+(`src/facebook/replies.ts`). The background sends who (the chat's number or their profile, never what they wrote),
+only chats from the last two days and each at most every 3 minutes (`src/hfos/replies.ts`). HandsFreeOS counts one
+only when it answers a message of yours it noted, and tells your phone unless you had that tab in front of you.
+
 ## Your chats, for the AI
 
 Facebook's file can take hours to be ready, so the panel reads your chats in Messenger too. With **Read chats I
@@ -143,7 +152,11 @@ Each opens their profile, chat or post on Facebook. A message has **Draft a mess
 first the extension looks them up, opening their profile in a tab out of view, reading their intro and latest posts,
 and the business page their intro links to, then closing it (`src/panel/lookup.ts`, decision 21). Then the AI writes
 three messages or two comments to pick from, in the playbook's tone, mentioning only what's really there and never
-with its words to avoid, and **Copy** puts one on the clipboard to paste and send yourself. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
+with its words to avoid, and **Copy** puts one on the clipboard to paste and send yourself. A first message opens the
+way the playbook's next opener says (shown above the drafts), or is the business's own opener with their first name
+in; copying one notes which it was, for the **Which openers work** card (decision 23). **Copy demo link** copies
+your own link to the playbook's booking page for them: a booking through it counts as your demo by itself (decision
+24). On a profile, **Demo booked** marks one they booked some other way. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
 it off the list. The Today tab on the web shows the same list.
 
 ## Tidying up your friends
@@ -312,4 +325,4 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Next
 
-In the owner's order (decisions 22 to 24 in docs/outreach.md): phone alerts, which openers work, and the demo link. Then leads and results by group. Safari on Mac follows in Phase 2.
+Leads and results by group. Safari on Mac follows in Phase 2.

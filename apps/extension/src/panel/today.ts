@@ -8,7 +8,9 @@
  * person's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on good
  * posts in their groups (decision 20), each with a link to open and, for a message or a comment, the AI's drafts to
  * copy. Before drafting, the extension looks the person up on Facebook (./lookup.ts, decision 21). The person sends
- * everything themselves; noting the step takes it off, and a post they don't want can be put aside.
+ * everything themselves; noting the step takes it off, and a post they don't want can be put aside. A first message's
+ * drafts open the way the playbook's next opener says, and copying one notes which it was (decision 23); anyone on the
+ * list for a message has the person's demo link to copy, so a booking through it counts by itself (decision 24).
  */
 import {
   DAILY_STEPS,
@@ -17,6 +19,7 @@ import {
   pastLimitWords,
   TOUCH_KINDS,
 } from '@hfos/core/addons/outreach/limits';
+import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { DRAFT_KINDS, TODAY_KINDS, type DraftKind } from '@hfos/core/addons/outreach/today';
 import type {
@@ -46,8 +49,11 @@ let switching = false;
 /** The list for today in the business it saves to, and why it couldn't be had. */
 let list: { readonly businessId: string; readonly value: TodayList } | null = null;
 let listProblem: string | null = null;
-/** The AI's drafts for someone on the list, by `itemKey`: being looked up, then written, while a string. */
-const drafts = new Map<string, readonly string[] | 'looking' | 'writing'>();
+/** The AI's drafts for someone on the list, by `itemKey`, and the opener they took: being looked up, then written, while a string. */
+const drafts = new Map<
+  string,
+  { readonly texts: readonly string[]; readonly opener: DraftOpener | null } | 'looking' | 'writing'
+>();
 const draftProblems = new Map<string, string>();
 /** The list's shown, or all of it. */
 let showAll = false;
@@ -101,7 +107,8 @@ async function draft(item: TodayListItem, kind: DraftKind): Promise<void> {
       lookup,
     },
   });
-  if (answer.ok && answer.value.drafts.length) drafts.set(key, answer.value.drafts);
+  if (answer.ok && answer.value.drafts.length)
+    drafts.set(key, { texts: answer.value.drafts, opener: answer.value.opener });
   else {
     drafts.delete(key);
     draftProblems.set(
@@ -110,6 +117,29 @@ async function draft(item: TodayListItem, kind: DraftKind): Promise<void> {
     );
   }
   draw();
+}
+
+/** Copying a first message notes which opener it was; that it couldn't is no reason to stop them. */
+function noteOpener(item: TodayListItem, opener: DraftOpener | null): void {
+  if (!list || !opener || !item.profileId) return;
+  void ask({
+    type: 'hfos-opener-use',
+    input: { workspaceId: list.businessId, profileId: item.profileId, opener },
+  });
+}
+
+/** A button that copies `text`, and says so. */
+function copyButton(label: string, text: string, then?: () => void): HTMLElement {
+  const copy = button(label, () => {
+    void navigator.clipboard.writeText(text).then(
+      () => {
+        copy.textContent = 'Copied';
+        then?.();
+      },
+      () => (copy.textContent = 'Couldn’t copy'),
+    );
+  });
+  return copy;
 }
 
 /** Puts a post aside: off the list, and never suggested again. */
@@ -241,21 +271,31 @@ function draftsView(item: TodayListItem): Child {
   if (got === 'looking') return h('p', { class: 'muted' }, `Looking ${item.name} up on Facebook…`);
   if (got === 'writing') return h('p', { class: 'muted' }, 'Writing drafts…');
   return h(
-    'ul',
-    { class: 'drafts' },
-    ...got.map((text) => {
-      const copy = button('Copy', () => {
-        void navigator.clipboard.writeText(text).then(
-          () => (copy.textContent = 'Copied'),
-          () => (copy.textContent = 'Couldn’t copy'),
-        );
-      });
-      return h('li', {}, h('p', {}, text), copy);
-    }),
+    'div',
+    {},
+    got.opener
+      ? h(
+          'p',
+          { class: 'muted' },
+          `Opens with ${OPENER_KINDS[got.opener.kind].toLowerCase()}: “${openerShort(got.opener.text, 70)}”`,
+        )
+      : null,
     h(
-      'li',
-      {},
-      button('Draft again', () => void draft(item, kind)),
+      'ul',
+      { class: 'drafts' },
+      ...got.texts.map((text) =>
+        h(
+          'li',
+          {},
+          h('p', {}, text),
+          copyButton('Copy', text, () => noteOpener(item, got.opener)),
+        ),
+      ),
+      h(
+        'li',
+        {},
+        button('Draft again', () => void draft(item, kind)),
+      ),
     ),
   );
 }
@@ -277,6 +317,7 @@ function itemView(item: TodayListItem): HTMLElement {
     item.summary ? h('div', {}, item.summary) : null,
     item.nextStep ? h('div', { class: 'muted' }, `Next: ${item.nextStep}`) : null,
     draftsView(item),
+    item.demoLink ? h('div', {}, copyButton('Copy demo link', item.demoLink)) : null,
   );
 }
 

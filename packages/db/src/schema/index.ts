@@ -2502,6 +2502,11 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   syncWindow: syncWindow(),
   /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
   binItemId: binItemRef(),
+  /**
+   * The `ref` the booking page was opened with (20261027001100), for whoever's link it was to count the booking: a
+   * Social Outreach demo link's. Online bookings only; null for the rest.
+   */
+  linkRef: text('link_ref'),
 });
 
 /** M18: more services on one visit, each with its time and price as they read when added. */

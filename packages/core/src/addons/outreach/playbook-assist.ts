@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { FIRST_NAME } from './openers';
 import {
   ANSWER_NEXT_KEYS,
   PLAYBOOK_GOAL_KEYS,
@@ -28,6 +29,8 @@ export const PLAYBOOK_ASSIST_PARTS = {
   groupWords: { kind: 'list', label: 'words to search for groups' },
   tags: { kind: 'list', label: 'tags' },
   samples: { kind: 'list', label: 'sample messages' },
+  openerStyles: { kind: 'list', label: 'styles to open a first message' },
+  ownOpeners: { kind: 'list', label: 'your own openers' },
   avoid: { kind: 'list', label: 'words to avoid' },
   questions: { kind: 'questions', label: 'questions for the conversation' },
 } as const;
@@ -37,7 +40,10 @@ export const PLAYBOOK_ASSIST_PART_KEYS = Object.keys(PLAYBOOK_ASSIST_PARTS) as [
   ...PlaybookAssistPart[],
 ];
 type WordsPart = 'offer' | 'audience' | 'area' | 'tone' | 'disclaimer';
-type ListPart = 'signs' | 'skip' | 'groupWords' | 'tags' | 'samples' | 'avoid';
+type ListPart =
+  'signs' | 'skip' | 'groupWords' | 'tags' | 'samples' | 'openerStyles' | 'ownOpeners' | 'avoid';
+/** The parts whose lines are whole messages, which keep their line breaks. */
+const MESSAGE_PARTS: readonly PlaybookAssistPart[] = ['samples', 'ownOpeners'];
 
 /** Better words for what's there, or more to add. */
 export const PLAYBOOK_ASSIST_MODES = ['improve', 'suggest'] as const;
@@ -63,6 +69,8 @@ export const AssistDraft = z.object({
   groupWords: list(PLAYBOOK_LIMITS.groupWords.line, PLAYBOOK_LIMITS.groupWords.most),
   tags: list(PLAYBOOK_LIMITS.tags.line, PLAYBOOK_LIMITS.tags.most),
   samples: list(PLAYBOOK_LIMITS.samples.line, PLAYBOOK_LIMITS.samples.most),
+  openerStyles: list(PLAYBOOK_LIMITS.openerStyles.line, PLAYBOOK_LIMITS.openerStyles.most),
+  ownOpeners: list(PLAYBOOK_LIMITS.ownOpeners.line, PLAYBOOK_LIMITS.ownOpeners.most),
   avoid: list(PLAYBOOK_LIMITS.avoid.line, PLAYBOOK_LIMITS.avoid.most),
   questions: z
     .array(
@@ -137,6 +145,8 @@ function playbookText(d: AssistDraft): string {
     }`,
     `Tone: ${d.tone || '(not written yet)'}`,
     `Sample messages:\n${lines(d.samples)}`,
+    `Styles to open a first message:\n${lines(d.openerStyles)}`,
+    `Their own openers:\n${lines(d.ownOpeners)}`,
     `Words to avoid:\n${lines(d.avoid)}`,
     `Every message must say: ${d.disclaimer || '(nothing)'}`,
   ].join('\n');
@@ -156,16 +166,22 @@ function partTask(part: PlaybookAssistPart, mode: PlaybookAssistMode, d: AssistD
       ? `Rewrite ${label} three ways, each clearer, more specific and more complete than what’s written, keeping its meaning. Each under ${max} characters. Put them in "options"; leave "questions" empty.`
       : `Write ${label} three different ways that fit this playbook. Each under ${max} characters. Put them in "options"; leave "questions" empty.`;
   }
-  const { line } = PLAYBOOK_LIMITS[part as ListPart];
-  const sample = part === 'samples';
+  const { line, most } = PLAYBOOK_LIMITS[part as ListPart];
+  const few = Math.min(most, part === 'samples' ? 3 : ASSIST_MOST.list);
   return mode === 'improve' && d[part as ListPart].length
-    ? `Rewrite the ${label} above as a better list: clearer and more specific, the same meaning, one idea a line, nothing repeated. Keep the person’s own ideas and fix the words. Up to ${ASSIST_MOST.list} lines, each under ${line} characters. Put them in "options"; leave "questions" empty.`
-    : `Suggest up to ${sample ? 3 : ASSIST_MOST.list} more ${label} that fit this playbook and aren’t already above${
-        sample
+    ? `Rewrite the ${label} above as a better list: clearer and more specific, the same meaning, one idea a line, nothing repeated. Keep the person’s own ideas and fix the words. Up to ${Math.min(most, ASSIST_MOST.list)} lines, each under ${line} characters.${
+        part === 'ownOpeners' ? ` Keep ${FIRST_NAME} wherever it is.` : ''
+      } Put them in "options"; leave "questions" empty.`
+    : `Suggest up to ${few} more ${label} that fit this playbook and aren’t already above${
+        part === 'samples'
           ? ': short Facebook messages in the playbook’s tone, a first hello, a follow-up and the offer'
           : part === 'tags'
             ? ': short labels, two or three words each, for sorting people by how they fit'
-            : ''
+            : part === 'openerStyles'
+              ? ': each a different way to open a first message to someone new, said as an instruction in one sentence, like “Ask one curious question about their business, from something real on their profile.” Each different enough that it’s clear which works better'
+              : part === 'ownOpeners'
+                ? `: each a whole first message to someone new, short, friendly and in the playbook’s tone, ending with a light question and never pitching. Write ${FIRST_NAME} where their first name goes`
+                : ''
       }. Each under ${line} characters. Put them in "options"; leave "questions" empty.`;
 }
 
@@ -277,8 +293,8 @@ export function checkedAssist(
   );
   const options: string[] = [];
   for (const o of answer.options) {
-    // A sample message keeps its lines; anything else is one line.
-    const words = part === 'samples' ? o.trim() : squash(o);
+    // A whole message keeps its lines; anything else is one line.
+    const words = MESSAGE_PARTS.includes(part) ? o.trim() : squash(o);
     if (!words || words.length > max || had.has(key(words))) continue;
     had.add(key(words));
     options.push(words);

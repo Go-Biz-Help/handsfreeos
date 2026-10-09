@@ -27,6 +27,7 @@ import type {
   TouchInput,
   TouchSaved,
 } from './messages';
+import { isRepliesNote, noteReplies } from './replies';
 import { friendNote, nameKey, touchSave, type Built } from './saves';
 import { answerWith, api, call, Refused, savingTo } from './session';
 
@@ -139,6 +140,7 @@ export function isTabNote(note: unknown): note is TabNote {
     isObject(person) && isObject(person.profile);
   const named = (person: unknown) => withProfile(person) && typeof person.name === 'string';
   if (note.type === 'hfos-seen') return withProfile(note.seen) && isObject(note.seen.group);
+  if (note.type === 'hfos-replies') return isRepliesNote(note);
   if (typeof note.at !== 'string') return false;
   if (note.type === 'hfos-answered')
     return (
@@ -335,8 +337,19 @@ function noteAnswer(answered: Answered, at: string): Promise<void> {
   });
 }
 
-/** What a Facebook tab told the background: a step taken, a friend request answered, or someone opened from a group. */
+/**
+ * What a Facebook tab told the background: a step taken, a friend request answered, someone opened from a group, or
+ * chats whose last message is theirs (./replies.ts).
+ */
 export function takeNote(note: TabNote): void {
+  if (note.type === 'hfos-replies') {
+    void isNoting()
+      .then((on) => (on ? noteReplies(note) : undefined))
+      .catch((error: unknown) =>
+        console.error('HandsFreeOS Social couldn’t send the replies it saw', error),
+      );
+    return;
+  }
   const work =
     note.type === 'hfos-seen'
       ? async () => {

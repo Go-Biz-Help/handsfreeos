@@ -44,6 +44,7 @@ import type {
 } from '../hfos/messages';
 import {
   chatSave,
+  demoMark,
   friendSet,
   friendsSave,
   groupDetailFacts,
@@ -683,7 +684,7 @@ async function setFriend(
   if (answer.ok) {
     const set = answer.value;
     const next: Mark = {
-      ...(mark ?? { state: null, intro: [], mutualFriends: null, groupName: null }),
+      ...(mark ?? { state: null, demo: null, intro: [], mutualFriends: null, groupName: null }),
       profileId: set.profileId,
       id: mark?.id ?? to.profile.id,
       username: mark?.username ?? to.profile.username,
@@ -702,6 +703,41 @@ async function setFriend(
           : set.keep
             ? `You’ll keep ${to.name}: they’re never suggested for unfriending.`
             : `${to.name} isn’t on your Keep list anymore.`,
+    );
+  } else problem(answer.problem);
+  redraw();
+}
+
+/** Demo booked, or not, for someone on the page: one booked some other way than the demo link (decision 24). */
+async function setDemo(
+  to: { readonly profile: ProfileRef; readonly name: string },
+  booked: boolean,
+): Promise<void> {
+  const k = known;
+  if (!k) return;
+  const key = profileKey(to.profile);
+  const built = demoMark(to, k.business.id, booked);
+  if (!built.ok) return say(built.why);
+  saving.add(`mark:${key}`);
+  redraw();
+  const answer = await ask({ type: 'hfos-demo-mark', input: built.input });
+  saving.delete(`mark:${key}`);
+  if (answer.ok) {
+    const mark = k.marks.get(key) ?? null;
+    if (mark && mark.demo !== 'link') {
+      const next: Mark = { ...mark, demo: booked ? 'marked' : null };
+      k.marks.set(key, next);
+      setMark(k, next);
+    }
+    // Someone new to HandsFreeOS is kept now: ask again for what's known about them.
+    if (!mark) {
+      k.marks.delete(key);
+      if (lastRead) void lookUp(lastRead);
+    }
+    say(
+      booked
+        ? `Marked: ${to.name} booked a demo. It counts toward which openers work.`
+        : `${to.name} isn’t marked as booking a demo anymore.`,
     );
   } else problem(answer.problem);
   redraw();
@@ -819,6 +855,14 @@ function marksView(to: { readonly profile: ProfileRef; readonly name: string }, 
           (on) => void setFriend(to, { keep: on }),
         )
       : null,
+    mark?.demo === 'link'
+      ? h('p', { class: 'muted' }, 'Booked a demo through your demo link.')
+      : toggle(
+          'Demo booked: they booked one some other way',
+          mark?.demo === 'marked',
+          busy,
+          (on) => void setDemo(to, on),
+        ),
   );
 }
 

@@ -10,11 +10,21 @@
 import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import type { AddonWorkerModule } from '../types';
+import type { AddonSubscriber, AddonWorkerModule } from '../types';
+import { armMorning, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
+import { appointmentBooked } from './demos';
 import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+
+/** What the extension sends also arms the morning push, for a business that had the add-on on before it existed. */
+const andMorning =
+  (subscriber: AddonSubscriber): AddonSubscriber =>
+  async (ctx) => {
+    await subscriber(ctx);
+    await armMorning(ctx);
+  };
 
 export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
@@ -37,14 +47,23 @@ export const outreachAddonWorker: AddonWorkerModule = {
     },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
-  // checked by it (./posts.ts).
+  // checked by it (./posts.ts); a reply seen pushed to the person's phone, and the morning push moved with the
+  // settings (./alerts.ts); a booking through a demo link counted (./demos.ts).
   subscribers: {
-    'outreach.download.saved': downloadSaved,
-    'outreach.chats.collected': downloadSaved,
-    'outreach.posts.saved': postsSaved,
+    'outreach.download.saved': andMorning(downloadSaved),
+    'outreach.chats.collected': andMorning(downloadSaved),
+    'outreach.posts.saved': andMorning(postsSaved),
+    'outreach.reply.seen': replySeen,
+    'addon.settings_saved': settingsSaved,
+    'appointment.booked': appointmentBooked,
   },
-  jobs: { [READ_CHATS_JOB]: readChatsJob, [CHECK_POSTS_JOB]: checkPostsJob },
+  jobs: {
+    [READ_CHATS_JOB]: readChatsJob,
+    [CHECK_POSTS_JOB]: checkPostsJob,
+    [MORNING_JOB]: morningJob,
+  },
   // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
-  // onEnable: arm recurring jobs with scheduleAddonJob, from now: nothing that came due while it was off runs late.
+  // The morning push, from now: nothing that came due while it was off runs late.
+  onEnable: (ctx) => armMorning(ctx),
 };

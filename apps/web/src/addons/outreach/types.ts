@@ -17,3 +17,4 @@ export type Group = Groups['groups'][number];
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayItem = TodayList['items'][number];
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
+export type Openers = Ok<'/v1/queries/outreach.openers'>;

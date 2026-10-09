@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { DownloadMessage } from './download';
 import { type DailyStep } from './limits';
+import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
@@ -83,6 +84,11 @@ export const TodayItem = z.object({
   summary: z.string().nullable(),
   nextStep: z.string().nullable(),
   playbookName: z.string().nullable(),
+  /**
+   * The person's demo link for them (./demos.ts, decision 24): the playbook's link with who it's from and to, so a
+   * booking through it counts by itself. For a message, when a playbook in use has a link.
+   */
+  demoLink: z.string().nullable(),
 });
 export type TodayItem = z.output<typeof TodayItem>;
 
@@ -157,7 +163,11 @@ export const TodayDraftInput = z.object({
 });
 export type TodayDraftInput = z.input<typeof TodayDraftInput>;
 
-export const TodayDraftOutput = z.object({ drafts: z.array(z.string()) });
+export const TodayDraftOutput = z.object({
+  drafts: z.array(z.string()),
+  /** For a first message: the opener they were written with, which copying one notes (decision 23). */
+  opener: DraftOpener.nullable(),
+});
 export type TodayDraftOutput = z.output<typeof TodayDraftOutput>;
 
 export const TODAY_DRAFT_ASK = 'Write the message.';
@@ -201,6 +211,8 @@ export function todayDraftPrompt(input: {
   readonly post?: { readonly text: string; readonly group: string | null } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
+  /** For a first message: the style to open in (decision 23). */
+  readonly opener?: Opener | null;
 }): string {
   const p = input.playbook;
   const playbook = p
@@ -232,6 +244,9 @@ export function todayDraftPrompt(input: {
     input.post?.group ? `<group>${quoteData(input.post.group)}</group>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
     TASK[input.kind],
+    input.opener?.kind === 'style'
+      ? `Open every draft this way: ${quoteData(input.opener.text)}`
+      : null,
     `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
     TODAY_DRAFT_ASK,
   ]

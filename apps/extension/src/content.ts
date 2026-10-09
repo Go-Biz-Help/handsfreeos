@@ -1,6 +1,6 @@
 /**
- * Runs in each Facebook tab. It reads the page only when the side panel asks, and answers only the panel. While the
- * panel reads as the page changes, it also tells the panel when the page has changed, so the panel can ask again.
+ * Runs in each Facebook tab. It reads the page when the side panel asks, and answers only the panel; the one other
+ * reading, of the chats on the page, is below. While the panel reads as the page changes, it also tells the panel when the page has changed, so the panel can ask again.
  *
  * As the person works, it notices the steps they take themselves (a friend request, a like, a comment, a message,
  * and Confirm or Delete on a friend request they got: src/facebook/actions.ts) and tells the extension's background,
@@ -12,6 +12,10 @@
  * beside it and scrolls that list for more (src/facebook/browse.ts); for Find posts, it scrolls a group's feed for
  * more posts (the same file); and on the profiles of people they ticked in the panel, it presses Cancel request or
  * Unfriend (src/facebook/tidy.ts). It never types or sends.
+ *
+ * While noting is on, it also looks at the chats on the page as they change (Messenger's list, an open chat, a small
+ * chat window) and tells the background of each whose last message is theirs, and whether the person was looking at
+ * the tab (src/facebook/replies.ts), so their phone can hear who wrote back. Only who, never what they wrote.
  */
 import {
   answerFromClick,
@@ -26,6 +30,7 @@ import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
 import { tidyPage } from './facebook/tidy';
 import { readPage } from './facebook/page';
+import { readReplies } from './facebook/replies';
 import {
   NOTING_KEY,
   WATCH,
@@ -45,6 +50,10 @@ const SETTLE_MS = 1500;
 const SAME_PRESS_MS = 1500;
 /** How often a step that isn't on the page yet is looked for again, while Facebook draws the next screen. */
 const LOOK_AGAIN_MS = 300;
+/** The chats on the page are looked at no more often than this as it changes. */
+const REPLIES_EVERY_MS = 10_000;
+/** After the person sends a message, the page takes this long to show it last. */
+const AFTER_SENDING_MS = 20_000;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -142,6 +151,8 @@ if (!here.hfosSocialListening) {
   });
 
   let last: { readonly key: string; readonly at: number } | null = null;
+  /** When the person last sent a message from this tab. */
+  let sentAt = 0;
   const tell = (note: TabNote) => {
     try {
       chrome.runtime.sendMessage(note).catch(() => undefined);
@@ -152,6 +163,7 @@ if (!here.hfosSocialListening) {
   const noted = (step: Step | null) => {
     if (!step) return false;
     const now = Date.now();
+    if (step.kind === 'message') sentAt = now;
     // Sending empties the box, so writing is never sent twice; a button can be pressed twice.
     const key =
       step.kind === 'friend_request' || step.kind === 'like'
@@ -212,6 +224,34 @@ if (!here.hfosSocialListening) {
     },
     true,
   );
+
+  // Chats whose last message is theirs: looked at as the page changes, once it settles, and not just after the person
+  // sent one, while the page catches up.
+  let repliesTimer: ReturnType<typeof setTimeout> | undefined;
+  const lookForReplies = () => {
+    repliesTimer = undefined;
+    if (!noting) return;
+    const wait = sentAt + AFTER_SENDING_MS - Date.now();
+    if (wait > 0) {
+      repliesTimer = setTimeout(lookForReplies, wait);
+      return;
+    }
+    try {
+      const seen = readReplies(document, location.href);
+      if (seen.length)
+        tell({
+          type: 'hfos-replies',
+          seen,
+          looking: document.visibilityState === 'visible' && document.hasFocus(),
+        });
+    } catch (error) {
+      console.debug('HandsFreeOS Social couldn’t look at the chats on the page', error);
+    }
+  };
+  new MutationObserver((records) => {
+    if (repliesTimer !== undefined || !noting || !matters(records)) return;
+    repliesTimer = setTimeout(lookForReplies, REPLIES_EVERY_MS);
+  }).observe(document.body, { childList: true, subtree: true });
 
   // Facebook adds to the page as you scroll and as messages come in, without a new address. While the panel is
   // watching, say so once things settle; the watching stops when the panel closes or looks at another tab.

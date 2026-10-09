@@ -508,12 +508,15 @@ export function BookingFlow({
   site,
   calendarSlug,
   initialServiceId = null,
+  linkRef = null,
 }: {
   page: PublicCalendarPage;
   site: string;
   calendarSlug: string;
   /** The service to start on (a link's `?service=`), when this calendar offers it. */
   initialServiceId?: string | null;
+  /** The link's `?ref=`, kept on the booking for whoever's link it was (a Social Outreach demo link). */
+  linkRef?: string | null;
 }) {
   const info = page.booking!;
   const tz = page.timezone;
@@ -753,6 +756,7 @@ export function BookingFlow({
         offersConsent: business.offersConsent ? form.offersConsent : false,
         intake,
         notes: form.notes.trim() || null,
+        ref: linkRef,
         website,
         turnstileToken: botToken ?? undefined,
       });

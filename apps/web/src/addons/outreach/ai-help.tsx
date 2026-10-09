@@ -169,7 +169,8 @@ export function AiHelp({
                     }}
                     className={cn(
                       'inline-flex min-h-7 items-center gap-1 rounded-full border border-dashed border-border-strong px-2.5 py-0.5 text-left text-[12.5px] text-text-2 hover:bg-card hover:text-text',
-                      part === 'samples' && 'rounded-menu',
+                      (part === 'samples' || part === 'ownOpeners' || part === 'openerStyles') &&
+                        'rounded-menu',
                     )}
                   >
                     <Plus className="h-3 w-3 flex-none" aria-hidden />
