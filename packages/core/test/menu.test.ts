@@ -1,7 +1,7 @@
 /**
  * The side menu each person arranges (`users.settings.menu`): reading one back, putting right what can't be
- * drawn, and never leaving a place unreachable — and the places add-ons bring with them (0108), which show only
- * while their add-on runs and come back where they were when it is turned on again.
+ * drawn, and never leaving a place unreachable — and the add-ons (0108), one place each that their pages open from,
+ * which show only while the add-on runs and come back where they were when it is turned on again.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,8 +10,10 @@ import {
   MENU_GROUPS_MAX,
   addGroup,
   addonMenuKey,
-  addonMenuPlace,
+  addonMenuPages,
   addonMenuPlaces,
+  addonOfMenuKey,
+  addonPageKey,
   currentMenuPlace,
   entryShown,
   inMenuPlace,
@@ -338,8 +340,8 @@ describe('the menu in one business (0106)', () => {
 
 /**
  * Made-up add-ons, shaped like packages/core/test/addons/fixtures.ts (every id starts with `fx`, so none can be
- * mistaken for a real one): Property Management with two places, the second behind its own permission; Accounting
- * with one; a board that declares no permissions at all; and one with no places.
+ * mistaken for a real one): Property Management with two pages, the second behind its own permission; Accounting
+ * with one; a board that declares no permissions at all; and one with no pages.
  */
 const fixture = (
   id: string,
@@ -396,28 +398,30 @@ const fxboard = fixture(
 const fxquiet = fixture('fxquiet', 'Quiet', ['fxquiet.use'], []);
 const CATALOG: readonly AddonManifest[] = [fxprop, fxacct, fxboard, fxquiet];
 
-const PROPERTIES = addonMenuKey('fxprop', 'properties');
-const LEASES = addonMenuKey('fxprop', 'leases');
-const BOOKS = addonMenuKey('fxacct', 'books');
-const BOARD = addonMenuKey('fxboard', 'board');
+const PROP = addonMenuKey('fxprop');
+const ACCT = addonMenuKey('fxacct');
+const BOARD = addonMenuKey('fxboard');
+// How a menu saved before 2026-10-09 named the add-ons' pages, one by one.
+const PROPERTIES = addonPageKey('fxprop', 'properties');
+const LEASES = addonPageKey('fxprop', 'leases');
+const BOOKS = addonPageKey('fxacct', 'books');
 
 const running = (...ids: string[]): MenuAddons => ({ running: ids, catalog: CATALOG });
 /** An owner's permissions with those of the add-ons that run, as private.user_permissions() works them out. */
 const ownerWith = (...extra: string[]) => [...effectivePermissions('owner'), ...extra];
 
-describe('add-on places in a saved menu', () => {
-  it('are `addon:<add-on>:<place>`, and only well-formed ones count', () => {
-    expect(PROPERTIES).toBe('addon:fxprop:properties');
-    expect(isAddonMenuKey(PROPERTIES)).toBe(true);
+describe('add-ons in a saved menu', () => {
+  it('are `addon:<add-on>`, one place each, and only well-formed ones count', () => {
+    expect(PROP).toBe('addon:fxprop');
+    expect(isAddonMenuKey(PROP)).toBe(true);
     for (const bad of [
-      'addon:fxprop',
-      'addon:Fxprop:properties',
-      'addon:f:properties',
-      'addon:fxprop:Properties',
-      'addon:fxprop:',
-      'addon:fxprop:a:b',
-      'addon:fx9:properties',
-      'addons:fxprop:properties',
+      'addon:Fxprop',
+      'addon:f',
+      'addon:fx9',
+      'addon:',
+      'addons:fxprop',
+      // A page is not a place of its own any more.
+      PROPERTIES,
       'inbox',
     ])
       expect(isAddonMenuKey(bad), bad).toBe(false);
@@ -427,56 +431,93 @@ describe('add-on places in a saved menu', () => {
     const menu = normalizeMenu({
       entries: [
         link('home'),
-        link(PROPERTIES),
-        { kind: 'link', key: 'addon:Nope:x' as AddonMenuKey },
+        link(PROP),
+        { kind: 'link', key: 'addon:Nope' as AddonMenuKey },
         {
           kind: 'group',
           id: 'g1',
           label: 'Money',
-          keys: ['money', BOOKS, BOOKS, 'gone' as MenuKey],
+          keys: ['money', ACCT, ACCT, 'gone' as MenuKey],
         },
-        link(PROPERTIES),
+        link(PROP),
       ],
-      hidden: [LEASES, 'addon:fxprop' as AddonMenuKey],
+      hidden: [BOARD, 'addon:fx9' as AddonMenuKey],
     });
     const at = (key: MenuPlaceKey) =>
       menu.entries.findIndex((e) => e.kind === 'link' && e.key === key);
     const group = menu.entries.findIndex((e) => e.kind === 'group');
     // Where it was put: after Home, before the group (Inbox, never mentioned, goes back beside Home).
-    expect(at(PROPERTIES)).toBeGreaterThan(at('home'));
-    expect(at(PROPERTIES)).toBeLessThan(group);
+    expect(at(PROP)).toBeGreaterThan(at('home'));
+    expect(at(PROP)).toBeLessThan(group);
     expect(menu.entries[group]).toEqual({
       kind: 'group',
       id: 'g1',
       label: 'Money',
-      keys: ['money', BOOKS],
+      keys: ['money', ACCT],
     });
-    expect(menu.hidden).toEqual([LEASES]);
+    expect(menu.hidden).toEqual([BOARD]);
     const keys = menuKeys(menu);
-    expect(keys.filter((k) => k === PROPERTIES)).toHaveLength(1);
-    expect(keys).not.toContain('addon:Nope:x');
+    expect(keys.filter((k) => k === PROP)).toHaveLength(1);
+    expect(keys).not.toContain('addon:Nope');
     // Every core place is still there, the ones it never mentioned put back as always.
     expect(new Set(keys.filter((k) => !isAddonMenuKey(k)))).toEqual(new Set(MENU_KEYS));
+  });
+
+  it('read an older menu’s pages of an add-on as the add-on, where the first of them stood', () => {
+    const older = {
+      entries: [
+        link('home'),
+        { kind: 'group', id: 'g1', label: 'Rentals', keys: [LEASES, 'tasks'] },
+        link(PROPERTIES),
+        link(BOOKS),
+        ...MENU_KEYS.filter((k) => k !== 'home' && k !== 'tasks').map(link),
+      ],
+      hidden: [addonPageKey('fxboard', 'board')],
+    } as unknown as Menu;
+    const menu = normalizeMenu(older);
+    // Property Management goes where Leases was, in the group; its Properties row has nothing left to say.
+    expect(menu.entries.slice(0, 3)).toEqual([
+      link('home'),
+      { kind: 'group', id: 'g1', label: 'Rentals', keys: [PROP, 'tasks'] },
+      link(ACCT),
+    ]);
+    expect(menuKeys(menu).filter(isAddonMenuKey)).toEqual([PROP, ACCT]);
+    // Every page of the board was out of sight, so the board is.
+    expect(menu.hidden).toEqual([BOARD]);
+    // An add-on with a page still in the menu stays in it, whatever else of it was hidden.
+    const half = normalizeMenu({
+      entries: [link('home'), link(BOOKS)],
+      hidden: [addonPageKey('fxacct', 'ledger')],
+    } as unknown as Menu);
+    expect(menuKeys(half)).toContain(ACCT);
+    expect(half.hidden).toEqual([]);
+    // Read from settings the same way, and saved back in today's shape.
+    const read = menuOf({ menu: { v: 1, ...older } });
+    expect(read).toEqual(menu);
+    expect(JSON.stringify(storedMenu(read))).not.toContain('addon:fxprop:');
   });
 
   it('come back from what was saved, add-on off or on', () => {
     const arranged: Menu = {
       entries: [
         link('home'),
-        { kind: 'group', id: 'g1', label: 'Rentals', keys: [LEASES, PROPERTIES] },
+        { kind: 'group', id: 'g1', label: 'Rentals', keys: [PROP, BOARD] },
         ...MENU_KEYS.filter((k) => k !== 'home').map(link),
       ],
-      hidden: [BOOKS],
+      hidden: [ACCT],
     };
     const read = menuOf({ menu: storedMenu(arranged) });
     expect(read.entries[1]).toEqual(arranged.entries[1]);
-    expect(read.hidden).toEqual([BOOKS]);
+    expect(read.hidden).toEqual([ACCT]);
     expect(sameMenu(read, arranged)).toBe(true);
   });
 
   it('stop at a limit, so a menu saved by hand cannot grow without end', () => {
+    // Add-on ids are letters only: fxa, fxb, … fxba, fxbb, …
+    const letters = (n: number): string =>
+      (n >= 26 ? letters(Math.floor(n / 26) - 1) : '') + String.fromCharCode(97 + (n % 26));
     const many = Array.from({ length: MENU_ADDON_PLACES_MAX + 5 }, (_, i) =>
-      link(addonMenuKey('fxprop', `place${i}`)),
+      link(addonMenuKey(`fx${letters(i)}`)),
     );
     const menu = normalizeMenu({ entries: [...MENU_KEYS.map(link), ...many], hidden: [] });
     expect(menuKeys(menu).filter(isAddonMenuKey)).toHaveLength(MENU_ADDON_PLACES_MAX);
@@ -487,120 +528,124 @@ describe('add-on places in a saved menu', () => {
 describe('the menu in one business, with its add-ons (0108)', () => {
   const owner = ownerWith('fxprop.read', 'fxprop.write', 'fxacct.use');
 
-  it('adds the places of add-ons running here, after core’s, in the catalogue’s order', () => {
+  it('adds one place for each add-on running here, after core’s, in the catalogue’s order', () => {
     const keys = menuKeys(menuFor(DEFAULT_MENU, owner, running('fxacct', 'fxprop')));
     expect(keys.slice(0, MENU_KEYS.length)).toEqual([...MENU_KEYS]);
-    expect(keys.slice(MENU_KEYS.length)).toEqual([PROPERTIES, LEASES, BOOKS]);
-    // An add-on with no places adds none; one that isn't in the catalogue adds nothing at all.
+    // Property Management has two pages and Accounting one: a place each, whatever the pages.
+    expect(keys.slice(MENU_KEYS.length)).toEqual([PROP, ACCT]);
+    // An add-on with no pages adds none; one that isn't in the catalogue adds nothing at all.
     expect(menuKeys(menuFor(DEFAULT_MENU, owner, running('fxquiet', 'fxgone')))).toEqual([
       ...MENU_KEYS,
     ]);
   });
 
-  it('never shows a place of an add-on that isn’t running, and keeps it in the saved menu', () => {
+  it('never shows an add-on that isn’t running, and keeps it in the saved menu', () => {
     const saved: Menu = {
       entries: [
         link('home'),
-        link(BOOKS),
-        { kind: 'group', id: 'g1', label: 'Rentals', keys: [PROPERTIES, LEASES] },
+        link(ACCT),
+        { kind: 'group', id: 'g1', label: 'Rentals', keys: [PROP] },
         link('settings'),
       ],
       hidden: [],
     };
     // Property Management is off: its group has nothing left to show, so it goes too.
     const off = menuFor(saved, owner, running('fxacct'));
-    expect(off.entries).toEqual([link('home'), link(BOOKS), link('settings')]);
+    expect(off.entries).toEqual([link('home'), link(ACCT), link('settings')]);
     // No add-ons known at all (an older caller): only core's places.
     expect(menuFor(saved, owner).entries).toEqual([link('home'), link('settings')]);
     // Back on: everything where it was, nothing added at the end.
     expect(menuFor(saved, owner, running('fxacct', 'fxprop')).entries).toEqual(saved.entries);
   });
 
-  it('keeps a place the person hid out of the menu, rather than adding it back at the end', () => {
-    const hid: Menu = { entries: DEFAULT_MENU.entries, hidden: [PROPERTIES] };
-    const keys = menuKeys(menuFor(hid, owner, running('fxprop')));
-    expect(keys).not.toContain(PROPERTIES);
-    expect(keys).toContain(LEASES);
+  it('keeps an add-on the person hid out of the menu, rather than adding it back at the end', () => {
+    const hid: Menu = { entries: DEFAULT_MENU.entries, hidden: [PROP] };
+    const keys = menuKeys(menuFor(hid, owner, running('fxprop', 'fxacct')));
+    expect(keys).not.toContain(PROP);
+    expect(keys).toContain(ACCT);
   });
 
-  it('shows a place only to people who may open it', () => {
+  it('shows an add-on to people who may open one of its pages, with just those pages', () => {
     const readOnly = ownerWith('fxprop.read');
-    // Properties names no permission: anyone holding one of the add-on's sees it. Leases needs fxprop.write.
-    expect(addonMenuPlaces(readOnly, running('fxprop'))).toEqual([PROPERTIES]);
-    // Someone the business gives none of the add-on's permissions sees none of its places.
+    // Properties names no permission: anyone holding one of the add-on's opens it. Leases needs fxprop.write.
+    expect(addonMenuPlaces(readOnly, running('fxprop'))).toEqual([PROP]);
+    expect(addonMenuPages(fxprop, readOnly).map((p) => p.key)).toEqual(['properties']);
+    expect(addonMenuPages(fxprop, owner).map((p) => p.key)).toEqual(['properties', 'leases']);
+    // Someone the business gives none of the add-on's permissions sees none of it.
     expect(addonMenuPlaces(effectivePermissions('member'), running('fxprop'))).toEqual([]);
+    expect(menuPlaceOpen(PROP, effectivePermissions('member'), running('fxprop'))).toBe(false);
     // An add-on that declares no permissions of its own is for everyone in the business.
     expect(addonMenuPlaces(effectivePermissions('member'), running('fxboard'))).toEqual([BOARD]);
-    expect(menuPlaceOpen(LEASES, readOnly, running('fxprop'))).toBe(false);
-    expect(menuPlaceOpen(PROPERTIES, readOnly, running('fxprop'))).toBe(true);
-    expect(menuPlaceOpen(PROPERTIES, readOnly, running())).toBe(false);
+    expect(menuPlaceOpen(PROP, readOnly, running('fxprop'))).toBe(true);
+    expect(menuPlaceOpen(PROP, readOnly, running())).toBe(false);
     expect(menuPlaceOpen('audit', effectivePermissions('member'), running('fxprop'))).toBe(false);
+    // Without their permissions, nothing of it.
+    expect(addonMenuPages(fxprop, null)).toEqual([]);
   });
 
-  it('offers no add-on place without the person’s permissions, and leaves an old copy as saved', () => {
-    const saved: Menu = { entries: [link('home'), link(PROPERTIES)], hidden: [] };
+  it('offers no add-on without the person’s permissions, and leaves an old copy as saved', () => {
+    const saved: Menu = { entries: [link('home'), link(PROP)], hidden: [] };
     expect(menuFor(saved, null, running('fxprop')).entries).toEqual([link('home')]);
     expect(addonMenuPlaces(undefined, running('fxprop'))).toEqual([]);
     expect(menuFor(SUGGESTED_MENU, null, running('fxprop'))).toBe(SUGGESTED_MENU);
   });
 
-  it('knows which add-on and entry a place stands for', () => {
-    expect(addonMenuPlace(CATALOG, LEASES)).toEqual({ addon: fxprop, nav: fxprop.ui!.nav![1] });
-    expect(addonMenuPlace(CATALOG, addonMenuKey('fxprop', 'gone'))).toBeNull();
-    expect(addonMenuPlace(CATALOG, 'inbox')).toBeNull();
+  it('knows which add-on a place stands for', () => {
+    expect(addonOfMenuKey(CATALOG, PROP)).toBe(fxprop);
+    // One with no pages has no place; nor has one the catalogue doesn't know, nor a page.
+    expect(addonOfMenuKey(CATALOG, addonMenuKey('fxquiet'))).toBeNull();
+    expect(addonOfMenuKey(CATALOG, addonMenuKey('fxgone'))).toBeNull();
+    expect(addonOfMenuKey(CATALOG, LEASES)).toBeNull();
+    expect(addonOfMenuKey(CATALOG, 'inbox')).toBeNull();
   });
 
-  it('adds only the places a menu has never held', () => {
+  it('adds only the add-ons a menu has never held', () => {
     const menu = withAddonPlaces(
-      { entries: [link('home'), link(BOOKS)], hidden: [LEASES] },
+      { entries: [link('home'), link(ACCT)], hidden: [BOARD] },
       owner,
-      running('fxprop', 'fxacct'),
+      running('fxprop', 'fxacct', 'fxboard'),
     );
-    expect(menuKeys(menu)).toEqual(['home', BOOKS, PROPERTIES]);
+    expect(menuKeys(menu)).toEqual(['home', ACCT, PROP]);
     const same: Menu = { entries: [link('home')], hidden: [] };
     expect(withAddonPlaces(same, owner, running())).toBe(same);
   });
 });
 
 describe('editing a menu with places this business doesn’t show', () => {
-  // The editor lists only what is open here: Books belongs to an add-on that is off.
-  const open = (key: MenuPlaceKey) => key !== BOOKS;
+  // The editor lists only what is open here: Accounting is off.
+  const open = (key: MenuPlaceKey) => key !== ACCT;
 
   it('steps a row past the next one listed, leaving the others where they are', () => {
-    const menu: Menu = { entries: [link('home'), link(BOOKS), link('inbox')], hidden: [] };
-    expect(moveEntry(menu, 2, -1, open).entries).toEqual([
-      link('inbox'),
-      link(BOOKS),
-      link('home'),
-    ]);
-    expect(moveEntry(menu, 0, 1, open).entries).toEqual([link('inbox'), link(BOOKS), link('home')]);
+    const menu: Menu = { entries: [link('home'), link(ACCT), link('inbox')], hidden: [] };
+    expect(moveEntry(menu, 2, -1, open).entries).toEqual([link('inbox'), link(ACCT), link('home')]);
+    expect(moveEntry(menu, 0, 1, open).entries).toEqual([link('inbox'), link(ACCT), link('home')]);
     // Nothing listed above: it stays put.
-    const first: Menu = { entries: [link(BOOKS), link('home')], hidden: [] };
+    const first: Menu = { entries: [link(ACCT), link('home')], hidden: [] };
     expect(moveEntry(first, 1, -1, open).entries).toEqual(first.entries);
   });
 
   it('does the same inside a group', () => {
     const menu: Menu = {
-      entries: [{ kind: 'group', id: 'g1', label: 'More', keys: ['tasks', BOOKS, 'audit'] }],
+      entries: [{ kind: 'group', id: 'g1', label: 'More', keys: ['tasks', ACCT, 'audit'] }],
       hidden: [],
     };
     const moved = moveInGroup(menu, 'g1', 2, -1, open);
-    expect((moved.entries[0] as MenuGroup).keys).toEqual(['audit', BOOKS, 'tasks']);
+    expect((moved.entries[0] as MenuGroup).keys).toEqual(['audit', ACCT, 'tasks']);
   });
 
   it('lists a group holding a place open here, or nothing yet, and not one holding only others', () => {
-    expect(entryShown({ kind: 'group', id: 'g', label: 'A', keys: [BOOKS] }, open)).toBe(false);
-    expect(entryShown({ kind: 'group', id: 'g', label: 'A', keys: [BOOKS, 'tasks'] }, open)).toBe(
+    expect(entryShown({ kind: 'group', id: 'g', label: 'A', keys: [ACCT] }, open)).toBe(false);
+    expect(entryShown({ kind: 'group', id: 'g', label: 'A', keys: [ACCT, 'tasks'] }, open)).toBe(
       true,
     );
     expect(entryShown({ kind: 'group', id: 'g', label: 'A', keys: [] }, open)).toBe(true);
-    expect(entryShown(link(BOOKS), open)).toBe(false);
+    expect(entryShown(link(ACCT), open)).toBe(false);
   });
 
-  it('moves and hides an add-on’s place like any other, and still never hides Home', () => {
-    const menu = moveKey(DEFAULT_MENU, PROPERTIES, 'hidden');
-    expect(menu.hidden).toEqual([PROPERTIES]);
-    expect(moveKey(menu, PROPERTIES, 'menu').entries.at(-1)).toEqual(link(PROPERTIES));
+  it('moves and hides an add-on like any other place, and still never hides Home', () => {
+    const menu = moveKey(DEFAULT_MENU, PROP, 'hidden');
+    expect(menu.hidden).toEqual([PROP]);
+    expect(moveKey(menu, PROP, 'menu').entries.at(-1)).toEqual(link(PROP));
     expect(moveKey(menu, 'home', 'hidden')).toBe(menu);
   });
 });

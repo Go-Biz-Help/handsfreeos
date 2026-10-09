@@ -174,9 +174,12 @@ export const ADDON_SLOTS = [
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 
-/** A place in the side menu. The path is under the add-on's own pages, `/app/w/<workspace>/a/<id>/…`. */
+/**
+ * One of its pages in the side menu. The add-on is one row there, named after it, and these open from it (the owner's
+ * decision, 2026-10-09). The path is under the add-on's own pages, `/app/w/<workspace>/a/<id>/…`.
+ */
 export interface AddonNavItem {
-  /** Unique within the add-on; the menu keeps it as `addon:<id>:<key>`. */
+  /** Unique within the add-on; the web knows the page as `addon:<id>:<key>`. */
   readonly key: string;
   readonly label: string;
   /** A lucide icon name the web registry maps. */

@@ -28,7 +28,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { addonNavItems, menuAddons } from '@/components/shell/nav-links';
+import { addonPageItems, menuAddons } from '@/components/shell/nav-links';
 import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
@@ -147,7 +147,7 @@ export function AddonsSettings({
   // Picked and being built (0109): what won a week's vote, or what HandsFreeOS chose.
   const coming = roadmap.comingSoon.filter((c) => !installedIds.has(c.addonId));
   const moving = list.installed.some((i) => isBusyState(i.state));
-  const places = addonNavItems(workspaceId, permissions, menuAddons(running));
+  const pages = addonPageItems(workspaceId, permissions, menuAddons(running));
 
   // Installing, uninstalling and deleting finish on their own within seconds: check again every few, in case the
   // live channel is down (it usually gets there first).
@@ -250,7 +250,7 @@ export function AddonsSettings({
     const on = i.running;
     const canInstall = installable.has(i.addonId);
     const target = { addonId: i.addonId, name: i.name };
-    const first = on ? places.find((p) => p.key.startsWith(`addon:${i.addonId}:`)) : undefined;
+    const first = on ? pages.find((p) => p.key.startsWith(`addon:${i.addonId}:`)) : undefined;
     // Removed: how it could come back when that isn't Install (a retired one says so on its card).
     const offer = addonOffer(i.state, m, i.status, canInstall);
     const note = i.retired ? null : addonOfferNote(offer, blockedBy(m, offer));
