@@ -10,7 +10,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 
 ## What's built
 
-Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, and friends:
+Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, friends, and Facebook's download
+file's dates:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -26,6 +27,12 @@ Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, 
   pages (the ones the person got and hasn't answered, and after View sent requests the ones they sent), notes Confirm
   and Delete as the person presses them, sorts the requests on the page by fit, and sets Keep and Don't pitch from a
   profile (apps/extension/README.md).
+- **Facebook's download file** (the Friends tab's **Bring in your Facebook file**): the person picks the zips
+  Facebook gives them, the "Download your information" file and the chat backup that holds the newer chats, and their
+  browser reads them. Only names and dates are sent: their friends and since when, the requests they sent and got,
+  the friends they removed, the requests they deleted, their followers and who they follow, and when they last
+  messaged each person. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
+  sent request shows the day it really went.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -56,6 +63,8 @@ Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, 
 | Groups and steps noted                                          | `supabase/migrations/20261026000300_outreach_activity.sql`                       |
 | Friends, Keep and Don't pitch, and how someone fits             | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder      |
 | Friends and the Don't pitch list                                | `supabase/migrations/20261026000400_outreach_friends.sql`                        |
+| Facebook's download file: reading it, and bringing it in        | `download.ts` (reads the zips, no server code) and `ops/download.ts`             |
+| What the file said, by name                                     | `supabase/migrations/20261027000300_outreach_facebook_download.sql`              |
 | The extension                                                   | `apps/extension`                                                                 |
 
 Operations, all through the kernel:
@@ -74,6 +83,7 @@ Operations, all through the kernel:
 | `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                |
 | `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own) or Don't pitch (the business's) for someone                                  |
 | `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit            |
+| `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in     |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -169,6 +179,19 @@ likes and 1 post, half that for new or quiet accounts.
 - **Newer news wins.** A list saved or an answer noted never undoes what was seen later (`seen_at`), and a deleted
   request stays deleted when a later list just doesn't show them. Confirm makes them a friend; Delete keeps the
   request as deleted. Saving a list adds nobody to Contacts.
+- **Facebook's download file stays in the browser.** The web reads the zips there (`readDownload`), a file at a time,
+  so a download of many gigabytes is fine. It sends only names and moments, never what a message said, in parts the
+  API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`) finishes the bringing-in. Only the
+  person who started one sends its other parts.
+- **The file has no links, so it's kept by name** (`file_people`, `file_chats`, each person's own). With the last
+  part, a name is matched to the one profile saved here by it (`nameKey`: lower case, spaces closed up), or among
+  several, the one the person's own Facebook has a say on. A name twice in one of the file's lists is two people,
+  and neither is matched. A newer file updates the same rows and matches again.
+- **What the file says goes in place as of when Facebook made it** (`madeAt`, the zip's own date, never before the
+  latest moment in it). Where things stood then (friends, a request either way) beats what happened before (a friend
+  removed, a request deleted). Newer news wins: something the extension saw after the file was made stays, and only
+  moves its start earlier when it's the same; a deleted request stays deleted; Keep stays. Nobody is added to
+  Contacts, and the same file again changes nothing.
 - **Fit reads only what can be checked** (`fit.ts`): the words a playbook puts in quotes in its signs and who to skip,
   the places in its area, mutual friends, and the group someone was found in. A skip word makes them a skip whatever
   else fits, and with no playbook only mutual friends and groups count. The extension sorts the requests on a page
@@ -198,11 +221,13 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Not yet
 
-Next, in the owner's order: cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
-unfriending (decisions 10 and 12), once Facebook's download file brings in the whole friends list. The AI suggesting a
-conversation from the rest of the playbook comes with AI drafting.
+Next, in the owner's order: the chats in Facebook's download file with AI summaries and tags, and who goes in
+Contacts (decision 3); then cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
+unfriending (decisions 10 and 12), which the file's dates now make possible. The AI suggesting a conversation from
+the rest of the playbook comes with AI drafting. A profile saved after the file came in is matched to it when a newer
+file comes in.
 
-The rest of Phase 1, in order: bringing in Facebook's download file with AI summaries and tags; groups, scored against
+The rest of Phase 1, in order: groups, scored against
 the playbook, with their members saved and admins and moderators skipped; the day's list (friend requests, openers,
 follow-ups, comments), which the person sends and HandsFreeOS logs and counts against the limits; then leads, the demo
 link, and results by group. The settings for decisions 1 to 3 arrive with the steps that need them.

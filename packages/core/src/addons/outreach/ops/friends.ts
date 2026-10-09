@@ -3,7 +3,7 @@
  * list and the requests they've got saved from the page, Keep and Don't pitch, and the Friends tab. None of it adds
  * anyone to Contacts: someone new is kept as a profile with no customer, like someone a step was noted to.
  */
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -12,6 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { DownloadCounts } from '../download';
 import { bestFit, byFit, type FitPlaybook } from '../fit';
 import {
   DONT_PITCH_TAG,
@@ -32,7 +33,7 @@ import {
 import { outreachAddon } from '../manifest';
 import { PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
-import { friends, playbooks, profiles } from '../tables';
+import { friends, imports, playbooks, profiles } from '../tables';
 import {
   dontPitchOf,
   inWorkspace,
@@ -390,6 +391,73 @@ async function playbooksInUse(ctx: QueryContext): Promise<FitPlaybook[]> {
 
 const isoOrNull = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());
 
+/** What the person's download file says about some profiles: since when friends, and the latest message either way. */
+async function fileFacts(
+  ctx: QueryContext,
+  me: string,
+  profileIds: readonly string[],
+): Promise<
+  Map<string, { friendsSince: string | null; lastMessage: { at: string; fromMe: boolean } | null }>
+> {
+  if (!profileIds.length) return new Map();
+  const found = await rows<{
+    profile_id: string;
+    friends_since: Date | string | null;
+    last_at: Date | string | null;
+    last_from_me: boolean | null;
+  }>(
+    ctx.tx,
+    sql`select p.id as profile_id,
+          (select max(fp.at) from addon_outreach.file_people fp
+            where fp.profile_id = p.id and fp.user_id = ${me} and fp.list = 'friends') as friends_since,
+          m.at as last_at, m.from_me as last_from_me
+        from addon_outreach.profiles p
+        left join lateral (
+          select x.at, x.from_me from (
+            select fc.last_at as at, fc.last_from_me as from_me from addon_outreach.file_chats fc
+              where fc.profile_id = p.id and fc.user_id = ${me}
+            union all
+            select t.at, true from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+          ) x order by x.at desc, x.from_me limit 1
+        ) m on true
+        where p.workspace_id = ${ctx.scope.workspaceId!}
+          and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
+  );
+  return new Map(
+    found.map((f) => [
+      f.profile_id,
+      {
+        friendsSince: isoOrNull(f.friends_since),
+        lastMessage:
+          f.last_at === null
+            ? null
+            : { at: isoOrNull(f.last_at)!, fromMe: f.last_from_me ?? false },
+      },
+    ]),
+  );
+}
+
+/** The person's latest download file brought in, for the Friends tab. */
+async function latestDownload(ctx: QueryContext, me: string) {
+  const [latest] = await ctx.tx
+    .select({ madeAt: imports.madeAt, at: imports.finishedAt, counts: imports.counts })
+    .from(imports)
+    .where(
+      and(
+        eq(imports.workspaceId, ctx.scope.workspaceId!),
+        eq(imports.userId, me),
+        isNotNull(imports.finishedAt),
+      ),
+    )
+    .orderBy(desc(imports.finishedAt))
+    .limit(1);
+  const counts = DownloadCounts.safeParse(latest?.counts);
+  return latest?.at && counts.success
+    ? { madeAt: latest.madeAt.toISOString(), at: latest.at.toISOString(), counts: counts.data }
+    : null;
+}
+
 export const friendsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends',
   description:
@@ -491,9 +559,19 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     const pages = Math.max(1, Math.ceil(total / FRIENDS_PAGE));
     const page = Math.min(input.page, pages);
     const from = (page - 1) * FRIENDS_PAGE;
-    const people = allRequests
+    const shownPeople = allRequests
       ? allRequests.slice(from, from + FRIENDS_PAGE)
       : (await read(FRIENDS_PAGE, from)).map(personOf);
+    const facts = await fileFacts(
+      ctx,
+      me,
+      shownPeople.map((p) => p.profileId),
+    );
+    const people = shownPeople.map((p) => ({
+      ...p,
+      friendsSince: facts.get(p.profileId)?.friendsSince ?? null,
+      lastMessage: facts.get(p.profileId)?.lastMessage ?? null,
+    }));
     return {
       counts: {
         friends: mine?.friends ?? 0,
@@ -503,6 +581,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         dontPitch: never?.dont_pitch ?? 0,
       },
       cap: FRIENDS_CAP,
+      download: await latestDownload(ctx, me),
       people,
       page,
       pages,

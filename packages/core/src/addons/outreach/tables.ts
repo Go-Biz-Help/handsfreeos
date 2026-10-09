@@ -1,7 +1,7 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
- * for groups and touches, and 20261026000400 for friends): the Drizzle mirror its server code reads and writes
- * through. Server-only.
+ * for groups and touches, 20261026000400 for friends, and 20261027000300 for Facebook's download file): the Drizzle
+ * mirror its server code reads and writes through. Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
+import type { DownloadCounts, DownloadList } from './download';
 import type { FriendState } from './limits';
 import type { PlaybookDetails } from './playbooks';
 import type { Friendship, Platform, SavedMessage } from './saves';
@@ -193,5 +194,109 @@ export const friends = addonOutreach.table(
   ],
 );
 
+/** Each time someone brings in Facebook's download file, in parts: when Facebook made it, and what it held. */
+export const imports = addonOutreach.table(
+  'imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    madeAt: ts('made_at').notNull(),
+    /** What the whole file held, once its last part is in. */
+    counts: jsonb('counts').$type<DownloadCounts>(),
+    finishedAt: ts('finished_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
+/**
+ * Someone in one of the lists in a person's download file, by name: friends since when, a request either way, a
+ * friend removed, a request deleted, a follower or someone followed. Linked to the profile saved here by that name.
+ */
+export const filePeople = addonOutreach.table(
+  'file_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    list: text('list').notNull().$type<DownloadList>(),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    at: ts('at'),
+    profileId: uuid('profile_id'),
+    importId: uuid('import_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.userId, t.workspaceId, t.platform, t.list, t.nameKey, t.at).nullsNotDistinct(),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.importId],
+      foreignColumns: [imports.workspaceId, imports.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A person's one-to-one chat with someone, as their download file said: when it started, the latest message and
+ * whose it was, and how many. Never what a message said.
+ */
+export const fileChats = addonOutreach.table(
+  'file_chats',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    firstAt: ts('first_at').notNull(),
+    lastAt: ts('last_at').notNull(),
+    messages: integer('messages').notNull(),
+    lastFromMe: boolean('last_from_me').notNull(),
+    profileId: uuid('profile_id'),
+    importId: uuid('import_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.userId, t.workspaceId, t.platform, t.nameKey),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [t.workspaceId, t.importId],
+      foreignColumns: [imports.workspaceId, imports.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
-export const OUTREACH_TABLES = { friends, groups, playbooks, profiles, threads, touches } as const;
+export const OUTREACH_TABLES = {
+  fileChats,
+  filePeople,
+  friends,
+  groups,
+  imports,
+  playbooks,
+  profiles,
+  threads,
+  touches,
+} as const;
