@@ -32,7 +32,9 @@ file's dates:
   browser reads them. Only names and dates are sent: their friends and since when, the requests they sent and got,
   the friends they removed, the requests they deleted, their followers and who they follow, and when they last
   messaged each person. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
-  sent request shows the day it really went.
+  sent request shows the day it really went. The extension can get the file too (decision 16): its panel's **Your
+  Facebook file** asks Facebook for it, downloads it when it's ready and gets the chat backup, pressing the buttons on
+  Facebook's own download pages, then finds the zips in Chrome's downloads and brings them in the same way.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -63,7 +65,8 @@ file's dates:
 | Groups and steps noted                                          | `supabase/migrations/20261026000300_outreach_activity.sql`                       |
 | Friends, Keep and Don't pitch, and how someone fits             | `friends.ts`, `fit.ts` (no zod) and `ops/friends.ts` in the add-on's folder      |
 | Friends and the Don't pitch list                                | `supabase/migrations/20261026000400_outreach_friends.sql`                        |
-| Facebook's download file: reading it, and bringing it in        | `download.ts` (reads the zips, no server code) and `ops/download.ts`             |
+| Facebook's download file: reading it, and bringing it in        | `download-read.ts` (reads the zips, no zod), `download.ts` and `ops/download.ts` |
+| The extension getting the file                                  | `apps/extension/src/facebook/fetch.ts`, `src/panel/fbfile.ts`                    |
 | What the file said, by name                                     | `supabase/migrations/20261027000300_outreach_facebook_download.sql`              |
 | The extension                                                   | `apps/extension`                                                                 |
 
@@ -133,6 +136,16 @@ The owner answered the next round on 6 Oct 2026 (plan.md, "Next: what you asked 
     was sent and when the person last talked to each friend. Until then the extension knows only what it has seen
     since it started noting, too little to cancel or unfriend on.
 
+The owner answered on 9 Oct 2026, asking for it ("can we have the extension take control of the browser and get the
+files on its own"), and picked doing it before the chats:
+
+16. **The extension gets Facebook's file for the person.** Once they press its buttons, it presses Facebook's on the
+    download pages, in a tab they can see: it asks for the file (Friends and followers and Messages, all time, JSON,
+    low media quality), downloads it when it's ready, and gets the chat backup. The person types their password and
+    PIN; the extension never does. A step it can't find, it hands to the person and carries on after. It reads the
+    zips from Chrome's downloads once the person turns on Allow access to file URLs, and brings them in as the Friends
+    tab does. Built, not yet tried on the owner's account.
+
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached;
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
@@ -179,7 +192,8 @@ likes and 1 post, half that for new or quiet accounts.
 - **Newer news wins.** A list saved or an answer noted never undoes what was seen later (`seen_at`), and a deleted
   request stays deleted when a later list just doesn't show them. Confirm makes them a friend; Delete keeps the
   request as deleted. Saving a list adds nobody to Contacts.
-- **Facebook's download file stays in the browser.** The web reads the zips there (`readDownload`), a file at a time,
+- **Facebook's download file stays in the browser.** The web, or the extension's panel, reads the zips there
+  (`readDownload`, in `download-read.ts`, which has no zod so the panel stays small), a file at a time,
   so a download of many gigabytes is fine. It sends only names and moments, never what a message said, in parts the
   API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`) finishes the bringing-in. Only the
   person who started one sends its other parts.
@@ -220,6 +234,9 @@ likes and 1 post, half that for new or quiet accounts.
   outlines, never saved pages (apps/extension/README.md).
 
 ## Not yet
+
+The extension's steps on Facebook's download pages are written from Facebook's help and guides, not yet from the
+owner's own screens: where it hands a step to the person, the panel's page outline of that screen tunes it.
 
 Next, in the owner's order: the chats in Facebook's download file with AI summaries and tags, and who goes in
 Contacts (decision 3); then cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and

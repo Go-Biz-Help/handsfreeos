@@ -34,6 +34,9 @@ export type FriendsSaveInput = Body<'/v1/commands/outreach.friends.save'>;
 export type FriendsSaved = Ok<'/v1/commands/outreach.friends.save'>;
 export type FriendSetInput = Body<'/v1/commands/outreach.friend.set'>;
 export type FriendSet = Ok<'/v1/commands/outreach.friend.set'>;
+/** A part of Facebook's download file, brought in (packages/core/src/addons/outreach/download.ts). */
+export type DownloadSaveInput = Body<'/v1/commands/outreach.download.save'>;
+export type DownloadSaved = Ok<'/v1/commands/outreach.download.save'>;
 /** The business's playbooks, which the requests on a page are sorted by (packages/core/src/addons/outreach/fit.ts). */
 export type Playbooks = Ok<'/v1/queries/outreach.playbook.list'>;
 
@@ -105,6 +108,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-save-chat'; readonly input: ChatInput }
   | { readonly type: 'hfos-save-friends'; readonly input: FriendsSaveInput }
   | { readonly type: 'hfos-set-friend'; readonly input: FriendSetInput }
+  | { readonly type: 'hfos-save-download'; readonly input: DownloadSaveInput }
   | { readonly type: 'hfos-playbooks'; readonly workspaceId: string }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
@@ -122,6 +126,7 @@ export interface HfosValues {
   readonly 'hfos-save-chat': ChatSaved;
   readonly 'hfos-save-friends': FriendsSaved;
   readonly 'hfos-set-friend': FriendSet;
+  readonly 'hfos-save-download': DownloadSaved;
   readonly 'hfos-playbooks': Playbooks;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
@@ -139,6 +144,7 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-save-chat',
   'hfos-save-friends',
   'hfos-set-friend',
+  'hfos-save-download',
   'hfos-playbooks',
   'hfos-today',
   'hfos-noting',

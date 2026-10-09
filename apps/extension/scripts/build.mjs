@@ -48,6 +48,13 @@ const config = {
 
 /** The only site the extension works on, and the only one it reads. */
 const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
+/** Accounts Center, where Facebook makes the person's download file (src/facebook/fetch.ts). */
+const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
+/**
+ * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
+ * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
+ */
+const FILES = ['file:///*'];
 /** HandsFreeOS's API and its sign-in, which the background worker calls. Any port: a local API has one. */
 const HFOS = [
   ...new Set(
@@ -77,11 +84,13 @@ const manifest = {
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },
   side_panel: { default_path: 'panel.html' },
   background: { service_worker: 'background.js' },
-  // The side panel, its setting and the sign-in, and loading the reader into Facebook tabs opened before the
-  // extension was.
-  permissions: ['sidePanel', 'storage', 'scripting'],
-  host_permissions: [...FACEBOOK, ...HFOS],
-  content_scripts: [{ matches: FACEBOOK, js: ['content.js'], run_at: 'document_idle' }],
+  // The side panel, its setting and the sign-in, loading the reader into Facebook tabs opened before the extension
+  // was, and finding the zips Facebook gave the person among Chrome's downloads.
+  permissions: ['sidePanel', 'storage', 'scripting', 'downloads'],
+  host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
+  content_scripts: [
+    { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
+  ],
 };
 
 /** @type {import('esbuild').BuildOptions} */

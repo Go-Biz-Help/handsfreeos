@@ -3,13 +3,14 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the fourth test build (0.4.3).** It reads the Facebook page you have open and shows what it found in
+**This is the fifth test build (0.5.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
 puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
-to keep and the ones nobody pitches. It never sends anything on Facebook, and never clicks, scrolls or changes the
-page.
+to keep and the ones nobody pitches. It gets your Facebook download file for you and brings it in. It never sends
+anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages once you
+ask it to get your file.
 
 ## What it reads
 
@@ -99,6 +100,27 @@ back, and the last few steps noted, with **See all** opening the activity on the
 do on Facebook** turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
 up to 200, and go in order when it's back.
 
+## Getting your Facebook file
+
+**Your Facebook file**, in the panel, gets Facebook's own copy of your friends, requests and chats for the Friends
+tab in Social Outreach (decision 16 in docs/outreach.md). Each button opens the page in a tab you can see and presses
+Facebook's buttons there, one step at a time:
+
+| Button             | What it does                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ask Facebook       | In Accounts Center's Download your information: ticks Friends and followers and Messages, sets All time, JSON and low media quality, and creates the files |
+| Download my file   | Once Facebook has emailed you, presses Download beside the file                                                                                            |
+| Get my chat backup | In your chats' settings, finds the encrypted chats' backup and downloads it, for chats newer than the download has                                         |
+
+Facebook asks for your password before it hands over the file, and your PIN for the chat backup: you type them in
+the tab, and the panel carries on once they're in. When it can't find a step (Facebook draws these pages differently
+for different accounts), it says which button to press; press it yourself, then **Carry on**. **Stop** ends it.
+
+The zips Facebook gives you show under **Files in your downloads**, however they were downloaded. The first time,
+Chrome needs your OK to let the extension open them: **Open the extension's settings** goes to its card, where you
+turn on **Allow access to file URLs**. Then **Read** opens them where they are, shows what's in them, and **Bring them
+in** sends HandsFreeOS only names and dates, never what a message said, as the Friends tab's card does.
+
 ## Load it in Chrome
 
 1. Build it: `pnpm --filter @hfos/extension build`. It lands in `apps/extension/dist/chrome`. To sign in, the build
@@ -106,6 +128,8 @@ up to 200, and go in order when it's back.
    without it the panel reads pages and doesn't sign in.
 2. Open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked** and pick that folder.
 3. Pin it from the puzzle-piece menu, open facebook.com, and press its button: the side panel opens beside the page.
+4. To bring in your Facebook file from your downloads, press **Details** on its card and turn on **Allow access to
+   file URLs**.
 
 After a rebuild, press the reload arrow on the extension's card. A Facebook tab that was open before the extension was
 loaded gets the reader the first time the panel asks.
@@ -151,8 +175,14 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   the panel watches its tab it says when the page has changed, so the panel can ask again. Besides that it only
   listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
   around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
-  what was written, writes to the page, clicks, scrolls or sends anything. Later phases keep the owner's decisions:
+  what was written, writes to the page, clicks, scrolls or sends anything, but for the next rule. Later phases keep
+  the owner's decisions:
   you press send by default, daily limits, and a stop for the day on any Facebook warning.
+- **Pressing only on the download pages, only when asked.** `src/facebook/fetch.ts` presses Facebook's buttons only
+  on Accounts Center's download pages and the chats (`fetchPage`), only for a job the person started in the panel,
+  and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
+  wait for the person. Each step lists the words it may go by, the likeliest first, and one it can't find is handed
+  to the person rather than guessed. `test/fetch.test.ts` walks a made-up Accounts Center, and again with bare boxes.
 - **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on
   it are saved (the add-on's `outreach.lookup`), and nothing is saved until the person presses a button. The four
   steps are the exception, noted with `outreach.touch.save` as they're taken, and adding nobody to Contacts. Both go
@@ -184,10 +214,11 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 | Path                    | What it is                                                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline                     |
+| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps |
 | `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete |
 | `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day       |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, and Facebook's times                       |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads    |
+| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                 |
 | `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                        |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                   |
 | `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                         |

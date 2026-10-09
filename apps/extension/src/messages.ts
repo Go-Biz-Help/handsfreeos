@@ -3,9 +3,29 @@
  * works there. Every end is the extension's own: Facebook's scripts never see these messages.
  */
 import type { Answered, Seen, Step } from './facebook/actions';
+import type { FetchStep, StepResult } from './facebook/fetch';
 import type { ReadResult } from './facebook/types';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
+
+/**
+ * What the panel asks a tab on one of Facebook's download pages while it gets the person's file
+ * (src/facebook/fetch.ts): one step, waiting up to `waitMs` for it to show; or, along a path, the furthest step from
+ * `from` on that's there.
+ */
+export type FetchAsk =
+  | { readonly type: 'hfos-fetch-step'; readonly step: FetchStep; readonly waitMs: number }
+  | {
+      readonly type: 'hfos-fetch-path';
+      readonly steps: readonly FetchStep[];
+      readonly from: number;
+      readonly waitMs: number;
+    };
+
+/** What it answers: how the step went, or the place along the path pressed; an error off the download pages. */
+export type FetchAnswer =
+  | { readonly ok: true; readonly result: StepResult; readonly at?: number }
+  | { readonly ok: false; readonly error: string };
 
 export type Answer =
   | { readonly ok: true; readonly result: ReadResult; readonly outline?: string }

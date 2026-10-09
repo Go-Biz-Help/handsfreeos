@@ -39,6 +39,7 @@ import {
   savedChip,
   startHfos,
 } from './hfos';
+import { refreshFacebookFile, startFacebookFile } from './fbfile';
 import { refreshToday, startToday } from './today';
 
 const KIND: Record<PageKind, string> = {
@@ -365,6 +366,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
+const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -524,6 +526,7 @@ function later(): void {
 readButton.addEventListener('click', () => {
   void refreshAccount();
   void refreshToday();
+  refreshFacebookFile();
   void read();
 });
 
@@ -573,6 +576,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 async function start(): Promise<void> {
   void startHfos({ into: accountBox, say, redraw, accountChanged: () => void refreshToday() });
   startToday(todayBox);
+  void startFacebookFile(fileBox);
   windowId = (await chrome.windows.getCurrent()).id;
   try {
     const stored = await chrome.storage.local.get(AUTO_READ);

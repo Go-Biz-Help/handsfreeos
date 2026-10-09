@@ -475,3 +475,61 @@ section > :last-child {
 .today .auto {
   margin-top: 10px;
 }
+
+/* Your Facebook file: getting Facebook's download file, and bringing it in. */
+.fbfile summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.fbfile summary::-webkit-details-marker {
+  display: none;
+}
+
+.fbfile summary h2::after {
+  content: '▸';
+  margin-left: auto;
+  color: var(--text-2);
+}
+
+.fbfile details[open] summary h2::after {
+  content: '▾';
+}
+
+.fbfile h3 {
+  margin: 12px 0 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.fetch-steps {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.fetch-steps li {
+  margin: 6px 0;
+}
+
+.fetch-steps li > div {
+  margin-top: 4px;
+}
+
+.run-line {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.run-line p,
+.warn-line p {
+  margin: 0 0 6px;
+}
+
+.fbfile .actions {
+  margin: 6px 0;
+}

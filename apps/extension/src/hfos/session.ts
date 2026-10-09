@@ -357,6 +357,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.friend.set', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-save-download':
+      return call(
+        api().POST('/v1/commands/outreach.download.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-playbooks':
       return call(
         api().POST('/v1/queries/outreach.playbook.list', {
