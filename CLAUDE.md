@@ -21,6 +21,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Add-ons                                      | `docs/addon-architecture.md`, then "Add-ons" below; `docs/addon-readiness-audit.md` is the audit behind it        |
 | The Real Estate Agent add-on                 | `docs/realestate.md`, then `HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md`                                       |
 | A business's own kinds of records, and links | `docs/relationships.md`                                                                                           |
+| Deleting for good, and the Deleted bin       | `docs/deleting.md`                                                                                                |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
