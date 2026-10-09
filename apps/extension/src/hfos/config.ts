@@ -5,6 +5,8 @@
  */
 export interface HfosConfig {
   readonly apiUrl: string;
+  /** The worker, which the AI's drafts come from. */
+  readonly workerUrl: string;
   readonly webUrl: string;
   readonly supabaseUrl: string;
   readonly supabasePublishableKey: string;
@@ -14,7 +16,7 @@ declare const __HFOS_CONFIG__: HfosConfig | undefined;
 
 export const config: HfosConfig =
   typeof __HFOS_CONFIG__ === 'undefined'
-    ? { apiUrl: '', webUrl: '', supabaseUrl: '', supabasePublishableKey: '' }
+    ? { apiUrl: '', workerUrl: '', webUrl: '', supabaseUrl: '', supabasePublishableKey: '' }
     : __HFOS_CONFIG__;
 
 /** Whether this build knows how to sign in to HandsFreeOS. */

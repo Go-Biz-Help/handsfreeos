@@ -53,9 +53,9 @@ export function clip(text: string, length: number): string {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
 
-/** "1 comment", "6 comments". */
-export function counted(count: number, thing: string): string {
-  return `${count.toLocaleString()} ${thing}${count === 1 ? '' : 's'}`;
+/** "1 comment", "6 comments"; "1 person", "6 people" with the plural given. */
+export function counted(count: number, thing: string, things = `${thing}s`): string {
+  return `${count.toLocaleString()} ${count === 1 ? thing : things}`;
 }
 
 /** How long ago, in words: "just now", "5 minutes ago", "on Oct 3". */

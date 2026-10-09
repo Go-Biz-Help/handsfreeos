@@ -7,7 +7,7 @@
  *   node scripts/build.mjs           build once
  *   node scripts/build.mjs --watch   build, then again on every change
  *
- * Where it signs in and saves comes from HFOS_API_URL, HFOS_WEB_URL, HFOS_SUPABASE_URL and
+ * Where it signs in and saves comes from HFOS_API_URL, HFOS_WORKER_URL, HFOS_WEB_URL, HFOS_SUPABASE_URL and
  * HFOS_SUPABASE_PUBLISHABLE_KEY, in the environment or in .env.local or .env beside package.json (`pnpm env:local`
  * writes .env.local for your own computer). Left out, it's HandsFreeOS itself, and without the publishable key the
  * build reads pages and doesn't sign in.
@@ -41,6 +41,7 @@ const setting = (name, otherwise) => (settings[name] || otherwise).replace(/\/+$
 /** Where this build signs in and saves (src/hfos/config.ts). The key is public, like the web app's. */
 const config = {
   apiUrl: setting('HFOS_API_URL', 'https://api.handsfreeos.com'),
+  workerUrl: setting('HFOS_WORKER_URL', 'https://hooks.handsfreeos.com'),
   webUrl: setting('HFOS_WEB_URL', 'https://app.handsfreeos.com'),
   supabaseUrl: setting('HFOS_SUPABASE_URL', 'https://ybupfghakoszfcxhyrby.supabase.co'),
   supabasePublishableKey: setting('HFOS_SUPABASE_PUBLISHABLE_KEY', ''),
@@ -48,10 +49,17 @@ const config = {
 
 /** The only site the extension works on, and the only one it reads. */
 const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
-/** HandsFreeOS's API and its sign-in, which the background worker calls. Any port: a local API has one. */
+/** Accounts Center, where Facebook makes the person's download file (src/facebook/fetch.ts). */
+const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
+/**
+ * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
+ * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
+ */
+const FILES = ['file:///*'];
+/** HandsFreeOS's API, its worker and its sign-in, which the background worker calls. Any port: a local API has one. */
 const HFOS = [
   ...new Set(
-    [config.apiUrl, config.supabaseUrl].map((url) => {
+    [config.apiUrl, config.workerUrl, config.supabaseUrl].map((url) => {
       const { protocol, hostname } = new URL(url);
       return `${protocol}//${hostname}/*`;
     }),
@@ -77,11 +85,13 @@ const manifest = {
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },
   side_panel: { default_path: 'panel.html' },
   background: { service_worker: 'background.js' },
-  // The side panel, its setting and the sign-in, and loading the reader into Facebook tabs opened before the
-  // extension was.
-  permissions: ['sidePanel', 'storage', 'scripting'],
-  host_permissions: [...FACEBOOK, ...HFOS],
-  content_scripts: [{ matches: FACEBOOK, js: ['content.js'], run_at: 'document_idle' }],
+  // The side panel, its setting and the sign-in, loading the reader into Facebook tabs opened before the extension
+  // was, and finding the zips Facebook gave the person among Chrome's downloads.
+  permissions: ['sidePanel', 'storage', 'scripting', 'downloads'],
+  host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
+  content_scripts: [
+    { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
+  ],
 };
 
 /** @type {import('esbuild').BuildOptions} */

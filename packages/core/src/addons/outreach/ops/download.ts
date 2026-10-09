@@ -2,8 +2,9 @@
  * Facebook's download file (docs/outreach.md, decisions 2 and 15): what the person's browser read out of it, saved a
  * part at a time. With the last part, each name is linked to the one profile saved here by that name, and what the
  * file says is put in place in the person's own friends: since when they've been friends, when each request was sent
- * or got, and the friends they removed and the requests they deleted. None of it adds anyone to Contacts, and no
- * message's words come here.
+ * or got, and the friends they removed and the requests they deleted. Of what was said, only each chat's latest few
+ * messages come, for the AI to read (../chat-read.ts, apps/worker/src/addons/outreach/chats.ts); it's the reading
+ * that may put someone in Contacts, under the business's setting, never the file itself.
  */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -12,6 +13,7 @@ import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
+import { worthReading, type ChatReadState } from '../chat-read';
 import {
   DOWNLOAD_LIST_KEYS,
   DownloadSaveInput,
@@ -19,8 +21,9 @@ import {
   nameKey,
   type DownloadCounts,
   type DownloadList,
+  type DownloadMessage,
 } from '../download';
-import type { FriendState } from '../limits';
+import { RECENT_MESSAGES, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { fileChats, filePeople, friends, imports } from '../tables';
@@ -138,6 +141,14 @@ function peopleRows(
   });
 }
 
+/** Whether a chat's latest messages are for the AI: nothing to read, theirs to read, or only the person's own. */
+const readStateOf = (recent: readonly DownloadMessage[]): ChatReadState =>
+  !recent.length ? 'none' : worthReading(recent) ? 'waiting' : 'skipped';
+
+/** The latest few of two lists of messages, oldest first. */
+const latest = (a: readonly DownloadMessage[], b: readonly DownloadMessage[]) =>
+  [...a, ...b].sort((x, y) => x.at.localeCompare(y.at)).slice(-RECENT_MESSAGES);
+
 /** The chats in a part, each person's once: the same name written two ways is one chat. */
 function chatRows(
   input: DownloadSaveInput & { readonly platform: Platform },
@@ -160,6 +171,7 @@ function chatRows(
             lastAt: lastAt > had.lastAt ? lastAt : had.lastAt,
             lastFromMe: lastAt > had.lastAt ? c.lastFromMe : had.lastFromMe,
             messages: had.messages + c.messages,
+            recent: latest(had.recent ?? [], c.recent ?? []),
           }
         : {
             workspaceId: ws,
@@ -171,11 +183,12 @@ function chatRows(
             lastAt,
             messages: c.messages,
             lastFromMe: c.lastFromMe,
+            recent: latest([], c.recent ?? []),
             importId,
           },
     );
   }
-  return [...byKey.values()];
+  return [...byKey.values()].map((c) => ({ ...c, readState: readStateOf(c.recent ?? []) }));
 }
 
 /**
@@ -379,10 +392,14 @@ async function finish(
   return { counts, changed };
 }
 
+/** In the upsert: whether what's sent has newer messages to read than what's kept. */
+const newerWords = sql`(jsonb_array_length(excluded.recent) > 0 and (excluded.last_at > ${fileChats.lastAt}
+  or jsonb_array_length(${fileChats.recent}) = 0))`;
+
 export const downloadSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.download.save',
   description:
-    'Bring in a part of the person’s Facebook download file as their browser read it: the names in their friends, requests, removed friends, deleted requests, followers and following, with when, and when they last messaged each person, never what was said. The last part matches the names to the profiles saved here and puts it in place in their own friends. Adds nobody to Contacts.',
+    'Bring in a part of the person’s Facebook download file as their browser read it: the names in their friends, requests, removed friends, deleted requests, followers and following, with when, and when they last messaged each person with their latest few messages, which the AI reads later. The last part matches the names to the profiles saved here and puts it in place in their own friends. Adds nobody to Contacts itself.',
   risk: 1,
   input: DownloadSaveInput,
   output: DownloadSaveOutput,
@@ -424,7 +441,8 @@ export const downloadSave = defineAddonCommand(outreachAddon, {
             ],
             set: { name: sql`excluded.name`, importId: sql`excluded.import_id` },
           });
-      // A chat brought in before keeps its first message and gains the later ones.
+      // A chat brought in before keeps its first message and gains the later ones. Its latest messages are read
+      // again only when there are newer ones (or none were kept before): the same file twice reads nothing twice.
       for (const chunk of inChunks(chatRows(input, ws, me, started.id)))
         await ctx.tx
           .insert(fileChats)
@@ -443,6 +461,8 @@ export const downloadSave = defineAddonCommand(outreachAddon, {
               lastFromMe: sql`case when excluded.last_at >= ${fileChats.lastAt}
                 then excluded.last_from_me else ${fileChats.lastFromMe} end`,
               messages: sql`greatest(${fileChats.messages}, excluded.messages)`,
+              recent: sql`case when ${newerWords} then excluded.recent else ${fileChats.recent} end`,
+              readState: sql`case when ${newerWords} then excluded.read_state else ${fileChats.readState} end`,
               importId: sql`excluded.import_id`,
             },
           });

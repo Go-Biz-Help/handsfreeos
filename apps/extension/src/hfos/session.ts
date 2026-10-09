@@ -12,7 +12,15 @@ import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-clien
 import { APP_HEADERS, EXTENSION_CLIENT } from '@hfos/core/mobile';
 import { GoTrueClient, isAuthError, isAuthRetryableFetchError } from '@supabase/auth-js';
 import { canSignIn, config } from './config';
-import type { Account, Business, HfosAnswer, HfosAsk, HfosValues, Problem } from './messages';
+import type {
+  Account,
+  Business,
+  Drafts,
+  HfosAnswer,
+  HfosAsk,
+  HfosValues,
+  Problem,
+} from './messages';
 import { outreachBusinesses } from './saves';
 
 /** The asks answered here; the day on Facebook and its switch are ./noting.ts's. */
@@ -347,6 +355,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.chat.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-collect-chats':
+      return call(
+        api().POST('/v1/commands/outreach.chats.collect', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-save-friends':
       return call(
         api().POST('/v1/commands/outreach.friends.save', { body: ask.input }),
@@ -357,6 +370,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.friend.set', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-save-download':
+      return call(
+        api().POST('/v1/commands/outreach.download.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-playbooks':
       return call(
         api().POST('/v1/queries/outreach.playbook.list', {
@@ -364,7 +382,52 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         }),
         ask.workspaceId,
       );
+    case 'hfos-save-groups':
+      return call(
+        api().POST('/v1/commands/outreach.groups.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-save-group':
+      return call(
+        api().POST('/v1/commands/outreach.group.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-today-list':
+      return call(
+        api().POST('/v1/queries/outreach.today', { body: { workspaceId: ask.workspaceId } }),
+        ask.workspaceId,
+      );
+    case 'hfos-draft':
+      return call(
+        workerPost<Drafts>('/v1/addons/outreach/actions/outreach.today.draft', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
   }
+}
+
+/**
+ * A call to one of Social Outreach's actions on the worker, where the AI is (the AI's drafts), answered in the same
+ * shape as an API call so `call` says what went wrong the same way.
+ */
+async function workerPost<T>(
+  path: string,
+  body: unknown,
+): Promise<{ data?: T; error?: unknown; response: Response }> {
+  if (!config.workerUrl) throw refuse('This build of the extension can’t reach the AI.');
+  const bearer = await token();
+  const response = await fetch(`${config.workerUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const json: unknown = await response.json().catch(() => undefined);
+  return response.ok ? { data: json as T, response } : { error: json, response };
 }
 
 /** The answer to one of the panel's asks. Never throws: what went wrong comes back as a problem. */

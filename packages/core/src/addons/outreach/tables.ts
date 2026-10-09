@@ -18,7 +18,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
-import type { DownloadCounts, DownloadList } from './download';
+import type { ChatReadState } from './chat-read';
+import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState } from './limits';
 import type { PlaybookDetails } from './playbooks';
 import type { Friendship, Platform, SavedMessage } from './saves';
@@ -66,6 +67,12 @@ export const groups = addonOutreach.table(
     slug: text('slug'),
     url: text('url').notNull(),
     name: text('name'),
+    privacy: text('privacy').$type<'public' | 'private'>(),
+    members: integer('members'),
+    detail: text('detail'),
+    /** When its full list of admins and moderators was read: only then are its members suggested. */
+    adminsReadAt: ts('admins_read_at'),
+    seenAt: ts('seen_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -252,7 +259,8 @@ export const filePeople = addonOutreach.table(
 
 /**
  * A person's one-to-one chat with someone, as their download file said: when it started, the latest message and
- * whose it was, and how many. Never what a message said.
+ * whose it was, how many, and the latest few messages, which the AI reads for a summary, tags, whether they look
+ * like a prospect and a next step (./chat-read.ts). A chat put in Contacts keeps the customer it went to.
  */
 export const fileChats = addonOutreach.table(
   'file_chats',
@@ -270,7 +278,23 @@ export const fileChats = addonOutreach.table(
     messages: integer('messages').notNull(),
     lastFromMe: boolean('last_from_me').notNull(),
     profileId: uuid('profile_id'),
-    importId: uuid('import_id').notNull(),
+    /** The file it last came in with; none for a chat only read in Messenger. */
+    importId: uuid('import_id'),
+    recent: jsonb('recent').notNull().default([]).$type<DownloadMessage[]>(),
+    readState: text('read_state').notNull().default('none').$type<ChatReadState>(),
+    summary: text('summary'),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    prospect: boolean('prospect'),
+    nextStep: text('next_step'),
+    readAt: ts('read_at'),
+    personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+    /** The chat's number from its link, once it's been read in Messenger. */
+    threadKey: text('thread_key'),
+    /** When the extension last read it in Messenger. */
+    collectedAt: ts('collected_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -288,12 +312,74 @@ export const fileChats = addonOutreach.table(
   ],
 );
 
+/**
+ * Someone saved from a group's People tab: the lines under their name and the part of the list they were in. Who
+ * runs the group (an admin or a moderator) is never approached.
+ */
+export const groupPeople = addonOutreach.table(
+  'group_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    groupId: uuid('group_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    runsGroup: boolean('runs_group').notNull().default(false),
+    part: text('part'),
+    lines: text('lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.groupId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Whether a person is in a group, as their Facebook last showed it. */
+export const myGroups = addonOutreach.table(
+  'my_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    joined: boolean('joined').notNull(),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.groupId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   fileChats,
   filePeople,
   friends,
+  groupPeople,
   groups,
+  myGroups,
   imports,
   playbooks,
   profiles,

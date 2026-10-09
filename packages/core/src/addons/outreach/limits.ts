@@ -14,6 +14,8 @@ export const INTRO_LINES = 30;
 export const INTRO_LINE_MOST = 300;
 /** One message's words. */
 export const MESSAGE_MOST = 2000;
+/** A chat brought in from Facebook's download keeps this many of its latest messages, for the AI to read. */
+export const RECENT_MESSAGES = 20;
 /** When a message was sent, as the network printed it. */
 export const WHEN_MOST = 100;
 /** What one look-up asks about. */

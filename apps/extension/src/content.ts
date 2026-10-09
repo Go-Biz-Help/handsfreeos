@@ -6,7 +6,10 @@
  * and Confirm or Delete on a friend request they got: src/facebook/actions.ts) and tells the extension's background,
  * which notes them in HandsFreeOS; and it tells it who they open from a group. Only the person's own clicks and keys
  * count, never the page's, and never what they wrote. The switch in the panel turns this off. It never changes the
- * page, clicks, scrolls, or sends anything on Facebook.
+ * page, clicks, scrolls, or sends anything on Facebook, with two exceptions, each only once the person asks in the
+ * panel: on Facebook's own download pages it presses the buttons that ask for their file and download it, one step at
+ * a time (src/facebook/fetch.ts); and in Messenger, for Read my chats, it opens their chats one at a time from the
+ * list beside it and scrolls that list for more (src/facebook/browse.ts). It never types or sends.
  */
 import {
   answerFromClick,
@@ -16,14 +19,51 @@ import {
   type Answered,
   type Step,
 } from './facebook/actions';
+import { openChat, scrollChats } from './facebook/browse';
+import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
 import { readPage } from './facebook/page';
-import { NOTING_KEY, WATCH, type Answer, type Ask, type Note, type TabNote } from './messages';
+import {
+  NOTING_KEY,
+  WATCH,
+  type Answer,
+  type Ask,
+  type BrowseAnswer,
+  type BrowseAsk,
+  type FetchAnswer,
+  type FetchAsk,
+  type Note,
+  type TabNote,
+} from './messages';
 
 /** How long after the page starts changing the panel hears of it: Facebook draws a new post in several steps. */
 const SETTLE_MS = 1500;
 /** The same button pressed twice within this is one press: a key, and the click Facebook makes of it. */
 const SAME_PRESS_MS = 1500;
+/** How often a step that isn't on the page yet is looked for again, while Facebook draws the next screen. */
+const LOOK_AGAIN_MS = 300;
+
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** One of the panel's steps on a download page, looked for until it shows or `waitMs` is up. */
+async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
+  if (!fetchPage(location.href))
+    return { ok: false, error: 'This isn’t one of Facebook’s download pages.' };
+  const until = Date.now() + ask.waitMs;
+  for (;;) {
+    let result: StepResult;
+    let at: number | undefined;
+    if (ask.type === 'hfos-fetch-step') result = doStep(document, ask.step);
+    else {
+      const went = doPath(document, ask.steps, ask.from);
+      result = 'at' in went ? 'done' : went.result;
+      at = 'at' in went ? went.at : undefined;
+    }
+    if (result === 'done' || result === 'already' || result === 'stop' || Date.now() >= until)
+      return { ok: true, result, at };
+    await pause(LOOK_AGAIN_MS);
+  }
+}
 
 const here = globalThis as { hfosSocialListening?: boolean };
 
@@ -43,24 +83,39 @@ function matters(records: readonly MutationRecord[]): boolean {
 // The panel loads this again into tabs opened before the extension was installed; one listener is enough.
 if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
-  chrome.runtime.onMessage.addListener((ask: Ask, _sender, respond: (answer: Answer) => void) => {
-    if (ask.type !== 'hfos-read' && ask.type !== 'hfos-outline') return false;
-    try {
-      const result = readPage(document, location.href);
-      const outline =
-        ask.type === 'hfos-outline'
-          ? outlinePage(document, location.href, {
-              version: chrome.runtime.getManifest().version,
-              found: result,
-              window: { width: innerWidth, height: innerHeight },
-            })
-          : undefined;
-      respond({ ok: true, result, outline });
-    } catch (error) {
-      respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
-    }
-    return false;
-  });
+  chrome.runtime.onMessage.addListener(
+    (ask: Ask | FetchAsk | BrowseAsk, sender, respond: (answer: Answer) => void) => {
+      if (sender.id !== chrome.runtime.id) return false;
+      if (ask.type === 'hfos-open-chat' || ask.type === 'hfos-scroll-chats') {
+        const ok =
+          ask.type === 'hfos-open-chat'
+            ? openChat(document, location.href, ask.threadId)
+            : scrollChats(document, location.href);
+        (respond as (answer: BrowseAnswer) => void)({ ok });
+        return false;
+      }
+      if (ask.type === 'hfos-fetch-step' || ask.type === 'hfos-fetch-path') {
+        void fetchStep(ask).then(respond as (answer: FetchAnswer) => void);
+        return true;
+      }
+      if (ask.type !== 'hfos-read' && ask.type !== 'hfos-outline') return false;
+      try {
+        const result = readPage(document, location.href);
+        const outline =
+          ask.type === 'hfos-outline'
+            ? outlinePage(document, location.href, {
+                version: chrome.runtime.getManifest().version,
+                found: result,
+                window: { width: innerWidth, height: innerHeight },
+              })
+            : undefined;
+        respond({ ok: true, result, outline });
+      } catch (error) {
+        respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+      return false;
+    },
+  );
 
   // Noting: on unless the person turned it off in the panel.
   let noting = true;

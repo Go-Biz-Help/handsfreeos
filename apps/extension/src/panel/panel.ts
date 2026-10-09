@@ -28,6 +28,9 @@ import {
   dontPitchLine,
   fitView,
   forget,
+  groupBlock,
+  groupLinkFit,
+  groupsBlock,
   inFitOrder,
   listBlock,
   lookUp,
@@ -39,6 +42,8 @@ import {
   savedChip,
   startHfos,
 } from './hfos';
+import { collectOpen, refreshChats, startChats } from './chats';
+import { refreshFacebookFile, startFacebookFile } from './fbfile';
 import { refreshToday, startToday } from './today';
 
 const KIND: Record<PageKind, string> = {
@@ -118,7 +123,7 @@ function profileView(profile: ProfilePage): HTMLElement {
   );
 }
 
-function groupView(group: GroupPage): HTMLElement {
+function groupView(result: ReadResult, group: GroupPage): HTMLElement {
   return section(
     group.name ?? 'No group name found',
     null,
@@ -130,6 +135,7 @@ function groupView(group: GroupPage): HTMLElement {
       group.joined === true ? chip('You’re a member') : null,
       group.joined === false ? chip('Not joined') : null,
     ),
+    groupBlock(result),
   );
 }
 
@@ -179,10 +185,11 @@ function peopleView(result: ReadResult, people: readonly Person[]): HTMLElement 
   );
 }
 
-function groupsView(groups: readonly GroupLink[]): HTMLElement {
+function groupsView(result: ReadResult, groups: readonly GroupLink[]): HTMLElement {
   return section(
     'Groups',
     groups.length,
+    groupsBlock(result),
     h(
       'ul',
       { class: 'list' },
@@ -194,6 +201,7 @@ function groupsView(groups: readonly GroupLink[]): HTMLElement {
             {},
             h('div', { class: 'name' }, link(group.name, group.group.url)),
             group.detail ? h('div', { class: 'muted' }, group.detail) : null,
+            groupLinkFit(group),
           ),
         ),
     ),
@@ -343,10 +351,10 @@ function resultView(result: ReadResult): HTMLElement[] {
         )
       : null,
     result.profile ? profileView(result.profile) : null,
-    result.group ? groupView(result.group) : null,
+    result.group ? groupView(result, result.group) : null,
     result.chat ? chatView(result.chat) : null,
     result.people?.length ? peopleView(result, result.people) : null,
-    result.groups?.length ? groupsView(result.groups) : null,
+    result.groups?.length ? groupsView(result, result.groups) : null,
     result.notices?.length ? noticesView(result.notices) : null,
     result.posts?.length ? postsView(result.posts) : null,
     result.chats?.length ? chatsView(result.chats) : null,
@@ -365,6 +373,8 @@ function resultView(result: ReadResult): HTMLElement[] {
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
+const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
+const chatsBox = document.querySelector<HTMLElement>('#chats')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -490,6 +500,7 @@ async function read(quiet = false): Promise<void> {
     results.replaceChildren(...resultView(answer.result));
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
     void lookUp(answer.result);
+    void collectOpen(answer.result);
   } catch (error) {
     if (seq !== reads || quiet) return;
     shown = '';
@@ -524,6 +535,7 @@ function later(): void {
 readButton.addEventListener('click', () => {
   void refreshAccount();
   void refreshToday();
+  refreshFacebookFile();
   void read();
 });
 
@@ -571,8 +583,18 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 async function start(): Promise<void> {
-  void startHfos({ into: accountBox, say, redraw, accountChanged: () => void refreshToday() });
+  void startHfos({
+    into: accountBox,
+    say,
+    redraw,
+    accountChanged: () => {
+      void refreshToday();
+      void refreshChats();
+    },
+  });
+  void startChats(chatsBox);
   startToday(todayBox);
+  void startFacebookFile(fileBox);
   windowId = (await chrome.windows.getCurrent()).id;
   try {
     const stored = await chrome.storage.local.get(AUTO_READ);
