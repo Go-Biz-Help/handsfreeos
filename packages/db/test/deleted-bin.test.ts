@@ -958,9 +958,7 @@ describe('emptying the bin', () => {
       await as(owner)((tx) =>
         rows(tx, sql`select name, contents from app.bin_items where id = ${item}`),
       ),
-    ).toEqual([
-      { name: 'Jo Lane', contents: { conversations: 1, messages: 2, calls: 1, channel: 'sms' } },
-    ]);
+    ).toEqual([{ name: 'Jo Lane', contents: { messages: 2, calls: 1, channel: 'sms' } }]);
 
     expect(await restore(owner, item)).toEqual(
       expect.objectContaining({ kind: 'conversation', folded: 0 }),

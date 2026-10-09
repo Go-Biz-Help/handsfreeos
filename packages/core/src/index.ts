@@ -92,3 +92,5 @@ export * from './safety';
 export * from './safety-phone';
 // Legal holds (round six): what a record on hold says, on both apps.
 export * from './record-holds';
+// The Deleted bin (20261027000400): what deleting for good says, on both apps.
+export * from './bin-words';

@@ -680,7 +680,7 @@ $$;
 revoke all on function private.bin_name(text, uuid) from public;
 
 -- How much goes with it, for the delete box and the bin's list. `bills` stay (the owner's decision 4), and
--- `upcoming` bookings are cancelled first.
+-- `upcoming` bookings are cancelled first. A conversation or a booking doesn't count itself.
 create or replace function private.bin_contents(p_kind text, p_record uuid, r private.bin_rows)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_strip_nulls(jsonb_build_object(
@@ -690,7 +690,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
         and (a.id = any (r.appointments)
              or a.id in (select t.appointment_id from app.appointment_attendees t
                          where t.id = any (r.attendees) and t.status = 'booked'))), 0),
-    'conversations', nullif(cardinality(r.conversations), 0),
+    'conversations', case when p_kind = 'person' then nullif(cardinality(r.conversations), 0) end,
     'messages', nullif(cardinality(r.messages), 0),
     'calls', nullif(cardinality(r.calls), 0),
     'notes', nullif((select count(*) from app.activities a where a.id = any (r.activities) and a.kind = 'note'), 0),

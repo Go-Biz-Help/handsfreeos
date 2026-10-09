@@ -768,7 +768,7 @@ export interface paths {
         put?: never;
         /**
          * Delete a booking for good: one still to come is cancelled first, telling the customers if asked. It waits 30 days in the Deleted bin.
-         * @description Risk level 4. Requires records.delete. Emits appointment.deleted, appointment.cancelled, waitlist.seat_freed.
+         * @description Risk level 4. Requires records.delete. Emits appointment.deleted, appointment.cancelled.
          */
         post: operations["command_appointment_delete"];
         delete?: never;

@@ -47283,7 +47283,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 4. Requires records.delete. Emits appointment.deleted, appointment.cancelled, waitlist.seat_freed.",
+        "description": "Risk level 4. Requires records.delete. Emits appointment.deleted, appointment.cancelled.",
         "requestBody": {
           "required": true,
           "content": {
