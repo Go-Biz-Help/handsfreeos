@@ -98,9 +98,9 @@ test('staff hand Real Estate Agent to a business; a duty won’t finish without 
   // On a phone the row opens in place in the drawer, already open on the page showing.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId('mobile-menu').click();
-  const drawer = page.getByTestId('drawer-menu');
-  await expect(drawer.getByTestId('menu-addon-panel-realestate')).toBeVisible();
-  await drawer.getByRole('link', { name: 'Vendors' }).click();
+  const phoneMenu = page.getByTestId('drawer-menu');
+  await expect(phoneMenu.getByTestId('menu-addon-panel-realestate')).toBeVisible();
+  await phoneMenu.getByRole('link', { name: 'Vendors' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate/vendors$`));
   await page.setViewportSize({ width: 1280, height: 832 });
 
