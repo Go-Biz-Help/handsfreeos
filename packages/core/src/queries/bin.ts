@@ -1,10 +1,11 @@
 /**
- * The Deleted bin (20261027000400): what a delete would take with it, before it's done, and what's in the bin now.
- * Only who may delete for good sees either.
+ * The Deleted bin (20261027000400, 20261027000700): what a delete would take with it, before it's done, and what's
+ * in the bin now. Only who may delete for good sees either.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { rows, sql as raw } from '@hfos/db/client';
 import { binItems, users } from '@hfos/db/schema';
+import { withAddonNames } from '../addons/catalog';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, encodeCursor } from '../kernel/pagination';
 import {
@@ -31,7 +32,7 @@ function contentsOf(raw: unknown): BinContents {
 export const binPreview = defineQuery({
   name: 'bin.preview',
   description:
-    'What deleting these customers, conversations or bookings would take with them, or why one can’t go yet.',
+    'What deleting these customers, conversations, bookings, leads, companies or records would take with them, or why one can’t go yet.',
   input: BinPreviewInput,
   output: BinPreviewOutput,
   permission: 'records.delete',
@@ -56,7 +57,7 @@ export const binPreview = defineQuery({
           name: f.name,
           contents: contentsOf(f.contents),
           rule: stops ? f.rule : null,
-          message: stops ? f.message : null,
+          message: stops && f.message ? withAddonNames(f.message) : null,
         };
       }),
     };

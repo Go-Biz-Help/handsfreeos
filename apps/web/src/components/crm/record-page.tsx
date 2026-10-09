@@ -146,7 +146,8 @@ export function RecordPage(props: RecordPageProps) {
   const archived = !!(person?.archivedAt ?? company?.archivedAt);
   // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
   const canModerate = can(permissions, 'records.archive');
-  // Delete a customer for good, through the 30-day Deleted bin: owners, unless one gives it out (records.delete).
+  // Delete a customer or a company for good, through the 30-day Deleted bin: owners, unless one gives it out
+  // (records.delete).
   const canDelete = can(permissions, 'records.delete');
   const address = addressLine(person ? person.address : company!.address);
   const phoneE164 = person ? person.phoneE164 : company!.phoneE164;
@@ -394,7 +395,7 @@ export function RecordPage(props: RecordPageProps) {
                       )}
                       {archived ? `Restore ${kind}` : `Archive ${kind}`}
                     </DropdownMenuItem>
-                    {canDelete && person ? (
+                    {canDelete ? (
                       <DropdownMenuItem
                         danger
                         onSelect={() => setDeleting(true)}
@@ -1119,15 +1120,19 @@ export function RecordPage(props: RecordPageProps) {
           onOpenChange={setArchiving}
         />
       ) : null}
-      {canDelete && person ? (
+      {canDelete ? (
         <DeleteDialog
           workspaceId={workspaceId}
-          kind="person"
-          ids={[person.id]}
-          names={[person.fullName]}
+          kind={kind}
+          ids={[recordId]}
+          names={[name]}
           open={deleting}
           onOpenChange={setDeleting}
-          onDeleted={() => router.replace(`/app/w/${workspaceId}/customers`)}
+          onDeleted={() =>
+            router.replace(
+              `/app/w/${workspaceId}/customers${kind === 'company' ? '?tab=companies' : ''}`,
+            )
+          }
         />
       ) : null}
       <LeadDialog

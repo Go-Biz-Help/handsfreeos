@@ -38,8 +38,12 @@ export const LEADS_SQL = `
   FROM leads l LEFT JOIN pipeline_stages s ON s.id = l.stage_id
   WHERE l.workspace_id = ?`;
 
-/** One record's leads. */
-export const RECORD_LEADS_SQL = `${LEADS_SQL} AND (l.person_id = ? OR l.company_id = ?)`;
+/**
+ * One record's leads, leaving out archived ones as the web's Leads tab does: a lead deleted for good is archived
+ * while it waits in the Deleted bin (20261027000700), so it leaves this phone's tab too.
+ */
+export const RECORD_LEADS_SQL = `${LEADS_SQL} AND (l.person_id = ? OR l.company_id = ?)
+  AND l.archived_at IS NULL`;
 
 /** Everyone who works here, by name: owners, assignees and whoever wrote a note. */
 export const MEMBERS_SQL = `

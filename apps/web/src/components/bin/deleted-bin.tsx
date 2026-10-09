@@ -1,5 +1,12 @@
 'use client';
-import { BIN_WORDS, binDay, binItemDetail, binItemWhen, binRestoredWords } from '@hfos/core';
+import {
+  BIN_WORDS,
+  binDay,
+  binItemDetail,
+  binItemWhen,
+  binKindLabel,
+  binRestoredWords,
+} from '@hfos/core';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -15,9 +22,9 @@ import type { BinList, BinListItem } from '@/lib/api/types';
 type Asking = { kind: 'one'; item: BinListItem } | { kind: 'all' };
 
 /**
- * Settings → Deleted bin (20261027000400): customers, conversations and bookings deleted for good, newest first,
- * each waiting its 30 days. Bring one back, delete it now, or empty the whole bin. Whatever is being emptied
- * says so and can't come back.
+ * Settings → Deleted bin (20261027000400, 20261027000700): customers, conversations, bookings, leads, companies and
+ * records deleted for good, newest first, each waiting its 30 days. Bring one back, delete it now, or empty the
+ * whole bin. Whatever is being emptied says so and can't come back.
  */
 export function DeletedBin({
   workspaceId,
@@ -130,7 +137,7 @@ export function DeletedBin({
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="truncate font-medium">{item.name}</span>
-                      <Badge variant="gray">{BIN_WORDS.kinds[item.kind]}</Badge>
+                      <Badge variant="gray">{binKindLabel(item)}</Badge>
                     </div>
                     {detail ? (
                       <div className="mt-0.5 truncate text-[13px] text-text-2">{detail}</div>

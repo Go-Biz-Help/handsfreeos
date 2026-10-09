@@ -1,12 +1,13 @@
-import { formatDate, RECORD_WORDS } from '@hfos/core';
+import { BIN_WORDS, formatDate, holds, RECORD_WORDS } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 import { saveCompany, type CompanyEdit } from '@/customers/actions';
 import { assignedWords, contactDetails, otherPhoneLines } from '@/customers/contact-lines';
 import { useRecord } from '@/customers/use-record';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
 import {
   ACTION_ICONS,
   headLine,
@@ -23,13 +24,21 @@ import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useGrants } from '@/lib/grants';
+import { useNetwork } from '@/lib/network';
 
-/** A company's own screen: the same 360 as a customer's, with its people instead of a phone call. */
+/**
+ * A company's own screen: the same 360 as a customer's, with its people instead of a phone call. An owner deletes it
+ * for good from Details, with signal (the Deleted bin, 20261027000700).
+ */
 export default function CompanyScreen() {
   const { companyId } = useLocalSearchParams<{ companyId: string }>();
   const { business } = useBusiness();
   const data = useRecord('company', companyId);
   const company = data.company;
+  const canDelete = holds(useGrants(), 'records.delete');
+  const { online } = useNetwork();
+  const [deleting, setDeleting] = React.useState(false);
   const [tab, setTab] = React.useState<RecordTab>('timeline');
   const [sheets, setSheets] = React.useState({
     note: false,
@@ -150,6 +159,9 @@ export default function CompanyScreen() {
           { label: RECORD_WORDS.labels.notes, value: company.notes },
         ]}
         onEdit={() => setSheets((all) => ({ ...all, edit: true }))}
+        onDelete={
+          canDelete ? () => (online ? setDeleting(true) : toast.error(BIN_WORDS.offline)) : null
+        }
         sheets={sheets}
         onSheet={onSheet}
         nextVisit={null}
@@ -175,7 +187,18 @@ export default function CompanyScreen() {
           );
         }}
       />
-      <View />
+      <DeleteSheet
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        workspaceId={business.id}
+        kind="company"
+        ids={[companyId]}
+        names={[company.name]}
+        onDeleted={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace(businessHref(business.id, 'customers') as Href);
+        }}
+      />
     </Screen>
   );
 }

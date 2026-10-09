@@ -37,3 +37,14 @@ export function catalogAddon(id: string): AddonManifest {
   if (!found) throw new Error(`${id} isn't in the add-on catalogue`);
   return found;
 }
+
+/**
+ * The database's words name an add-on by its id, as `{addon:realestate}`, because only the catalogue knows what it's
+ * called: "Acme is used by the Real Estate Agent add-on…" (the Deleted bin, 20261027000700).
+ */
+export function withAddonNames(text: string): string {
+  return text.replace(
+    /\{addon:([a-z]{2,16})\}/g,
+    (_, id: string) => ADDON_CATALOG.find((m) => m.id === id)?.name ?? id,
+  );
+}

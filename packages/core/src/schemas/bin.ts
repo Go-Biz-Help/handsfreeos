@@ -4,9 +4,17 @@ import { ListInput } from './crm';
 
 /**
  * The Deleted bin (20261027000400): customers, conversations and bookings deleted for good wait here 30 days, and
- * can be brought back until then. Owners only, unless an owner gives "Delete for good" to a role or a person.
+ * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000700).
+ * Owners only, unless an owner gives "Delete for good" to a role or a person.
  */
-export const BinKind = z.enum(['person', 'conversation', 'appointment']);
+export const BinKind = z.enum([
+  'person',
+  'conversation',
+  'appointment',
+  'lead',
+  'company',
+  'custom_record',
+]);
 export type BinKind = z.infer<typeof BinKind>;
 
 /** How many to delete at once: a page of the Contacts list or the inbox. */
@@ -33,12 +41,18 @@ export const BinContents = z.object({
   upcoming: z.number().int().optional(),
   files: z.number().int().optional(),
   forms: z.number().int().optional(),
+  /** A company's or a record's relationships. */
+  relationships: z.number().int().optional(),
   bills: z.number().int().optional(),
+  /** A company's people, who stay. */
+  people: z.number().int().optional(),
   /** A conversation's channel ("sms", "email", "messenger"...). */
   channel: z.string().optional(),
-  /** A booking's start, and who was on it. */
+  /** A booking's start, and who was on it; a lead's customer or company. */
   startsAt: isoDateTime.optional(),
   who: z.array(z.string().nullable()).optional(),
+  /** A record's kind ("Pet"). */
+  type: z.string().optional(),
 });
 export type BinContents = z.infer<typeof BinContents>;
 
@@ -64,6 +78,12 @@ export const PersonDeleteInput = z.object({ workspaceId: uuid, personIds: ids('c
 export const ConversationDeleteInput = z.object({
   workspaceId: uuid,
   conversationIds: ids('conversation'),
+});
+export const LeadDeleteInput = z.object({ workspaceId: uuid, leadIds: ids('lead') });
+export const CompanyDeleteInput = z.object({ workspaceId: uuid, companyIds: ids('company') });
+export const CustomRecordDeleteInput = z.object({
+  workspaceId: uuid,
+  customRecordIds: ids('record'),
 });
 export const AppointmentDeleteInput = z.object({
   workspaceId: uuid,

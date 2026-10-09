@@ -1,7 +1,7 @@
 /**
- * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08 are in
- * docs/deleting.md): what the delete box, its toasts and Settings → Deleted bin say, so the web and the phone say
- * the same thing. Browser-safe; `commands/bin.ts` does the work.
+ * Deleting for good, through the Deleted bin (20261027000400 and 20261027000700; the owner's decisions of 2026-10-08
+ * are in docs/deleting.md): what the delete box, its toasts and Settings → Deleted bin say, so the web and the phone
+ * say the same thing. Browser-safe; `commands/bin.ts` does the work.
  */
 import { fmtAt, fmtMonthDay, localDayOf } from './calendar/when';
 import type { BinContents, BinKind } from './schemas/bin';
@@ -29,6 +29,7 @@ const COUNTED = [
   ['bookings', 'booking'],
   ['files', 'file'],
   ['forms', 'form response'],
+  ['relationships', 'relationship'],
 ] as const;
 
 /** What goes with it: "3 conversations, 12 messages and 2 bookings", or null when nothing does. */
@@ -40,11 +41,14 @@ export function binContentsWords(c: BinContents): string | null {
   return parts.length > 0 ? listed(parts) : null;
 }
 
-/** Several things' counts added up, for a box that deletes them at once. */
+/** Several things' counts added up, for a box that deletes them at once; one thing's, all it says. */
 export function binContentsTotal(list: readonly BinContents[]): BinContents {
-  const total: Partial<Record<(typeof COUNTED)[number][0] | 'upcoming' | 'bills', number>> = {};
+  if (list.length === 1) return list[0]!;
+  const total: Partial<
+    Record<(typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people', number>
+  > = {};
   for (const c of list)
-    for (const key of [...COUNTED.map(([k]) => k), 'upcoming', 'bills'] as const) {
+    for (const key of [...COUNTED.map(([k]) => k), 'upcoming', 'bills', 'people'] as const) {
       const n = c[key];
       if (n) total[key] = (total[key] ?? 0) + n;
     }
@@ -69,7 +73,7 @@ export const BIN_WORDS = {
   keep: (several: boolean) => (several ? 'Keep them' : 'Keep it'),
   /** Settings → Deleted bin. */
   title: 'Deleted bin',
-  about: `Customers, conversations and bookings deleted for good wait here ${BIN_DAYS} days. Bring one back before then, or delete it now.`,
+  about: `Customers, conversations, bookings, leads, companies and records deleted for good wait here ${BIN_DAYS} days. Bring one back before then, or delete it now.`,
   emptyTitle: 'The bin is empty',
   emptyBody: `What’s deleted for good waits here ${BIN_DAYS} days, so it can be brought back.`,
   restore: 'Bring back',
@@ -83,7 +87,14 @@ export const BIN_WORDS = {
   emptyAllBody: 'Everything in it is deleted for good now, and none of it can be brought back.',
   emptyStarted: (n: number) =>
     n === 0 ? 'Nothing left to delete.' : `Deleting ${count(n, 'thing')} for good now.`,
-  kinds: { person: 'Customer', conversation: 'Conversation', appointment: 'Booking' },
+  kinds: {
+    person: 'Customer',
+    conversation: 'Conversation',
+    appointment: 'Booking',
+    lead: 'Lead',
+    company: 'Company',
+    custom_record: 'Record',
+  },
   /** The box's line over what can't go yet, when it was asked to delete several. */
   blocked: (n: number) => (n === 1 ? 'This one can’t go yet:' : 'These can’t go yet:'),
   /** Deleting the rest of several when some can't go. */
@@ -156,10 +167,40 @@ export function binDeleteBox(
         ? 'They don’t delete anyone from Contacts.'
         : 'It doesn’t delete anyone from Contacts.',
     );
-  } else {
+  } else if (kind === 'appointment') {
     title = 'Delete this booking for good?';
     if (words) lines.push(`This also deletes ${words}.`);
     if ((contents.upcoming ?? 0) > 0) lines.push('It’s still to come, so it’s cancelled first.');
+  } else if (kind === 'lead') {
+    title = several ? `Delete ${n} leads for good?` : 'Delete this lead for good?';
+    if (words) lines.push(`This also deletes ${words}.`);
+    const who = (contents.who ?? []).find((w): w is string => !!w);
+    lines.push(
+      several
+        ? 'They don’t delete anyone from Contacts.'
+        : who
+          ? `It doesn’t delete ${who} from Contacts.`
+          : 'It doesn’t delete anyone from Contacts.',
+    );
+  } else {
+    title = several
+      ? `Delete ${n} ${kind === 'company' ? 'companies' : 'records'} for good?`
+      : `Delete ${name} for good?`;
+    if (words)
+      lines.push(`This also deletes everything only about ${several ? 'them' : 'it'}: ${words}.`);
+    const people = contents.people ?? 0;
+    if (kind === 'company' && people > 0)
+      lines.push(
+        people === 1
+          ? 'The person who works there stays in Contacts.'
+          : `The ${people} people who work there stay in Contacts.`,
+      );
+    if (kind === 'custom_record')
+      lines.push(
+        several
+          ? 'They don’t delete anyone from Contacts.'
+          : 'It doesn’t delete anyone from Contacts.',
+      );
   }
   lines.push(
     kind === 'person' || several
@@ -179,6 +220,14 @@ export function binDeletedWords(kind: BinKind, names: readonly string[]): string
     return n === 1
       ? `Conversation deleted. Bring it back ${back}`
       : `${n} conversations deleted. Bring them back ${back}`;
+  if (kind === 'lead')
+    return n === 1
+      ? `Lead deleted. Bring it back ${back}`
+      : `${n} leads deleted. Bring them back ${back}`;
+  if (kind === 'company' || kind === 'custom_record')
+    return n === 1
+      ? `${names[0]} deleted. Bring it back ${back}`
+      : `${n} ${kind === 'company' ? 'companies' : 'records'} deleted. Bring them back ${back}`;
   return `Booking deleted. Bring it back ${back}`;
 }
 
@@ -193,6 +242,8 @@ export function binRestoredWords(r: {
     return `The conversation with ${r.name} is back in the Inbox.${
       r.joined > 0 ? ' It joined their newer conversation on the same line.' : ''
     }`;
+  if (r.kind === 'lead') return `${r.name} is back in the Pipeline.`;
+  if (r.kind === 'company' || r.kind === 'custom_record') return `${r.name} is back in Contacts.`;
   return `${r.name} is back on the calendar.`;
 }
 
@@ -206,22 +257,30 @@ export interface BinItemLike {
   readonly emptying: boolean;
 }
 
+/** What an item in the bin is: "Customer", "Lead", or a record's own kind ("Pet"). */
+export function binKindLabel(item: Pick<BinItemLike, 'kind' | 'contents'>): string {
+  return item.kind === 'custom_record' && item.contents.type
+    ? item.contents.type
+    : BIN_WORDS.kinds[item.kind];
+}
+
 /**
- * The line under an item's name: what went with a customer ("3 conversations and 12 messages"), a conversation's
- * channel and messages ("Text · 12 messages"), or a booking's time and who was on it ("Thu, Oct 8 at 9:00 AM ·
- * Dana Lopez"). Null when there's nothing to say.
+ * The line under an item's name: what went with a customer, a company or a record ("3 conversations and 12
+ * messages"), a conversation's channel and messages ("Text · 12 messages"), a booking's time and who was on it
+ * ("Thu, Oct 8 at 9:00 AM · Dana Lopez"), or whose a lead was and what went with it ("Dana Lopez · 1 task"). Null
+ * when there's nothing to say.
  */
 export function binItemDetail(item: BinItemLike, timeZone: string): string | null {
   const c = item.contents;
+  const who = (c.who ?? []).filter((w): w is string => !!w).join(', ') || null;
   const parts =
-    item.kind === 'person'
-      ? [binContentsWords(c)]
-      : item.kind === 'conversation'
-        ? [c.channel ? (CHANNELS[c.channel] ?? null) : null, binContentsWords(c)]
-        : [
-            c.startsAt ? fmtAt(c.startsAt, timeZone) : null,
-            (c.who ?? []).filter((w): w is string => !!w).join(', ') || null,
-          ];
+    item.kind === 'conversation'
+      ? [c.channel ? (CHANNELS[c.channel] ?? null) : null, binContentsWords(c)]
+      : item.kind === 'appointment'
+        ? [c.startsAt ? fmtAt(c.startsAt, timeZone) : null, who]
+        : item.kind === 'lead'
+          ? [who, binContentsWords(c)]
+          : [binContentsWords(c)];
   const line = parts.filter((p): p is string => !!p).join(' · ');
   return line || null;
 }

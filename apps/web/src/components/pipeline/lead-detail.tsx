@@ -1,5 +1,5 @@
 'use client';
-import { can } from '@hfos/core';
+import { BIN_WORDS, can } from '@hfos/core';
 import {
   AlertTriangle,
   Archive,
@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Phone,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -29,6 +30,7 @@ import { TaskList } from '@/components/tasks/task-list';
 import { LogActivitySheet, type LoggableKind } from '@/components/timeline/log-activity-sheet';
 import { Timeline } from '@/components/timeline/timeline';
 import { AddonSlot } from '@/components/addons/slot';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -88,6 +90,7 @@ export function LeadDetail({
   tags,
   compact,
   onChanged,
+  onDeleted,
   timeZone,
   upcoming,
   teammate,
@@ -103,6 +106,8 @@ export function LeadDetail({
   compact?: boolean;
   /** Called after any change the board should reflect (moves, next action, archive). */
   onChanged?: () => void;
+  /** Once it's in the Deleted bin: the board closes its sheet; the full page goes back to the pipeline. */
+  onDeleted?: () => void;
   /** The workspace's time zone; with it the full page offers Book and lists upcoming appointments. */
   timeZone?: string;
   upcoming?: Appointment[];
@@ -123,12 +128,15 @@ export function LeadDetail({
   const [inlineAt, setInlineAt] = useState('');
   const [booking, setBooking] = useState(false);
   const [openAppt, setOpenAppt] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   // Another lead's changes are not this one's; its activity and tasks carry their own ids, so those stay broad.
   const live = { only: { lead: [leadId] } };
   const version = useLiveVersion(['lead', 'activity', 'task'], 300, live);
   useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : [], 300, live);
   // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
   const canModerate = can(permissions, 'records.archive');
+  // Delete it for good, through the 30-day Deleted bin: owners, unless one gives it out (records.delete).
+  const canDelete = can(permissions, 'records.delete');
   const canBill = can(permissions, 'money.bill');
   /** What has been quoted or billed on this job. A member who doesn't own this lead finds nothing here. */
   const leadMoney = useRecordMoney(workspaceId, 'lead', compact ? null : leadId);
@@ -334,6 +342,16 @@ export function LeadDetail({
                       )}
                       {lead.archivedAt ? PIPELINE_WORDS.restoreLead : PIPELINE_WORDS.archiveLead}
                     </DropdownMenuItem>
+                    {canDelete ? (
+                      <DropdownMenuItem
+                        danger
+                        onSelect={() => setDeleting(true)}
+                        data-testid="lead-delete"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        {BIN_WORDS.menu}
+                      </DropdownMenuItem>
+                    ) : null}
                   </>
                 ) : null}
               </DropdownMenuContent>
@@ -762,6 +780,21 @@ export function LeadDetail({
         busy={busy}
         onConfirm={(reason) => lost && void move(lost, reason)}
       />
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="lead"
+          ids={[leadId]}
+          names={[lead.title]}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={() => {
+            onChanged?.();
+            if (onDeleted) onDeleted();
+            else router.replace(`/app/w/${workspaceId}/pipeline`);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
