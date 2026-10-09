@@ -10,6 +10,8 @@
  * - **Like a post first** (decision 33): someone is sent a friend request only a day or more after one of their posts
  *   was liked; a profile with no post to like goes without.
  * - **Confirm requests that fit** (decision 30): requests they got from people who fit a playbook well are confirmed.
+ * - **Once a day** (decision 32): checking friend requests, saving group members, Find posts and Read my chats, at the
+ *   start of the working day, while it works on its own.
  *
  * Every step keeps the daily limits, goes at a person's pace, and stops for the day on any Facebook warning.
  * Browser-safe: the extension, the web and the API read it.
@@ -49,6 +51,8 @@ export const AutomationSettings = z.object({
   sending: z.enum(SENDING_MODE_KEYS),
   warmUp: z.boolean(),
   confirmRequests: z.boolean(),
+  /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
+  collect: z.boolean().default(true),
   hours: WorkingHours,
 });
 export type AutomationSettings = z.output<typeof AutomationSettings>;
@@ -57,6 +61,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   sending: 'off',
   warmUp: true,
   confirmRequests: true,
+  collect: true,
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
 };
 

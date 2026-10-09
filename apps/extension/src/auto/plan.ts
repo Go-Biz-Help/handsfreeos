@@ -3,7 +3,8 @@
  * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts) in its own order: requests to
  * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages wait for the
  * person. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
- * a person's pace, a minute or few apart.
+ * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, saves
+ * their groups' members, finds posts and reads their chats (decision 32), which fill that list.
  */
 import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automation';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
@@ -15,6 +16,10 @@ export const AUTO_STATE_KEY = 'hfos.auto';
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
+
+/** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
+export const DAILY_JOBS = ['requests', 'members', 'posts', 'chats'] as const;
+export type DailyJob = (typeof DAILY_JOBS)[number];
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;
@@ -39,6 +44,8 @@ export interface AutoState {
   readonly tried: readonly string[];
   /** How many of each it did today. */
   readonly done: Readonly<Partial<Record<AutoKind, number>>>;
+  /** The once-a-day jobs it did today, each with how it went in words. Missing in a state kept by 0.11. */
+  readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
   /** What it's doing, or last did, in words for the person, and when. */
   readonly line: string | null;
   readonly lineAt: number | null;
@@ -57,6 +64,7 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     stopped: null,
     tried: [],
     done: {},
+    daily: {},
     line: null,
     lineAt: null,
     nextAt: null,
@@ -76,6 +84,10 @@ export function isState(value: unknown): value is AutoState {
     typeof v.started === 'boolean'
   );
 }
+
+/** The once-a-day job to do next, when it collects: the first not done today. */
+export const nextDaily = (state: Pick<AutoState, 'daily'>): DailyJob | null =>
+  DAILY_JOBS.find((job) => state.daily?.[job] === undefined) ?? null;
 
 /** Someone on the list, by what they're on it for. */
 export const itemKey = (item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'>) =>

@@ -32,6 +32,7 @@ const settingsOf = (row: Row | undefined): AutomationSettings =>
         sending: row.sending,
         warmUp: row.warmUp,
         confirmRequests: row.confirmRequests,
+        collect: row.collect,
         hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
       }
     : AUTOMATION_DEFAULTS;
@@ -67,7 +68,7 @@ export const automationGet = defineAddonQuery(outreachAddon, {
 export const automationSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.automation.save',
   description:
-    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit) and their working hours.',
+    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, liking a post first, confirming requests that fit, the once-a-day jobs) and their working hours.',
   risk: 0,
   input: AutomationSaveInput,
   output: AutomationSaveOutput,
@@ -78,11 +79,12 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const { sending, warmUp, confirmRequests, hours } = input.settings;
+    const { sending, warmUp, confirmRequests, collect, hours } = input.settings;
     const values = {
       sending,
       warmUp,
       confirmRequests,
+      collect,
       hoursStart: hours.start,
       hoursEnd: hours.end,
       days: dayList(hours.days),
@@ -97,7 +99,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       type: 'outreach.automation.saved',
       entityType: 'outreach_automation',
       entityId: row!.id,
-      payload: { sending, warmUp, confirmRequests },
+      payload: { sending, warmUp, confirmRequests, collect },
     });
     const timezone = await workspaceTimezone(ctx.tx, ws);
     return { settings: settingsOf(row), timezone, saved: true };

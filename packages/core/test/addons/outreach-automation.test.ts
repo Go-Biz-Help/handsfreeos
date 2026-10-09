@@ -129,7 +129,13 @@ describe('the extension on its own', () => {
       settings: { sending: 'steps', hours: { start: 8, end: 16, days: [1, 3, 5] } },
       saved: true,
     });
-    // Saving again changes theirs; someone else's stay the defaults.
+    // Saving again changes theirs, the once-a-day jobs too; someone else's stay the defaults.
+    await runAs(owner, ws, 'outreach.automation.save', { settings: { ...steps, collect: false } });
+    expect((await runAs(owner, ws, 'outreach.automation', {})).settings.collect).toBe(false);
+    // An extension from before the once-a-day jobs saves without them: they're on.
+    const { collect: _, ...older } = steps;
+    await runAs(owner, ws, 'outreach.automation.save', { settings: older });
+    expect((await runAs(owner, ws, 'outreach.automation', {})).settings.collect).toBe(true);
     await runAs(owner, ws, 'outreach.automation.save', { settings: steps });
     expect((await runAs(owner, ws, 'outreach.automation', {})).settings).toEqual(steps);
     expect((await runAs(member, ws, 'outreach.automation', {})).saved).toBe(false);

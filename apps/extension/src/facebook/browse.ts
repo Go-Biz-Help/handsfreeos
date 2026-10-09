@@ -5,10 +5,12 @@
  * sends, and does nothing anywhere else: only on Messenger's own pages (`messengerPage`), and only the list's links.
  *
  * And for **Find posts** (docs/outreach.md, decision 18): on a group's own page, it scrolls the feed down a screen at a
- * time, as the person would, for Facebook to load more posts. Nothing else: it opens nothing and presses nothing.
+ * time, as the person would, for Facebook to load more posts. For the once-a-day jobs (decision 32), it scrolls the
+ * person's friend requests, and a group's members, the same way, for Facebook to load more people. Nothing else: it
+ * opens nothing and presses nothing.
  */
 import { inTopBar } from './dom';
-import { classifyUrl, facebookUrl, threadFromUrl } from './urls';
+import { classifyUrl, facebookUrl, profileFromUrl, threadFromUrl } from './urls';
 
 /** Whether an address is Messenger's: the list of chats, or a chat. */
 export const messengerPage = (href: string) => {
@@ -83,4 +85,34 @@ export function scrollFeed(base: string): boolean {
   window.scrollBy({ top: Math.max(300, window.innerHeight * FEED_SCROLL), behavior: 'smooth' });
   // Smooth scrolling moves over a few frames; what counts is that there was room to move.
   return document.documentElement.scrollHeight - before - window.innerHeight > 4;
+}
+
+/** Whether an address is a list of people the once-a-day jobs load more of: your friends pages, or a group's members. */
+export const peopleListPage = (href: string) => {
+  const kind = classifyUrl(href).kind;
+  return kind === 'friends' || kind === 'group-members';
+};
+
+/**
+ * Scrolls a list of people down most of a screen, for Facebook to load more: the box the list scrolls in (your friend
+ * requests sit in one beside the page), else the page. Whether it moved: at the end, or off those pages, it doesn't.
+ */
+export function scrollList(root: Document, base: string): boolean {
+  if (!peopleListPage(base)) return false;
+  const people = [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].filter((anchor) => {
+    if (inTopBar(anchor)) return false;
+    const url = facebookUrl(anchor.getAttribute('href') ?? '', base);
+    return url !== null && profileFromUrl(url) !== null;
+  });
+  const last = people[people.length - 1];
+  for (let box: Element | null = last?.parentElement ?? null; box; box = box.parentElement) {
+    if (box === root.documentElement || box === root.body || !scrolls(box)) continue;
+    const before = box.scrollTop;
+    box.scrollTop = before + Math.max(200, box.clientHeight * FEED_SCROLL);
+    return box.scrollTop !== before;
+  }
+  const view = root.defaultView!;
+  const before = view.scrollY;
+  view.scrollBy({ top: Math.max(300, view.innerHeight * FEED_SCROLL), behavior: 'smooth' });
+  return root.documentElement.scrollHeight - before - view.innerHeight > 4;
 }

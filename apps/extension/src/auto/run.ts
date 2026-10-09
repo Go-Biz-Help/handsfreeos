@@ -13,12 +13,17 @@
  * today's limits have room for. It stops for the day on any warning from Facebook, and when the person presses
  * **Stop for today**. It works only while someone is signed in with somewhere to save and noting is on, and only while
  * Chrome is open.
+ *
+ * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
+ * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
+ * chats, one job a go, a few minutes apart.
  */
 import { businessDay, workWindow } from '@hfos/core/addons/outreach/automation';
 import { AUTO_PLANS, sameRef, type AutoJob } from '../facebook/auto';
 import type { FetchStep } from '../facebook/fetch';
 import { FRIENDSHIP_WORDS } from '../facebook/tidy';
 import type { ProfileRef, ReadResult } from '../facebook/types';
+import type { Hfos, Job, JobEnd } from '../jobs/job';
 import { sameName } from '../facebook/people';
 import { profileFromUrl } from '../facebook/urls';
 import type {
@@ -33,6 +38,7 @@ import { isNoting, takeNote } from '../hfos/noting';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
+import { DAILY_DOING, DAILY_NAMES, runDaily } from './daily';
 import {
   AUTO_STATE_KEY,
   freshState,
@@ -41,9 +47,11 @@ import {
   isState,
   itemKey,
   itemsLeft,
+  nextDaily,
   nextStart,
   type AutoKind,
   type AutoState,
+  type DailyJob,
 } from './plan';
 
 export const AUTO_ALARM = 'hfos-auto';
@@ -62,6 +70,8 @@ const LOOK_AGAIN_MS = 30 * 60_000;
 
 const tab = new WorkTab('window');
 let busy = false;
+/** Stop for today was pressed: a once-a-day job under way ends at its next page. */
+let stopAsked = false;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -76,10 +86,17 @@ async function stateNow(): Promise<AutoState> {
   }
 }
 
-async function setState(change: Partial<AutoState>): Promise<AutoState> {
-  const next = { ...(await stateNow()), ...change };
-  await chrome.storage.local.set({ [AUTO_STATE_KEY]: next });
-  return next;
+/** The last change to the state, which the next waits for: a job's progress lines never land over what came after. */
+let writing: Promise<unknown> = Promise.resolve();
+
+function setState(change: Partial<AutoState>): Promise<AutoState> {
+  const write = writing.then(async () => {
+    const next = { ...(await stateNow()), ...change };
+    await chrome.storage.local.set({ [AUTO_STATE_KEY]: next });
+    return next;
+  });
+  writing = write.catch(() => undefined);
+  return write;
 }
 
 const say = (line: string, more: Partial<AutoState> = {}) =>
@@ -350,6 +367,42 @@ const DOING: Record<AutoKind, string> = {
   comment: 'Commenting on a post of',
 };
 
+/** A once-a-day job, in the runner's window, noting any warning it sees as the runner does. */
+function jobFor(businessId: string): Job {
+  return {
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    stopped: () => stopAsked,
+    progress: (line) => void say(line, { working: true }).catch(() => undefined),
+    async warn(words, url) {
+      const fresh = await keepWarning(words);
+      if (fresh.length)
+        await answer({ type: 'hfos-warning', input: warningInput(businessId, fresh, url) });
+    },
+  };
+}
+
+/** Does a once-a-day job, and keeps how it went: a job that went wrong isn't tried again today. */
+async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
+  await say(DAILY_DOING[kind], { working: true });
+  let end: JobEnd;
+  try {
+    end = await runDaily(kind, jobFor(businessId));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = {
+      line: `${DAILY_NAMES[kind]}: ${error instanceof Error ? error.message : String(error)}`,
+      warned: false,
+    };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
+  const state = await stateNow();
+  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  return end;
+}
+
 // ------------------------------------------------------------------------------------------------- the day
 
 /** The person's choices and the business's time zone. */
@@ -373,8 +426,8 @@ async function go(): Promise<void> {
   const at = Date.now();
   const day = businessDay(at, timezone);
   if (state.day !== day) {
-    state = freshState(day, state.tabId);
-    await chrome.storage.local.set({ [AUTO_STATE_KEY]: state });
+    stopAsked = false;
+    state = await setState(freshState(day, state.tabId));
   }
   await tab.adopt(state.tabId);
   if (settings.sending === 'off') {
@@ -410,6 +463,25 @@ async function go(): Promise<void> {
   if (!state.started && !inHours) {
     await closeWindow();
     return goAt(tomorrow());
+  }
+
+  const daily = settings.collect ? nextDaily(state) : null;
+  if (daily) {
+    const end = await collect(daily, to.businessId);
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    await say(`${DAILY_NAMES[daily]}: ${end.line}`);
+    if ((await stateNow()).stopped) {
+      await closeWindow();
+      return goAt(tomorrow());
+    }
+    // A person's pace to the next: the list waits on these.
+    return goAt(
+      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+    );
   }
 
   const list: TodayList = await call(
@@ -546,10 +618,12 @@ export function answerAuto(
         break;
       }
       case 'hfos-auto-start':
+        stopAsked = false;
         await setState({ started: true, stopped: null });
         void tick();
         break;
       case 'hfos-auto-stop':
+        stopAsked = true;
         await setState({ started: false, stopped: 'person' });
         await say('Stopped for today. It starts again in your next working hours.');
         void tick();
