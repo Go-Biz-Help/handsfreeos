@@ -16,6 +16,12 @@ describe('maskText', () => {
     expect(maskText('5125550123')).toBe('[1 word]');
   });
 
+  it('keeps the words on the way to Facebook’s file, so a step it couldn’t find can be named', () => {
+    expect(maskText('Privacy & safety')).toBe('Privacy & safety');
+    expect(maskText('End-to-end encrypted chats')).toBe('End-to-end encrypted chats');
+    expect(maskText('Message requests')).toBe('Message requests');
+  });
+
   it('keeps the shape of Facebook’s phrases around a name', () => {
     expect(maskText('Messages in conversation with Sam Carter')).toBe(
       'Messages in conversation with [2 words]',

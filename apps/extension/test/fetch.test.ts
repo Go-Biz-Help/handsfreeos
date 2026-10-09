@@ -122,6 +122,28 @@ describe('doing a step', () => {
     expect(doStep(page('<p>Nothing here</p>'), press(['Download']))).toBe('missing');
   });
 
+  it('finds the ⋯ beside Chats by where it is, whatever it’s called', () => {
+    const doc = page(
+      `<div role="navigation" aria-label="Chat list">
+         <div><div>
+           <span dir="auto"><h1>Chats</h1></span>
+           <div>
+             <div role="button" aria-label="Menu for the chats" aria-expanded="false" id="dots"></div>
+             <a role="link" aria-label="New message" href="/messages/new/"></a>
+           </div>
+         </div></div>
+         <div role="tablist"><div role="button" aria-expanded="false">More</div></div>
+         <div role="grid" aria-label="Chats"><div role="row"><div role="gridcell">
+           <div role="button" aria-label="More options for Pat Example" aria-expanded="false"></div>
+         </div></div></div>
+       </div>`,
+      'https://www.facebook.com/messages/t/1/',
+    );
+    expect(findStep(doc, FETCH_PLANS.backup.steps[0]!)?.id).toBe('dots');
+    boxEverything(doc);
+    expect(findStep(doc, FETCH_PLANS.backup.steps[0]!)?.id).toBe('dots');
+  });
+
   it('along a path, presses the furthest step on the page', () => {
     const steps = FETCH_PLANS.backup.steps;
     const doc = page(

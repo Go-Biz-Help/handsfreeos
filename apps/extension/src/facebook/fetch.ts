@@ -10,7 +10,7 @@
  * panel carry on. Like the readers, it goes by roles, labels and Facebook's own words, never class names, and never by
  * the boxes around things. It works only on the download pages (`fetchPage`), and never presses anything else.
  */
-import { clean, textPieces } from './dom';
+import { clean, isAfter, textPieces } from './dom';
 
 /** What a step does: press a button, link or menu row; tick a box that isn't ticked; or pick one of a few choices. */
 export type FetchAction = 'press' | 'tick' | 'pick';
@@ -29,6 +29,11 @@ export interface FetchStep {
   readonly exact?: boolean;
   /** Its row says one of the words somewhere: the Facebook profile among the accounts to download from. */
   readonly anywhere?: boolean;
+  /**
+   * Else the button that opens a menu next to a heading with one of these words: the ⋯ beside Chats, whose label
+   * isn't the same on every account.
+   */
+  readonly beside?: readonly string[];
 }
 
 /**
@@ -148,9 +153,11 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
     url: CHATS_PAGE,
     mode: 'path',
     steps: [
-      press(['Options', 'Chat settings', 'Messenger settings'], 'Press “Options” next to Chats.', {
-        exact: true,
-      }),
+      press(
+        ['Settings, help and more', 'Options', 'Chat settings', 'Messenger settings'],
+        'Press the ⋯ button next to Chats.',
+        { exact: true, beside: ['Chats'] },
+      ),
       press(['Privacy & safety', 'Privacy and safety'], 'Press “Privacy & safety”.'),
       press(['End-to-end encrypted chats'], 'Press “End-to-end encrypted chats”.'),
       press(['Message storage', 'Chat history'], 'Press “Message storage”.'),
@@ -163,6 +170,36 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
     ],
   },
 };
+
+/**
+ * Facebook's words on the way to the file, which the page outline (./outline.ts) shows rather than hides, so an
+ * outline of a step it couldn't find says what the buttons there are called: each plan's words, and the rest of the
+ * chats' settings menu.
+ */
+export const FETCH_WORDS: ReadonlySet<string> = new Set(
+  [
+    ...Object.values(FETCH_PLANS).flatMap((plan) => plan.steps.flatMap((step) => step.words)),
+    'Preferences',
+    'Message requests',
+    'Archived chats',
+    'Restricted accounts',
+    'Blocked accounts',
+    'Help',
+    'Who can message you',
+    'Message delivery',
+    'Read receipts',
+    'Active status',
+    'End-to-end encryption',
+    'Secure storage',
+    'Logins',
+    'Security alerts',
+    'Turn off secure storage',
+    'Reset PIN',
+    'Change PIN',
+    'Your information',
+    'Export your information',
+  ].map((word) => word.toLowerCase()),
+);
 
 /** Whether an address is one of the download pages, the only ones the extension presses anything on. */
 export function fetchPage(href: string): boolean {
@@ -256,11 +293,33 @@ function placeOf(doc: Document): Element {
   return over.at(-1) ?? doc.body;
 }
 
+/**
+ * The button that opens a menu next to a heading with one of the words: the first one after the heading, in the
+ * nearest box around the heading that has one.
+ */
+function besideHeading(place: Element, headings: readonly string[]): Element | null {
+  const wanted = headings.map((h) => h.toLowerCase());
+  const found = [...place.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].filter(
+    (h) => shown(h) && wanted.includes(clean(h.textContent).toLowerCase()),
+  );
+  for (const heading of found) {
+    let box = heading.parentElement;
+    for (let up = 0; box && up < 8 && place.contains(box); up++, box = box.parentElement) {
+      const opener = [...box.querySelectorAll('[aria-expanded], [aria-haspopup]')].find(
+        (element) => element.matches(PRESSES) && shown(element) && isAfter(element, heading),
+      );
+      if (opener) return opener;
+    }
+  }
+  return null;
+}
+
 /** The element a step would act on, or null when it isn't on the page. The likeliest words win. */
 export function findStep(doc: Document, step: FetchStep): Element | null {
   const selector = step.action === 'press' ? PRESSES : step.action === 'tick' ? TICKS : PICKS;
   const name = step.action === 'press' ? nameOf : boxName;
-  const candidates = [...placeOf(doc).querySelectorAll(selector)].filter(shown);
+  const place = placeOf(doc);
+  const candidates = [...place.querySelectorAll(selector)].filter(shown);
   for (const word of step.words) {
     let best: Element | null = null;
     let bestFit = 0;
@@ -274,7 +333,7 @@ export function findStep(doc: Document, step: FetchStep): Element | null {
     }
     if (best) return best;
   }
-  return null;
+  return step.beside ? besideHeading(place, step.beside) : null;
 }
 
 /** Whether a box is ticked, or a choice picked, already. */
