@@ -544,7 +544,9 @@ describe('one duty on the phone', () => {
     // The one added by hand, beside any the catalog builds in.
     expect(proved.waitingOnThis.map((w) => w.addedByName)).toContain('Dana Reyes');
     const waiting = dutySheetOfCopy(copy, dutyIds[3]!, { userId: agent.id, now: Date.now() })!;
-    expect(waiting.waitsOn.map((w) => w.dutyId)).toEqual([dutyIds[2]]);
+    // The one added by hand, beside any the catalog builds in: which duty is fourth by its due date depends on the
+    // day, and some days it's one that waits on another in every deal.
+    expect(waiting.waitsOn.filter((w) => !w.builtIn).map((w) => w.dutyId)).toEqual([dutyIds[2]]);
     const blocked = dutySheetOfCopy(copy, dutyIds[1]!, { userId: agent.id, now: Date.now() })!;
     expect(blocked.duty.blocker).toMatchObject({
       what: 'Survey not ordered',
