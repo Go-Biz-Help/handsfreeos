@@ -305,14 +305,19 @@ function fit(name: string, word: string, step: FetchStep): number {
 }
 
 /**
- * Where to look: the box on top when Facebook shows one (the last dialog or menu drawn), else the whole page. Never
- * behind the box: a step that isn't in it is handed to the person rather than pressed on the page underneath.
+ * Where to look, in order: the box on top when Facebook shows one (the last dialog or menu drawn), then any other menu
+ * still open, as a menu's own menu (Privacy & safety's, say) isn't always drawn after it; else the whole page. Never
+ * behind a dialog or menu on the page itself: a step that isn't in one is handed to the person rather than pressed on
+ * the page underneath.
  */
-function placeOf(doc: Document): Element {
+function placesOf(doc: Document): Element[] {
   const over = [...doc.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].filter(
     shown,
   );
-  return over.at(-1) ?? doc.body;
+  const top = over.at(-1);
+  if (!top) return [doc.body];
+  const menus = over.filter((box) => box !== top && box.getAttribute('role') === 'menu');
+  return [top, ...menus.reverse()];
 }
 
 /**
@@ -340,17 +345,19 @@ function besideHeading(place: Element, headings: readonly string[]): Element | n
 function candidatesFor(doc: Document, step: FetchStep): Element[] {
   const selector = step.action === 'press' ? PRESSES : step.action === 'pick' ? PICKS : TICKS;
   const name = step.action === 'press' ? nameOf : boxName;
-  const place = placeOf(doc);
-  const candidates = [...place.querySelectorAll(selector)].filter(shown);
-  for (const word of step.words) {
-    const fits = candidates
-      .map((element) => ({ element, fit: fit(name(element), word, step) }))
-      .filter((c) => c.fit > 0);
-    if (fits.length === 0) continue;
-    const best = Math.max(...fits.map((c) => c.fit));
-    return fits.filter((c) => c.fit === best).map((c) => c.element);
+  const places = placesOf(doc);
+  for (const place of places) {
+    const candidates = [...place.querySelectorAll(selector)].filter(shown);
+    for (const word of step.words) {
+      const fits = candidates
+        .map((element) => ({ element, fit: fit(name(element), word, step) }))
+        .filter((c) => c.fit > 0);
+      if (fits.length === 0) continue;
+      const best = Math.max(...fits.map((c) => c.fit));
+      return fits.filter((c) => c.fit === best).map((c) => c.element);
+    }
   }
-  const beside = step.beside ? besideHeading(place, step.beside) : null;
+  const beside = step.beside ? besideHeading(places[0]!, step.beside) : null;
   return beside ? [beside] : [];
 }
 
@@ -362,7 +369,7 @@ export function findStep(doc: Document, step: FetchStep): Element | null {
 
 /** Whether the box on top (or the page) says one of the words. */
 function says(doc: Document, words: readonly string[]): boolean {
-  const text = clean(placeOf(doc).textContent).toLowerCase();
+  const text = clean(placesOf(doc)[0]!.textContent).toLowerCase();
   return words.some((word) => text.includes(word.toLowerCase()));
 }
 

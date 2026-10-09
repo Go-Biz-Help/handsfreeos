@@ -78,6 +78,22 @@ describe('finding a step', () => {
     expect(findStep(doc, press(['Next']))).toBe(null);
   });
 
+  it('looks in a menu’s own menu, wherever Facebook draws it, and never on the page behind', () => {
+    const doc = page(`
+      <div role="button" id="behind">End-to-end encrypted chats</div>
+      <div role="menu" aria-label="Privacy &amp; safety">
+        <div role="menuitem" id="e2ee">End-to-end encrypted chats</div>
+        <div role="menuitem">Read receipts</div>
+      </div>
+      <div role="menu" aria-label="Inbox settings menu">
+        <div role="menuitem" aria-expanded="true">Privacy &amp; safety</div>
+        <div role="menuitem">Help</div>
+      </div>`);
+    expect(findStep(doc, press(['End-to-end encrypted chats']))?.id).toBe('e2ee');
+    doc.getElementById('e2ee')!.parentElement!.remove();
+    expect(findStep(doc, press(['End-to-end encrypted chats']))).toBe(null);
+  });
+
   it('leaves out what is hidden from the person, and buttons turned off', () => {
     const doc = page(`
       <div aria-hidden="true"><div role="button" id="copy">Create files</div></div>
