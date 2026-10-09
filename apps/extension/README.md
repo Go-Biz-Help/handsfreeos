@@ -106,11 +106,11 @@ up to 200, and go in order when it's back.
 tab in Social Outreach (decision 16 in docs/outreach.md). Each button opens the page in a tab you can see and presses
 Facebook's buttons there, one step at a time:
 
-| Button             | What it does                                                                                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ask Facebook       | In Accounts Center's Download your information: ticks Friends and followers and Messages, sets All time, JSON and low media quality, and creates the files |
-| Download my file   | Once Facebook has emailed you, presses Download beside the file                                                                                            |
-| Get my chat backup | In your chats' settings, finds the encrypted chats' backup and downloads it, for chats newer than the download has                                         |
+| Button             | What it does                                                                                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ask Facebook       | In Accounts Center's Export your information: keeps only Messages, Friends and Followers, sets All time, JSON and Lower quality, and starts the export; stops if Facebook is making one already |
+| Download my file   | Once Facebook has emailed you, presses Download beside the file                                                                                                                                 |
+| Get my chat backup | From ⋯ beside Chats, Privacy & safety, End-to-end encrypted chats, Message storage: downloads the backup from all time without media, for chats newer than the download has                     |
 
 Facebook asks for your password before it hands over the file, and your PIN for the chat backup: you type them in
 the tab, and the panel carries on once they're in. When it can't find a step (Facebook draws these pages differently

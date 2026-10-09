@@ -12,8 +12,12 @@
  */
 import { clean, isAfter, textPieces } from './dom';
 
-/** What a step does: press a button, link or menu row; tick a box that isn't ticked; or pick one of a few choices. */
-export type FetchAction = 'press' | 'tick' | 'pick';
+/**
+ * What a step does: press a button, link or menu row; tick a box that isn't ticked, or untick one that is; pick one of
+ * a few choices; or, when the page says one of the words, stop there, as there's nothing to do (a file already asked
+ * for).
+ */
+export type FetchAction = 'press' | 'tick' | 'untick' | 'pick' | 'stopIf';
 
 export interface FetchStep {
   readonly action: FetchAction;
@@ -34,6 +38,8 @@ export interface FetchStep {
    * isn't the same on every account.
    */
   readonly beside?: readonly string[];
+  /** Press every one there is: Facebook's "Clear all", once for each part of the list. */
+  readonly every?: boolean;
 }
 
 /**
@@ -48,6 +54,8 @@ export interface FetchPlan {
   readonly url: string;
   readonly mode: 'steps' | 'path';
   readonly steps: readonly FetchStep[];
+  /** After a path, steps in order on the page it led to: the chat backup's own page, whose choices are all there at once. */
+  readonly then?: readonly FetchStep[];
 }
 
 /** Accounts Center's "Download your information", where the file is asked for and downloaded. */
@@ -65,41 +73,54 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
     url: DOWNLOAD_PAGE,
     mode: 'steps',
     steps: [
+      {
+        action: 'stopIf',
+        words: ['Your information is being prepared'],
+        optional: true,
+        says: 'Facebook is already making your file. It emails you when it’s ready; then press Download my file.',
+      },
       press(
         [
-          'Download or transfer information',
-          'Export your information',
           'Create export',
+          'Export your information',
+          'Download or transfer information',
           'Download your information',
         ],
-        'Press “Download or transfer information”.',
+        'Press “Create export”.',
       ),
-      {
-        action: 'tick',
-        words: ['Facebook'],
-        anywhere: true,
+      press(['Facebook'], 'Press your Facebook profile.', { anywhere: true, optional: true }),
+      press(['Export to device', 'Download to device'], 'Press “Export to device”.', {
         optional: true,
-        says: 'Tick your Facebook profile.',
-      },
-      press(['Next'], 'Press “Next”.', { optional: true, afterPrevious: true }),
+      }),
       press(
         [
+          'Customize information',
           'Some of your information',
           'Specific types of information',
           'Select types of information',
-          'Choose types of information',
         ],
-        'Press “Some of your information”.',
+        'Press “Customize information”.',
       ),
+      press(['Clear all'], 'Press “Clear all” in each part of the list.', {
+        exact: true,
+        every: true,
+        optional: true,
+      }),
+      { action: 'tick', words: ['Messages'], says: 'Tick “Messages”.' },
       {
         action: 'tick',
-        words: ['Friends and followers', 'Friends'],
-        says: 'Tick “Friends and followers”.',
+        words: ['Friends', 'Friends and followers'],
+        exact: true,
+        says: 'Tick “Friends”.',
       },
-      { action: 'tick', words: ['Messages'], says: 'Tick “Messages”.' },
-      press(['Next'], 'Press “Next”.'),
-      press(['Download to device'], 'Press “Download to device”.', { optional: true }),
-      press(['Next'], 'Press “Next”.', { optional: true, afterPrevious: true }),
+      {
+        action: 'tick',
+        words: ['Followers'],
+        exact: true,
+        optional: true,
+        says: 'Tick “Followers”.',
+      },
+      press(SAVE, 'Press “Save”.', { exact: true }),
       press(['Date range'], 'Set “Date range” to “All time”.', { optional: true }),
       {
         action: 'pick',
@@ -116,21 +137,17 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
         says: 'Pick “JSON”, then press “Save”.',
       },
       press(SAVE, 'Press “Save”.', { optional: true, afterPrevious: true, exact: true }),
-      press(['Media quality'], 'Set “Media quality” to “Low”.', { optional: true }),
+      press(['Media quality'], 'Set “Media quality” to “Lower quality”.', { optional: true }),
       {
         action: 'pick',
-        words: ['Low', 'Lower quality'],
+        words: ['Lower quality', 'Low'],
         afterPrevious: true,
-        says: 'Pick “Low”, then press “Save”.',
+        says: 'Pick “Lower quality”, then press “Save”.',
       },
       press(SAVE, 'Press “Save”.', { optional: true, afterPrevious: true, exact: true }),
-      press(
-        ['Create files', 'Start export', 'Create export', 'Submit request'],
-        'Press “Create files”.',
-        {
-          exact: true,
-        },
-      ),
+      press(['Start export', 'Create files', 'Create export'], 'Press “Start export”.', {
+        exact: true,
+      }),
     ],
   },
   download: {
@@ -139,11 +156,9 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
     mode: 'steps',
     steps: [
       press(
-        ['Available downloads', 'Available files', 'Available exports'],
-        'Open “Available files”.',
-        {
-          optional: true,
-        },
+        ['Current activity', 'Available downloads', 'Available files'],
+        'Open “Current activity”.',
+        { optional: true },
       ),
       press(['Download'], 'Press “Download” beside your file.', { exact: true }),
     ],
@@ -162,11 +177,18 @@ export const FETCH_PLANS: Readonly<Record<FetchJob, FetchPlan>> = {
       press(['End-to-end encrypted chats'], 'Press “End-to-end encrypted chats”.'),
       press(['Message storage', 'Chat history'], 'Press “Message storage”.'),
       press(
-        ['Download secure storage data', 'Last backup'],
-        'Press “Download secure storage data”.',
+        ['Download message storage data', 'Download secure storage data'],
+        'Press “Download message storage data”.',
       ),
-      press(['Download chat backup', 'Download file'], 'Press “Download file”.'),
-      press(['Download'], 'Press “Download”.', { exact: true }),
+    ],
+    then: [
+      {
+        action: 'pick',
+        words: ['All time', 'From account creation'],
+        says: 'Pick “All time”.',
+      },
+      { action: 'untick', words: ['Media'], exact: true, optional: true, says: 'Untick “Media”.' },
+      press(['Download file', 'Download'], 'Press “Download file”.', { exact: true }),
     ],
   },
 };
@@ -214,7 +236,7 @@ export function fetchPage(href: string): boolean {
   if (host === 'accountscenter.facebook.com')
     return url.pathname.startsWith('/info_and_permissions');
   if (host === 'www.facebook.com' || host === 'web.facebook.com')
-    return /^\/(messages|dyi|download)(\/|$)/.test(url.pathname);
+    return /^\/(messages|dyi|download|secure_storage)(\/|$)/.test(url.pathname);
   return false;
 }
 
@@ -314,26 +336,34 @@ function besideHeading(place: Element, headings: readonly string[]): Element | n
   return null;
 }
 
-/** The element a step would act on, or null when it isn't on the page. The likeliest words win. */
-export function findStep(doc: Document, step: FetchStep): Element | null {
-  const selector = step.action === 'press' ? PRESSES : step.action === 'tick' ? TICKS : PICKS;
+/** The elements a step would act on, the best fitting first; none when it isn't on the page. */
+function candidatesFor(doc: Document, step: FetchStep): Element[] {
+  const selector = step.action === 'press' ? PRESSES : step.action === 'pick' ? PICKS : TICKS;
   const name = step.action === 'press' ? nameOf : boxName;
   const place = placeOf(doc);
   const candidates = [...place.querySelectorAll(selector)].filter(shown);
   for (const word of step.words) {
-    let best: Element | null = null;
-    let bestFit = 0;
-    for (const element of candidates) {
-      const f = fit(name(element), word, step);
-      if (f > bestFit) {
-        best = element;
-        bestFit = f;
-        if (f === 2) break;
-      }
-    }
-    if (best) return best;
+    const fits = candidates
+      .map((element) => ({ element, fit: fit(name(element), word, step) }))
+      .filter((c) => c.fit > 0);
+    if (fits.length === 0) continue;
+    const best = Math.max(...fits.map((c) => c.fit));
+    return fits.filter((c) => c.fit === best).map((c) => c.element);
   }
-  return step.beside ? besideHeading(place, step.beside) : null;
+  const beside = step.beside ? besideHeading(place, step.beside) : null;
+  return beside ? [beside] : [];
+}
+
+/** The element a step would act on, or null when it isn't on the page. The likeliest words win. */
+export function findStep(doc: Document, step: FetchStep): Element | null {
+  if (step.action === 'stopIf') return null;
+  return candidatesFor(doc, step)[0] ?? null;
+}
+
+/** Whether the box on top (or the page) says one of the words. */
+function says(doc: Document, words: readonly string[]): boolean {
+  const text = clean(placeOf(doc).textContent).toLowerCase();
+  return words.some((word) => text.includes(word.toLowerCase()));
 }
 
 /** Whether a box is ticked, or a choice picked, already. */
@@ -366,14 +396,20 @@ export type StepResult =
   /** Not on the page. */
   | 'missing'
   /** Not on the page, and Facebook is asking the person to type something first. */
-  | 'waiting';
+  | 'waiting'
+  /** The page says there's nothing to do: a `stopIf` step's words are there. */
+  | 'stop';
 
 /** Does one step on the page, when its button or box is there. */
 export function doStep(doc: Document, step: FetchStep): StepResult {
-  const element = findStep(doc, step);
+  if (step.action === 'stopIf') return says(doc, step.words) ? 'stop' : 'missing';
+  const found = candidatesFor(doc, step);
+  const element = found[0];
   if (!element) return waitingForPerson(doc) ? 'waiting' : 'missing';
-  if (step.action !== 'press' && chosen(element)) return 'already';
-  (element as HTMLElement).click();
+  if (step.action === 'untick') {
+    if (!chosen(element)) return 'already';
+  } else if (step.action !== 'press' && chosen(element)) return 'already';
+  for (const each of step.every ? found : [element]) (each as HTMLElement).click();
   return 'done';
 }
 

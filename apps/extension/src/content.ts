@@ -55,7 +55,7 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
       result = 'at' in went ? 'done' : went.result;
       at = 'at' in went ? went.at : undefined;
     }
-    if (result === 'done' || result === 'already' || Date.now() >= until)
+    if (result === 'done' || result === 'already' || result === 'stop' || Date.now() >= until)
       return { ok: true, result, at };
     await pause(LOOK_AGAIN_MS);
   }

@@ -184,10 +184,20 @@ async function go(job: FetchJob): Promise<void> {
   stopped = false;
   set({ job, state: 'going', line: 'Opening Facebook…' });
   try {
-    await openTab(plan.url);
-    if (plan.mode === 'steps') await bySteps(job, plan.steps);
+    const id = await openTab(plan.url);
+    let nothingToDo: string | null = null;
+    if (plan.mode === 'steps') nothingToDo = await bySteps(job, plan.steps);
     else await byPath(job, plan.steps);
+    if (plan.then && !stopped && !nothingToDo) {
+      // The path led to a page of its own: let it load, then do its choices in order.
+      await loaded(id);
+      nothingToDo = await bySteps(job, plan.then);
+    }
     if (stopped) return;
+    if (nothingToDo) {
+      set({ job, state: 'done', line: nothingToDo });
+      return;
+    }
     if (job === 'request') await keep({ requestedAt: new Date().toISOString() });
     set({ job, state: 'done', line: DONE[job] });
   } catch (error) {
@@ -200,15 +210,23 @@ async function go(job: FetchJob): Promise<void> {
   }
 }
 
-async function bySteps(job: FetchJob, steps: readonly FetchStep[]): Promise<void> {
+/** Does steps in order. When the page says there's nothing to do, what to tell the person; else null. */
+async function bySteps(job: FetchJob, steps: readonly FetchStep[]): Promise<string | null> {
   let before: StepResult = 'done';
   for (const [i, step] of steps.entries()) {
-    if (stopped) return;
+    if (stopped) return null;
     if (step.afterPrevious && before !== 'done' && before !== 'already') {
       before = 'missing';
       continue;
     }
-    set({ job, state: 'going', line: `Step ${i + 1} of ${steps.length}: ${step.says}` });
+    set({
+      job,
+      state: 'going',
+      line:
+        step.action === 'stopIf'
+          ? 'Checking whether Facebook is making your file already…'
+          : `Step ${i + 1} of ${steps.length}: ${step.says}`,
+    });
     const once = () =>
       askTab({
         type: 'hfos-fetch-step',
@@ -217,8 +235,9 @@ async function bySteps(job: FetchJob, steps: readonly FetchStep[]): Promise<void
       });
     let answer = await once();
     if (answer.ok && answer.result === 'waiting') answer = await whileTyping(job, once);
-    if (stopped) return;
+    if (stopped) return null;
     if (!answer.ok) throw new Error(answer.error);
+    if (answer.result === 'stop') return step.says;
     before = answer.result;
     if (answer.result === 'missing' || answer.result === 'waiting') {
       if (step.optional) continue;
@@ -228,6 +247,7 @@ async function bySteps(job: FetchJob, steps: readonly FetchStep[]): Promise<void
     }
     await pause(SETTLE_MS);
   }
+  return null;
 }
 
 async function byPath(job: FetchJob, steps: readonly FetchStep[]): Promise<void> {

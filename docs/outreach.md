@@ -140,8 +140,8 @@ The owner answered on 9 Oct 2026, asking for it ("can we have the extension take
 files on its own"), and picked doing it before the chats:
 
 16. **The extension gets Facebook's file for the person.** Once they press its buttons, it presses Facebook's on the
-    download pages, in a tab they can see: it asks for the file (Friends and followers and Messages, all time, JSON,
-    low media quality), downloads it when it's ready, and gets the chat backup. The person types their password and
+    download pages, in a tab they can see: it asks for the file (Messages, Friends and Followers only, all time,
+    JSON, lower media quality), downloads it when it's ready, and gets the chat backup (all time, without media). The person types their password and
     PIN; the extension never does. A step it can't find, it hands to the person and carries on after. It reads the
     zips from Chrome's downloads once the person turns on Allow access to file URLs, and brings them in as the Friends
     tab does. Built, not yet tried on the owner's account.
@@ -235,8 +235,9 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Not yet
 
-The extension's steps on Facebook's download pages are written from Facebook's help and guides, not yet from the
-owner's own screens: where it hands a step to the person, the panel's page outline of that screen tunes it.
+The extension's steps on Facebook's download pages follow the owner's own screens of October 2026, mapped button by
+button, except the Download button beside a finished file, which no file was ready to show yet. Where it hands a
+step to the person, the panel's page outline of that screen, which keeps those steps' words, tunes it.
 
 Next, in the owner's order: the chats in Facebook's download file with AI summaries and tags, and who goes in
 Contacts (decision 3); then cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and

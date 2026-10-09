@@ -177,89 +177,148 @@ describe('the pages it presses on', () => {
 });
 
 /**
- * A made-up Accounts Center: each press draws the next screen in a dialog, as Facebook's does. Its words are the
- * ones Facebook used in 2025 and 2026 guides; the real screens may differ, which is why a step it can't find is
- * handed to the person.
+ * A made-up Accounts Center: each press draws the next screen in the "Export your information" dialog, as Facebook's
+ * does. Its screens and words are the ones the owner's Accounts Center showed in October 2026 (docs/outreach.md);
+ * a step Facebook words differently is handed to the person.
  */
-function accountsCenter(boxed: boolean) {
+function accountsCenter(boxed: boolean, { requested = false } = {}) {
   const doc = page(`
     <nav><a href="/info_and_permissions/dyi/">Download your information</a></nav>
-    <main><div role="button" tabindex="0" data-go="profiles">Download or transfer information</div></main>`);
+    <main><h1>Download your information</h1></main>`);
   if (boxed) boxEverything(doc);
-  const chosen: Record<string, string> = { range: 'Last year', format: 'HTML', quality: 'Medium' };
-  const ticked = new Set<string>();
-  let created = false;
-  let screen = '';
+  const chosen: Record<string, string> = {
+    range: 'Last year',
+    format: 'HTML',
+    quality: 'Medium quality',
+  };
+  const SECTIONS: Record<string, string[]> = {
+    'Your Facebook activity': ['Messages', 'Posts', 'Groups', 'Comments and reactions'],
+    'Personal information': ['Profile information', 'Other personal information'],
+    Connections: ['Friends', 'Followers', 'Supervision'],
+    'Logged information': ['Search', 'Location'],
+    'Data logs': ['Data logs'],
+  };
+  const ticked = new Set(
+    Object.values(SECTIONS)
+      .flat()
+      .filter((name) => name !== 'Data logs'),
+  );
+  let saved: string[] = [];
+  let started = false;
   const dialog = (html: string) => {
     doc.querySelectorAll('[role="dialog"]').forEach((d) => d.remove());
     const box = doc.createElement('div');
     box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', 'Export your information');
     box.innerHTML = html;
     if (boxed) boxIn(box);
     doc.body.append(box);
   };
-  const options = () =>
+  const button = (go: string, words: string) =>
+    `<div role="button" tabindex="0" data-go="${go}">${words}</div>`;
+  const home = () =>
     dialog(`
-      <h2>Create files to download</h2>
-      <div role="button" tabindex="0" data-go="range">Date range <span>${chosen.range}</span></div>
-      <div role="button" tabindex="0" data-go="format">Format <span>${chosen.format}</span></div>
-      <div role="button" tabindex="0" data-go="quality">Media quality <span>${chosen.quality}</span></div>
-      <div role="button" tabindex="0" data-go="create">Create files</div>`);
-  const choose = (what: string, choices: string[]) =>
+      <h2>Export your information</h2>
+      ${button('profiles', 'Create export')}
+      <div role="tablist"><div role="tab" aria-selected="true">Current activity</div><div role="tab">Past activity</div></div>
+      ${requested ? `<h3>Requested</h3><p>Your information is being prepared for export.</p>${button('cancel', 'Cancel')}` : ''}`);
+  const confirm = () =>
     dialog(`
-      <h2>${what}</h2>
+      <h2>Confirm your export</h2>
+      ${button('notify', 'Notify <span>pat@example.com</span>')}
+      ${button('customize', 'Customize information')}
+      ${button('range', `Date range <span>${chosen.range}</span>`)}
+      ${button('format', `Format <span>${chosen.format}</span>`)}
+      ${button('quality', `Media quality <span>${chosen.quality}</span>`)}
+      ${button('start', 'Start export')}`);
+  const choose = (what: string, heading: string, choices: string[]) =>
+    dialog(`
+      <h2>${heading}</h2>
       ${choices.map((c) => `<label><input type="radio" name="c" value="${c}"> ${c}</label>`).join('')}
-      <div role="button" tabindex="0" data-go="save-${what}">Save</div>`);
+      ${button(`save-${what}`, 'Save')}`);
   const draw: Record<string, () => void> = {
     profiles: () =>
       dialog(`
-        <h2>Which profiles?</h2>
-        <div role="listitem"><span>Pat Example</span><span>Facebook</span><input type="checkbox" data-tick="profile"></div>
-        <div role="button" tabindex="0" data-go="how">Next</div>`),
-    how: () =>
-      dialog(`
-        <div role="button" tabindex="0" data-go="all">Available information</div>
-        <div role="button" tabindex="0" data-go="types">Some of your information</div>`),
-    types: () =>
-      dialog(`
-        <label><input type="checkbox" data-tick="likes"> Likes and reactions</label>
-        <label><input type="checkbox" data-tick="friends"> Friends and followers</label>
-        <label><input type="checkbox" data-tick="messages"> Messages</label>
-        <div role="button" tabindex="0" data-go="where">Next</div>`),
+        <h2>Choose a profile</h2>
+        ${button('where', 'Pat Example <span>Facebook</span>')}
+        ${button('where', 'Pat Example <span>Instagram</span>')}`),
     where: () =>
       dialog(`
-        <div role="button" tabindex="0" data-go="options">Download to device</div>
-        <div role="button" tabindex="0" data-go="transfer">Transfer to destination</div>`),
-    options,
-    range: () => choose('range', ['Last year', 'All time']),
-    format: () => choose('format', ['HTML', 'JSON']),
-    quality: () => choose('quality', ['High', 'Medium', 'Low']),
-    create: () => {
-      created = true;
-      dialog('<p>We’re creating your files.</p>');
+        <h2>Choose where to export</h2>
+        ${button('confirm', 'Export to device')}
+        ${button('elsewhere', 'Export to external service')}`),
+    confirm,
+    customize: () =>
+      dialog(`
+        <h2>Choose specific info to export</h2>
+        ${Object.entries(SECTIONS)
+          .map(
+            ([section, names]) => `
+              <section data-section="${section}">
+                <h3>${section}</h3>
+                <div role="button" tabindex="0" data-clear="${section}">Clear all</div>
+                ${names
+                  .map(
+                    (name) =>
+                      `<label><input type="checkbox" name="${name}"${ticked.has(name) ? ' checked' : ''}> ${name}</label>`,
+                  )
+                  .join('')}
+              </section>`,
+          )
+          .join('')}
+        ${button('save-info', 'Save')}`),
+    range: () =>
+      choose('range', 'Date range', [
+        'Last week',
+        'Last year',
+        'Last 3 years',
+        'All time',
+        'Custom',
+      ]),
+    format: () => choose('format', 'Format', ['HTML', 'JSON']),
+    quality: () =>
+      choose('quality', 'Media quality', ['Higher quality', 'Medium quality', 'Lower quality']),
+    start: () => {
+      started = true;
+      home();
     },
   };
   doc.addEventListener('click', (event) => {
     const target = event.target as Element;
-    const tick = target.closest('[data-tick]');
-    if (tick) {
-      const name = tick.getAttribute('data-tick')!;
-      if ((tick as HTMLInputElement).checked) ticked.add(name);
-      else ticked.delete(name);
+    const clear = target.closest('[data-clear]');
+    if (clear) {
+      clear
+        .closest('section')!
+        .querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+        .forEach((box) => {
+          box.checked = false;
+          ticked.delete(box.name);
+        });
+      return;
+    }
+    const box = target.closest<HTMLInputElement>('input[type="checkbox"]');
+    if (box) {
+      if (box.checked) ticked.add(box.name);
+      else ticked.delete(box.name);
       return;
     }
     const go = target.closest('[data-go]')?.getAttribute('data-go');
     if (!go) return;
-    screen = go;
+    if (go === 'save-info') {
+      saved = [...ticked].sort();
+      confirm();
+      return;
+    }
     if (go.startsWith('save-')) {
       const picked = doc.querySelector<HTMLInputElement>('input[type="radio"]:checked');
       if (picked) chosen[go.slice(5)] = picked.value;
-      options();
+      confirm();
       return;
     }
     draw[go]?.();
   });
-  return { doc, chosen, ticked, created: () => created, screen: () => screen };
+  home();
+  return { doc, chosen, saved: () => saved, started: () => started };
 }
 
 /** Runs a plan's steps the way the panel does, without the waiting: what each step came to. */
@@ -279,25 +338,59 @@ function runSteps(doc: Document, steps: readonly FetchStep[]): StepResult[] {
 
 describe('asking Facebook for the file', () => {
   for (const boxed of [false, true])
-    it(`ticks Friends and followers and Messages, picks All time, JSON and Low, and creates the files${boxed ? ', in more boxes' : ''}`, () => {
+    it(`keeps only Messages, Friends and Followers, picks All time, JSON and Lower quality, and starts the export${boxed ? ', in more boxes' : ''}`, () => {
       const made = accountsCenter(boxed);
-      const results = runSteps(made.doc, FETCH_PLANS.request.steps);
-      const required = FETCH_PLANS.request.steps
+      const steps = FETCH_PLANS.request.steps;
+      const results = runSteps(made.doc, steps);
+      const required = steps
         .map((step, i) => [step, results[i]] as const)
         .filter(([step]) => !step.optional && !step.afterPrevious);
       expect(required.every(([, result]) => result === 'done' || result === 'already')).toBe(true);
-      expect([...made.ticked].sort()).toEqual(['friends', 'messages', 'profile']);
-      expect(made.chosen).toEqual({ range: 'All time', format: 'JSON', quality: 'Low' });
-      expect(made.created()).toBe(true);
+      expect(made.saved()).toEqual(['Followers', 'Friends', 'Messages']);
+      expect(made.chosen).toEqual({ range: 'All time', format: 'JSON', quality: 'Lower quality' });
+      expect(made.started()).toBe(true);
     });
+
+  it('stops when Facebook is making a file already', () => {
+    const made = accountsCenter(false, { requested: true });
+    expect(doStep(made.doc, FETCH_PLANS.request.steps[0]!)).toBe('stop');
+    expect(doStep(accountsCenter(false).doc, FETCH_PLANS.request.steps[0]!)).toBe('missing');
+  });
 
   it('downloads a file that’s ready', () => {
     const doc = page(`
-      <div role="tablist"><div role="tab" tabindex="0" id="tab">Available downloads</div></div>
-      <div role="listitem"><span>Your information · Oct 9</span><div role="button" tabindex="0" id="get">Download</div></div>`);
+      <div role="dialog" aria-label="Export your information">
+        <div role="tablist"><div role="tab" tabindex="0" id="tab">Current activity</div></div>
+        <div role="listitem"><span>Your information · Oct 9</span><div role="button" tabindex="0" id="get">Download</div></div>
+      </div>`);
     let got = false;
     doc.getElementById('get')!.addEventListener('click', () => (got = true));
     expect(runSteps(doc, FETCH_PLANS.download.steps)).toEqual(['done', 'done']);
     expect(got).toBe(true);
+  });
+});
+
+describe('getting the chat backup', () => {
+  it('on its own page, picks All time by its label, leaves out the media, then downloads', () => {
+    const doc = page(
+      `<main>
+        <h1>Download your message storage data</h1>
+        <label><input type="checkbox" checked disabled> Messages</label>
+        <label><input type="checkbox" id="media" checked> Media</label>
+        <label><input type="radio" name="q" value="high"> Higher-quality media</label>
+        <label><input type="radio" name="q" value="low" checked> Lower-quality media</label>
+        <label><input type="radio" name="r" value="year" checked> Last year</label>
+        <label><input type="radio" name="r" id="all" aria-label="From account creation"> All time</label>
+        <div role="button" tabindex="0" aria-label="Download file" id="get">Download file</div>
+      </main>`,
+      'https://www.facebook.com/secure_storage/dyi',
+    );
+    let got = false;
+    doc.getElementById('get')!.addEventListener('click', () => (got = true));
+    expect(runSteps(doc, FETCH_PLANS.backup.then!)).toEqual(['done', 'done', 'done']);
+    expect((doc.getElementById('all') as HTMLInputElement).checked).toBe(true);
+    expect((doc.getElementById('media') as HTMLInputElement).checked).toBe(false);
+    expect(got).toBe(true);
+    expect(fetchPage('https://www.facebook.com/secure_storage/dyi')).toBe(true);
   });
 });
