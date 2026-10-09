@@ -14,6 +14,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   keeps a friend, and puts someone on the Don't pitch list, after which a step to them isn't counted.
  * - Facebook's download file, read in the browser, says since when they've been friends, when a request was sent,
  *   and the latest message with each person.
+ * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
+ *   anyone from it.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -441,4 +443,75 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   await page.getByTestId('friends-show-sent').click();
   await expect(people).toHaveText([/Quinn Harper/]);
   await expect(people.getByTestId('friend-since')).toHaveText(`Sent · ${day(sentAt)}`);
+});
+
+test('the groups tab scores saved groups, and today waits for a group’s admins and a playbook', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-groups');
+  const workspaceId = await createBusiness(page, { name: 'Maple Lane Plumbing' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // What the extension sends from the owner's groups and one group's People tab: made-up groups and people.
+  const { token } = await signInOwner(email);
+  const fb = 'https://www.facebook.com';
+  const austin = {
+    id: '223456789',
+    slug: null,
+    url: `${fb}/groups/223456789/`,
+    name: 'Austin Small Business Owners',
+  };
+  await api(token, 'commands', 'outreach.groups.save', {
+    workspaceId,
+    platform: 'facebook',
+    groups: [
+      { group: austin, members: 34_718, privacy: 'public', joined: true },
+      {
+        group: {
+          id: '223456790',
+          slug: null,
+          url: `${fb}/groups/223456790/`,
+          name: 'Knitting Circle',
+        },
+        detail: 'Private group · 40 members',
+      },
+    ],
+  });
+  await api(token, 'commands', 'outreach.group.save', {
+    workspaceId,
+    platform: 'facebook',
+    group: austin,
+    people: [
+      {
+        profile: {
+          id: '100007000000021',
+          username: null,
+          url: `${fb}/profile.php?id=100007000000021`,
+        },
+        name: 'Rowan Ellis',
+        lines: ['Owner at Ellis Electric'],
+      },
+    ],
+  });
+
+  await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  await page.getByTestId('outreach-tab-groups').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=groups$`));
+  // Without a playbook, nothing says a group is worth working: being big and being in it make a maybe.
+  await expect(page.getByTestId('groups-empty')).toBeVisible();
+  await page.getByTestId('groups-show-all').click();
+  const groups = page.getByTestId('group');
+  await expect(groups).toHaveText([/Austin Small Business Owners/, /Knitting Circle/]);
+  await expect(groups.first()).toContainText('Maybe');
+  await expect(groups.first()).toContainText('1 person saved');
+  await expect(groups.first()).toContainText('Admins not read');
+  await expect(groups.last()).toContainText('Skip');
+
+  await page.getByTestId('outreach-tab-today').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=today$`));
+  await expect(page.getByTestId('today-empty')).toBeVisible();
+  await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
+  await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
+  await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 20');
 });

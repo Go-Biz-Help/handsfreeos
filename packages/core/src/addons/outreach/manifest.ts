@@ -81,6 +81,8 @@ export const outreachAddon = defineAddon({
       'outreach.download.saved',
       'outreach.chat.read',
       'outreach.chats.collected',
+      'outreach.groups.saved',
+      'outreach.group.saved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts).
@@ -94,8 +96,10 @@ export const outreachAddon = defineAddon({
     'file_chats',
     'file_people',
     'friends',
+    'group_people',
     'groups',
     'imports',
+    'my_groups',
     'playbooks',
     'profiles',
     'threads',

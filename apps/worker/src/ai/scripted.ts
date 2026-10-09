@@ -1668,7 +1668,22 @@ function scriptedPlaybookAssist(message: string) {
   };
 }
 
+/** Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. */
+function scriptedTodayDraft(message: string) {
+  const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
+  const first = unquote(name).split(' ')[0];
+  return {
+    drafts: [
+      `Hi ${first}, thanks for adding me! How’s business going?`,
+      `Hey ${first}, good to connect. What keeps you busiest these days?`,
+      `Hi ${first}, thanks for adding me! How’s business going?`,
+      `Hi ${first}, want a free trial? It’s a great deal.`,
+    ],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
   {
     when: /Help write this part of the playbook\.$/,

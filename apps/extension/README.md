@@ -3,14 +3,15 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the fifth test build (0.5.0).** It reads the Facebook page you have open and shows what it found in
+**This is the seventh test build (0.7.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
 puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
-to keep and the ones nobody pitches. It gets your Facebook download file for you and brings it in. It never sends
-anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages once you
-ask it to get your file.
+to keep and the ones nobody pitches. It reads your Messenger chats for the AI, saves groups and their members with how
+each group fits, and gives you a list for the day with the AI's drafts to copy. It gets your Facebook download file
+for you and brings it in. It never sends anything on Facebook, and never clicks, scrolls or changes the page, except
+on Facebook's own download pages and in Messenger's chat list, once you ask it to.
 
 ## What it reads
 
@@ -53,12 +54,14 @@ exists (new accounts start on the web). It then saves to one business, picked at
 several. Only businesses where Social Outreach is on and the person has **Use Social Outreach** are listed; with none,
 the panel still reads pages and says there's nowhere to save.
 
-| Page      | What it adds                                                                                                                                                                                                                    |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A profile | **Save to HandsFreeOS**: adds them to Contacts (source Facebook) with their intro and where you stand, or brings a saved one up to date. Customers with the same name are offered first: **It’s them** links the profile to one |
-| A chat    | **Save this chat**: the messages on the page join what was saved before, the latest 100 kept, each with the day it was sent spelled out ("Today" becomes the date)                                                              |
-| Lists     | **In HandsFreeOS** beside each person saved there, and **Saved** beside each chat you've saved                                                                                                                                  |
-| Friends   | **Save my friends**, **Save these requests** or **Save these sent requests**: everyone loaded on the page, 500 at a time, for the Friends tab in Social Outreach, but no request already answered. Nobody is added to Contacts  |
+| Page      | What it adds                                                                                                                                                                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A profile | **Save to HandsFreeOS**: adds them to Contacts (source Facebook) with their intro and where you stand, or brings a saved one up to date. Customers with the same name are offered first: **It’s them** links the profile to one                                                        |
+| A chat    | **Save this chat**: the messages on the page join what was saved before, the latest 100 kept, each with the day it was sent spelled out ("Today" becomes the date)                                                                                                                     |
+| Lists     | **In HandsFreeOS** beside each person saved there, and **Saved** beside each chat you've saved                                                                                                                                                                                         |
+| Friends   | **Save my friends**, **Save these requests** or **Save these sent requests**: everyone loaded on the page, 500 at a time, for the Friends tab in Social Outreach, but no request already answered. Nobody is added to Contacts                                                         |
+| Groups    | **Save these groups** on your groups or a search for groups, each shown with how it fits your playbooks (Work these, Maybe or Skip, and why). On a group, **Save this group**; on its People tab, **Save this group and 40 people**, admins and moderators kept as such, 500 at a time |
+| Admins    | On a group's **Admins and moderators** page (People, then **See all** beside them): **Save 3 admins and moderators**. Everyone there runs the group; Today suggests the group's members only once this page is saved                                                                   |
 
 Saved people link to their page in HandsFreeOS, where a **Social** card shows their profile and chats. Each save says
 what it did in the line under **Read this page**. If Social Outreach is turned off while the panel is open, the next
@@ -99,6 +102,33 @@ Answers to requests aren't outreach, so they don't count toward the daily limits
 back, and the last few steps noted, with **See all** opening the activity on the Social Outreach page. **Note what I
 do on Facebook** turns noting off and on; it starts on. When HandsFreeOS can't be reached, steps wait in the extension,
 up to 200, and go in order when it's back.
+
+## Your chats, for the AI
+
+Facebook's file can take hours to be ready, so the panel reads your chats in Messenger too. With **Read chats I
+open** on (it starts on), each one-to-one chat you open with the panel beside it has its latest messages sent for the
+AI to read. **Read my chats**, on a Messenger page, opens your chats one at a time from the list, 7 to 14 seconds
+apart, and scrolls the list for more: up to 150 a run, skipping any read in the last day that hasn't changed, and
+stopping at once on any Facebook warning. **Stop** ends it. Group chats are left out. Each chat's latest 20 messages
+join what the file brought in, one chat per person, and the Chats tab on the web shows what the AI made of them, with
+**Open in Messenger** (`src/panel/chats.ts`, `outreach.chats.collect`).
+
+## Your list for today
+
+Under **Today on Facebook**, **Your list for today** (`outreach.today`) is what to do next, worked out from what
+HandsFreeOS knows each time it's asked:
+
+- **Send a friend request**: people saved from your groups who fit a playbook, best first, as many as today's limit
+  has left. Never anyone who runs a group, is on Don't pitch or tagged Friend or family, is in Contacts, or has had a
+  request from the business, and only from groups whose admins and moderators are saved.
+- **Say hi**: friends who accepted your request a day or more ago and haven't had a message.
+- **Follow up**: likely prospects whose chat ends with your message, a few quiet days ago.
+- **Reply**: likely prospects who wrote last, lately.
+
+Each opens their profile or chat on Facebook, and a message has **Draft a message**: the AI writes three to pick from,
+in the playbook's tone and never with its words to avoid, and **Copy** puts one on the clipboard to paste and send
+yourself. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
+it off the list. The Today tab on the web shows the same list.
 
 ## Getting your Facebook file
 
@@ -145,6 +175,7 @@ or `.env` beside `package.json` (both gitignored; `.env.example` lists them):
 | Setting                         | Left out                                      |
 | ------------------------------- | --------------------------------------------- |
 | `HFOS_API_URL`                  | `https://api.handsfreeos.com`                 |
+| `HFOS_WORKER_URL`               | `https://hooks.handsfreeos.com`, for drafts   |
 | `HFOS_WEB_URL`                  | `https://app.handsfreeos.com`                 |
 | `HFOS_SUPABASE_URL`             | `https://ybupfghakoszfcxhyrby.supabase.co`    |
 | `HFOS_SUPABASE_PUBLISHABLE_KEY` | none: the build reads pages and can't sign in |
@@ -179,6 +210,9 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rule. Later phases keep
   the owner's decisions:
   you press send by default, daily limits, and a stop for the day on any Facebook warning.
+- **Opening chats only when asked, slowly.** **Read my chats** (`src/panel/chats.ts`) clicks the chat links in
+  Messenger's own list and scrolls that list (`src/facebook/browse.ts`), nothing else: never a button, never a box to
+  type in. One chat every 7 to 14 seconds, at most 150 a run, and it stops at once on a Facebook warning.
 - **Pressing only on the download pages, only when asked.** `src/facebook/fetch.ts` presses Facebook's buttons only
   on Accounts Center's download pages and the chats (`fetchPage`), only for a job the person started in the panel,
   and only what's in the box on top, never behind it. It never types: a password or PIN box on the page makes it
@@ -213,21 +247,19 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 
 ## Where things are
 
-| Path                    | What it is                                                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps |
-| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete |
-| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day       |
-| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads    |
-| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                 |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                        |
-| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                   |
-| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                         |
+| Path                    | What it is                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/facebook/`         | The readers: one file per kind of page, the steps, the address rules, Facebook's words, the outline, the download steps                                  |
+| `src/content.ts`        | The script in each Facebook tab: reads the page when the panel asks, and notices your steps and your Confirm and Delete                                  |
+| `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats |
+| `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                     |
+| `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                                                         |
+| `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
+| `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
 
 ## Next
 
-Friends, in the owner's order (decision 13): cancelling requests nobody answered and unfriending, once the download
-file brings in your whole friends list. Then the rest of Phase 1: bringing in Facebook's download file (friends,
-followers, chats, groups) with AI summaries and tags, scoring groups and their members, and the day's list of friend
-requests, openers and follow-ups, which you send and HandsFreeOS notes and counts against the daily limits. Safari on
-Mac follows in Phase 2.
+Friends, in the owner's order (decision 13): cancelling requests nobody answered and unfriending, now that the
+download file brings in your whole friends list. Then the rest of Phase 1: openers on posts in your groups, leads, the
+demo link, and results by group. Safari on Mac follows in Phase 2.

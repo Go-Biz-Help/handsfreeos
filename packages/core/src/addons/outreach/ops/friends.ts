@@ -378,7 +378,9 @@ const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
 const REQUESTS_MOST = 1000;
 
 /** The business's playbooks in use, as much as fit reads. One that doesn't read is left out. */
-async function playbooksInUse(ctx: QueryContext): Promise<FitPlaybook[]> {
+export async function playbooksInUse(
+  ctx: QueryContext | CommandContext,
+): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
   const list = await ctx.tx
     .select({ id: playbooks.id, name: playbooks.name, details: playbooks.details })
     .from(playbooks)

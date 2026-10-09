@@ -9,8 +9,10 @@ import { activityCommands, activityQueries } from './ops/activity';
 import { chatCommands, chatQueries } from './ops/chats';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
+import { groupCommands, groupQueries } from './ops/groups';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
+import { todayQueries } from './ops/today';
 
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
@@ -21,6 +23,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...friendCommands,
     ...downloadCommands,
     ...chatCommands,
+    ...groupCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -28,5 +31,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...activityQueries,
     ...friendQueries,
     ...chatQueries,
+    ...groupQueries,
+    ...todayQueries,
   ],
 };

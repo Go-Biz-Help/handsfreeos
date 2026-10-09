@@ -67,6 +67,12 @@ export const groups = addonOutreach.table(
     slug: text('slug'),
     url: text('url').notNull(),
     name: text('name'),
+    privacy: text('privacy').$type<'public' | 'private'>(),
+    members: integer('members'),
+    detail: text('detail'),
+    /** When its full list of admins and moderators was read: only then are its members suggested. */
+    adminsReadAt: ts('admins_read_at'),
+    seenAt: ts('seen_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -306,12 +312,74 @@ export const fileChats = addonOutreach.table(
   ],
 );
 
+/**
+ * Someone saved from a group's People tab: the lines under their name and the part of the list they were in. Who
+ * runs the group (an admin or a moderator) is never approached.
+ */
+export const groupPeople = addonOutreach.table(
+  'group_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    groupId: uuid('group_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    runsGroup: boolean('runs_group').notNull().default(false),
+    part: text('part'),
+    lines: text('lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.groupId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Whether a person is in a group, as their Facebook last showed it. */
+export const myGroups = addonOutreach.table(
+  'my_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull(),
+    joined: boolean('joined').notNull(),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.groupId),
+    foreignKey({
+      columns: [t.workspaceId, t.groupId],
+      foreignColumns: [groups.workspaceId, groups.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   fileChats,
   filePeople,
   friends,
+  groupPeople,
   groups,
+  myGroups,
   imports,
   playbooks,
   profiles,

@@ -533,3 +533,30 @@ section > :last-child {
 .fbfile .actions {
   margin: 6px 0;
 }
+
+/* The AI's drafts for someone on today's list, each with Copy. */
+.drafts {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.drafts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.drafts li p {
+  flex: 1;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--card-2);
+  white-space: pre-wrap;
+}
+
+.today .list button {
+  margin-top: 6px;
+}

@@ -7,7 +7,7 @@
  *   node scripts/build.mjs           build once
  *   node scripts/build.mjs --watch   build, then again on every change
  *
- * Where it signs in and saves comes from HFOS_API_URL, HFOS_WEB_URL, HFOS_SUPABASE_URL and
+ * Where it signs in and saves comes from HFOS_API_URL, HFOS_WORKER_URL, HFOS_WEB_URL, HFOS_SUPABASE_URL and
  * HFOS_SUPABASE_PUBLISHABLE_KEY, in the environment or in .env.local or .env beside package.json (`pnpm env:local`
  * writes .env.local for your own computer). Left out, it's HandsFreeOS itself, and without the publishable key the
  * build reads pages and doesn't sign in.
@@ -41,6 +41,7 @@ const setting = (name, otherwise) => (settings[name] || otherwise).replace(/\/+$
 /** Where this build signs in and saves (src/hfos/config.ts). The key is public, like the web app's. */
 const config = {
   apiUrl: setting('HFOS_API_URL', 'https://api.handsfreeos.com'),
+  workerUrl: setting('HFOS_WORKER_URL', 'https://hooks.handsfreeos.com'),
   webUrl: setting('HFOS_WEB_URL', 'https://app.handsfreeos.com'),
   supabaseUrl: setting('HFOS_SUPABASE_URL', 'https://ybupfghakoszfcxhyrby.supabase.co'),
   supabasePublishableKey: setting('HFOS_SUPABASE_PUBLISHABLE_KEY', ''),
@@ -55,10 +56,10 @@ const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
  * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
  */
 const FILES = ['file:///*'];
-/** HandsFreeOS's API and its sign-in, which the background worker calls. Any port: a local API has one. */
+/** HandsFreeOS's API, its worker and its sign-in, which the background worker calls. Any port: a local API has one. */
 const HFOS = [
   ...new Set(
-    [config.apiUrl, config.supabaseUrl].map((url) => {
+    [config.apiUrl, config.workerUrl, config.supabaseUrl].map((url) => {
       const { protocol, hostname } = new URL(url);
       return `${protocol}//${hostname}/*`;
     }),

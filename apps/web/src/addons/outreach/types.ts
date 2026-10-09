@@ -12,3 +12,7 @@ export type Friends = Ok<'/v1/queries/outreach.friends'>;
 export type Friend = Friends['people'][number];
 export type Chats = Ok<'/v1/queries/outreach.chats'>;
 export type Chat = Chats['chats'][number];
+export type Groups = Ok<'/v1/queries/outreach.groups'>;
+export type Group = Groups['groups'][number];
+export type TodayList = Ok<'/v1/queries/outreach.today'>;
+export type TodayItem = TodayList['items'][number];

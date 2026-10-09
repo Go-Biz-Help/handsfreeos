@@ -5757,6 +5757,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.group.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a Facebook group the person has open and the people on its People tab (or one of its See all pages), with the lines under each name. Admins and moderators are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.group.saved.
+         */
+        post: operations["command_outreach_group_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.groups.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the groups on a Facebook page the person has open (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
+         */
+        post: operations["command_outreach_groups_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.playbook.archive": {
         parameters: {
             query?: never;
@@ -15317,6 +15357,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, and whether the person is in it. The best first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_groups"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.lookup": {
         parameters: {
             query?: never;
@@ -15371,6 +15431,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s list for today on Facebook, for them to send themselves: friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, follow-ups to likely prospects gone quiet, and replies owed; with today’s steps against the daily limits.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_today"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31191,6 +31271,126 @@ export interface operations {
                     "application/json": {
                         added: number;
                         changed: number;
+                        saved: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_group_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    adminsPage?: boolean;
+                    /** @default null */
+                    detail?: string | null;
+                    group: {
+                        id: string | null;
+                        /** @default null */
+                        name?: string | null;
+                        slug: string | null;
+                        url: string;
+                    };
+                    /** @default null */
+                    joined?: boolean | null;
+                    /** @default null */
+                    members?: number | null;
+                    /** @default [] */
+                    people?: {
+                        /** @default [] */
+                        lines?: string[];
+                        name: string;
+                        /** @default null */
+                        part?: string | null;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default false */
+                        runsGroup?: boolean;
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** @default null */
+                    privacy?: ("public" | "private") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        groupId: string;
+                        people: number;
+                        runsGroup: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_groups_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    groups: {
+                        /** @default null */
+                        detail?: string | null;
+                        group: {
+                            id: string | null;
+                            /** @default null */
+                            name?: string | null;
+                            slug: string | null;
+                            url: string;
+                        };
+                        /** @default null */
+                        joined?: boolean | null;
+                        /** @default null */
+                        members?: number | null;
+                        /** @default null */
+                        privacy?: ("public" | "private") | null;
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
                         saved: number;
                     };
                 };
@@ -57260,6 +57460,75 @@ export interface operations {
             };
         };
     };
+    query_outreach_groups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    search?: string;
+                    /**
+                     * @default work
+                     * @enum {string}
+                     */
+                    view?: "work" | "maybe" | "skip" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            all: number;
+                            maybe: number;
+                            skip: number;
+                            work: number;
+                        };
+                        groups: {
+                            adminsRead: boolean;
+                            detail: string | null;
+                            /** Format: uuid */
+                            groupId: string;
+                            joined: boolean | null;
+                            members: number | null;
+                            name: string | null;
+                            people: number;
+                            playbookName: string | null;
+                            privacy: ("public" | "private") | null;
+                            reasons: string[];
+                            requests: number;
+                            runsGroup: number;
+                            seenAt: string | null;
+                            url: string;
+                            /** @enum {string} */
+                            verdict: "work" | "maybe" | "skip";
+                        }[];
+                        page: number;
+                        pages: number;
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_lookup: {
         parameters: {
             query?: never;
@@ -57479,6 +57748,73 @@ export interface operations {
                             template: string | null;
                             /** Format: date-time */
                             updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hasPlaybook: boolean;
+                        items: {
+                            chatId: string | null;
+                            /** @enum {string} */
+                            kind: "friend_request" | "opener" | "follow_up" | "reply";
+                            name: string;
+                            nextStep: string | null;
+                            playbookName: string | null;
+                            profileId: string | null;
+                            profileUrl: string | null;
+                            summary: string | null;
+                            threadKey: string | null;
+                            why: string[];
+                        }[];
+                        limits: {
+                            first_message: {
+                                done: number;
+                                most: number;
+                            };
+                            follow_up: {
+                                done: number;
+                                most: number;
+                            };
+                            friend_request: {
+                                done: number;
+                                most: number;
+                            };
+                        };
+                        readAdmins: {
+                            /** Format: uuid */
+                            groupId: string;
+                            name: string | null;
+                            url: string;
                         }[];
                     };
                 };

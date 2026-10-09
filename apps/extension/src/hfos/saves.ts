@@ -19,10 +19,20 @@ import {
   USERNAME,
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
+import { GROUP_PEOPLE_MOST, GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
 import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../facebook/friends';
-import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
-import { profileKey } from '../facebook/urls';
+import { runsGroup } from '../facebook/people';
+import type {
+  ChatPage,
+  GroupLink,
+  Person,
+  ProfilePage,
+  ProfileRef,
+  ReadResult,
+} from '../facebook/types';
+import { facebookUrl, pathParts, profileKey } from '../facebook/urls';
+import { parseCount } from '../facebook/vocabulary';
 import type {
   Business,
   ChatInput,
@@ -30,6 +40,8 @@ import type {
   FriendNoteInput,
   FriendSetInput,
   FriendsSaveInput,
+  GroupSaveInput,
+  GroupsSaveInput,
   Me,
   ProfileInput,
   TouchInput,
@@ -389,4 +401,91 @@ export function outreachBusinesses(workspaces: Me['workspaces']): Business[] {
   return workspaces
     .filter((w) => w.addons.includes('outreach') && w.permissions.includes('outreach.use'))
     .map((w) => ({ id: w.id, name: w.name }));
+}
+
+// ------------------------------------------------------------------------------------------------- groups
+
+/** The most lines under a person's name a group save keeps, and the longest a part of the list's name is. */
+const GROUP_LINES = 4;
+const PART_MOST = 100;
+const DETAIL_MOST = 300;
+
+/** What the line under a group's name says: "Public group · 12K members", "Private · 840 members". */
+export function groupDetailFacts(detail: string | null): {
+  readonly privacy: 'public' | 'private' | null;
+  readonly members: number | null;
+} {
+  const privacy = detail ? /\b(public|private)\b/i.exec(detail)?.[1]?.toLowerCase() : undefined;
+  const count = detail ? /([\d.,]+\s*[km]?)\s+members\b/i.exec(detail)?.[1] : undefined;
+  return {
+    privacy: privacy === 'public' || privacy === 'private' ? privacy : null,
+    members: count ? parseCount(count) : null,
+  };
+}
+
+/** The groups a page lists (yours, or search results), to save with how much the page said about each. */
+export function groupsSave(
+  groups: readonly GroupLink[],
+  workspaceId: string,
+): Built<GroupsSaveInput> {
+  const kept = groups.flatMap((link) => {
+    const group = groupRef({ ...link.group, name: link.name });
+    if (!group) return [];
+    const detail = link.detail ? clip(link.detail, DETAIL_MOST) : null;
+    return [{ group, detail, ...groupDetailFacts(link.detail) }];
+  });
+  if (!kept.length) return { ok: false, why: 'There are no groups on the page to save.' };
+  return {
+    ok: true,
+    input: { workspaceId, platform: 'facebook', groups: kept.slice(0, GROUPS_SAVE_MOST) },
+  };
+}
+
+/** Whether the page is a group's full list of admins and moderators: /groups/<g>/members/admins. */
+export function isAdminsPage(href: string): boolean {
+  const url = facebookUrl(href);
+  const parts = url ? pathParts(url).map((part) => part.toLowerCase()) : [];
+  return parts[0] === 'groups' && parts[2] === 'members' && parts[3] === 'admins';
+}
+
+/**
+ * The group on the page and the people its list shows, to save, in as many parts as it takes. Everyone on its
+ * admins page runs it, and so does anyone the page labels Admin or Moderator: they're kept so, and never suggested.
+ * Only the last part says the admins page was read, so a save that stops halfway doesn't count it.
+ */
+export function groupSave(result: ReadResult, workspaceId: string): Built<GroupSaveInput[]> {
+  const page = result.group;
+  const group = page?.group ? groupRef({ ...page.group, name: page.name }) : null;
+  if (!page || !group) return { ok: false, why: 'Couldn’t tell which group this is.' };
+  const adminsPage = isAdminsPage(result.url);
+  const seen = new Set<string>();
+  const people = (result.people ?? []).flatMap((person: Person) => {
+    if (!person.profile) return [];
+    const who = whom({ name: person.name, profile: person.profile });
+    const key = profileKey(person.profile);
+    if (!who || seen.has(key)) return [];
+    seen.add(key);
+    return [
+      {
+        ...who,
+        lines: person.details.slice(0, GROUP_LINES).map((line) => clip(line, INTRO_LINE_MOST)),
+        part: person.section ? clip(person.section, PART_MOST) : null,
+        runsGroup: adminsPage || runsGroup(person),
+      },
+    ];
+  });
+  const facts = {
+    workspaceId,
+    platform: 'facebook' as const,
+    group,
+    privacy: page.privacy,
+    members: page.members,
+    joined: page.joined,
+  };
+  if (!people.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: false }] };
+  const parts: GroupSaveInput[] = [];
+  for (let at = 0; at < people.length; at += GROUP_PEOPLE_MOST)
+    parts.push({ ...facts, people: people.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage };
+  return { ok: true, input: parts };
 }

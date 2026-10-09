@@ -4,6 +4,7 @@
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
 import type { paths } from '@hfos/api-client';
+import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 
 type Body<P extends keyof paths> = paths[P] extends {
   post: { requestBody?: { content: { 'application/json': infer B } } };
@@ -42,6 +43,17 @@ export type DownloadSaveInput = Body<'/v1/commands/outreach.download.save'>;
 export type DownloadSaved = Ok<'/v1/commands/outreach.download.save'>;
 /** The business's playbooks, which the requests on a page are sorted by (packages/core/src/addons/outreach/fit.ts). */
 export type Playbooks = Ok<'/v1/queries/outreach.playbook.list'>;
+/** Groups and the people in them (packages/core/src/addons/outreach/groups.ts). */
+export type GroupsSaveInput = Body<'/v1/commands/outreach.groups.save'>;
+export type GroupsSaved = Ok<'/v1/commands/outreach.groups.save'>;
+export type GroupSaveInput = Body<'/v1/commands/outreach.group.save'>;
+export type GroupSaved = Ok<'/v1/commands/outreach.group.save'>;
+/** The list for today and its drafts (packages/core/src/addons/outreach/today.ts). */
+export type TodayList = Ok<'/v1/queries/outreach.today'>;
+export type TodayListItem = TodayList['items'][number];
+export type { TodayDraftInput };
+/** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
+export type Drafts = TodayDraftOutput;
 
 /** A business the extension can save to: Social Outreach is on there, and the person may use it. */
 export interface Business {
@@ -114,6 +126,14 @@ export type HfosAsk =
   | { readonly type: 'hfos-set-friend'; readonly input: FriendSetInput }
   | { readonly type: 'hfos-save-download'; readonly input: DownloadSaveInput }
   | { readonly type: 'hfos-playbooks'; readonly workspaceId: string }
+  | { readonly type: 'hfos-save-groups'; readonly input: GroupsSaveInput }
+  | { readonly type: 'hfos-save-group'; readonly input: GroupSaveInput }
+  | { readonly type: 'hfos-today-list'; readonly workspaceId: string }
+  | {
+      readonly type: 'hfos-draft';
+      readonly workspaceId: string;
+      readonly input: TodayDraftInput;
+    }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
 
@@ -133,6 +153,10 @@ export interface HfosValues {
   readonly 'hfos-set-friend': FriendSet;
   readonly 'hfos-save-download': DownloadSaved;
   readonly 'hfos-playbooks': Playbooks;
+  readonly 'hfos-save-groups': GroupsSaved;
+  readonly 'hfos-save-group': GroupSaved;
+  readonly 'hfos-today-list': TodayList;
+  readonly 'hfos-draft': Drafts;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
 }
@@ -152,6 +176,10 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-set-friend',
   'hfos-save-download',
   'hfos-playbooks',
+  'hfos-save-groups',
+  'hfos-save-group',
+  'hfos-today-list',
+  'hfos-draft',
   'hfos-today',
   'hfos-noting',
 ]);

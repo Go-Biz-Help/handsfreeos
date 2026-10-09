@@ -1,13 +1,14 @@
 'use client';
 /**
- * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, the person's friends and the
- * Don't pitch list, their chats as the AI read them, and the business's playbooks, each a tab with its own address (./address.ts), so a link or the
+ * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, the person's list for today,
+ * the groups saved and how they fit, the person's friends and the Don't pitch list, their chats as the AI read them, and the business's playbooks, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
  * (`app/w/[workspaceId]/a/outreach/page.tsx`).
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
+import type { GroupView } from '@hfos/core/addons/outreach/groups';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shell/page-header';
 import { cn } from '@/lib/utils';
@@ -15,11 +16,20 @@ import { ActivityView } from './activity-view';
 import { outreachHref } from './address';
 import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
+import { GroupsView } from './groups-view';
 import { PlaybooksView } from './playbooks-page';
-import type { Activity, Chats, Friends, PlaybookList } from './types';
+import { TodayView } from './today-view';
+import type { Activity, Chats, Friends, Groups, PlaybookList, TodayList } from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
+  | { readonly view: 'today'; readonly today: TodayList }
+  | {
+      readonly view: 'groups';
+      readonly groups: Groups;
+      readonly show: GroupView;
+      readonly search: string;
+    }
   | {
       readonly view: 'friends';
       readonly friends: Friends;
@@ -37,6 +47,8 @@ export type OutreachShown =
 
 const TABS = [
   { view: 'activity', label: 'Activity' },
+  { view: 'today', label: 'Today' },
+  { view: 'groups', label: 'Groups' },
   { view: 'friends', label: 'Friends' },
   { view: 'chats', label: 'Chats' },
   { view: 'playbooks', label: 'Playbooks' },
@@ -88,6 +100,15 @@ export function OutreachHome({
           activity={shown.activity}
           period={shown.period}
           canManage={canManage}
+        />
+      ) : shown.view === 'today' ? (
+        <TodayView workspaceId={workspaceId} today={shown.today} />
+      ) : shown.view === 'groups' ? (
+        <GroupsView
+          workspaceId={workspaceId}
+          groups={shown.groups}
+          show={shown.show}
+          search={shown.search}
         />
       ) : shown.view === 'friends' ? (
         <FriendsView

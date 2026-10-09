@@ -4,12 +4,16 @@
  */
 import { FRIENDS_SAVE_MOST, KEPT_MESSAGES } from '@hfos/core/addons/outreach/limits';
 import { describe, expect, it } from 'vitest';
-import type { ChatPage, Person, ProfilePage, ReadResult } from '../src/facebook/types';
+import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../src/facebook/types';
 import {
   chatCollect,
   chatSave,
   friendSet,
   friendsSave,
+  groupDetailFacts,
+  groupSave,
+  groupsSave,
+  isAdminsPage,
   listOnPage,
   MOST_BYTES,
   nameKey,
@@ -493,6 +497,111 @@ describe('your lists', () => {
       },
     });
     expect(friendSet({ name: ' ', profile: dana }, WS, { keep: true }).ok).toBe(false);
+  });
+});
+
+describe('groups', () => {
+  const group = { id: '223456789', url: 'https://www.facebook.com/groups/223456789/' };
+  const person = (name: string, profile: ProfileRef, more: Partial<Person> = {}): Person => ({
+    name,
+    profile,
+    details: ['Owner at Reyes Plumbing'],
+    badges: [],
+    section: 'Members near you',
+    request: null,
+    ...more,
+  });
+  const groupPage = {
+    name: 'Austin Small Business Owners',
+    group,
+    privacy: 'public' as const,
+    members: 34_718,
+    joined: true,
+  };
+
+  it('reads what the line under a group’s name says', () => {
+    expect(groupDetailFacts('Public group · 12K members')).toEqual({
+      privacy: 'public',
+      members: 12_000,
+    });
+    expect(groupDetailFacts('Last active 2 hours ago')).toEqual({ privacy: null, members: null });
+  });
+
+  it('saves the groups a page lists, and leaves out what isn’t a group it can keep', () => {
+    const built = groupsSave(
+      [
+        { name: 'Austin Small Business Owners', group, detail: 'Private · 840 members' },
+        {
+          name: 'Odd',
+          group: { id: '!!', url: 'https://www.facebook.com/groups/!!/' },
+          detail: null,
+        },
+      ],
+      WS,
+    );
+    expect(built.ok && built.input.groups).toEqual([
+      {
+        group: {
+          id: '223456789',
+          slug: null,
+          url: group.url,
+          name: 'Austin Small Business Owners',
+        },
+        detail: 'Private · 840 members',
+        privacy: 'private',
+        members: 840,
+      },
+    ]);
+  });
+
+  it('marks everyone on the admins page as running the group, and says so only on the last part', () => {
+    expect(isAdminsPage('https://www.facebook.com/groups/223456789/members/admins')).toBe(true);
+    expect(isAdminsPage('https://www.facebook.com/groups/223456789/members')).toBe(false);
+    const members = groupSave(
+      read({
+        kind: 'group-members',
+        url: 'https://www.facebook.com/groups/223456789/members',
+        group: groupPage,
+        people: [
+          person('Dana Reyes', dana),
+          person('Lee Park', lee, { badges: ['Admin'], section: 'Admins and moderators' }),
+          person('Dana Reyes', dana),
+        ],
+      }),
+      WS,
+    );
+    expect(members.ok && members.input).toHaveLength(1);
+    expect(
+      members.ok && members.input[0]!.people!.map((p) => [p.name, p.runsGroup, p.part]),
+    ).toEqual([
+      ['Dana Reyes', false, 'Members near you'],
+      ['Lee Park', true, 'Admins and moderators'],
+    ]);
+    expect(members.ok && members.input[0]!.adminsPage).toBe(false);
+
+    const many = Array.from({ length: 501 }, (_, i) =>
+      person(`Person ${i}`, {
+        id: null,
+        username: `person.${i}`,
+        url: `https://www.facebook.com/person.${i}`,
+      }),
+    );
+    const admins = groupSave(
+      read({
+        kind: 'group-members',
+        url: 'https://www.facebook.com/groups/223456789/members/admins/',
+        group: groupPage,
+        people: many,
+      }),
+      WS,
+    );
+    expect(admins.ok && admins.input.map((part) => [part.people!.length, part.adminsPage])).toEqual(
+      [
+        [500, false],
+        [1, true],
+      ],
+    );
+    expect(admins.ok && admins.input[0]!.people!.every((p) => p.runsGroup)).toBe(true);
   });
 });
 
