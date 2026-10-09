@@ -62,8 +62,8 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   // Who: a sign typed in and one tapped. Who to leave alone: one tapped.
   await builder.getByTestId('playbook-audience').fill('Office managers who order for their team.');
-  await builder.getByLabel('Signs someone fits').fill('Plans office parties');
-  await builder.getByLabel('Signs someone fits').press('Enter');
+  await builder.getByLabel('Signs someone fits', { exact: true }).fill('Plans office parties');
+  await builder.getByLabel('Signs someone fits', { exact: true }).press('Enter');
   await builder.getByRole('button', { name: 'Lives or works in your area' }).click();
   await expect(builder.getByRole('listitem')).toHaveText([
     /Plans office parties/,
@@ -74,7 +74,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await next.click();
 
   // Where: words typed and not added yet are kept on carrying on.
-  await builder.getByLabel('Words to search for groups').fill('office managers');
+  await builder.getByLabel('Words to search for groups', { exact: true }).fill('office managers');
   await next.click();
   await expect(builder.getByRole('heading', { name: 'What it does, and how fast' })).toBeVisible();
 
