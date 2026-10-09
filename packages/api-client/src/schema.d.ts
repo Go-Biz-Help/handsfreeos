@@ -5737,6 +5737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.download.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring in a part of the person’s Facebook download file as their browser read it: the names in their friends, requests, removed friends, deleted requests, followers and following, with when, and when they last messaged each person, never what was said. The last part matches the names to the profiles saved here and puts it in place in their own friends. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.download.saved.
+         */
+        post: operations["command_outreach_download_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friend.note": {
         parameters: {
             query?: never;
@@ -31140,6 +31160,77 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_download_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    chats?: {
+                        /** Format: date-time */
+                        firstAt: string;
+                        /** Format: date-time */
+                        lastAt: string;
+                        lastFromMe: boolean;
+                        messages: number;
+                        name: string;
+                    }[];
+                    /** Format: uuid */
+                    importId?: string;
+                    /** @default false */
+                    last?: boolean;
+                    /** Format: date-time */
+                    madeAt: string;
+                    /** @default [] */
+                    people?: {
+                        at: string | null;
+                        /** @enum {string} */
+                        list: "friends" | "request_sent" | "request_received" | "removed" | "declined" | "followers" | "following";
+                        name: string;
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: number;
+                        counts: {
+                            chats: number;
+                            declined: number;
+                            followers: number;
+                            following: number;
+                            friends: number;
+                            linked: number;
+                            notLinked: number;
+                            removed: number;
+                            request_received: number;
+                            request_sent: number;
+                        } | null;
+                        /** Format: uuid */
+                        importId: string;
                     };
                 };
             };
@@ -57386,6 +57477,24 @@ export interface operations {
                             requests: number;
                             sent: number;
                         };
+                        download: {
+                            /** Format: date-time */
+                            at: string;
+                            counts: {
+                                chats: number;
+                                declined: number;
+                                followers: number;
+                                following: number;
+                                friends: number;
+                                linked: number;
+                                notLinked: number;
+                                removed: number;
+                                request_received: number;
+                                request_sent: number;
+                            };
+                            /** Format: date-time */
+                            madeAt: string;
+                        } | null;
                         more: number;
                         page: number;
                         pages: number;
@@ -57402,12 +57511,18 @@ export interface operations {
                                 reasons: string[];
                                 score: number;
                             } | null;
+                            friendsSince: string | null;
                             group: {
                                 name: string | null;
                                 url: string;
                             } | null;
                             intro: string[];
                             keep: boolean;
+                            lastMessage: {
+                                /** Format: date-time */
+                                at: string;
+                                fromMe: boolean;
+                            } | null;
                             mutualFriends: number | null;
                             name: string;
                             personId: string | null;

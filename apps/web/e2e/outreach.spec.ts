@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
+import { madeUpDownload, makeZip } from './outreach-download';
 
 /**
  * Social Outreach (docs/outreach.md): HandsFreeOS staff hand the add-on in testing to a business.
@@ -11,6 +12,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  *   the owner's day against the daily limits.
  * - The friends tab lists the friends and requests the extension saved and the answers it noted, finds one by name,
  *   keeps a friend, and puts someone on the Don't pitch list, after which a step to them isn't counted.
+ * - Facebook's download file, read in the browser, says since when they've been friends, when a request was sent,
+ *   and the latest message with each person.
  */
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
@@ -363,4 +366,79 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   );
   await expect(people).toHaveCount(10);
   await expect(page.getByTestId('friends-pages')).toHaveCount(0);
+});
+
+test('the friends tab brings in Facebook’s download file: since when they’ve been friends, when a request went, and the latest message', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-download');
+  const workspaceId = await createBusiness(page, { name: 'Maple Lane Plumbing' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // What the extension saved: two friends and a request sent, made-up people.
+  const { token } = await signInOwner(email);
+  const fb = 'https://www.facebook.com';
+  const who = (id: string, name: string) => ({
+    profile: { id, username: null, url: `${fb}/profile.php?id=${id}` },
+    name,
+    mutualFriends: null,
+  });
+  const save = (list: string, people: unknown[]) =>
+    api(token, 'commands', 'outreach.friends.save', {
+      workspaceId,
+      platform: 'facebook',
+      list,
+      people,
+    });
+  await save('friends', [
+    who('100008000000001', 'Sky Patel'),
+    who('100008000000002', 'Parker Reed'),
+  ]);
+  await save('sent', [who('100008000000003', 'Quinn Harper')]);
+
+  // The file: made yesterday, with a request sent 40 days ago and the last messages 20 days ago, at noon UTC.
+  const noon = (daysAgo: number) => {
+    const d = new Date(Date.now() - daysAgo * 86_400_000);
+    d.setUTCHours(12, 0, 0, 0);
+    return d;
+  };
+  const sentAt = noon(40);
+  const zip = makeZip(madeUpDownload(sentAt.toISOString(), noon(20).toISOString()), noon(1));
+  const day = (d: Date) =>
+    d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+    });
+
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=friends`);
+  const card = page.getByTestId('download-card');
+  await expect(card).toContainText('only names and dates are sent');
+  await card
+    .getByTestId('download-files')
+    .setInputFiles({ name: 'facebook-made-up.zip', mimeType: 'application/zip', buffer: zip });
+  const counts = card.getByTestId('download-counts');
+  await expect(counts).toContainText('Friends3');
+  await expect(counts).toContainText('Requests you sent1');
+  await expect(counts).toContainText('Chats2');
+  await card.getByTestId('download-send').click();
+  await expect(
+    page.getByText('Your Facebook file is in. 5 names match people saved here.'),
+  ).toBeVisible();
+  await expect(card.getByTestId('download-done')).toContainText(
+    '5 of 6 names match people saved here',
+  );
+
+  const people = page.getByTestId('friend');
+  await expect(people.filter({ hasText: 'Sky Patel' }).getByTestId('friend-since')).toHaveText(
+    `Friends since May 2016 · Last message ${day(noon(20))}, from them`,
+  );
+  await expect(people.filter({ hasText: 'Parker Reed' }).getByTestId('friend-since')).toHaveText(
+    `Friends since Jul 2019 · Last message ${day(noon(20))}, from you`,
+  );
+  // The request's real day, for cancelling the ones nobody answers.
+  await page.getByTestId('friends-show-sent').click();
+  await expect(people).toHaveText([/Quinn Harper/]);
+  await expect(people.getByTestId('friend-since')).toHaveText(`Sent · ${day(sentAt)}`);
 });
