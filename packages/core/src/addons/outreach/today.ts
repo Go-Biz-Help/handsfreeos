@@ -11,13 +11,17 @@
  * - **Follow up**: likely prospects whose chat's last message was the person's, a few quiet days ago (the pace).
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered.
  *
+ * After Facebook warns the person, the limits are halved for a week and friend requests are left off for two days
+ * (decision 25).
+ *
  * Messages come with AI drafts on request (the worker's `outreach.today.draft` action): in the playbook's tone and
  * words, from what's known about the person and the chat so far. Browser-safe: the web and the extension draw it.
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { DownloadMessage } from './download';
-import { DAILY_LIMITS, type DailyStep } from './limits';
+import { type DailyStep } from './limits';
+import { WarningState } from './tidy';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 
 export const TODAY_KINDS = {
@@ -84,6 +88,8 @@ export const TodayOutput = z.object({
   ),
   /** Whether the business has a playbook in use: without one, nobody is suggested for a request. */
   hasPlaybook: z.boolean(),
+  /** A warning Facebook showed the person lately: limits are halved, and requests may be off the list. */
+  warning: WarningState.nullable(),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 
@@ -97,10 +103,11 @@ export function leftToday(limits: TodayOutput['limits'], kind: TodayKind): numbe
 
 export const todayLimits = (
   done: Record<'friend_request' | 'first_message' | 'follow_up', number>,
+  most: Readonly<Record<DailyStep, number>>,
 ) => ({
-  friend_request: { done: done.friend_request, most: DAILY_LIMITS.friend_request },
-  first_message: { done: done.first_message, most: DAILY_LIMITS.first_message },
-  follow_up: { done: done.follow_up, most: DAILY_LIMITS.follow_up },
+  friend_request: { done: done.friend_request, most: most.friend_request },
+  first_message: { done: done.first_message, most: most.first_message },
+  follow_up: { done: done.follow_up, most: most.follow_up },
 });
 
 // ---- Drafts ----

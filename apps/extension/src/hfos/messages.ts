@@ -52,6 +52,14 @@ export type GroupSaved = Ok<'/v1/commands/outreach.group.save'>;
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayListItem = TodayList['items'][number];
 export type { TodayDraftInput };
+/** Old requests and friends to unfriend, and each one the extension did (packages/core/src/addons/outreach/tidy.ts). */
+export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
+export type TidyCandidate = Tidy['cancel'][number];
+export type FriendEndInput = Body<'/v1/commands/outreach.friend.end'>;
+export type FriendEnded = Ok<'/v1/commands/outreach.friend.end'>;
+/** A warning Facebook showed the person, noted (decision 25). */
+export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
+export type WarningNoted = Ok<'/v1/commands/outreach.warning.note'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -134,6 +142,9 @@ export type HfosAsk =
       readonly workspaceId: string;
       readonly input: TodayDraftInput;
     }
+  | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
+  | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
+  | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
 
@@ -157,6 +168,9 @@ export interface HfosValues {
   readonly 'hfos-save-group': GroupSaved;
   readonly 'hfos-today-list': TodayList;
   readonly 'hfos-draft': Drafts;
+  readonly 'hfos-tidy': Tidy;
+  readonly 'hfos-friend-end': FriendEnded;
+  readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
 }
@@ -180,6 +194,9 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-save-group',
   'hfos-today-list',
   'hfos-draft',
+  'hfos-tidy',
+  'hfos-friend-end',
+  'hfos-warning',
   'hfos-today',
   'hfos-noting',
 ]);

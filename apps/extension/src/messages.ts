@@ -10,17 +10,21 @@ export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outlin
 
 /**
  * What the panel asks a tab on one of Facebook's download pages while it gets the person's file
- * (src/facebook/fetch.ts): one step, waiting up to `waitMs` for it to show; or, along a path, the furthest step from
- * `from` on that's there.
+ * (src/facebook/fetch.ts), or on a profile while it cancels a request or unfriends: one step, waiting up to `waitMs`
+ * for it to show; or, along a path, the furthest step from `from` on that's there.
  */
-export type FetchAsk =
+export type FetchAsk = (
   | { readonly type: 'hfos-fetch-step'; readonly step: FetchStep; readonly waitMs: number }
   | {
       readonly type: 'hfos-fetch-path';
       readonly steps: readonly FetchStep[];
       readonly from: number;
       readonly waitMs: number;
-    };
+    }
+) & {
+  /** On the profile of someone the person ticked, to cancel a request or unfriend (src/facebook/tidy.ts). */
+  readonly tidy?: boolean;
+};
 
 /**
  * What the panel asks a Messenger tab while it goes through the person's chats (src/facebook/browse.ts): open one

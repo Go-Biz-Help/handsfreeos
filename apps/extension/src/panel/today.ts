@@ -9,13 +9,13 @@
  * and, for a message, the AI's drafts to copy. The person sends everything themselves; noting the step takes it off.
  */
 import {
-  DAILY_LIMITS,
   DAILY_STEPS,
   DAILY_WORDS,
   FRIEND_ANSWERS,
   pastLimitWords,
   TOUCH_KINDS,
 } from '@hfos/core/addons/outreach/limits';
+import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { DRAFT_KINDS, TODAY_KINDS, type DraftKind } from '@hfos/core/addons/outreach/today';
 import type {
   Activity,
@@ -28,6 +28,7 @@ import type {
 } from '../hfos/messages';
 import { ask } from './ask';
 import { ago, button, chip, counted, h, hfosLink, link, type Child } from './dom';
+import { onWarning } from './warnings';
 
 /** How often the panel asks again while it's open: the day ends, and a step may wait to be sent. */
 const AGAIN_MS = 2 * 60_000;
@@ -160,14 +161,14 @@ function recentView(recent: readonly Noted[]): Child {
 
 function limitsView(activity: Activity): Child[] {
   const done = activity.today;
-  const past = pastLimitWords(done);
+  const past = pastLimitWords(done, activity.limits);
   return [
     h(
       'ul',
       { class: 'limits' },
       ...DAILY_STEPS.map((step) => {
         const count = done[step];
-        const limit = DAILY_LIMITS[step];
+        const limit = activity.limits[step];
         const fill = h('span', { class: 'fill' });
         fill.style.width = `${Math.min(100, Math.round((count / limit) * 100))}%`;
         return h(
@@ -303,6 +304,9 @@ function draw(): void {
         : null,
     ),
     trouble ? h('p', { class: 'muted' }, `Couldn’t get today’s numbers. ${trouble}`) : null,
+    activity?.warning
+      ? h('p', { class: 'warning-note', role: 'alert' }, warningNote(activity.warning))
+      : null,
     today && !today.noting
       ? h(
           'p',
@@ -337,6 +341,7 @@ function switchView(now: Today): Child {
 /** Draws the day into `into`, and asks again when a step is noted, and every few minutes while the panel shows. */
 export function startToday(into: HTMLElement): void {
   box = into;
+  onWarning(() => void refreshToday());
   chrome.runtime.onMessage.addListener((note: Touched | undefined) => {
     if (note?.type === 'hfos-touched') soon();
     return false;

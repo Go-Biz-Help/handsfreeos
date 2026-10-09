@@ -15,6 +15,7 @@ import {
 } from './limits';
 import { PLATFORM_KEYS } from './playbooks';
 import { FacebookUrl, PersonName, ProfileRef } from './saves';
+import { WarningState } from './tidy';
 
 export {
   TOUCH_KIND_KEYS,
@@ -115,7 +116,7 @@ export const ActivityOutput = z.object({
     /** People who wrote back, as a chat saved to HandsFreeOS shows: a message from them after one from us. */
     replies: count,
   }),
-  /** The person's own day so far, step by step, against the daily limits (DAILY_LIMITS). */
+  /** The person's own day so far, step by step, against the daily limits (`limits`). */
   today: z.object({
     friend_request: count,
     first_message: count,
@@ -123,6 +124,16 @@ export const ActivityOutput = z.object({
     comment: count,
     like: count,
   }),
+  /** The person's daily limits as they stand: DAILY_LIMITS, halved for a week after a warning. */
+  limits: z.object({
+    friend_request: count,
+    first_message: count,
+    follow_up: count,
+    comment: count,
+    like: count,
+  }),
+  /** A warning Facebook showed the person lately. */
+  warning: WarningState.nullable(),
   /**
    * The people below by the group they were found in, the most first: how many, and how many of them were sent a
    * friend request, liked or commented on, sent a first message, and wrote back in the stretch.

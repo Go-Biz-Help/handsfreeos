@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { DownloadMessage } from './download-read';
 import type { PlaybookDetails } from './playbooks';
+import { CANCEL_AFTER_WEEKS } from './tidy';
 
 /** Where a chat's reading is (`addon_outreach.file_chats.read_state`). */
 export const CHAT_READ_STATES = ['none', 'waiting', 'read', 'skipped', 'failed'] as const;
@@ -27,6 +28,8 @@ export const CONTACTS_FROM_CHATS_WORDS: Record<ContactsFromChats, string> = {
 export const OutreachSettingsSchema = z.object({
   /** Who from the chats brought in goes in Contacts. The tagged, unless the business says otherwise. */
   contactsFromChats: z.enum(CONTACTS_FROM_CHATS).default('tagged'),
+  /** How many weeks a sent friend request waits before it's suggested for cancelling (decision 12). */
+  cancelRequestsAfterWeeks: z.number().int().min(1).max(12).default(CANCEL_AFTER_WEEKS),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 

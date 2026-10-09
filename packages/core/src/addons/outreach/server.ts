@@ -12,6 +12,7 @@ import { friendCommands, friendQueries } from './ops/friends';
 import { groupCommands, groupQueries } from './ops/groups';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
+import { tidyCommands, tidyQueries } from './ops/tidy';
 import { todayQueries } from './ops/today';
 
 export const outreachAddonServer: AddonServerModule = {
@@ -24,6 +25,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...downloadCommands,
     ...chatCommands,
     ...groupCommands,
+    ...tidyCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -33,5 +35,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...chatQueries,
     ...groupQueries,
     ...todayQueries,
+    ...tidyQueries,
   ],
 };

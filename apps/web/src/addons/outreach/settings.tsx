@@ -11,19 +11,26 @@ import { RadioCard } from '@/components/ui/radio-card';
 import type { AddonSettingsProps } from '../registry';
 import { useAct } from './use-act';
 
+/** The weeks a sent friend request can wait before it's suggested for cancelling. */
+const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
+
 /**
  * On the Add-ons page: who from the chats brought in from Facebook goes in Contacts once the AI has read them
- * (docs/outreach.md, decision 3). Anyone already in Contacts gets the tags whatever it says.
+ * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
+ * (decision 12). Anyone already in Contacts gets the tags whatever it says.
  */
 export default function OutreachSettings({ settings, saveSettings }: AddonSettingsProps) {
-  const saved = outreachSettings(settings).contactsFromChats;
+  const now = outreachSettings(settings);
+  const saved = now.contactsFromChats;
   const [pick, setPick] = useState<ContactsFromChats>(saved);
+  const [weeks, setWeeks] = useState(now.cancelRequestsAfterWeeks);
   const { busy, act } = useAct();
   if (settings === null)
     return (
       <p className="text-[13px] text-text-2">
-        Who from your Facebook chats goes in Contacts: {CONTACTS_FROM_CHATS_WORDS[saved]}. An owner
-        or admin can change it.
+        Who from your Facebook chats goes in Contacts: {CONTACTS_FROM_CHATS_WORDS[saved]}. Friend
+        requests are suggested for cancelling after {weeksWords(now.cancelRequestsAfterWeeks)}. An
+        owner or admin can change these.
       </p>
     );
   return (
@@ -47,14 +54,38 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
           />
         ))}
       </div>
+      <label className="block">
+        <span className="text-[14px] font-semibold">Suggest cancelling friend requests after</span>
+        <span className="block text-[13px] text-text-2">
+          Requests nobody has answered by then show under Tidy up on the Friends tab, for you to
+          tick.
+        </span>
+        <select
+          className="mt-1.5 h-8 rounded-control border border-border-strong bg-card px-2 text-[13px]"
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          data-testid="outreach-cancel-weeks"
+        >
+          {WEEKS.map((w) => (
+            <option key={w} value={w}>
+              {weeksWords(w)}
+            </option>
+          ))}
+        </select>
+      </label>
       <Button
         size="sm"
-        disabled={pick === saved || busy !== null}
+        disabled={(pick === saved && weeks === now.cancelRequestsAfterWeeks) || busy !== null}
         onClick={() =>
           void act(
             'save',
-            () => saveSettings({ ...settings, contactsFromChats: pick }),
-            'Saved. Chats read from now on follow it.',
+            () =>
+              saveSettings({
+                ...settings,
+                contactsFromChats: pick,
+                cancelRequestsAfterWeeks: weeks,
+              }),
+            'Saved.',
           )
         }
         data-testid="outreach-settings-save"
@@ -64,3 +95,5 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
     </div>
   );
 }
+
+const weeksWords = (weeks: number) => (weeks === 1 ? '1 week' : `${weeks} weeks`);

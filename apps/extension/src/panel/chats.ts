@@ -17,6 +17,7 @@ import { facebookUrl } from '../facebook/urls';
 import type { Answer, BrowseAnswer, BrowseAsk } from '../messages';
 import { ask } from './ask';
 import { button, counted, h, hfosLink, type Child } from './dom';
+import { noteWarnings, warnedToday } from './warnings';
 
 const OPEN_KEY = 'hfos.readChats';
 const DONE_KEY = 'hfos.chatsRead';
@@ -167,6 +168,14 @@ async function messengerTab(): Promise<number | null> {
 async function goThrough(): Promise<void> {
   if (run.state === 'going') return;
   stopped = false;
+  const warned = await warnedToday();
+  if (warned) {
+    set({
+      state: 'over',
+      line: `Facebook warned you today (“${warned[0]}”), so the extension stops until tomorrow.`,
+    });
+    return;
+  }
   const tabId = await messengerTab();
   if (tabId === null) {
     set({ state: 'over', line: 'Open Facebook in this window first, then press Read my chats.' });
@@ -183,9 +192,10 @@ async function goThrough(): Promise<void> {
     while (!stopped && read < RUN_MOST) {
       const page = await readTab(tabId);
       if (page.warnings.length) {
+        await noteWarnings(page.warnings, page.url);
         set({
           state: 'over',
-          line: `Stopped: Facebook says “${page.warnings[0]}”. Leave it for today and try again tomorrow.`,
+          line: `Stopped: Facebook says “${page.warnings[0]}”. The extension stops for today, and your daily limits are halved for a week.`,
         });
         return;
       }

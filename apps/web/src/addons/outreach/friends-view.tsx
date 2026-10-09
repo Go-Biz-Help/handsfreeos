@@ -31,7 +31,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { DownloadCard } from './download-card';
-import type { Friend, Friends } from './types';
+import type { Friend, Friends, Tidy } from './types';
 import { useAct } from './use-act';
 
 type Counts = Friends['counts'];
@@ -147,12 +147,14 @@ export function FriendsView({
   workspaceId,
   businessName,
   friends,
+  tidy,
   show,
   search,
 }: {
   workspaceId: string;
   businessName: string;
   friends: Friends;
+  tidy: Tidy;
   show: FriendView;
   search: string;
 }) {
@@ -285,6 +287,7 @@ export function FriendsView({
         </div>
         <aside className="space-y-4">
           <CapCard counts={friends.counts} cap={friends.cap} />
+          <TidyCard tidy={tidy} />
           <DownloadCard workspaceId={workspaceId} download={friends.download} />
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
@@ -539,6 +542,58 @@ function CapCard({ counts, cap }: { counts: Counts; cap: number }) {
         <p className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text">
           You’re close to Facebook’s limit. Turn on Keep for the friends you’ll never unfriend, so
           making room never suggests them.
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * What the extension can tidy up for the person (decisions 10, 12 and 17): old requests nobody answered, and friends
+ * suggested for unfriending. They tick them in the extension's panel, which presses the buttons on Facebook.
+ */
+function TidyCard({ tidy }: { tidy: Tidy }) {
+  const rows = [
+    {
+      key: 'cancel',
+      label: `Requests waiting over ${tidy.cancelAfterWeeks === 1 ? 'a week' : `${tidy.cancelAfterWeeks} weeks`}`,
+      count: tidy.totals.cancel_request,
+      done: tidy.limits.cancel_request,
+    },
+    {
+      key: 'unfriend',
+      label: 'Friends to unfriend',
+      count: tidy.needsFile ? null : tidy.totals.unfriend,
+      done: tidy.limits.unfriend,
+    },
+  ];
+  return (
+    <Card className="p-4" data-testid="friends-tidy">
+      <h3 className="text-[15px] font-semibold">Tidy up</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">
+        Open the extension’s panel on Facebook and tick the ones to go under Tidy up your friends.
+        It presses Cancel request or Unfriend on each profile for you, slowly, in a tab you can see.
+      </p>
+      <ul className="mt-3 space-y-1.5 text-[13px]">
+        {rows.map((r) => (
+          <li key={r.key} className="flex items-baseline justify-between gap-2">
+            <span>{r.label}</span>
+            <span className="tabular-nums text-text-2">
+              {r.count === null ? 'needs your file' : r.count.toLocaleString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[12.5px] text-text-3">
+        Today: {tidy.limits.cancel_request.done.toLocaleString()} of{' '}
+        {tidy.limits.cancel_request.most.toLocaleString()} requests cancelled,{' '}
+        {tidy.limits.unfriend.done.toLocaleString()} of {tidy.limits.unfriend.most.toLocaleString()}{' '}
+        unfriended.
+      </p>
+      {tidy.needsFile ? (
+        <p className="mt-2 text-[12.5px] text-text-3">
+          Unfriending suggestions need your Facebook file, which says when you last talked to each
+          friend.
         </p>
       ) : null}
     </Card>

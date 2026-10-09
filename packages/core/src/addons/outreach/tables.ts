@@ -1,7 +1,8 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
- * for groups and touches, 20261026000400 for friends, and 20261027000300 for Facebook's download file): the Drizzle
- * mirror its server code reads and writes through. Server-only.
+ * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, and 20261027000900
+ * for tidying friends and Facebook's warnings): the Drizzle mirror its server code reads and writes through.
+ * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
@@ -20,7 +21,7 @@ import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { ChatReadState } from './chat-read';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
-import type { FriendState } from './limits';
+import type { FriendState, TidyKind } from './limits';
 import type { PlaybookDetails } from './playbooks';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
@@ -372,10 +373,55 @@ export const myGroups = addonOutreach.table(
   ],
 );
 
+/**
+ * A sent request the extension cancelled, or a friend it unfriended, for the person who ticked them: today's limits
+ * count these.
+ */
+export const friendEnds = addonOutreach.table(
+  'friend_ends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<TidyKind>(),
+    at: ts('at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** A warning Facebook showed the person, in its own words: it slows them down for a while (./tidy.ts). */
+export const warnings = addonOutreach.table(
+  'warnings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    words: text('words').array().notNull(),
+    url: text('url'),
+    at: ts('at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   fileChats,
   filePeople,
+  friendEnds,
   friends,
   groupPeople,
   groups,
@@ -385,4 +431,5 @@ export const OUTREACH_TABLES = {
   profiles,
   threads,
   touches,
+  warnings,
 } as const;

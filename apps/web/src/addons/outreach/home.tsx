@@ -19,7 +19,7 @@ import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { PlaybooksView } from './playbooks-page';
 import { TodayView } from './today-view';
-import type { Activity, Chats, Friends, Groups, PlaybookList, TodayList } from './types';
+import type { Activity, Chats, Friends, Groups, PlaybookList, Tidy, TodayList } from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
@@ -33,6 +33,7 @@ export type OutreachShown =
   | {
       readonly view: 'friends';
       readonly friends: Friends;
+      readonly tidy: Tidy;
       readonly show: FriendView;
       readonly search: string;
     }
@@ -115,6 +116,7 @@ export function OutreachHome({
           workspaceId={workspaceId}
           businessName={businessName}
           friends={shown.friends}
+          tidy={shown.tidy}
           show={shown.show}
           search={shown.search}
         />
