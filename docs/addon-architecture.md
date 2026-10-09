@@ -52,7 +52,7 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
 - **The manifest** (`defineAddon`): its id (2–16 lowercase letters, never reused), name, catalogue status and
   keywords, the capabilities it gives, its permissions, what it requires (`required` or `optional`), its kinds of
   records and relationship types, the events it emits and consumes, its jobs, what it holds at providers, its
-  settings and switches, its menu places and panels, and one line for the AI. `manifestIssues` and
+  settings and switches, its pages in the side menu and its panels, and one line for the AI. `manifestIssues` and
   `catalogIssues` hold it to the rules (names under its id, the database's own limits, no dependency cycles, a
   planned add-on declares no code); the catalogue tests run them on every build.
 - **Catalogue status**: `planned` (a promise: never installable, never offered, voted on), `development` (offered nowhere),
@@ -381,6 +381,15 @@ them, and each week's winner becomes Coming soon. Real Estate Agent was already 
   does are on the list.
 - A turned-off add-on's **records are hidden until it's back on**.
 
+**One row per add-on in the side menu (the owner's decision, 2026-10-09).** However many add-ons a business turns on,
+each adds one row, named after it with its icon, and its pages (`ui.nav`, each for the people who may open it) open
+from that row the way the More group's places do: beside the sidebar on hover or a press, in place in a phone's
+drawer. A person who may open only one of its pages gets a row that goes straight there. The row is a place like any
+other in the person's menu (`addon:<id>`, `packages/core/src/account/menu.ts`): it moves, hides and goes into a group,
+where its pages show under its name. A menu saved before then held each page as a place of its own
+(`addon:<id>:<page>`); it's read as the add-on, where the first of its pages stood. The phone app has no side menu:
+an add-on's places are under its name at the top of More.
+
 **One check, every actor.** The kernel refuses an add-on's operation, and core's operations run by the system for
 it, for people, the system, workflows and the AI teammate alike (`addon_inactive`, with the add-on's id in the
 details). A command holds a key-share lock on the installation, so a disable waits for commands already running and
@@ -412,11 +421,11 @@ this business do X" from the capability sets. It suggests an add-on only to peop
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only
 when asked what's coming, and never as something to install.
 
-**The web hides what isn't on.** The menu shows an add-on's places only while it runs and the person may open them,
-keeping where the person put them while it's off. Every add-on page opens through `addonPage` (the gate), and a
+**The web hides what isn't on.** The menu shows an add-on's row only while it runs and the person may open one of its
+pages, keeping where the person put it while it's off. Every add-on page opens through `addonPage` (the gate), and a
 panel on a core page (`<AddonSlot>`) is loaded only while its add-on runs, inside its own error boundary. Only the
-web's registry imports an add-on's folder; a lint rule holds the rest of the web to it. HandsFreeOS support looking
-at a business sees its add-ons' pages as it sees core's: read-only (the owner's decision).
+web's registry imports an add-on's folder; a lint rule holds the rest of the web to it. HandsFreeOS support looking at
+a business sees its add-ons' pages as it sees core's: read-only (the owner's decision).
 
 ## Making an add-on
 

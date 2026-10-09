@@ -17,7 +17,7 @@ import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 import { useMenu } from './menu-provider';
 import {
-  addonNavItems,
+  addonPageItems,
   isActive,
   menuAddons,
   navItems,
@@ -51,11 +51,11 @@ export function MobileShell({
   // links still reach it. So is one the business keeps this person from (0106).
   const shown = new Set(menuKeys(menuFor(useMenu().menu, current.permissions, addons)));
   const bar = items.filter((i) => i.primary && shown.has(i.key));
-  // The page's title is the place it's in, a running add-on's included (0108): the deepest one that matches.
+  // The page's title is the place it's in, a running add-on's page included (0108): the deepest one that matches.
   const active = currentMenuPlace(
     [
       ...items,
-      ...addonNavItems(current.id, current.permissions, addons),
+      ...addonPageItems(current.id, current.permissions, addons),
       ...footItems(current.id, current.permissions),
     ],
     pathname,

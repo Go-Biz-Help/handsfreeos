@@ -346,7 +346,8 @@ Round five (Chris, 2026-10-02):
 1. A HandsFreeOS staff member with `platform.addons.manage` opens **/admin/businesses/<business>** and presses
    **Let them try it** beside Real Estate Agent under Add-ons in testing (`addon_grant.give`).
 2. An owner or admin of that business opens **Add-ons**, finds Real Estate Agent under Available to add, marked
-   Testing, and presses **Install**. Deals, My duties and Deal settings join the menu once it's on.
+   Testing, and presses **Install**. Once it's on, **Real Estate Agent** is one row in the side menu, and Deals, My
+   duties, Coordinate, Vendors and Deal settings open from it.
 3. **Take back** stops new installs there; a business that added it keeps it until it's uninstalled.
 
 The steps, with what to check, are in docs/operations.md under "Hand an add-on to a test business".

@@ -72,6 +72,7 @@ function RowButtons({
 /** One place: where it is (which doubles as where to send it), and which way to nudge it. */
 function PlaceRow({
   workspaceId,
+  permissions,
   itemKey,
   where,
   groups,
@@ -84,6 +85,8 @@ function PlaceRow({
   indented,
 }: {
   workspaceId: string;
+  /** What an add-on's row is called and shows depends on which of its pages they may open. */
+  permissions: readonly string[];
   itemKey: MenuPlaceKey;
   where: 'menu' | 'hidden' | string;
   groups: readonly { readonly id: string; readonly label: string }[];
@@ -96,7 +99,7 @@ function PlaceRow({
   canDown?: boolean;
   indented?: boolean;
 }) {
-  const item = placeItemOf(workspaceId, itemKey);
+  const item = placeItemOf(workspaceId, itemKey, permissions);
   if (!item) return null;
   const Icon = item.icon;
   return (
@@ -139,7 +142,8 @@ function PlaceRow({
  *
  * It lists the places open in this business, as the sidebar does (0106, 0108). The rest of the saved menu — a
  * place the business keeps them from, an add-on that is off here — stays saved where it is, unseen, and a
- * running add-on's place they have never arranged is listed at the end, where the sidebar shows it.
+ * running add-on they have never arranged is listed at the end, where the sidebar shows it. An add-on is one row
+ * here as it is in the menu: its pages go wherever it goes.
  */
 export function MenuEditor({
   workspaceId,
@@ -245,6 +249,7 @@ export function MenuEditor({
                 <PlaceRow
                   key={entry.key}
                   workspaceId={workspaceId}
+                  permissions={permissions}
                   itemKey={entry.key}
                   where="menu"
                   groups={groups}
@@ -296,6 +301,7 @@ export function MenuEditor({
                       <PlaceRow
                         key={key}
                         workspaceId={workspaceId}
+                        permissions={permissions}
                         itemKey={key}
                         where={entry.id}
                         groups={groups}
@@ -326,6 +332,7 @@ export function MenuEditor({
               <PlaceRow
                 key={key}
                 workspaceId={workspaceId}
+                permissions={permissions}
                 itemKey={key}
                 where="hidden"
                 groups={groups}
