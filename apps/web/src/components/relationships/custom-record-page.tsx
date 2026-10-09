@@ -1,5 +1,6 @@
 'use client';
 import {
+  BIN_WORDS,
   can,
   customSummary,
   lowerLabel,
@@ -14,6 +15,7 @@ import {
   ClipboardList,
   MoreHorizontal,
   Pencil,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -21,6 +23,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AddonSlot } from '@/components/addons/slot';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
@@ -96,12 +99,16 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
   const archived = !!record.archivedAt;
   // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
   const canModerate = can(permissions, 'records.archive');
+  // Delete it for good, through the 30-day Deleted bin: owners, unless one gives it out (records.delete). An add-on's
+  // records can only be archived.
+  const canDelete = can(permissions, 'records.delete') && !record.addonId;
   const canWrite = can(permissions, 'records.write');
   const wanted = useSearchParams().get('tab');
   const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [booking, setBooking] = useState(false);
   const [openAppt, setOpenAppt] = useState<string | null>(null);
@@ -201,6 +208,16 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
                       ? `Restore ${lowerLabel(kind.singular)}`
                       : `Archive ${lowerLabel(kind.singular)}`}
                   </DropdownMenuItem>
+                  {canDelete ? (
+                    <DropdownMenuItem
+                      danger
+                      onSelect={() => setDeleting(true)}
+                      data-testid="record-delete"
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                      {BIN_WORDS.menu}
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               ) : null}
             </DropdownMenuContent>
@@ -545,6 +562,17 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
           </div>
         </DialogContent>
       </Dialog>
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="custom_record"
+          ids={[record.id]}
+          names={[record.name]}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={() => router.replace(`${base}?kind=${kind.id}`)}
+        />
+      ) : null}
     </div>
   );
 }

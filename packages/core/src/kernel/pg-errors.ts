@@ -1,3 +1,4 @@
+import { withAddonNames } from '../addons/catalog';
 import { HfosError } from '../errors';
 import { missingPermissionMessage } from '../permissions';
 
@@ -613,7 +614,8 @@ const RULES: Record<string, { status: number; message: string }> = {
   },
   bin_kind: {
     status: 400,
-    message: 'Only customers, conversations and bookings can be deleted for good.',
+    message:
+      'Only customers, conversations, bookings, leads, companies and records can be deleted for good.',
   },
   bin_not_emptying: {
     status: 409,
@@ -623,7 +625,8 @@ const RULES: Record<string, { status: number; message: string }> = {
 
 /**
  * Refusals the database words itself, because the words name what it found: the customer, the signed file, the
- * booking's date (the Deleted bin, 20261027000400). Its message is passed on as it is, with the rule.
+ * booking's date (the Deleted bin, 20261027000400 and 20261027000800). Its message is passed on with the rule, and
+ * with an add-on's name where it names one by its id.
  */
 const WORDED_IN_DATABASE: Record<string, number> = {
   bin_person_merged: 409,
@@ -634,6 +637,10 @@ const WORDED_IN_DATABASE: Record<string, number> = {
   bin_call_live: 409,
   bin_upcoming_booking: 409,
   bin_item_emptying: 409,
+  bin_record_addon: 409,
+  bin_record_private: 409,
+  bin_addon_uses: 409,
+  bin_restore_parent: 409,
   person_in_bin: 409,
 };
 
@@ -650,7 +657,13 @@ export function translateDbError(e: unknown): unknown {
   if (!pg.code) return e;
   const worded = pg.detail ? WORDED_IN_DATABASE[pg.detail] : undefined;
   if (worded && pg.message)
-    return new HfosError('rule_violation', worded, pg.message, undefined, pg.detail);
+    return new HfosError(
+      'rule_violation',
+      worded,
+      withAddonNames(pg.message),
+      undefined,
+      pg.detail,
+    );
   const rule = pg.detail && RULES[pg.detail] ? pg.detail : undefined;
   if (rule) {
     const r = RULES[rule]!;

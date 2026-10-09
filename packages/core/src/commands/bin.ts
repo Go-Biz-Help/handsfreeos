@@ -1,7 +1,8 @@
 /**
  * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08 are in
- * docs/deleting.md): a customer with everything only about them, a conversation, or a booking. What's deleted
- * waits 30 days in the bin, where it can be brought back, and then the worker empties it.
+ * docs/deleting.md): a customer with everything only about them, a conversation, or a booking; and since
+ * 20261027000800 a lead, a company, or a record of one of the business's own kinds. What's deleted waits 30 days in
+ * the bin, where it can be brought back, and then the worker empties it.
  *
  * Owners only, unless an owner gives "Delete for good" to a role or a person, and never the AI or a workflow
  * (risk 4, people only). The database decides what can't go and says why in words (private.bin_put); these put
@@ -18,6 +19,7 @@ import {
 } from '../calendar/appointments';
 import { lockBooking } from '../calendar/booking';
 import { loadCalendar } from '../calendar/load';
+import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
@@ -28,7 +30,10 @@ import {
   BinEmptyOutput,
   BinRestoreInput,
   BinRestoreOutput,
+  CompanyDeleteInput,
   ConversationDeleteInput,
+  CustomRecordDeleteInput,
+  LeadDeleteInput,
   PersonDeleteInput,
   type BinKind,
 } from '../schemas/bin';
@@ -47,6 +52,16 @@ async function putInBin(ctx: CommandContext, kind: BinKind, id: string): Promise
     sql`select private.bin_put(${kind}, ${id}::uuid) as id`,
   );
   const [item] = await ctx.tx.select().from(binItems).where(eq(binItems.id, put!.id));
+  // The database finds it by its id alone: one from another business the caller also deletes in is refused here,
+  // and everything this command did with it. Refused as the database refuses one that's gone.
+  if (item!.workspaceId !== ctx.scope.workspaceId)
+    throw new HfosError(
+      'not_found',
+      404,
+      'That isn’t here any more. Someone may have deleted it already. Refresh to see what’s left.',
+      undefined,
+      'bin_record_gone',
+    );
   await ctx.emit({
     type: `${kind}.deleted`,
     entityType: kind,
@@ -211,6 +226,59 @@ export const appointmentDelete = defineCommand({
   },
 });
 
+export const leadDelete = defineCommand({
+  name: 'lead.delete',
+  description:
+    'Delete leads for good, with their tasks and files: they wait 30 days in the Deleted bin first. Their customer stays, with their conversations, bookings and bills.',
+  risk: 4,
+  input: LeadDeleteInput,
+  output: BinDeleteOutput,
+  permission: 'records.delete',
+  scope: inWorkspace,
+  emits: ['lead.deleted'],
+  async handler(ctx, input) {
+    const deleted: { id: string; item: BinItem }[] = [];
+    for (const id of input.leadIds) deleted.push({ id, item: await putInBin(ctx, 'lead', id) });
+    return answer(deleted);
+  },
+});
+
+export const companyDelete = defineCommand({
+  name: 'company.delete',
+  description:
+    'Delete companies for good, with their notes, tasks, files, relationships and the leads only theirs: they wait 30 days in the Deleted bin first. Their people stay.',
+  risk: 4,
+  input: CompanyDeleteInput,
+  output: BinDeleteOutput,
+  permission: 'records.delete',
+  scope: inWorkspace,
+  emits: ['company.deleted'],
+  async handler(ctx, input) {
+    const deleted: { id: string; item: BinItem }[] = [];
+    for (const id of input.companyIds)
+      deleted.push({ id, item: await putInBin(ctx, 'company', id) });
+    return answer(deleted);
+  },
+});
+
+export const customRecordDelete = defineCommand({
+  name: 'custom_record.delete',
+  description:
+    'Delete records of the business’s own kinds for good, with their notes, tasks, files and relationships: they wait 30 days in the Deleted bin first. An add-on’s records can only be archived.',
+  risk: 4,
+  input: CustomRecordDeleteInput,
+  output: BinDeleteOutput,
+  permission: 'records.delete',
+  scope: inWorkspace,
+  emits: ['custom_record.deleted'],
+  async handler(ctx, input) {
+    const deleted: { id: string; item: BinItem }[] = [];
+    for (const id of input.customRecordIds)
+      deleted.push({ id, item: await putInBin(ctx, 'custom_record', id) });
+    return answer(deleted);
+  },
+});
+
 export const binRestore = defineCommand({
   name: 'bin.restore',
   description:
@@ -280,6 +348,9 @@ export const binCommands = [
   personDelete,
   conversationDelete,
   appointmentDelete,
+  leadDelete,
+  companyDelete,
+  customRecordDelete,
   binRestore,
   binEmpty,
 ];

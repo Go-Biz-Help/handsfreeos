@@ -194,10 +194,14 @@ function describeAction(e: AuditEntry): string {
       return `restored ${name(e)}`;
     case 'person.merge':
       return `merged ${s(e.before?.mergedName) || 'a duplicate'} into ${name(e)}`;
-    // Deleting for good, through the Deleted bin (20261027000400): these lines keep the name once it's emptied.
+    // Deleting for good, through the Deleted bin (20261027000400, 20261027000800): these lines keep the name once
+    // it's emptied.
     case 'person.delete':
     case 'conversation.delete':
     case 'appointment.delete':
+    case 'lead.delete':
+    case 'company.delete':
+    case 'custom_record.delete':
       return binDeleteSentence(e);
     case 'bin.restore':
       return `brought ${binThing(e)} back from the Deleted bin`;
@@ -1796,13 +1800,21 @@ function emailReceiveSentence(e: AuditEntry): string {
 }
 
 const name = (e: AuditEntry) => s(e.after?.name) || s(e.before?.name) || e.entityName || 'a record';
-/** A customer by name, "the conversation with …" or "the booking …", as the Deleted bin lists them. */
-const binThing = (e: AuditEntry) =>
-  e.entityType === 'conversation'
-    ? `the conversation with ${name(e)}`
-    : e.entityType === 'appointment'
-      ? `the booking ${name(e)}`
-      : name(e);
+/**
+ * A customer or a company by name, "the conversation with …", "the booking …", "the lead …" or a record with its
+ * kind ("the pet Rex"), as the Deleted bin lists them.
+ */
+function binThing(e: AuditEntry): string {
+  if (e.entityType === 'conversation') return `the conversation with ${name(e)}`;
+  if (e.entityType === 'appointment') return `the booking ${name(e)}`;
+  if (e.entityType === 'lead') return `the lead ${name(e)}`;
+  const contents = e.after?.contents;
+  const kind =
+    e.entityType === 'custom_record' && contents && typeof contents === 'object'
+      ? s((contents as Record<string, unknown>).type)
+      : '';
+  return kind ? `the ${kind.toLowerCase()} ${name(e)}` : name(e);
+}
 /** What a delete put in the bin, or a booking still to come it cancelled first (or a class seat it gave up). */
 function binDeleteSentence(e: AuditEntry): string {
   if (e.after?.deleted) return `deleted ${binThing(e)}`;
