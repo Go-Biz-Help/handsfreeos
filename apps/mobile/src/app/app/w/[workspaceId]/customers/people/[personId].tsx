@@ -1,4 +1,4 @@
-import { formatDate, RECORD_WORDS, telHref } from '@hfos/core';
+import { BIN_WORDS, formatDate, holds, RECORD_WORDS, telHref } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
@@ -17,6 +17,7 @@ import {
   type RecordAction,
   type RecordTab,
 } from '@/components/customers/bits';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { AttributionCard } from '@/components/customers/attribution';
 import { RecordBody, nextVisitLine } from '@/components/customers/record-screen';
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
@@ -25,6 +26,8 @@ import { Screen } from '@/components/shell/screen';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { startCall } from '@/inbox/calls';
+import { useGrants } from '@/lib/grants';
+import { useNetwork } from '@/lib/network';
 import { sees } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
 
@@ -35,13 +38,17 @@ import { useLens } from '@/view-as/use-lens';
  * that brought them show while there's signal.
  *
  * Editing follows the field-merge rules: only what changed is sent, with what the screen showed, so a teammate's
- * change to another detail stays.
+ * change to another detail stays. An owner deletes them for good from Details, with signal (the Deleted bin,
+ * 20261027000400).
  */
 export default function PersonScreen() {
   const { personId } = useLocalSearchParams<{ personId: string }>();
   const { business } = useBusiness();
   const data = useRecord('person', personId);
   const person = data.person;
+  const canDelete = holds(useGrants(), 'records.delete');
+  const { online } = useNetwork();
+  const [deleting, setDeleting] = React.useState(false);
   const [tab, setTab] = React.useState<RecordTab>('timeline');
   const [sheets, setSheets] = React.useState({
     note: false,
@@ -231,6 +238,9 @@ export default function PersonScreen() {
           { label: RECORD_WORDS.labels.notes, value: person.notes },
         ]}
         onEdit={() => setSheets((all) => ({ ...all, edit: true }))}
+        onDelete={
+          canDelete ? () => (online ? setDeleting(true) : toast.error(BIN_WORDS.offline)) : null
+        }
         sheets={sheets}
         onSheet={onSheet}
         nextVisit={data.nextVisit}
@@ -258,6 +268,18 @@ export default function PersonScreen() {
           toast.show(
             saved.changed ? RECORD_SHEET_WORDS.edit.saved : RECORD_SHEET_WORDS.edit.nothing,
           );
+        }}
+      />
+      <DeleteSheet
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        workspaceId={business.id}
+        kind="person"
+        ids={[personId]}
+        names={[person.fullName]}
+        onDeleted={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace(businessHref(business.id, 'customers') as Href);
         }}
       />
     </Screen>

@@ -1,4 +1,5 @@
 import {
+  BIN_WORDS,
   closedBanner,
   clockTime,
   CONTACT_EDIT_WORDS,
@@ -42,6 +43,7 @@ import {
   Sparkles,
   StickyNote,
   Tag,
+  Trash,
   Undo2,
   UserPen,
   UserPlus,
@@ -339,6 +341,7 @@ function SheetRow({
  * Snooze and Close (or Reopen), Mark as unread, and — since the web's panel learned to change the customer from
  * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note. An email thread
  * also moves between the Inbox, Other mail and Spam, and someone's own mail is shared with the team from here (M19).
+ * Last, for an owner, Delete for good… (the Deleted bin, 20261027000400).
  *
  * A row is passed null when this conversation cannot do it: no customer yet, no open lead to move, or someone's own
  * mail, which nobody else is assigned and no customer is made from.
@@ -371,6 +374,7 @@ export function ActionsSheet({
   moves = [],
   onMove,
   onShare = null,
+  onDelete = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -402,8 +406,11 @@ export function ActionsSheet({
   onMove?: (move: MailMove) => void;
   /** Sharing someone's own mail with the team; null for the team's threads. */
   onShare?: (() => void) | null;
+  /** Deleting it for good; null for whoever may not (`records.delete`). */
+  onDelete?: (() => void) | null;
 }) {
   const ai = useAiColors();
+  const colors = useColors();
   const pending = React.useRef<(() => void) | null>(null);
   const run = (fn: () => void) => () => {
     pending.current = fn;
@@ -546,6 +553,15 @@ export function ActionsSheet({
               />
             ))
           : null}
+        {onDelete ? (
+          <SheetRow
+            icon={<Trash size={20} color={colors.dangerText} strokeWidth={1.5} />}
+            label={BIN_WORDS.menu}
+            tint={colors.dangerText}
+            onPress={run(onDelete)}
+            testID="sheet-delete"
+          />
+        ) : null}
       </View>
     </Sheet>
   );

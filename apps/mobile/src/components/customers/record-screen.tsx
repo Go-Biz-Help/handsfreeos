@@ -1,4 +1,5 @@
 import {
+  BIN_WORDS,
   fmtAt,
   leadOutcomeLine,
   money,
@@ -21,6 +22,7 @@ import type { NextVisit } from '@/customers/use-record';
 import { addTask, completeTask, reopenTask } from '@/tasks/actions';
 import { newId } from '@/changes';
 import { takePhoto } from '@/changes/photo-device';
+import { Trash } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -57,6 +59,8 @@ export interface RecordBodyProps {
     readonly value: string | null;
   }[];
   readonly onEdit: () => void;
+  /** "Delete for good…" beside Edit, for whoever may (`records.delete`); left out for everyone else. */
+  readonly onDelete?: (() => void) | null;
   readonly sheets: {
     readonly note: boolean;
     readonly tags: boolean;
@@ -225,7 +229,7 @@ export function RecordBody(props: RecordBodyProps) {
           {props.details.map((d) => (
             <DetailRow key={d.key ?? d.label} label={d.label} value={d.value} />
           ))}
-          <View className="py-2.5">
+          <View className="flex-row flex-wrap items-center gap-2 py-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -235,6 +239,17 @@ export function RecordBody(props: RecordBodyProps) {
             >
               {RECORD_WORDS.edit}
             </Button>
+            {props.onDelete ? (
+              <Button
+                variant="ghostDanger"
+                size="sm"
+                icon={Trash}
+                onPress={props.onDelete}
+                testID="record-delete"
+              >
+                {BIN_WORDS.menu}
+              </Button>
+            ) : null}
           </View>
         </Card>
       ) : null}
