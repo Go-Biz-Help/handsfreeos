@@ -15,6 +15,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -22,8 +23,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
-import { can } from '@hfos/core';
+import { BIN_WORDS, can } from '@hfos/core';
 import { AddonSlot } from '@/components/addons/slot';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { firstName } from '@/components/calendar/appt';
@@ -144,6 +146,8 @@ export function RecordPage(props: RecordPageProps) {
   const archived = !!(person?.archivedAt ?? company?.archivedAt);
   // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
   const canModerate = can(permissions, 'records.archive');
+  // Delete a customer for good, through the 30-day Deleted bin: owners, unless one gives it out (records.delete).
+  const canDelete = can(permissions, 'records.delete');
   const address = addressLine(person ? person.address : company!.address);
   const phoneE164 = person ? person.phoneE164 : company!.phoneE164;
   const phone = person ? person.phone : company!.phone;
@@ -185,6 +189,7 @@ export function RecordPage(props: RecordPageProps) {
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [merging, setMerging] = useState(false);
   // A duplicate merged into another record stays archived; that record has everything of theirs now.
   const mergedInto = person?.mergedInto ?? null;
@@ -389,6 +394,16 @@ export function RecordPage(props: RecordPageProps) {
                       )}
                       {archived ? `Restore ${kind}` : `Archive ${kind}`}
                     </DropdownMenuItem>
+                    {canDelete && person ? (
+                      <DropdownMenuItem
+                        danger
+                        onSelect={() => setDeleting(true)}
+                        data-testid="record-delete"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        {BIN_WORDS.menu}
+                      </DropdownMenuItem>
+                    ) : null}
                   </>
                 ) : null}
               </DropdownMenuContent>
@@ -1102,6 +1117,17 @@ export function RecordPage(props: RecordPageProps) {
           archived={archived}
           open={archiving}
           onOpenChange={setArchiving}
+        />
+      ) : null}
+      {canDelete && person ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="person"
+          ids={[person.id]}
+          names={[person.fullName]}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={() => router.replace(`/app/w/${workspaceId}/customers`)}
         />
       ) : null}
       <LeadDialog

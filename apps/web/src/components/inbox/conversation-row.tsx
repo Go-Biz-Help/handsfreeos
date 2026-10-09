@@ -60,7 +60,8 @@ function Chip({ chip }: { chip: RowChip }) {
 
 /**
  * Customer or number, the latest message, and what needs attention: wait, the AI teammate ("Ava", "Ava · draft
- * waiting", "Needs a person"), a chat visitor still on the site, stage, owner, unread.
+ * waiting", "Needs a person"), a chat visitor still on the site, stage, owner, unread. While the list is picking
+ * rows to delete (`pick`), a tick box stands where the picture was and pressing the row ticks it.
  */
 export function ConversationRow({
   c,
@@ -71,6 +72,7 @@ export function ConversationRow({
   timezone,
   onOpen,
   draftWaiting = false,
+  pick,
 }: {
   c: ConversationSummary;
   href: string;
@@ -81,83 +83,105 @@ export function ConversationRow({
   onOpen?: () => void;
   /** The teammate's reply waits for someone's OK. */
   draftWaiting?: boolean;
+  /** Picking rows to delete: whether this one is ticked, and ticking it. */
+  pick?: { readonly on: boolean; readonly toggle: () => void };
 }) {
   const unread = c.unreadTotal > 0;
   const chips = conversationChips(c, { waitThreshold, draftWaiting, timeZone: timezone });
+  const row =
+    'flex w-full gap-3 border-b border-border px-3.5 py-3 text-left transition-colors max-md:min-h-[76px] md:px-4';
+  const body = (
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-1.5">
+        <span className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>
+          {rowName(c)}
+        </span>
+        {c.channel === 'email' ? (
+          <Mail
+            className="h-3.5 w-3.5 flex-none text-text-3"
+            strokeWidth={1.5}
+            aria-label="Email"
+          />
+        ) : c.channel === 'chat' ? (
+          <WebsiteIcon />
+        ) : c.channel === 'portal' ? (
+          <DoorOpen
+            className="h-3.5 w-3.5 flex-none text-text-3"
+            strokeWidth={1.5}
+            aria-label="Client portal"
+          />
+        ) : c.channel === 'messenger' || c.channel === 'instagram' ? (
+          <SocialMark channel={c.channel} className="text-text-3" />
+        ) : (
+          <MessageCircle
+            className="hidden h-3.5 w-3.5 flex-none text-text-3 md:block"
+            strokeWidth={1.5}
+            aria-label="Text messages"
+          />
+        )}
+        <span
+          className={cn(
+            'ml-auto whitespace-nowrap text-xs',
+            unread ? 'font-semibold text-accent-text' : 'text-text-3',
+          )}
+        >
+          {listTime(c.lastMessageAt ?? c.createdAt)}
+        </span>
+      </div>
+      <p
+        className={cn(
+          'mt-0.5 line-clamp-2 text-[13px] leading-[1.4]',
+          unread ? 'text-text' : 'text-text-2',
+        )}
+      >
+        {previewLine(c, myUserId)}
+      </p>
+      <div className="mt-[7px] flex min-h-5 items-center gap-1.5">
+        {chips.map((chip, i) => (
+          <Chip key={i} chip={chip} />
+        ))}
+        <span className="flex-1" />
+        {c.assignee ? (
+          <span title={assignedToLabel(c.assignee.fullName)}>
+            <Avatar name={c.assignee.fullName} seed={c.assignee.id} size="sm" />
+          </span>
+        ) : null}
+        <CountBadge count={c.unreadTotal} />
+      </div>
+    </div>
+  );
+  if (pick)
+    return (
+      <label
+        data-testid={`conversation-pick-${c.id}`}
+        className={cn(row, 'cursor-pointer', pick.on ? 'bg-accent-soft' : 'hover:bg-card-2')}
+      >
+        <span className="flex h-8 w-8 flex-none items-center justify-center">
+          <input
+            type="checkbox"
+            checked={pick.on}
+            onChange={pick.toggle}
+            aria-label={`Select ${rowName(c)}`}
+            className="h-[18px] w-[18px] cursor-pointer accent-accent"
+          />
+        </span>
+        {body}
+      </label>
+    );
   return (
     <Link
       href={href}
       onClick={onOpen}
       aria-current={selected ? 'page' : undefined}
       data-testid={`conversation-row-${c.id}`}
-      className={cn(
-        'flex w-full gap-3 border-b border-border px-3.5 py-3 text-left transition-colors max-md:min-h-[76px] md:px-4',
-        selected ? 'bg-accent-soft' : 'hover:bg-card-2',
-      )}
+      className={cn(row, selected ? 'bg-accent-soft' : 'hover:bg-card-2')}
     >
       <ContactAvatar
         person={c.person}
         chat={c.channel === 'chat'}
         social={c.channel === 'messenger' || c.channel === 'instagram' ? c.channel : null}
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>
-            {rowName(c)}
-          </span>
-          {c.channel === 'email' ? (
-            <Mail
-              className="h-3.5 w-3.5 flex-none text-text-3"
-              strokeWidth={1.5}
-              aria-label="Email"
-            />
-          ) : c.channel === 'chat' ? (
-            <WebsiteIcon />
-          ) : c.channel === 'portal' ? (
-            <DoorOpen
-              className="h-3.5 w-3.5 flex-none text-text-3"
-              strokeWidth={1.5}
-              aria-label="Client portal"
-            />
-          ) : c.channel === 'messenger' || c.channel === 'instagram' ? (
-            <SocialMark channel={c.channel} className="text-text-3" />
-          ) : (
-            <MessageCircle
-              className="hidden h-3.5 w-3.5 flex-none text-text-3 md:block"
-              strokeWidth={1.5}
-              aria-label="Text messages"
-            />
-          )}
-          <span
-            className={cn(
-              'ml-auto whitespace-nowrap text-xs',
-              unread ? 'font-semibold text-accent-text' : 'text-text-3',
-            )}
-          >
-            {listTime(c.lastMessageAt ?? c.createdAt)}
-          </span>
-        </div>
-        <p
-          className={cn(
-            'mt-0.5 line-clamp-2 text-[13px] leading-[1.4]',
-            unread ? 'text-text' : 'text-text-2',
-          )}
-        >
-          {previewLine(c, myUserId)}
-        </p>
-        <div className="mt-[7px] flex min-h-5 items-center gap-1.5">
-          {chips.map((chip, i) => (
-            <Chip key={i} chip={chip} />
-          ))}
-          <span className="flex-1" />
-          {c.assignee ? (
-            <span title={assignedToLabel(c.assignee.fullName)}>
-              <Avatar name={c.assignee.fullName} seed={c.assignee.id} size="sm" />
-            </span>
-          ) : null}
-          <CountBadge count={c.unreadTotal} />
-        </div>
-      </div>
+      {body}
     </Link>
   );
 }

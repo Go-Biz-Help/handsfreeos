@@ -2,6 +2,7 @@
 import {
   ALL_LINES_WORDS,
   assigneeShort,
+  BIN_WORDS,
   can,
   closedBanner,
   CONVERSATION_ACTIONS,
@@ -47,6 +48,7 @@ import {
   Share2,
   ShieldAlert,
   Sparkles,
+  Trash2,
   Undo2,
   UserPlus,
   UserRound,
@@ -60,6 +62,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAssistant } from '@/components/assistant/assistant-provider';
 import { AttentionWaitingChip, useRecordAttention } from '@/components/attention/bits';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Callout, StageBadge } from '@/components/crm/chips';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { Avatar } from '@/components/ui/avatar';
@@ -200,6 +203,10 @@ export function ConversationView({
   // What the business lets them do (0106). Archiving matches every other record in HandsFreeOS
   // (records.archive), not everyone with the inbox; setting up a number is channels.manage.
   const canArchive = can(permissions, 'records.archive');
+  // Deleting for good, with every lane the inbox shows as this one conversation (records.delete).
+  const canDelete = can(permissions, 'records.delete');
+  const [deleting, setDeleting] = useState(false);
+  const laneIds = c.lanes.length > 0 ? c.lanes.map((l) => l.id) : [c.id];
   const canSetUp = can(permissions, 'channels.manage');
   const phone = useMediaQuery('(max-width: 767px)') === true;
   // With the Assistant docked beside the inbox, the customer pane folds away (Customer details opens it).
@@ -734,7 +741,13 @@ export function ConversationView({
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" title="More" aria-label="More">
+              <Button
+                variant="ghost"
+                size="icon"
+                title="More"
+                aria-label="More"
+                data-testid="thread-menu"
+              >
                 <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
               </Button>
             </DropdownMenuTrigger>
@@ -831,6 +844,16 @@ export function ConversationView({
                       {CONVERSATION_ACTIONS.archive}
                     </DropdownMenuItem>
                   )}
+                  {canDelete ? (
+                    <DropdownMenuItem
+                      danger
+                      onSelect={() => setDeleting(true)}
+                      data-testid="thread-delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      {BIN_WORDS.menu}
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               ) : null}
             </DropdownMenuContent>
@@ -1262,6 +1285,20 @@ export function ConversationView({
           onOpenChange={setEditOpen}
           initial={editing}
           onSaved={() => after()}
+        />
+      ) : null}
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="conversation"
+          ids={laneIds}
+          names={laneIds.map(() => name)}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={() => {
+            reloadList();
+            router.push(listHref);
+          }}
         />
       ) : null}
     </div>

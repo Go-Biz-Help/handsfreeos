@@ -1,9 +1,10 @@
 'use client';
-import { Archive, Building2, ChevronRight, Plus, Upload } from 'lucide-react';
+import { Archive, Building2, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { CONTACTS_WORDS, lowerLabel } from '@hfos/core';
+import { BIN_WORDS, CONTACTS_WORDS, lowerLabel } from '@hfos/core';
 import { CustomRecordDialog } from '@/components/relationships/custom-record-dialog';
 import { RecordIcon } from '@/components/relationships/record-icon';
 import type {
@@ -61,6 +62,7 @@ export function CustomersList({
   companies,
   counts,
   canImport,
+  canDelete = false,
   kinds = [],
   kind = null,
   records = null,
@@ -75,6 +77,8 @@ export function CustomersList({
   companies: CompanyList | null;
   counts: { people: number; companies: number };
   canImport: boolean;
+  /** May delete customers for good (records.delete): ticks beside each person, to delete several at once. */
+  canDelete?: boolean;
   /** The kinds of records the business keeps (0101): a tab each, beside People and Companies. */
   kinds?: CustomRecordType[];
   /** The kind whose tab this is, its records, and its fields (for Add). */
@@ -263,6 +267,7 @@ export function CustomersList({
           initial={people!}
           onAdd={() => setAdding(true)}
           canImport={canImport}
+          canDelete={canDelete}
         />
       ) : tab === 'companies' ? (
         <CompaniesTable
@@ -373,17 +378,32 @@ function PeopleTable({
   initial,
   onAdd,
   canImport,
+  canDelete,
 }: {
   workspaceId: string;
   filters: CustomerFilters;
   initial: PersonList;
   onAdd: () => void;
   canImport: boolean;
+  canDelete: boolean;
 }) {
+  const router = useRouter();
   const key = JSON.stringify({ filters, first: initial.items[0]?.id, n: initial.items.length });
   const more = useMore<PersonSummary>(key, initial.nextCursor);
   const [busy, setBusy] = useState(false);
   const items = [...initial.items, ...more.items];
+  // Ticked to delete several at once; only those still shown count.
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [deleting, setDeleting] = useState(false);
+  const picked = items.filter((p) => ticked.has(p.id));
+  const all = picked.length === items.length;
+  const tick = (id: string, on: boolean) =>
+    setTicked((was) => {
+      const next = new Set(was);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   async function loadMore() {
     if (!more.cursor) return;
     setBusy(true);
@@ -412,102 +432,166 @@ function PeopleTable({
   if (items.length === 0)
     return <Card>{emptyState(filters, 'people', onAdd, canImport, workspaceId)}</Card>;
   return (
-    <Card className={scrollingCard}>
-      <table className="hidden w-full text-sm md:table" data-testid="people-table">
-        <thead>
-          <tr className="text-left text-xs font-medium text-text-2">
-            <th className={cn(stickyHead, 'w-[30%] px-4')}>Person</th>
-            <th className={stickyHead}>Contact</th>
-            <th className={stickyHead}>Tags</th>
-            <th className={stickyHead}>Open leads</th>
-            <th className={stickyHead}>Last activity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((p) => (
-            <tr
-              key={p.id}
-              className="border-t border-border hover:bg-card-2/60"
-              data-testid={`person-row-${p.id}`}
-            >
-              <td className="px-4 py-2.5">
-                <Link
-                  href={`/app/w/${workspaceId}/customers/people/${p.id}`}
-                  className="flex items-center gap-3"
-                >
-                  <Avatar name={p.fullName} seed={p.id} />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate font-medium">
-                        {p.fullName}
-                        {p.archivedAt ? (
-                          <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
-                        ) : null}
-                      </span>
-                      {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
-                    </span>
-                    <span className="truncate text-xs text-text-3">
-                      {p.company?.name ?? addressLine(p.address) ?? ''}
-                    </span>
-                  </span>
-                </Link>
-              </td>
-              <td className="px-3 py-2.5">
-                <span className="flex flex-col">
-                  <span className="text-[13px]">{p.phone ?? ''}</span>
-                  <span className="text-xs text-text-3">{p.email ?? ''}</span>
-                </span>
-              </td>
-              <td className="px-3 py-2.5">
-                <span className="flex flex-wrap gap-1.5">
-                  {p.tags.map((t) => (
-                    <TagChip key={t.id} name={t.name} color={t.color} />
-                  ))}
-                </span>
-              </td>
-              <td className="px-3 py-2.5">
-                {p.openLeads ? (
-                  <Badge variant="accent">{p.openLeads} open</Badge>
-                ) : (
-                  <span className="text-[13px] text-text-3">none</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5 text-[13px] text-text-2">
-                {p.lastActivityAt ? relativeTime(p.lastActivityAt) : ''}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <ul className="flex flex-col divide-y divide-border md:hidden">
-        {items.map((p) => (
-          <li key={p.id}>
-            <Link
-              href={`/app/w/${workspaceId}/customers/people/${p.id}`}
-              className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-card-2"
-            >
-              <Avatar name={p.fullName} seed={p.id} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium">{p.fullName}</span>
-                <span className="truncate text-xs text-text-3">
-                  {p.company?.name ?? p.phone ?? p.email ?? addressLine(p.address)}
-                </span>
-              </span>
-              {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
-              {p.openLeads ? <Badge variant="accent">{p.openLeads} open</Badge> : null}
-              <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {more.cursor ? (
-        <div className="flex justify-center border-t border-border p-3">
-          <Button variant="ghost" size="sm" loading={busy} onClick={loadMore}>
-            Show more
+    <>
+      {picked.length > 0 ? (
+        <div
+          className="mb-3 hidden items-center gap-3 rounded-menu bg-card-2 px-3.5 py-2 text-[13px] md:flex"
+          data-testid="people-picked"
+        >
+          <span className="font-medium">{picked.length} selected</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="text-danger-text hover:text-danger-text"
+            onClick={() => setDeleting(true)}
+            data-testid="people-delete"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+            {BIN_WORDS.menu}
+          </Button>
+          <span className="flex-1" />
+          <Button variant="ghost" size="sm" onClick={() => setTicked(new Set())}>
+            Clear
           </Button>
         </div>
       ) : null}
-    </Card>
+      <Card className={scrollingCard}>
+        <table className="hidden w-full text-sm md:table" data-testid="people-table">
+          <thead>
+            <tr className="text-left text-xs font-medium text-text-2">
+              {canDelete ? (
+                <th className={cn(stickyHead, 'w-10 pl-4 pr-0')}>
+                  <input
+                    type="checkbox"
+                    aria-label="Select everyone shown"
+                    className="h-4 w-4 cursor-pointer accent-accent"
+                    checked={all}
+                    onChange={(e) =>
+                      setTicked(new Set(e.target.checked ? items.map((p) => p.id) : []))
+                    }
+                    data-testid="people-select-all"
+                  />
+                </th>
+              ) : null}
+              <th className={cn(stickyHead, 'w-[30%] px-4')}>Person</th>
+              <th className={stickyHead}>Contact</th>
+              <th className={stickyHead}>Tags</th>
+              <th className={stickyHead}>Open leads</th>
+              <th className={stickyHead}>Last activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((p) => (
+              <tr
+                key={p.id}
+                className="border-t border-border hover:bg-card-2/60"
+                data-testid={`person-row-${p.id}`}
+              >
+                {canDelete ? (
+                  <td className="w-10 py-2.5 pl-4 pr-0">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${p.fullName}`}
+                      className="h-4 w-4 cursor-pointer accent-accent"
+                      checked={ticked.has(p.id)}
+                      onChange={(e) => tick(p.id, e.target.checked)}
+                      data-testid={`person-select-${p.id}`}
+                    />
+                  </td>
+                ) : null}
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/app/w/${workspaceId}/customers/people/${p.id}`}
+                    className="flex items-center gap-3"
+                  >
+                    <Avatar name={p.fullName} seed={p.id} />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium">
+                          {p.fullName}
+                          {p.archivedAt ? (
+                            <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
+                          ) : null}
+                        </span>
+                        {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
+                      </span>
+                      <span className="truncate text-xs text-text-3">
+                        {p.company?.name ?? addressLine(p.address) ?? ''}
+                      </span>
+                    </span>
+                  </Link>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className="flex flex-col">
+                    <span className="text-[13px]">{p.phone ?? ''}</span>
+                    <span className="text-xs text-text-3">{p.email ?? ''}</span>
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className="flex flex-wrap gap-1.5">
+                    {p.tags.map((t) => (
+                      <TagChip key={t.id} name={t.name} color={t.color} />
+                    ))}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  {p.openLeads ? (
+                    <Badge variant="accent">{p.openLeads} open</Badge>
+                  ) : (
+                    <span className="text-[13px] text-text-3">none</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 text-[13px] text-text-2">
+                  {p.lastActivityAt ? relativeTime(p.lastActivityAt) : ''}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ul className="flex flex-col divide-y divide-border md:hidden">
+          {items.map((p) => (
+            <li key={p.id}>
+              <Link
+                href={`/app/w/${workspaceId}/customers/people/${p.id}`}
+                className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-card-2"
+              >
+                <Avatar name={p.fullName} seed={p.id} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-medium">{p.fullName}</span>
+                  <span className="truncate text-xs text-text-3">
+                    {p.company?.name ?? p.phone ?? p.email ?? addressLine(p.address)}
+                  </span>
+                </span>
+                {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
+                {p.openLeads ? <Badge variant="accent">{p.openLeads} open</Badge> : null}
+                <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        {more.cursor ? (
+          <div className="flex justify-center border-t border-border p-3">
+            <Button variant="ghost" size="sm" loading={busy} onClick={loadMore}>
+              Show more
+            </Button>
+          </div>
+        ) : null}
+      </Card>
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="person"
+          ids={picked.map((p) => p.id)}
+          names={picked.map((p) => p.fullName)}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={() => {
+            setTicked(new Set());
+            router.refresh();
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
