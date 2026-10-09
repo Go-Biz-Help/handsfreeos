@@ -13,6 +13,13 @@
 --        read, `waiting` for the AI, `read`, `skipped` when only the person
 --        wrote, and `failed` when the AI's answer couldn't be used. Messages
 --        newer than the last read put it back to `waiting`.
+--
+--        Chats come without the file too: the extension reads Messenger in the
+--        person's browser (decision 2's "Collect from Facebook"), as they open
+--        chats or as it goes through them at a steady pace. Such a chat has no
+--        import (`import_id` null), keeps the chat's number from its link
+--        (`thread_key`) and when it was last read there (`collected_at`). The
+--        same person's chat from the file and from Messenger is one row.
 -- =============================================================================
 
 alter table addon_outreach.file_chats
@@ -25,7 +32,10 @@ alter table addon_outreach.file_chats
   add column prospect boolean,
   add column next_step text check (next_step is null or length(btrim(next_step)) between 1 and 300),
   add column read_at timestamptz,
-  add column person_id uuid references app.people (id) on delete set null;
+  add column person_id uuid references app.people (id) on delete set null,
+  add column thread_key text check (thread_key is null or thread_key ~ '^[A-Za-z0-9._-]{1,64}$'),
+  add column collected_at timestamptz,
+  alter column import_id drop not null;
 
 create index file_chats_waiting_idx on addon_outreach.file_chats (workspace_id, user_id, last_at desc)
   where read_state = 'waiting';

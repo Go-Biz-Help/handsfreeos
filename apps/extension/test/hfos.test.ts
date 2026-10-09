@@ -6,6 +6,7 @@ import { FRIENDS_SAVE_MOST, KEPT_MESSAGES } from '@hfos/core/addons/outreach/lim
 import { describe, expect, it } from 'vitest';
 import type { ChatPage, Person, ProfilePage, ReadResult } from '../src/facebook/types';
 import {
+  chatCollect,
   chatSave,
   friendSet,
   friendsSave,
@@ -16,7 +17,7 @@ import {
   outreachBusinesses,
   profileSave,
 } from '../src/hfos/saves';
-import { resolveWhen } from '../src/hfos/when';
+import { instantOf, resolveWhen } from '../src/hfos/when';
 
 const WS = '6f0a3c1e-2b4d-4e8f-9a1b-3c5d7e9f1a2b';
 const PERSON = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
@@ -65,6 +66,69 @@ const read = (more: Partial<ReadResult>): ReadResult => ({
   warnings: [],
   notes: [],
   ...more,
+});
+
+describe('instantOf', () => {
+  const now = new Date(2026, 9, 5, 15, 30);
+  it.each([
+    ['Today at 10:12 AM', new Date(2026, 9, 5, 10, 12)],
+    ['Yesterday', new Date(2026, 9, 4)],
+    ['Wed 11:02 PM', new Date(2026, 8, 30, 23, 2)],
+    ['Sep 25, 2026, 11:39 PM', new Date(2026, 8, 25, 23, 39)],
+    ['28 September 2025 at 16:05', new Date(2025, 8, 28, 16, 5)],
+    ['3h', new Date(2026, 9, 5, 12, 30)],
+    ['2d', new Date(2026, 9, 3, 15, 30)],
+  ])('“%s” is a moment', (when, at) => {
+    expect(instantOf(when, now)).toEqual(at);
+  });
+  it.each(['Active now', 'Someday', '25:61'])('“%s” isn’t one', (when) => {
+    expect(instantOf(when, now)).toBeNull();
+  });
+});
+
+describe('chatCollect', () => {
+  const now = new Date(2026, 9, 5, 15, 30);
+  const chat = (messages: ChatPage['messages']): ChatPage => ({
+    name: 'Dana Reyes',
+    thread,
+    profile: dana,
+    messages,
+  });
+
+  it('gives each message the time shown above it, and leaves out ones it can’t place', () => {
+    const built = chatCollect(
+      chat([
+        { from: 'me', sender: null, text: 'Hi Dana', when: null },
+        { from: 'them', sender: 'Dana Reyes', text: 'Hey!', when: 'Yesterday at 9:00 AM' },
+        { from: 'unknown', sender: null, text: 'You’re now friends', when: 'Yesterday at 9:00 AM' },
+        { from: 'them', sender: 'Dana Reyes', text: 'Got a minute?', when: 'Today at 10:12 AM' },
+      ]),
+      now,
+    );
+    expect(built).toEqual({
+      name: 'Dana Reyes',
+      thread: { id: thread.id, encrypted: false },
+      profile: dana,
+      messages: [
+        { fromMe: true, text: 'Hi Dana', at: new Date(2026, 9, 4, 9, 0).toISOString() },
+        { fromMe: false, text: 'Hey!', at: new Date(2026, 9, 4, 9, 0).toISOString() },
+        { fromMe: false, text: 'Got a minute?', at: new Date(2026, 9, 5, 10, 12).toISOString() },
+      ],
+    });
+  });
+
+  it('uses the list’s time when the chat shows none, and leaves out group chats', () => {
+    const plain = chat([{ from: 'them', sender: null, text: 'Hello', when: null }]);
+    expect(chatCollect(plain, now)).toBeNull();
+    expect(chatCollect(plain, now, '2h')?.messages[0]?.at).toBe(
+      new Date(2026, 9, 5, 13, 30).toISOString(),
+    );
+    const group = chat([
+      { from: 'them', sender: 'Dana Reyes', text: 'Hi all', when: 'Today at 9:00 AM' },
+      { from: 'them', sender: 'Lee Park', text: 'Hey', when: 'Today at 9:00 AM' },
+    ]);
+    expect(chatCollect(group, now)).toBeNull();
+  });
 });
 
 describe('resolveWhen', () => {

@@ -347,6 +347,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.chat.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-collect-chats':
+      return call(
+        api().POST('/v1/commands/outreach.chats.collect', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-save-friends':
       return call(
         api().POST('/v1/commands/outreach.friends.save', { body: ask.input }),

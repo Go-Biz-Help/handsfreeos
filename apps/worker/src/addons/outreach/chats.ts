@@ -1,8 +1,9 @@
 /**
  * The AI's read of the chats brought in from Facebook's download (docs/outreach.md, decision 3).
  *
- * - The download's last part (`outreach.download.saved`) queues a read of the business's waiting chats, one job per
- *   business, so two files brought in together are read once.
+ * - The download's last part (`outreach.download.saved`), and chats the extension read in Messenger
+ *   (`outreach.chats.collected`), queue a read of the business's waiting chats, one job per business, so chats
+ *   brought in together are read once.
  * - Each read takes a batch, the latest chats first, and asks the model for a summary, the playbooks' tags that fit,
  *   whether they look like a prospect and a next step. Core checks the answer (checkedChatRead) and saves it
  *   (`outreach.chat.read`), which puts them in Contacts when the business's setting says to.
@@ -32,7 +33,7 @@ export const READ_CHATS_JOB = 'outreach.read_chats';
 export const READ_CHATS_BATCH = 20;
 const HOUR = 3_600_000;
 
-/** `outreach.download.saved`: the chats waiting are read now. */
+/** `outreach.download.saved` and `outreach.chats.collected`: the chats waiting are read now. */
 export async function downloadSaved(ctx: AddonEventContext): Promise<void> {
   await asWorker(ctx.db, ctx.scope, (tx) =>
     scheduleAddonJob(

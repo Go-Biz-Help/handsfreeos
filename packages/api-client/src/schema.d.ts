@@ -5657,6 +5657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.chats.collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected.
+         */
+        post: operations["command_outreach_chats_collect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.download.save": {
         parameters: {
             query?: never;
@@ -30892,6 +30912,61 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_chats_collect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    chats: {
+                        messages: {
+                            /** Format: date-time */
+                            at: string;
+                            fromMe: boolean;
+                            text: string;
+                        }[];
+                        name: string;
+                        /** @default null */
+                        profile?: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        } | null;
+                        thread: {
+                            /** @default false */
+                            encrypted?: boolean;
+                            id: string;
+                        };
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        saved: number;
+                        waiting: number;
                     };
                 };
             };
@@ -57063,6 +57138,7 @@ export interface operations {
                             readState: "none" | "waiting" | "read" | "skipped" | "failed";
                             summary: string | null;
                             tags: string[];
+                            threadKey: string | null;
                         }[];
                         /** @enum {string} */
                         contactsFromChats: "everyone" | "tagged" | "prospects";

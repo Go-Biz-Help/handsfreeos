@@ -26,13 +26,20 @@ import {
   ChatsOutput,
   goesInContacts,
   outreachSettings,
+  worthReading,
   type ChatView,
   type ContactsFromChats,
 } from '../chat-read';
+import { ChatsCollectInput, ChatsCollectOutput, mergeRecent } from '../chat-collect';
+import { nameKey } from '../download';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../playbooks';
 import { fileChats, profiles } from '../tables';
-import { inWorkspace, sourceFor } from './common';
+import { inWorkspace, keptProfile, once, sourceFor } from './common';
+
+const DAY = 86_400_000;
+/** Facebook's own start: no message is older. */
+const FIRST_DAY = Date.UTC(2004, 0, 1);
 
 /** Who from the chats goes in Contacts, as the business has it set. */
 async function contactsSetting(ctx: CommandContext | QueryContext): Promise<ContactsFromChats> {
@@ -242,11 +249,12 @@ export const chatsList = defineAddonQuery(outreachAddon, {
       tags: string[];
       prospect: boolean | null;
       next_step: string | null;
+      thread_key: string | null;
     }>(
       ctx.tx,
       sql`select c.id, coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), c.name) as name,
             c.person_id, c.last_at, c.last_from_me, c.messages, c.read_state, c.summary, c.tags, c.prospect,
-            c.next_step
+            c.next_step, c.thread_key
           from addon_outreach.file_chats c left join app.people pp on pp.id = c.person_id
           where ${shown} order by c.last_at desc, c.id
           limit ${CHATS_PAGE} offset ${(page - 1) * CHATS_PAGE}`,
@@ -267,6 +275,7 @@ export const chatsList = defineAddonQuery(outreachAddon, {
         tags: c.tags,
         prospect: c.prospect,
         nextStep: c.next_step,
+        threadKey: c.thread_key,
       })),
       page,
       pages,
@@ -275,5 +284,112 @@ export const chatsList = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const chatCommands = [chatRead] as const;
+export const chatsCollect = defineAddonCommand(outreachAddon, {
+  name: 'outreach.chats.collect',
+  description:
+    'Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.',
+  risk: 1,
+  input: ChatsCollectInput,
+  output: ChatsCollectOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.chats.collected'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const now = changeMoment(ctx.meta);
+    const fine = (at: string) =>
+      Date.parse(at) >= FIRST_DAY && Date.parse(at) <= now.getTime() + DAY;
+    if (!input.chats.every((c) => c.messages.every((m) => fine(m.at))))
+      throw HfosError.rule(
+        'outreach_chat_dates',
+        400,
+        'Some messages in that chat say they were sent after today. Check the date and time on your computer, then read the chat again.',
+      );
+    return once(async () => {
+      let saved = 0;
+      let waiting = 0;
+      for (const c of input.chats) {
+        const key = nameKey(c.name);
+        const profile = c.profile
+          ? await keptProfile(
+              ctx,
+              { platform: input.platform, profile: c.profile, name: c.name },
+              me,
+              now,
+            )
+          : null;
+        const [had] = await ctx.tx
+          .select()
+          .from(fileChats)
+          .where(
+            and(
+              eq(fileChats.workspaceId, ws),
+              eq(fileChats.userId, me),
+              eq(fileChats.platform, input.platform),
+              eq(fileChats.nameKey, key),
+            ),
+          )
+          .for('update');
+        const read = mergeRecent([], c.messages);
+        const recent = mergeRecent(had?.recent ?? [], read);
+        const first = read[0]!;
+        const last = recent[recent.length - 1]!;
+        // Newer words than the last read are read again; older ones (scrolled up to) only fill in.
+        const newer = !had || !had.recent.length || Date.parse(last.at) > had.lastAt.getTime();
+        const changed = !had || JSON.stringify(recent) !== JSON.stringify(had.recent);
+        const readState = newer ? (worthReading(recent) ? 'waiting' : 'skipped') : had.readState;
+        if (!had) {
+          await ctx.tx.insert(fileChats).values({
+            workspaceId: ws,
+            userId: me,
+            platform: input.platform,
+            name: c.name,
+            nameKey: key,
+            firstAt: new Date(first.at),
+            lastAt: new Date(last.at),
+            messages: recent.length,
+            lastFromMe: last.fromMe,
+            profileId: profile?.id ?? null,
+            importId: null,
+            recent,
+            readState,
+            threadKey: c.thread.id,
+            collectedAt: now,
+          });
+        } else {
+          const lastAt = new Date(Math.max(had.lastAt.getTime(), Date.parse(last.at)));
+          await ctx.tx
+            .update(fileChats)
+            .set({
+              firstAt: new Date(Math.min(had.firstAt.getTime(), Date.parse(first.at))),
+              lastAt,
+              lastFromMe:
+                Date.parse(last.at) >= had.lastAt.getTime() ? last.fromMe : had.lastFromMe,
+              messages: Math.max(had.messages, recent.length),
+              profileId: profile?.id ?? had.profileId,
+              recent,
+              readState: changed ? readState : had.readState,
+              threadKey: c.thread.id,
+              collectedAt: now,
+            })
+            .where(eq(fileChats.id, had.id));
+        }
+        if (!changed) continue;
+        saved++;
+        if (readState === 'waiting') waiting++;
+      }
+      if (saved)
+        await ctx.emit({
+          type: 'outreach.chats.collected',
+          entityType: 'workspace',
+          entityId: ws,
+          payload: { platform: input.platform, saved, waiting },
+        });
+      return { saved, waiting };
+    });
+  },
+});
+
+export const chatCommands = [chatRead, chatsCollect] as const;
 export const chatQueries = [chatsList] as const;

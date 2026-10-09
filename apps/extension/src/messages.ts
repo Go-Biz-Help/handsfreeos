@@ -22,6 +22,16 @@ export type FetchAsk =
       readonly waitMs: number;
     };
 
+/**
+ * What the panel asks a Messenger tab while it goes through the person's chats (src/facebook/browse.ts): open one
+ * from the list beside it, or scroll the list for more. The answer says whether it could.
+ */
+export type BrowseAsk =
+  | { readonly type: 'hfos-open-chat'; readonly threadId: string }
+  | { readonly type: 'hfos-scroll-chats' };
+
+export type BrowseAnswer = { readonly ok: boolean };
+
 /** What it answers: how the step went, or the place along the path pressed; an error off the download pages. */
 export type FetchAnswer =
   | { readonly ok: true; readonly result: StepResult; readonly at?: number }

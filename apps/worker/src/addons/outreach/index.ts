@@ -34,8 +34,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
       }
     },
   },
-  // The chats a download brought in, read by the AI (./chats.ts).
-  subscribers: { 'outreach.download.saved': downloadSaved },
+  // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts).
+  subscribers: {
+    'outreach.download.saved': downloadSaved,
+    'outreach.chats.collected': downloadSaved,
+  },
   jobs: { [READ_CHATS_JOB]: readChatsJob },
   // AI help on a playbook's parts, from the builder (./assist.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist },

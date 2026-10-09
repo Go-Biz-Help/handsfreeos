@@ -232,6 +232,8 @@ export const ChatsOutput = z.object({
       tags: z.array(z.string()),
       prospect: z.boolean().nullable(),
       nextStep: z.string().nullable(),
+      /** The chat's number from its link, once it's been read in Messenger: it opens there. */
+      threadKey: z.string().nullable(),
     }),
   ),
   page: count.min(1),

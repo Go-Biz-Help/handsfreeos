@@ -80,9 +80,11 @@ export const outreachAddon = defineAddon({
       'outreach.friend.marked',
       'outreach.download.saved',
       'outreach.chat.read',
+      'outreach.chats.collected',
     ],
-    // The last part of a download starts the AI's read of its chats (apps/worker/src/addons/outreach/chats.ts).
-    consumes: ['outreach.download.saved'],
+    // The last part of a download, and chats read in Messenger, start the AI's read of the chats
+    // (apps/worker/src/addons/outreach/chats.ts).
+    consumes: ['outreach.download.saved', 'outreach.chats.collected'],
   },
   jobs: ['outreach.read_chats'],
   // Who from the chats brought in goes in Contacts (./chat-read.ts): Add-ons → Social Outreach.

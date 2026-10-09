@@ -39,6 +39,7 @@ import {
   savedChip,
   startHfos,
 } from './hfos';
+import { collectOpen, refreshChats, startChats } from './chats';
 import { refreshFacebookFile, startFacebookFile } from './fbfile';
 import { refreshToday, startToday } from './today';
 
@@ -367,6 +368,7 @@ function resultView(result: ReadResult): HTMLElement[] {
 const accountBox = document.querySelector<HTMLElement>('#account')!;
 const todayBox = document.querySelector<HTMLElement>('#today')!;
 const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
+const chatsBox = document.querySelector<HTMLElement>('#chats')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -492,6 +494,7 @@ async function read(quiet = false): Promise<void> {
     results.replaceChildren(...resultView(answer.result));
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
     void lookUp(answer.result);
+    void collectOpen(answer.result);
   } catch (error) {
     if (seq !== reads || quiet) return;
     shown = '';
@@ -574,7 +577,16 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 async function start(): Promise<void> {
-  void startHfos({ into: accountBox, say, redraw, accountChanged: () => void refreshToday() });
+  void startHfos({
+    into: accountBox,
+    say,
+    redraw,
+    accountChanged: () => {
+      void refreshToday();
+      void refreshChats();
+    },
+  });
+  void startChats(chatsBox);
   startToday(todayBox);
   void startFacebookFile(fileBox);
   windowId = (await chrome.windows.getCurrent()).id;

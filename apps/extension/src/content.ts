@@ -6,9 +6,10 @@
  * and Confirm or Delete on a friend request they got: src/facebook/actions.ts) and tells the extension's background,
  * which notes them in HandsFreeOS; and it tells it who they open from a group. Only the person's own clicks and keys
  * count, never the page's, and never what they wrote. The switch in the panel turns this off. It never changes the
- * page, clicks, scrolls, or sends anything on Facebook, with one exception: on Facebook's own download pages, once the
- * person presses Get my Facebook file in the panel, it presses the buttons that ask for their file and download it,
- * one step at a time as the panel asks (src/facebook/fetch.ts). It never types there.
+ * page, clicks, scrolls, or sends anything on Facebook, with two exceptions, each only once the person asks in the
+ * panel: on Facebook's own download pages it presses the buttons that ask for their file and download it, one step at
+ * a time (src/facebook/fetch.ts); and in Messenger, for Read my chats, it opens their chats one at a time from the
+ * list beside it and scrolls that list for more (src/facebook/browse.ts). It never types or sends.
  */
 import {
   answerFromClick,
@@ -18,6 +19,7 @@ import {
   type Answered,
   type Step,
 } from './facebook/actions';
+import { openChat, scrollChats } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
 import { readPage } from './facebook/page';
@@ -26,6 +28,8 @@ import {
   WATCH,
   type Answer,
   type Ask,
+  type BrowseAnswer,
+  type BrowseAsk,
   type FetchAnswer,
   type FetchAsk,
   type Note,
@@ -80,8 +84,16 @@ function matters(records: readonly MutationRecord[]): boolean {
 if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
   chrome.runtime.onMessage.addListener(
-    (ask: Ask | FetchAsk, sender, respond: (answer: Answer) => void) => {
+    (ask: Ask | FetchAsk | BrowseAsk, sender, respond: (answer: Answer) => void) => {
       if (sender.id !== chrome.runtime.id) return false;
+      if (ask.type === 'hfos-open-chat' || ask.type === 'hfos-scroll-chats') {
+        const ok =
+          ask.type === 'hfos-open-chat'
+            ? openChat(document, location.href, ask.threadId)
+            : scrollChats(document, location.href);
+        (respond as (answer: BrowseAnswer) => void)({ ok });
+        return false;
+      }
       if (ask.type === 'hfos-fetch-step' || ask.type === 'hfos-fetch-path') {
         void fetchStep(ask).then(respond as (answer: FetchAnswer) => void);
         return true;

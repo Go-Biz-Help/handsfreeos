@@ -23,6 +23,9 @@ export type ProfileInput = Body<'/v1/commands/outreach.profile.save'>;
 export type ProfileSaved = Ok<'/v1/commands/outreach.profile.save'>;
 export type ChatInput = Body<'/v1/commands/outreach.chat.save'>;
 export type ChatSaved = Ok<'/v1/commands/outreach.chat.save'>;
+/** Chats read in Messenger for the AI (packages/core/src/addons/outreach/chat-collect.ts). */
+export type ChatsCollectInput = Body<'/v1/commands/outreach.chats.collect'>;
+export type ChatsCollected = Ok<'/v1/commands/outreach.chats.collect'>;
 export type Me = Ok<'/v1/queries/account.me'>;
 /** A step noted on Facebook, and the day's numbers (packages/core/src/addons/outreach/activity.ts). */
 export type TouchInput = Body<'/v1/commands/outreach.touch.save'>;
@@ -106,6 +109,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-lookup'; readonly input: LookupInput }
   | { readonly type: 'hfos-save-profile'; readonly input: ProfileInput }
   | { readonly type: 'hfos-save-chat'; readonly input: ChatInput }
+  | { readonly type: 'hfos-collect-chats'; readonly input: ChatsCollectInput }
   | { readonly type: 'hfos-save-friends'; readonly input: FriendsSaveInput }
   | { readonly type: 'hfos-set-friend'; readonly input: FriendSetInput }
   | { readonly type: 'hfos-save-download'; readonly input: DownloadSaveInput }
@@ -124,6 +128,7 @@ export interface HfosValues {
   readonly 'hfos-lookup': Lookup;
   readonly 'hfos-save-profile': ProfileSaved;
   readonly 'hfos-save-chat': ChatSaved;
+  readonly 'hfos-collect-chats': ChatsCollected;
   readonly 'hfos-save-friends': FriendsSaved;
   readonly 'hfos-set-friend': FriendSet;
   readonly 'hfos-save-download': DownloadSaved;
@@ -142,6 +147,7 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-lookup',
   'hfos-save-profile',
   'hfos-save-chat',
+  'hfos-collect-chats',
   'hfos-save-friends',
   'hfos-set-friend',
   'hfos-save-download',

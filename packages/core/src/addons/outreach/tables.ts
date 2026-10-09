@@ -272,7 +272,8 @@ export const fileChats = addonOutreach.table(
     messages: integer('messages').notNull(),
     lastFromMe: boolean('last_from_me').notNull(),
     profileId: uuid('profile_id'),
-    importId: uuid('import_id').notNull(),
+    /** The file it last came in with; none for a chat only read in Messenger. */
+    importId: uuid('import_id'),
     recent: jsonb('recent').notNull().default([]).$type<DownloadMessage[]>(),
     readState: text('read_state').notNull().default('none').$type<ChatReadState>(),
     summary: text('summary'),
@@ -284,6 +285,10 @@ export const fileChats = addonOutreach.table(
     nextStep: text('next_step'),
     readAt: ts('read_at'),
     personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+    /** The chat's number from its link, once it's been read in Messenger. */
+    threadKey: text('thread_key'),
+    /** When the extension last read it in Messenger. */
+    collectedAt: ts('collected_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

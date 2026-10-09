@@ -14,6 +14,7 @@ import {
   MESSAGE_MOST,
   NAME_MOST,
   PROFILE_ID,
+  RECENT_MESSAGES,
   THREAD_KEY,
   USERNAME,
   WHEN_MOST,
@@ -25,6 +26,7 @@ import { profileKey } from '../facebook/urls';
 import type {
   Business,
   ChatInput,
+  ChatsCollectInput,
   FriendNoteInput,
   FriendSetInput,
   FriendsSaveInput,
@@ -32,7 +34,7 @@ import type {
   ProfileInput,
   TouchInput,
 } from './messages';
-import { resolveWhen } from './when';
+import { instantOf, resolveWhen } from './when';
 
 type ChatMessage = ChatInput['messages'][number];
 
@@ -151,6 +153,44 @@ export function chatSave(
     kept.unshift(message);
   }
   return { ok: true, input: { ...input, messages: kept }, left: messages.length - kept.length };
+}
+
+type Collected = ChatsCollectInput['chats'][number];
+
+/**
+ * The one-to-one chat on the page, for the AI to read (packages/core/src/addons/outreach/chat-collect.ts): its latest
+ * messages that say whose they are, each with the moment it was sent. A message carries the last time shown above it;
+ * ones above the first time shown take that one; with no time on the page at all, `listed` (when the list of chats
+ * says the last message was) stands for them. Null when it isn't one to read: a group chat, or no messages or time.
+ */
+export function chatCollect(chat: ChatPage, now: Date, listed?: string | null): Collected | null {
+  if (!chat.thread || !THREAD_KEY.test(chat.thread.id)) return null;
+  const name = chat.name ? clip(chat.name, NAME_MOST) : '';
+  if (!name) return null;
+  // A group: more than one other person wrote.
+  const senders = new Set(
+    chat.messages.filter((m) => m.from === 'them' && m.sender).map((m) => m.sender!.toLowerCase()),
+  );
+  if (senders.size > 1) return null;
+  const fallback = listed ? instantOf(listed, now) : null;
+  let at: Date | null = null;
+  const timed = chat.messages.flatMap((m) => {
+    const text = clipText(m.text, MESSAGE_MOST);
+    if (m.when) at = instantOf(m.when, now) ?? at;
+    return m.from === 'unknown' || !text ? [] : [{ fromMe: m.from === 'me', text, at }];
+  });
+  const first = timed.find((m) => m.at)?.at ?? fallback;
+  if (!first || !timed.length) return null;
+  const latest = now.getTime();
+  const messages = timed
+    .map((m) => ({ ...m, at: new Date(Math.min((m.at ?? first).getTime(), latest)).toISOString() }))
+    .slice(-RECENT_MESSAGES);
+  return {
+    name,
+    thread: { id: chat.thread.id, encrypted: chat.thread.encrypted },
+    profile: chat.profile ? ref(chat.profile) : null,
+    messages,
+  };
 }
 
 /** A Facebook address as HandsFreeOS takes one: on www.facebook.com, over https, and not too long. */

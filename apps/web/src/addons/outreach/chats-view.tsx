@@ -28,7 +28,7 @@ import type { Chat, Chats } from './types';
 const EMPTY: Record<ChatView, { readonly title: string; readonly body: string }> = {
   prospects: {
     title: 'No likely prospects yet',
-    body: 'Bring in your Facebook file on the Friends tab. HandsFreeOS reads each chat’s latest messages and shows here the people who look like they fit your playbooks.',
+    body: 'Open Messenger with the extension’s panel and press Read my chats, or bring in your Facebook file on the Friends tab. HandsFreeOS reads each chat’s latest messages and shows here the people who look like they fit your playbooks.',
   },
   tagged: {
     title: 'Nobody tagged yet',
@@ -36,7 +36,7 @@ const EMPTY: Record<ChatView, { readonly title: string; readonly body: string }>
   },
   read: {
     title: 'No chats read yet',
-    body: 'Bring in your Facebook file on the Friends tab, with your chat backup, and each chat is read for you.',
+    body: 'Open Messenger with the extension’s panel and press Read my chats, or bring in your Facebook file on the Friends tab, and each chat is read for you.',
   },
   waiting: {
     title: 'Every chat is read',
@@ -195,8 +195,8 @@ export function ChatsView({
             <h3 className="text-[15px] font-semibold">Your chats are your own</h3>
             <p className="mt-1.5 text-[13px] text-text-2">
               Only you see your chats here. HandsFreeOS keeps each one’s latest 20 messages for the
-              AI to read, and never sends anything on Facebook. Bring your file in again to read
-              newer messages.
+              AI to read, and never sends anything on Facebook. Newer messages come in as the
+              extension reads your chats in Messenger, or when you bring your file in again.
             </p>
           </Card>
         </aside>
@@ -223,6 +223,19 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
           )}
           <div className="text-[12.5px] text-text-3">
             {last} · {c.messages.toLocaleString()} {c.messages === 1 ? 'message' : 'messages'}
+            {c.threadKey ? (
+              <>
+                {' · '}
+                <a
+                  href={`https://www.facebook.com/messages/t/${encodeURIComponent(c.threadKey)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent-text hover:underline"
+                >
+                  Open in Messenger
+                </a>
+              </>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
