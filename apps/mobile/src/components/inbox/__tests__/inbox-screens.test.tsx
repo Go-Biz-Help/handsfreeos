@@ -20,7 +20,7 @@ import HfosPhone from '../../../../modules/hfos-phone';
 /**
  * The inbox's screens with React Native Testing Library: a row in the list, the list's boxes (email's Other mail and
  * Spam, and My mail, M19), the conversation's Details and actions (a row's action runs once the sheet is gone; moving
- * email between folders and sharing one's own), the composer (offline words, the From line, photos, a note that turns
+ * email between folders, sharing one's own, and an owner's Delete for good…), the composer (offline words, the From line, photos, a note that turns
  * the box off), and My cell phone (Verify my cell, the press of 1 arriving through the copy, the contacts card with
  * Add to Contacts).
  */
@@ -466,6 +466,24 @@ describe('Details and actions', () => {
     expect(onAssign).not.toHaveBeenCalled();
     await act(async () => dismiss());
     expect(onAssign).toHaveBeenCalledTimes(1);
+  });
+
+  // Deleting for good (the Deleted bin, 20261027000400): last, for whoever may, and only once the sheet is gone.
+  it('offers Delete for good… last, to whoever may delete', async () => {
+    const onDelete = jest.fn();
+    await render(<Page onAssign={jest.fn()} onClose={jest.fn()} more={{ onDelete }} />);
+    const dismiss = screen.root!.props.onDismiss as () => void;
+    expect(screen.getByTestId('sheet-delete')).toHaveTextContent('Delete for good…');
+    await fireEvent.press(screen.getByTestId('sheet-delete'));
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(onDelete).not.toHaveBeenCalled();
+    await act(async () => dismiss());
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves Delete for good… out for everyone else', async () => {
+    await render(<Page onAssign={jest.fn()} onClose={jest.fn()} />);
+    expect(screen.queryByTestId('sheet-delete')).toBeNull();
   });
 
   it('moves email between the Inbox, Other mail and Spam, once or for the sender (M19)', async () => {

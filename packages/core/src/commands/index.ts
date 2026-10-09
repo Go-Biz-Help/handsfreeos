@@ -111,6 +111,7 @@ import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
 import { customRecordTeamCommands } from './custom-record-team';
 import { recordHoldCommands } from './record-hold';
+import { binCommands } from './bin';
 import { safetyCommands } from './safety';
 import { supportAccessCommands } from './support-access';
 import { addonAlertCommands } from './addon-alert';
@@ -123,6 +124,7 @@ export {
 } from './support-access';
 export { customRecordAssign, customRecordUnassign } from './custom-record-team';
 export { recordHoldLift, recordHoldPlace } from './record-hold';
+export { appointmentDelete, binEmpty, binRestore, conversationDelete, personDelete } from './bin';
 export {
   safetyCheckIn,
   safetyCheckOut,
@@ -1018,6 +1020,8 @@ export const commands: readonly CommandDef[] = [
   ...customRecordTeamCommands,
   // Legal holds on records (Real Estate round six).
   ...recordHoldCommands,
+  // Deleting customers, conversations and bookings for good, through the 30-day Deleted bin (20261027000400).
+  ...binCommands,
   // Check-ins: a person's safety when they're alone at a customer's place (round six).
   ...safetyCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).

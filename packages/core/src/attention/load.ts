@@ -1161,7 +1161,9 @@ async function loadEstimates(
         join app.people p on p.id = e.person_id
         left join app.companies c on c.id = p.company_id
         where e.workspace_id = ${workspaceId}
-          and (e.id = any(${uuidArray(ids)}) ${all ? sql`or e.status = 'sent'` : sql``})`,
+          and (e.id = any(${uuidArray(ids)}) ${all ? sql`or e.status = 'sent'` : sql``})
+          -- Nothing to chase for a customer deleted (in the Deleted bin, or only a name on their bills).
+          and p.bin_item_id is null and p.erased_at is null`,
   );
   const out = new Map<string, EstimateInfo>();
   for (const r of list)
@@ -1250,7 +1252,8 @@ async function loadInvoices(
               all
                 ? sql`or (i.status in ('sent', 'partly_paid', 'overdue') and i.due_on is not null)`
                 : sql``
-            })`,
+            })
+          and p.bin_item_id is null and p.erased_at is null`,
   );
   const out = new Map<string, InvoiceInfo>();
   for (const r of list)

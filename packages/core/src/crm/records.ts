@@ -1,4 +1,4 @@
-import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 import { companies, people, tags, recordTags, users, workspaces } from '@hfos/db/schema';
 import type { Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
@@ -71,12 +71,51 @@ export async function requirePerson(tx: Tx, workspaceId: string, personId: strin
   const [p] = await tx
     .select()
     .from(people)
-    .where(and(eq(people.id, personId), eq(people.workspaceId, workspaceId)));
-  if (!p)
-    throw HfosError.notFound(
-      'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+    .where(
+      and(
+        eq(people.id, personId),
+        eq(people.workspaceId, workspaceId),
+        isNull(people.binItemId),
+        isNull(people.erasedAt),
+      ),
     );
+  if (!p) throw await personGone(tx, workspaceId, personId);
   return p;
+}
+
+/**
+ * Why a customer isn't there: in the Deleted bin (20261027000400), where an owner can bring them back; deleted for
+ * good, with only the name their bills keep; or not there at all. Their row stays readable for their bills.
+ */
+export async function personGone(
+  tx: Tx,
+  workspaceId: string,
+  personId: string,
+): Promise<HfosError> {
+  const [p] = await tx
+    .select({
+      firstName: people.firstName,
+      lastName: people.lastName,
+      binItemId: people.binItemId,
+      erasedAt: people.erasedAt,
+    })
+    .from(people)
+    .where(and(eq(people.id, personId), eq(people.workspaceId, workspaceId)));
+  if (p?.binItemId)
+    return HfosError.rule(
+      'person_in_bin',
+      404,
+      `${fullName(p.firstName, p.lastName) || 'This customer'} was deleted. An owner can bring them back from Settings → Deleted bin.`,
+    );
+  if (p?.erasedAt)
+    return HfosError.rule(
+      'person_deleted',
+      404,
+      'This customer was deleted for good. Only their name is kept, on their bills.',
+    );
+  return HfosError.notFound(
+    'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+  );
 }
 export async function requireCompany(tx: Tx, workspaceId: string, companyId: string) {
   const [c] = await tx

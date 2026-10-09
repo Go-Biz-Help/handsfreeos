@@ -1,6 +1,7 @@
 'use client';
 import {
   addDays,
+  BIN_WORDS,
   can,
   formatDuration,
   localInstant,
@@ -16,6 +17,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Trash2,
   Truck,
   UserX,
   X,
@@ -24,6 +26,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { MessageSheet } from '@/components/inbox/message-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -48,7 +51,7 @@ import { telHref } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { AddAttendeeDialog } from './add-attendee-dialog';
 import { firstName, holdOf, statusOf, useNow } from './appt';
-import { CancelDialog } from './cancel-dialog';
+import { CancelDialog, tellLabelOf } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
 import { ReassignDialog } from './reassign-dialog';
@@ -240,7 +243,9 @@ export function AppointmentSheet({
   const [appt, setAppt] = useState<AppointmentDetail | null>(null);
   const [missing, setMissing] = useState(false);
   const [config, setConfig] = useState<CalendarConfig | null>(null);
-  const [action, setAction] = useState<'reschedule' | 'cancel' | 'reassign' | 'add' | null>(null);
+  const [action, setAction] = useState<
+    'reschedule' | 'cancel' | 'reassign' | 'add' | 'delete' | null
+  >(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<'sms' | 'email' | null>(null);
 
@@ -1038,6 +1043,21 @@ export function AppointmentSheet({
                   </span>
                 )}
               </div>
+              {/* Deleting for good, through the 30-day Deleted bin (records.delete). */}
+              {can(myPermissions, 'records.delete') ? (
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-danger-text hover:text-danger-text"
+                    onClick={() => setAction('delete')}
+                    data-testid="sheet-delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {BIN_WORDS.menu}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
         </SheetContent>
@@ -1065,6 +1085,22 @@ export function AppointmentSheet({
           onDone={() => {
             setAction(null);
             changed();
+          }}
+        />
+      ) : null}
+      {appt && action === 'delete' ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="appointment"
+          ids={[appt.id]}
+          names={[appt.title]}
+          tellLabel={tellLabelOf(appt)}
+          open
+          onOpenChange={(o) => !o && setAction(null)}
+          onDeleted={() => {
+            setAction(null);
+            onChanged?.();
+            onClose();
           }}
         />
       ) : null}

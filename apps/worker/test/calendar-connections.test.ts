@@ -6,6 +6,9 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import {
+  appointmentDelete,
+  binEmpty,
+  binRestore,
   calendarConnectionConnect,
   calendarConnectionDisconnect,
   calendarConnectionSyncNow,
@@ -553,6 +556,58 @@ describe('appointments in people’s calendars', () => {
     await sync(visit);
     expect(await eventsFor(outlook, visit)).toHaveLength(0);
     expect(await eventsFor(google, visit)).toHaveLength(1);
+  });
+});
+
+describe('a booking deleted for good', () => {
+  it('leaves the calendar, comes back with it, and is emptied once it has left', async () => {
+    // Last week's visit, still on the calendar.
+    const visit = await book('Boiler service', at(-7, 14), at(-7, 15), [owner.id]);
+    await sync(visit);
+    expect(await eventsFor(google, visit)).toHaveLength(1);
+
+    const remove = async () => {
+      const { output } = await executeCommand(
+        api(),
+        appointmentDelete,
+        { workspaceId, appointmentId: visit, notify: false },
+        actor(owner),
+        meta(),
+      );
+      await drain();
+      return output.deleted[0]!.binItemId;
+    };
+    const first = await remove();
+    expect(await eventsFor(google, visit)).toHaveLength(0);
+    expect((await written(visit, owner.id))?.providerEventId).toBeNull();
+
+    // Brought back: in the calendar again.
+    await executeCommand(
+      api(),
+      binRestore,
+      { workspaceId, binItemId: first },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect(await eventsFor(google, visit)).toHaveLength(1);
+
+    // Deleted again, then "Delete now": the booking and what said where its event was are gone for good.
+    const second = await remove();
+    await executeCommand(
+      api(),
+      binEmpty,
+      { workspaceId, binItemIds: [second] },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect(await eventsFor(google, visit)).toHaveLength(0);
+    expect(await rows(admin(), sql`select id from app.appointments where id = ${visit}`)).toEqual(
+      [],
+    );
+    expect(await written(visit, owner.id)).toBeUndefined();
+    expect(await rows(admin(), sql`select id from app.bin_items where id = ${second}`)).toEqual([]);
   });
 });
 

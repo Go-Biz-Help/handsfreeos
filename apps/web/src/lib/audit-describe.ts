@@ -194,6 +194,15 @@ function describeAction(e: AuditEntry): string {
       return `restored ${name(e)}`;
     case 'person.merge':
       return `merged ${s(e.before?.mergedName) || 'a duplicate'} into ${name(e)}`;
+    // Deleting for good, through the Deleted bin (20261027000400): these lines keep the name once it's emptied.
+    case 'person.delete':
+    case 'conversation.delete':
+    case 'appointment.delete':
+      return binDeleteSentence(e);
+    case 'bin.restore':
+      return `brought ${binThing(e)} back from the Deleted bin`;
+    case 'bin.empty':
+      return `deleted ${binThing(e)} for good, from the Deleted bin`;
     case 'tag.create':
       return `created the tag ${name(e)}`;
     case 'tag.update':
@@ -1787,6 +1796,23 @@ function emailReceiveSentence(e: AuditEntry): string {
 }
 
 const name = (e: AuditEntry) => s(e.after?.name) || s(e.before?.name) || e.entityName || 'a record';
+/** A customer by name, "the conversation with …" or "the booking …", as the Deleted bin lists them. */
+const binThing = (e: AuditEntry) =>
+  e.entityType === 'conversation'
+    ? `the conversation with ${name(e)}`
+    : e.entityType === 'appointment'
+      ? `the booking ${name(e)}`
+      : name(e);
+/** What a delete put in the bin, or a booking still to come it cancelled first (or a class seat it gave up). */
+function binDeleteSentence(e: AuditEntry): string {
+  if (e.after?.deleted) return `deleted ${binThing(e)}`;
+  const on = s(e.after?.startsAt) ? ` on ${when(e.after?.startsAt)}` : '';
+  if (e.entityType === 'appointment' && s(e.before?.status))
+    return `cancelled ${apptTitle(e)}${forWhom(e)}${on} before deleting ${e.action === 'person.delete' ? 'them' : 'it'}`;
+  if (e.entityType === 'appointment')
+    return `took a customer off ${apptTitle(e)}${on} before deleting them`;
+  return `deleted ${binThing(e)}`;
+}
 const title = (e: AuditEntry) => s(e.after?.title) || s(e.before?.title) || 'a lead';
 const fields = (e: AuditEntry) =>
   Object.keys(e.after ?? {})

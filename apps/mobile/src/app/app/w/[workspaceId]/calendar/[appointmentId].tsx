@@ -1,4 +1,5 @@
 import {
+  BIN_WORDS,
   depositInvoiceOf,
   depositWhen,
   depositWords,
@@ -9,6 +10,7 @@ import {
   heldNote,
   heldSection,
   holdOf,
+  holds,
   isNotBookedYet,
   jobInvoiceOf,
   jobInvoiceWords,
@@ -32,7 +34,8 @@ import { Linking, Platform, View } from 'react-native';
 import { cancelVisit, confirmSeat, setVisitStatus } from '@/calendar/actions';
 import { addressOf, useAppointment, useNow, useVisitInvoices } from '@/calendar/use-calendar';
 import { useCalendarZone } from '@/calendar/use-calendar';
-import { Check, CircleDollarSign, MapPin, ShieldCheck, Undo2 } from '@/components/icons';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
+import { Check, CircleDollarSign, MapPin, ShieldCheck, Trash, Undo2 } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { VisitJob } from '@/components/calendar/visit-job';
 import { CheckInSheet } from '@/components/safety/check-in-sheet';
@@ -44,6 +47,8 @@ import { Card } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useGrants } from '@/lib/grants';
+import { useNetwork } from '@/lib/network';
 
 /**
  * **One visit** (the canvas's "A visit's sheet"): what it is and when, who it is for, where with Directions, who is
@@ -51,7 +56,8 @@ import { toast } from '@/components/ui/toast';
  *
  * What can be done here works with no signal too: confirming that a customer said they'll be there
  * (`attendee.confirm`), and marking the visit done or a no-show (`appointment.set_status`). Calling it off reaches the
- * customer, so it waits for signal and goes by itself within half an hour.
+ * customer, so it waits for signal and goes by itself within half an hour. An owner deletes it for good, with signal
+ * (the Deleted bin, 20261027000400); one still to come is cancelled first, telling its customer or not.
  *
  * Moving a visit and editing its details are the web's: this screen links out to them.
  */
@@ -65,6 +71,9 @@ export default function Appointment() {
   const [cancelling, setCancelling] = React.useState(false);
   const [checkingIn, setCheckingIn] = React.useState(false);
   const [working, setWorking] = React.useState(false);
+  const canDelete = holds(useGrants(), 'records.delete');
+  const { online } = useNetwork();
+  const [deleting, setDeleting] = React.useState(false);
 
   if (!a)
     return (
@@ -324,6 +333,17 @@ export default function Appointment() {
         </Text>
       ) : null}
 
+      {canDelete ? (
+        <Button
+          variant="ghostDanger"
+          icon={Trash}
+          onPress={() => (online ? setDeleting(true) : toast.error(BIN_WORDS.offline))}
+          testID="appointment-delete"
+        >
+          {BIN_WORDS.menu}
+        </Button>
+      ) : null}
+
       <CheckInSheet
         open={checkingIn}
         onClose={() => setCheckingIn(false)}
@@ -350,6 +370,21 @@ export default function Appointment() {
             notify ? 'Cancelled. The customer is being told.' : 'Cancelled. Nobody was told.',
           );
           setCancelling(false);
+        }}
+      />
+      <DeleteSheet
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        workspaceId={business.id}
+        kind="appointment"
+        ids={[appointmentId]}
+        names={[a.title]}
+        tellFirst={
+          booked.length === 0 ? undefined : seat ? (seat.full_name.split(' ')[0] ?? null) : null
+        }
+        onDeleted={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace(businessHref(business.id, 'calendar') as Href);
         }}
       />
     </Screen>

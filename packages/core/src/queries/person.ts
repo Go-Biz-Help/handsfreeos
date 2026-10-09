@@ -1,8 +1,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { personIsClient } from '../crm/clients';
 import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contact-points';
-import { addressOut, fullName, phoneOut, tagsByRecord } from '../crm/records';
-import { HfosError } from '../errors';
+import { addressOut, fullName, personGone, phoneOut, tagsByRecord } from '../crm/records';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import {
@@ -110,7 +109,9 @@ const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
   from app.people p
   left join app.users u on u.id = p.owner_user_id
   left join app.companies c on c.id = p.company_id
-  where p.workspace_id = ${workspaceId}`;
+  where p.workspace_id = ${workspaceId}
+    -- Not in the Deleted bin, nor the name a deleted customer's bills keep (20261027000400).
+    and p.bin_item_id is null and p.erased_at is null`;
 
 export const personList = defineQuery({
   name: 'person.list',
@@ -166,10 +167,7 @@ export const personGet = defineQuery({
       ctx.tx,
       sql`${base(input.workspaceId, 'name')} and p.id = ${input.personId}`,
     );
-    if (!row)
-      throw HfosError.notFound(
-        'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
-      );
+    if (!row) throw await personGone(ctx.tx, input.workspaceId, input.personId);
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'person', [row.id]);
     // The fields this business invented, only here: a list of fifty customers needn't carry them.
     const [values] = await rows<{

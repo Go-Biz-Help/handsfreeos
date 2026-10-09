@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, people } from '@hfos/db/schema';
 import { companyIsClient } from '../crm/clients';
@@ -154,10 +154,11 @@ export const companyGet = defineQuery({
       sql`select ${TEAM('c')} as team from app.companies c where c.id = ${c.id}`,
     );
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'company', [c.id]);
+    // Not those deleted (in the Deleted bin, 20261027000400).
     const members = await ctx.tx
       .select()
       .from(people)
-      .where(eq(people.companyId, c.id))
+      .where(and(eq(people.companyId, c.id), isNull(people.binItemId), isNull(people.erasedAt)))
       .orderBy(people.lastName, people.firstName);
     return {
       company: {

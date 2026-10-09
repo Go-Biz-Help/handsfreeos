@@ -418,9 +418,13 @@ function eventFor(
 const fingerprintOf = (a: { updatedAt: Date; status: string }, staff: Iterable<string>) =>
   `${a.updatedAt.toISOString()}|${a.status}|${[...staff].sort().join(',')}`;
 
-/** Everything the write-through needs, read in one go as it is now. */
+/**
+ * Everything the write-through needs, read in one go as it is now. A booking in the Deleted bin (20261027000400) is
+ * read too, so its events come out of people's calendars.
+ */
 async function readAppointment(s: WorkerServices, scope: TenantScope, appointmentId: string) {
   return asWorker(s.db, scope, async (tx) => {
+    await tx.execute(sql`select set_config('app.read_bin', 'on', true)`);
     const [a] = await tx.select().from(appointments).where(eq(appointments.id, appointmentId));
     if (!a) return null;
     const [cal] = await tx
@@ -566,9 +570,11 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
     const conn = connections.find((c) => c.userId === userId) ?? null;
     const row = written.find((w) => w.userId === userId) ?? null;
     const onIt = staff.has(userId);
-    // A completed visit keeps its event as it is; a cancelled one, a no-show or a reassigned one loses it.
-    const write = onIt && a.status === 'scheduled';
-    const remove = !onIt || a.status === 'cancelled' || a.status === 'no_show';
+    // A completed visit keeps its event as it is; a cancelled one, a no-show, a reassigned one or one deleted (in
+    // the Deleted bin) loses it.
+    const binned = a.binItemId !== null;
+    const write = onIt && a.status === 'scheduled' && !binned;
+    const remove = !onIt || a.status === 'cancelled' || a.status === 'no_show' || binned;
     // The event is in this connection's calendar: written through it, or through an earlier connection to the
     // same account.
     const here =

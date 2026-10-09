@@ -65,6 +65,8 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'appointment.cancelled',
   'appointment.completed',
   'appointment.no_show',
+  // Deleted for good: its cards already went with it (private.bin_let_go), and this clears anything left.
+  'appointment.deleted',
   'attendee.added',
   'attendee.removed',
   'attendee.rescheduled',

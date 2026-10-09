@@ -93,6 +93,7 @@ export default async function ContactsPage({
         companies={companies}
         counts={{ people: summary.people, companies: summary.companies }}
         canImport={can(got.workspace.permissions, 'records.import')}
+        canDelete={can(got.workspace.permissions, 'records.delete')}
         kinds={kinds}
         kind={kind}
         records={records}

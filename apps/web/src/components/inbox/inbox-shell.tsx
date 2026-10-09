@@ -1,5 +1,6 @@
 'use client';
 import {
+  BIN_WORDS,
   boxLabel,
   can,
   CONVERSATION_STATUSES,
@@ -7,13 +8,14 @@ import {
   inboxEmptyWords,
   MAIL_BOX_NAMES,
   PRIVATE_THREAD_WORDS,
+  rowName,
   STATUS_LABELS,
   unreadFilterLabel,
   unreadLabel,
   type InboxBoxKey,
   type InboxMailbox,
 } from '@hfos/core';
-import { Lock, Search, SquarePen } from 'lucide-react';
+import { Lock, Search, SquarePen, Trash2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   createContext,
@@ -24,6 +26,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
@@ -137,6 +140,24 @@ export function InboxShell({
   const counts = summary?.open ?? { mine: 0, unassigned: 0, all: 0 };
   const waitThreshold = summary?.waitingThresholdMinutes ?? 10;
   const teammate = useTeammateBrief(workspaceId);
+  // Deleting for good (records.delete): pick rows, then delete each with every lane it carries, as it shows them.
+  const canDelete = can(permissions, 'records.delete');
+  const [picking, setPicking] = useState(false);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [deleting, setDeleting] = useState(false);
+  const picked = list.items.filter((c) => ticked.has(c.id));
+  const laneIds = (c: ConversationSummary) => (c.lanes?.length ? c.lanes.map((l) => l.id) : [c.id]);
+  const stopPicking = () => {
+    setPicking(false);
+    setTicked(new Set());
+  };
+  const tick = (id: string) =>
+    setTicked((was) => {
+      const next = new Set(was);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const withDrafts = useConversationsWithDrafts(workspaceId, !!teammate);
   const needsPerson = summary?.needsPerson ?? 0;
   const aiCount = summary?.ai ?? 0;
@@ -340,11 +361,24 @@ export function InboxShell({
                 }
               />
             ) : null}
-            <UnreadToggle
-              on={unread}
-              count={unreadCount}
-              onToggle={() => setFilter({ unread: unread ? null : '1' })}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <UnreadToggle
+                on={unread}
+                count={unreadCount}
+                onToggle={() => setFilter({ unread: unread ? null : '1' })}
+              />
+              {canDelete ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={picking}
+                  onClick={() => (picking ? stopPicking() : setPicking(true))}
+                  data-testid="inbox-pick"
+                >
+                  {picking ? 'Done' : 'Select'}
+                </Button>
+              ) : null}
+            </div>
             <div className="hidden gap-2 md:flex">
               <div className="relative flex-1">
                 <Search
@@ -397,6 +431,26 @@ export function InboxShell({
             data-testid="conversation-list"
             aria-busy={list.loading}
           >
+            {picking ? (
+              <div
+                className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3.5 py-2 text-[13px] md:px-4"
+                data-testid="inbox-picked"
+              >
+                <span className="font-medium">{picked.length} selected</span>
+                <span className="flex-1" />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="text-danger-text hover:text-danger-text"
+                  disabled={picked.length === 0}
+                  onClick={() => setDeleting(true)}
+                  data-testid="inbox-delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {BIN_WORDS.menu}
+                </Button>
+              </div>
+            ) : null}
             {list.items.length === 0 ? (
               list.loading ? (
                 <div className="px-4 py-6 text-center text-[13px] text-text-3">
@@ -419,6 +473,7 @@ export function InboxShell({
                   timezone={timezone}
                   onOpen={() => list.patch(c.id, { unreadCount: 0 })}
                   draftWaiting={withDrafts.has(c.id)}
+                  pick={picking ? { on: ticked.has(c.id), toggle: () => tick(c.id) } : undefined}
                 />
               ))
             )}
@@ -448,6 +503,22 @@ export function InboxShell({
         onOpenChange={setNewOpen}
         onOpened={(id) => router.push(`${base}/${id}${listQuery}`)}
       />
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="conversation"
+          ids={picked.flatMap(laneIds)}
+          names={picked.flatMap((c) => laneIds(c).map(() => rowName(c)))}
+          open={deleting}
+          onOpenChange={setDeleting}
+          onDeleted={(ids) => {
+            stopPicking();
+            list.reload();
+            // The open one went too: back to the list.
+            if (selectedId && ids.includes(selectedId)) router.push(`${base}${listQuery}`);
+          }}
+        />
+      ) : null}
     </InboxContext.Provider>
   );
 }

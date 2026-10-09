@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   appointmentCreate,
+  appointmentDelete,
   appointmentReschedule,
   formatPhone,
   localDateOf,
@@ -387,6 +388,51 @@ describe('confirmations', () => {
     expect(texts).toHaveLength(1);
     expect(texts[0]!.body).toContain('is cancelled. So are the 2 visits after it.');
     expect(textsTo(w, quiet.phone)).toEqual([]);
+  });
+
+  it('a booking deleted for good still tells the customer it’s cancelled, when asked', async () => {
+    const phone = nextPhone();
+    const { personId } = await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Del',
+      lastName: 'Gone',
+      phone,
+    });
+    let day = localDateOf(at(9, '12:00'), CHI);
+    while (weekdayOf(day) !== 3) day = addDays(day, 1);
+    const booked = async () =>
+      (
+        await run(w, appointmentCreate, {
+          workspaceId: w.workspaceId,
+          calendarId: cal.id,
+          startsAt: iso(localInstant(day, '14:00', CHI)),
+          personId,
+          notify: false,
+        })
+      ).appointmentId;
+    const told = await booked();
+    await drain(w);
+    await run(w, appointmentDelete, {
+      workspaceId: w.workspaceId,
+      appointmentId: told,
+      notify: true,
+    });
+    await drain(w);
+    const texts = textsTo(w, phone);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]!.body).toContain('is cancelled');
+
+    // Not asked: nothing goes.
+    day = addDays(day, 7);
+    const quiet = await booked();
+    await drain(w);
+    await run(w, appointmentDelete, {
+      workspaceId: w.workspaceId,
+      appointmentId: quiet,
+      notify: false,
+    });
+    await drain(w);
+    expect(textsTo(w, phone)).toHaveLength(1);
   });
 });
 

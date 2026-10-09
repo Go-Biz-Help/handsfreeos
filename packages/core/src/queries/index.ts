@@ -11,6 +11,8 @@ import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
 import { supportAccessList } from './support-access';
 import { recordHoldQueries } from './record-hold';
+import { binQueries } from './bin';
+export { binList, binPreview } from './bin';
 import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
@@ -353,6 +355,8 @@ export const queries: readonly QueryDef[] = [
   // HandsFreeOS support let into private records (Real Estate step 4).
   supportAccessList,
   ...recordHoldQueries,
+  // The Deleted bin (20261027000400).
+  ...binQueries,
   ...safetyQueries,
   // Ideas, the roadmap and What's new (0102).
   ...ideaQueries,

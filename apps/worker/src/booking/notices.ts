@@ -8,6 +8,7 @@
  */
 import { scheduleJob, workspaceMessaging, type RequestMeta } from '@hfos/core/server';
 import { asWorker } from '@hfos/db/client';
+import { readingBin } from '../bin/index';
 import type { JobHandler } from '../jobs';
 import { tenantOf, workerMeta, type TenantScope, type WorkerServices } from '../services';
 import {
@@ -110,7 +111,11 @@ export async function sendNotice(
   o: NoticeOptions,
 ): Promise<NoticeResult> {
   const found = await asWorker(s.db, scope, async (tx) => {
-    const b = await loadBooking(tx, s, attendeeId);
+    // A booking deleted for good still tells its customers it's cancelled, when asked (bin/index.ts).
+    const b =
+      kind === 'cancelled'
+        ? await readingBin(tx, () => loadBooking(tx, s, attendeeId))
+        : await loadBooking(tx, s, attendeeId);
     if (!b || !stillApplies(b, kind, o.now)) return null;
     const reach = await reachOf(
       tx,

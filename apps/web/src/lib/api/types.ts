@@ -354,3 +354,9 @@ export type AddonMoved = Ok<'/v1/commands/addon.install'>['moved'][number];
 export type AddonConnectionList = Ok<'/v1/queries/addon_connection.list'>;
 export type AddonConnector = AddonConnectionList['connectors'][number];
 export type AddonConnectionRow = AddonConnector['connections'][number];
+
+// The Deleted bin (20261027000400): what a delete would take, and what's in the bin.
+export type BinPreview = Ok<'/v1/queries/bin.preview'>;
+export type BinPreviewItem = BinPreview['items'][number];
+export type BinList = Ok<'/v1/queries/bin.list'>;
+export type BinListItem = BinList['items'][number];

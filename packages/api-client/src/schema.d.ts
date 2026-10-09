@@ -757,6 +757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/appointment.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a booking for good: one still to come is cancelled first, telling the customers if asked. It waits 30 days in the Deleted bin.
+         * @description Risk level 4. Requires records.delete. Emits appointment.deleted, appointment.cancelled.
+         */
+        post: operations["command_appointment_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/appointment.reassign": {
         parameters: {
             query?: never;
@@ -1131,6 +1151,46 @@ export interface paths {
          * @description Risk level 2. Requires workspace.update. Emits automations.settings_saved.
          */
         post: operations["command_automations_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/bin.empty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete now what’s in the Deleted bin, or all of it, rather than waiting the 30 days. It can’t be brought back after.
+         * @description Risk level 4. Requires records.delete. Emits bin.emptied.
+         */
+        post: operations["command_bin_empty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/bin.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring something back from the Deleted bin, as it was. A conversation whose line has had a new one since joins it.
+         * @description Risk level 2. Requires records.delete. Emits bin.restored.
+         */
+        post: operations["command_bin_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1991,6 +2051,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits conversation.closed. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_close_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete conversations for good, with their messages and calls: they wait 30 days in the Deleted bin first. The customer stays.
+         * @description Risk level 4. Requires records.delete. Emits conversation.deleted.
+         */
+        post: operations["command_conversation_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6051,6 +6131,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits person.created. Can wait on a phone with no signal.
          */
         post: operations["command_person_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete customers for good, with everything only about them: they wait 30 days in the Deleted bin first. Their bills stay, with just their name.
+         * @description Risk level 4. Requires records.delete. Emits person.deleted, appointment.cancelled, attendee.removed, waitlist.seat_freed.
+         */
+        post: operations["command_person_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13457,6 +13557,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/bin.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s in the Deleted bin, newest first: who deleted it, when, and when it empties for good.
+         * @description Requires records.delete.
+         */
+        post: operations["query_bin_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/bin.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What deleting these customers, conversations or bookings would take with them, or why one can’t go yet.
+         * @description Requires records.delete.
+         */
+        post: operations["query_bin_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/booking_site.get": {
         parameters: {
             query?: never;
@@ -19411,6 +19551,48 @@ export interface operations {
             };
         };
     };
+    command_appointment_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
+                    };
+                };
+            };
+        };
+    };
     command_appointment_reassign: {
         parameters: {
             query?: never;
@@ -20632,6 +20814,74 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_bin_empty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    all?: boolean;
+                    binItemIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        emptying: number;
+                    };
+                };
+            };
+        };
+    };
+    command_bin_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    binItemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        joined: number;
+                        /** @enum {string} */
+                        kind: "person" | "conversation" | "appointment";
+                        name: string;
+                        /** Format: uuid */
+                        recordId: string;
                     };
                 };
             };
@@ -22656,6 +22906,44 @@ export interface operations {
                         closed: number;
                         /** Format: uuid */
                         conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    conversationIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
                     };
                 };
             };
@@ -31699,7 +31987,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -31733,7 +32021,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -31860,6 +32148,44 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    personIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
                     };
                 };
             };
@@ -49453,6 +49779,129 @@ export interface operations {
                             reason: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_bin_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            contents: {
+                                bills?: number;
+                                bookings?: number;
+                                calls?: number;
+                                channel?: string;
+                                conversations?: number;
+                                files?: number;
+                                forms?: number;
+                                leads?: number;
+                                messages?: number;
+                                notes?: number;
+                                /** Format: date-time */
+                                startsAt?: string;
+                                tasks?: number;
+                                upcoming?: number;
+                                who?: (string | null)[];
+                            };
+                            /** Format: date-time */
+                            deletedAt: string;
+                            deletedBy: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            emptying: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "person" | "conversation" | "appointment";
+                            name: string;
+                            /** Format: date-time */
+                            purgeAfter: string;
+                            /** Format: uuid */
+                            recordId: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_bin_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                    /** @enum {string} */
+                    kind: "person" | "conversation" | "appointment";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            contents: {
+                                bills?: number;
+                                bookings?: number;
+                                calls?: number;
+                                channel?: string;
+                                conversations?: number;
+                                files?: number;
+                                forms?: number;
+                                leads?: number;
+                                messages?: number;
+                                notes?: number;
+                                /** Format: date-time */
+                                startsAt?: string;
+                                tasks?: number;
+                                upcoming?: number;
+                                who?: (string | null)[];
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            message: string | null;
+                            name: string | null;
+                            rule: string | null;
+                        }[];
                     };
                 };
             };

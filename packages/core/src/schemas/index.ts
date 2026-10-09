@@ -62,6 +62,7 @@ export * from './custom-field';
 export * from './relationship';
 export * from './support-access';
 export * from './record-hold';
+export * from './bin';
 export * from './safety';
 export * from './addon-alert';
 export * from './ai-call';

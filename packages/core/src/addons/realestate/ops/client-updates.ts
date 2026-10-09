@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { messageSend } from '../../../commands/message';
+import { personGone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
@@ -442,12 +443,16 @@ export const statusEmailSend = defineAddonCommand(realestateAddon, {
       );
     const client = draft.personId
       ? (
-          await rows<{ email: string | null }>(
+          await rows<{ email: string | null; deleted: boolean }>(
             ctx.tx,
-            sql`select email::text as email from app.people where id = ${draft.personId}`,
+            sql`select email::text as email, bin_item_id is not null or erased_at is not null as deleted
+                from app.people where id = ${draft.personId}`,
           )
         )[0]
       : undefined;
+    // A client deleted (in the Deleted bin, or only a name on their bills) gets nothing more.
+    if (draft.personId && client?.deleted)
+      throw await personGone(ctx.tx, ctx.scope.workspaceId!, draft.personId);
     if (!draft.personId || !client?.email)
       throw HfosError.rule(
         'realestate_no_client_email',

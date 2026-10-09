@@ -1,6 +1,7 @@
 import {
   ALL_LINES_WORDS,
   assigneeShort,
+  BIN_WORDS,
   checkRich,
   COMPOSER_WORDS,
   CONTACT_EDIT_WORDS,
@@ -11,6 +12,7 @@ import {
   emailSubjectOf,
   handlingView,
   handoverNote,
+  holds,
   isSocialChannel,
   joinName,
   mailMoves,
@@ -75,6 +77,7 @@ import {
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { BrandMark } from '@/components/shell/brand';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
@@ -102,6 +105,7 @@ import { useEmailFacts } from '@/inbox/use-email';
 import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
 type Row =
@@ -134,6 +138,8 @@ function Thread() {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
   const { online } = useNetwork();
+  // Deleting for good (the Deleted bin, 20261027000400): owners, with signal.
+  const canDelete = holds(useGrants(), 'records.delete');
   const { data, loading } = useConversation(conversationId);
   const c = data?.conversation ?? null;
   const person = data?.person ?? null;
@@ -193,6 +199,7 @@ function Thread() {
     | 'stage'
     | 'next-action'
     | 'add-person'
+    | 'delete'
     | null
   >(null);
   const [busy, setBusy] = React.useState<'take' | 'back' | null>(null);
@@ -967,6 +974,9 @@ function Thread() {
         moves={moves}
         onMove={(m) => void moveTo(m)}
         onShare={priv ? () => void share() : null}
+        onDelete={
+          canDelete ? () => (online ? setSheet('delete') : toast.error(BIN_WORDS.offline)) : null
+        }
       />
       <AssignSheet
         open={sheet === 'assign'}
@@ -1051,6 +1061,16 @@ function Thread() {
         onClose={() => setSheet(null)}
         counterpart={c.counterpartDisplay}
         onSave={addPerson}
+      />
+      <DeleteSheet
+        open={sheet === 'delete'}
+        onClose={() => setSheet(null)}
+        workspaceId={business.id}
+        kind="conversation"
+        // Every line of the customer's when they're woven together, else the one open.
+        ids={all ? lanes.map((l) => l.id) : [conversationId]}
+        names={(all ? lanes : [c]).map(() => rowName(c))}
+        onDeleted={backToList}
       />
       <HandBackSheet
         open={sheet === 'hand-back'}

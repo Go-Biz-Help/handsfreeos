@@ -64,12 +64,14 @@ export const APP_PLACES: readonly AppPlace[] = [
       'New message, at the top (it starts a text to someone already in Contacts)',
       'Mine, Unassigned, and All (Everyone when each person sees only their own); Needs a person and the AI teammate’s own box when it is on',
       'Search conversations (names, numbers and words in messages), and Open, Snoozed, Closed or Archived',
+      'Select, for whoever may delete for good (owners, unless one gives it out): tick conversations, then Delete for good…',
     ],
     howTo: [
       'Text a customer who hasn’t written in: Inbox, press New message, pick them in To, then Open conversation',
       'Email someone new: open their page in Contacts and press Email (New message only starts texts)',
       'Find an archived conversation: Inbox, then Archived in the status picker',
       'See what the AI teammate handed over: Inbox, Needs a person',
+      'Delete several conversations for good: Inbox, press Select, tick them, then Delete for good… (they wait 30 days in Settings → Deleted bin)',
     ],
     canChange: ['find closed, snoozed, archived, Needs a person and AI-teammate conversations'],
     path: '/inbox',
@@ -80,7 +82,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     where: ['Inbox'],
     then: 'press the conversation',
     onScreen: [
-      'At the top: which line to answer on, Assign, Snooze, Close (or Reopen), Customer details, and ⋯ with Call, Open customer (or Add as a new person), Hand to (the AI teammate’s name), Mark as unread, Close every line, Copy phone number, Archive this conversation',
+      'At the top: which line to answer on, Assign, Snooze, Close (or Reopen), Customer details, and ⋯ with Call, Open customer (or Add as a new person), Hand to (the AI teammate’s name), Mark as unread, Close every line, Copy phone number, Archive this conversation, and Delete for good… (owners)',
       'Banners when the AI teammate has it: Take over, Take it, or Hand back',
       'The AI teammate’s drafts in the thread: Approve and send, Edit, Reject…',
       'The reply box: Text or Email, Cc and Subject for email, the paperclip for a photo or file, Insert a template, Add buttons or a card, then Send text or Send email; in quiet hours it offers Send at the time they end',
@@ -98,6 +100,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Move their lead’s stage, book them, add a task or quote them: in the panel beside the conversation',
       'Mark it unread: ⋯, then Mark as unread',
       'Archive it: ⋯, then Archive this conversation (Bring it back undoes it)',
+      'Delete it for good: ⋯, then Delete for good… (owners); the customer stays in Contacts, and it waits 30 days in Settings → Deleted bin',
     ],
     notHere: [
       'sending later, except after quiet hours',
@@ -122,6 +125,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Import and Add person (Add company on Companies), at the top',
       'Search by name, phone, email or street; All, Leads or Clients; Any tag; Assigned to anyone; Show archived',
       'A Client badge beside each client’s name',
+      'A tick box beside each person, for whoever may delete for good (owners, unless one gives it out), and Delete for good… once some are ticked',
     ],
     howTo: [
       'Add a customer: Contacts, press Add person, then Save person (it warns when they may already be there)',
@@ -130,10 +134,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'See only leads or only clients: Contacts, then Leads or Clients beside the search (a client has a won lead, a job underway or done, a visit they came to, a plan they’re on, or a paid bill; everyone else is a lead)',
       'Find everyone with a tag: Contacts, then Any tag',
       'Bring back an archived customer: Contacts, Show archived, press them, then ⋯ and Restore',
+      'Delete customers for good: Contacts, tick them, then Delete for good… (owners); they wait 30 days in Settings → Deleted bin',
+      'Bring back a deleted customer, conversation or booking: Settings → Deleted bin, then Bring back',
       'Search from anywhere: Search contacts at the top of the side menu',
     ],
     notHere: [
-      'deleting a customer for good (archive them)',
       'choosing many customers at once to tag, assign or archive (the Assistant can tag many at once)',
       'exporting customers to a spreadsheet',
     ],
@@ -151,7 +156,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     where: ['Contacts'],
     then: 'press the person',
     onScreen: [
-      'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details, Merge… and Archive',
+      'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details, Merge…, Archive and Delete for good… (owners)',
       'Along the top: Call, Text, Email, Book, Note, Log call, Task, Lead, File, and Add to workflow…',
       'Tabs: Timeline, Appointments, Money, Leads, Tasks, Files, Details (Details has Edit, Calls from us, and their Fields)',
       'Beside them: Assigned to, Upcoming appointments, Regular services, Conversations, Workflows, Open lead, Relationships',
@@ -173,6 +178,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Link a pet, vehicle or property: their page, the Relationships card, Add',
       'Record whether they agreed to calls: their page, Details tab, Change beside Calls from us',
       'Archive them: their page, ⋯, then Archive',
+      'Delete them for good: their page, ⋯, then Delete for good… (owners); everything only about them goes, their bills stay with just their name, and they wait 30 days in Settings → Deleted bin',
       'Merge a duplicate: their page, ⋯, Merge…, pick the other record, choose which one to keep, then Merge (owners and admins)',
     ],
     canChange: [
@@ -264,7 +270,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'People and equipment: Change',
       'Reminders (what went out, and when), and anything else on this visit',
       'Job: Scheduled, On the way, Started, Waiting on parts, Done (each texts the customer); Note the customer may see',
-      'At the bottom: Reschedule, Complete, No-show, Invoice this visit, Cancel',
+      'At the bottom: Reschedule, Complete, No-show, Invoice this visit, Cancel, and under them Delete for good… (owners)',
     ],
     howTo: [
       'Move it: open it and press Reschedule, or drag it on the calendar',
@@ -273,11 +279,9 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Mark it done or a no-show: open it, press Complete or No-show (the other one is offered afterwards to undo it)',
       'Tell the customer you are on the way: open it, press On the way under Job',
       'Bill the visit: open it, press Invoice this visit',
+      'Delete it for good: open it, press Delete for good… (owners); one still to come is cancelled first, telling the customer unless that’s unticked',
     ],
-    notHere: [
-      'changing the customer or service after booking',
-      'deleting an appointment (cancel it)',
-    ],
+    notHere: ['changing the customer or service after booking'],
     canChange: [
       'mark it done or a no-show, or switch it',
       'mark the customer confirmed, or take a team mark back',
@@ -604,8 +608,8 @@ export const EVERY_PAGE: readonly string[] = [
 
 /** What people ask for that HandsFreeOS doesn’t do anywhere, so the Assistant says so plainly. */
 export const NOT_ANYWHERE: readonly string[] = [
-  'deleting a customer, company or lead for good (they are archived)',
-  'choosing many rows of a list at once to change them together (the Assistant can tag many customers at once)',
+  'deleting a company or lead for good (they are archived; owners can delete customers, conversations and bookings for good)',
+  'choosing many rows of a list at once to change them together, other than deleting customers or conversations (the Assistant can tag many customers at once)',
   'exporting customers, leads or the audit log to a spreadsheet (form answers do have Export to CSV)',
   'a keypad to ring any number (calls start from a customer, a conversation or an item on Home)',
 ];

@@ -18,6 +18,7 @@ import {
   Package,
   ShieldCheck,
   Tag,
+  Trash2,
   Upload,
   UserCircle,
   Wallet,
@@ -109,6 +110,8 @@ const GROUPS: readonly { readonly label: string; readonly items: readonly Settin
       // vehicles, properties) with how they relate.
       { path: '/fields', label: 'Fields', icon: ListChecks, needs: 'fields.manage' },
       { path: '/relationships', label: 'Relationships', icon: Network, needs: 'fields.manage' },
+      // Customers, conversations and bookings deleted for good, for their 30 days (20261027000400).
+      { path: '/deleted-bin', label: 'Deleted bin', icon: Trash2, needs: 'records.delete' },
     ],
   },
   {

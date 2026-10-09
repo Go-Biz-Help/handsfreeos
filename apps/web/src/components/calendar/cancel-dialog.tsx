@@ -11,6 +11,24 @@ import type { AppointmentDetail } from '@/lib/api/types';
 import { dateOf, fmtDateShort, fmtTime } from '@/lib/calendar/time';
 import { firstName } from './appt';
 
+/**
+ * Who hears that it's cancelled, as the tick box says it: "Text Dana that it’s cancelled", "Tell the 3 people who
+ * booked", or null when nobody is booked. Deleting a booking still to come asks the same (bin/delete-dialog.tsx).
+ */
+export function tellLabelOf(appt: Pick<AppointmentDetail, 'attendees'>): string | null {
+  const booked = appt.attendees.filter((a) => a.status === 'booked');
+  const one = booked.length === 1 ? booked[0]! : null;
+  return one
+    ? one.smsOk
+      ? `Text ${firstName(one.fullName)} that it’s cancelled`
+      : one.contactEmail
+        ? `Email ${firstName(one.fullName)} that it’s cancelled`
+        : `Tell ${firstName(one.fullName)} that it’s cancelled`
+    : booked.length
+      ? `Tell the ${booked.length} people who booked`
+      : null;
+}
+
 /** "Cancel this appointment?" with a reason and whether to tell the customers. */
 export function CancelDialog({
   workspaceId,
@@ -30,15 +48,7 @@ export function CancelDialog({
   const [busy, setBusy] = useState(false);
   const booked = appt.attendees.filter((a) => a.status === 'booked');
   const one = booked.length === 1 ? booked[0]! : null;
-  const label = one
-    ? one.smsOk
-      ? `Text ${firstName(one.fullName)} that it’s cancelled`
-      : one.contactEmail
-        ? `Email ${firstName(one.fullName)} that it’s cancelled`
-        : `Tell ${firstName(one.fullName)} that it’s cancelled`
-    : booked.length
-      ? `Tell the ${booked.length} people who booked`
-      : null;
+  const label = tellLabelOf(appt);
 
   async function cancel() {
     setBusy(true);
