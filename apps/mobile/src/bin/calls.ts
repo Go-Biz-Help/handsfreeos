@@ -44,13 +44,34 @@ export async function putInBin(
       );
     return;
   }
-  unwrap(
-    kind === 'person'
-      ? await api.POST('/v1/commands/person.delete', {
-          body: { workspaceId, personIds: [...ids] },
-        })
-      : await api.POST('/v1/commands/conversation.delete', {
-          body: { workspaceId, conversationIds: [...ids] },
+  const list = [...ids];
+  switch (kind) {
+    case 'person':
+      unwrap(
+        await api.POST('/v1/commands/person.delete', { body: { workspaceId, personIds: list } }),
+      );
+      return;
+    case 'conversation':
+      unwrap(
+        await api.POST('/v1/commands/conversation.delete', {
+          body: { workspaceId, conversationIds: list },
         }),
-  );
+      );
+      return;
+    case 'lead':
+      unwrap(await api.POST('/v1/commands/lead.delete', { body: { workspaceId, leadIds: list } }));
+      return;
+    case 'company':
+      unwrap(
+        await api.POST('/v1/commands/company.delete', { body: { workspaceId, companyIds: list } }),
+      );
+      return;
+    case 'custom_record':
+      unwrap(
+        await api.POST('/v1/commands/custom_record.delete', {
+          body: { workspaceId, customRecordIds: list },
+        }),
+      );
+      return;
+  }
 }

@@ -40,7 +40,8 @@ export const __CONST__ = defineAddon({
     },
   ],
   billing: { model: 'free' },
-  // Its place in the side menu, shown only while it runs and to people who may open it.
+  // Its pages. The side menu shows the add-on as one row, named after it, that these open from (one page: straight
+  // there), only while it runs and to people who may open them.
   ui: { nav: [{ key: '__ID__', label: '__NAME__', icon: 'box', path: '' }] },
   ai: { directory: '__DIRECTORY__' },
 });

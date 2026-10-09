@@ -10103,8 +10103,9 @@ migrations"): Real Estate Agent's are `20261013002200` to `20261013003000`.
 2. Under **Add-ons in testing**, press **Let them try it** beside the add-on. It now says "they can add it".
 3. Tell the business's owner. They open **Add-ons** (at the foot of the side menu), find it under **Available to
    add** marked **Testing**, and press **Install**. It says **Setting up** for a moment, then **On**.
-4. Its places join the side menu for everyone who may use it. For Real Estate Agent: **Deals**, **My duties**, and
-   **Deal settings** for owners and admins.
+4. It joins the side menu as one row, named after it, for everyone who may use it; its pages open from that row
+   (on hover or a press, and in place in a phone's drawer). For Real Estate Agent: **Deals**, **My duties**,
+   **Coordinate**, **Vendors**, and **Deal settings** for owners and admins.
 
 You should see the grant on the business's page, and the add-on **On** on their Add-ons page. Every grant is in
 the platform audit log.

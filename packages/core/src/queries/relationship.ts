@@ -394,6 +394,7 @@ export const customRecordGet = defineQuery({
         keptToTeam: r.keptToTeam,
         owner: r.ownerUserId ? person(r.ownerUserId) : null,
         team: r.teamUserIds.map(person),
+        addonId: kind.addonId,
       },
     };
   },

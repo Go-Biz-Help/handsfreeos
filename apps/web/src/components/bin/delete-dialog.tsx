@@ -35,6 +35,41 @@ async function preview(workspaceId: string, kind: BinKind, ids: readonly string[
   return found;
 }
 
+/** One page of them into the bin, through their kind's own command. */
+async function putPage(
+  workspaceId: string,
+  kind: Exclude<BinKind, 'appointment'>,
+  ids: string[],
+): Promise<unknown> {
+  const api = apiBrowser();
+  switch (kind) {
+    case 'person':
+      return unwrap(
+        await api.POST('/v1/commands/person.delete', { body: { workspaceId, personIds: ids } }),
+      );
+    case 'conversation':
+      return unwrap(
+        await api.POST('/v1/commands/conversation.delete', {
+          body: { workspaceId, conversationIds: ids },
+        }),
+      );
+    case 'lead':
+      return unwrap(
+        await api.POST('/v1/commands/lead.delete', { body: { workspaceId, leadIds: ids } }),
+      );
+    case 'company':
+      return unwrap(
+        await api.POST('/v1/commands/company.delete', { body: { workspaceId, companyIds: ids } }),
+      );
+    case 'custom_record':
+      return unwrap(
+        await api.POST('/v1/commands/custom_record.delete', {
+          body: { workspaceId, customRecordIds: ids },
+        }),
+      );
+  }
+}
+
 async function putInBin(
   workspaceId: string,
   kind: BinKind,
@@ -50,22 +85,14 @@ async function putInBin(
       );
     return;
   }
-  for (const part of pages(ids))
-    unwrap(
-      kind === 'person'
-        ? await apiBrowser().POST('/v1/commands/person.delete', {
-            body: { workspaceId, personIds: part },
-          })
-        : await apiBrowser().POST('/v1/commands/conversation.delete', {
-            body: { workspaceId, conversationIds: part },
-          }),
-    );
+  for (const part of pages(ids)) await putPage(workspaceId, kind, part);
 }
 
 /**
- * "Delete … for good?" for customers, conversations or a booking (the Deleted bin, 20261027000400). It asks first
- * what goes with them (bin.preview) and says so, names any that can't go yet and why, and deletes the rest. A
- * booking still to come is cancelled first, telling the customer unless that's unticked, as Cancel does.
+ * "Delete … for good?" for customers, conversations, a booking, a lead, a company or a record (the Deleted bin,
+ * 20261027000400 and 20261027000800). It asks first what goes with them (bin.preview) and says so, names any that
+ * can't go yet and why, and deletes the rest. A booking still to come is cancelled first, telling the customer
+ * unless that's unticked, as Cancel does.
  */
 export function DeleteDialog({
   workspaceId,

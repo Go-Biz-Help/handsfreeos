@@ -13,10 +13,13 @@
  *   right place, without anyone editing anything.
  * - **Always there:** Home and Settings can be moved or grouped but never hidden, so there is always a way
  *   home and always a way back to this editor.
- * - **Add-ons' places (0108):** an add-on that is on adds places of its own, one for each entry in its manifest's
- *   `ui.nav`, keyed `addon:<add-on id>:<its key>`. A saved menu keeps them like any other place, even while the
- *   add-on is off, so turning it back on puts each one back where the person had it; but `menuFor` shows one only
- *   while its add-on runs in the business and the person may open it. One they have never arranged goes at the end.
+ * - **Add-ons (0108):** an add-on that is on adds one place, keyed `addon:<add-on id>`, and its pages (its
+ *   manifest's `ui.nav`) open from that one row like a group's places, so the menu stays short however many add-ons
+ *   a business turns on (the owner's decision, 2026-10-09). A saved menu keeps it like any other place, even while
+ *   the add-on is off, so turning it back on puts it back where the person had it; but `menuFor` shows it only
+ *   while the add-on runs in the business and the person may open one of its pages. One they have never arranged
+ *   goes at the end. A menu saved before then held each page on its own (`addon:<add-on id>:<its key>`); it is read
+ *   as the add-on, where the first of its pages stood.
  *
  * - **Not in it:** the places about HandsFreeOS itself rather than the business, Add-ons and Ideas (the owner's
  *   decision, 2026-09-28), sit at the foot of the sidebar with Get help and the account, where nobody arranges them.
@@ -53,24 +56,39 @@ export type MenuKey = (typeof MENU_KEYS)[number];
 const KEY_SET: ReadonlySet<string> = new Set(MENU_KEYS);
 export const isMenuKey = (v: unknown): v is MenuKey => typeof v === 'string' && KEY_SET.has(v);
 
-/** One of an add-on's places (0108): `addon:<add-on id>:<the key its manifest's ui.nav gives it>`. */
-export type AddonMenuKey = `addon:${string}:${string}`;
-/** Any place a menu can hold: one of core's, or an add-on's. */
+/** An add-on in the menu (0108): `addon:<add-on id>`, one row its pages open from. */
+export type AddonMenuKey = `addon:${string}`;
+/** Any place a menu can hold: one of core's, or an add-on. */
 export type MenuPlaceKey = MenuKey | AddonMenuKey;
+/** One of an add-on's pages, the entry in its manifest's `ui.nav` with that key: `addon:<add-on id>:<its key>`. */
+export type AddonPageKey = `addon:${string}:${string}`;
 
 /**
- * A well-formed add-on place: an add-on id (2–16 letters, as manifest.ts's ADDON_ID_PATTERN) and a place key (as
- * `manifestIssues` checks each `ui.nav` key). Anything else that looks like one is dropped like any unknown place.
+ * A well-formed add-on place: an add-on id (2–16 letters, as manifest.ts's ADDON_ID_PATTERN). Anything else that
+ * looks like one is dropped like any unknown place.
  */
-const ADDON_MENU_KEY = /^addon:([a-z]{2,16}):([a-z][a-z0-9_-]{0,39})$/;
+const ADDON_MENU_KEY = /^addon:([a-z]{2,16})$/;
+/**
+ * One of its pages, as a menu saved before 2026-10-09 held it: the add-on, and a `ui.nav` key (as `manifestIssues`
+ * checks each one).
+ */
+const ADDON_PAGE_KEY = /^addon:([a-z]{2,16}):([a-z][a-z0-9_-]{0,39})$/;
 
 export const isAddonMenuKey = (v: unknown): v is AddonMenuKey =>
   typeof v === 'string' && ADDON_MENU_KEY.test(v);
 export const isMenuPlaceKey = (v: unknown): v is MenuPlaceKey => isMenuKey(v) || isAddonMenuKey(v);
 
-/** The key one of an add-on's places goes by in a menu. */
-export const addonMenuKey = (addonId: string, navKey: string): AddonMenuKey =>
+/** The key an add-on goes by in a menu. */
+export const addonMenuKey = (addonId: string): AddonMenuKey => `addon:${addonId}`;
+/** The key one of an add-on's pages goes by: what the web calls it, and how an older menu named it. */
+export const addonPageKey = (addonId: string, navKey: string): AddonPageKey =>
   `addon:${addonId}:${navKey}`;
+
+/** A place as a menu holds it now: an older menu's add-on page is its add-on; anything else as it is. */
+function placeKeyOf(key: unknown): unknown {
+  const [, addonId] = typeof key === 'string' ? (ADDON_PAGE_KEY.exec(key) ?? []) : [];
+  return addonId ? addonMenuKey(addonId) : key;
+}
 
 /** Movable and groupable, but never hidden: the way home, and the way back to the editor. */
 export const MENU_ALWAYS_SHOWN: readonly MenuKey[] = ['home', 'settings'];
@@ -85,8 +103,8 @@ export const MENU_GROUP_LABEL_MAX = 24;
 /** What a group is called until it is named. */
 export const MENU_GROUP_DEFAULT_LABEL = 'More';
 /**
- * How many add-ons' places one saved menu keeps. Far more than a business turns on, and it keeps a menu saved by
- * hand from growing without end: core's places are a fixed list, add-ons' are whatever the saved menu names.
+ * How many add-ons one saved menu keeps. Far more than a business turns on, and it keeps a menu saved by hand from
+ * growing without end: core's places are a fixed list, add-ons are whatever the saved menu names.
  */
 export const MENU_ADDON_PLACES_MAX = 100;
 
@@ -182,23 +200,22 @@ export interface MenuAddons {
   readonly catalog: readonly AddonManifest[];
 }
 
-/** The add-on and the entry in its manifest's `ui.nav` a place stands for; null when no add-on here has it. */
-export function addonMenuPlace(
+/** The add-on a place stands for, when the catalogue has it and it has pages; null for anything else. */
+export function addonOfMenuKey(
   catalog: readonly AddonManifest[],
   key: string,
-): { readonly addon: AddonManifest; readonly nav: AddonNavItem } | null {
-  const [, addonId, navKey] = ADDON_MENU_KEY.exec(key) ?? [];
-  const addon = catalog.find((a) => a.id === addonId);
-  const nav = addon?.ui?.nav?.find((n) => n.key === navKey);
-  return addon && nav ? { addon, nav } : null;
+): AddonManifest | null {
+  const [, addonId] = ADDON_MENU_KEY.exec(key) ?? [];
+  const addon = addonId ? catalog.find((a) => a.id === addonId) : undefined;
+  return addon?.ui?.nav?.length ? addon : null;
 }
 
 /**
- * Whether a person may open one of an add-on's places. The place's own permission when it names one; otherwise,
+ * Whether a person may open one of an add-on's pages. The page's own permission when it names one; otherwise,
  * as the manifest says, anyone who holds one of the add-on's permissions — and anyone at all, for an add-on that
  * declares none.
  */
-function addonPlaceAllowed(
+function addonPageAllowed(
   addon: AddonManifest,
   nav: AddonNavItem,
   permissions: readonly string[],
@@ -210,9 +227,21 @@ function addonPlaceAllowed(
 }
 
 /**
+ * The pages of an add-on this person may open, in its manifest's order: what opens from its row in the menu. None
+ * without their permissions (an older copy): an add-on is never offered on a guess.
+ */
+export function addonMenuPages(
+  addon: AddonManifest,
+  permissions: readonly string[] | null | undefined,
+): readonly AddonNavItem[] {
+  if (!permissions) return [];
+  return (addon.ui?.nav ?? []).filter((nav) => addonPageAllowed(addon, nav, permissions));
+}
+
+/**
  * Whether a place is open to this person in this business. Core's, unless the business keeps them from what it
- * needs (MENU_NEEDS); an add-on's, only while the add-on runs there and they may open it. Without their permissions
- * (an older copy) core's places are open and add-ons' are not: an add-on is never offered on a guess.
+ * needs (MENU_NEEDS); an add-on, only while it runs there and they may open one of its pages. Without their
+ * permissions (an older copy) core's places are open and add-ons are not: an add-on is never offered on a guess.
  */
 export function menuPlaceOpen(
   key: MenuPlaceKey,
@@ -224,34 +253,29 @@ export function menuPlaceOpen(
     return !permissions || !needs || permissions.includes(needs);
   }
   if (!permissions || !addons) return false;
-  const place = addonMenuPlace(addons.catalog, key);
+  const addon = addonOfMenuKey(addons.catalog, key);
   return (
-    !!place &&
-    addons.running.includes(place.addon.id) &&
-    addonPlaceAllowed(place.addon, place.nav, permissions)
+    !!addon && addons.running.includes(addon.id) && addonMenuPages(addon, permissions).length > 0
   );
 }
 
-/** Every add-on place open to this person here: the catalogue's order, and each add-on's own. */
+/** Every add-on open to this person here, one place each, in the catalogue's order. */
 export function addonMenuPlaces(
   permissions: readonly string[] | null | undefined,
   addons?: MenuAddons,
 ): AddonMenuKey[] {
   if (!permissions || !addons) return [];
   return addons.catalog.flatMap((addon) =>
-    addons.running.includes(addon.id)
-      ? (addon.ui?.nav ?? [])
-          .filter((nav) => addonPlaceAllowed(addon, nav, permissions))
-          .map((nav) => addonMenuKey(addon.id, nav.key))
-          .filter(isAddonMenuKey)
+    addons.running.includes(addon.id) && addonMenuPages(addon, permissions).length > 0
+      ? [addonMenuKey(addon.id)].filter(isAddonMenuKey)
       : [],
   );
 }
 
 /**
- * The menu with the add-on places open to this person that it has never held — shown or hidden — put at the end,
- * after core's, in the catalogue's order: where an add-on that has just been turned on first appears. The same menu
- * when there are none.
+ * The menu with the add-ons open to this person that it has never held — shown or hidden — put at the end, after
+ * core's, in the catalogue's order: where an add-on that has just been turned on first appears. The same menu when
+ * there are none.
  */
 export function withAddonPlaces(
   menu: Menu,
@@ -270,8 +294,8 @@ export function withAddonPlaces(
 /**
  * The menu as this person sees it in one business: the places they may not open are left out, and a group left
  * with nothing in it goes too. Their saved menu keeps every place, so one comes back where it was the moment the
- * business lets them in — or, for an add-on's, the moment it is turned back on. The add-ons running here (0108)
- * add their places, at the end until the person arranges them. Without their permissions (an older copy), core's
+ * business lets them in — or, for an add-on, the moment it is turned back on. The add-ons running here (0108) add
+ * a place each, at the end until the person arranges them. Without their permissions (an older copy), core's
  * places as saved.
  */
 export function menuFor(
@@ -354,8 +378,9 @@ function cleanLabel(label: string): string {
  * A menu that can be drawn: known places only, each in one place, no empty group, no more groups than
  * `MENU_GROUPS_MAX` (the ones over that spill back into the menu), Home and Settings never hidden, and any
  * place the input never mentioned put back beside the neighbour it ships next to. "Known" includes any
- * well-formed add-on place (up to MENU_ADDON_PLACES_MAX): whether its add-on is on is `menuFor`'s question, asked
- * each time the menu is drawn, so an add-on turned off and on again finds its places where the person left them.
+ * well-formed add-on (up to MENU_ADDON_PLACES_MAX): whether it is on is `menuFor`'s question, asked each time the
+ * menu is drawn, so an add-on turned off and on again is where the person left it. An older menu's pages of an
+ * add-on become the add-on, where the first of them stood.
  */
 export function normalizeMenu(input: Menu): Menu {
   const seen = new Set<MenuPlaceKey>();
@@ -363,25 +388,32 @@ export function normalizeMenu(input: Menu): Menu {
   const entries: MenuEntry[] = [];
   let groups = 0;
   let addonPlaces = 0;
-  /** A place this menu can hold and doesn't yet, which it now does. */
-  const take = (key: unknown): key is MenuPlaceKey => {
-    if (!isMenuPlaceKey(key) || seen.has(key)) return false;
+  /**
+   * A place this menu can hold and doesn't yet, as a menu holds it now (an older menu's add-on page is its add-on),
+   * which it now does; null for anything else.
+   */
+  const take = (raw: unknown): MenuPlaceKey | null => {
+    const key = placeKeyOf(raw);
+    if (!isMenuPlaceKey(key) || seen.has(key)) return null;
     if (!isMenuKey(key)) {
-      if (addonPlaces >= MENU_ADDON_PLACES_MAX) return false;
+      if (addonPlaces >= MENU_ADDON_PLACES_MAX) return null;
       addonPlaces += 1;
     }
     seen.add(key);
-    return true;
+    return key;
   };
 
   for (const entry of input.entries) {
     if (entry.kind === 'link') {
-      if (!take(entry.key)) continue;
-      entries.push({ kind: 'link', key: entry.key });
+      const key = take(entry.key);
+      if (key) entries.push({ kind: 'link', key });
       continue;
     }
     const keys: MenuPlaceKey[] = [];
-    for (const key of entry.keys) if (take(key)) keys.push(key);
+    for (const raw of entry.keys) {
+      const key = take(raw);
+      if (key) keys.push(key);
+    }
     if (keys.length === 0) continue;
     // Past the limit a group is no group at all: its places go back into the menu where the group stood.
     if (groups >= MENU_GROUPS_MAX) {
@@ -395,10 +427,12 @@ export function normalizeMenu(input: Menu): Menu {
     entries.push({ kind: 'group', id, label: cleanLabel(entry.label ?? ''), keys });
   }
 
+  // An add-on is hidden only when none of an older menu's pages of it were left in the menu.
   const hidden: MenuPlaceKey[] = [];
-  for (const key of input.hidden) {
-    if (isMenuPlaceKey(key) && isAlwaysShown(key)) continue;
-    if (take(key)) hidden.push(key);
+  for (const raw of input.hidden) {
+    if (isMenuPlaceKey(raw) && isAlwaysShown(raw)) continue;
+    const key = take(raw);
+    if (key) hidden.push(key);
   }
 
   // Places this menu has never heard of, put back beside the neighbour they ship next to.

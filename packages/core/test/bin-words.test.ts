@@ -10,6 +10,7 @@ import {
   binDeletedWords,
   binItemDetail,
   binItemWhen,
+  binKindLabel,
   binRestoredWords,
 } from '../src';
 
@@ -73,6 +74,43 @@ describe('the delete box', () => {
     ]);
   });
 
+  it('says a lead leaves its customer, and a company its people', () => {
+    expect(
+      binDeleteBox('lead', ['Heat pump'], { tasks: 1, files: 1, who: ['Dana Lopez'] }),
+    ).toEqual({
+      title: 'Delete this lead for good?',
+      lines: [
+        'This also deletes 1 task and 1 file.',
+        'It doesn’t delete Dana Lopez from Contacts.',
+        'It waits 30 days in Settings → Deleted bin, where you can bring it back. Then it’s gone for good.',
+      ],
+    });
+    expect(
+      binDeleteBox('company', ['Acme Plumbing'], {
+        notes: 2,
+        leads: 1,
+        relationships: 1,
+        people: 3,
+      }).lines.slice(0, 2),
+    ).toEqual([
+      'This also deletes everything only about it: 2 notes, 1 lead and 1 relationship.',
+      'The 3 people who work there stay in Contacts.',
+    ]);
+    expect(binDeleteBox('custom_record', ['Rex'], { tasks: 1, type: 'Pet' })).toEqual({
+      title: 'Delete Rex for good?',
+      lines: [
+        'This also deletes everything only about it: 1 task.',
+        'It doesn’t delete anyone from Contacts.',
+        'It waits 30 days in Settings → Deleted bin, where you can bring it back. Then it’s gone for good.',
+      ],
+    });
+    // One thing's contents pass through whole, so the box can name a lead's customer.
+    expect(binContentsTotal([{ tasks: 1, who: ['Dana Lopez'] }])).toEqual({
+      tasks: 1,
+      who: ['Dana Lopez'],
+    });
+  });
+
   it('counts only what there is', () => {
     expect(binContentsWords({})).toBeNull();
     expect(binContentsWords({ files: 2, forms: 1, calls: 1 })).toBe(
@@ -94,6 +132,18 @@ describe('the toasts', () => {
     );
     expect(binRestoredWords({ kind: 'conversation', name: 'Lou', joined: 1 })).toBe(
       'The conversation with Lou is back in the Inbox. It joined their newer conversation on the same line.',
+    );
+    expect(binDeletedWords('lead', ['Heat pump'])).toBe(
+      'Lead deleted. Bring it back from Settings → Deleted bin within 30 days.',
+    );
+    expect(binDeletedWords('company', ['Acme Plumbing'])).toBe(
+      'Acme Plumbing deleted. Bring it back from Settings → Deleted bin within 30 days.',
+    );
+    expect(binRestoredWords({ kind: 'lead', name: 'Heat pump', joined: 0 })).toBe(
+      'Heat pump is back in the Pipeline.',
+    );
+    expect(binRestoredWords({ kind: 'custom_record', name: 'Rex', joined: 0 })).toBe(
+      'Rex is back in Contacts.',
     );
   });
 });
@@ -125,6 +175,18 @@ describe('the bin’s lines', () => {
       ),
     ).toBe('Mon, Oct 12 at 9:00 AM · Dana Lopez');
     expect(binItemDetail({ ...item, kind: 'person', contents: {} }, CHI)).toBeNull();
+    expect(
+      binItemDetail({ ...item, kind: 'lead', contents: { who: ['Dana Lopez'], tasks: 1 } }, CHI),
+    ).toBe('Dana Lopez · 1 task');
+    expect(
+      binItemDetail({ ...item, kind: 'custom_record', contents: { type: 'Pet', notes: 2 } }, CHI),
+    ).toBe('2 notes');
+  });
+
+  it('calls a record by its own kind', () => {
+    expect(binKindLabel({ kind: 'custom_record', contents: { type: 'Pet' } })).toBe('Pet');
+    expect(binKindLabel({ kind: 'custom_record', contents: {} })).toBe('Record');
+    expect(binKindLabel({ kind: 'company', contents: {} })).toBe('Company');
   });
 
   it('says who deleted it, and when it goes for good', () => {

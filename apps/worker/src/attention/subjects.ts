@@ -31,6 +31,8 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'lead.reopened',
   'lead.archived',
   'lead.restored',
+  // Deleted for good: its cards already went with it (private.bin_let_go), and this clears anything left.
+  'lead.deleted',
   // Messages, calls and logged activity: a customer waiting, a first response, a contact.
   'message.received',
   'message.sent',

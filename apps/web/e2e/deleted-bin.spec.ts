@@ -6,8 +6,9 @@ import { setUpTexting, textFromCustomer } from './telephony';
 /**
  * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08): an owner
  * deletes a customer from their page, finds them in Settings → Deleted bin from their old link, brings them back,
- * deletes two at once from Contacts and empties the bin; deletes conversations from the inbox, picked or open; and
- * deletes a booking still to come, which is cancelled first with the customer told.
+ * deletes two at once from Contacts and empties the bin; deletes conversations from the inbox, picked or open;
+ * deletes a booking still to come, which is cancelled first with the customer told; and (20261027000800) deletes a
+ * lead and a company from their pages and brings them back.
  */
 test('a customer deleted, found in the bin, brought back; two at once; the bin emptied', async ({
   page,
@@ -169,4 +170,61 @@ test('a booking still to come, cancelled with the customer told and deleted', as
   const item = page.getByTestId('deleted-bin').locator('li', { hasText: 'Estimates' });
   await expect(item).toContainText('Booking');
   await expect(item).toContainText(/at 10:00 AM · Mike Johnson/);
+});
+
+test('a lead and a company deleted from their pages, and brought back', async ({ page }) => {
+  await signUpAndConfirm(page, 'bin-more');
+  const workspaceId = await createBusiness(page, { name: 'Clean Slate Roofing' });
+
+  // A company, and a customer at it with a lead.
+  await page.goto(`/app/w/${workspaceId}/customers?tab=companies`);
+  await page.getByTestId('customers-add').click();
+  await page.getByLabel('Company name').fill('ABC Dental');
+  await page.getByTestId('company-save').click();
+  await expect(page).toHaveURL(/\/customers\/companies\/[0-9a-f-]{36}$/);
+  const company = page.url();
+  await page.goto(`/app/w/${workspaceId}/customers`);
+  await page.getByTestId('customers-add').click();
+  await page.getByLabel('First name').fill('Mike');
+  await page.getByLabel('Last name').fill('Johnson');
+  await page.getByLabel('Company').selectOption({ label: 'ABC Dental' });
+  await page.getByTestId('person-save').click();
+  await expect(page).toHaveURL(/\/customers\/people\/[0-9a-f-]{36}$/);
+  await page.getByTestId('action-lead').click();
+  await page.getByLabel('Title').fill('Roof replacement');
+  await page.getByTestId('lead-save').click();
+  await page.getByTestId('open-lead-card').getByRole('link', { name: 'Open lead' }).click();
+  await expect(page.getByTestId('lead-detail')).toBeVisible();
+
+  // The lead, from its own page: its customer stays.
+  await page.getByTestId('lead-menu').click();
+  await page.getByTestId('lead-delete').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Delete this lead for good?');
+  await expect(dialog).toContainText('It doesn’t delete Mike Johnson from Contacts.');
+  await page.getByTestId('delete-confirm').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/pipeline`));
+
+  // The company, from its page: the person who works there stays.
+  await page.goto(company);
+  await page.getByTestId('record-menu').click();
+  await page.getByTestId('record-delete').click();
+  await expect(dialog).toContainText('Delete ABC Dental for good?');
+  await expect(dialog).toContainText('The person who works there stays in Contacts.');
+  await page.getByTestId('delete-confirm').click();
+  await expect(page).toHaveURL(/\/customers\?tab=companies$/);
+
+  // Both wait in the bin, and come back.
+  await page.goto(`/app/w/${workspaceId}/settings/deleted-bin`);
+  const bin = page.getByTestId('deleted-bin');
+  const lead = bin.locator('li', { hasText: 'Roof replacement' });
+  await expect(lead).toContainText('Lead');
+  await expect(lead).toContainText('Mike Johnson');
+  const abc = bin.locator('li', { hasText: 'ABC Dental' });
+  await expect(abc).toContainText('Company');
+  await lead.getByTestId('bin-restore').click();
+  await expect(page.getByText('Roof replacement is back in the Pipeline.')).toBeVisible();
+  await abc.getByTestId('bin-restore').click();
+  await expect(page.getByText('ABC Dental is back in Contacts.')).toBeVisible();
+  await expect(bin).toContainText('The bin is empty');
 });

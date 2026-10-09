@@ -7,9 +7,10 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 
 /**
- * Delete for good on the phone (the Deleted bin, 20261027000400): the sheet asks HandsFreeOS what goes with it and
- * says so in core's words, as the web's box does; a booking still to come asks whether to tell its customer, as
- * Cancel does; what can't go yet says why and the rest still goes; and the screen is left only once the sheet is gone.
+ * Delete for good on the phone (the Deleted bin, 20261027000400 and 20261027000800): the sheet asks HandsFreeOS what
+ * goes with it and says so in core's words, as the web's box does; a booking still to come asks whether to tell its
+ * customer, as Cancel does; what can't go yet says why and the rest still goes; and the screen is left only once the
+ * sheet is gone.
  */
 
 jest.mock('@/lib/api', () => ({
@@ -195,6 +196,51 @@ it('says why one can’t go yet, and deletes the other', async () => {
   expect(posted('/v1/commands/conversation.delete')).toEqual([
     { body: { workspaceId: LONE_STAR, conversationIds: [LOU] } },
   ]);
+});
+
+it('deletes a lead and leaves its customer, saying so', async () => {
+  answering({
+    '/v1/queries/bin.preview': {
+      items: [
+        {
+          id: VISIT,
+          name: 'Heat pump',
+          contents: { tasks: 1, who: ['Dana Lopez'] },
+          rule: null,
+          message: null,
+        },
+      ],
+    },
+    '/v1/commands/lead.delete': { deleted: [{ id: VISIT, binItemId: KIM, name: 'Heat pump' }] },
+  });
+  await render(<Page kind="lead" ids={[VISIT]} names={['Heat pump']} onDeleted={jest.fn()} />);
+  expect(screen.getByText('Delete this lead for good?')).toBeOnTheScreen();
+  expect(await screen.findByText('This also deletes 1 task.')).toBeOnTheScreen();
+  expect(screen.getByText('It doesn’t delete Dana Lopez from Contacts.')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByTestId('delete-confirm'));
+  expect(posted('/v1/commands/lead.delete')).toEqual([
+    { body: { workspaceId: LONE_STAR, leadIds: [VISIT] } },
+  ]);
+  expect(toast.show).toHaveBeenCalledWith(
+    'Lead deleted. Bring it back from Settings → Deleted bin within 30 days.',
+  );
+});
+
+it('says why a company an add-on uses has to stay', async () => {
+  const said =
+    'Pine Inspections is used by the Real Estate Agent add-on, so it has to stay. Archive it instead.';
+  answering({
+    '/v1/queries/bin.preview': {
+      items: [
+        { id: KIM, name: 'Pine Inspections', contents: {}, rule: 'bin_addon_uses', message: said },
+      ],
+    },
+  });
+  await render(
+    <Page kind="company" ids={[KIM]} names={['Pine Inspections']} onDeleted={jest.fn()} />,
+  );
+  expect(await screen.findByText(said)).toBeOnTheScreen();
+  expect(screen.queryByTestId('delete-confirm')).toBeNull();
 });
 
 it('says what went wrong when it can’t ask, and offers nothing to delete', async () => {

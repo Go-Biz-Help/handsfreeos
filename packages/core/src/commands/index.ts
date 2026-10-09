@@ -124,7 +124,16 @@ export {
 } from './support-access';
 export { customRecordAssign, customRecordUnassign } from './custom-record-team';
 export { recordHoldLift, recordHoldPlace } from './record-hold';
-export { appointmentDelete, binEmpty, binRestore, conversationDelete, personDelete } from './bin';
+export {
+  appointmentDelete,
+  binEmpty,
+  binRestore,
+  companyDelete,
+  conversationDelete,
+  customRecordDelete,
+  leadDelete,
+  personDelete,
+} from './bin';
 export {
   safetyCheckIn,
   safetyCheckOut,

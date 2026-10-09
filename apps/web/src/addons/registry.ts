@@ -127,9 +127,9 @@ export interface AddonPublicUi {
 }
 
 export interface AddonUi {
-  /** Its places in the side menu, and its card on the Add-ons page. */
+  /** Its row in the side menu, and its card on the Add-ons page. */
   readonly icon: AddonIcon;
-  /** A different icon for one of its places, by that place's key in the manifest's `ui.nav`. */
+  /** A different icon for one of its pages in the side menu, by that page's key in the manifest's `ui.nav`. */
   readonly navIcons?: Readonly<Record<string, AddonIcon>>;
   /** Its panels on core pages. One is drawn only where the manifest declares the slot too (`ui.slots`). */
   readonly slots?: { readonly [S in AddonSlotName]?: SlotLoader<S> };

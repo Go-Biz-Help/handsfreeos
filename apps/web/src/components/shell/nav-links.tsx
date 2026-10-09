@@ -4,14 +4,17 @@ import {
   ADDON_CATALOG,
   MENU_KEYS,
   can,
-  addonMenuPlace,
-  addonMenuPlaces,
+  addonMenuPages,
+  addonOfMenuKey,
+  addonPageKey,
   currentMenuPlace,
   inMenuPlace,
   isMenuKey,
   menuFor,
   menuKeys,
+  type AddonManifest,
   type AddonMenuKey,
+  type AddonPageKey,
   type MenuAddons,
   type MenuGroup,
   type MenuKey,
@@ -57,14 +60,21 @@ import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { useMenu } from './menu-provider';
 
-export interface NavItem<K extends MenuPlaceKey | FootKey = MenuPlaceKey> {
+type NavIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
+
+export interface NavItem<K extends string = MenuPlaceKey> {
   readonly key: K;
   readonly href: string;
   readonly label: string;
-  readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  readonly icon: NavIcon;
   readonly exact?: boolean;
   /** Shown in the phone bottom bar. */
   readonly primary?: boolean;
+  /**
+   * An add-on's pages, when this person may open more than one of them (0108): the add-on is one row in the menu,
+   * `href` is where all its pages live, and these open from it, as a group's places do.
+   */
+  readonly pages?: readonly NavItem<AddonPageKey>[];
 }
 
 type Place = Omit<NavItem, 'key' | 'href'> & { readonly path: string };
@@ -162,40 +172,66 @@ export const menuAddons = (running: readonly string[] | undefined): MenuAddons =
 });
 
 /**
- * One of an add-on's places (0108): its words from the add-on's manifest, its icon from the web's registry of
- * add-ons (addons/registry.ts) or a generic one, its address under the add-on's pages. Null for a place no add-on
- * in the catalogue has any more.
+ * The pages of one add-on this person may open (0108), in its manifest's order: their words from the manifest, their
+ * icons from the web's registry of add-ons (addons/registry.ts) or a generic one, their addresses under its pages.
  */
-function addonNavItem(workspaceId: string, key: AddonMenuKey): NavItem | null {
-  const place = addonMenuPlace(ADDON_CATALOG, key);
-  if (!place) return null;
-  const ui = ADDON_UI[place.addon.id];
-  return {
-    key,
-    href: addonHref(workspaceId, place.addon.id, place.nav.path),
-    label: place.nav.label,
-    icon: ui?.navIcons?.[place.nav.key] ?? ui?.icon ?? Blocks,
-  };
-}
-
-/** Any place, by key: one of core's, or an add-on's (null for an add-on the catalogue no longer has). */
-export function placeItemOf(workspaceId: string, key: MenuPlaceKey): NavItem | null {
-  return isMenuKey(key) ? navItemOf(workspaceId, key) : addonNavItem(workspaceId, key);
+function addonPages(
+  workspaceId: string,
+  addon: AddonManifest,
+  permissions: readonly string[] | null | undefined,
+): NavItem<AddonPageKey>[] {
+  const ui = ADDON_UI[addon.id];
+  return addonMenuPages(addon, permissions).map((nav) => ({
+    key: addonPageKey(addon.id, nav.key),
+    href: addonHref(workspaceId, addon.id, nav.path),
+    label: nav.label,
+    icon: ui?.navIcons?.[nav.key] ?? ui?.icon ?? Blocks,
+  }));
 }
 
 /**
- * The places of the add-ons running here that this person may open, whether their menu shows them or not: like
- * core's, a place taken out of the menu still titles its own pages on the phone.
+ * An add-on's one row in the menu (0108; the owner's decision, 2026-10-09): its name and its icon. With one page
+ * open to this person it goes straight there; with more, they open from it (`pages`), so however many add-ons a
+ * business turns on, each is a single row. Null for an add-on the catalogue no longer has, or one with nothing
+ * this person may open.
  */
-export function addonNavItems(
+function addonNavItem(
+  workspaceId: string,
+  key: AddonMenuKey,
+  permissions: readonly string[] | null | undefined,
+): NavItem | null {
+  const addon = addonOfMenuKey(ADDON_CATALOG, key);
+  if (!addon) return null;
+  const pages = addonPages(workspaceId, addon, permissions);
+  const item = { key, label: addon.name, icon: ADDON_UI[addon.id]?.icon ?? Blocks };
+  if (pages.length > 1) return { ...item, href: addonHref(workspaceId, addon.id), pages };
+  return pages[0] ? { ...item, href: pages[0].href } : null;
+}
+
+/**
+ * Any place, by key: one of core's, or an add-on (null for one the catalogue no longer has, or that this person may
+ * open nothing of: what it shows depends on their permissions).
+ */
+export function placeItemOf(
+  workspaceId: string,
+  key: MenuPlaceKey,
+  permissions?: readonly string[] | null,
+): NavItem | null {
+  return isMenuKey(key) ? navItemOf(workspaceId, key) : addonNavItem(workspaceId, key, permissions);
+}
+
+/**
+ * The pages of the add-ons running here that this person may open, whether their menu shows the add-on or not:
+ * like core's places, a page of one taken out of the menu still titles itself on the phone.
+ */
+export function addonPageItems(
   workspaceId: string,
   permissions: readonly string[] | null | undefined,
   addons: MenuAddons,
-): NavItem[] {
-  return addonMenuPlaces(permissions, addons).flatMap((key) => {
-    const item = addonNavItem(workspaceId, key);
-    return item ? [item] : [];
-  });
+): NavItem<AddonPageKey>[] {
+  return addons.catalog.flatMap((addon) =>
+    addons.running.includes(addon.id) ? addonPages(workspaceId, addon, permissions) : [],
+  );
 }
 
 /**
@@ -288,7 +324,7 @@ function NavLink({
   badge,
   className,
 }: {
-  item: NavItem<MenuPlaceKey | FootKey>;
+  item: NavItem<string>;
   active: boolean;
   onNavigate?: () => void;
   badge?: ReactNode;
@@ -311,28 +347,45 @@ function NavLink({
   );
 }
 
-/** What a group draws its places from: each place's item, and the one the open page is in. */
-interface GroupProps {
-  group: MenuGroup;
-  items: ReadonlyMap<MenuPlaceKey, NavItem>;
-  activeKey: MenuPlaceKey | null;
-  badges: (key: MenuPlaceKey, onNavigate?: () => void) => ReactNode;
-  onNavigate?: () => void;
+/**
+ * One row that places open from: a group the person made, or an add-on and its pages (0108). Beside the sidebar
+ * they come up in a flyout (`Flyout`); in the phone's drawer, where a flyout has nowhere to go, in place (`Fold`).
+ */
+interface OpenerProps {
+  /** How tests find the row and what opens from it. */
+  readonly testId: string;
+  readonly panelTestId: string;
+  readonly label: string;
+  readonly icon: NavIcon;
+  /** Lit: the page open now is in one of its places. */
+  readonly active: boolean;
+  /** The counts on the row (its places' own), handed what to do once one is pressed. */
+  readonly counts?: (picked?: () => void) => ReactNode;
+  readonly onNavigate?: () => void;
+  /** Its places, handed what to do once one is picked. */
+  readonly children: (picked?: () => void) => ReactNode;
 }
 
 /**
- * A group in the sidebar: the places inside it come up beside the menu on hover or a press, so a menu people
- * rarely go into takes one row instead of seven. Hovering never steals the keyboard's place; a press, and the
- * arrow keys after it, move into the flyout as usual.
+ * In the sidebar: the places come up beside the menu on hover or a press, so a menu people rarely go into takes one
+ * row instead of seven. Hovering never steals the keyboard's place; a press, and the arrow keys after it, move into
+ * the flyout as usual.
  */
-function GroupFlyout({ group, items, activeKey, badges, onNavigate }: GroupProps) {
+function Flyout({
+  testId,
+  panelTestId,
+  label,
+  icon: Icon,
+  active,
+  counts,
+  onNavigate,
+  children,
+}: OpenerProps) {
   const hoverable = useMatches('(hover: hover) and (pointer: fine)');
   const [open, setOpen] = useState(false);
   /** Open because the pointer is resting on it, rather than because someone asked for it. */
   const byHover = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // A group is lit by what is inside it.
-  const active = activeKey !== null && group.keys.includes(activeKey);
 
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -367,7 +420,7 @@ function GroupFlyout({ group, items, activeKey, badges, onNavigate }: GroupProps
       }}
     >
       <Popover.Trigger
-        data-testid={`menu-group-${group.id}`}
+        data-testid={testId}
         onClick={(e) => {
           // A press decides, not Radix's own toggle (preventDefault stands it down): pressing a flyout the
           // pointer has already opened pins it open, so it doesn't shut under the very press that asked for it.
@@ -381,10 +434,10 @@ function GroupFlyout({ group, items, activeKey, badges, onNavigate }: GroupProps
         onPointerLeave={hideSoon}
         className={rowClass(active)}
       >
-        <Layers className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
-        <span className="min-w-0 truncate">{group.label}</span>
+        <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
+        <span className="min-w-0 truncate">{label}</span>
         <span className="ml-auto flex items-center gap-1">
-          {group.keys.map((k) => badges(k, close))}
+          {counts?.(close)}
           <ChevronRight className="h-4 w-4 flex-none text-text-3" strokeWidth={1.5} />
         </span>
       </Popover.Trigger>
@@ -400,31 +453,28 @@ function GroupFlyout({ group, items, activeKey, badges, onNavigate }: GroupProps
           }}
           onPointerEnter={stop}
           onPointerLeave={hideSoon}
-          data-testid={`menu-group-panel-${group.id}`}
+          data-testid={panelTestId}
           className="z-40 flex max-h-[70vh] w-[220px] flex-col gap-0.5 overflow-y-auto rounded-menu border border-border bg-card p-1.5 shadow-2"
         >
-          <p className="px-2.5 pb-1 pt-1 text-xs font-medium text-text-3">{group.label}</p>
-          {group.keys.map((key) => {
-            const item = items.get(key);
-            return item ? (
-              <NavLink
-                key={key}
-                item={item}
-                active={key === activeKey}
-                badge={<span className="ml-auto">{badges(key, close)}</span>}
-                onNavigate={close}
-              />
-            ) : null;
-          })}
+          <p className="px-2.5 pb-1 pt-1 text-xs font-medium text-text-3">{label}</p>
+          {children(close)}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
   );
 }
 
-/** The same group in the phone's drawer, where a flyout has nowhere to go: it opens in place. */
-function GroupAccordion({ group, items, activeKey, badges, onNavigate }: GroupProps) {
-  const active = activeKey !== null && group.keys.includes(activeKey);
+/** In the phone's drawer: the places open in place, and are already open when the page showing is one of them. */
+function Fold({
+  testId,
+  panelTestId,
+  label,
+  icon: Icon,
+  active,
+  counts,
+  onNavigate,
+  children,
+}: OpenerProps) {
   const [open, setOpen] = useState(active);
   useEffect(() => {
     if (active) setOpen(true);
@@ -433,15 +483,15 @@ function GroupAccordion({ group, items, activeKey, badges, onNavigate }: GroupPr
     <>
       <button
         type="button"
-        data-testid={`menu-group-${group.id}`}
+        data-testid={testId}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={rowClass(active)}
       >
-        <Layers className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
-        <span className="min-w-0 truncate">{group.label}</span>
+        <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
+        <span className="min-w-0 truncate">{label}</span>
         <span className="ml-auto flex items-center gap-1">
-          {open ? null : group.keys.map((k) => badges(k))}
+          {open ? null : counts?.()}
           {open ? (
             <ChevronDown className="h-4 w-4 flex-none text-text-3" strokeWidth={1.5} />
           ) : (
@@ -452,23 +502,122 @@ function GroupAccordion({ group, items, activeKey, badges, onNavigate }: GroupPr
       {open ? (
         <div
           className="flex flex-col gap-0.5 border-l border-border pl-2 ml-[19px]"
-          data-testid={`menu-group-panel-${group.id}`}
+          data-testid={panelTestId}
         >
-          {group.keys.map((key) => {
-            const item = items.get(key);
-            return item ? (
-              <NavLink
-                key={key}
-                item={item}
-                active={key === activeKey}
-                onNavigate={onNavigate}
-                badge={<span className="ml-auto">{badges(key)}</span>}
-              />
-            ) : null;
-          })}
+          {children(onNavigate)}
         </div>
       ) : null}
     </>
+  );
+}
+
+/** An add-on's pages (0108), the one the open page is in lit. */
+function AddonPageLinks({
+  item,
+  pathname,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const pages = item.pages ?? [];
+  const lit = currentMenuPlace(pages, pathname)?.key ?? null;
+  return (
+    <>
+      {pages.map((page) => (
+        <NavLink key={page.key} item={page} active={page.key === lit} onNavigate={onNavigate} />
+      ))}
+    </>
+  );
+}
+
+/** How the menu is drawn: beside the sidebar, or in the phone's drawer. */
+type Variant = 'sidebar' | 'drawer';
+
+/**
+ * An add-on as one row (0108; the owner's decision, 2026-10-09): its pages open from it, like a group's places, so
+ * every add-on a business turns on adds a single row. It is lit on any of its pages.
+ */
+function AddonRow({
+  item,
+  active,
+  pathname,
+  variant,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  pathname: string;
+  variant: Variant;
+  onNavigate?: () => void;
+}) {
+  const Opener = variant === 'drawer' ? Fold : Flyout;
+  const addonId = item.key.replace(/^addon:/, '');
+  return (
+    <Opener
+      testId={`menu-addon-${addonId}`}
+      panelTestId={`menu-addon-panel-${addonId}`}
+      label={item.label}
+      icon={item.icon}
+      active={active}
+      onNavigate={onNavigate}
+    >
+      {(picked) => <AddonPageLinks item={item} pathname={pathname} onNavigate={picked} />}
+    </Opener>
+  );
+}
+
+/** What a group draws its places from: each place's item, and the one the open page is in. */
+interface GroupProps {
+  group: MenuGroup;
+  items: ReadonlyMap<MenuPlaceKey, NavItem>;
+  activeKey: MenuPlaceKey | null;
+  pathname: string;
+  badges: (key: MenuPlaceKey, onNavigate?: () => void) => ReactNode;
+  variant: Variant;
+  onNavigate?: () => void;
+}
+
+/**
+ * A group the person made, as one row that is lit by what is inside it. An add-on they put in it shows its pages
+ * there, under its name.
+ */
+function Group({ group, items, activeKey, pathname, badges, variant, onNavigate }: GroupProps) {
+  const Opener = variant === 'drawer' ? Fold : Flyout;
+  return (
+    <Opener
+      testId={`menu-group-${group.id}`}
+      panelTestId={`menu-group-panel-${group.id}`}
+      label={group.label}
+      icon={Layers}
+      active={activeKey !== null && group.keys.includes(activeKey)}
+      counts={(picked) => group.keys.map((k) => badges(k, picked))}
+      onNavigate={onNavigate}
+    >
+      {(picked) =>
+        group.keys.map((key) => {
+          const item = items.get(key);
+          if (!item) return null;
+          if (item.pages)
+            return (
+              <div key={key} role="group" aria-label={item.label} className="flex flex-col gap-0.5">
+                <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-text-3">{item.label}</p>
+                <AddonPageLinks item={item} pathname={pathname} onNavigate={picked} />
+              </div>
+            );
+          return (
+            <NavLink
+              key={key}
+              item={item}
+              active={key === activeKey}
+              badge={<span className="ml-auto">{badges(key, picked)}</span>}
+              onNavigate={picked}
+            />
+          );
+        })
+      }
+    </Opener>
   );
 }
 
@@ -480,8 +629,9 @@ function GroupAccordion({ group, items, activeKey, badges, onNavigate }: GroupPr
  * Arranging it is Settings → Side menu (components/settings/menu-section.tsx). The menu is places to go, and
  * nothing else: a row for editing it would be one more thing to read past, every day, for something done once.
  *
- * The add-ons running in the business add their places (0108), and only while they run: one that is turned off
- * leaves no link behind, and comes back where the person had it when it's turned on again.
+ * Each add-on running in the business adds one row (0108), whose pages open from it as a group's places do, and
+ * only while it runs: one that is turned off leaves no link behind, and comes back where the person had it when
+ * it's turned on again.
  */
 export function NavLinks({
   workspaceId,
@@ -495,17 +645,17 @@ export function NavLinks({
   permissions?: readonly string[] | null;
   /** The add-ons running in the business (0108). */
   addons?: readonly string[];
-  variant?: 'sidebar' | 'drawer';
+  variant?: Variant;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const menu = menuFor(useMenu().menu, permissions, menuAddons(addons));
   const items = new Map<MenuPlaceKey, NavItem>();
   for (const key of menuKeys(menu)) {
-    const item = placeItemOf(workspaceId, key);
+    const item = placeItemOf(workspaceId, key, permissions);
     if (item) items.set(key, item);
   }
-  // One place is lit: the one the open page is in, the deepest when an add-on's places nest.
+  // One place is lit: the one the open page is in, an add-on on any of its pages.
   const activeKey = currentMenuPlace([...items.values()], pathname)?.key ?? null;
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
@@ -524,7 +674,6 @@ export function NavLinks({
       );
     return null;
   };
-  const Group = variant === 'drawer' ? GroupAccordion : GroupFlyout;
   return (
     <nav className="flex flex-col gap-0.5" aria-label="Workspace">
       {menu.entries.map((entry) => {
@@ -535,13 +684,27 @@ export function NavLinks({
               group={entry}
               items={items}
               activeKey={activeKey}
+              pathname={pathname}
               badges={badges}
+              variant={variant}
               onNavigate={onNavigate}
             />
           );
         }
         const item = items.get(entry.key);
-        return item ? (
+        if (!item) return null;
+        if (item.pages)
+          return (
+            <AddonRow
+              key={entry.key}
+              item={item}
+              active={entry.key === activeKey}
+              pathname={pathname}
+              variant={variant}
+              onNavigate={onNavigate}
+            />
+          );
+        return (
           <NavLink
             key={entry.key}
             item={item}
@@ -549,7 +712,7 @@ export function NavLinks({
             onNavigate={onNavigate}
             badge={<span className="ml-auto">{badges(entry.key)}</span>}
           />
-        ) : null;
+        );
       })}
     </nav>
   );

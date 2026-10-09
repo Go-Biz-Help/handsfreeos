@@ -429,18 +429,27 @@ export const companies = app.table('companies', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** In the Deleted bin (20261027000800): hidden until it comes back (binItems is declared below). */
+  binItemId: uuid('bin_item_id').references((): AnyPgColumn => binItems.id),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
 export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
 
-/** What the Deleted bin holds (20261027000400). */
-export const BIN_KINDS = ['person', 'conversation', 'appointment'] as const;
+/** What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800). */
+export const BIN_KINDS = [
+  'person',
+  'conversation',
+  'appointment',
+  'lead',
+  'company',
+  'custom_record',
+] as const;
 export type BinKind = (typeof BIN_KINDS)[number];
 
 /**
- * The Deleted bin (20261027000400): a customer, conversation or booking deleted, and everything that went with it,
- * kept 30 days and then emptied by the worker. Only its functions write it.
+ * The Deleted bin (20261027000400): a customer, conversation, booking, lead, company or record deleted, and
+ * everything that went with it, kept 30 days and then emptied by the worker. Only its functions write it.
  */
 export const binItems = app.table('bin_items', {
   id: id(),
@@ -6260,6 +6269,7 @@ export const customRecords = app.table('custom_records', {
   sealAll: text('seal_all'),
   /** Whether phones keep it now; its add-on narrows it (private.record_phone_window). */
   syncWindow: boolean('sync_window').notNull().default(true),
+  binItemId: binItemRef(),
 });
 
 /** A record kept as it is (round six): a legal hold until lifted, or the add-on's retention hold until a date. */

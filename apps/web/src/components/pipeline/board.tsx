@@ -372,6 +372,7 @@ export function PipelineBoard({
               tags={tags}
               compact
               onChanged={() => void refetch()}
+              onDeleted={() => setSelected(null)}
             />
           ) : null}
         </SheetContent>

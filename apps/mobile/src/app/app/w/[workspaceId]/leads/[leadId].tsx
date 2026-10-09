@@ -1,6 +1,8 @@
 import {
+  BIN_WORDS,
   formatDate,
   formatDateOnly,
+  holds,
   inStageSince,
   lastContactWords,
   money,
@@ -15,7 +17,9 @@ import { Pressable, View } from 'react-native';
 
 import { moveLead, setNextAction } from '@/pipeline/actions';
 import { useLead } from '@/pipeline/use-pipeline';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { DetailRow, ChangeMark } from '@/components/customers/bits';
+import { Trash } from '@/components/icons';
 import { TimelineEmpty, TimelineRow } from '@/components/customers/timeline';
 import { LostSheet, MoveSheet, NextActionBox, StageBadge } from '@/components/pipeline/bits';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
@@ -26,11 +30,14 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { useMembers } from '@/customers/names';
 import { startCall } from '@/inbox/calls';
+import { useGrants } from '@/lib/grants';
+import { useNetwork } from '@/lib/network';
 
 /**
  * A lead's own page, as `design/m10/Pipeline.dc.html` draws it: **Move to…** is the main button, Call and Text go
  * straight to the customer, and the next action and what came in last sit underneath. Everything reads from the
- * phone's copy, and a move works with no signal.
+ * phone's copy, and a move works with no signal. An owner deletes it for good at the foot, with signal (the Deleted
+ * bin, 20261027000800).
  */
 export default function LeadScreen() {
   const { leadId } = useLocalSearchParams<{ leadId: string }>();
@@ -41,6 +48,9 @@ export default function LeadScreen() {
   const [moving, setMoving] = React.useState(false);
   const [lost, setLost] = React.useState<StageRef | null>(null);
   const [dismissed, setDismissed] = React.useState<string | null>(null);
+  const canDelete = holds(useGrants(), 'records.delete');
+  const { online } = useNetwork();
+  const [deleting, setDeleting] = React.useState(false);
   const refused =
     data.state.refused && data.state.refused.row.id !== dismissed ? data.state.refused : null;
 
@@ -204,6 +214,18 @@ export default function LeadScreen() {
       >
         <Text className="text-[13px] text-accent-text">Back to the pipeline</Text>
       </Pressable>
+      {canDelete ? (
+        <Button
+          variant="ghostDanger"
+          size="sm"
+          icon={Trash}
+          onPress={() => (online ? setDeleting(true) : toast.error(BIN_WORDS.offline))}
+          className="self-start"
+          testID="lead-delete"
+        >
+          {BIN_WORDS.menu}
+        </Button>
+      ) : null}
 
       <MoveSheet
         open={moving}
@@ -218,6 +240,18 @@ export default function LeadScreen() {
         leadTitle={lead.title}
         onClose={() => setLost(null)}
         onConfirm={(reason) => lost && void move(lost, reason)}
+      />
+      <DeleteSheet
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        workspaceId={business.id}
+        kind="lead"
+        ids={[leadId]}
+        names={[lead.title]}
+        onDeleted={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace(businessHref(business.id, 'pipeline') as Href);
+        }}
       />
     </Screen>
   );

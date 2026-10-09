@@ -1897,6 +1897,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/company.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete companies for good, with their notes, tasks, files, relationships and the leads only theirs: they wait 30 days in the Deleted bin first. Their people stay.
+         * @description Risk level 4. Requires records.delete. Emits company.deleted.
+         */
+        post: operations["command_company_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/company.restore": {
         parameters: {
             query?: never;
@@ -2491,6 +2511,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits custom_record.created.
          */
         post: operations["command_custom_record_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete records of the business’s own kinds for good, with their notes, tasks, files and relationships: they wait 30 days in the Deleted bin first. An add-on’s records can only be archived.
+         * @description Risk level 4. Requires records.delete. Emits custom_record.deleted.
+         */
+        post: operations["command_custom_record_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4411,6 +4451,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits lead.created. Can wait on a phone with no signal.
          */
         post: operations["command_lead_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete leads for good, with their tasks and files: they wait 30 days in the Deleted bin first. Their customer stays, with their conversations, bookings and bills.
+         * @description Risk level 4. Requires records.delete. Emits lead.deleted.
+         */
+        post: operations["command_lead_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13687,7 +13747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What deleting these customers, conversations or bookings would take with them, or why one can’t go yet.
+         * What deleting these customers, conversations, bookings, leads, companies or records would take with them, or why one can’t go yet.
          * @description Requires records.delete.
          */
         post: operations["query_bin_preview"];
@@ -21058,7 +21118,7 @@ export interface operations {
                     "application/json": {
                         joined: number;
                         /** @enum {string} */
-                        kind: "person" | "conversation" | "appointment";
+                        kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
                         name: string;
                         /** Format: uuid */
                         recordId: string;
@@ -22758,6 +22818,44 @@ export interface operations {
             };
         };
     };
+    command_company_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    companyIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
+                    };
+                };
+            };
+        };
+    };
     command_company_restore: {
         parameters: {
             query?: never;
@@ -23923,6 +24021,44 @@ export interface operations {
                         /** Format: uuid */
                         customRecordId: string;
                         relationshipId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    customRecordIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
                     };
                 };
             };
@@ -27907,6 +28043,44 @@ export interface operations {
                         leadId: string;
                         /** Format: uuid */
                         stageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    leadIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
                     };
                 };
             };
@@ -50278,9 +50452,12 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                people?: number;
+                                relationships?: number;
                                 /** Format: date-time */
                                 startsAt?: string;
                                 tasks?: number;
+                                type?: string;
                                 upcoming?: number;
                                 who?: (string | null)[];
                             };
@@ -50295,7 +50472,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "person" | "conversation" | "appointment";
+                            kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
                             name: string;
                             /** Format: date-time */
                             purgeAfter: string;
@@ -50320,7 +50497,7 @@ export interface operations {
                 "application/json": {
                     ids: string[];
                     /** @enum {string} */
-                    kind: "person" | "conversation" | "appointment";
+                    kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -50346,9 +50523,12 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                people?: number;
+                                relationships?: number;
                                 /** Format: date-time */
                                 startsAt?: string;
                                 tasks?: number;
+                                type?: string;
                                 upcoming?: number;
                                 who?: (string | null)[];
                             };
@@ -52443,6 +52623,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         record: {
+                            addonId: string | null;
                             archivedAt: string | null;
                             /** Format: date-time */
                             createdAt: string;
