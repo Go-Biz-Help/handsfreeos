@@ -306,7 +306,7 @@ export const CustomRecordDetail = z.object({
   team: z.array(z.object({ id: uuid, fullName: z.string() })),
   /**
    * The add-on whose kind it is (Real Estate's deals), or null for one of the business's own. An add-on's record
-   * can only be archived, never deleted for good (20261027000700).
+   * can only be archived, never deleted for good (20261027000800).
    */
   addonId: z.string().nullable(),
 });

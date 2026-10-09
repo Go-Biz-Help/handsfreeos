@@ -429,14 +429,14 @@ export const companies = app.table('companies', {
     .array()
     .notNull()
     .default(sql`'{}'`),
-  /** In the Deleted bin (20261027000700): hidden until it comes back (binItems is declared below). */
+  /** In the Deleted bin (20261027000800): hidden until it comes back (binItems is declared below). */
   binItemId: uuid('bin_item_id').references((): AnyPgColumn => binItems.id),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
 export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
 
-/** What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000700). */
+/** What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800). */
 export const BIN_KINDS = [
   'person',
   'conversation',

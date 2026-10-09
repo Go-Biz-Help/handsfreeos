@@ -625,7 +625,7 @@ const RULES: Record<string, { status: number; message: string }> = {
 
 /**
  * Refusals the database words itself, because the words name what it found: the customer, the signed file, the
- * booking's date (the Deleted bin, 20261027000400 and 20261027000700). Its message is passed on with the rule, and
+ * booking's date (the Deleted bin, 20261027000400 and 20261027000800). Its message is passed on with the rule, and
  * with an add-on's name where it names one by its id.
  */
 const WORDED_IN_DATABASE: Record<string, number> = {

@@ -40,7 +40,7 @@ export function catalogAddon(id: string): AddonManifest {
 
 /**
  * The database's words name an add-on by its id, as `{addon:realestate}`, because only the catalogue knows what it's
- * called: "Acme is used by the Real Estate Agent add-on…" (the Deleted bin, 20261027000700).
+ * called: "Acme is used by the Real Estate Agent add-on…" (the Deleted bin, 20261027000800).
  */
 export function withAddonNames(text: string): string {
   return text.replace(

@@ -40,7 +40,7 @@ export const LEADS_SQL = `
 
 /**
  * One record's leads, leaving out archived ones as the web's Leads tab does: a lead deleted for good is archived
- * while it waits in the Deleted bin (20261027000700), so it leaves this phone's tab too.
+ * while it waits in the Deleted bin (20261027000800), so it leaves this phone's tab too.
  */
 export const RECORD_LEADS_SQL = `${LEADS_SQL} AND (l.person_id = ? OR l.company_id = ?)
   AND l.archived_at IS NULL`;

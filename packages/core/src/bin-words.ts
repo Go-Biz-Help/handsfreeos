@@ -1,5 +1,5 @@
 /**
- * Deleting for good, through the Deleted bin (20261027000400 and 20261027000700; the owner's decisions of 2026-10-08
+ * Deleting for good, through the Deleted bin (20261027000400 and 20261027000800; the owner's decisions of 2026-10-08
  * are in docs/deleting.md): what the delete box, its toasts and Settings → Deleted bin say, so the web and the phone
  * say the same thing. Browser-safe; `commands/bin.ts` does the work.
  */

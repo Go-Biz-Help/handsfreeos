@@ -90,7 +90,7 @@ async function putInBin(
 
 /**
  * "Delete … for good?" for customers, conversations, a booking, a lead, a company or a record (the Deleted bin,
- * 20261027000400 and 20261027000700). It asks first what goes with them (bin.preview) and says so, names any that
+ * 20261027000400 and 20261027000800). It asks first what goes with them (bin.preview) and says so, names any that
  * can't go yet and why, and deletes the rest. A booking still to come is cancelled first, telling the customer
  * unless that's unticked, as Cancel does.
  */

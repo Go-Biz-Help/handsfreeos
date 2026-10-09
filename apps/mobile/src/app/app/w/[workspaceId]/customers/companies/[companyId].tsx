@@ -29,7 +29,7 @@ import { useNetwork } from '@/lib/network';
 
 /**
  * A company's own screen: the same 360 as a customer's, with its people instead of a phone call. An owner deletes it
- * for good from Details, with signal (the Deleted bin, 20261027000700).
+ * for good from Details, with signal (the Deleted bin, 20261027000800).
  */
 export default function CompanyScreen() {
   const { companyId } = useLocalSearchParams<{ companyId: string }>();

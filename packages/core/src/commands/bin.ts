@@ -1,7 +1,7 @@
 /**
  * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08 are in
  * docs/deleting.md): a customer with everything only about them, a conversation, or a booking; and since
- * 20261027000700 a lead, a company, or a record of one of the business's own kinds. What's deleted waits 30 days in
+ * 20261027000800 a lead, a company, or a record of one of the business's own kinds. What's deleted waits 30 days in
  * the bin, where it can be brought back, and then the worker empties it.
  *
  * Owners only, unless an owner gives "Delete for good" to a role or a person, and never the AI or a workflow

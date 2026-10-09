@@ -2,14 +2,14 @@
 
 Archive puts something away and keeps it for good. Delete for good takes it out of HandsFreeOS: it waits 30 days in
 **Settings → Deleted bin**, where an owner can bring it back, and then the worker empties it. The first round covered
-customers, conversations and bookings; the second (`20261027000700`) added leads, companies and records of a
+customers, conversations and bookings; the second (`20261027000800`) added leads, companies and records of a
 business's own kinds. An add-on's records stay archive-only.
 
 ## Where things are
 
 | What                       | Where                                                                                                                                                                                                                   |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000700` adds leads, companies and records                                                                       |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records                                                                       |
 | Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                               |
 | Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                          |
 | What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                       |
@@ -71,7 +71,7 @@ to an hour for them first. Once emptying starts, nothing can bring it back.
 
 **A customer with bills is left as a name-only record** (`erased_at`) that the bills point to.
 
-**A lead, a company or a record takes only what's about it, and what was put on it on purpose** (20261027000700).
+**A lead, a company or a record takes only what's about it, and what was put on it on purpose** (20261027000800).
 
 - A lead takes its tasks, its files and the timeline lines that tell its own story (made, moved, won, lost). Its
   customer keeps their notes, calls, bookings, bills and form answers: notes made on a customer default to their

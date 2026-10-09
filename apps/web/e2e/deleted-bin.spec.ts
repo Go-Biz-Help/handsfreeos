@@ -7,7 +7,7 @@ import { setUpTexting, textFromCustomer } from './telephony';
  * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08): an owner
  * deletes a customer from their page, finds them in Settings → Deleted bin from their old link, brings them back,
  * deletes two at once from Contacts and empties the bin; deletes conversations from the inbox, picked or open;
- * deletes a booking still to come, which is cancelled first with the customer told; and (20261027000700) deletes a
+ * deletes a booking still to come, which is cancelled first with the customer told; and (20261027000800) deletes a
  * lead and a company from their pages and brings them back.
  */
 test('a customer deleted, found in the bin, brought back; two at once; the bin emptied', async ({

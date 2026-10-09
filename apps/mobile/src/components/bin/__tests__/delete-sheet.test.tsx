@@ -7,7 +7,7 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 
 /**
- * Delete for good on the phone (the Deleted bin, 20261027000400 and 20261027000700): the sheet asks HandsFreeOS what
+ * Delete for good on the phone (the Deleted bin, 20261027000400 and 20261027000800): the sheet asks HandsFreeOS what
  * goes with it and says so in core's words, as the web's box does; a booking still to come asks whether to tell its
  * customer, as Cancel does; what can't go yet says why and the rest still goes; and the screen is left only once the
  * sheet is gone.

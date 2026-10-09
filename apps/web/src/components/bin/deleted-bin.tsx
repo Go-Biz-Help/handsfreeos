@@ -22,7 +22,7 @@ import type { BinList, BinListItem } from '@/lib/api/types';
 type Asking = { kind: 'one'; item: BinListItem } | { kind: 'all' };
 
 /**
- * Settings → Deleted bin (20261027000400, 20261027000700): customers, conversations, bookings, leads, companies and
+ * Settings → Deleted bin (20261027000400, 20261027000800): customers, conversations, bookings, leads, companies and
  * records deleted for good, newest first, each waiting its 30 days. Bring one back, delete it now, or empty the
  * whole bin. Whatever is being emptied says so and can't come back.
  */

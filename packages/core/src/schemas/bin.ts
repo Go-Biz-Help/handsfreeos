@@ -4,7 +4,7 @@ import { ListInput } from './crm';
 
 /**
  * The Deleted bin (20261027000400): customers, conversations and bookings deleted for good wait here 30 days, and
- * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000700).
+ * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000800).
  * Owners only, unless an owner gives "Delete for good" to a role or a person.
  */
 export const BinKind = z.enum([

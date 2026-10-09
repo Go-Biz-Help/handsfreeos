@@ -1,5 +1,5 @@
 /**
- * Deleting for good, round two (20261027000700): a lead, a company, or a record of one of the business's own kinds
+ * Deleting for good, round two (20261027000800): a lead, a company, or a record of one of the business's own kinds
  * goes in the Deleted bin too, with what's only about it, and comes back from it.
  *   - Owners only, never the AI, a workflow or the system, as round one.
  *   - What an add-on keeps or manages stays, and the refusal names the add-on.

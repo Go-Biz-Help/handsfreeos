@@ -1,5 +1,5 @@
 /**
- * The Deleted bin, round two (20261027000700): a lead, a company, or a record of one of the business's own kinds.
+ * The Deleted bin, round two (20261027000800): a lead, a company, or a record of one of the business's own kinds.
  *   - Each takes what's only about it and what was put on it on purpose. Its customer, its people, bookings, bills,
  *     conversations and form answers stay, no longer tied to it.
  *   - An add-on's records, a record on a hold, and anything an add-on keeps rows for can't go.

@@ -1,5 +1,5 @@
 /**
- * The Deleted bin (20261027000400, 20261027000700): what a delete would take with it, before it's done, and what's
+ * The Deleted bin (20261027000400, 20261027000800): what a delete would take with it, before it's done, and what's
  * in the bin now. Only who may delete for good sees either.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';

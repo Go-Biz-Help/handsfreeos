@@ -37,7 +37,7 @@ import { useNetwork } from '@/lib/network';
  * A lead's own page, as `design/m10/Pipeline.dc.html` draws it: **Move to…** is the main button, Call and Text go
  * straight to the customer, and the next action and what came in last sit underneath. Everything reads from the
  * phone's copy, and a move works with no signal. An owner deletes it for good at the foot, with signal (the Deleted
- * bin, 20261027000700).
+ * bin, 20261027000800).
  */
 export default function LeadScreen() {
   const { leadId } = useLocalSearchParams<{ leadId: string }>();
