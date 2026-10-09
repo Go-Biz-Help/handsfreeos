@@ -49,6 +49,12 @@ file's dates, and its chats read by the AI:
   time, ten steps from the goal to a summary, each with ideas to tap and room for the business's own words. The offer
   step offers the business's booking pages as the link, and the tags step its own tags. A new playbook walks every
   step; changing one opens on the summary, where each part has its own Change.
+- **AI help on each part of a playbook** (owners and admins): under every part the person writes, **Improve**
+  rewrites what's there and **Suggest more** (or **Write it for me**) offers more, from the whole playbook as it
+  stands. Words come back three to pick from; list lines to tap in one by one, or a rewritten list to use instead;
+  questions with their answers, what each leads to and only the playbook's own tags. Nothing is used until the person
+  picks it, and it counts against the business's daily AI limit (`playbook-assist.ts`; the worker's
+  `outreach.playbook.assist` action). The goal, link, steps and pace are choices, not writing, so they have none.
 - **The conversation**: the questions to work into a chat, each with the answers people give. An answer can add one of
   the playbook's tags, and says what's next: the next question, a question further down, the offer, checking back
   later, or stopping. A question with no answers is answered in the person's own words.

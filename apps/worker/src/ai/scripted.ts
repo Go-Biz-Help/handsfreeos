@@ -1643,8 +1643,37 @@ function scriptedChatRead(message: string) {
   };
 }
 
+/**
+ * Social Outreach's help on a playbook part: options named after the part, one already in the playbook (which the
+ * check drops), and for the conversation a question with a tag the playbook has and one it hasn't.
+ */
+function scriptedPlaybookAssist(message: string) {
+  const part = /<part>([\s\S]*?)<\/part>/.exec(message)?.[1] ?? 'part';
+  if (part === 'questions for the conversation')
+    return {
+      options: [],
+      questions: [
+        {
+          text: 'How do you keep track of your customers now?',
+          answers: [
+            { label: 'A spreadsheet', tag: 'Uses a spreadsheet', next: 'offer' },
+            { label: 'A CRM', tag: 'Made-up tag', next: 'continue' },
+          ],
+        },
+      ],
+    };
+  return {
+    options: [`A better ${part}`, `Another ${part}`, 'Business owner', `A third ${part}`],
+    questions: [],
+  };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+  {
+    when: /Help write this part of the playbook\.$/,
+    json: (message) => scriptedPlaybookAssist(message),
+  },
 ];
 
 export const SCRIPTED_RULES: readonly ScriptRule[] = [

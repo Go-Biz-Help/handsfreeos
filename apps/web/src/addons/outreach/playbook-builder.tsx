@@ -6,6 +6,7 @@
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
  */
+import type { AssistDraft, AssistQuestion } from '@hfos/core/addons/outreach/playbook-assist';
 import {
   ANSWER_NEXTS,
   answerNextLabel,
@@ -54,6 +55,7 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
+import { AiHelp } from './ai-help';
 import type { Playbook } from './types';
 
 // ---------- the answers ----------
@@ -401,6 +403,84 @@ export function PlaybookBuilder({
       };
     });
 
+  /** The playbook as the AI reads it: as it stands, with what's typed in a list's box added. */
+  const assistDraft = useMemo<AssistDraft>(() => {
+    const d = withTyping(draft, typing);
+    return {
+      name: d.name,
+      goal: d.goal,
+      offer: d.offer,
+      audience: d.audience,
+      area: d.area,
+      tone: d.tone,
+      disclaimer: d.disclaimer,
+      signs: d.signs,
+      skip: d.skip,
+      groupWords: d.groupWords,
+      tags: d.tags,
+      samples: d.samples.filter((m) => m.trim()),
+      avoid: d.avoid,
+      questions: d.questions.map((q) => ({
+        text: q.text,
+        answers: q.answers.map((a) => ({ label: a.label })),
+      })),
+    };
+  }, [draft, typing]);
+  /** Adds a line the AI suggested to a list, unless it's there already or the list is full. */
+  const addLine = (k: ListKey | 'samples', line: string): boolean => {
+    const list = draft[k].filter((x) => x.trim());
+    if (list.some((x) => x.toLowerCase() === line.toLowerCase())) return true;
+    if (list.length >= PLAYBOOK_LIMITS[k].most) {
+      toast.error(`That’s ${PLAYBOOK_LIMITS[k].most}, the most it takes. Take one out first.`);
+      return false;
+    }
+    if (k === 'tags') setTags([...list, line]);
+    else set(k, [...list, line]);
+    return true;
+  };
+  /** Uses the AI's rewrite of a list in place of what's there. */
+  const replaceLines = (k: ListKey | 'samples', lines: string[]) => {
+    if (k === 'tags') setTags(lines);
+    else set(k, lines);
+    if (k !== 'samples') setTyping((x) => ({ ...x, [k]: '' }));
+  };
+  const addQuestion = (q: AssistQuestion) =>
+    setDraft((d) =>
+      d.questions.length >= PLAYBOOK_LIMITS.questions.most
+        ? d
+        : {
+            ...d,
+            questions: [
+              ...d.questions,
+              {
+                id: nextQuestionId(d.questions),
+                text: q.text,
+                answers: q.answers.map((a) => ({ ...a })),
+              },
+            ],
+          },
+    );
+  /** AI help for one of the parts. */
+  const help = (part: 'offer' | 'audience' | 'area' | 'tone' | 'disclaimer') => (
+    <AiHelp
+      workspaceId={workspaceId}
+      part={part}
+      draft={assistDraft}
+      written={!!draft[part].trim()}
+      onWords={(w) => set(part, w)}
+    />
+  );
+  const listHelp = (k: ListKey | 'samples') => (
+    <AiHelp
+      workspaceId={workspaceId}
+      part={k}
+      draft={assistDraft}
+      written={assistDraft[k].length > 0}
+      onAdd={(line) => addLine(k, line)}
+      onReplace={(lines) => replaceLines(k, lines)}
+    />
+  );
+
   const go = (to: number, back: boolean) => {
     setDraft((d) => {
       const kept = withTyping(d, typing);
@@ -487,6 +567,7 @@ export function PlaybookBuilder({
               on={(o) => draft.offer === o}
               onPick={(o) => set('offer', o)}
             />
+            {help('offer')}
           </div>
           <div>
             <Field
@@ -541,6 +622,7 @@ export function PlaybookBuilder({
               data-testid="playbook-audience"
             />
           </Field>
+          {help('audience')}
           <ListField
             id="pb-signs"
             {...typed('signs')}
@@ -552,6 +634,7 @@ export function PlaybookBuilder({
             limits={PLAYBOOK_LIMITS.signs}
             error={issueIn('signs')}
           />
+          {listHelp('signs')}
           <Field
             label="Where they are (optional)"
             htmlFor="pb-area"
@@ -565,22 +648,26 @@ export function PlaybookBuilder({
               onChange={(e) => set('area', e.target.value)}
             />
           </Field>
+          {help('area')}
         </div>
       );
       break;
     case 'skip':
       body = (
-        <ListField
-          id="pb-skip"
-          {...typed('skip')}
-          label="Leave these alone"
-          placeholder="Like “People who sell the same thing”"
-          items={draft.skip}
-          onChange={(v) => set('skip', v)}
-          suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.skip }]}
-          limits={PLAYBOOK_LIMITS.skip}
-          error={issueIn('skip')}
-        />
+        <div>
+          <ListField
+            id="pb-skip"
+            {...typed('skip')}
+            label="Leave these alone"
+            placeholder="Like “People who sell the same thing”"
+            items={draft.skip}
+            onChange={(v) => set('skip', v)}
+            suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.skip }]}
+            limits={PLAYBOOK_LIMITS.skip}
+            error={issueIn('skip')}
+          />
+          {listHelp('skip')}
+        </div>
       );
       break;
     case 'where':
@@ -599,6 +686,7 @@ export function PlaybookBuilder({
             limits={PLAYBOOK_LIMITS.groupWords}
             error={issueIn('groupWords') ?? issueIn('platforms')}
           />
+          {listHelp('groupWords')}
         </div>
       );
       break;
@@ -660,44 +748,57 @@ export function PlaybookBuilder({
       break;
     case 'tags':
       body = (
-        <ListField
-          id="pb-tags"
-          {...typed('tags')}
-          label="Tags it may use"
-          hint="Taking one out takes it off the answers that add it."
-          placeholder="Like “Wants a demo”"
-          items={draft.tags}
-          onChange={setTags}
-          suggestions={[
-            { label: 'Your tags', options: businessTags },
-            {
-              label: 'Ideas',
-              options: PLAYBOOK_SUGGESTIONS.tags.filter(
-                (t) => !businessTags.some((b) => b.toLowerCase() === t.toLowerCase()),
-              ),
-            },
-          ]}
-          limits={PLAYBOOK_LIMITS.tags}
-          error={issueIn('tags')}
-          testId="playbook-tags"
-        />
+        <div>
+          <ListField
+            id="pb-tags"
+            {...typed('tags')}
+            label="Tags it may use"
+            hint="Taking one out takes it off the answers that add it."
+            placeholder="Like “Wants a demo”"
+            items={draft.tags}
+            onChange={setTags}
+            suggestions={[
+              { label: 'Your tags', options: businessTags },
+              {
+                label: 'Ideas',
+                options: PLAYBOOK_SUGGESTIONS.tags.filter(
+                  (t) => !businessTags.some((b) => b.toLowerCase() === t.toLowerCase()),
+                ),
+              },
+            ]}
+            limits={PLAYBOOK_LIMITS.tags}
+            error={issueIn('tags')}
+            testId="playbook-tags"
+          />
+          {listHelp('tags')}
+        </div>
       );
       break;
     case 'conversation':
       body = (
-        <Conversation
-          questions={draft.questions}
-          tags={draft.tags}
-          onChange={(questions) => set('questions', questions)}
-          // Tags is the step before, so carrying on from it comes straight back here.
-          onAddTags={() =>
-            go(
-              STEPS.findIndex((s) => s.key === 'tags'),
-              false,
-            )
-          }
-          issueAt={issueAt}
-        />
+        <div>
+          <Conversation
+            questions={draft.questions}
+            tags={draft.tags}
+            onChange={(questions) => set('questions', questions)}
+            // Tags is the step before, so carrying on from it comes straight back here.
+            onAddTags={() =>
+              go(
+                STEPS.findIndex((s) => s.key === 'tags'),
+                false,
+              )
+            }
+            issueAt={issueAt}
+          />
+          <AiHelp
+            workspaceId={workspaceId}
+            part="questions"
+            draft={assistDraft}
+            written={draft.questions.length > 0}
+            onQuestion={addQuestion}
+            className="mt-4"
+          />
+        </div>
       );
       break;
     case 'voice':
@@ -724,6 +825,7 @@ export function PlaybookBuilder({
               )}
               onPick={(t) => set('tone', addWords(draft.tone, t))}
             />
+            {help('tone')}
           </div>
           <div>
             <Label>A few of your own messages (optional)</Label>
@@ -773,6 +875,7 @@ export function PlaybookBuilder({
               </Button>
             ) : null}
             <FieldError>{issueIn('samples')}</FieldError>
+            {listHelp('samples')}
           </div>
           <ListField
             id="pb-avoid"
@@ -784,6 +887,7 @@ export function PlaybookBuilder({
             limits={PLAYBOOK_LIMITS.avoid}
             error={issueIn('avoid')}
           />
+          {listHelp('avoid')}
           <Field
             label="Every message must say (optional)"
             htmlFor="pb-disclaimer"
@@ -797,6 +901,7 @@ export function PlaybookBuilder({
               onChange={(e) => set('disclaimer', e.target.value)}
             />
           </Field>
+          {help('disclaimer')}
         </div>
       );
       break;
