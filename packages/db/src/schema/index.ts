@@ -434,6 +434,36 @@ export const companies = app.table('companies', {
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
 export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
 
+/** What the Deleted bin holds (20261027000400). */
+export const BIN_KINDS = ['person', 'conversation', 'appointment'] as const;
+export type BinKind = (typeof BIN_KINDS)[number];
+
+/**
+ * The Deleted bin (20261027000400): a customer, conversation or booking deleted, and everything that went with it,
+ * kept 30 days and then emptied by the worker. Only its functions write it.
+ */
+export const binItems = app.table('bin_items', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  kind: text('kind').$type<BinKind>().notNull(),
+  recordId: uuid('record_id').notNull(),
+  /** What it was called, for the bin's list and the line kept once it's gone. */
+  name: text('name').notNull(),
+  /** How much went with it ({messages: 40, bookings: 2, ...}), for the bin's list. */
+  contents: jsonb('contents').$type<Record<string, unknown>>().notNull().default({}),
+  /** What bringing it back undoes: the ids the bin archived, and the files it marked deleted. */
+  undo: jsonb('undo').$type<Record<string, string[]>>().notNull().default({}),
+  deletedBy: userRef('deleted_by'),
+  deletedAt: ts('deleted_at').notNull().defaultNow(),
+  purgeAfter: ts('purge_after').notNull(),
+  /** When emptying started (30 days on, or an owner's "Delete now"); it can't be brought back after. */
+  purgingSince: ts('purging_since'),
+  ...timestamps(),
+});
+
+/** The bin item a row went into the Deleted bin with: hidden by row-level security until it comes back. */
+const binItemRef = () => uuid('bin_item_id').references((): AnyPgColumn => binItems.id);
+
 export const people = app.table('people', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -491,6 +521,10 @@ export const people = app.table('people', {
     onDelete: 'set null',
   }),
   mergedAt: ts('merged_at'),
+  /** In the Deleted bin (20261027000400): archived, hidden from lists, and emptied after 30 days. */
+  binItemId: binItemRef(),
+  /** Emptied from the bin with bills left: a record with only the name, which the bills moved to. */
+  erasedAt: ts('erased_at'),
 });
 
 export const tags = app.table('tags', {
@@ -572,6 +606,8 @@ export const leads = app.table('leads', {
   fieldTimes: fieldTimes(),
   // Milestone 15: the fields this business invented, keyed by custom_fields.id.
   custom: jsonb('custom').$type<Json>().notNull().default({}),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 export const tasks = app.table('tasks', {
@@ -603,6 +639,8 @@ export const tasks = app.table('tasks', {
   sealScope: text('seal_scope'),
   /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 export const activities = app.table('activities', {
@@ -634,6 +672,8 @@ export const activities = app.table('activities', {
   sealScope: text('seal_scope'),
   /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 export const files = app.table('files', {
@@ -672,6 +712,8 @@ export const files = app.table('files', {
   }),
   /** Shown in the portal of the customers it's about (round two). */
   portalVisible: boolean('portal_visible').notNull().default(false),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 // ---------- Milestone 3: communication ----------
@@ -1409,6 +1451,8 @@ export const conversations = app.table('conversations', {
   metaAccountId: uuid('meta_account_id').references((): AnyPgColumn => metaAccounts.id, {
     onDelete: 'set null',
   }),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
@@ -1525,6 +1569,8 @@ export const messages = app.table('messages', {
   unsentAt: ts('unsent_at'),
   /** Messenger and Instagram: what they shared, what it answers, and where the business wrote it. */
   social: jsonb('social').$type<SocialExtras>().notNull().default({}),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /**
@@ -1586,6 +1632,8 @@ export const calls = app.table('calls', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 export const optOuts = app.table('opt_outs', {
@@ -2339,6 +2387,8 @@ export const appointments = app.table('appointments', {
   sealScope: text('seal_scope'),
   /** Sealed: the people on its record, who keep it on their phones. Kept by a trigger. */
   sealViewerIds: uuid('seal_viewer_ids').array().notNull().default([]),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /** M18: the work a customer waits on — one visit or several — with a status they hear about. */
@@ -2441,6 +2491,8 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   confirmAskedAt: ts('confirm_asked_at'),
   // Milestone 10: the appointment's, copied by trigger.
   syncWindow: syncWindow(),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /** M18: more services on one visit, each with its time and price as they read when added. */
@@ -5796,6 +5848,8 @@ export const formResponses = app.table('form_responses', {
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /** The same answers one row per question, which is what a results summary counts. */
@@ -6429,6 +6483,8 @@ export const relationships = app.table('relationships', {
   sealAll: text('seal_all'),
   syncWindow: syncWindow(),
   ...timestamps(),
+  /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
+  binItemId: binItemRef(),
 });
 
 /**
@@ -7241,6 +7297,7 @@ export const tables = {
   pipelines,
   pipelineStages,
   companies,
+  binItems,
   people,
   tags,
   recordTags,
