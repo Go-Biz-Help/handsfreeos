@@ -48,6 +48,8 @@ export type GroupsSaveInput = Body<'/v1/commands/outreach.groups.save'>;
 export type GroupsSaved = Ok<'/v1/commands/outreach.groups.save'>;
 export type GroupSaveInput = Body<'/v1/commands/outreach.group.save'>;
 export type GroupSaved = Ok<'/v1/commands/outreach.group.save'>;
+export type GroupsListInput = Body<'/v1/queries/outreach.groups'>;
+export type GroupsList = Ok<'/v1/queries/outreach.groups'>;
 /** The list for today and its drafts (packages/core/src/addons/outreach/today.ts). */
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayListItem = TodayList['items'][number];
@@ -60,6 +62,12 @@ export type FriendEnded = Ok<'/v1/commands/outreach.friend.end'>;
 /** A warning Facebook showed the person, noted (decision 25). */
 export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
 export type WarningNoted = Ok<'/v1/commands/outreach.warning.note'>;
+/** Group posts worth a comment, kept and marked, and one put aside (packages/core/src/addons/outreach/posts.ts). */
+export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
+export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
+export type PostMark = PostsSaved['posts'][number];
+export type PostSkipInput = Body<'/v1/commands/outreach.post.skip'>;
+export type PostSkipped = Ok<'/v1/commands/outreach.post.skip'>;
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
 
@@ -136,6 +144,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-playbooks'; readonly workspaceId: string }
   | { readonly type: 'hfos-save-groups'; readonly input: GroupsSaveInput }
   | { readonly type: 'hfos-save-group'; readonly input: GroupSaveInput }
+  | { readonly type: 'hfos-groups'; readonly input: GroupsListInput }
   | { readonly type: 'hfos-today-list'; readonly workspaceId: string }
   | {
       readonly type: 'hfos-draft';
@@ -145,6 +154,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
+  | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
+  | { readonly type: 'hfos-post-skip'; readonly input: PostSkipInput }
   | { readonly type: 'hfos-today' }
   | { readonly type: 'hfos-noting'; readonly on: boolean };
 
@@ -166,11 +177,14 @@ export interface HfosValues {
   readonly 'hfos-playbooks': Playbooks;
   readonly 'hfos-save-groups': GroupsSaved;
   readonly 'hfos-save-group': GroupSaved;
+  readonly 'hfos-groups': GroupsList;
   readonly 'hfos-today-list': TodayList;
   readonly 'hfos-draft': Drafts;
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-warning': WarningNoted;
+  readonly 'hfos-save-posts': PostsSaved;
+  readonly 'hfos-post-skip': PostSkipped;
   readonly 'hfos-today': Today;
   readonly 'hfos-noting': Today;
 }
@@ -192,11 +206,14 @@ export const HFOS_ASKS: ReadonlySet<string> = new Set<keyof HfosValues>([
   'hfos-playbooks',
   'hfos-save-groups',
   'hfos-save-group',
+  'hfos-groups',
   'hfos-today-list',
   'hfos-draft',
   'hfos-tidy',
   'hfos-friend-end',
   'hfos-warning',
+  'hfos-save-posts',
+  'hfos-post-skip',
   'hfos-today',
   'hfos-noting',
 ]);

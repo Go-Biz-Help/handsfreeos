@@ -20,6 +20,7 @@ import {
   WHEN_MOST,
 } from '@hfos/core/addons/outreach/limits';
 import { GROUP_PEOPLE_MOST, GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
+import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import type { Answered, Reached, Step, StepGroup } from '../facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../facebook/friends';
 import { runsGroup } from '../facebook/people';
@@ -43,6 +44,7 @@ import type {
   GroupSaveInput,
   GroupsSaveInput,
   Me,
+  PostsSaveInput,
   ProfileInput,
   TouchInput,
 } from './messages';
@@ -488,4 +490,54 @@ export function groupSave(result: ReadResult, workspaceId: string): Built<GroupS
     parts.push({ ...facts, people: people.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
   parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage };
   return { ok: true, input: parts };
+}
+
+// ------------------------------------------------------------------------------------------------- group posts
+
+/**
+ * The posts a group's feed shows, to keep the ones worth a comment (decision 18): each with who wrote it, its own
+ * link and what it says, the latest first as the page shows them. A post without its author's profile, its link or
+ * any words is left out: there's nothing to comment on, or nobody to note it to.
+ */
+export function postsSave(
+  result: ReadResult,
+  workspaceId: string,
+  found: PostsSaveInput['found'] = 'scroll',
+): Built<PostsSaveInput> {
+  const page = result.group;
+  const group = page?.group ? groupRef({ ...page.group, name: page.name }) : null;
+  if (result.kind !== 'group' || !page || !group)
+    return { ok: false, why: 'Open one of your groups to find posts in it.' };
+  const seen = new Set<string>();
+  const posts = (result.posts ?? []).flatMap((post) => {
+    const url = facebookAddress(post.url);
+    const who = post.author?.profile
+      ? whom({ name: post.author.name, profile: post.author.profile })
+      : null;
+    const text = clipText(post.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: post.when ? clip(post.when, WHEN_MOST) : null,
+        text,
+        comments: post.comments,
+        reactions: post.reactions,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: 'facebook',
+      group,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found,
+    },
+  };
 }

@@ -3,6 +3,9 @@
  * Facebook"), once they press **Read my chats** in the panel: it opens one chat at a time from the list beside
  * Messenger, the way the person would by clicking it, and scrolls that list to load more. It never types, never
  * sends, and does nothing anywhere else: only on Messenger's own pages (`messengerPage`), and only the list's links.
+ *
+ * And for **Find posts** (docs/outreach.md, decision 18): on a group's own page, it scrolls the feed down a screen at a
+ * time, as the person would, for Facebook to load more posts. Nothing else: it opens nothing and presses nothing.
  */
 import { inTopBar } from './dom';
 import { classifyUrl, facebookUrl, threadFromUrl } from './urls';
@@ -62,4 +65,22 @@ export function scrollChats(root: Document, base: string): boolean {
   const before = window.scrollY;
   last.scrollIntoView({ block: 'end' });
   return window.scrollY !== before;
+}
+
+/** Whether an address is a group's own feed: not its members, a post, or the list of groups. */
+export const groupFeedPage = (href: string) => classifyUrl(href).kind === 'group';
+
+/** How far one scroll of a group's feed goes: most of a screen, so no post is skipped past unread. */
+const FEED_SCROLL = 0.8;
+
+/**
+ * Scrolls a group's feed down most of a screen, for Facebook to load more posts. Whether it moved: at the end of the
+ * feed, or off a group's page, it doesn't.
+ */
+export function scrollFeed(base: string): boolean {
+  if (!groupFeedPage(base)) return false;
+  const before = window.scrollY;
+  window.scrollBy({ top: Math.max(300, window.innerHeight * FEED_SCROLL), behavior: 'smooth' });
+  // Smooth scrolling moves over a few frames; what counts is that there was room to move.
+  return document.documentElement.scrollHeight - before - window.innerHeight > 4;
 }

@@ -147,6 +147,19 @@ describe('a profile', () => {
     });
   });
 
+  it('finds the business page their lines link to, for the look-up before drafting', () => {
+    expect(result.pages).toEqual([
+      {
+        name: 'Smith Plumbing',
+        profile: {
+          id: null,
+          username: 'smithplumbingatx',
+          url: 'https://www.facebook.com/smithplumbingatx',
+        },
+      },
+    ]);
+  });
+
   it('reads their posts without the comments under them', () => {
     expect(result.posts).toEqual([
       {

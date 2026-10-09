@@ -1,7 +1,7 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
- * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, and 20261027000900
- * for tidying friends and Facebook's warnings): the Drizzle mirror its server code reads and writes through.
+ * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
+ * for tidying friends and Facebook's warnings, and 20261027001000 for group posts): the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -23,6 +23,7 @@ import type { ChatReadState } from './chat-read';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { PlaybookDetails } from './playbooks';
+import type { PostCheck, PostFound } from './posts';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
 export const addonOutreach = pgSchema('addon_outreach');
@@ -417,6 +418,49 @@ export const warnings = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id)],
 );
 
+/** A post in one of the business's groups worth a comment from the person, and what the AI made of it (./posts.ts). */
+export const posts = addonOutreach.table(
+  'posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The group it's in (`groups`; let go when it goes). */
+    groupId: uuid('group_id'),
+    /** Who wrote it. */
+    profileId: uuid('profile_id').notNull(),
+    url: text('url').notNull(),
+    /** When, as Facebook printed it. */
+    posted: text('posted'),
+    body: text('body').notNull(),
+    comments: integer('comments'),
+    reactions: integer('reactions'),
+    reasons: text('reasons')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** The playbook whose words it says (let go when it goes). */
+    playbookId: uuid('playbook_id'),
+    found: text('found').notNull().$type<PostFound>(),
+    checkState: text('check_state').notNull().default('waiting').$type<PostCheck>(),
+    checkWhy: text('check_why'),
+    checkedAt: ts('checked_at'),
+    skippedAt: ts('skipped_at'),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.url),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   fileChats,
@@ -428,6 +472,7 @@ export const OUTREACH_TABLES = {
   myGroups,
   imports,
   playbooks,
+  posts,
   profiles,
   threads,
   touches,

@@ -20,7 +20,7 @@ import {
 } from './dom';
 import { bestName, isNameLike } from './people';
 import { readPosts } from './posts';
-import type { PageAddress, Post, ProfilePage } from './types';
+import type { Named, PageAddress, Post, ProfilePage } from './types';
 import { facebookUrl, profileFromUrl, profileKey } from './urls';
 import { isFacebookLine, isFacebookText, parseCount, UI_WORDS } from './vocabulary';
 
@@ -150,12 +150,51 @@ function introLines(root: Element): string[] {
   return lines;
 }
 
+/** The most pages a profile's lines link to that are kept: a business or two. */
+const PAGES_MOST = 3;
+
+/**
+ * The pages their lines link to besides their own: "Owner at Smith Plumbing", where the name is a link to the
+ * business's page (decision 21's look-up). Only links whose words are in one of the lines the profile shows about
+ * them, so a friend's name or a suggested page elsewhere on it is never taken for theirs.
+ */
+function pagesIn(
+  root: Element,
+  address: PageAddress,
+  base: string,
+  name: string | null,
+  intro: readonly string[],
+): Named[] {
+  const self = address.profile ? profileKey(address.profile) : null;
+  const found: Named[] = [];
+  const seen = new Set<string>();
+  for (const anchor of root.querySelectorAll('a[href]')) {
+    if (inTopBar(anchor)) continue;
+    const words = clean(anchor.textContent);
+    if (words.length < 2 || words.length > 100 || words === name) continue;
+    if (!intro.some((line) => line.includes(words))) continue;
+    const url = facebookUrl(anchor.getAttribute('href') ?? '', base);
+    const profile = url ? profileFromUrl(url) : null;
+    if (!profile) continue;
+    const key = profileKey(profile);
+    if (key === self || seen.has(key)) continue;
+    seen.add(key);
+    found.push({ name: words, profile });
+    if (found.length >= PAGES_MOST) break;
+  }
+  return found;
+}
+
 export function readProfile(
   root: Element,
   address: PageAddress,
   base: string,
   title = '',
-): { readonly profile: ProfilePage; readonly posts: readonly Post[] } {
+): {
+  readonly profile: ProfilePage;
+  readonly posts: readonly Post[];
+  readonly pages: readonly Named[];
+} {
   const heading = root.querySelector('h1');
   const headingName = heading ? clean(heading.textContent) : '';
   const name =
@@ -183,5 +222,6 @@ export function readProfile(
   return {
     profile: { name, profile: address.profile, intro, friendship, mutualFriends },
     posts: readPosts(root, base),
+    pages: pagesIn(root, address, base, name, intro),
   };
 }

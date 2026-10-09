@@ -392,6 +392,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.group.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-groups':
+      return call(
+        api().POST('/v1/queries/outreach.groups', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-today-list':
       return call(
         api().POST('/v1/queries/outreach.today', { body: { workspaceId: ask.workspaceId } }),
@@ -412,6 +417,16 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-warning':
       return call(
         api().POST('/v1/commands/outreach.warning.note', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-save-posts':
+      return call(
+        api().POST('/v1/commands/outreach.posts.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-post-skip':
+      return call(
+        api().POST('/v1/commands/outreach.post.skip', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-draft':

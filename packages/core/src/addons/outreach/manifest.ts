@@ -85,12 +85,15 @@ export const outreachAddon = defineAddon({
       'outreach.group.saved',
       'outreach.friend.ended',
       'outreach.warning.seen',
+      'outreach.posts.saved',
+      'outreach.post.checked',
+      'outreach.post.skipped',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
-    // (apps/worker/src/addons/outreach/chats.ts).
-    consumes: ['outreach.download.saved', 'outreach.chats.collected'],
+    // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
+    consumes: ['outreach.download.saved', 'outreach.chats.collected', 'outreach.posts.saved'],
   },
-  jobs: ['outreach.read_chats'],
+  jobs: ['outreach.read_chats', 'outreach.check_posts'],
   // Who from the chats brought in goes in Contacts (./chat-read.ts): Add-ons → Social Outreach.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
@@ -104,6 +107,7 @@ export const outreachAddon = defineAddon({
     'imports',
     'my_groups',
     'playbooks',
+    'posts',
     'profiles',
     'threads',
     'touches',

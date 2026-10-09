@@ -16,7 +16,12 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
-import { fileChats, playbooks, profiles } from '../../../packages/core/src/addons/outreach/tables';
+import {
+  fileChats,
+  playbooks,
+  posts,
+  profiles,
+} from '../../../packages/core/src/addons/outreach/tables';
 import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
@@ -28,6 +33,7 @@ let member: TestUser;
 let ws: string;
 let profileId: string;
 let chatId: string;
+let postId: string;
 
 const draft = async (u: TestUser, input: Record<string, unknown>) =>
   app.inject({
@@ -80,6 +86,20 @@ beforeAll(async () => {
     })
     .returning({ id: fileChats.id });
   chatId = c!.id;
+  const [po] = await testDbs()
+    .admin.db.insert(posts)
+    .values({
+      workspaceId: ws,
+      userId: owner.id,
+      profileId,
+      url: 'https://www.facebook.com/groups/323456789/posts/100001/',
+      body: 'Can anyone recommend a CRM for a plumber?',
+      found: 'scroll',
+      checkState: 'good',
+      seenAt: new Date(),
+    })
+    .returning({ id: posts.id });
+  postId = po!.id;
   await testDbs()
     .admin.db.insert(workspaceMemberships)
     .values({ workspaceId: ws, userId: member.id, role: 'member' });
@@ -110,6 +130,18 @@ describe('drafts for Today', () => {
         'Hey Dana, good to connect. What keeps you busiest these days?',
       ],
     });
+  });
+
+  it('drafts two comments on a post, from what the look-up found too', async () => {
+    const res = await draft(owner, {
+      kind: 'comment',
+      postId,
+      lookup: ['Owner at Reyes Plumbing', 'Their business page: Reyes Plumbing'],
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().drafts).toHaveLength(2);
+    expect((await draft(owner, { kind: 'comment' })).statusCode).toBe(404);
+    expect((await draft(member, { kind: 'comment', postId })).statusCode).toBe(404);
   });
 
   it('drafts from the person’s own chats only', async () => {

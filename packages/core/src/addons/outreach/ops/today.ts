@@ -19,8 +19,10 @@ import {
   TodayInput,
   todayLimits,
   TodayOutput,
+  TODAY_POST_MOST,
   type TodayItem,
 } from '../today';
+import { POST_FRESH_DAYS } from '../posts';
 import { inWorkspace } from './common';
 import { playbooksInUse } from './friends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -50,16 +52,22 @@ export const today = defineAddonQuery(outreachAddon, {
     const todayStart = await startOfToday(ctx, now);
     const todayFrom = todayStart.toISOString();
     const warning = await warningOf(ctx, me, todayStart, now);
-    const [done] = await rows<{ friend_request: number; first_message: number; follow_up: number }>(
+    const [done] = await rows<{
+      friend_request: number;
+      first_message: number;
+      follow_up: number;
+      comment: number;
+    }>(
       ctx.tx,
       sql`select count(*) filter (where kind = 'friend_request')::int as friend_request,
             count(*) filter (where step = 'first_message')::int as first_message,
-            count(*) filter (where step = 'follow_up')::int as follow_up
+            count(*) filter (where step = 'follow_up')::int as follow_up,
+            count(*) filter (where kind = 'comment')::int as comment
           from addon_outreach.touches
           where workspace_id = ${ws} and user_id = ${me} and at >= ${todayFrom}::timestamptz`,
     );
     const limits = todayLimits(
-      done ?? { friend_request: 0, first_message: 0, follow_up: 0 },
+      done ?? { friend_request: 0, first_message: 0, follow_up: 0, comment: 0 },
       dailyLimitsNow(slowsNow(warning, now)),
     );
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
@@ -81,6 +89,10 @@ export const today = defineAddonQuery(outreachAddon, {
       profileUrl: null,
       chatId: null,
       threadKey: null,
+      postId: null,
+      postUrl: null,
+      posted: null,
+      post: null,
       why: [],
       summary: null,
       nextStep: null,
@@ -231,6 +243,60 @@ export const today = defineAddonQuery(outreachAddon, {
           nextStep: c.next_step,
         }),
       );
+    }
+
+    // Comments: posts in the groups the AI checked as good, from the last week, the newest first.
+    const commentsLeft = leftToday(limits, 'comment');
+    if (commentsLeft) {
+      const good = await rows<{
+        id: string;
+        url: string;
+        posted: string | null;
+        body: string;
+        check_why: string | null;
+        profile_id: string;
+        name: string;
+        profile_url: string;
+        group_name: string | null;
+        playbook_name: string | null;
+      }>(
+        ctx.tx,
+        sql`select po.id, po.url, po.posted, po.body, po.check_why, p.id as profile_id, p.name,
+              p.url as profile_url, g.name as group_name, pb.name as playbook_name
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.groups g on g.id = po.group_id
+            left join addon_outreach.playbooks pb on pb.id = po.playbook_id
+            where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
+              and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
+              and p.friendship <> 'self' and ${pitchable('p')}
+              and not exists (select 1 from addon_outreach.group_people x
+                where x.profile_id = p.id and x.runs_group)
+              and not exists (select 1 from addon_outreach.touches t
+                where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
+            order by po.seen_at desc limit ${commentsLeft}`,
+      );
+      for (const po of good)
+        items.push(
+          item({
+            kind: 'comment',
+            name: po.name,
+            profileId: po.profile_id,
+            profileUrl: po.profile_url,
+            postId: po.id,
+            postUrl: po.url,
+            posted: po.posted,
+            post:
+              po.body.length > TODAY_POST_MOST
+                ? `${po.body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
+                : po.body,
+            why: [
+              ...(po.check_why ? [po.check_why] : []),
+              ...(po.group_name ? [`In ${po.group_name}`] : []),
+            ],
+            playbookName: po.playbook_name,
+          }),
+        );
     }
 
     const readAdmins = await rows<{ id: string; name: string | null; url: string }>(

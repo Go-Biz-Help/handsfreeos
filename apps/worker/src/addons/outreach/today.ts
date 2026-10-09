@@ -1,6 +1,7 @@
 /**
- * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a follow-up or a
- * reply, written by the AI in the playbook's tone from what's known about the person and the chat so far. Core holds
+ * Drafts for Today (docs/outreach.md; `outreach.today.draft`): a first message to a new friend, a follow-up, a reply,
+ * or a comment on a group post, written by the AI in the playbook's tone from what's known about the person, the chat
+ * or post so far, and what the extension looked up on their profile and business page just before (decision 21). Core holds
  * what the model is asked and checks what it answers (packages/core/src/addons/outreach/today.ts). Nothing is saved
  * or sent: the person copies the one they like, changes it as they like, and sends it on Facebook themselves.
  */
@@ -9,6 +10,7 @@ import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import {
   checkedDrafts,
+  DRAFTS_FOR,
   TODAY_DRAFT_SCHEMA,
   TODAY_DRAFT_SYSTEM,
   TodayDraftAnswer,
@@ -48,7 +50,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 where workspace_id = ${ws} and id = ${input.chatId} and user_id = ${ctx.userId}`,
           )
         : [];
-      const profileId = input.profileId ?? chat?.profile_id ?? null;
+      const [post] = input.postId
+        ? await rows<{ profile_id: string; body: string; group: string | null }>(
+            tx,
+            // The person's own posts only, like their chats.
+            sql`select po.profile_id, po.body, g.name as group from addon_outreach.posts po
+                left join addon_outreach.groups g on g.id = po.group_id
+                where po.workspace_id = ${ws} and po.id = ${input.postId} and po.user_id = ${ctx.userId}`,
+          )
+        : [];
+      const profileId = input.profileId ?? chat?.profile_id ?? post?.profile_id ?? null;
       const [profile] = profileId
         ? await rows<{
             name: string;
@@ -74,9 +85,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select id, name, details from addon_outreach.playbooks
             where workspace_id = ${ws} and archived_at is null`,
       );
-      return { business, chat, profile, lines: lines[0]?.lines ?? [], playbooks };
+      return { business, chat, post, profile, lines: lines[0]?.lines ?? [], playbooks };
     });
     const name = found.profile?.name ?? found.chat?.name;
+    if (input.kind === 'comment' && !found.post)
+      throw HfosError.notFound('That post isn’t on your list anymore. Reload Today.');
     if (!name) throw HfosError.notFound('That person isn’t on your list anymore. Reload Today.');
     const facts = [
       ...found.lines,
@@ -88,7 +101,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
     });
     const fit = bestFit(playbooks, {
-      lines: facts,
+      lines: [...facts, ...input.lookup, ...(found.post ? [found.post.body] : [])],
       mutualFriends: found.profile?.mutual_friends ?? null,
       groupName: found.profile?.group ?? null,
     });
@@ -106,6 +119,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               facts,
               recent: found.chat?.recent ?? [],
               playbook: playbook ? { name: playbook.name, ...playbook.details } : null,
+              post: found.post ? { text: found.post.body, group: found.post.group } : null,
+              lookup: input.lookup,
             }),
           },
         ],
@@ -114,7 +129,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         maxTokens: 800,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      return { drafts: checkedDrafts(value, playbook?.details.avoid ?? []) };
+      return {
+        drafts: checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]),
+      };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       if (e.code === 'budget_reached' || e.code === 'wallet_empty')

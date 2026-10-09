@@ -559,6 +559,15 @@ section > :last-child {
 
 .today .list button {
   margin-top: 6px;
+  margin-right: 6px;
+}
+
+/* A group post: on today's list to comment on, or marked in Posts worth a comment (src/panel/posts.ts). */
+blockquote.post {
+  margin: 4px 0;
+  padding: 4px 8px;
+  border-left: 3px solid var(--border);
+  white-space: pre-wrap;
 }
 
 /* Facebook warned the person: what HandsFreeOS does about it (src/panel/warnings.ts). */

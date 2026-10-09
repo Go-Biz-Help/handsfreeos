@@ -3,16 +3,17 @@
 The extension that works beside a person on Facebook, and later LinkedIn and Instagram, for the Social Outreach
 add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is the eighth test build (0.8.0).** It reads the Facebook page you have open and shows what it found in
+**This is the ninth test build (0.9.0).** It reads the Facebook page you have open and shows what it found in
 Chrome's side panel. Signed in to HandsFreeOS, it marks the people and chats already saved there, saves the profile or
 chat you have open when you press its button, and notes the friend requests, likes, comments and messages you send
 yourself, with the group you found each person in. It saves your friends and the friend requests you've got or sent,
 puts the requests in order of how they fit your playbooks, notes when you confirm or delete one, and marks the people
 to keep and the ones nobody pitches. It reads your Messenger chats for the AI, saves groups and their members with how
-each group fits, and gives you a list for the day with the AI's drafts to copy. It gets your Facebook download file
-for you and brings it in, and cancels old friend requests and unfriends the people you tick. It stops for the day on
-any Facebook warning. It never sends anything on Facebook, and never clicks, scrolls or changes the page, except on
-Facebook's own download pages, in Messenger's chat list, and on the profiles you ticked, once you ask it to.
+each group fits, finds posts in your groups worth a comment, and gives you a list for the day with the AI's drafts
+to copy, after looking the person up on Facebook. It gets your Facebook download file for you and brings it in, and
+cancels old friend requests and unfriends the people you tick. It stops for the day on any Facebook warning. It never
+sends anything on Facebook, and never clicks, scrolls or changes the page, except on Facebook's own download pages,
+in Messenger's chat list, in your groups' feeds and on the profiles you ticked, once you ask it to.
 
 ## What it reads
 
@@ -114,6 +115,16 @@ stopping at once on any Facebook warning. **Stop** ends it. Group chats are left
 join what the file brought in, one chat per person, and the Chats tab on the web shows what the AI made of them, with
 **Open in Messenger** (`src/panel/chats.ts`, `outreach.chats.collect`).
 
+## Posts worth a comment
+
+**Posts worth a comment** finds posts in your groups where a comment from you could help (decisions 18 to 20 in
+docs/outreach.md). With **Look for posts as I scroll** on (it starts on), each read of a group's feed sends the posts
+that say your playbooks' signs or ask for help, with who wrote them, and the AI checks each one; the panel marks them
+**Good to comment** or **AI checking**, with why. **Find posts** goes through the groups you're in that are marked
+Work these (or Maybe, with none), up to 5 a run, in a tab you can see: it scrolls each feed a screen at a time, 6 to
+12 seconds apart, 8 screens a group, and stops at once on any Facebook warning. **Stop** ends it. The good ones go on
+your list for today (`src/panel/posts.ts`, `outreach.posts.save`).
+
 ## Your list for today
 
 Under **Today on Facebook**, **Your list for today** (`outreach.today`) is what to do next, worked out from what
@@ -125,10 +136,14 @@ HandsFreeOS knows each time it's asked:
 - **Say hi**: friends who accepted your request a day or more ago and haven't had a message.
 - **Follow up**: likely prospects whose chat ends with your message, a few quiet days ago.
 - **Reply**: likely prospects who wrote last, lately.
+- **Comment on a post**: posts the AI called good, from the last week, as many as today's comment limit has left.
+  **Not for me** puts one aside for good.
 
-Each opens their profile or chat on Facebook, and a message has **Draft a message**: the AI writes three to pick from,
-in the playbook's tone and never with its words to avoid, and **Copy** puts one on the clipboard to paste and send
-yourself. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
+Each opens their profile, chat or post on Facebook. A message has **Draft a message** and a post **Draft a comment**:
+first the extension looks them up, opening their profile in a tab out of view, reading their intro and latest posts,
+and the business page their intro links to, then closing it (`src/panel/lookup.ts`, decision 21). Then the AI writes
+three messages or two comments to pick from, in the playbook's tone, mentioning only what's really there and never
+with its words to avoid, and **Copy** puts one on the clipboard to paste and send yourself. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
 it off the list. The Today tab on the web shows the same list.
 
 ## Tidying up your friends
@@ -232,6 +247,10 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rule. Later phases keep
   the owner's decisions:
   you press send by default, daily limits, and a stop for the day on any Facebook warning.
+- **Scrolling groups only when asked, slowly.** **Find posts** (`src/panel/posts.ts`) only scrolls a group's own
+  feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
+  nothing. The look-up before drafting (`src/panel/lookup.ts`) only opens and reads two pages in a tab out of view,
+  then closes it; it does neither on a day Facebook warned you.
 - **Opening chats only when asked, slowly.** **Read my chats** (`src/panel/chats.ts`) clicks the chat links in
   Messenger's own list and scrolls that list (`src/facebook/browse.ts`), nothing else: never a button, never a box to
   type in. One chat every 7 to 14 seconds, at most 150 a run, and it stops at once on a Facebook warning.
@@ -285,12 +304,12 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
 | `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`tab.ts`)                                                          |
 | `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                            |
+| `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
+| `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
 | `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                                                         |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
 | `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
 
 ## Next
 
-In the owner's order (decisions 18 to 24 in docs/outreach.md): openers on posts in your groups, with **Find posts**,
-posts asking for help, and looking people up before drafting; then phone alerts, which openers work, and the demo
-link. Then leads and results by group. Safari on Mac follows in Phase 2.
+In the owner's order (decisions 22 to 24 in docs/outreach.md): phone alerts, which openers work, and the demo link. Then leads and results by group. Safari on Mac follows in Phase 2.
