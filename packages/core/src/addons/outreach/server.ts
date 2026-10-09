@@ -7,6 +7,7 @@ import type { AddonServerModule } from '../server';
 import { outreachAddon } from './manifest';
 import { activityCommands, activityQueries } from './ops/activity';
 import { alertCommands } from './ops/alerts';
+import { automationCommands, automationQueries } from './ops/automation';
 import { chatCommands, chatQueries } from './ops/chats';
 import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
@@ -34,6 +35,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...alertCommands,
     ...openerCommands,
     ...demoCommands,
+    ...automationCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -45,5 +47,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...todayQueries,
     ...tidyQueries,
     ...openerQueries,
+    ...automationQueries,
   ],
 };

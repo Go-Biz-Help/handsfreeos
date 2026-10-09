@@ -7,6 +7,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { checkedDrafts, todayDraftPrompt } from '../../src/addons/outreach/today';
 import { outreachBusiness, runAs } from './outreach-fixture';
@@ -62,6 +63,10 @@ describe('the list for today', () => {
   beforeAll(async () => {
     owner = await createTestUser('outt-owner', { fullName: 'Pat Owner' });
     ws = await outreachBusiness(owner, 'Outreach Today Co');
+    // Requests straight away here: liking a post first is outreach-automation.test.ts's.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, warmUp: false },
+    });
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     await runAs(owner, ws, 'outreach.playbook.save', {
       name: crm.name,

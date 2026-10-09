@@ -86,8 +86,9 @@ const manifest = {
   side_panel: { default_path: 'panel.html' },
   background: { service_worker: 'background.js' },
   // The side panel, its setting and the sign-in, loading the reader into Facebook tabs opened before the extension
-  // was, and finding the zips Facebook gave the person among Chrome's downloads.
-  permissions: ['sidePanel', 'storage', 'scripting', 'downloads'],
+  // was, finding the zips Facebook gave the person among Chrome's downloads, and waking the runner that works on its
+  // own at its times (src/auto/run.ts).
+  permissions: ['sidePanel', 'storage', 'scripting', 'downloads', 'alarms'],
   host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
   content_scripts: [
     { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },

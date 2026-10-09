@@ -23,8 +23,19 @@ import type {
 } from './messages';
 import { outreachBusinesses } from './saves';
 
-/** The asks answered here; the day on Facebook and its switch are ./noting.ts's. */
-export type SessionAsk = Exclude<HfosAsk, { readonly type: 'hfos-today' | 'hfos-noting' }>;
+/** The asks answered here; the day on Facebook and its switch are ./noting.ts's, and working on its own ../auto/run.ts's. */
+export type SessionAsk = Exclude<
+  HfosAsk,
+  {
+    readonly type:
+      | 'hfos-today'
+      | 'hfos-noting'
+      | 'hfos-auto'
+      | 'hfos-auto-save'
+      | 'hfos-auto-start'
+      | 'hfos-auto-stop';
+  }
+>;
 
 const SESSION_KEY = 'hfos.session';
 const BUSINESS_KEY = 'hfos.business';

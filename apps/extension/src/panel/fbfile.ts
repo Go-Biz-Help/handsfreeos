@@ -21,7 +21,7 @@ import { fileNameOf, fileUrlOf, isFacebookZip } from '../hfos/files';
 import type { FetchAnswer } from '../messages';
 import { ask } from './ask';
 import { button, counted, h, hfosLink, type Child } from './dom';
-import { WorkTab } from './tab';
+import { WorkTab } from '../tab';
 
 const KEPT = 'hfos.facebookFile';
 /** How long a step is looked for before it's handed to the person; a screen that may not come, less. */

@@ -260,6 +260,7 @@ export function touchSave(
           ? step.thread.id
           : null,
       replying: step.kind === 'message' ? step.replying : null,
+      auto: step.auto === true,
     },
   };
 }

@@ -54,6 +54,8 @@ export const TouchSaveInput = z.object({
   threadKey: z.string().regex(THREAD_KEY).nullable().default(null),
   /** A message answering theirs: the chat's last message before it was from them, as the page showed it. */
   replying: z.boolean().nullable().default(null),
+  /** Taken by the extension on its own (decision 26), not pressed by the person. */
+  auto: z.boolean().default(false),
 });
 export type TouchSaveInput = z.input<typeof TouchSaveInput>;
 

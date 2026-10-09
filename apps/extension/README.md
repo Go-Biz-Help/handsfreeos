@@ -139,6 +139,9 @@ your list for today (`src/panel/posts.ts`, `outreach.posts.save`).
 Under **Today on Facebook**, **Your list for today** (`outreach.today`) is what to do next, worked out from what
 HandsFreeOS knows each time it's asked:
 
+- **Confirm their request**: friend requests you got from people who fit a playbook well.
+- **Like a post first**: with that choice on (On its own, below), people you'll ask tomorrow; their request comes a
+  day after the like.
 - **Send a friend request**: people saved from your groups who fit a playbook, best first, as many as today's limit
   has left. Never anyone who runs a group, is on Don't pitch or tagged Friend or family, is in Contacts, or has had a
   request from the business, and only from groups whose admins and moderators are saved.
@@ -159,6 +162,31 @@ your own link to the playbook's booking page for them: a booking through it coun
 24). On a profile, **Demo booked** marks one they booked some other way. Drafts count against the business's daily AI limit. The step you then take is noted as usual, which takes
 it off the list. The Today tab on the web shows the same list.
 
+## On its own
+
+**On its own**, under **Today on Facebook**, lets the extension do some of your list for today by itself (decisions 26
+to 33 in docs/outreach.md). Your choices are your own, kept in HandsFreeOS (`outreach.automation`):
+
+- **What it does on its own:** nothing (**You do everything**, to start), or **Friend requests, likes and comments
+  on their own**. Messages always wait for you.
+- **Like one of their posts a day before each friend request** (on to start): the list then has **Like a post first**
+  for people you'll ask tomorrow, and their request comes a day after the like. A profile with no post of theirs to
+  like gets its request without one.
+- **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
+- **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
+
+In your hours it goes down the list at random times spread over the day, in this order: requests to confirm, posts to
+like, friend requests, then comments. **Start my day** starts it now and goes a minute or few apart, hours or not;
+**Stop for today** stops it until your next hours. It works in a window of its own beside yours, which it opens
+without taking you away from what you're doing, and closes when there's a long wait. For each one it opens their
+profile or the post, checks it's them and where you stand, presses **Confirm**, **Like** or **Add friend**, or types
+the AI's first comment draft into the post's own box and sends it, then checks it worked and notes it as the
+extension's own. Anything not as expected is passed over for the day, with why in the panel's line. It keeps your
+daily limits (the list never holds more than they have room for), stops for the day on any Facebook warning, and works
+only while Chrome is open, you're signed in and noting is on (`src/auto/run.ts`, `src/auto/plan.ts`,
+`src/facebook/auto.ts`, `src/panel/auto.ts`). On the list, in the panel and on the web, what it does says **Done on its
+own**, and your phone's morning push leaves those out.
+
 ## Tidying up your friends
 
 **Tidy up your friends**, under your list for today, lists the friend requests you sent that nobody answered after
@@ -177,7 +205,8 @@ A step it can't find, it hands to you: press it, then **Carry on**, or **Skip** 
 
 Any warning the panel sees on a page ("You’re temporarily blocked", "going too fast", a security check) is noted in HandsFreeOS once a day
 (`src/panel/warnings.ts`, `outreach.warning.note`, decision 25). The extension then stops for the day: no more chats
-read, nobody cancelled or unfriended. For 7 days your daily limits are halved, and for 2 friend requests are off your
+read, nobody cancelled or unfriended, nothing done on its own. The runner notes the warnings it sees itself, the same
+way (`src/hfos/warned.ts`). For 7 days your daily limits are halved, and for 2 friend requests are off your
 list. A red note says so under **Today on Facebook**, and on the web's Today tab and activity panel.
 
 ## Getting your Facebook file
@@ -257,9 +286,8 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   the panel watches its tab it says when the page has changed, so the panel can ask again. Besides that it only
   listens for the person's own clicks and Enter presses (`isTrusted`, never the page's), works out from the page
   around them whether one was a step and who to (`src/facebook/actions.ts`), and tells the background. It never reads
-  what was written, writes to the page, clicks, scrolls or sends anything, but for the next rule. Later phases keep
-  the owner's decisions:
-  you press send by default, daily limits, and a stop for the day on any Facebook warning.
+  what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
+  own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
 - **Scrolling groups only when asked, slowly.** **Find posts** (`src/panel/posts.ts`) only scrolls a group's own
   feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
   nothing. The look-up before drafting (`src/panel/lookup.ts`) only opens and reads two pages in a tab out of view,
@@ -277,6 +305,14 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
   stand. The first press is a button under their name, never a link or the Friends tab (`buttonsOnly`); Unfriend and
   Confirm are pressed only in Facebook's box on top (`inBox`). It re-reads the profile after and hands anything else
   to the person. `test/tidy.test.ts` walks a made-up profile's menu and box, and again with bare boxes.
+- **On its own, only from the list, only what you let it.** The runner (`src/auto/run.ts`) does only the kinds on
+  your list for today that the list says it does for you (its `auto`), in the window it opened, one step per alarm
+  (`chrome.alarms`), with its state in the extension's storage. It presses Add friend and Confirm the way tidying
+  presses (`AUTO_PLANS`, a button under their name, Confirm in the menu Respond opens), Like only on the first post
+  on the profile that's theirs and isn't liked yet, and types a comment only in the post's own box, never a reply's,
+  sending it with its button or Enter (`src/facebook/auto.ts`). Its presses aren't the person's, so the content
+  script doesn't notice them; the runner notes each one itself, marked `auto`. It never sends a message.
+  `test/auto.test.ts` walks a made-up profile and post.
 - **A warning stops the day.** The panel keeps the day's warnings itself (`hfos.warned`), so reading chats and tidying
   refuse to start, or stop, even when HandsFreeOS can't be reached.
 - **Saving only when pressed; steps noted as they happen.** Reading a page asks HandsFreeOS which people and chats on
@@ -315,14 +351,17 @@ same one comes up. With the reader's counts at the top, that's enough to see wha
 | `src/panel/`, `public/` | The side panel; `hfos.ts` is signing in, what's saved, the Save buttons, Keep and Don't pitch, `today.ts` the day and its list, `chats.ts` reading chats |
 | `src/hfos/`             | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                     |
 | `src/panel/fbfile.ts`   | Your Facebook file: the jobs on Facebook's download pages, the zips found, reading and bringing them in                                                  |
-| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`tab.ts`)                                                          |
+| `src/panel/tidy.ts`     | Tidy up your friends: the lists, and cancelling and unfriending in a tab you can see (`../tab.ts`)                                                       |
 | `src/panel/warnings.ts` | Facebook's warnings: noted once a day, and the extension stopping for the day                                                                            |
 | `src/panel/posts.ts`    | Posts worth a comment: marking them as you scroll, and Find posts going through your groups                                                              |
 | `src/panel/lookup.ts`   | Looking someone up before drafting: their profile and business page, read in a tab out of view                                                           |
-| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, and notes the steps the tabs tell it                                                         |
+| `src/auto/`             | On its own: what it does next and when (`plan.ts`), and the runner in the background (`run.ts`); the panel's part is `src/panel/auto.ts`                 |
+| `src/tab.ts`            | The tab the panel works in, or the window the runner works in                                                                                            |
+| `src/background.ts`     | Opens the side panel, answers the panel's HandsFreeOS asks, notes the steps the tabs tell it, and wakes the runner                                       |
 | `scripts/build.mjs`     | Bundles with esbuild and writes `manifest.json`, with the version from `package.json`                                                                    |
 | `test/`                 | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves                                                          |
 
 ## Next
 
-Leads and results by group. Safari on Mac follows in Phase 2.
+The once-a-day jobs on their own (decision 32), then results by group and the weekly report, then messages and
+replies on their own with training wheels (docs/outreach.md, decisions 26 to 36). Safari on Mac follows in Phase 2.

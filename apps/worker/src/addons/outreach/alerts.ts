@@ -151,7 +151,8 @@ export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
       );
       continue;
     }
-    const words = morningPushWords(list.items);
+    // What the extension does on its own isn't theirs to do.
+    const words = morningPushWords(list.items.filter((item) => !list.auto.includes(item.kind)));
     if (!words) continue;
     await asWorker(ctx.db, ctx.scope, (tx) =>
       pushAddonNotice(ctx, tx, {

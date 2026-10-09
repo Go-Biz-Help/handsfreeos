@@ -78,6 +78,16 @@ export const TIDY_PLANS: Readonly<Record<TidyJob, TidyPlan>> = {
   },
 };
 
+/** Where things stand on a profile, in words for the person: "Facebook says you’re friends". */
+export const FRIENDSHIP_WORDS: Readonly<Record<ProfilePage['friendship'], string>> = {
+  self: 'that’s you',
+  friends: 'you’re friends',
+  request_sent: 'your request is still waiting',
+  request_received: 'they asked to be friends with you',
+  not_friends: 'you aren’t friends',
+  unknown: 'it couldn’t tell where things stand',
+};
+
 /** Whether an address is someone's profile, the only pages the extension cancels or unfriends on. */
 export function tidyPage(href: string): boolean {
   return classifyUrl(href).kind === 'profile';

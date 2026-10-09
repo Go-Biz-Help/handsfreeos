@@ -1,8 +1,9 @@
 /**
  * Social Outreach's own tables, in its schema `addon_outreach` (supabase/migrations/20261024000100, 20261026000300
  * for groups and touches, 20261026000400 for friends, 20261027000300 for Facebook's download file, 20261027000900
- * for tidying friends and Facebook's warnings, 20261027001000 for group posts, and 20261027001100 for replies, openers
- * and demos): the Drizzle mirror its server code reads and writes through.
+ * for tidying friends and Facebook's warnings, 20261027001000 for group posts, 20261027001100 for replies, openers
+ * and demos, and 20261027001200 for the extension on its own): the Drizzle mirror its server code reads and writes
+ * through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
  */
@@ -13,6 +14,7 @@ import {
   integer,
   jsonb,
   pgSchema,
+  smallint,
   text,
   timestamp,
   unique,
@@ -20,6 +22,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
+import type { SendingMode } from './automation';
 import type { ChatReadState } from './chat-read';
 import type { DemoHow } from './demos';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
@@ -111,6 +114,8 @@ export const profiles = addonOutreach.table(
     dontPitch: boolean('dont_pitch').notNull().default(false),
     dontPitchBy: userRef('dont_pitch_by'),
     dontPitchAt: ts('dont_pitch_at'),
+    /** When the extension found no post of theirs to like before a friend request (decision 33): it goes without. */
+    warmUpMissedAt: ts('warm_up_missed_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -164,6 +169,8 @@ export const touches = addonOutreach.table(
     groupId: uuid('group_id'),
     postUrl: text('post_url'),
     threadKey: text('thread_key'),
+    /** Taken by the extension on its own (decision 26), not pressed by the person. */
+    auto: boolean('auto').notNull().default(false),
     at: ts('at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
@@ -555,8 +562,48 @@ export const demos = addonOutreach.table(
   ],
 );
 
+/**
+ * What one person lets the extension do on its own (./automation.ts, decisions 26 to 36), and when. The training
+ * wheels' columns, replies, tidying, collecting and joining groups are read as those parts arrive; until a person
+ * saves theirs, the defaults stand.
+ */
+export const automation = addonOutreach.table(
+  'automation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sending: text('sending').notNull().default('off').$type<SendingMode>(),
+    replies: text('replies').notNull().default('draft'),
+    tidying: text('tidying').notNull().default('off'),
+    warmUp: boolean('warm_up').notNull().default(true),
+    confirmRequests: boolean('confirm_requests').notNull().default(true),
+    collect: boolean('collect').notNull().default(true),
+    joinGroups: boolean('join_groups').notNull().default(false),
+    hoursStart: smallint('hours_start').notNull().default(9),
+    hoursEnd: smallint('hours_end').notNull().default(17),
+    days: smallint('days')
+      .array()
+      .notNull()
+      .default(sql`'{1,2,3,4,5}'`),
+    wheelsFrom: ts('wheels_from'),
+    wheelsOk: integer('wheels_ok').notNull().default(0),
+    wheelsEdits: boolean('wheels_edits')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    wheelsDoneAt: ts('wheels_done_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
+  automation,
   fileChats,
   filePeople,
   friendEnds,

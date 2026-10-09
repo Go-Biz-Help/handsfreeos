@@ -1,41 +1,25 @@
 /**
  * Facebook's warnings (docs/outreach.md, decision 25): each one the panel sees on a page is noted in HandsFreeOS, once
  * a day, which halves the person's daily limits for a week and keeps friend requests off their list for two days. The
- * extension then does nothing more for them that day: reading their chats, cancelling and unfriending all stop.
+ * extension then does nothing more for them that day: reading their chats, cancelling and unfriending, and working on
+ * its own (src/auto/run.ts) all stop. The runner notes the ones it sees itself; the panel hears of those too.
  */
+import { keepWarning, warnedNow, warningInput, WARNED_KEY } from '../hfos/warned';
 import { ask } from './ask';
 
-const KEY = 'hfos.warned';
-
-interface Warned {
-  /** The day it was seen, in the person's own time: "2026-10-09". */
-  readonly day: string;
-  readonly words: readonly string[];
-}
-
-const today = () => new Date().toLocaleDateString('en-CA');
-
-let warned: Warned | null = null;
 const heard = new Set<() => void>();
 
-async function load(): Promise<Warned | null> {
-  if (warned?.day === today()) return warned;
-  try {
-    const stored = (await chrome.storage.local.get(KEY))[KEY] as Warned | undefined;
-    warned = stored?.day === today() ? stored : null;
-  } catch {
-    warned = null;
-  }
-  return warned;
-}
-
-/** Whether Facebook warned the person today, as the panel saw: if so, the extension does nothing more for them. */
+/** Whether Facebook warned the person today, as the extension saw: if so, it does nothing more for them. */
 export async function warnedToday(): Promise<readonly string[] | null> {
-  return (await load())?.words ?? null;
+  return (await warnedNow())?.words ?? null;
 }
 
-/** Calls `then` whenever a warning is noted, so the panel's sections can say so. */
+/** Calls `then` whenever a warning is noted, here or by the runner, so the panel's sections can say so. */
 export function onWarning(then: () => void): void {
+  if (!heard.size)
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && WARNED_KEY in changes) for (const each of heard) each();
+    });
   heard.add(then);
 }
 
@@ -45,22 +29,11 @@ export function onWarning(then: () => void): void {
  */
 export async function noteWarnings(words: readonly string[], url: string | null): Promise<void> {
   if (!words.length) return;
-  const had = await load();
-  const fresh = words.filter((w) => !had?.words.includes(w));
+  const fresh = await keepWarning(words);
   if (!fresh.length) return;
-  warned = { day: today(), words: [...(had?.words ?? []), ...fresh] };
-  await chrome.storage.local.set({ [KEY]: warned }).catch(() => undefined);
   const account = await ask({ type: 'hfos-account' });
   const businessId = account.ok && account.value.signedIn ? account.value.businessId : null;
-  if (businessId)
-    await ask({
-      type: 'hfos-warning',
-      input: {
-        workspaceId: businessId,
-        platform: 'facebook',
-        words: fresh.slice(0, 5).map((w) => w.slice(0, 300)),
-        url: url?.startsWith('https://www.facebook.com/') && url.length <= 500 ? url : null,
-      },
-    });
+  if (businessId) await ask({ type: 'hfos-warning', input: warningInput(businessId, fresh, url) });
+  // Again, now HandsFreeOS has it: its lists say so.
   for (const then of heard) then();
 }

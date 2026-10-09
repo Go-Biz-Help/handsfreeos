@@ -1,9 +1,11 @@
 'use client';
 /**
  * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
- * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): friend requests to people from
+ * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
+ * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
  * the business's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on
- * good posts in their groups (decision 20). Each opens on Facebook, and a message or a comment comes with the AI's
+ * good posts in their groups (decision 20). With the extension on its own (decision 26), it does the confirms,
+ * likes, requests and comments itself in the person's working hours. Each opens on Facebook, and a message or a comment comes with the AI's
  * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
  * notes it, which takes it off the list and counts it against today's limits. The extension's panel looks the person
  * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows. A first message's
@@ -35,6 +37,8 @@ import type { TodayItem, TodayList } from './types';
 import { useAct } from './use-act';
 
 const KIND_BADGE = {
+  confirm: 'ok',
+  warm_up: 'gray',
   friend_request: 'accent',
   opener: 'ok',
   follow_up: 'gray',
@@ -56,6 +60,7 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
     ['first_message', today.limits.first_message],
     ['follow_up', today.limits.follow_up],
     ['comment', today.limits.comment],
+    ['like', today.limits.like],
   ] as const;
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="outreach-today">
@@ -73,7 +78,9 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
           <Card className="p-0" data-testid="today-list">
             <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
               <h3 className="text-[15px] font-semibold">Your list for today</h3>
-              <span className="text-[12.5px] text-text-3">You send each one yourself</span>
+              <span className="text-[12.5px] text-text-3">
+                You do each one, or the extension does on its own
+              </span>
             </div>
             <ul className="mt-2">
               {today.items.map((item) => (
@@ -81,6 +88,7 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
                   key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
                   workspaceId={workspaceId}
                   item={item}
+                  auto={today.auto.includes(item.kind)}
                 />
               ))}
             </ul>
@@ -152,7 +160,16 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
   );
 }
 
-function TodayRow({ workspaceId, item }: { workspaceId: string; item: TodayItem }) {
+function TodayRow({
+  workspaceId,
+  item,
+  auto,
+}: {
+  workspaceId: string;
+  item: TodayItem;
+  /** The extension does it on its own for you. */
+  auto: boolean;
+}) {
   const url = openUrl(item);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
@@ -175,7 +192,14 @@ function TodayRow({ workspaceId, item }: { workspaceId: string; item: TodayItem 
             <div className="text-[12.5px] text-text-3">{item.why.join(' · ')}</div>
           ) : null}
         </div>
-        <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
+        <span className="flex items-center gap-1.5">
+          {auto ? (
+            <Badge variant="ok" data-testid="today-auto">
+              Done on its own
+            </Badge>
+          ) : null}
+          <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
+        </span>
       </div>
       {item.post ? (
         <blockquote

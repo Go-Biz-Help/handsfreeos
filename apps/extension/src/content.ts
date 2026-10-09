@@ -6,12 +6,15 @@
  * and Confirm or Delete on a friend request they got: src/facebook/actions.ts) and tells the extension's background,
  * which notes them in HandsFreeOS; and it tells it who they open from a group. Only the person's own clicks and keys
  * count, never the page's, and never what they wrote. The switch in the panel turns this off. It never changes the
- * page, clicks, scrolls, or sends anything on Facebook, with four exceptions, each only once the person asks in the
+ * page, clicks, scrolls, or sends anything on Facebook, with five exceptions, each only once the person asks in the
  * panel: on Facebook's own download pages it presses the buttons that ask for their file and download it, one step at
  * a time (src/facebook/fetch.ts); in Messenger, for Read my chats, it opens their chats one at a time from the list
  * beside it and scrolls that list for more (src/facebook/browse.ts); for Find posts, it scrolls a group's feed for
  * more posts (the same file); and on the profiles of people they ticked in the panel, it presses Cancel request or
- * Unfriend (src/facebook/tidy.ts). It never types or sends.
+ * Unfriend (src/facebook/tidy.ts). Once the person lets the extension work on its own (src/auto/run.ts), it also
+ * presses Add friend, Confirm and Like on the profiles of people on their list for today, and writes and sends the
+ * comment the AI drafted on a post on their list (src/facebook/auto.ts), in the window the extension works in. It never
+ * sends a message.
  *
  * While noting is on, it also looks at the chats on the page as they change (Messenger's list, an open chat, a small
  * chat window) and tells the background of each whose last message is theirs, and whether the person was looking at
@@ -25,10 +28,12 @@ import {
   type Answered,
   type Step,
 } from './facebook/actions';
+import { likeLatest, writeComment } from './facebook/auto';
 import { openChat, scrollChats, scrollFeed } from './facebook/browse';
 import { doPath, doStep, fetchPage, type StepResult } from './facebook/fetch';
 import { outlinePage } from './facebook/outline';
 import { tidyPage } from './facebook/tidy';
+import { classifyUrl } from './facebook/urls';
 import { readPage } from './facebook/page';
 import { readReplies } from './facebook/replies';
 import {
@@ -36,6 +41,8 @@ import {
   WATCH,
   type Answer,
   type Ask,
+  type AutoAnswer,
+  type AutoAsk,
   type BrowseAnswer,
   type BrowseAsk,
   type FetchAnswer,
@@ -82,6 +89,18 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
   }
 }
 
+/** One of the runner's steps (src/facebook/auto.ts): a like on someone's profile, or a comment on a post. */
+async function autoStep(ask: AutoAsk): Promise<AutoAnswer> {
+  const kind = classifyUrl(location.href).kind;
+  if (ask.type === 'hfos-like-latest') {
+    if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
+    const liked = await likeLatest(document, location.href, ask.profile, window);
+    return { ok: true, ...liked };
+  }
+  if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
+  return { ok: true, result: await writeComment(document, ask.text) };
+}
+
 const here = globalThis as { hfosSocialListening?: boolean };
 
 /** Whether a change adds or takes away writing or a link: not a spinner, a picture or a moving progress bar. */
@@ -101,8 +120,12 @@ function matters(records: readonly MutationRecord[]): boolean {
 if (!here.hfosSocialListening) {
   here.hfosSocialListening = true;
   chrome.runtime.onMessage.addListener(
-    (ask: Ask | FetchAsk | BrowseAsk, sender, respond: (answer: Answer) => void) => {
+    (ask: Ask | FetchAsk | BrowseAsk | AutoAsk, sender, respond: (answer: Answer) => void) => {
       if (sender.id !== chrome.runtime.id) return false;
+      if (ask.type === 'hfos-like-latest' || ask.type === 'hfos-comment') {
+        void autoStep(ask).then(respond as (answer: AutoAnswer) => void);
+        return true;
+      }
       if (
         ask.type === 'hfos-open-chat' ||
         ask.type === 'hfos-scroll-chats' ||

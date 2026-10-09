@@ -16,7 +16,7 @@ import type { Account, PostMark, PostsSaveInput } from '../hfos/messages';
 import { postsSave } from '../hfos/saves';
 import { ask } from './ask';
 import { button, chip, clip, counted, h, link, type Child } from './dom';
-import { WorkTab } from './tab';
+import { WorkTab } from '../tab';
 import { refreshToday } from './today';
 import { noteWarnings, onWarning, warnedToday } from './warnings';
 

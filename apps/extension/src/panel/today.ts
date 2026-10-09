@@ -10,7 +10,8 @@
  * copy. Before drafting, the extension looks the person up on Facebook (./lookup.ts, decision 21). The person sends
  * everything themselves; noting the step takes it off, and a post they don't want can be put aside. A first message's
  * drafts open the way the playbook's next opener says, and copying one notes which it was (decision 23); anyone on the
- * list for a message has the person's demo link to copy, so a booking through it counts by itself (decision 24).
+ * list for a message has the person's demo link to copy, so a booking through it counts by itself (decision 24). What
+ * the extension does on its own for them (./auto.ts) says so.
  */
 import {
   DAILY_STEPS,
@@ -304,7 +305,14 @@ function itemView(item: TodayListItem): HTMLElement {
   return h(
     'li',
     {},
-    h('div', { class: 'name' }, chip(TODAY_KINDS[item.kind]), ' ', link(item.name, openUrl(item))),
+    h(
+      'div',
+      { class: 'name' },
+      chip(TODAY_KINDS[item.kind]),
+      ' ',
+      link(item.name, openUrl(item)),
+      list?.value.auto.includes(item.kind) ? chip('Done on its own', 'saved') : null,
+    ),
     item.why.length ? h('div', { class: 'muted' }, item.why.join(' · ')) : null,
     item.post
       ? h(

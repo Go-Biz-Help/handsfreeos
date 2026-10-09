@@ -9,7 +9,7 @@
  */
 import { LOOKUP_LINE_MOST, LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import type { ReadResult } from '../facebook/types';
-import { WorkTab } from './tab';
+import { WorkTab } from '../tab';
 import { noteWarnings, warnedToday } from './warnings';
 
 /** What's read from their latest posts, and the business's: a couple each, cut short. */
@@ -50,7 +50,7 @@ export async function lookUp(profileUrl: string | null): Promise<string[]> {
   const had = kept.get(profileUrl);
   if (had && Date.now() - had.at < KEPT_MS) return [...had.lines];
   if (await warnedToday()) return [];
-  const tab = new WorkTab(true);
+  const tab = new WorkTab('quiet');
   const lines: string[] = [];
   try {
     const profile = await readIn(tab, profileUrl);
