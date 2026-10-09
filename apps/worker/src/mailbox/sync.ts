@@ -4,7 +4,7 @@
  * `email.receive`. Everything else in the mailbox stays private: not stored, not even its attachments.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, inArray, or, sql as dsql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql as dsql } from 'drizzle-orm';
 import { emailReceive, executeCommand, mailboxFail, otherEmailsOf } from '@hfos/core/server';
 import { asWorker, sql, type Db, type Tx } from '@hfos/db/client';
 import { conversations, mailboxConnections, people } from '@hfos/db/schema';
@@ -122,12 +122,19 @@ async function knownCustomers(
 ): Promise<Set<string>> {
   const list = [...new Set(addresses)].slice(0, 50);
   if (list.length === 0) return new Set();
+  // A customer deleted (in the Deleted bin, or gone with only the name their bills keep) isn't one any more; their
+  // threads are out of sight already.
+  const notDeleted = [isNull(people.binItemId), isNull(people.erasedAt)];
   return asWorker(db, scope, async (tx) => {
     const byPerson = await tx
       .select({ address: dsql<string>`lower(${people.email})` })
       .from(people)
       .where(
-        and(eq(people.workspaceId, scope.workspaceId), inArray(dsql`lower(${people.email})`, list)),
+        and(
+          eq(people.workspaceId, scope.workspaceId),
+          inArray(dsql`lower(${people.email})`, list),
+          ...notDeleted,
+        ),
       );
     // A customer's other emails count too (0103): one probe of the list's index per address.
     const byOther = await tx
@@ -136,6 +143,7 @@ async function knownCustomers(
       .where(
         and(
           eq(people.workspaceId, scope.workspaceId),
+          ...notDeleted,
           or(
             ...list.map(
               (a) =>

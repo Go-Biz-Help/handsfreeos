@@ -466,13 +466,14 @@ begin
       union
       select k.id from app.calls k where k.conversation_id = any (r.conversations) and k.bin_item_id is null);
     -- Their bookings: the ones nobody else is on (with what hangs off them), and their own seat on the others.
+    -- A class time (a session) is the business's schedule, so only their seat on it goes, even when they were alone.
     r.appointments := array(
       select x.id from (
         select t.appointment_id as id from app.appointment_attendees t where t.person_id = any (r.people)
         union
         select a.id from app.appointments a where a.lead_id = any (r.leads)
       ) x
-      join app.appointments a on a.id = x.id and a.bin_item_id is null
+      join app.appointments a on a.id = x.id and a.bin_item_id is null and a.kind = 'booking'
       where not exists (select 1 from app.appointment_attendees o
                         where o.appointment_id = x.id and not (o.person_id = any (r.people))));
     r.attendees := array(select t.id from app.appointment_attendees t
@@ -678,10 +679,17 @@ returns text language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function private.bin_name(text, uuid) from public;
 
--- How much goes with it, for the delete box and the bin's list. `bills` stay (the owner's decision 4).
+-- How much goes with it, for the delete box and the bin's list. `bills` stay (the owner's decision 4), and
+-- `upcoming` bookings are cancelled first.
 create or replace function private.bin_contents(p_kind text, p_record uuid, r private.bin_rows)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_strip_nulls(jsonb_build_object(
+    'upcoming', nullif((
+      select count(*) from app.appointments a
+      where a.status = 'scheduled' and a.ends_at > now()
+        and (a.id = any (r.appointments)
+             or a.id in (select t.appointment_id from app.appointment_attendees t
+                         where t.id = any (r.attendees) and t.status = 'booked'))), 0),
     'conversations', nullif(cardinality(r.conversations), 0),
     'messages', nullif(cardinality(r.messages), 0),
     'calls', nullif(cardinality(r.calls), 0),
@@ -749,17 +757,31 @@ begin
 end $$;
 revoke all on function private.bin_mark(uuid, private.bin_rows) from public;
 
--- What doesn't come back: workflows stop, Home's cards and the AI's waiting drafts go, a place on a waitlist is
--- given up, and the customer's portal signs out.
+-- What doesn't come back: workflows stop with their approvals, Home's cards and the AI's waiting drafts and calls
+-- go, a place on a waitlist is given up, and the customer's portal signs out.
 create or replace function private.bin_let_go(p_ws uuid, r private.bin_rows)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
   v_ids uuid[] := r.people || r.leads || r.conversations || r.appointments || r.attendees || r.tasks;
+  v_drafts uuid[];
 begin
-  update app.workflow_runs w set status = 'stopped', end_reason = 'deleted', ended_at = now()
-  where w.workspace_id = p_ws and w.status in ('running', 'waiting', 'awaiting_approval', 'held')
-    and (w.person_id = any (r.people) or w.lead_id = any (r.leads) or w.conversation_id = any (r.conversations)
-         or w.appointment_id = any (r.appointments));
+  -- A run's approvals still waiting go with it, as when a run is stopped by hand (the worker's cancelRunWork).
+  with stopped as (
+    update app.workflow_runs w set status = 'stopped', end_reason = 'deleted', ended_at = now()
+    where w.workspace_id = p_ws and w.status in ('running', 'waiting', 'awaiting_approval', 'held')
+      and (w.person_id = any (r.people) or w.lead_id = any (r.leads) or w.conversation_id = any (r.conversations)
+           or w.appointment_id = any (r.appointments))
+    returning w.id)
+  update app.workflow_approvals a set status = 'cancelled', decided_at = now(), via = 'system'
+  where a.run_id in (select s.id from stopped s) and a.status = 'pending';
+  -- Calls the AI was still to make (waiting for an OK, or queued) aren't made, and their OKs aren't asked.
+  with off as (
+    update app.ai_calls k set status = 'cancelled', reason = 'deleted'
+    where k.workspace_id = p_ws and k.status in ('awaiting_approval', 'queued')
+      and (k.person_id = any (r.people) or k.attendee_id = any (r.attendees) or k.missed_call_id = any (r.calls))
+    returning k.draft_id)
+  select array(select o.draft_id from off o where o.draft_id is not null) into v_drafts;
+  delete from app.ai_teammate_drafts d where d.id = any (v_drafts) and d.status = 'pending';
   delete from app.attention_items i
   where i.workspace_id = p_ws
     and (i.person_id = any (r.people) or i.lead_id = any (r.leads) or i.conversation_id = any (r.conversations)
@@ -1209,6 +1231,20 @@ language sql stable security definer set search_path = '' as $$
   join app.relationship_types t on t.id = rel.type_id and t.portal_visible
   join app.people p on p.id = rel.b_person_id
   where rel.a_custom_record_id in (select portal.records()) and rel.bin_item_id is null and p.bin_item_id is null
+$$;
+
+-- A customer's portal link is off while they're in the bin (20261018000700's, with the bin added): the sign-in
+-- page says so and sends no code. Emptying the bin takes the link with them.
+create or replace function private.portal_link_lookup(p_ref text)
+returns table (access_id uuid, workspace_id uuid, organization_id uuid, person_id uuid, link_version integer,
+  revoked boolean)
+language sql stable security definer set search_path = '' as $$
+  select a.id, a.workspace_id, w.organization_id, a.person_id, a.link_version,
+    a.revoked_at is not null or p.bin_item_id is not null or p.erased_at is not null
+  from app.portal_access a
+  join app.workspaces w on w.id = a.workspace_id
+  join app.people p on p.id = a.person_id
+  where a.public_ref = p_ref
 $$;
 
 -- Old spam goes after 30 days, but not what's in the bin: the bin keeps its own 30 days.

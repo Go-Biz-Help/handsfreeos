@@ -412,10 +412,12 @@ async function considerQuote(tx: Tx, estimateId: string, now: number): Promise<C
     call_consent: string | null;
     today: string;
     nudged_at: Date | null;
+    deleted: boolean | null;
   }>(
     tx,
     sql`select e.person_id, e.status::text as status, e.voided_at, e.expires_on::text as expires_on, e.title,
           p.phone_e164 as phone, p.call_consent::text as call_consent,
+          p.bin_item_id is not null or p.erased_at is not null as deleted,
           (${new Date(now).toISOString()}::timestamptz at time zone coalesce(nullif(w.timezone, ''), 'UTC'))::date::text
             as today,
           (select max(ev.occurred_at) from app.events ev
@@ -426,7 +428,8 @@ async function considerQuote(tx: Tx, estimateId: string, now: number): Promise<C
         left join app.people p on p.id = e.person_id
         where e.id = ${estimateId}`,
   );
-  if (!q || !q.person_id) return { skip: 'gone' };
+  // A customer deleted (in the Deleted bin, or only a name on their bills) isn't chased.
+  if (!q || !q.person_id || q.deleted) return { skip: 'gone' };
   // Answered, expired, voided or reissued: a quote is never chased once it has stopped being open.
   if (q.status !== 'sent' || q.voided_at) return { skip: 'answered' };
   if (q.expires_on && q.expires_on < q.today) return { skip: 'expired' };
@@ -629,17 +632,21 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         estimate_id: string | null;
         campaign_status: string | null;
         call_consent: string;
+        deleted: boolean;
       }>(
         tx,
         sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
               (select k.status from app.campaign_recipients r join app.campaigns k on k.id = r.campaign_id
                where r.id = c.campaign_recipient_id) as campaign_status,
-              p.call_consent::text as call_consent
+              p.call_consent::text as call_consent,
+              p.bin_item_id is not null or p.erased_at is not null as deleted
             from app.ai_calls c join app.people p on p.id = c.person_id
             where c.id = ${aiCallId} and c.workspace_id = ${scope.workspaceId}
             for update of c`,
       );
       if (!c || c.status !== 'queued') return null;
+      // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
+      if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
       if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
       if (c.purpose === 'campaign') {
         // Marketing calls need the written yes, still, and a campaign that's still going.

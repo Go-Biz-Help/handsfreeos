@@ -597,6 +597,44 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'That entry was already confirmed, replaced or set aside. Refresh to see the dates as they are now.',
   },
+  // 20261027000400: the Deleted bin.
+  delete_forbidden: {
+    status: 403,
+    message: missingPermissionMessage('records.delete', 'member'),
+  },
+  bin_record_gone: {
+    status: 404,
+    message:
+      'That isn’t here any more. Someone may have deleted it already. Refresh to see what’s left.',
+  },
+  bin_item_gone: {
+    status: 404,
+    message: 'That isn’t in the Deleted bin any more. Refresh to see what’s left.',
+  },
+  bin_kind: {
+    status: 400,
+    message: 'Only customers, conversations and bookings can be deleted for good.',
+  },
+  bin_not_emptying: {
+    status: 409,
+    message: 'That isn’t being emptied from the Deleted bin. Refresh to see where it stands.',
+  },
+};
+
+/**
+ * Refusals the database words itself, because the words name what it found: the customer, the signed file, the
+ * booking's date (the Deleted bin, 20261027000400). Its message is passed on as it is, with the rule.
+ */
+const WORDED_IN_DATABASE: Record<string, number> = {
+  bin_person_merged: 409,
+  bin_plan_running: 409,
+  bin_signed_file: 409,
+  bin_record_kept: 409,
+  bin_still_sending: 409,
+  bin_call_live: 409,
+  bin_upcoming_booking: 409,
+  bin_item_emptying: 409,
+  person_in_bin: 409,
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */
@@ -610,6 +648,9 @@ export function translateDbError(e: unknown): unknown {
   if (e instanceof HfosError) return e;
   const pg = unwrap(e);
   if (!pg.code) return e;
+  const worded = pg.detail ? WORDED_IN_DATABASE[pg.detail] : undefined;
+  if (worded && pg.message)
+    return new HfosError('rule_violation', worded, pg.message, undefined, pg.detail);
   const rule = pg.detail && RULES[pg.detail] ? pg.detail : undefined;
   if (rule) {
     const r = RULES[rule]!;

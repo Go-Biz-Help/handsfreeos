@@ -150,7 +150,9 @@ export async function loadReferrals(
         left join app.conversations c on c.id = r.conversation_id
         where r.workspace_id = ${workspaceId}
           and (r.id = any(${uuidArray([...ids])})
-            ${all ? sql`or (r.status = 'mentioned' and r.created_at > ${since}::timestamptz)` : sql``})`,
+            ${all ? sql`or (r.status = 'mentioned' and r.created_at > ${since}::timestamptz)` : sql``})
+          -- Not about a customer in the Deleted bin (20261027000400).
+          and p.bin_item_id is null`,
   );
   return new Map(
     list.map((r) => [
@@ -255,7 +257,8 @@ export async function loadMaintenance(
           order by c.last_message_at desc nulls last, c.created_at desc limit 1) lc on true
         where r.workspace_id = ${workspaceId}
           and (r.id = any(${uuidArray([...ids])})
-            ${all ? sql`or (r.status = 'card' and r.card_at > ${since}::timestamptz)` : sql``})`,
+            ${all ? sql`or (r.status = 'card' and r.card_at > ${since}::timestamptz)` : sql``})
+          and p.bin_item_id is null`,
   );
   return new Map(
     list.map((r) => [

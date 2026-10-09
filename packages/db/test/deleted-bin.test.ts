@@ -357,7 +357,10 @@ describe('who may delete for good', () => {
   it('is an owner, unless an owner gives it to a role or a person', async () => {
     const may = (u: TestUser) =>
       as(u)((tx) =>
-        rows<{ ok: boolean }>(tx, sql`select private.has_permission(${ws}::uuid, 'records.delete') as ok`),
+        rows<{ ok: boolean }>(
+          tx,
+          sql`select private.has_permission(${ws}::uuid, 'records.delete') as ok`,
+        ),
       ).then((r) => r[0]!.ok);
     expect(await may(owner)).toBe(true);
     expect(await may(member)).toBe(false);
@@ -445,7 +448,9 @@ describe('a customer', () => {
     }
     // The group class stays, with the other person's seat; the bill stays.
     expect(await seen(owner, 'appointments', [w.session])).toEqual([w.session]);
-    expect(await seen(owner, 'appointment_attendees', [w.seat, w.otherSeat])).toEqual([w.otherSeat]);
+    expect(await seen(owner, 'appointment_attendees', [w.seat, w.otherSeat])).toEqual([
+      w.otherSeat,
+    ]);
     expect(await seen(owner, 'invoices', [w.invoice])).toEqual([w.invoice]);
     expect(
       await worker()((tx) =>
@@ -482,7 +487,10 @@ describe('a customer', () => {
     // The bin, for the owner only.
     expect(
       await as(owner)((tx) =>
-        rows(tx, sql`select kind, record_id, name, contents ->> 'messages' as messages from app.bin_items`),
+        rows(
+          tx,
+          sql`select kind, record_id, name, contents ->> 'messages' as messages from app.bin_items`,
+        ),
       ),
     ).toEqual([{ kind: 'person', record_id: w.person, name: 'Dana Reyes', messages: '2' }]);
     expect(await as(member)((tx) => rows(tx, sql`select id from app.bin_items`))).toEqual([]);
@@ -505,7 +513,10 @@ describe('a customer', () => {
       (
         await expectPgError(() =>
           as(owner)((tx) =>
-            rows(tx, sql`select private.merge_people(${ws}::uuid, ${w.person}::uuid, ${w.other}::uuid)`),
+            rows(
+              tx,
+              sql`select private.merge_people(${ws}::uuid, ${w.person}::uuid, ${w.other}::uuid)`,
+            ),
           ),
         )
       ).detail,
@@ -514,7 +525,10 @@ describe('a customer', () => {
       (
         await expectPgError(() =>
           as(owner)((tx) =>
-            rows(tx, sql`select private.merge_people(${ws}::uuid, ${w.other}::uuid, ${w.person}::uuid)`),
+            rows(
+              tx,
+              sql`select private.merge_people(${ws}::uuid, ${w.other}::uuid, ${w.person}::uuid)`,
+            ),
           ),
         )
       ).detail,
@@ -553,9 +567,7 @@ describe('a customer', () => {
   });
 
   it('comes back as it was, and their old thread joins the new one', async () => {
-    expect(
-      (await expectPgError(() => restore(member, item))).detail,
-    ).toBe('delete_forbidden');
+    expect((await expectPgError(() => restore(member, item))).detail).toBe('delete_forbidden');
     expect(await restore(owner, item)).toEqual({
       kind: 'person',
       recordId: w.person,
@@ -610,13 +622,14 @@ describe('a customer', () => {
 
 describe('what can’t go', () => {
   const plain = (first: string) =>
-    worker()(async (tx) =>
-      one(
-        await rows<{ id: string }>(
-          tx,
-          sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, ${first}, 'Doe') returning id`,
-        ),
-      ).id,
+    worker()(
+      async (tx) =>
+        one(
+          await rows<{ id: string }>(
+            tx,
+            sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, ${first}, 'Doe') returning id`,
+          ),
+        ).id,
     );
   const refusal = async (person: string) => {
     const e = await expectPgError(() => bin(owner, 'person', person));
@@ -651,7 +664,10 @@ describe('what can’t go', () => {
             returning id`,
       ),
     );
-    await rows(admin$, sql`update app.files set locked_at = now(), locked_reason = 'signed' where id = ${f!.id}`);
+    await rows(
+      admin$,
+      sql`update app.files set locked_at = now(), locked_reason = 'signed' where id = ${f!.id}`,
+    );
     expect(await refusal(p)).toEqual({
       rule: 'bin_signed_file',
       message:
@@ -675,14 +691,23 @@ describe('what can’t go', () => {
     });
     const r = await refusal(p);
     expect(r.rule).toBe('bin_upcoming_booking');
-    expect(r.message).toMatch(/^Kim Doe has a booking still to come, on \w+ \d+\. Cancel it first, then delete them\.$/);
+    // The delete box says how many it'd cancel first.
+    expect((await preview(owner, 'person', [p]))[0]!.contents).toEqual({
+      bookings: 1,
+      upcoming: 1,
+    });
+    expect(r.message).toMatch(
+      /^Kim Doe has a booking still to come, on \w+ \d+\. Cancel it first, then delete them\.$/,
+    );
     expect((await expectPgError(() => bin(owner, 'appointment', visit))).detail).toBe(
       'bin_upcoming_booking',
     );
     await worker()((tx) =>
       tx.execute(sql`update app.appointments set status = 'cancelled' where id = ${visit}`),
     );
-    expect((await preview(owner, 'person', [p]))[0]!.rule).toBeNull();
+    const [after] = await preview(owner, 'person', [p]);
+    expect(after!.rule).toBeNull();
+    expect(after!.contents).toEqual({ bookings: 1 });
   });
 
   it('is a message still going out, or a call still going on', async () => {
@@ -704,7 +729,9 @@ describe('what can’t go', () => {
       'A message in this conversation is still going out. Try again in a minute.',
     );
     await worker()(async (tx) => {
-      await tx.execute(sql`update app.messages set status = 'sent' where conversation_id = ${conv}`);
+      await tx.execute(
+        sql`update app.messages set status = 'sent' where conversation_id = ${conv}`,
+      );
       await tx.execute(
         sql`insert into app.calls (workspace_id, conversation_id, person_id, direction, status)
             values (${ws}, ${conv}, ${p}, 'inbound', 'in_progress')`,
@@ -722,7 +749,87 @@ describe('what can’t go', () => {
       admin$,
       sql`update app.people set merged_into_id = ${keep}, merged_at = now() where id = ${dupe}`,
     );
-    expect((await expectPgError(() => bin(owner, 'person', dupe))).detail).toBe('bin_person_merged');
+    expect((await expectPgError(() => bin(owner, 'person', dupe))).detail).toBe(
+      'bin_person_merged',
+    );
+  });
+});
+
+describe('what stops with a customer', () => {
+  it('keeps a class they were alone at, and switches off their portal link, waiting calls and approvals', async () => {
+    const phone = nextPhone();
+    const id = async (q: ReturnType<typeof sql>) => one(await rows<{ id: string }>(admin$, q)).id;
+    const person = await id(
+      sql`insert into app.people (workspace_id, first_name, last_name, phone_e164)
+          values (${ws}, 'Lee', 'Park', ${phone}) returning id`,
+    );
+    const session = await id(
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, kind, capacity, title, starts_at,
+            ends_at)
+          values (${ws}, ${calendar}, 1, 'session', 8, 'Thermostat class', now() - interval '2 days',
+            now() - interval '2 days' + interval '1 hour')
+          returning id`,
+    );
+    const seat = await id(
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id)
+          values (${ws}, ${session}, ${person}) returning id`,
+    );
+    const [access] = await rows<{ public_ref: string }>(
+      admin$,
+      sql`insert into app.portal_access (workspace_id, person_id) values (${ws}, ${person}) returning public_ref`,
+    );
+    const call = await id(
+      sql`insert into app.ai_calls (workspace_id, person_id, purpose, to_e164, goal, status, dedupe_key)
+          values (${ws}, ${person}, 'missed_call', ${phone}, 'Call them back', 'queued', ${`missed_call:${randomUUID()}`})
+          returning id`,
+    );
+    const flow = await id(
+      sql`insert into app.workflows (workspace_id, name) values (${ws}, 'Follow up') returning id`,
+    );
+    const version = await id(
+      sql`insert into app.workflow_versions (workspace_id, workflow_id, version, definition, definition_version, revision)
+          values (${ws}, ${flow}, 1, '{}', 1, 1) returning id`,
+    );
+    const run = await id(
+      sql`insert into app.workflow_runs (workspace_id, workflow_id, version_id, dedupe_key, person_id)
+          values (${ws}, ${flow}, ${version}, ${`bin:${randomUUID()}`}, ${person}) returning id`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.workflow_approvals (workspace_id, workflow_id, run_id, step_key, preview)
+          values (${ws}, ${flow}, ${run}, 'approve#1', '{}')`,
+    );
+    const link = () =>
+      worker()((tx) =>
+        rows<{ revoked: boolean }>(
+          tx,
+          sql`select revoked from private.portal_link_lookup(${access!.public_ref})`,
+        ),
+      );
+    expect(await link()).toEqual([{ revoked: false }]);
+
+    const item = await bin(owner, 'person', person);
+
+    // The class stays on the calendar; only their seat goes.
+    expect(await seen(owner, 'appointments', [session])).toEqual([session]);
+    expect(await seen(owner, 'appointment_attendees', [seat])).toEqual([]);
+    // Their portal link is off, and nothing waits to call them or to be approved about them.
+    expect(await link()).toEqual([{ revoked: true }]);
+    expect(
+      await rows(admin$, sql`select status, reason from app.ai_calls where id = ${call}`),
+    ).toEqual([{ status: 'cancelled', reason: 'deleted' }]);
+    expect(
+      await rows(
+        admin$,
+        sql`select r.status::text as run, a.status::text as approval, a.via
+            from app.workflow_runs r join app.workflow_approvals a on a.run_id = r.id where r.id = ${run}`,
+      ),
+    ).toEqual([{ run: 'stopped', approval: 'cancelled', via: 'system' }]);
+
+    // Brought back, their link works again; the calls and approvals stay off.
+    await restore(owner, item);
+    expect(await link()).toEqual([{ revoked: false }]);
+    expect(await seen(owner, 'appointment_attendees', [seat])).toEqual([seat]);
   });
 });
 
@@ -742,7 +849,12 @@ describe('emptying the bin', () => {
 
     expect(await startPurge(member, [item])).toEqual([]);
     expect(await startPurge(owner, [item])).toEqual([
-      expect.objectContaining({ bin_item_id: item, kind: 'person', record_id: w.person, name: 'Lee Park' }),
+      expect.objectContaining({
+        bin_item_id: item,
+        kind: 'person',
+        record_id: w.person,
+        name: 'Lee Park',
+      }),
     ]);
     expect((await expectPgError(() => restore(owner, item))).detail).toBe('bin_item_emptying');
     // Only the worker in that business empties it.
@@ -846,7 +958,9 @@ describe('emptying the bin', () => {
       await as(owner)((tx) =>
         rows(tx, sql`select name, contents from app.bin_items where id = ${item}`),
       ),
-    ).toEqual([{ name: 'Jo Lane', contents: { conversations: 1, messages: 2, calls: 1, channel: 'sms' } }]);
+    ).toEqual([
+      { name: 'Jo Lane', contents: { conversations: 1, messages: 2, calls: 1, channel: 'sms' } },
+    ]);
 
     expect(await restore(owner, item)).toEqual(
       expect.objectContaining({ kind: 'conversation', folded: 0 }),
@@ -887,7 +1001,10 @@ describe('emptying the bin', () => {
       ),
     );
     expect(b).toEqual(
-      expect.objectContaining({ name: 'AC tune-up', contents: expect.objectContaining({ who: ['Al Moss'] }) }),
+      expect.objectContaining({
+        name: 'AC tune-up',
+        contents: expect.objectContaining({ who: ['Al Moss'] }),
+      }),
     );
     await startPurge(owner, [item]);
     expect(await empty(item)).toEqual([]);

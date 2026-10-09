@@ -4,7 +4,7 @@
  * bookings hear warnings (buffers, hours, busy times, time off, a time in the past) they can book anyway,
  * but never a real overlap: the database refuses one person in two places.
  */
-import { and, asc, eq, gte, inArray, sql as dsql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   appointmentAttendees,
@@ -20,6 +20,7 @@ import {
   cancelAppointment,
   logAppointmentActivity,
   markCancelled,
+  removeSeat,
   replaceStaff,
   requireAppointment,
   requireScheduled,
@@ -749,34 +750,8 @@ export const appointmentRemoveAttendee = defineCommand({
       throw HfosError.notFound(
         'That customer isn’t booked on this appointment anymore. Refresh to see who’s on it.',
       );
-    await ctx.tx
-      .update(appointmentAttendees)
-      .set({ status: 'cancelled', cancelledAt: new Date() })
-      .where(eq(appointmentAttendees.id, att.id));
-    const [fresh] = await ctx.tx
-      .update(appointments)
-      .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
-      .where(eq(appointments.id, appt.id))
-      .returning();
-    const eventId = await ctx.emit({
-      type: 'attendee.removed',
-      entityType: 'appointment',
-      entityId: appt.id,
-      payload: {
-        calendarId: appt.calendarId,
-        attendeeId: att.id,
-        personId: att.personId,
-        seats: att.seats,
-        notify: input.notify,
-      },
-      after: await appointmentSnapshot(ctx.tx, fresh!),
-    });
-    await logAppointmentActivity(ctx, fresh!, 'appointment_cancelled', eventId, {
-      personIds: [att.personId],
-      meta: { by: 'staff' },
-    });
-    if (fresh!.status === 'scheduled') await signalSeatFreed(ctx, calendar, fresh!);
-    return { appointmentId: appt.id, seatsTaken: fresh!.seatsTaken };
+    const fresh = await removeSeat(ctx, appt, calendar, att, { notify: input.notify });
+    return { appointmentId: appt.id, seatsTaken: fresh.seatsTaken };
   },
 });
 

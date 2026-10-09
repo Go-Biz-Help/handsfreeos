@@ -32,6 +32,9 @@ export const ROLE_PERMISSIONS = {
     'records.read',
     'records.write',
     'records.archive',
+    // Deleting customers, conversations and bookings for good, through the 30-day Deleted bin (20261027000400):
+    // owners only, unless an owner gives it to a role or a person.
+    'records.delete',
     'records.assign',
     // Real Estate round six: putting a record on legal hold, and lifting one.
     'records.hold',
@@ -218,6 +221,13 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         label: 'Archive and restore',
         description: 'Customers, companies, leads and conversations.',
         requires: ['records.read', 'records.write'],
+      },
+      {
+        permission: 'records.delete',
+        label: 'Delete for good',
+        description:
+          'Customers, conversations and bookings, with everything about them. They wait 30 days in the Deleted bin first.',
+        requires: ['records.read', 'records.write', 'records.archive'],
       },
       {
         permission: 'records.hold',

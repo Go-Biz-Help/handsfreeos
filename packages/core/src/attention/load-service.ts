@@ -249,7 +249,9 @@ export async function loadPromises(
                 ? sql`or (pr.status = 'open'
                     and pr.due_at > ${now.toISOString()}::timestamptz - ${`${PROMISE_CARD_DAYS} days`}::interval)`
                 : sql``
-            })`,
+            })
+          -- Not about a customer in the Deleted bin (20261027000400).
+          and p.bin_item_id is null`,
   );
   return new Map(
     list.map((r) => [

@@ -425,10 +425,11 @@ export async function messageWorld(
   personId: string,
   now: number,
 ): Promise<MessageWorld | null> {
+  // A customer deleted (in the Deleted bin, or gone with only the name their bills keep) hears nothing more.
   const [person] = await rows<Person>(
     tx,
     sql`select first_name, phone_e164 as phone, email::text as email, sms_consent::text as consent
-        from app.people where id = ${personId}`,
+        from app.people where id = ${personId} and bin_item_id is null and erased_at is null`,
   );
   if (!person) return null;
   const m = await workspaceMessaging(tx, scope.workspaceId);

@@ -1,9 +1,9 @@
 /**
  * Appointment internals shared by the appointment commands and calendar.save's impact actions: loading an
  * appointment, a display snapshot for events and audit (names, not ids), timeline entries on the customer,
- * cancelling, replacing staff and the waitlist's "a seat opened" signal. Server-only.
+ * cancelling, taking one customer off, replacing staff and the waitlist's "a seat opened" signal. Server-only.
  */
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   appointmentAttendees,
@@ -237,6 +237,47 @@ export async function cancelAppointment(
     meta: { reason: opts.reason, by: opts.by },
   });
   return eventId;
+}
+
+/**
+ * Takes one customer's seat off an appointment, and their seats open up: staff taking them off, and a customer
+ * deleted for good while booked on a class with others. Answers the appointment as it is now.
+ */
+export async function removeSeat(
+  ctx: CommandContext,
+  appt: AppointmentRow,
+  calendar: LoadedCalendar,
+  att: typeof appointmentAttendees.$inferSelect,
+  opts: { readonly notify: boolean },
+): Promise<AppointmentRow> {
+  await ctx.tx
+    .update(appointmentAttendees)
+    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .where(eq(appointmentAttendees.id, att.id));
+  const [fresh] = await ctx.tx
+    .update(appointments)
+    .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
+    .where(eq(appointments.id, appt.id))
+    .returning();
+  const eventId = await ctx.emit({
+    type: 'attendee.removed',
+    entityType: 'appointment',
+    entityId: appt.id,
+    payload: {
+      calendarId: appt.calendarId,
+      attendeeId: att.id,
+      personId: att.personId,
+      seats: att.seats,
+      notify: opts.notify,
+    },
+    after: await appointmentSnapshot(ctx.tx, fresh!),
+  });
+  await logAppointmentActivity(ctx, fresh!, 'appointment_cancelled', eventId, {
+    personIds: [att.personId],
+    meta: { by: 'staff' },
+  });
+  if (fresh!.status === 'scheduled') await signalSeatFreed(ctx, calendar, fresh!);
+  return fresh!;
 }
 
 /**

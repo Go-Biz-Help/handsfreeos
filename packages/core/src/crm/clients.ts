@@ -33,6 +33,7 @@ export const companyIsClient = (alias: 'c') => {
   const c = sql.raw(alias);
   return sql`(
     exists (select 1 from app.leads cl where cl.company_id = ${c}.id and cl.status = 'won' and cl.archived_at is null)
-    or exists (select 1 from app.people cp where cp.company_id = ${c}.id and ${personIsClient('cp')})
+    or exists (select 1 from app.people cp where cp.company_id = ${c}.id and cp.bin_item_id is null
+      and ${personIsClient('cp')})
   )`;
 };
