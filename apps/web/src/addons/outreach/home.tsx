@@ -19,7 +19,16 @@ import { FriendsView } from './friends-view';
 import { GroupsView } from './groups-view';
 import { PlaybooksView } from './playbooks-page';
 import { TodayView } from './today-view';
-import type { Activity, Chats, Friends, Groups, PlaybookList, Tidy, TodayList } from './types';
+import type {
+  Activity,
+  Chats,
+  Friends,
+  Groups,
+  Openers,
+  PlaybookList,
+  Tidy,
+  TodayList,
+} from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
@@ -44,7 +53,7 @@ export type OutreachShown =
       readonly tag: string;
       readonly search: string;
     }
-  | { readonly view: 'playbooks'; readonly list: PlaybookList };
+  | { readonly view: 'playbooks'; readonly list: PlaybookList; readonly openers: Openers };
 
 const TABS = [
   { view: 'activity', label: 'Activity' },
@@ -130,7 +139,12 @@ export function OutreachHome({
           canManage={canManage}
         />
       ) : (
-        <PlaybooksView workspaceId={workspaceId} list={shown.list} canManage={canManage} />
+        <PlaybooksView
+          workspaceId={workspaceId}
+          list={shown.list}
+          openers={shown.openers}
+          canManage={canManage}
+        />
       )}
     </div>
   );

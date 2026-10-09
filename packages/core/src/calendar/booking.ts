@@ -512,6 +512,8 @@ export interface AttendeeDraft {
   readonly contactEmail: string | null;
   readonly smsOk: boolean;
   readonly source: AppointmentSource;
+  /** The `ref` an online booking's page was opened with, for whoever's link it was. */
+  readonly linkRef?: string | null;
 }
 
 export type StaffChoice =
@@ -958,6 +960,7 @@ async function commit(
           contactEmail: req.attendee.contactEmail,
           smsOk: req.attendee.smsOk,
           source: req.attendee.source,
+          linkRef: req.attendee.linkRef ?? null,
           createdBy,
         })
         .returning({
@@ -1073,6 +1076,8 @@ export async function joinSession(ctx: CommandContext, req: JoinRequest): Promis
         contactPhoneE164: attendee.contactPhoneE164,
         contactEmail: attendee.contactEmail,
         smsOk: attendee.smsOk,
+        // Only an online booking (the worker's) has one: people may not write it.
+        ...(attendee.linkRef ? { linkRef: attendee.linkRef } : {}),
         cancelledAt: null,
         // A fresh booking retires the links sent for the cancelled one.
         manageVersion: existing.manageVersion + 1,
@@ -1095,6 +1100,7 @@ export async function joinSession(ctx: CommandContext, req: JoinRequest): Promis
         contactEmail: attendee.contactEmail,
         smsOk: attendee.smsOk,
         source: attendee.source,
+        linkRef: attendee.linkRef ?? null,
         createdBy: userIdOf(ctx.actor),
       })
       .returning({

@@ -6,10 +6,13 @@
 import type { AddonServerModule } from '../server';
 import { outreachAddon } from './manifest';
 import { activityCommands, activityQueries } from './ops/activity';
+import { alertCommands } from './ops/alerts';
 import { chatCommands, chatQueries } from './ops/chats';
+import { demoCommands } from './ops/demos';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCommands, groupQueries } from './ops/groups';
+import { openerCommands, openerQueries } from './ops/openers';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { tidyCommands, tidyQueries } from './ops/tidy';
@@ -28,6 +31,9 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupCommands,
     ...tidyCommands,
     ...postCommands,
+    ...alertCommands,
+    ...openerCommands,
+    ...demoCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -38,5 +44,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupQueries,
     ...todayQueries,
     ...tidyQueries,
+    ...openerQueries,
   ],
 };

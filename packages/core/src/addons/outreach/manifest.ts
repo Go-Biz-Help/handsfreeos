@@ -17,7 +17,7 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.4.0',
+  version: '0.5.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace.
@@ -88,16 +88,31 @@ export const outreachAddon = defineAddon({
       'outreach.posts.saved',
       'outreach.post.checked',
       'outreach.post.skipped',
+      'outreach.reply.seen',
+      'outreach.opener.used',
+      'outreach.demo.marked',
+      'outreach.demo.booked',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts).
-    consumes: ['outreach.download.saved', 'outreach.chats.collected', 'outreach.posts.saved'],
+    // A reply seen pushes to the person's phone, and a change to the settings moves the morning push (./alerts.ts);
+    // a booking through a demo link counts as a demo (./demos.ts).
+    consumes: [
+      'outreach.download.saved',
+      'outreach.chats.collected',
+      'outreach.posts.saved',
+      'outreach.reply.seen',
+      'addon.settings_saved',
+      'appointment.booked',
+    ],
   },
-  jobs: ['outreach.read_chats', 'outreach.check_posts'],
-  // Who from the chats brought in goes in Contacts (./chat-read.ts): Add-ons → Social Outreach.
+  jobs: ['outreach.read_chats', 'outreach.check_posts', 'outreach.morning'],
+  // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, and the hour of
+  // the morning push: Add-ons → Social Outreach.
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'demos',
     'file_chats',
     'file_people',
     'friend_ends',
@@ -106,9 +121,11 @@ export const outreachAddon = defineAddon({
     'groups',
     'imports',
     'my_groups',
+    'opener_uses',
     'playbooks',
     'posts',
     'profiles',
+    'replies',
     'threads',
     'touches',
     'warnings',

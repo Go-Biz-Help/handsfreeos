@@ -94,6 +94,10 @@ export const PLAYBOOK_LIMITS = {
   questions: { line: 200, most: 20 },
   /** An answer's words, and how many answers a question. */
   answers: { line: 80, most: 6 },
+  /** How the AI opens a chat (decision 23): a style a line, two or three of them. */
+  openerStyles: { line: 300, most: 3 },
+  /** First messages the business wrote itself, sent as written with their first name filled in. */
+  ownOpeners: { line: 600, most: 3 },
 } as const;
 
 const line = (max: number, empty = 'Leave out empty lines.') =>
@@ -173,6 +177,15 @@ export const PlaybookDetails = z
     /** A few of the business's own messages, for the AI to sound like. */
     samples: lines(PLAYBOOK_LIMITS.samples),
     /**
+     * How first messages open (decision 23): styles the AI writes in ("Ask one curious question about their
+     * business"), and the business's own openers, sent as written. Drafts take turns with them (./openers.ts), so
+     * the results card can say which work. A playbook saved before them has none.
+     */
+    openerStyles: lines(PLAYBOOK_LIMITS.openerStyles)
+      .refine(distinct, 'Each style once.')
+      .default([]),
+    ownOpeners: lines(PLAYBOOK_LIMITS.ownOpeners).refine(distinct, 'Each opener once.').default([]),
+    /**
      * The conversation, in the order it's asked: "Do you use a CRM?", with the answers people give and what each
      * one leads to.
      */
@@ -248,6 +261,8 @@ export const blankPlaybook = (): PlaybookDetails => ({
   },
   tone: null,
   samples: [],
+  openerStyles: [],
+  ownOpeners: [],
   questions: [],
   avoid: [],
   disclaimer: null,
@@ -284,6 +299,11 @@ const TEMPLATES = {
       groupWords: ['small business owners', 'business owners'],
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
+      openerStyles: [
+        'Ask one curious question about their business, from something real on their profile or posts.',
+        'Mention the group you’re both in, then ask how business is going.',
+        'Say one thing you genuinely liked about their page or a post, then ask a light question.',
+      ],
       questions: [
         {
           id: 'q1',
@@ -426,6 +446,13 @@ export const PLAYBOOK_SUGGESTIONS = {
     'No hard sell',
   ],
   avoid: ['Act now', 'Limited time', 'Guaranteed', 'Buy now', 'Click here'],
+  openerStyles: [
+    'Ask one curious question about their business, from something real on their profile or posts.',
+    'Mention the group you’re both in, then ask how business is going.',
+    'Say one thing you genuinely liked about their page or a post, then ask a light question.',
+    'Congratulate them on something they posted lately, then ask about it.',
+    'Ask for their advice on something they clearly know about.',
+  ],
   tags: ['Prospect', 'Interested', 'Not interested', 'Not a fit', 'Friend or family', 'Customer'],
   answers: ['Yes', 'No', 'Not sure', 'Not really', 'Not now'],
 } as const;

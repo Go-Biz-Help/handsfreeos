@@ -254,7 +254,8 @@ describe('the booking page', () => {
 
     const { slots } = await openTimes(cal.slug);
     expect(slots.length).toBeGreaterThan(3);
-    const body = bookingBody(slots[1]!.startsAt, { smsConsent: true });
+    // The page passes on the link's ref (a demo link's, a campaign's); one that isn't a ref is dropped.
+    const body = bookingBody(slots[1]!.startsAt, { smsConsent: true, ref: 'spring-mailer' });
     const res = await post(`/public/book/${site}/${cal.slug}/bookings`, body);
     expect(res.statusCode, res.body).toBe(200);
     const booked = res.json() as Booked;
@@ -266,9 +267,14 @@ describe('the booking page', () => {
     });
     expect(booked.manageUrl).toBe(`http://localhost:3000/m/${booked.manageToken}`);
     expect(booked.manageToken).toMatch(/^[0-9A-Za-z]{18}$/);
-    const [saved] = await rows<{ source: string; public_ref: string; first_name: string }>(
+    const [saved] = await rows<{
+      source: string;
+      public_ref: string;
+      first_name: string;
+      link_ref: string | null;
+    }>(
       admin(),
-      sql`select p.source::text as source, a.public_ref, c.first_name
+      sql`select p.source::text as source, a.public_ref, c.first_name, a.link_ref
           from app.appointments p
           join app.appointment_attendees a on a.appointment_id = p.id
           join app.people c on c.id = a.person_id
@@ -278,6 +284,7 @@ describe('the booking page', () => {
       source: 'booking_page',
       public_ref: booked.manageToken.slice(0, 8),
       first_name: 'Nora',
+      link_ref: 'spring-mailer',
     });
 
     // A doubled tap sends the same clientId: one booking, the same link.

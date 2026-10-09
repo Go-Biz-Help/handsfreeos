@@ -225,6 +225,75 @@ export async function clearAddonAlert(
   });
 }
 
+// ---------- a notice on people's phones alone ----------
+
+export interface AddonNoticeInput {
+  /** What makes this notice this one ("reply:<id>", "morning:<user>:<date>"): the same key is pushed once. */
+  readonly key: string;
+  /** Who: each must hold `permission` here, and have their add-ons switch and a phone on. */
+  readonly userIds: readonly string[];
+  /** One of the add-on's own permissions. */
+  readonly permission: string;
+  readonly title: string;
+  readonly body: string;
+  /** A page of the add-on's: `/a/<its id>/…`. */
+  readonly href: string;
+  /** The notification it replaces, where one about the same thing may be showing; the add-on's id goes first. */
+  readonly collapseKey?: string | null;
+  readonly personId?: string | null;
+}
+
+/**
+ * A push to a few people about something only they need to hear right now, with no Home card and no email (Social
+ * Outreach's reply and morning pushes): the `addon_alert` kind, on each person's add-ons switch, opening one of the
+ * add-on's pages. For anything people should see and deal with, raise an alert instead. Answers how many it's for.
+ */
+export async function pushAddonNotice(
+  ctx: AddonScopeContext,
+  tx: Tx,
+  input: AddonNoticeInput,
+): Promise<number> {
+  const manifest = ctx.manifest;
+  if (!KEY.test(input.key))
+    throw new Error(
+      `${manifest.id} can't push that: its key must be 1 to 200 printable characters`,
+    );
+  if (!input.title.trim() || input.title.length > 200)
+    throw new Error(`${manifest.id} can't push that: its title must be 1 to 200 characters`);
+  if (
+    input.href !== `/a/${manifest.id}` &&
+    !input.href.startsWith(`/a/${manifest.id}/`) &&
+    !input.href.startsWith(`/a/${manifest.id}?`)
+  )
+    throw new Error(
+      `${manifest.id} can't push that: it must open one of its own pages (/a/${manifest.id}/…)`,
+    );
+  if (!manifest.permissions.some((p) => p.key === input.permission))
+    throw new Error(
+      `${manifest.id} can't push that: ${input.permission} isn't one of its permissions`,
+    );
+  const ws = ctx.scope.workspaceId;
+  const ids = [...new Set(input.userIds)];
+  if (!ids.length) return 0;
+  const holding = await rows<{ id: string }>(
+    tx,
+    sql`select wa.user_id as id from app.workspace_access wa
+        where wa.workspace_id = ${ws} and ${input.permission} = any (wa.permissions)
+          and wa.user_id = any (${`{${ids.join(',')}}`}::uuid[])`,
+  );
+  return queuePush(tx, ctx.scope, {
+    key: `addon_notice:${manifest.id}:${input.key}`,
+    category: 'addon_alert',
+    userIds: holding.map((h) => h.id),
+    title: input.title,
+    about: manifest.name,
+    body: input.body,
+    path: `/app/w/${ws}${input.href}`,
+    refs: input.personId ? { personId: input.personId } : {},
+    collapseId: input.collapseKey ? `${manifest.id}-${input.collapseKey}` : null,
+  });
+}
+
 // ---------- telling people ----------
 
 type AlertRow = {

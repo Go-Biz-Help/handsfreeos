@@ -6,6 +6,7 @@
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
  */
+import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type { AssistDraft, AssistQuestion } from '@hfos/core/addons/outreach/playbook-assist';
 import {
   ANSWER_NEXTS,
@@ -76,6 +77,8 @@ interface Draft {
   pace: PlaybookDetails['pace'];
   tone: string;
   samples: string[];
+  openerStyles: string[];
+  ownOpeners: string[];
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -97,6 +100,8 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   pace: d.pace,
   tone: d.tone ?? '',
   samples: d.samples,
+  openerStyles: d.openerStyles,
+  ownOpeners: d.ownOpeners,
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -106,8 +111,11 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
 const orNull = (v: string) => v.trim() || null;
 
 /** The lists written a line at a time, in a box with Add. */
-const LIST_KEYS = ['signs', 'skip', 'groupWords', 'tags', 'avoid'] as const;
+const LIST_KEYS = ['signs', 'skip', 'groupWords', 'tags', 'avoid', 'openerStyles'] as const;
 type ListKey = (typeof LIST_KEYS)[number];
+/** The lists of whole messages, each in its own box. */
+type MessageKey = 'samples' | 'ownOpeners';
+type MultiKey = ListKey | MessageKey;
 /** What's typed in a list's box and not added yet. */
 type Typing = Partial<Record<ListKey, string>>;
 
@@ -138,6 +146,8 @@ const toDetails = (d: Draft): PlaybookDetails => ({
   pace: d.pace,
   tone: orNull(d.tone),
   samples: d.samples.map((s) => s.trim()).filter(Boolean),
+  openerStyles: d.openerStyles,
+  ownOpeners: d.ownOpeners.map((s) => s.trim()).filter(Boolean),
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: orNull(d.disclaimer),
@@ -200,6 +210,7 @@ type StepKey =
   | 'tags'
   | 'conversation'
   | 'voice'
+  | 'openers'
   | 'review';
 
 interface Step {
@@ -278,6 +289,13 @@ const STEPS: readonly Step[] = [
     title: 'How do you sound?',
     blurb: 'So the drafts sound like you.',
     fields: ['tone', 'samples', 'avoid', 'disclaimer'],
+  },
+  {
+    key: 'openers',
+    part: 'Openers',
+    title: 'How do you start a chat?',
+    blurb: 'First messages take turns with these, so you can see which ones get replies and demos.',
+    fields: ['openerStyles', 'ownOpeners'],
   },
   {
     key: 'review',
@@ -419,6 +437,8 @@ export function PlaybookBuilder({
       groupWords: d.groupWords,
       tags: d.tags,
       samples: d.samples.filter((m) => m.trim()),
+      openerStyles: d.openerStyles,
+      ownOpeners: d.ownOpeners.filter((m) => m.trim()),
       avoid: d.avoid,
       questions: d.questions.map((q) => ({
         text: q.text,
@@ -427,7 +447,7 @@ export function PlaybookBuilder({
     };
   }, [draft, typing]);
   /** Adds a line the AI suggested to a list, unless it's there already or the list is full. */
-  const addLine = (k: ListKey | 'samples', line: string): boolean => {
+  const addLine = (k: MultiKey, line: string): boolean => {
     const list = draft[k].filter((x) => x.trim());
     if (list.some((x) => x.toLowerCase() === line.toLowerCase())) return true;
     if (list.length >= PLAYBOOK_LIMITS[k].most) {
@@ -439,10 +459,10 @@ export function PlaybookBuilder({
     return true;
   };
   /** Uses the AI's rewrite of a list in place of what's there. */
-  const replaceLines = (k: ListKey | 'samples', lines: string[]) => {
+  const replaceLines = (k: MultiKey, lines: string[]) => {
     if (k === 'tags') setTags(lines);
     else set(k, lines);
-    if (k !== 'samples') setTyping((x) => ({ ...x, [k]: '' }));
+    if (k !== 'samples' && k !== 'ownOpeners') setTyping((x) => ({ ...x, [k]: '' }));
   };
   const addQuestion = (q: AssistQuestion) =>
     setDraft((d) =>
@@ -470,7 +490,7 @@ export function PlaybookBuilder({
       onWords={(w) => set(part, w)}
     />
   );
-  const listHelp = (k: ListKey | 'samples') => (
+  const listHelp = (k: MultiKey) => (
     <AiHelp
       workspaceId={workspaceId}
       part={k}
@@ -828,53 +848,16 @@ export function PlaybookBuilder({
             {help('tone')}
           </div>
           <div>
-            <Label>A few of your own messages (optional)</Label>
-            <p className="-mt-0.5 mb-2 text-[12.5px] text-text-3">
-              Paste messages you’ve sent, so drafts sound like you.
-            </p>
-            <div className="space-y-2">
-              {draft.samples.map((s, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <Textarea
-                    aria-label={`Your message ${i + 1}`}
-                    rows={3}
-                    maxLength={PLAYBOOK_LIMITS.samples.line}
-                    value={s}
-                    onChange={(e) =>
-                      set(
-                        'samples',
-                        draft.samples.map((x, j) => (j === i ? e.target.value : x)),
-                      )
-                    }
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Take out message ${i + 1}`}
-                    onClick={() =>
-                      set(
-                        'samples',
-                        draft.samples.filter((_, j) => j !== i),
-                      )
-                    }
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-            {draft.samples.length < PLAYBOOK_LIMITS.samples.most ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-2"
-                onClick={() => set('samples', [...draft.samples, ''])}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add a message
-              </Button>
-            ) : null}
-            <FieldError>{issueIn('samples')}</FieldError>
+            <MessageList
+              label="A few of your own messages (optional)"
+              hint="Paste messages you’ve sent, so drafts sound like you."
+              name="message"
+              items={draft.samples}
+              most={PLAYBOOK_LIMITS.samples.most}
+              maxLength={PLAYBOOK_LIMITS.samples.line}
+              onChange={(v) => set('samples', v)}
+              error={issueIn('samples')}
+            />
             {listHelp('samples')}
           </div>
           <ListField
@@ -902,6 +885,48 @@ export function PlaybookBuilder({
             />
           </Field>
           {help('disclaimer')}
+        </div>
+      );
+      break;
+    case 'openers':
+      body = (
+        <div className="space-y-6">
+          <div>
+            <ListField
+              id="pb-opener-styles"
+              {...typed('openerStyles')}
+              label="Styles the AI opens with"
+              hint="Two or three different ones, so you can see which works. Each is how a first message starts."
+              placeholder="Like “Ask about something real on their profile”"
+              items={draft.openerStyles}
+              onChange={(v) => set('openerStyles', v)}
+              suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.openerStyles }]}
+              limits={PLAYBOOK_LIMITS.openerStyles}
+              error={issueIn('openerStyles')}
+              testId="playbook-opener-styles"
+            />
+            {listHelp('openerStyles')}
+          </div>
+          <div>
+            <MessageList
+              label="Your own openers (optional)"
+              hint={`Sent as you write them. Put ${FIRST_NAME} where their first name goes.`}
+              name="opener"
+              items={draft.ownOpeners}
+              most={PLAYBOOK_LIMITS.ownOpeners.most}
+              maxLength={PLAYBOOK_LIMITS.ownOpeners.line}
+              onChange={(v) => set('ownOpeners', v)}
+              error={issueIn('ownOpeners')}
+              placeholder={`Hi ${FIRST_NAME}! …`}
+              testId="playbook-own-openers"
+            />
+            {listHelp('ownOpeners')}
+          </div>
+          {draft.openerStyles.length + draft.ownOpeners.filter((m) => m.trim()).length === 0 ? (
+            <Callout tone="neutral" icon={Info}>
+              With none, first messages are written as before, and there’s nothing to compare.
+            </Callout>
+          ) : null}
         </div>
       );
       break;
@@ -1417,6 +1442,28 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
         </>
       );
     }
+    case 'openers': {
+      const own = d.ownOpeners.filter((s) => s.trim());
+      if (!d.openerStyles.length && !own.length)
+        return <Missing>None, so first messages aren’t compared</Missing>;
+      return (
+        <>
+          {d.openerStyles.length ? (
+            <ul className="space-y-0.5">
+              {d.openerStyles.map((o) => (
+                <li key={o}>{short(o, 90)}</li>
+              ))}
+            </ul>
+          ) : null}
+          {own.length ? (
+            <div className="text-[13px] text-text-2">
+              {plural(own.length, 'opener')} of your own:{' '}
+              {own.map((o) => `“${short(o.trim(), 40)}”`).join(' · ')}
+            </div>
+          ) : null}
+        </>
+      );
+    }
     case 'review':
       return null;
   }
@@ -1515,6 +1562,73 @@ function Picks({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** Whole messages, each in its own box, with Add. */
+function MessageList({
+  label,
+  hint,
+  name,
+  items,
+  most,
+  maxLength,
+  onChange,
+  error,
+  placeholder,
+  testId,
+}: {
+  label: string;
+  hint: string;
+  /** What one is called: "message", "opener". */
+  name: string;
+  items: string[];
+  most: number;
+  maxLength: number;
+  onChange: (items: string[]) => void;
+  error?: string;
+  placeholder?: string;
+  testId?: string;
+}) {
+  return (
+    <div data-testid={testId}>
+      <Label>{label}</Label>
+      <p className="-mt-0.5 mb-2 text-[12.5px] text-text-3">{hint}</p>
+      <div className="space-y-2">
+        {items.map((s, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <Textarea
+              aria-label={`Your ${name} ${i + 1}`}
+              rows={3}
+              maxLength={maxLength}
+              value={s}
+              placeholder={placeholder}
+              onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Take out ${name} ${i + 1}`}
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      {items.length < most ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2"
+          onClick={() => onChange([...items, ''])}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add {name === 'opener' ? 'an opener' : `a ${name}`}
+        </Button>
+      ) : null}
+      <FieldError>{error}</FieldError>
     </div>
   );
 }

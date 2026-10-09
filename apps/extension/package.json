@@ -2,7 +2,7 @@
   "name": "@hfos/extension",
   "private": true,
   "type": "module",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "The browser extension that works beside a person on Facebook (README.md). It reads the page you have open, saves the people and chats you pick to HandsFreeOS through the Social Outreach add-on, and counts the friend requests, likes, comments and messages you send.",
   "scripts": {
     "build": "node scripts/build.mjs",

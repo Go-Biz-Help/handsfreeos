@@ -1051,6 +1051,12 @@ export const OnlineCustomer = z
     error: 'Enter a mobile number or an email.',
   });
 
+/** What a booking keeps of the `ref` its page was opened with: short, and safe in a link. */
+export const LINK_REF = /^[A-Za-z0-9_-]{1,64}$/;
+/** The `ref` a booking page was opened with, when it's one a booking keeps; anything else is left off. */
+export const linkRefOf = (value: unknown): string | null =>
+  typeof value === 'string' && LINK_REF.test(value) ? value : null;
+
 export const AppointmentBookOnlineInput = z.object({
   workspaceId: uuid,
   calendarId: uuid,
@@ -1073,6 +1079,11 @@ export const AppointmentBookOnlineInput = z.object({
   offersConsent: z.boolean().default(false),
   intake: IntakeAnswers.default(() => ({})),
   notes: z.string().trim().max(2000).nullable().optional(),
+  /**
+   * The `ref` the booking page was opened with (`?ref=`), kept on the booking for whoever's link it was: a Social
+   * Outreach demo link's (docs/outreach.md, decision 24). Anything else is left off.
+   */
+  linkRef: z.string().regex(LINK_REF).nullable().optional(),
   /** The page's idempotency key: a retried submit books once. */
   clientId,
   /**

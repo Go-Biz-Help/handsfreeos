@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Social Outreach' };
 /**
  * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, the
  * person's list for today (`?view=today`), the groups saved (`?view=groups`), the person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
- * the business's playbooks (`?view=playbooks`). It
+ * the business's playbooks with how each opener did (`?view=playbooks`). It
  * opens through the gate: "not available here" while the add-on is off, and not found for someone without
  * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
  * (`?who=everyone`); anyone else asking for that sees their own.
@@ -131,12 +131,16 @@ export default async function OutreachPage({
         api.POST('/v1/queries/outreach.playbook.list', { body: { workspaceId } }).then(unwrapPage),
       ]);
       const canManage = got.workspace.permissions.includes('outreach.manage');
+      // Owners and admins see how everyone's openers did; anyone else, their own.
+      const openers = await api
+        .POST('/v1/queries/outreach.openers', { body: { workspaceId, everyone: canManage } })
+        .then(unwrapPage);
       return (
         <OutreachHome
           workspaceId={workspaceId}
           businessName={got.workspace.name}
           canManage={canManage}
-          shown={{ view: 'playbooks', list }}
+          shown={{ view: 'playbooks', list, openers }}
         />
       );
     }

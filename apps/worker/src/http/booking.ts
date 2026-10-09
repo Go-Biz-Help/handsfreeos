@@ -27,6 +27,7 @@ import {
   HfosError,
   holdState,
   IntakeAnswers,
+  linkRefOf,
   loadCalendar,
   loadCatalogService,
   loadSlotInput,
@@ -638,6 +639,8 @@ const BookingBody = z.object({
   chosenUserId: z.uuid().nullable().optional(),
   intake: IntakeAnswers.default(() => ({})),
   notes: z.string().trim().max(2000).nullable().optional(),
+  /** The `ref` the page was opened with (`?ref=`): a link's, kept on the booking. Anything odd is left off. */
+  ref: z.string().max(200).nullable().optional(),
   ...customerFields,
 });
 
@@ -1281,6 +1284,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             offersConsent: body.offersConsent,
             intake: body.intake,
             notes: body.notes ?? null,
+            linkRef: linkRefOf(body.ref),
             clientId: body.clientId,
           },
           systemActor(scope),

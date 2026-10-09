@@ -5,8 +5,17 @@
  * what the model is asked and checks what it answers (packages/core/src/addons/outreach/today.ts). Nothing is saved
  * or sent: the person copies the one they like, changes it as they like, and sends it on Facebook themselves.
  */
+import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
+import {
+  nextOpener,
+  openerKey,
+  openersOf,
+  ownOpenerText,
+  type Opener,
+  type OpenerKind,
+} from '@hfos/core/addons/outreach/openers';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import {
   checkedDrafts,
@@ -106,6 +115,31 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       groupName: found.profile?.group ?? null,
     });
     const playbook = playbooks.find((p) => p.id === fit.playbookId) ?? playbooks[0] ?? null;
+    // A first message takes the next of the playbook's openers in turn (decision 23).
+    let opener: Opener | null = null;
+    if (input.kind === 'opener' && playbook) {
+      const used = await asWorker(ctx.db, ctx.scope, (tx) =>
+        rows<{ kind: OpenerKind; text: string; n: number }>(
+          tx,
+          sql`select kind, text, count(*)::int as n from addon_outreach.opener_uses
+              where workspace_id = ${ws} and user_id = ${ctx.userId} and playbook_id = ${playbook.id}
+              group by kind, text`,
+        ),
+      );
+      const counts = new Map<string, number>();
+      for (const u of used) counts.set(openerKey(u), (counts.get(openerKey(u)) ?? 0) + u.n);
+      opener = nextOpener(openersOf(playbook.details), counts);
+    }
+    const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
+    // One of the business's own openers goes as written, with their first name in: no AI.
+    if (opener?.kind === 'own')
+      return { drafts: [ownOpenerText(opener.text, name)], opener: drafted };
+    // The playbook's link, as the person's demo link for them (decision 24).
+    const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
+    const link =
+      playbook && profileId
+        ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
+        : (playbook?.details.link ?? null);
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: TODAY_DRAFT_SYSTEM,
@@ -118,9 +152,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               name,
               facts,
               recent: found.chat?.recent ?? [],
-              playbook: playbook ? { name: playbook.name, ...playbook.details } : null,
+              playbook: playbook ? { name: playbook.name, ...playbook.details, link } : null,
               post: found.post ? { text: found.post.body, group: found.post.group } : null,
               lookup: input.lookup,
+              opener,
             }),
           },
         ],
@@ -131,6 +166,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       });
       return {
         drafts: checkedDrafts(value, playbook?.details.avoid ?? [], DRAFTS_FOR[input.kind]),
+        opener: drafted,
       };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;

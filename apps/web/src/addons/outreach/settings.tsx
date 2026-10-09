@@ -1,4 +1,5 @@
 'use client';
+import { hourWords, MORNING_PUSH_HOURS } from '@hfos/core/addons/outreach/alerts';
 import {
   CONTACTS_FROM_CHATS,
   CONTACTS_FROM_CHATS_WORDS,
@@ -17,19 +18,23 @@ const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
 /**
  * On the Add-ons page: who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), and how long a sent friend request waits before it's suggested for cancelling
- * (decision 12). Anyone already in Contacts gets the tags whatever it says.
+ * (decision 12), and the hour of the morning push to each person's phone, in the business's time zone (decision 22).
+ * Anyone already in Contacts gets the tags whatever it says.
  */
 export default function OutreachSettings({ settings, saveSettings }: AddonSettingsProps) {
   const now = outreachSettings(settings);
   const saved = now.contactsFromChats;
   const [pick, setPick] = useState<ContactsFromChats>(saved);
   const [weeks, setWeeks] = useState(now.cancelRequestsAfterWeeks);
+  const [hour, setHour] = useState(now.morningPushHour);
   const { busy, act } = useAct();
   if (settings === null)
     return (
       <p className="text-[13px] text-text-2">
         Who from your Facebook chats goes in Contacts: {CONTACTS_FROM_CHATS_WORDS[saved]}. Friend
-        requests are suggested for cancelling after {weeksWords(now.cancelRequestsAfterWeeks)}. An
+        requests are suggested for cancelling after {weeksWords(now.cancelRequestsAfterWeeks)}. The
+        morning push{' '}
+        {now.morningPushHour === null ? 'is off' : `comes at ${hourWords(now.morningPushHour)}`}. An
         owner or admin can change these.
       </p>
     );
@@ -73,9 +78,37 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
           ))}
         </select>
       </label>
+      <label className="block">
+        <span className="text-[14px] font-semibold">Morning push</span>
+        <span className="block text-[13px] text-text-2">
+          Each person who used the extension lately hears how many are on their list for today, in
+          your business’s time zone. Replies the extension spots are pushed as they come.
+        </span>
+        <select
+          className="mt-1.5 h-8 rounded-control border border-border-strong bg-card px-2 text-[13px]"
+          value={hour === null ? 'off' : String(hour)}
+          onChange={(e) => setHour(e.target.value === 'off' ? null : Number(e.target.value))}
+          data-testid="outreach-morning-hour"
+        >
+          {/* An hour set some other way still shows. */}
+          {[...new Set([...MORNING_PUSH_HOURS, ...(hour === null ? [] : [hour])])]
+            .sort((a, b) => a - b)
+            .map((h) => (
+              <option key={h} value={String(h)}>
+                {hourWords(h)}
+              </option>
+            ))}
+          <option value="off">Off</option>
+        </select>
+      </label>
       <Button
         size="sm"
-        disabled={(pick === saved && weeks === now.cancelRequestsAfterWeeks) || busy !== null}
+        disabled={
+          (pick === saved &&
+            weeks === now.cancelRequestsAfterWeeks &&
+            hour === now.morningPushHour) ||
+          busy !== null
+        }
         onClick={() =>
           void act(
             'save',
@@ -84,6 +117,7 @@ export default function OutreachSettings({ settings, saveSettings }: AddonSettin
                 ...settings,
                 contactsFromChats: pick,
                 cancelRequestsAfterWeeks: weeks,
+                morningPushHour: hour,
               }),
             'Saved.',
           )

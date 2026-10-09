@@ -429,6 +429,16 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.post.skip', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-opener-use':
+      return call(
+        api().POST('/v1/commands/outreach.opener.use', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-demo-mark':
+      return call(
+        api().POST('/v1/commands/outreach.demo.mark', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-draft':
       return call(
         workerPost<Drafts>('/v1/addons/outreach/actions/outreach.today.draft', {

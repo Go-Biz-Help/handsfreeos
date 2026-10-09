@@ -13,11 +13,13 @@ import {
   testEnv,
   type TestUser,
 } from '@hfos/db/testing';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
 import {
   fileChats,
+  openerUses,
   playbooks,
   posts,
   profiles,
@@ -129,7 +131,54 @@ describe('drafts for Today', () => {
         'Hi Dana, thanks for adding me! How’s business going?',
         'Hey Dana, good to connect. What keeps you busiest these days?',
       ],
+      // The playbook's first style: none has been used yet.
+      opener: {
+        playbookId: expect.any(String),
+        kind: 'style',
+        text: PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0],
+      },
     });
+  });
+
+  it('takes turns with the openers, and sends the business’s own as written', async () => {
+    const [playbook] = await testDbs()
+      .admin.db.select()
+      .from(playbooks)
+      .where(eq(playbooks.workspaceId, ws));
+    const own = 'Hi {first name}! Do you run your own business?';
+    await testDbs()
+      .admin.db.update(playbooks)
+      .set({ details: { ...playbook!.details, ownOpeners: [own] } })
+      .where(eq(playbooks.id, playbook!.id));
+    // Each style used once by this person, with others: their own opener is next.
+    for (const [i, text] of PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles.entries()) {
+      const [other] = await testDbs()
+        .admin.db.insert(profiles)
+        .values({
+          workspaceId: ws,
+          platform: 'facebook',
+          username: `someone.${i}`,
+          url: `https://www.facebook.com/someone.${i}`,
+          name: `Someone ${i}`,
+        })
+        .returning({ id: profiles.id });
+      await testDbs().admin.db.insert(openerUses).values({
+        workspaceId: ws,
+        userId: owner.id,
+        profileId: other!.id,
+        playbookId: playbook!.id,
+        kind: 'style',
+        text,
+        usedAt: new Date(),
+      });
+    }
+    const res = await draft(owner, { kind: 'opener', profileId });
+    expect(res.json()).toEqual({
+      drafts: ['Hi Dana! Do you run your own business?'],
+      opener: { playbookId: playbook!.id, kind: 'own', text: own },
+    });
+    // Someone else's turns are their own.
+    expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');
   });
 
   it('drafts two comments on a post, from what the look-up found too', async () => {

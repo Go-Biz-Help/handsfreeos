@@ -1,0 +1,168 @@
+/**
+ * Phone alerts (docs/outreach.md, decision 22; core's rules in packages/core/src/addons/outreach/alerts.ts):
+ *
+ * - **A reply** the extension saw (`outreach.reply.seen`) is pushed to the person at once, unless they were looking
+ *   at it: "Dana Reyes wrote back".
+ * - **The morning push** (`outreach.morning`, one job per business): at the business's hour, each person who noted a
+ *   step lately and has something on their list for today hears how much, worked out as their list is
+ *   (`outreach.today`, asked on their behalf). It comes back the next morning. A change to the hour moves it; it's
+ *   armed when the add-on comes on, and whenever the extension sends something, so a business that had the add-on
+ *   on before the push existed gets it too.
+ *
+ * Both go to the person alone, on their add-ons switch, and open Today (`pushAddonNotice`).
+ */
+import {
+  MORNING_ACTIVE_DAYS,
+  morningPushWords,
+  nextMorning,
+  replyPushWords,
+} from '@hfos/core/addons/outreach/alerts';
+import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import { today } from '@hfos/core/addons/outreach/ops/today';
+import type { TodayOutput } from '@hfos/core/addons/outreach/today';
+import { executeQuery, localDateOf, workspaceMessaging } from '@hfos/core/server';
+import { asWorker, rows, sql } from '@hfos/db/client';
+import type { JobResult } from '../../jobs';
+import { pushAddonNotice } from '../alerts';
+import { scheduleAddonJob } from '../queue';
+import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
+
+export const MORNING_JOB = 'outreach.morning';
+const TODAY_HREF = '/a/outreach?view=today';
+const HOUR = 3_600_000;
+/** A morning push that runs this late (the worker was down) waits for the next morning. */
+const MORNING_LATE_MS = 3 * HOUR;
+
+/** The business's hour for the morning push, and its time zone. */
+async function morningOf(ctx: AddonScopeContext): Promise<{ hour: number | null; tz: string }> {
+  return asWorker(ctx.db, ctx.scope, async (tx) => {
+    const [installed] = await rows<{ settings: unknown }>(
+      tx,
+      sql`select settings from app.addon_installations
+          where workspace_id = ${ctx.scope.workspaceId} and addon_id = ${ctx.manifest.id}`,
+    );
+    const m = await workspaceMessaging(tx, ctx.scope.workspaceId);
+    return {
+      hour: outreachSettings(installed?.settings).morningPushHour,
+      tz: m.timezone || 'UTC',
+    };
+  });
+}
+
+/** Queues the next morning push, or moves it sooner; nothing when the business turned it off. */
+export async function armMorning(ctx: AddonScopeContext, now = Date.now()): Promise<void> {
+  const { hour, tz } = await morningOf(ctx);
+  if (hour === null) return;
+  await asWorker(ctx.db, ctx.scope, (tx) =>
+    scheduleAddonJob(
+      tx,
+      { id: ctx.manifest.id, generation: ctx.generation },
+      {
+        kind: MORNING_JOB,
+        dedupeKey: `${MORNING_JOB}:${ctx.scope.workspaceId}`,
+        runAt: nextMorning(now, tz, hour),
+        payload: {},
+        workspaceId: ctx.scope.workspaceId,
+        organizationId: ctx.scope.organizationId,
+      },
+      { pullEarlier: true },
+    ),
+  );
+}
+
+/** `addon.settings_saved`: Social Outreach's own settings may have moved the morning push. */
+export async function settingsSaved(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  if (p['addonId'] !== undefined && p['addonId'] !== ctx.manifest.id) return;
+  await armMorning(ctx);
+}
+
+/** `outreach.reply.seen`: the person's phone hears who wrote back, unless they were looking. */
+export async function replySeen(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as {
+    userId?: string;
+    profileIds?: string[];
+    push?: boolean;
+  };
+  if (p.push && p.userId && p.profileIds?.length) {
+    const userId = p.userId;
+    await asWorker(ctx.db, ctx.scope, async (tx) => {
+      const found = await rows<{ id: string; name: string; person_id: string | null }>(
+        tx,
+        sql`select id, name, person_id from addon_outreach.profiles
+            where workspace_id = ${ctx.scope.workspaceId}
+              and id = any (${`{${p.profileIds!.join(',')}}`}::uuid[])`,
+      );
+      for (const profile of found)
+        await pushAddonNotice(ctx, tx, {
+          key: `reply:${ctx.event.id}:${profile.id}`,
+          userIds: [userId],
+          permission: 'outreach.use',
+          ...replyPushWords(profile.name),
+          href: TODAY_HREF,
+          collapseKey: `reply-${profile.id}`,
+          personId: profile.person_id,
+        });
+    });
+  }
+  await armMorning(ctx);
+}
+
+/** The people to hear in the morning: those who can use Social Outreach here and noted a step lately. */
+async function morningPeople(ctx: AddonJobContext): Promise<string[]> {
+  const since = new Date(ctx.now - MORNING_ACTIVE_DAYS * 24 * HOUR).toISOString();
+  return asWorker(ctx.db, ctx.scope, async (tx) =>
+    (
+      await rows<{ user_id: string }>(
+        tx,
+        sql`select distinct t.user_id from addon_outreach.touches t
+            join app.workspace_access wa on wa.user_id = t.user_id and wa.workspace_id = t.workspace_id
+            where t.workspace_id = ${ctx.scope.workspaceId} and t.at >= ${since}::timestamptz
+              and 'outreach.use' = any (wa.permissions)
+            order by t.user_id`,
+      )
+    ).map((r) => r.user_id),
+  );
+}
+
+/** `outreach.morning`: each person's list for today, in a push, then the next morning's. */
+export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
+  const { hour, tz } = await morningOf(ctx);
+  // Turned off: nothing now, and nothing more until it's turned on again.
+  if (hour === null) return;
+  const due = nextMorning(ctx.now - MORNING_LATE_MS, tz, hour).getTime();
+  // Moved to a later hour, or the worker was down past the morning: the next one.
+  if (due > ctx.now) return { rescheduleAt: nextMorning(ctx.now, tz, hour) };
+  const day = localDateOf(ctx.now, tz);
+  for (const userId of await morningPeople(ctx)) {
+    let list: TodayOutput;
+    try {
+      list = await executeQuery(
+        ctx.db,
+        today,
+        { workspaceId: ctx.scope.workspaceId },
+        { ...ctx.actor, onBehalfOf: userId },
+        ctx.meta,
+      );
+    } catch (e) {
+      ctx.log.warn(
+        { err: e instanceof Error ? e.message : String(e), userId },
+        'no list for a morning push',
+      );
+      continue;
+    }
+    const words = morningPushWords(list.items);
+    if (!words) continue;
+    await asWorker(ctx.db, ctx.scope, (tx) =>
+      pushAddonNotice(ctx, tx, {
+        key: `morning:${userId}:${day}`,
+        userIds: [userId],
+        permission: 'outreach.use',
+        ...words,
+        href: TODAY_HREF,
+        collapseKey: `morning-${userId}`,
+      }),
+    );
+  }
+  return { rescheduleAt: nextMorning(ctx.now + 60_000, tz, hour) };
+}

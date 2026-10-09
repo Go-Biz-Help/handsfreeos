@@ -5817,6 +5817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.demo.mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person says someone they reached booked a demo some other way than the demo link, or takes that back. It counts toward which openers work.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.demo.marked.
+         */
+        post: operations["command_outreach_demo_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.download.save": {
         parameters: {
             query?: never;
@@ -5957,6 +5977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.opener.use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person copied a first message to someone: note which of the playbook’s openers it was drafted with, for the results card. Once a first message to them is noted, the opener stays the one it was.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.opener.used.
+         */
+        post: operations["command_outreach_opener_use"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.playbook.archive": {
         parameters: {
             query?: never;
@@ -6051,6 +6091,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.replies.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The extension saw chats on the person’s Facebook whose last message is theirs: each one after a message of the person’s it noted is kept as a reply, once, and their phone told unless they were looking at it.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.reply.seen.
+         */
+        post: operations["command_outreach_replies_note"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15691,6 +15751,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.openers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which openers work: for each playbook in use, its AI styles and the business’s own openers, with the first messages sent with each, who wrote back and who booked a demo. Everyone’s for owners and admins.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_openers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31614,6 +31694,49 @@ export interface operations {
             };
         };
     };
+    command_outreach_demo_mark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    booked: boolean;
+                    name: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    profile: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booked: boolean;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_download_save: {
         parameters: {
             query?: never;
@@ -32006,6 +32129,44 @@ export interface operations {
             };
         };
     };
+    command_outreach_opener_use: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    opener: {
+                        /** @enum {string} */
+                        kind: "style" | "own";
+                        /** Format: uuid */
+                        playbookId: string;
+                        text: string;
+                    };
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        noted: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_playbook_archive: {
         parameters: {
             query?: never;
@@ -32045,6 +32206,10 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            /** @default [] */
+                            openerStyles: string[];
+                            /** @default [] */
+                            ownOpeners: string[];
                             pace: {
                                 followUpAfterDays: number;
                                 messageAfterDays: number;
@@ -32097,6 +32262,10 @@ export interface operations {
                         groupWords: string[];
                         link: string | null;
                         offer: string | null;
+                        /** @default [] */
+                        openerStyles?: string[];
+                        /** @default [] */
+                        ownOpeners?: string[];
                         pace: {
                             followUpAfterDays: number;
                             messageAfterDays: number;
@@ -32148,6 +32317,10 @@ export interface operations {
                             groupWords: string[];
                             link: string | null;
                             offer: string | null;
+                            /** @default [] */
+                            openerStyles: string[];
+                            /** @default [] */
+                            ownOpeners: string[];
                             pace: {
                                 followUpAfterDays: number;
                                 messageAfterDays: number;
@@ -32333,6 +32506,52 @@ export interface operations {
                         personName: string;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_replies_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    looking?: boolean;
+                    seen: {
+                        name: string;
+                        /** @default null */
+                        profile?: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        } | null;
+                        /** @default null */
+                        threadKey?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        replies: {
+                            name: string;
+                            /** Format: uuid */
+                            profileId: string;
+                        }[];
                     };
                 };
             };
@@ -58595,6 +58814,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         marks: {
+                            demo: ("link" | "marked") | null;
                             dontPitch: {
                                 at: string | null;
                                 by: string | null;
@@ -58643,6 +58863,51 @@ export interface operations {
                             personId: string;
                             /** Format: uuid */
                             threadId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_openers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: boolean;
+                        playbooks: {
+                            name: string;
+                            openers: {
+                                current: boolean;
+                                demos: number;
+                                /** @enum {string} */
+                                kind: "style" | "own";
+                                replies: number;
+                                sent: number;
+                                text: string;
+                            }[];
+                            /** Format: uuid */
+                            playbookId: string;
                         }[];
                     };
                 };
@@ -58749,6 +59014,10 @@ export interface operations {
                                 groupWords: string[];
                                 link: string | null;
                                 offer: string | null;
+                                /** @default [] */
+                                openerStyles: string[];
+                                /** @default [] */
+                                ownOpeners: string[];
                                 pace: {
                                     followUpAfterDays: number;
                                     messageAfterDays: number;
@@ -58813,6 +59082,7 @@ export interface operations {
                         hasPlaybook: boolean;
                         items: {
                             chatId: string | null;
+                            demoLink: string | null;
                             /** @enum {string} */
                             kind: "friend_request" | "opener" | "follow_up" | "reply" | "comment";
                             name: string;
