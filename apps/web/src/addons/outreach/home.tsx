@@ -1,20 +1,22 @@
 'use client';
 /**
  * Social Outreach's page (docs/outreach.md): the activity the browser extension noted, the person's friends and the
- * Don't pitch list, and the business's playbooks, each a tab with its own address (./address.ts), so a link or the
+ * Don't pitch list, their chats as the AI read them, and the business's playbooks, each a tab with its own address (./address.ts), so a link or the
  * builder's way back opens the one it's about. The page asks HandsFreeOS for what the tab shows
  * (`app/w/[workspaceId]/a/outreach/page.tsx`).
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
+import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shell/page-header';
 import { cn } from '@/lib/utils';
 import { ActivityView } from './activity-view';
 import { outreachHref } from './address';
+import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { PlaybooksView } from './playbooks-page';
-import type { Activity, Friends, PlaybookList } from './types';
+import type { Activity, Chats, Friends, PlaybookList } from './types';
 
 export type OutreachShown =
   | { readonly view: 'activity'; readonly activity: Activity; readonly period: ActivityPeriod }
@@ -24,11 +26,19 @@ export type OutreachShown =
       readonly show: FriendView;
       readonly search: string;
     }
+  | {
+      readonly view: 'chats';
+      readonly chats: Chats;
+      readonly show: ChatView;
+      readonly tag: string;
+      readonly search: string;
+    }
   | { readonly view: 'playbooks'; readonly list: PlaybookList };
 
 const TABS = [
   { view: 'activity', label: 'Activity' },
   { view: 'friends', label: 'Friends' },
+  { view: 'chats', label: 'Chats' },
   { view: 'playbooks', label: 'Playbooks' },
 ] as const;
 
@@ -86,6 +96,15 @@ export function OutreachHome({
           friends={shown.friends}
           show={shown.show}
           search={shown.search}
+        />
+      ) : shown.view === 'chats' ? (
+        <ChatsView
+          workspaceId={workspaceId}
+          chats={shown.chats}
+          show={shown.show}
+          tag={shown.tag}
+          search={shown.search}
+          canManage={canManage}
         />
       ) : (
         <PlaybooksView workspaceId={workspaceId} list={shown.list} canManage={canManage} />

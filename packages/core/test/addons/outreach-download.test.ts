@@ -2,7 +2,8 @@
  * Social Outreach: Facebook's download file (docs/outreach.md, decisions 2 and 15).
  * - Read in the browser, it finds the friends, the requests either way, the friends removed, the requests deleted,
  *   the followers and the one-to-one chats in Facebook's zips, in either shape of list, with Facebook's letters put
- *   back together. It keeps no message's words, and a zip over 4 GB reads the same.
+ *   back together. Of what was said it keeps only each one-to-one chat's latest few messages, for the AI to read
+ *   (a photo is said as one), and a zip over 4 GB reads the same.
  * - A file it can't read says why: not a zip, cut short, locked, in HTML, or with nothing in it.
  * - It goes in parts small enough to send, and the last part matches each name to the one profile saved by it (the
  *   person's own among several; nobody when the file has the name twice), and puts what the file says in place in
@@ -16,6 +17,7 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  chatIn,
   chatsByPerson,
   DownloadError,
   downloadParts,
@@ -28,6 +30,7 @@ import {
   DOWNLOAD_PEOPLE_MOST,
   type DownloadProblem,
 } from '../../src/addons/outreach/download';
+import { MESSAGE_MOST, RECENT_MESSAGES } from '../../src/addons/outreach/limits';
 import { outreachBusiness, refused, runAs, setOutreach } from './outreach-fixture';
 import { asFacebookWrites, makeZip, type ZipFile } from './zip-maker';
 
@@ -90,6 +93,7 @@ const DOWNLOAD: ZipFile[] = [
     participants: [{ name: 'Avery Lane' }, { name: 'Pat Owner' }],
     messages: [
       { sender_name: 'Pat Owner', timestamp_ms: ms('2015-03-03T09:00:00Z'), content: 'Thanks!' },
+      { sender_name: 'Avery Lane', timestamp_ms: ms('2015-03-03T09:05:00Z'), photos: [{}] },
     ],
   }),
   json('your_facebook_activity/messages/inbox/lakecrew_2002/message_1.json', {
@@ -136,7 +140,7 @@ describe('reading Facebook’s download', () => {
     expect(nameKey('  Renée   DUBOIS ')).toBe('renée dubois');
   });
 
-  it('finds the lists, the chats and the person’s own name, and keeps no message’s words', async () => {
+  it('finds the lists, the chats and the person’s own name, and keeps only one-to-one chats’ words', async () => {
     const steps: number[] = [];
     const read = await readDownload(
       [blob(makeZip(DOWNLOAD, { at: MADE })), blob(makeZip(BACKUP))],
@@ -166,8 +170,14 @@ describe('reading Facebook’s download', () => {
         name: 'Avery Lane',
         firstAt: '2015-03-03T09:00:00.000Z',
         lastAt: '2026-08-30T18:00:00.000Z',
-        messages: 3,
+        messages: 4,
         lastFromMe: false,
+        recent: [
+          { fromMe: true, text: 'Thanks!', at: '2015-03-03T09:00:00.000Z' },
+          { fromMe: false, text: '(a photo)', at: '2015-03-03T09:05:00.000Z' },
+          { fromMe: true, text: 'Hello!', at: '2016-02-01T12:00:00.000Z' },
+          { fromMe: false, text: 'See you at the lake', at: '2026-08-30T18:00:00.000Z' },
+        ],
       },
       {
         name: 'Quinn Harper',
@@ -175,9 +185,14 @@ describe('reading Facebook’s download', () => {
         lastAt: '2026-09-02T16:00:00.000Z',
         messages: 2,
         lastFromMe: true,
+        recent: [
+          { fromMe: false, text: 'Hi there', at: '2026-09-02T15:00:00.000Z' },
+          { fromMe: true, text: 'Glad we met', at: '2026-09-02T16:00:00.000Z' },
+        ],
       },
     ]);
-    expect(JSON.stringify(read)).not.toMatch(/lake|Hello|Thanks|Boat|Glad|Hi there/);
+    // A group chat's words are never kept.
+    expect(JSON.stringify(read)).not.toMatch(/Boat/);
     expect(read.unread).toBe(0);
     expect(steps.at(-1)).toBe(read.read);
     expect(steps).toEqual([...steps].sort((a, b) => a - b));
@@ -267,6 +282,23 @@ describe('reading Facebook’s download', () => {
     ]);
     // One chat: there's no telling which of the two is the person.
     expect(chatsByPerson(chats.slice(0, 1), null)).toEqual([]);
+  });
+
+  it('keeps a long chat’s latest messages only, across its files, each cut to fit', () => {
+    const file = (from: number, to: number) => ({
+      participants: [{ name: 'Avery Lane' }, { name: 'Pat Owner' }],
+      messages: Array.from({ length: to - from }, (_, i) => ({
+        sender_name: (from + i) % 2 ? 'Avery Lane' : 'Pat Owner',
+        timestamp_ms: Date.UTC(2026, 0, 1, 0, from + i),
+        content: from + i === to - 1 ? 'x'.repeat(MESSAGE_MOST + 50) : `Message ${from + i}`,
+      })),
+    });
+    const [chat] = chatsByPerson([chatIn(file(0, 30))!, chatIn(file(30, 35))!], 'Pat Owner');
+    expect(chat!.messages).toBe(35);
+    expect(chat!.recent).toHaveLength(RECENT_MESSAGES);
+    expect(chat!.recent[0]!.text).toBe(`Message ${35 - RECENT_MESSAGES}`);
+    expect(chat!.recent.at(-1)!.text).toHaveLength(MESSAGE_MOST);
+    expect(chat!.recent.at(-1)!.fromMe).toBe(true);
   });
 });
 

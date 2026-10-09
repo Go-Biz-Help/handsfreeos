@@ -87,7 +87,7 @@ const FIT_TONE: Record<FitLevel, BadgeVariant> = {
 const WEEK = 7 * 86_400_000;
 
 /** "3 d ago" within the week, then "Sep 1", and "Jul 14, 2019" in another year. */
-function dayWords(iso: string): string {
+export function dayWords(iso: string): string {
   const at = new Date(iso);
   if (Date.now() - at.getTime() < WEEK) return relativeTime(iso);
   return at.toLocaleDateString(
@@ -309,7 +309,7 @@ function rangeWords(f: Friends): string {
 }
 
 /** The pages of a long list: the one before, which this is, and the one after. */
-function Pager({
+export function Pager({
   page,
   pages,
   onPage,
@@ -353,7 +353,7 @@ function Pager({
 const SEARCH_WAIT_MS = 300;
 
 /** Part of a name, looked for as it's typed; Enter looks at once. */
-function SearchBox({ search, onSearch }: { search: string; onSearch: (s: string) => void }) {
+export function SearchBox({ search, onSearch }: { search: string; onSearch: (s: string) => void }) {
   const [typed, setTyped] = useState(search);
   // What the box last looked for. The address catches up with it a moment later, and mustn't undo what's been
   // typed since; an address changed some other way, like the Friends tab at the top, shows in the box.

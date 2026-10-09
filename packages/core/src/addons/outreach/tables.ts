@@ -18,7 +18,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
-import type { DownloadCounts, DownloadList } from './download';
+import type { ChatReadState } from './chat-read';
+import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState } from './limits';
 import type { PlaybookDetails } from './playbooks';
 import type { Friendship, Platform, SavedMessage } from './saves';
@@ -252,7 +253,8 @@ export const filePeople = addonOutreach.table(
 
 /**
  * A person's one-to-one chat with someone, as their download file said: when it started, the latest message and
- * whose it was, and how many. Never what a message said.
+ * whose it was, how many, and the latest few messages, which the AI reads for a summary, tags, whether they look
+ * like a prospect and a next step (./chat-read.ts). A chat put in Contacts keeps the customer it went to.
  */
 export const fileChats = addonOutreach.table(
   'file_chats',
@@ -271,6 +273,17 @@ export const fileChats = addonOutreach.table(
     lastFromMe: boolean('last_from_me').notNull(),
     profileId: uuid('profile_id'),
     importId: uuid('import_id').notNull(),
+    recent: jsonb('recent').notNull().default([]).$type<DownloadMessage[]>(),
+    readState: text('read_state').notNull().default('none').$type<ChatReadState>(),
+    summary: text('summary'),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    prospect: boolean('prospect'),
+    nextStep: text('next_step'),
+    readAt: ts('read_at'),
+    personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

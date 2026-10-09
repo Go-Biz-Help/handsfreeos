@@ -5667,7 +5667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Bring in a part of the person’s Facebook download file as their browser read it: the names in their friends, requests, removed friends, deleted requests, followers and following, with when, and when they last messaged each person, never what was said. The last part matches the names to the profiles saved here and puts it in place in their own friends. Adds nobody to Contacts.
+         * Bring in a part of the person’s Facebook download file as their browser read it: the names in their friends, requests, removed friends, deleted requests, followers and following, with when, and when they last messaged each person with their latest few messages, which the AI reads later. The last part matches the names to the profiles saved here and puts it in place in their own friends. Adds nobody to Contacts itself.
          * @description Risk level 1. Requires outreach.use. Emits outreach.download.saved.
          */
         post: operations["command_outreach_download_save"];
@@ -15251,6 +15251,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own chats brought in from their Facebook download, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_chats"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30896,6 +30916,13 @@ export interface operations {
                         lastFromMe: boolean;
                         messages: number;
                         name: string;
+                        /** @default [] */
+                        recent?: {
+                            /** Format: date-time */
+                            at: string;
+                            fromMe: boolean;
+                            text: string;
+                        }[];
                     }[];
                     /** Format: uuid */
                     importId?: string;
@@ -56984,6 +57011,74 @@ export interface operations {
                             friend_request: number;
                             like: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_chats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 1 */
+                    page?: number;
+                    search?: string;
+                    tag?: string;
+                    /**
+                     * @default prospects
+                     * @enum {string}
+                     */
+                    view?: "prospects" | "tagged" | "read" | "waiting";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        chats: {
+                            /** Format: uuid */
+                            chatId: string;
+                            /** Format: date-time */
+                            lastAt: string;
+                            lastFromMe: boolean;
+                            messages: number;
+                            name: string;
+                            nextStep: string | null;
+                            personId: string | null;
+                            prospect: boolean | null;
+                            /** @enum {string} */
+                            readState: "none" | "waiting" | "read" | "skipped" | "failed";
+                            summary: string | null;
+                            tags: string[];
+                        }[];
+                        /** @enum {string} */
+                        contactsFromChats: "everyone" | "tagged" | "prospects";
+                        counts: {
+                            prospects: number;
+                            read: number;
+                            tagged: number;
+                            waiting: number;
+                        };
+                        page: number;
+                        pages: number;
+                        tags: {
+                            count: number;
+                            name: string;
+                        }[];
+                        total: number;
                     };
                 };
             };

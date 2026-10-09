@@ -5,7 +5,8 @@
  * their PIN, which they type themselves; a step it can't find on the page it hands to them, and carries on after.
  *
  * Then it finds the zips among Chrome's downloads, reads them in the panel, where they stay, and brings them in the
- * way the Friends tab's card does: names and moments, never what a message said (src/hfos/files.ts).
+ * way the Friends tab's card does: names and moments, and each chat's latest few messages for the AI to read
+ * (src/hfos/files.ts).
  */
 import {
   DOWNLOAD_LIST_KEYS,

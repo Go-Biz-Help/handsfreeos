@@ -119,7 +119,8 @@ for different accounts), it says which button to press; press it yourself, then 
 The zips Facebook gives you show under **Files in your downloads**, however they were downloaded. The first time,
 Chrome needs your OK to let the extension open them: **Open the extension's settings** goes to its card, where you
 turn on **Allow access to file URLs**. Then **Read** opens them where they are, shows what's in them, and **Bring them
-in** sends HandsFreeOS only names and dates, never what a message said, as the Friends tab's card does.
+in** sends HandsFreeOS names and dates, plus each one-to-one chat's latest 20 messages for the AI to read (the Chats
+tab on the web), as the Friends tab's card does.
 
 ## Load it in Chrome
 

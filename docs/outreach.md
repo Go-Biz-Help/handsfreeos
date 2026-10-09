@@ -10,8 +10,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 
 ## What's built
 
-Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, friends, and Facebook's download
-file's dates:
+Phase 1, steps 1 and 2, the playbook builder, tracking with the activity panel, friends, Facebook's download
+file's dates, and its chats read by the AI:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -29,12 +29,18 @@ file's dates:
   profile (apps/extension/README.md).
 - **Facebook's download file** (the Friends tab's **Bring in your Facebook file**): the person picks the zips
   Facebook gives them, the "Download your information" file and the chat backup that holds the newer chats, and their
-  browser reads them. Only names and dates are sent: their friends and since when, the requests they sent and got,
+  browser reads them. Names and dates are sent: their friends and since when, the requests they sent and got,
   the friends they removed, the requests they deleted, their followers and who they follow, and when they last
-  messaged each person. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
+  messaged each person; and each one-to-one chat's latest 20 messages, for the AI to read. The Friends tab then says "Friends since Mar 2019" and the latest message either way, and a
   sent request shows the day it really went. The extension can get the file too (decision 16): its panel's **Your
   Facebook file** asks Facebook for it, downloads it when it's ready and gets the chat backup, pressing the buttons on
   Facebook's own download pages, then finds the zips in Chrome's downloads and brings them in the same way.
+- **Chats** (`/a/outreach?view=chats`, decision 3): each one-to-one chat in the file, read by the AI from its latest
+  20 messages: a short summary, the playbooks' tags that fit, whether they look like a prospect, and a next step. The
+  likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag and a name narrow it,
+  50 to a page. Who goes in Contacts is the business's setting (Add-ons → Social Outreach): anyone tagged or looking
+  like a prospect (the default), everyone, or only likely prospects. They're added with their tags and a timeline
+  line with the summary; someone already in Contacts gets the tags whatever it says.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -57,7 +63,7 @@ file's dates:
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Manifest, operations, tables, shapes                            | `packages/core/src/addons/outreach/`                                             |
 | What a save takes: lengths, counts, id shapes (no zod)          | `packages/core/src/addons/outreach/limits.ts`                                    |
-| Worker half: data version 2                                     | `apps/worker/src/addons/outreach/`                                               |
+| Worker half: data version 2, the AI reading the chats           | `apps/worker/src/addons/outreach/`                                               |
 | What the extension notes, and the panel's shapes                | `packages/core/src/addons/outreach/activity.ts`, `ops/activity.ts`               |
 | The page: Activity, Friends and Playbooks tabs, the Social card | `apps/web/src/addons/outreach/`, `/a/outreach`                                   |
 | The playbook builder                                            | `apps/web/src/addons/outreach/playbook-builder.tsx`, `/a/outreach/playbooks/…`   |
@@ -194,9 +200,21 @@ likes and 1 post, half that for new or quiet accounts.
   request as deleted. Saving a list adds nobody to Contacts.
 - **Facebook's download file stays in the browser.** The web, or the extension's panel, reads the zips there
   (`readDownload`, in `download-read.ts`, which has no zod so the panel stays small), a file at a time,
-  so a download of many gigabytes is fine. It sends only names and moments, never what a message said, in parts the
-  API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`) finishes the bringing-in. Only the
-  person who started one sends its other parts.
+  so a download of many gigabytes is fine. It sends names and moments, and only the latest 20 messages of each
+  one-to-one chat (`RECENT_MESSAGES`, each cut to `MESSAGE_MOST`; a photo or a link is said as "(a photo)"), never a
+  group chat's words, in parts the API takes (`downloadParts`, `DOWNLOAD_PART_BYTES`), and the last part (`last`)
+  finishes the bringing-in. Only the person who started one sends its other parts.
+- **The AI reads a chat once per newer message** (`chat-read.ts`, the worker's `chats.ts`). A chat comes in
+  `waiting` when they wrote something in its latest messages, `skipped` when only the person did, and `none` with no
+  words. The same file again reads nothing twice; newer messages put it back to `waiting`. The file's last part queues
+  one read per business (`outreach.read_chats`), 20 chats a batch, the latest first. Tags are only the playbooks' own,
+  copied as the business writes them (`checkedChatRead`), and a tag missing from Contacts is made. At the day's AI
+  limit the rest wait six hours; an answer it can't use marks that chat `failed`. A read of older messages than the
+  chat has by then is dropped (`lastAt`).
+- **Who goes in Contacts is the setting, read at the moment of the read** (`contactsFromChats`, `goesInContacts`).
+  Someone already in Contacts (through their profile) is tagged whatever it says. Someone on Don't pitch is added
+  only when the setting is everyone. A chat's summary and tags are the person's own; the customer it adds is the
+  business's, like any other.
 - **The file has no links, so it's kept by name** (`file_people`, `file_chats`, each person's own). With the last
   part, a name is matched to the one profile saved here by it (`nameKey`: lower case, spaces closed up), or among
   several, the one the person's own Facebook has a say on. A name twice in one of the file's lists is two people,
@@ -239,8 +257,7 @@ The extension's steps on Facebook's download pages follow the owner's own screen
 button, except the Download button beside a finished file, which no file was ready to show yet. Where it hands a
 step to the person, the panel's page outline of that screen, which keeps those steps' words, tunes it.
 
-Next, in the owner's order: the chats in Facebook's download file with AI summaries and tags, and who goes in
-Contacts (decision 3); then cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
+Next, in the owner's order: cancelling sent requests nobody answered (after 3 weeks, with the person's OK) and
 unfriending (decisions 10 and 12), which the file's dates now make possible. The AI suggesting a conversation from
 the rest of the playbook comes with AI drafting. A profile saved after the file came in is matched to it when a newer
 file comes in.

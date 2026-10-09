@@ -8,7 +8,8 @@ export const metadata: Metadata = { title: 'Social Outreach' };
 
 /**
  * Social Outreach's page (its manifest's `ui.nav` points here): the activity the browser extension noted, the
- * person's friends and the Don't pitch list (`?view=friends`), and the business's playbooks (`?view=playbooks`). It
+ * person's friends and the Don't pitch list (`?view=friends`), their chats as the AI read them (`?view=chats`), and
+ * the business's playbooks (`?view=playbooks`). It
  * opens through the gate: "not available here" while the add-on is off, and not found for someone without
  * `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's activity
  * (`?who=everyone`); anyone else asking for that sees their own.
@@ -53,6 +54,36 @@ export default async function OutreachPage({
           businessName={got.workspace.name}
           canManage={got.workspace.permissions.includes('outreach.manage')}
           shown={{ view: 'friends', friends, show: shown.show, search: shown.search }}
+        />
+      );
+    }
+    if (shown.view === 'chats') {
+      const [got, chats] = await Promise.all([
+        workspace,
+        api
+          .POST('/v1/queries/outreach.chats', {
+            body: {
+              workspaceId,
+              view: shown.chats,
+              ...(shown.tag ? { tag: shown.tag } : {}),
+              ...(shown.search ? { search: shown.search } : {}),
+              page: shown.page,
+            },
+          })
+          .then(unwrapPage),
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          businessName={got.workspace.name}
+          canManage={got.workspace.permissions.includes('outreach.manage')}
+          shown={{
+            view: 'chats',
+            chats,
+            show: shown.chats,
+            tag: shown.tag,
+            search: shown.search,
+          }}
         />
       );
     }

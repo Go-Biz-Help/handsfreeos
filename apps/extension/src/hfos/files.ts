@@ -3,7 +3,7 @@
  * parts) and the chat backup. The panel finds them in Chrome's downloads, so it doesn't matter whether the extension
  * pressed Download or the person did, and reads them from the person's computer, where they stay, once the person
  * lets the extension open files (Chrome's **Allow access to file URLs**). What's read goes to HandsFreeOS as the
- * Friends tab's card sends it: names and moments, never what a message said
+ * Friends tab's card sends it: names and moments, and each one-to-one chat's latest few messages for the AI to read
  * (@hfos/core/addons/outreach/download-read).
  */
 

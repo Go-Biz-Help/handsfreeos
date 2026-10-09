@@ -1618,6 +1618,35 @@ export const LISTING_RULES: readonly ScriptRule[] = [
   },
 ];
 
+/**
+ * Social Outreach's read of a Facebook chat: the tags whose words are in it, a prospect when they ask about a demo
+ * or the price, and a summary that's only a count, so tests can tell it apart.
+ */
+function scriptedChatRead(message: string) {
+  const block = (name: string) =>
+    new RegExp(`<${name}>\\n([\\s\\S]*?)\\n</${name}>`).exec(message)?.[1] ?? '';
+  const chat = block('chat');
+  const theirs = chat
+    .split('\n')
+    .filter((l) => /\] Them: /.test(l))
+    .join('\n')
+    .toLowerCase();
+  const tags = block('tags')
+    .split('\n')
+    .filter((t) => t && t !== '(none)' && theirs.includes(t.toLowerCase()));
+  const prospect = /\b(demo|price|how much)\b/.test(theirs);
+  return {
+    summary: `A chat of ${chat.split('\n').length} messages.`,
+    tags,
+    prospect,
+    nextStep: prospect ? 'Offer a demo' : null,
+  };
+}
+
+export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
   ...AI_SETUP_RULES,
@@ -1626,6 +1655,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...BUILDER_RULES,
   ...CLIENT_UPDATE_RULES,
   ...LISTING_RULES,
+  ...OUTREACH_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

@@ -3,15 +3,17 @@
  * Facebook says about the people in it. Their friends and since when, the friend requests either way, the friends
  * they removed and the requests they deleted, their followers, and when they last messaged each person. It reads only
  * those parts of the zips Facebook gives (the "Download your information" file, and the chat backup that holds the
- * newer, encrypted chats), a part at a time, so a file of many gigabytes is fine, and it never keeps what a message
- * said. No zod, so the browser extension's panel stays small (as ./limits.ts); the schemas the server checks what's
+ * newer, encrypted chats), a part at a time, so a file of many gigabytes is fine. Of what the messages said, it keeps
+ * only each one-to-one chat's latest few (`RECENT_MESSAGES`), which the AI reads for a summary and tags. No zod, so the browser extension's panel stays small (as ./limits.ts); the schemas the server checks what's
  * sent with are in ./download.ts.
  */
 import {
   DOWNLOAD_CHATS_MOST,
   DOWNLOAD_PART_BYTES,
   DOWNLOAD_PEOPLE_MOST,
+  MESSAGE_MOST,
   NAME_MOST,
+  RECENT_MESSAGES,
 } from './limits';
 
 export { DOWNLOAD_CHATS_MOST, DOWNLOAD_PART_BYTES, DOWNLOAD_PEOPLE_MOST } from './limits';
@@ -331,24 +333,62 @@ export function listIn(path: string, data: unknown): DownloadPerson[] | null {
   });
 }
 
-/** A chat in the download: who's in it, and who wrote each message when. Null when the file isn't one. */
-export function chatIn(
-  data: unknown,
-): { people: string[]; messages: { from: string | null; at: number }[] } | null {
+/** A message in a chat: who wrote it, when, and for the latest few, what it said. */
+interface ChatMessage {
+  readonly from: string | null;
+  readonly at: number;
+  readonly text?: string;
+}
+
+/** What a message without words was: a photo, a link… Words for the AI, which reads the chat. */
+function withoutWords(m: Record<string, unknown>): string | null {
+  if (Array.isArray(m.photos)) return '(a photo)';
+  if (Array.isArray(m.videos)) return '(a video)';
+  if (Array.isArray(m.audio_files)) return '(a voice message)';
+  if (Array.isArray(m.gifs)) return '(a GIF)';
+  if (Array.isArray(m.files)) return '(a file)';
+  if (isRecord(m.sticker)) return '(a sticker)';
+  if (isRecord(m.share)) return '(a link)';
+  return null;
+}
+
+/** A message's words as sent, put back together and cut to fit; null when it had none. */
+function wordsOf(m: Record<string, unknown>): string | null {
+  const raw = m.content ?? m.text;
+  const words = typeof raw === 'string' ? facebookText(raw).trim() : '';
+  if (!words) return withoutWords(m);
+  return words.length > MESSAGE_MOST ? `${words.slice(0, MESSAGE_MOST - 1)}…` : words;
+}
+
+/**
+ * A chat in the download: who's in it, and who wrote each message when; what the latest few said too. Null when the
+ * file isn't one.
+ */
+export function chatIn(data: unknown): { people: string[]; messages: ChatMessage[] } | null {
   if (!isRecord(data) || !Array.isArray(data.participants) || !Array.isArray(data.messages))
     return null;
   const people = data.participants.flatMap((p) => {
     const name = cleanName(isRecord(p) ? p.name : p);
     return name ? [name] : [];
   });
-  const messages = data.messages.flatMap((m) => {
-    if (!isRecord(m)) return [];
-    const at = msOf(m.timestamp_ms ?? m.timestampMs ?? m.timestamp);
-    if (at === null) return [];
-    const sender = m.sender_name ?? m.senderName ?? m.sender;
-    return [{ from: cleanName(isRecord(sender) ? sender.name : sender), at }];
-  });
-  return { people, messages };
+  const messages = data.messages
+    .flatMap((m) => {
+      if (!isRecord(m)) return [];
+      const at = msOf(m.timestamp_ms ?? m.timestampMs ?? m.timestamp);
+      if (at === null) return [];
+      const sender = m.sender_name ?? m.senderName ?? m.sender;
+      return [{ from: cleanName(isRecord(sender) ? sender.name : sender), at, m }];
+    })
+    .sort((a, b) => a.at - b.at);
+  // Only the latest few keep their words, so a long history doesn't sit in memory while the rest is read.
+  const from = messages.length - RECENT_MESSAGES;
+  return {
+    people,
+    messages: messages.map(({ from: who, at, m }, i) => {
+      const text = i >= from ? wordsOf(m) : null;
+      return text ? { from: who, at, text } : { from: who, at };
+    }),
+  };
 }
 
 /** When the person last messaged someone, as their chats in the download say: one-to-one chats only. */
@@ -360,6 +400,15 @@ export interface DownloadChat {
   readonly messages: number;
   /** Whether the latest message was the person's own. */
   readonly lastFromMe: boolean;
+  /** Its latest messages with words, oldest first: whether the person wrote it, what it said, when. */
+  readonly recent: DownloadMessage[];
+}
+
+/** One of a chat's latest messages, as brought in. */
+export interface DownloadMessage {
+  readonly fromMe: boolean;
+  readonly text: string;
+  readonly at: string;
 }
 
 /** The person's own name, from their profile in the download. */
@@ -379,7 +428,7 @@ function ownerIn(data: unknown): string | null {
  * latest was the person's own. The person is the one named on their profile, or else the one in nearly every chat.
  */
 export function chatsByPerson(
-  chats: readonly { people: string[]; messages: { from: string | null; at: number }[] }[],
+  chats: readonly { people: string[]; messages: readonly ChatMessage[] }[],
   owner: string | null,
 ): DownloadChat[] {
   const pairs = chats.filter((c) => c.people.length === 2 && c.messages.length);
@@ -395,7 +444,14 @@ export function chatsByPerson(
   if (!me) return [];
   const byPerson = new Map<
     string,
-    { name: string; first: number; last: number; messages: number; lastFromMe: boolean }
+    {
+      name: string;
+      first: number;
+      last: number;
+      messages: number;
+      lastFromMe: boolean;
+      recent: DownloadMessage[];
+    }
   >();
   for (const c of pairs) {
     const other = c.people.find((p) => nameKey(p) !== me);
@@ -407,15 +463,20 @@ export function chatsByPerson(
       last: -Infinity,
       messages: 0,
       lastFromMe: false,
+      recent: [],
     };
     for (const m of c.messages) {
+      const mine = m.from !== null && nameKey(m.from) === me;
       had.first = Math.min(had.first, m.at);
       if (m.at >= had.last) {
         had.last = m.at;
-        had.lastFromMe = m.from !== null && nameKey(m.from) === me;
+        had.lastFromMe = mine;
       }
       had.messages++;
+      if (m.text) had.recent.push({ fromMe: mine, text: m.text, at: new Date(m.at).toISOString() });
     }
+    // A person's chats may be in more than one file: the latest few across them all.
+    had.recent = had.recent.sort((a, b) => a.at.localeCompare(b.at)).slice(-RECENT_MESSAGES);
     byPerson.set(key, had);
   }
   return [...byPerson.values()].map((c) => ({
@@ -424,6 +485,7 @@ export function chatsByPerson(
     lastAt: new Date(c.last).toISOString(),
     messages: c.messages,
     lastFromMe: c.lastFromMe,
+    recent: c.recent,
   }));
 }
 
@@ -486,7 +548,7 @@ export async function readDownload(
 
   const text = new TextDecoder('utf-8');
   const people = new Map<string, DownloadPerson>();
-  const chats: { people: string[]; messages: { from: string | null; at: number }[] }[] = [];
+  const chats: { people: string[]; messages: ChatMessage[] }[] = [];
   let owner: string | null = null;
   let read = 0;
   let unread = 0;

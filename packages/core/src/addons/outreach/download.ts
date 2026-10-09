@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import { DOWNLOAD_CHATS_MOST, DOWNLOAD_LIST_KEYS, DOWNLOAD_PEOPLE_MOST } from './download-read';
+import { MESSAGE_MOST, RECENT_MESSAGES } from './limits';
 import { PLATFORM_KEYS } from './playbooks';
 import { PersonName } from './saves';
 
@@ -19,12 +20,21 @@ export const DownloadPersonInput = z.object({
   at: When.nullable(),
 });
 
+/** One of a chat's latest messages: whether the person wrote it, what it said, and when. */
+export const DownloadMessageInput = z.object({
+  fromMe: z.boolean(),
+  text: z.string().trim().min(1).max(MESSAGE_MOST),
+  at: When,
+});
+
 export const DownloadChatInput = z.object({
   name: PersonName,
   firstAt: When,
   lastAt: When,
   messages: z.number().int().min(1).max(100_000_000),
   lastFromMe: z.boolean(),
+  /** Its latest messages, oldest first, for the AI to read. */
+  recent: z.array(DownloadMessageInput).max(RECENT_MESSAGES).default([]),
 });
 
 export const DownloadSaveInput = z.object({

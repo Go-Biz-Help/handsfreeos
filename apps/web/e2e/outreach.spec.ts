@@ -414,7 +414,7 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
 
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=friends`);
   const card = page.getByTestId('download-card');
-  await expect(card).toContainText('only names and dates are sent');
+  await expect(card).toContainText('Only names and dates are sent');
   await card
     .getByTestId('download-files')
     .setInputFiles({ name: 'facebook-made-up.zip', mimeType: 'application/zip', buffer: zip });
