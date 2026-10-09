@@ -5,8 +5,10 @@
  * answers for the day (src/hfos/noting.ts); this asks it, and asks again whenever it notes one.
  *
  * Under them, the list for today (packages/core/src/addons/outreach/today.ts): friend requests to people from the
- * person's groups who fit a playbook, a first message to new friends, follow-ups and replies, each with a link to open
- * and, for a message, the AI's drafts to copy. The person sends everything themselves; noting the step takes it off.
+ * person's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on good
+ * posts in their groups (decision 20), each with a link to open and, for a message or a comment, the AI's drafts to
+ * copy. Before drafting, the extension looks the person up on Facebook (./lookup.ts, decision 21). The person sends
+ * everything themselves; noting the step takes it off, and a post they don't want can be put aside.
  */
 import {
   DAILY_STEPS,
@@ -28,6 +30,7 @@ import type {
 } from '../hfos/messages';
 import { ask } from './ask';
 import { ago, button, chip, counted, h, hfosLink, link, type Child } from './dom';
+import { lookUp } from './lookup';
 import { onWarning } from './warnings';
 
 /** How often the panel asks again while it's open: the day ends, and a step may wait to be sent. */
@@ -43,8 +46,8 @@ let switching = false;
 /** The list for today in the business it saves to, and why it couldn't be had. */
 let list: { readonly businessId: string; readonly value: TodayList } | null = null;
 let listProblem: string | null = null;
-/** The AI's drafts for someone on the list, by `itemKey`: being written while null. */
-const drafts = new Map<string, readonly string[] | null>();
+/** The AI's drafts for someone on the list, by `itemKey`: being looked up, then written, while a string. */
+const drafts = new Map<string, readonly string[] | 'looking' | 'writing'>();
 const draftProblems = new Map<string, string>();
 /** The list's shown, or all of it. */
 let showAll = false;
@@ -75,18 +78,28 @@ async function refreshList(): Promise<void> {
 }
 
 const itemKey = (item: TodayListItem) =>
-  `${item.kind}:${item.chatId ?? item.profileId ?? item.name}`;
+  `${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`;
 
 async function draft(item: TodayListItem, kind: DraftKind): Promise<void> {
   if (!list) return;
+  const businessId = list.businessId;
   const key = itemKey(item);
-  drafts.set(key, null);
+  drafts.set(key, 'looking');
   draftProblems.delete(key);
+  draw();
+  const lookup = await lookUp(item.profileUrl);
+  drafts.set(key, 'writing');
   draw();
   const answer = await ask({
     type: 'hfos-draft',
-    workspaceId: list.businessId,
-    input: { kind, profileId: item.profileId, chatId: item.chatId },
+    workspaceId: businessId,
+    input: {
+      kind,
+      profileId: item.profileId,
+      chatId: item.chatId,
+      postId: item.postId,
+      lookup,
+    },
   });
   if (answer.ok && answer.value.drafts.length) drafts.set(key, answer.value.drafts);
   else {
@@ -97,6 +110,21 @@ async function draft(item: TodayListItem, kind: DraftKind): Promise<void> {
     );
   }
   draw();
+}
+
+/** Puts a post aside: off the list, and never suggested again. */
+async function skip(item: TodayListItem): Promise<void> {
+  if (!list || !item.postId) return;
+  const key = itemKey(item);
+  const answer = await ask({
+    type: 'hfos-post-skip',
+    input: { workspaceId: list.businessId, postId: item.postId },
+  });
+  if (!answer.ok) {
+    draftProblems.set(key, answer.problem.message);
+    return draw();
+  }
+  await refreshList();
 }
 
 function soon(): void {
@@ -185,8 +213,9 @@ function limitsView(activity: Activity): Child[] {
   ];
 }
 
-/** Where to open someone on the list: their chat for a message in one, else their profile. */
+/** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
 function openUrl(item: TodayListItem): string | null {
+  if (item.postUrl) return item.postUrl;
   if (item.threadKey)
     return `https://www.facebook.com/messages/t/${encodeURIComponent(item.threadKey)}`;
   return item.profileUrl;
@@ -202,10 +231,15 @@ function draftsView(item: TodayListItem): Child {
     return h(
       'div',
       {},
-      button('Draft a message', () => void draft(item, kind)),
+      button(
+        kind === 'comment' ? 'Draft a comment' : 'Draft a message',
+        () => void draft(item, kind),
+      ),
+      kind === 'comment' ? button('Not for me', () => void skip(item)) : null,
       trouble ? h('div', { class: 'error' }, trouble) : null,
     );
-  if (got === null) return h('p', { class: 'muted' }, 'Writing drafts…');
+  if (got === 'looking') return h('p', { class: 'muted' }, `Looking ${item.name} up on Facebook…`);
+  if (got === 'writing') return h('p', { class: 'muted' }, 'Writing drafts…');
   return h(
     'ul',
     { class: 'drafts' },
@@ -232,6 +266,14 @@ function itemView(item: TodayListItem): HTMLElement {
     {},
     h('div', { class: 'name' }, chip(TODAY_KINDS[item.kind]), ' ', link(item.name, openUrl(item))),
     item.why.length ? h('div', { class: 'muted' }, item.why.join(' · ')) : null,
+    item.post
+      ? h(
+          'blockquote',
+          { class: 'post' },
+          item.post,
+          item.posted ? h('span', { class: 'muted' }, ` · ${item.posted}`) : null,
+        )
+      : null,
     item.summary ? h('div', {}, item.summary) : null,
     item.nextStep ? h('div', { class: 'muted' }, `Next: ${item.nextStep}`) : null,
     draftsView(item),

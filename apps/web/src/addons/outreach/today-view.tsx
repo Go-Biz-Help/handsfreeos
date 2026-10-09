@@ -2,9 +2,11 @@
 /**
  * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): friend requests to people from
- * the business's groups who fit a playbook, a first message to new friends, follow-ups and replies. Each opens on
- * Facebook, and a message comes with the AI's drafts to copy. HandsFreeOS never sends anything there: the person does,
- * and the extension notes it, which takes it off the list and counts it against today's limits.
+ * the business's groups who fit a playbook, a first message to new friends, follow-ups and replies, and comments on
+ * good posts in their groups (decision 20). Each opens on Facebook, and a message or a comment comes with the AI's
+ * drafts to copy; a post can be put aside. HandsFreeOS never sends anything there: the person does, and the extension
+ * notes it, which takes it off the list and counts it against today's limits. The extension's panel looks the person
+ * up on Facebook before drafting (decision 21); here, the drafts come from what HandsFreeOS knows.
  */
 import { DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -14,7 +16,7 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { Copy, Loader2, Sparkles } from 'lucide-react';
+import { Copy, Loader2, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -23,20 +25,23 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { EmptyState } from '@/components/ui/empty-state';
-import { errorMessage } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { outreachHref } from './address';
 import type { TodayItem, TodayList } from './types';
+import { useAct } from './use-act';
 
 const KIND_BADGE = {
   friend_request: 'accent',
   opener: 'ok',
   follow_up: 'gray',
   reply: 'pending',
+  comment: 'accent',
 } as const;
 
-/** Where to open someone on the list: their chat for a message in one, else their profile. */
+/** Where to open someone on the list: the post to comment on, their chat for a message in one, else their profile. */
 function openUrl(item: TodayItem): string | null {
+  if (item.postUrl) return item.postUrl;
   if (item.threadKey)
     return `https://www.facebook.com/messages/t/${encodeURIComponent(item.threadKey)}`;
   return item.profileUrl;
@@ -47,6 +52,7 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
     ['friend_request', today.limits.friend_request],
     ['first_message', today.limits.first_message],
     ['follow_up', today.limits.follow_up],
+    ['comment', today.limits.comment],
   ] as const;
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]" data-testid="outreach-today">
@@ -69,7 +75,7 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
             <ul className="mt-2">
               {today.items.map((item) => (
                 <TodayRow
-                  key={`${item.kind}:${item.chatId ?? item.profileId ?? item.name}`}
+                  key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
                   workspaceId={workspaceId}
                   item={item}
                 />
@@ -79,9 +85,9 @@ export function TodayView({ workspaceId, today }: { workspaceId: string; today: 
         ) : (
           <Card data-testid="today-empty">
             <EmptyState title="Nothing on your list yet">
-              Save groups and their members with the extension, and read your chats in Messenger.
-              People who fit your playbooks, new friends to say hi to, and chats to follow up show
-              here.
+              Save groups and their members with the extension, read your chats in Messenger, and
+              find posts in your groups. People who fit your playbooks, new friends to say hi to,
+              chats to follow up and posts worth a comment show here.
             </EmptyState>
           </Card>
         )}
@@ -168,6 +174,15 @@ function TodayRow({ workspaceId, item }: { workspaceId: string; item: TodayItem 
         </div>
         <Badge variant={KIND_BADGE[item.kind]}>{TODAY_KINDS[item.kind]}</Badge>
       </div>
+      {item.post ? (
+        <blockquote
+          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
+          data-testid="today-post"
+        >
+          {item.post}
+          {item.posted ? <span className="text-text-3"> · {item.posted}</span> : null}
+        </blockquote>
+      ) : null}
       {item.summary ? <p className="mt-1.5 text-[13px] text-text">{item.summary}</p> : null}
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
@@ -189,12 +204,27 @@ function Drafts({
 }) {
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<readonly string[]>([]);
+  const skipping = useAct();
+  const skip = (postId: string) =>
+    skipping.act(
+      'skip',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.post.skip', {
+            body: { workspaceId, postId },
+          }),
+        ),
+      'Put aside. It won’t be suggested again.',
+    );
   const ask = async () => {
     setBusy(true);
     try {
       const out = await workerPost<TodayDraftOutput>(
         '/v1/addons/outreach/actions/outreach.today.draft',
-        { workspaceId, input: { kind, profileId: item.profileId, chatId: item.chatId } },
+        {
+          workspaceId,
+          input: { kind, profileId: item.profileId, chatId: item.chatId, postId: item.postId },
+        },
       );
       if (!out.drafts.length) toast.message('The AI had nothing to suggest. Try again.');
       setDrafts(out.drafts);
@@ -218,7 +248,14 @@ function Drafts({
                 variant="ghost"
                 size="icon"
                 aria-label="Copy this draft"
-                onClick={() => void copyText(text, 'Copied. Paste it in Messenger.')}
+                onClick={() =>
+                  void copyText(
+                    text,
+                    kind === 'comment'
+                      ? 'Copied. Paste it as a comment on the post.'
+                      : 'Copied. Paste it in Messenger.',
+                  )
+                }
               >
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -239,8 +276,21 @@ function Drafts({
         ) : (
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
         )}
-        {drafts.length ? 'Draft again' : 'Draft a message'}
+        {drafts.length ? 'Draft again' : kind === 'comment' ? 'Draft a comment' : 'Draft a message'}
       </Button>
+      {item.postId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-1.5 mt-1.5"
+          disabled={skipping.busy !== null}
+          onClick={() => void skip(item.postId!)}
+          data-testid="today-skip"
+        >
+          <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Not for me
+        </Button>
+      ) : null}
     </div>
   );
 }

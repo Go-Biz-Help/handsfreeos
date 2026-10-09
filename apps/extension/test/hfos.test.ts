@@ -19,6 +19,7 @@ import {
   nameKey,
   onPage,
   outreachBusinesses,
+  postsSave,
   profileSave,
 } from '../src/hfos/saves';
 import { instantOf, resolveWhen } from '../src/hfos/when';
@@ -602,6 +603,64 @@ describe('groups', () => {
       ],
     );
     expect(admins.ok && admins.input[0]!.people!.every((p) => p.runsGroup)).toBe(true);
+  });
+});
+
+describe('group posts', () => {
+  const group = {
+    name: 'Austin Small Business Owners',
+    group: { id: '323456789', url: 'https://www.facebook.com/groups/323456789/' },
+    privacy: 'public' as const,
+    members: 34_718,
+    joined: true,
+  };
+  const post = (n: number, more: Partial<NonNullable<ReadResult['posts']>[number]> = {}) => ({
+    author: { name: 'Dana Reyes', profile: dana },
+    url: `https://www.facebook.com/groups/323456789/posts/10000${n}/`,
+    when: '3h',
+    text: 'Can anyone recommend a CRM?',
+    comments: 4,
+    reactions: null,
+    ...more,
+  });
+
+  it('sends the posts with who wrote them, and leaves out those it can’t comment on', () => {
+    const built = postsSave(
+      read({
+        kind: 'group',
+        group,
+        posts: [
+          post(1, { text: `  ${'Long post. '.repeat(400)}` }),
+          post(1),
+          post(2, { author: null }),
+          post(3, { url: null }),
+          post(4, { text: '   ' }),
+          post(5, { author: { name: 'Lee Park', profile: lee } }),
+        ],
+      }),
+      WS,
+      'find',
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.input).toMatchObject({
+      workspaceId: WS,
+      platform: 'facebook',
+      group: { id: '323456789', slug: null, name: 'Austin Small Business Owners' },
+      found: 'find',
+    });
+    expect(built.input.posts.map((p) => [p.url.slice(-8), p.name])).toEqual([
+      ['/100001/', 'Dana Reyes'],
+      ['/100005/', 'Lee Park'],
+    ]);
+    expect(built.input.posts[0]!.text.length).toBe(2000);
+    expect(built.input.posts[0]!.text.endsWith('…')).toBe(true);
+    expect(built.input.posts[1]!.author).toEqual({ id: lee.id, username: null, url: lee.url });
+  });
+
+  it('sends nothing off a group’s feed', () => {
+    expect(postsSave(read({ kind: 'feed', posts: [post(1)] }), WS)).toMatchObject({ ok: false });
+    expect(postsSave(read({ kind: 'group', group, posts: [] }), WS)).toMatchObject({ ok: false });
   });
 });
 

@@ -11,8 +11,8 @@ It's in `development`: offered to nobody, and installable only where HandsFreeOS
 ## What's built
 
 Phase 1, steps 1 to 5, the playbook builder, tracking with the activity panel, friends, Facebook's download
-file's dates, chats read by the AI from the file or live in Messenger, groups, the list for today, tidying up friends
-and Facebook's warnings:
+file's dates, chats read by the AI from the file or live in Messenger, groups, the list for today, tidying up friends,
+Facebook's warnings, comments on group posts and looking people up before drafting:
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -57,8 +57,8 @@ and Facebook's warnings:
   out each time from what HandsFreeOS knows (`today.ts`, `ops/today.ts`). Friend requests to people from the groups
   who fit a playbook, best first and as many as today's limit has left, only from groups whose admins are read and
   never to anyone who runs a group, is on Don't pitch, is in Contacts, or has had a request; a first message to new
-  friends who accepted the person's request; follow-ups to likely prospects gone quiet (the playbook's pace); and
-  replies owed. A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
+  friends who accepted the person's request; follow-ups to likely prospects gone quiet (the playbook's pace);
+  replies owed; and comments on good group posts (below). A message has **Draft a message**: three drafts from the AI in the playbook's tone, from what's known
   about the person and the chat so far, to copy and send on Facebook (the worker's `outreach.today.draft` action,
   against the daily AI limit). HandsFreeOS never sends: the extension notes the step, which takes it off the list.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab and the extension's
@@ -74,6 +74,22 @@ and Facebook's warnings:
   (`outreach.warning.note`). That day it reads no more chats and cancels or unfriends nobody; for 7 days the daily
   limits are halved, and for 2 friend requests are off the list for today. A red note says so on the Today tab, the
   activity panel's day, and the extension's panel.
+- **Posts worth a comment** (decisions 18 to 20, `posts.ts`, `ops/posts.ts`): with the panel open on one of their
+  groups, the extension sends the posts in its feed that say a playbook's signs (the quoted words, or its words to
+  search for groups) or ask for help ("Can anyone recommend…", "Looking for…"), with who wrote them; a skip word
+  leaves a post out (`postLook`). Each person keeps their own. The AI checks each one (the worker's
+  `outreach.check_posts`): good for the business to comment on, or not, with why. The panel's **Posts worth a
+  comment** marks them, and its **Find posts** goes through the groups the person is in that are marked Work these
+  (or Maybe, with none), up to 5 a run, in a tab they can see, scrolling each feed a screen at a time every 6 to 12
+  seconds, 8 screens a group, and stops on any Facebook warning. The good ones from the last week go on Today as
+  **Comment on a post**, with the post, a link to it and **Draft a comment** (two drafts), as many as today's
+  comment limit has left; **Not for me** puts one aside for good. Commenting on it, which the extension notes, takes
+  it off. Who wrote one is kept as a profile from the group, and nobody goes in Contacts.
+- **Looking someone up before drafting** (decision 21): when the person asks for drafts in the extension's panel, it
+  first opens the person's profile in a tab out of view, reads their intro and latest two posts, follows the link in
+  their lines to the business they own or work at (`pages`, from `apps/extension/src/facebook/profile.ts`) and reads
+  that page too, then closes the tab. Those lines go with the ask (`lookup`) for the AI to use, kept for nothing
+  else. It skips this on a day Facebook warned them. The web's Today tab drafts from what HandsFreeOS knows.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, an offer and link, who it's for, signs to look for and who to skip, where
   to look, the steps it takes and how fast, the tone, sample messages, the conversation, words to avoid, a disclaimer
@@ -117,6 +133,8 @@ and Facebook's warnings:
 | Groups, their people, and the list for today             | `groups.ts`, `today.ts`, `supabase/migrations/20261027000700_outreach_groups.sql`             |
 | Tidying up friends, and Facebook's warnings              | `tidy.ts`, `ops/tidy.ts`, `supabase/migrations/20261027000900_outreach_tidy_and_warnings.sql` |
 | The buttons pressed to cancel and unfriend               | `apps/extension/src/facebook/tidy.ts`, `src/panel/tidy.ts`, `src/panel/warnings.ts`           |
+| Posts worth a comment, and the AI's check of them        | `posts.ts`, `ops/posts.ts`, `supabase/migrations/20261027001000_outreach_group_posts.sql`     |
+| Finding posts, and looking people up before drafting     | `apps/extension/src/panel/posts.ts`, `src/panel/lookup.ts`, `src/facebook/browse.ts`          |
 | The extension                                            | `apps/extension`                                                                              |
 
 Operations, all through the kernel:
@@ -144,6 +162,9 @@ Operations, all through the kernel:
 | `outreach.friends.tidy`                               | `outreach.use`    | Sent requests to cancel and friends to unfriend, with today's counts against their limits            |
 | `outreach.friend.end`                                 | `outreach.use`    | The extension cancelled a request or unfriended someone for the person                               |
 | `outreach.warning.note`                               | `outreach.use`    | Facebook warned the person: halves their limits for 7 days, friend requests off their list for 2     |
+| `outreach.posts.save`                                 | `outreach.use`    | Up to 30 posts from a group's feed: keeps those worth a look for the AI, and says how each stands    |
+| `outreach.post.check`                                 | the worker        | What the AI made of a kept post: good, not, or couldn't be read, with why                            |
+| `outreach.post.skip`                                  | `outreach.use`    | The person put a post aside: off their list for good                                                 |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -209,12 +230,12 @@ openers on group posts") and answered its questions the same day. These are sett
 17. **The extension presses Cancel request and Unfriend** once the person ticks who, one at a time, slowly, in a tab
     they can see. Built (the first of three parts).
 18. **Openers on group posts:** the panel marks good posts as the person scrolls their groups, and **Find posts**
-    scrolls the group feeds itself, slowly, stopping on any warning.
-19. **Posts asking for help** are found by the playbook's signs, with the AI checking each one.
+    scrolls the group feeds itself, slowly, stopping on any warning. Built (the second of three parts).
+19. **Posts asking for help** are found by the playbook's signs, with the AI checking each one. Built.
 20. **A good post goes on Today's list** with two AI comment drafts. The person posts the comment; the extension
-    notes it.
+    notes it. Built.
 21. **Before drafting, the extension looks the person up:** it opens their profile and business page itself, quietly
-    in a tab.
+    in a tab. Built.
 22. **Phone alerts:** a push when the extension spots a reply, and a morning push at a time that's a setting (8am to
     start).
 23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
@@ -233,8 +254,10 @@ likes and 1 post, half that for new or quiet accounts.
 
 ## Rules worth knowing before changing anything
 
-- **Nothing is saved until the person presses a button,** except the four steps the extension notes (decision 8).
-  Reading a page only looks things up.
+- **Nothing is saved until the person presses a button,** except the four steps the extension notes (decision 8),
+  and what its panel's switches send as the person goes, each on by default and turned off there: the chats they open
+  in Messenger (**Read chats I open**), and the posts worth a look in a group's feed (**Look for posts as I scroll**).
+  Reading any other page only looks things up.
 - **Noting a step adds nobody to Contacts.** Someone reached is kept as a profile with no customer, and the group
   they were first found in, until the person saves them; saving keeps their steps. A friend request marks the profile
   "request sent".
@@ -251,6 +274,11 @@ likes and 1 post, half that for new or quiet accounts.
   ticked and where things stand before pressing, and that it says Add friend after; anything else is handed to the
   person. It presses a button under their name, never a link or tab, and Unfriend and Confirm only in Facebook's box
   on top.
+- **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
+  only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
+  can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when
+  its writer runs a group, is on Don't pitch or is in Contacts, and never twice: a comment noted on its link, or
+  **Not for me**, ends it. The look-up's lines go to the AI for that draft only and are never kept.
 - **A warning is a warning for a week** (`warningOf`, `dailyLimitsNow`): limits halve (never below 1) for 7 days from
   the latest one, friend requests leave the list for 2, and the same words twice in a day come back `repeated`. The
   extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
@@ -339,6 +367,10 @@ likes and 1 post, half that for new or quiet accounts.
 The extension's steps on Facebook's download pages follow the owner's own screens of October 2026, mapped button by
 button, except the Download button beside a finished file, which no file was ready to show yet. Where it hands a
 step to the person, the panel's page outline of that screen, which keeps those steps' words, tunes it.
+
+Finding posts and the look-up read group feeds and profiles the way the readers do now, not yet tried on the owner's
+account. A profile's business page is only one its lines link to by name ("Owner at …"); a business named without a
+link isn't followed.
 
 Cancelling and unfriending follow Facebook's usual buttons (Friends, Unfriend, Confirm; Cancel request), not yet
 tried on the owner's account; a step it can't find is handed to the person. Unfriending on its own within a daily

@@ -158,6 +158,8 @@ export interface ReadResult {
   readonly url: string;
   readonly readAt: string;
   readonly profile?: ProfilePage;
+  /** On a profile, the pages its lines link to: the business they own or work at (./profile.ts). */
+  readonly pages?: readonly Named[];
   readonly group?: GroupPage;
   readonly chat?: ChatPage;
   readonly people?: readonly Person[];

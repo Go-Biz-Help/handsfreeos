@@ -13,6 +13,7 @@ import { rows, sql } from '@hfos/db/client';
 import type { AddonWorkerModule } from '../types';
 import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
+import { CHECK_POSTS_JOB, checkPostsJob, postsSaved } from './posts';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 
 export const outreachAddonWorker: AddonWorkerModule = {
@@ -35,12 +36,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
       }
     },
   },
-  // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts).
+  // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
+  // checked by it (./posts.ts).
   subscribers: {
     'outreach.download.saved': downloadSaved,
     'outreach.chats.collected': downloadSaved,
+    'outreach.posts.saved': postsSaved,
   },
-  jobs: { [READ_CHATS_JOB]: readChatsJob },
+  jobs: { [READ_CHATS_JOB]: readChatsJob, [CHECK_POSTS_JOB]: checkPostsJob },
   // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
   actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
   // onEnable: arm recurring jobs with scheduleAddonJob, from now: nothing that came due while it was off runs late.

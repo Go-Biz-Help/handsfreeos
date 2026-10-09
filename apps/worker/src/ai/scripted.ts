@@ -1682,8 +1682,19 @@ function scriptedTodayDraft(message: string) {
   };
 }
 
+/** Social Outreach's check of a group post: good when it asks for a recommendation, and why says which way. */
+function scriptedPostCheck(message: string) {
+  const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
+  const good = /\b(recommend|looking for|anyone)\b/i.test(post);
+  return { good, why: good ? 'Asking for a recommendation' : 'Nothing to answer' };
+}
+
 export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
+  {
+    when: /Is this post worth a comment from the owner\?$/,
+    json: (message) => scriptedPostCheck(message),
+  },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
   {
     when: /Help write this part of the playbook\.$/,

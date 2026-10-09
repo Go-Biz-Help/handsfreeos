@@ -5997,6 +5997,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.post.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a group post aside: it comes off the person’s list for today and isn’t suggested again.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.post.skipped.
+         */
+        post: operations["command_outreach_post_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.posts.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
+         */
+        post: operations["command_outreach_posts_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.profile.save": {
         parameters: {
             query?: never;
@@ -32135,6 +32175,108 @@ export interface operations {
                         template: string | null;
                         /** Format: date-time */
                         updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_post_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        postId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_posts_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default scroll
+                     * @enum {string}
+                     */
+                    found?: "scroll" | "find";
+                    group: {
+                        id: string | null;
+                        /** @default null */
+                        name?: string | null;
+                        slug: string | null;
+                        url: string;
+                    };
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    posts: {
+                        author: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        comments?: number | null;
+                        name: string;
+                        /** @default null */
+                        reactions?: number | null;
+                        text: string;
+                        url: string;
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        checking: number;
+                        /** Format: uuid */
+                        groupId: string;
+                        posts: {
+                            check: ("waiting" | "good" | "not" | "failed") | null;
+                            done: boolean;
+                            url: string;
+                            why: string[];
+                        }[];
                     };
                 };
             };
@@ -58672,10 +58814,14 @@ export interface operations {
                         items: {
                             chatId: string | null;
                             /** @enum {string} */
-                            kind: "friend_request" | "opener" | "follow_up" | "reply";
+                            kind: "friend_request" | "opener" | "follow_up" | "reply" | "comment";
                             name: string;
                             nextStep: string | null;
                             playbookName: string | null;
+                            post: string | null;
+                            posted: string | null;
+                            postId: string | null;
+                            postUrl: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
                             summary: string | null;
@@ -58683,6 +58829,10 @@ export interface operations {
                             why: string[];
                         }[];
                         limits: {
+                            comment: {
+                                done: number;
+                                most: number;
+                            };
                             first_message: {
                                 done: number;
                                 most: number;

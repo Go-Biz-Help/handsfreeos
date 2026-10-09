@@ -44,6 +44,7 @@ import {
 } from './hfos';
 import { collectOpen, refreshChats, startChats } from './chats';
 import { refreshFacebookFile, startFacebookFile } from './fbfile';
+import { markPosts, refreshPosts, startPosts } from './posts';
 import { refreshTidy, startTidy } from './tidy';
 import { refreshToday, startToday } from './today';
 import { noteWarnings } from './warnings';
@@ -378,6 +379,7 @@ const todayBox = document.querySelector<HTMLElement>('#today')!;
 const fileBox = document.querySelector<HTMLElement>('#fbfile')!;
 const chatsBox = document.querySelector<HTMLElement>('#chats')!;
 const tidyBox = document.querySelector<HTMLElement>('#tidy')!;
+const postsBox = document.querySelector<HTMLElement>('#posts')!;
 const page = document.querySelector<HTMLElement>('#page')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 const status = document.querySelector<HTMLElement>('#status')!;
@@ -504,6 +506,7 @@ async function read(quiet = false): Promise<void> {
     say(`Read at ${new Date(readAt).toLocaleTimeString()}.`);
     void lookUp(answer.result);
     void collectOpen(answer.result);
+    void markPosts(answer.result);
     void noteWarnings(answer.result.warnings, answer.result.url);
   } catch (error) {
     if (seq !== reads || quiet) return;
@@ -595,9 +598,11 @@ async function start(): Promise<void> {
       void refreshToday();
       void refreshChats();
       void refreshTidy();
+      void refreshPosts();
     },
   });
   void startChats(chatsBox);
+  void startPosts(postsBox);
   startToday(todayBox);
   startTidy(tidyBox);
   void startFacebookFile(fileBox);

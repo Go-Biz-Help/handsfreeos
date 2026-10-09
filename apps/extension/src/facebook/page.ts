@@ -71,8 +71,8 @@ export function readPage(
 
   switch (address.kind) {
     case 'profile': {
-      const { profile, posts } = readProfile(main, address, base, doc.title);
-      found = { profile, posts };
+      const { profile, posts, pages } = readProfile(main, address, base, doc.title);
+      found = { profile, posts, ...(pages.length ? { pages } : {}) };
       if (!profile.name) notes.push('Couldn’t find the name on this profile.');
       break;
     }

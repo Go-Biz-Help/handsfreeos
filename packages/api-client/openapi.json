@@ -78482,6 +78482,342 @@
         }
       }
     },
+    "/v1/commands/outreach.posts.save": {
+      "post": {
+        "operationId": "command_outreach_posts_save",
+        "summary": "Keep the posts in a Facebook group’s feed that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.posts.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook"
+                    ]
+                  },
+                  "group": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{1,30}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "slug": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9._-]{1,100}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "url": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                      },
+                      "name": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "slug",
+                      "url"
+                    ]
+                  },
+                  "posts": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                        },
+                        "author": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,30}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "username": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9.]{1,100}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500,
+                              "pattern": "^https:\\/\\/www\\.facebook\\.com\\/"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "comments": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reactions": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "author",
+                        "name",
+                        "text"
+                      ]
+                    }
+                  },
+                  "found": {
+                    "default": "scroll",
+                    "type": "string",
+                    "enum": [
+                      "scroll",
+                      "find"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "group",
+                  "posts"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groupId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string"
+                          },
+                          "check": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "waiting",
+                                  "good",
+                                  "not",
+                                  "failed"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "why": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "done": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "url",
+                          "check",
+                          "why",
+                          "done"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "checking": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "groupId",
+                    "posts",
+                    "checking"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.post.skip": {
+      "post": {
+        "operationId": "command_outreach_post_skip",
+        "summary": "Put a group post aside: it comes off the person’s list for today and isn’t suggested again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.post.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "postId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "postId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "postId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "postId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -156355,12 +156691,33 @@
                             "most"
                           ],
                           "additionalProperties": false
+                        },
+                        "comment": {
+                          "type": "object",
+                          "properties": {
+                            "done": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "done",
+                            "most"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "friend_request",
                         "first_message",
-                        "follow_up"
+                        "follow_up",
+                        "comment"
                       ],
                       "additionalProperties": false
                     },
@@ -156375,7 +156732,8 @@
                               "friend_request",
                               "opener",
                               "follow_up",
-                              "reply"
+                              "reply",
+                              "comment"
                             ]
                           },
                           "name": {
@@ -156417,6 +156775,36 @@
                               "null"
                             ]
                           },
+                          "postId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "postUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "posted": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "post": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "why": {
                             "type": "array",
                             "items": {
@@ -156449,6 +156837,10 @@
                           "profileUrl",
                           "chatId",
                           "threadKey",
+                          "postId",
+                          "postUrl",
+                          "posted",
+                          "post",
                           "why",
                           "summary",
                           "nextStep",
