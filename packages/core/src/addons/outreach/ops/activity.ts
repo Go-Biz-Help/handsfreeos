@@ -47,7 +47,7 @@ const DAY = 24 * 60 * 60 * 1000;
  * The group a step came from, kept the first time it's seen: by its number or the name in its link, whichever the
  * link showed, and a later look fills in the other (unless another kept group has it) and its latest name.
  */
-async function keepGroup(
+export async function keepGroup(
   ctx: CommandContext,
   platform: Platform,
   group: GroupRef,

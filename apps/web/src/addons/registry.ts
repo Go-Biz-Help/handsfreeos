@@ -181,5 +181,6 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   outreach: {
     icon: outreachAddonIcon,
     slots: { 'person.panels': () => import('./outreach/person-panel') },
+    settings: () => import('./outreach/settings'),
   },
 };

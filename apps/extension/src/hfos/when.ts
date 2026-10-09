@@ -61,3 +61,50 @@ export function resolveWhen(when: string, now: Date): string {
   }
   return text;
 }
+
+const WRITTEN = new RegExp(`^([a-z]{3})[a-z]*\\.?\\s(\\d{1,2}),?\\s(\\d{4})${AT}$`, 'i');
+const WRITTEN_DAY_FIRST = new RegExp(`^(\\d{1,2})\\s([a-z]{3})[a-z]*\\.?,?\\s(\\d{4})${AT}$`, 'i');
+/** "3h", "5m", "2d", "1w", "1y": how long ago, as the list of chats says it. */
+const AGO = /^(\d{1,3})\s?(m|min|mins|h|hr|hrs|d|w|wk|y|yr)$/i;
+const AGO_MS: Record<string, number> = {
+  m: 60_000,
+  h: 3_600_000,
+  d: 86_400_000,
+  w: 604_800_000,
+  y: 31_536_000_000,
+};
+
+/** "10:12 AM", "10:12", "10:12 p.m.": hours and minutes on a day. */
+function atClock(date: Date, clock: string | undefined): Date | null {
+  if (!clock) return date;
+  const m = /^(\d{1,2}):(\d{2})\s?([ap])?/i.exec(clock.replace(/\./g, ''));
+  if (!m) return null;
+  let hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  const half = m[3]?.toLowerCase();
+  if (half === 'p' && hours < 12) hours += 12;
+  if (half === 'a' && hours === 12) hours = 0;
+  if (hours > 23 || minutes > 59) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes);
+}
+
+/**
+ * The moment a time Facebook printed stands for, on the person's own calendar: anything `resolveWhen` gives, or how
+ * long ago ("3h"). Null when it can't say ("Active now").
+ */
+export function instantOf(when: string, now: Date): Date | null {
+  const text = resolveWhen(when, now);
+  const ago = AGO.exec(text);
+  if (ago) return new Date(now.getTime() - Number(ago[1]) * AGO_MS[ago[2]![0]!.toLowerCase()]!);
+  let m = WRITTEN.exec(text);
+  if (m) {
+    const month = MONTHS.indexOf(m[1]!.toLowerCase());
+    return month < 0 ? null : atClock(new Date(Number(m[3]), month, Number(m[2])), m[4]);
+  }
+  m = WRITTEN_DAY_FIRST.exec(text);
+  if (m) {
+    const month = MONTHS.indexOf(m[2]!.toLowerCase());
+    return month < 0 ? null : atClock(new Date(Number(m[3]), month, Number(m[1])), m[4]);
+  }
+  return null;
+}

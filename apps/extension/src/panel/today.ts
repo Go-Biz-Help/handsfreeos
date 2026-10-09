@@ -3,6 +3,10 @@
  * reached and who wrote back, and the last few steps noted; with the switch that turns noting on and off, and a link
  * to the activity panel in HandsFreeOS (docs/outreach.md, decisions 7 and 8). The background notes the steps and
  * answers for the day (src/hfos/noting.ts); this asks it, and asks again whenever it notes one.
+ *
+ * Under them, the list for today (packages/core/src/addons/outreach/today.ts): friend requests to people from the
+ * person's groups who fit a playbook, a first message to new friends, follow-ups and replies, each with a link to open
+ * and, for a message, the AI's drafts to copy. The person sends everything themselves; noting the step takes it off.
  */
 import {
   DAILY_LIMITS,
@@ -12,9 +16,18 @@ import {
   pastLimitWords,
   TOUCH_KINDS,
 } from '@hfos/core/addons/outreach/limits';
-import type { Activity, Noted, Problem, Today, Touched } from '../hfos/messages';
+import { DRAFT_KINDS, TODAY_KINDS, type DraftKind } from '@hfos/core/addons/outreach/today';
+import type {
+  Activity,
+  Noted,
+  Problem,
+  Today,
+  TodayList,
+  TodayListItem,
+  Touched,
+} from '../hfos/messages';
 import { ask } from './ask';
-import { ago, chip, counted, h, hfosLink, type Child } from './dom';
+import { ago, button, chip, counted, h, hfosLink, link, type Child } from './dom';
 
 /** How often the panel asks again while it's open: the day ends, and a step may wait to be sent. */
 const AGAIN_MS = 2 * 60_000;
@@ -26,13 +39,62 @@ let today: Today | null = null;
 let problem: Problem | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let switching = false;
+/** The list for today in the business it saves to, and why it couldn't be had. */
+let list: { readonly businessId: string; readonly value: TodayList } | null = null;
+let listProblem: string | null = null;
+/** The AI's drafts for someone on the list, by `itemKey`: being written while null. */
+const drafts = new Map<string, readonly string[] | null>();
+const draftProblems = new Map<string, string>();
+/** The list's shown, or all of it. */
+let showAll = false;
 
-/** Asks the background for the day and draws it. */
+/** The most on the list shown before "Show all". */
+const LIST_SHOWN = 8;
+
+/** Asks the background for the day and the list for it, and draws them. */
 export async function refreshToday(): Promise<void> {
   clearTimeout(timer);
   const answer = await ask({ type: 'hfos-today' });
   if (answer.ok) [today, problem] = [answer.value, null];
   else problem = answer.problem;
+  draw();
+  await refreshList();
+}
+
+async function refreshList(): Promise<void> {
+  const businessId = today?.activity ? today.businessId : null;
+  if (!businessId) {
+    [list, listProblem] = [null, null];
+    return draw();
+  }
+  const answer = await ask({ type: 'hfos-today-list', workspaceId: businessId });
+  if (answer.ok) [list, listProblem] = [{ businessId, value: answer.value }, null];
+  else listProblem = answer.problem.message;
+  draw();
+}
+
+const itemKey = (item: TodayListItem) =>
+  `${item.kind}:${item.chatId ?? item.profileId ?? item.name}`;
+
+async function draft(item: TodayListItem, kind: DraftKind): Promise<void> {
+  if (!list) return;
+  const key = itemKey(item);
+  drafts.set(key, null);
+  draftProblems.delete(key);
+  draw();
+  const answer = await ask({
+    type: 'hfos-draft',
+    workspaceId: list.businessId,
+    input: { kind, profileId: item.profileId, chatId: item.chatId },
+  });
+  if (answer.ok && answer.value.drafts.length) drafts.set(key, answer.value.drafts);
+  else {
+    drafts.delete(key);
+    draftProblems.set(
+      key,
+      answer.ok ? 'The AI had nothing to suggest. Try again.' : answer.problem.message,
+    );
+  }
   draw();
 }
 
@@ -122,6 +184,104 @@ function limitsView(activity: Activity): Child[] {
   ];
 }
 
+/** Where to open someone on the list: their chat for a message in one, else their profile. */
+function openUrl(item: TodayListItem): string | null {
+  if (item.threadKey)
+    return `https://www.facebook.com/messages/t/${encodeURIComponent(item.threadKey)}`;
+  return item.profileUrl;
+}
+
+function draftsView(item: TodayListItem): Child {
+  const kind = DRAFT_KINDS.find((k) => k === item.kind);
+  if (!kind) return null;
+  const key = itemKey(item);
+  const got = drafts.get(key);
+  const trouble = draftProblems.get(key);
+  if (got === undefined)
+    return h(
+      'div',
+      {},
+      button('Draft a message', () => void draft(item, kind)),
+      trouble ? h('div', { class: 'error' }, trouble) : null,
+    );
+  if (got === null) return h('p', { class: 'muted' }, 'Writing drafts…');
+  return h(
+    'ul',
+    { class: 'drafts' },
+    ...got.map((text) => {
+      const copy = button('Copy', () => {
+        void navigator.clipboard.writeText(text).then(
+          () => (copy.textContent = 'Copied'),
+          () => (copy.textContent = 'Couldn’t copy'),
+        );
+      });
+      return h('li', {}, h('p', {}, text), copy);
+    }),
+    h(
+      'li',
+      {},
+      button('Draft again', () => void draft(item, kind)),
+    ),
+  );
+}
+
+function itemView(item: TodayListItem): HTMLElement {
+  return h(
+    'li',
+    {},
+    h('div', { class: 'name' }, chip(TODAY_KINDS[item.kind]), ' ', link(item.name, openUrl(item))),
+    item.why.length ? h('div', { class: 'muted' }, item.why.join(' · ')) : null,
+    item.summary ? h('div', {}, item.summary) : null,
+    item.nextStep ? h('div', { class: 'muted' }, `Next: ${item.nextStep}`) : null,
+    draftsView(item),
+  );
+}
+
+/** The list for today: what to do, and the groups whose admins are still to be read. */
+function listView(): Child[] {
+  if (!today?.activity) return [];
+  if (!list)
+    return listProblem
+      ? [h('p', { class: 'muted' }, `Couldn’t get your list. ${listProblem}`)]
+      : [];
+  const { items, readAdmins, hasPlaybook } = list.value;
+  const shownItems = showAll ? items : items.slice(0, LIST_SHOWN);
+  const web = `${today.webUrl}/app/w/${list.businessId}/a/outreach`;
+  return [
+    h('h3', {}, 'Your list for today'),
+    items.length
+      ? h('ul', { class: 'list' }, ...shownItems.map(itemView))
+      : h(
+          'p',
+          { class: 'muted' },
+          'Nothing on your list yet. Save groups and their members, and read your chats, to fill it.',
+        ),
+    items.length > shownItems.length
+      ? button(`Show all ${items.length.toLocaleString()}`, () => {
+          showAll = true;
+          draw();
+        })
+      : null,
+    !hasPlaybook
+      ? h(
+          'p',
+          { class: 'muted' },
+          'Friend requests are suggested once the business has a playbook. ',
+          hfosLink('Make one', `${web}?view=playbooks`),
+        )
+      : null,
+    ...readAdmins.map((group) =>
+      h(
+        'p',
+        { class: 'muted' },
+        'Save the admins and moderators of ',
+        link(group.name ?? 'this group', `${group.url.replace(/\/?$/, '/')}members/admins`),
+        ' to get its members suggested.',
+      ),
+    ),
+  ];
+}
+
 function draw(): void {
   if (!box) return;
   const activity = today?.activity ?? null;
@@ -158,6 +318,7 @@ function draw(): void {
           `${counted(today.waiting, 'step')} waiting to be sent to HandsFreeOS.`,
         )
       : null,
+    ...listView(),
     recentView(today?.recent ?? []),
     today ? switchView(today) : null,
   ];

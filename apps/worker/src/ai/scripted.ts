@@ -1618,6 +1618,79 @@ export const LISTING_RULES: readonly ScriptRule[] = [
   },
 ];
 
+/**
+ * Social Outreach's read of a Facebook chat: the tags whose words are in it, a prospect when they ask about a demo
+ * or the price, and a summary that's only a count, so tests can tell it apart.
+ */
+function scriptedChatRead(message: string) {
+  const block = (name: string) =>
+    new RegExp(`<${name}>\\n([\\s\\S]*?)\\n</${name}>`).exec(message)?.[1] ?? '';
+  const chat = block('chat');
+  const theirs = chat
+    .split('\n')
+    .filter((l) => /\] Them: /.test(l))
+    .join('\n')
+    .toLowerCase();
+  const tags = block('tags')
+    .split('\n')
+    .filter((t) => t && t !== '(none)' && theirs.includes(t.toLowerCase()));
+  const prospect = /\b(demo|price|how much)\b/.test(theirs);
+  return {
+    summary: `A chat of ${chat.split('\n').length} messages.`,
+    tags,
+    prospect,
+    nextStep: prospect ? 'Offer a demo' : null,
+  };
+}
+
+/**
+ * Social Outreach's help on a playbook part: options named after the part, one already in the playbook (which the
+ * check drops), and for the conversation a question with a tag the playbook has and one it hasn't.
+ */
+function scriptedPlaybookAssist(message: string) {
+  const part = /<part>([\s\S]*?)<\/part>/.exec(message)?.[1] ?? 'part';
+  if (part === 'questions for the conversation')
+    return {
+      options: [],
+      questions: [
+        {
+          text: 'How do you keep track of your customers now?',
+          answers: [
+            { label: 'A spreadsheet', tag: 'Uses a spreadsheet', next: 'offer' },
+            { label: 'A CRM', tag: 'Made-up tag', next: 'continue' },
+          ],
+        },
+      ],
+    };
+  return {
+    options: [`A better ${part}`, `Another ${part}`, 'Business owner', `A third ${part}`],
+    questions: [],
+  };
+}
+
+/** Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. */
+function scriptedTodayDraft(message: string) {
+  const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
+  const first = unquote(name).split(' ')[0];
+  return {
+    drafts: [
+      `Hi ${first}, thanks for adding me! How’s business going?`,
+      `Hey ${first}, good to connect. What keeps you busiest these days?`,
+      `Hi ${first}, thanks for adding me! How’s business going?`,
+      `Hi ${first}, want a free trial? It’s a great deal.`,
+    ],
+  };
+}
+
+export const OUTREACH_RULES: readonly ScriptRule[] = [
+  { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
+  { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+  {
+    when: /Help write this part of the playbook\.$/,
+    json: (message) => scriptedPlaybookAssist(message),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
   ...AI_SETUP_RULES,
@@ -1626,6 +1699,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...BUILDER_RULES,
   ...CLIENT_UPDATE_RULES,
   ...LISTING_RULES,
+  ...OUTREACH_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

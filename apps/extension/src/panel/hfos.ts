@@ -13,13 +13,26 @@ import {
   type FitPlaybook,
 } from '@hfos/core/addons/outreach/fit';
 import {
+  bestGroupFit,
+  GROUP_VERDICTS,
+  type GroupFacts,
+  type GroupFitPlaybook,
+} from '@hfos/core/addons/outreach/groups';
+import {
   DONT_PITCH_TAG,
   LOOKUP_NAMES,
   LOOKUP_PROFILES,
   LOOKUP_THREADS,
 } from '@hfos/core/addons/outreach/limits';
 import { mutualFriendsIn } from '../facebook/friends';
-import type { ChatPage, Person, ProfilePage, ProfileRef, ReadResult } from '../facebook/types';
+import type {
+  ChatPage,
+  GroupLink,
+  Person,
+  ProfilePage,
+  ProfileRef,
+  ReadResult,
+} from '../facebook/types';
 import { profileKey } from '../facebook/urls';
 import type {
   Account,
@@ -33,6 +46,10 @@ import {
   chatSave,
   friendSet,
   friendsSave,
+  groupDetailFacts,
+  groupSave,
+  groupsSave,
+  isAdminsPage,
   listItem,
   listOnPage,
   nameKey,
@@ -41,7 +58,7 @@ import {
   type ListOnPage,
 } from '../hfos/saves';
 import { ask } from './ask';
-import { ago, button, chip, counted, h, hfosLink, type Child } from './dom';
+import { ago, button, chip, counted, h, hfosLink, link, type Child } from './dom';
 
 type SameName = Lookup['sameName'][number]['people'][number];
 /** Where the person's own Facebook stands with someone kept in HandsFreeOS, Keep, Don't pitch, and what fit reads. */
@@ -73,6 +90,8 @@ class Known {
   readonly marks = new Map<string, Mark | null>();
   /** The playbooks in use, as much as fit reads: null until asked. */
   playbooks: readonly FitPlaybook[] | null = null;
+  /** The same playbooks, as much as a group's fit reads. */
+  groupPlaybooks: readonly GroupFitPlaybook[] | null = null;
   playbooksAt = 0;
   constructor(readonly business: Business) {}
 }
@@ -419,7 +438,8 @@ export async function lookUp(result: ReadResult): Promise<void> {
   lastRead = result;
   const k = known;
   if (!k) return;
-  if (listOnPage(result)?.list === 'requests') void loadPlaybooks(k);
+  if (listOnPage(result)?.list === 'requests' || result.group || result.groups?.length)
+    void loadPlaybooks(k);
   const on = onPage(result);
   const profiles = on.profiles
     .filter((p) => !k.profiles.has(profileKey(p)) || !k.marks.has(profileKey(p)))
@@ -469,9 +489,9 @@ async function loadPlaybooks(k: Known): Promise<void> {
     k.playbooksAt = 0;
     return problem(answer.problem);
   }
-  k.playbooks = answer.value.playbooks
-    .filter((playbook) => !playbook.archivedAt)
-    .map(({ id, name, details }) => ({ id, name, details }));
+  const inUse = answer.value.playbooks.filter((playbook) => !playbook.archivedAt);
+  k.playbooks = inUse.map(({ id, name, details }) => ({ id, name, details }));
+  k.groupPlaybooks = inUse.map(({ id, name, details }) => ({ id, name, details }));
   if (k === known) redraw();
 }
 
@@ -484,6 +504,7 @@ export function forget(result: ReadResult): void {
     known.marks.delete(profileKey(p));
   }
   known.playbooks = null;
+  known.groupPlaybooks = null;
   for (const t of on.threads) known.threads.delete(t);
   if (on.name) known.names.delete(nameKey(on.name));
 }
@@ -590,6 +611,58 @@ async function saveList(mine: ListOnPage): Promise<void> {
   );
   redraw();
   await lookUpAgain();
+}
+
+/** Saves the groups a page lists, with how much the page said about each. */
+async function saveGroups(groups: readonly GroupLink[]): Promise<void> {
+  const k = known;
+  if (!k) return;
+  const built = groupsSave(groups, k.business.id);
+  if (!built.ok) return say(built.why);
+  saving.add('groups');
+  redraw();
+  const answer = await ask({ type: 'hfos-save-groups', input: built.input });
+  saving.delete('groups');
+  if (answer.ok)
+    say(
+      `Saved ${counted(answer.value.saved, 'group')} in ${k.business.name}. See how they fit in the Groups tab.`,
+    );
+  else problem(answer.problem);
+  redraw();
+}
+
+/** Saves the group on the page and the people its list shows, in parts when it's long. */
+async function saveGroup(result: ReadResult): Promise<void> {
+  const k = known;
+  if (!k) return;
+  const built = groupSave(result, k.business.id);
+  if (!built.ok) return say(built.why);
+  const key = `group:${result.group?.group?.id ?? ''}`;
+  saving.add(key);
+  redraw();
+  const done = { people: 0, runsGroup: 0 };
+  for (const input of built.input) {
+    const answer = await ask({ type: 'hfos-save-group', input });
+    if (!answer.ok) {
+      saving.delete(key);
+      redraw();
+      if (done.people) say(`Saved ${counted(done.people, 'person')} before this stopped.`);
+      return problem(answer.problem);
+    }
+    done.people += answer.value.people;
+    done.runsGroup += answer.value.runsGroup;
+  }
+  saving.delete(key);
+  const name = result.group?.name ?? 'the group';
+  const adminsPage = isAdminsPage(result.url);
+  say(
+    !done.people
+      ? `Saved ${name} in ${k.business.name}.`
+      : adminsPage
+        ? `Saved ${name}’s ${counted(done.people, 'admin and moderator', 'admins and moderators')}. Today can suggest its members now.`
+        : `Saved ${name} and ${counted(done.people, 'person', 'people')} in it${done.runsGroup ? `, ${done.runsGroup.toLocaleString()} who run it and are left alone` : ''}.`,
+  );
+  redraw();
 }
 
 /** Keep, or Don't pitch, for someone on the page. */
@@ -880,6 +953,107 @@ export function listBlock(result: ReadResult): HTMLElement | null {
           ? `Save my ${counted(count, 'friend')}`
           : these(mine.list === 'sent' ? 'sent request' : 'request'),
       () => void saveList(mine),
+      { primary: true, disabled: busy },
+    ),
+  );
+}
+
+/** How a group fits the playbooks: "Work these", and why. Nothing until the playbooks are known. */
+function groupFitView(facts: GroupFacts): Child {
+  const playbooks = known?.groupPlaybooks;
+  if (!playbooks) return null;
+  const fit = bestGroupFit(playbooks, facts);
+  return h(
+    'div',
+    {},
+    chip(
+      GROUP_VERDICTS[fit.verdict],
+      fit.verdict === 'skip' ? 'warn' : fit.verdict === 'work' ? 'saved' : 'plain',
+    ),
+    fit.reasons.length ? h('span', { class: 'muted' }, fit.reasons.join(' · ')) : null,
+  );
+}
+
+/** How a group in a list fits, beside it. */
+export function groupLinkFit(link: GroupLink): Child {
+  return groupFitView({
+    name: link.name,
+    detail: link.detail,
+    joined: null,
+    ...groupDetailFacts(link.detail),
+  });
+}
+
+/** Saving the groups a page lists: yours, or search results. */
+export function groupsBlock(result: ReadResult): HTMLElement | null {
+  const k = known;
+  const groups = result.groups ?? [];
+  if (!k || !groups.length) return null;
+  const busy = saving.has('groups');
+  return block(
+    h(
+      'p',
+      { class: 'muted' },
+      k.groupPlaybooks?.length
+        ? 'Each group shows how it fits your playbooks. Save them to see them all in the Groups tab.'
+        : 'Add words to search for groups to a playbook, and each group here shows how it fits.',
+    ),
+    button(
+      busy
+        ? 'Saving…'
+        : groups.length === 1
+          ? 'Save this group'
+          : `Save these ${groups.length.toLocaleString()} groups`,
+      () => void saveGroups(groups),
+      { primary: true, disabled: busy },
+    ),
+  );
+}
+
+/**
+ * The group on the page: how it fits, and saving it with the people its list shows. Today suggests a group's members
+ * only once its full list of admins and moderators is saved, so nobody who runs it is ever approached.
+ */
+export function groupBlock(result: ReadResult): HTMLElement | null {
+  const k = known;
+  const page = result.group;
+  if (!k || !page?.group) return null;
+  const busy = saving.has(`group:${page.group.id}`);
+  const people = result.people?.length ?? 0;
+  const adminsPage = isAdminsPage(result.url);
+  const adminsUrl = `${page.group.url.replace(/\/?$/, '/')}members/admins`;
+  return block(
+    groupFitView({
+      name: page.name,
+      detail: null,
+      members: page.members,
+      privacy: page.privacy,
+      joined: page.joined,
+    }),
+    adminsPage
+      ? h(
+          'p',
+          { class: 'muted' },
+          'Everyone here runs the group. Save them so Today never suggests them, and starts suggesting the group’s members.',
+        )
+      : result.kind === 'group-members'
+        ? h(
+            'p',
+            { class: 'muted' },
+            'Scroll to load more people, then save them. Today suggests them once the group’s ',
+            link('admins and moderators', adminsUrl),
+            ' are saved too.',
+          )
+        : null,
+    button(
+      busy
+        ? 'Saving…'
+        : !people
+          ? 'Save this group'
+          : adminsPage
+            ? `Save ${counted(people, 'admin or moderator', 'admins and moderators')}`
+            : `Save this group and ${counted(people, 'person', 'people')}`,
+      () => void saveGroup(result),
       { primary: true, disabled: busy },
     ),
   );

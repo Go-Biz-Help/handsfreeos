@@ -149,6 +149,7 @@ write('apps/web/.env.local', [
 ]);
 write('apps/extension/.env.local', [
   'HFOS_API_URL=http://127.0.0.1:4000',
+  'HFOS_WORKER_URL=http://127.0.0.1:4100',
   'HFOS_WEB_URL=http://localhost:3000',
   `HFOS_SUPABASE_URL=${vals.API_URL}`,
   `HFOS_SUPABASE_PUBLISHABLE_KEY=${vals.PUBLISHABLE_KEY}`,

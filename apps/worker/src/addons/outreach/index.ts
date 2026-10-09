@@ -11,6 +11,9 @@ import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonWorkerModule } from '../types';
+import { PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
+import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 
 export const outreachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('outreach'),
@@ -32,7 +35,13 @@ export const outreachAddonWorker: AddonWorkerModule = {
       }
     },
   },
-  // subscribers: { 'person.updated': async (ctx) => { … } },
-  // jobs: { 'outreach.daily': async (ctx) => { … } },
+  // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts).
+  subscribers: {
+    'outreach.download.saved': downloadSaved,
+    'outreach.chats.collected': downloadSaved,
+  },
+  jobs: { [READ_CHATS_JOB]: readChatsJob },
+  // AI help on a playbook's parts, from the builder (./assist.ts), and drafts for Today (./today.ts).
+  actions: { [PLAYBOOK_ASSIST_ACTION]: playbookAssist, [TODAY_DRAFT_ACTION]: todayDraft },
   // onEnable: arm recurring jobs with scheduleAddonJob, from now: nothing that came due while it was off runs late.
 };
